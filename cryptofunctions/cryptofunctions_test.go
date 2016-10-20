@@ -1,8 +1,8 @@
 package cryptofunctions
 
 import (
-	"fmt"
 	"encoding/hex"
+	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -11,7 +11,7 @@ import (
 // TestComputeVerifyHMAC tests the compute and verify of HMAC functions
 func TestComputeVerifyHMAC(t *testing.T) {
 	Convey("Given a token and a key", t, func() {
-		
+
 		fmt.Println("")
 		token := make([]byte, 256)
 		for i := uint8(0); i < 255; i++ {

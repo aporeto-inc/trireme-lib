@@ -270,9 +270,5 @@ func (d *Docker) removeDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	returnChan := d.PUHandler.HandleDelete(contextID)
-	if err := <-returnChan; err != nil {
-		return err
-	}
-	return nil
+	return <-d.PUHandler.HandleDelete(contextID)
 }
