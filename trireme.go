@@ -196,6 +196,8 @@ func (t *Trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtimeInfo.(*policy.PURuntime))
 
+	addTransmitterLabel(contextID, containerInfo)
+
 	err = t.controller.UpdatePU(contextID, containerInfo)
 	if err != nil {
 		return err
