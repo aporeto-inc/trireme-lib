@@ -1,4 +1,4 @@
-package datapath
+package enforcer
 
 import "github.com/aporeto-inc/trireme/crypto"
 

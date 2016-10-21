@@ -1,6 +1,6 @@
-package datapath
+package enforcer
 
-import "github.com/aporeto-inc/trireme/datapath/lookup"
+import "github.com/aporeto-inc/trireme/enforcer/lookup"
 
 // FlowState identifies the constants of the state of a connectioncon
 type FlowState int
@@ -30,18 +30,6 @@ const (
 	// TransmitterLabel is the name of the label used to identify the Transmitter Context
 	TransmitterLabel = "AporetoContextID"
 )
-
-// Service is an interface implemented to stitch into our datapath
-type Service interface {
-	// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
-	PreProcessTCPAppPacket(pkt interface{}) bool
-	// PostProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
-	PostProcessTCPAppPacket(pkt interface{}, action interface{}) bool
-	// PreProcessTCPNetPacket will be called for network packets and return value of false means drop packet
-	PreProcessTCPNetPacket(pkt interface{}) bool
-	// PostProcessTCPNetPacket will be called for network packets and return value of false means drop packet
-	PostProcessTCPNetPacket(pkt interface{}, action interface{}) bool
-}
 
 // PacketStats for interface
 type PacketStats struct {

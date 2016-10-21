@@ -1,8 +1,8 @@
-package controller
+package supervisor
 
 import "github.com/aporeto-inc/trireme/policy"
 
-type controllerCacheEntry struct {
+type supervisorCacheEntry struct {
 	index       int
 	ips         map[string]string
 	ingressACLs []policy.IPRule

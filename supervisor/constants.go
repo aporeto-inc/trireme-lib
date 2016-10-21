@@ -1,4 +1,4 @@
-package controller
+package supervisor
 
 const (
 	triremeChainPrefix                = "TRIREME-"

@@ -4,36 +4,36 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/controller"
-	"github.com/aporeto-inc/trireme/datapath"
+	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor"
 
 	"github.com/golang/glog"
 )
 
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
-	containerInfo.Policy.PolicyTags[datapath.TransmitterLabel] = contextID
+	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
 }
 
 // trireme contains references to all the subElements of
 type trireme struct {
 	serverID         string
 	containerTracker cache.DataStore
-	controller       controller.Controller
-	datapath         datapath.Datapath
+	supervisor       supervisor.Supervisor
+	enforcer         enforcer.PolicyEnforcer
 	resolver         PolicyResolver
 	stopChan         chan bool
 	requestChan      chan *triremeRequest
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, datapath datapath.Datapath, controller controller.Controller, resolver PolicyResolver) Trireme {
+func NewTrireme(serverID string, enforcer enforcer.PolicyEnforcer, supervisor supervisor.Supervisor, resolver PolicyResolver) Trireme {
 
 	trireme := &trireme{
 		serverID:         serverID,
 		containerTracker: cache.NewCache(nil),
-		controller:       controller,
-		datapath:         datapath,
+		supervisor:       supervisor,
+		enforcer:         enforcer,
 		resolver:         resolver,
 		stopChan:         make(chan bool),
 		requestChan:      make(chan *triremeRequest),
@@ -46,12 +46,12 @@ func NewTrireme(serverID string, datapath datapath.Datapath, controller controll
 // Start starts trireme individual components.
 func (t *trireme) Start() error {
 
-	if err := t.controller.Start(); err != nil {
+	if err := t.supervisor.Start(); err != nil {
 		return fmt.Errorf("Error starting Controller: %s", err)
 	}
 
-	if err := t.datapath.Start(); err != nil {
-		return fmt.Errorf("Error starting Datapath: %s", err)
+	if err := t.enforcer.Start(); err != nil {
+		return fmt.Errorf("Error starting enforcer: %s", err)
 	}
 
 	// Starting main trireme routine
@@ -66,12 +66,12 @@ func (t *trireme) Stop() error {
 	// send the stop signal for the trireme worker routine.
 	t.stopChan <- true
 
-	if err := t.controller.Stop(); err != nil {
+	if err := t.supervisor.Stop(); err != nil {
 		return fmt.Errorf("Error stopping Controller: %s", err)
 	}
 
-	if err := t.datapath.Stop(); err != nil {
-		return fmt.Errorf("Error stopping Datapath: %s", err)
+	if err := t.enforcer.Stop(); err != nil {
+		return fmt.Errorf("Error stopping enforcer: %s", err)
 	}
 
 	return nil
@@ -154,17 +154,17 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.controller.AddPU(contextID, containerInfo)
+	err = t.supervisor.AddPU(contextID, containerInfo)
 	if err != nil {
 		t.resolver.DeletePU(contextID)
-		return fmt.Errorf("Not able to setup controller: %s", err)
+		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
-	err = t.datapath.AddPU(contextID, containerInfo)
+	err = t.enforcer.AddPU(contextID, containerInfo)
 	if err != nil {
 		t.resolver.DeletePU(contextID)
-		t.controller.DeletePU(contextID)
-		return fmt.Errorf("Not able to setup datapath: %s", err)
+		t.supervisor.DeletePU(contextID)
+		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 	glog.V(2).Infoln("Finished PUHandleCreate: %s .", contextID)
 	return nil
@@ -172,7 +172,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 func (t *trireme) doHandleDelete(contextID string) error {
 	t.resolver.DeletePU(contextID)
-	t.controller.DeletePU(contextID)
+	t.supervisor.DeletePU(contextID)
 
 	runtimeInfo, err := t.PURuntime(contextID)
 	t.containerTracker.Remove(contextID)
@@ -183,7 +183,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	if !ok {
 		return fmt.Errorf("default IPAddress not found for %s", contextID)
 	}
-	t.datapath.DeletePU(ip)
+	t.enforcer.DeletePU(ip)
 	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
 	return nil
 }
@@ -197,14 +197,14 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.controller.UpdatePU(contextID, containerInfo)
+	err = t.supervisor.UpdatePU(contextID, containerInfo)
 	if err != nil {
 		return err
 	}
 
-	err = t.datapath.UpdatePU(containerInfo.Runtime.IPAddresses()["bridge"], containerInfo)
+	err = t.enforcer.UpdatePU(containerInfo.Runtime.IPAddresses()["bridge"], containerInfo)
 	if err != nil {
-		t.controller.DeletePU(contextID)
+		t.supervisor.DeletePU(contextID)
 		return err
 	}
 	glog.V(5).Infof("Finished UpdatePolicy. %s", contextID)

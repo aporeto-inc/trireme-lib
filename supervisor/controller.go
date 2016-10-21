@@ -1,4 +1,4 @@
-package controller
+package supervisor
 
 import (
 	"fmt"
@@ -6,15 +6,15 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/datapath"
+	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/eventlog"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/golang/glog"
 )
 
-// controller is the structure holding all information about a connection filter
-type controller struct {
+// iptableSupervisor is the structure holding all information about a connection filter
+type iptableSupervisor struct {
 	versionTracker cache.DataStore
 
 	// Engine components
@@ -29,17 +29,16 @@ type controller struct {
 	targetNetworks []string
 }
 
-// New will create a new connection controller. It instantiates multiple data stores
+// New will create a new connection supervisor. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
 func New(
 	logger eventlog.EventLogger,
-	dp datapath.Datapath,
-	targetNetworks []string) Controller {
+	dp enforcer.PolicyEnforcer, targetNetworks []string) Supervisor {
 
 	filterQueue := dp.GetFilterQueue()
 
-	c := &controller{
+	c := &iptableSupervisor{
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,
 		logger:            logger,
@@ -62,7 +61,7 @@ func New(
 
 // AddPU creates a mapping between an IP address and the corresponding labels
 // and the invokes the various handlers that process all policies.
-func (c *controller) AddPU(contextID string, container *policy.PUInfo) error {
+func (c *iptableSupervisor) AddPU(contextID string, container *policy.PUInfo) error {
 
 	index := 0
 
@@ -75,7 +74,7 @@ func (c *controller) AddPU(contextID string, container *policy.PUInfo) error {
 		return fmt.Errorf("Container IP address not found")
 	}
 
-	cacheEntry := &controllerCacheEntry{
+	cacheEntry := &supervisorCacheEntry{
 		index:       index,
 		ips:         container.Runtime.IPAddresses(),
 		ingressACLs: container.Policy.IngressACLs,
@@ -122,17 +121,17 @@ func (c *controller) AddPU(contextID string, container *policy.PUInfo) error {
 
 //UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
-func (c *controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) error {
+func (c *iptableSupervisor) UpdatePU(contextID string, containerInfo *policy.PUInfo) error {
 
 	cacheEntry, err := c.versionTracker.LockedModify(contextID, add, 1)
-	newindex := cacheEntry.(*controllerCacheEntry).index
+	newindex := cacheEntry.(*supervisorCacheEntry).index
 	oldindex := newindex - 1
 
 	result, err := c.versionTracker.Get(contextID)
 	if err != nil {
 		return err
 	}
-	cachedEntry := result.(*controllerCacheEntry)
+	cachedEntry := result.(*supervisorCacheEntry)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := cachedEntry.ips["bridge"]
@@ -194,13 +193,13 @@ func (c *controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) er
 // DeletePU removes the mapping from cache and cleans up the iptable rules. ALL
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
-func (c *controller) DeletePU(contextID string) error {
+func (c *iptableSupervisor) DeletePU(contextID string) error {
 
 	result, err := c.versionTracker.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("Cannot find policy version!")
 	}
-	cacheEntry := result.(*controllerCacheEntry)
+	cacheEntry := result.(*supervisorCacheEntry)
 
 	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
 	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
@@ -227,7 +226,7 @@ func (c *controller) DeletePU(contextID string) error {
 }
 
 // CleanACL cleans up all the ACLs that have an Trireme  Label in the mangle table
-func (c *controller) CleanACL() {
+func (c *iptableSupervisor) CleanACL() {
 
 	// Clean Application Rules/Chains
 	c.cleanACLSection(triremeAppPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
@@ -242,13 +241,13 @@ func (c *controller) CleanACL() {
 	c.cleanACLSection(triremeNetPacketIPTableContext, triremeNetPacketIPTableSection, triremeChainPrefix)
 }
 
-// Start starts the controller
-func (c *controller) Start() error {
+// Start starts the supervisor
+func (c *iptableSupervisor) Start() error {
 	return nil
 }
 
-// Stop stops the controller
-func (c *controller) Stop() error {
+// Stop stops the supervisor
+func (c *iptableSupervisor) Stop() error {
 	// Clean any previous ACLs that we have installed
 	c.CleanACL()
 	return nil
@@ -257,7 +256,7 @@ func (c *controller) Stop() error {
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
-func (c *controller) addContainerChain(appChain string, netChain string) error {
+func (c *iptableSupervisor) addContainerChain(appChain string, netChain string) error {
 
 	if err := c.ipt.NewChain(triremeAppPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to create container specific chain", appChain, err)
@@ -278,7 +277,7 @@ func (c *controller) addContainerChain(appChain string, netChain string) error {
 
 // delete removes all the rules in the provided chain and deletes the
 // chain
-func (c *controller) deleteChain(context, chain string) error {
+func (c *iptableSupervisor) deleteChain(context, chain string) error {
 
 	if err := c.ipt.ClearChain(context, chain); err != nil {
 		glog.V(2).Infoln("Failed to clear the container specific chain: ", chain, err)
@@ -294,7 +293,7 @@ func (c *controller) deleteChain(context, chain string) error {
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
-func (c *controller) deleteAllContainerChains(appChain, netChain string) error {
+func (c *iptableSupervisor) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := c.deleteChain(triremeAppPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to clear and delete the appChain: ", appChain, err)
@@ -313,7 +312,7 @@ func (c *controller) deleteAllContainerChains(appChain, netChain string) error {
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (c *controller) chainRules(appChain string, netChain string, ip string) [][]string {
+func (c *iptableSupervisor) chainRules(appChain string, netChain string, ip string) [][]string {
 
 	chainRules := [][]string{
 		{
@@ -345,7 +344,7 @@ func (c *controller) chainRules(appChain string, netChain string, ip string) [][
 }
 
 // addChains rules implements all the iptable rules that redirect traffic to a chain
-func (c *controller) addChainRules(appChain string, netChain string, ip string) error {
+func (c *iptableSupervisor) addChainRules(appChain string, netChain string, ip string) error {
 
 	chainRules := c.chainRules(appChain, netChain, ip)
 	for _, cr := range chainRules {
@@ -360,7 +359,7 @@ func (c *controller) addChainRules(appChain string, netChain string, ip string) 
 }
 
 //deleteChainRules deletes the rules that send traffic to our chain
-func (c *controller) deleteChainRules(appChain, netChain, ip string) error {
+func (c *iptableSupervisor) deleteChainRules(appChain, netChain, ip string) error {
 
 	chainRules := c.chainRules(appChain, netChain, ip)
 	for _, cr := range chainRules {
@@ -375,7 +374,7 @@ func (c *controller) deleteChainRules(appChain, netChain, ip string) error {
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (c *controller) trapRules(appChain string, netChain string, network string) [][]string {
+func (c *iptableSupervisor) trapRules(appChain string, netChain string, network string) [][]string {
 
 	trapRules := [][]string{
 		// Application Syn and Syn/Ack
@@ -409,7 +408,7 @@ func (c *controller) trapRules(appChain string, netChain string, network string)
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (c *controller) addPacketTrap(appChain string, netChain string, ip string) error {
+func (c *iptableSupervisor) addPacketTrap(appChain string, netChain string, ip string) error {
 
 	for _, network := range c.targetNetworks {
 
@@ -427,7 +426,7 @@ func (c *controller) addPacketTrap(appChain string, netChain string, ip string) 
 }
 
 // deletePacketTrap deletes the iptables rules that trap control  packets to user space
-func (c *controller) deletePacketTrap(appChain, netChain, ip string) error {
+func (c *iptableSupervisor) deletePacketTrap(appChain, netChain, ip string) error {
 
 	for _, network := range c.targetNetworks {
 
@@ -446,7 +445,7 @@ func (c *controller) deletePacketTrap(appChain, netChain, ip string) error {
 
 // addAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (c *controller) addAppACLs(chain string, ip string, rules []policy.IPRule) error {
+func (c *iptableSupervisor) addAppACLs(chain string, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 
@@ -476,7 +475,7 @@ func (c *controller) addAppACLs(chain string, ip string, rules []policy.IPRule) 
 }
 
 // deleteAppACLs deletes the rules associated with traffic to external services
-func (c *controller) deleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
+func (c *iptableSupervisor) deleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 		if err := c.ipt.Delete(
@@ -505,7 +504,7 @@ func (c *controller) deleteAppACLs(chain string, ip string, rules []policy.IPRul
 
 // addNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the higest priority since they are direct allows.
-func (c *controller) addNetACLs(chain, ip string, rules []policy.IPRule) error {
+func (c *iptableSupervisor) addNetACLs(chain, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 
@@ -536,7 +535,7 @@ func (c *controller) addNetACLs(chain, ip string, rules []policy.IPRule) error {
 }
 
 // deleteNetACLs removes the iptable rules that manage traffic from external services
-func (c *controller) deleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
+func (c *iptableSupervisor) deleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 		if err := c.ipt.Delete(
@@ -562,7 +561,7 @@ func (c *controller) deleteNetACLs(chain string, ip string, rules []policy.IPRul
 	return nil
 }
 
-func (c *controller) cleanACLSection(context, section, chainPrefix string) {
+func (c *iptableSupervisor) cleanACLSection(context, section, chainPrefix string) {
 
 	if err := c.ipt.ClearChain(context, section); err != nil {
 		glog.V(2).Infoln("Can't clear ", section, " iptables command")
@@ -585,7 +584,7 @@ func (c *controller) cleanACLSection(context, section, chainPrefix string) {
 }
 
 func add(a, b interface{}) interface{} {
-	entry := a.(*controllerCacheEntry)
+	entry := a.(*supervisorCacheEntry)
 	entry.index += b.(int)
 	return entry
 }

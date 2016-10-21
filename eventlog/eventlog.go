@@ -1,6 +1,6 @@
 package eventlog
 
-import "github.com/aporeto-inc/trireme/datapath/packet"
+import "github.com/aporeto-inc/trireme/enforcer/packet"
 
 var (
 	// FlowReject indicates that a flow was rejected

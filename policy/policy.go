@@ -85,7 +85,7 @@ type PUPolicy struct {
 	PolicyTags TagMap
 	// Rules is the set of rules that implement the label matching.
 	Rules []TagSelector
-	// Extensions is an interface to a data structure that allows the policy controller
+	// Extensions is an interface to a data structure that allows the policy supervisor
 	// to pass additional instructions to a plugin. Plugin and policy must be
 	// coordinated to implement the interface
 	Extensions interface{}

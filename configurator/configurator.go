@@ -6,9 +6,9 @@ import (
 	"crypto/ecdsa"
 
 	"github.com/aporeto-inc/trireme"
-	"github.com/aporeto-inc/trireme/controller"
-	"github.com/aporeto-inc/trireme/datapath"
-	"github.com/aporeto-inc/trireme/datapath/tokens"
+	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/tokens"
 	"github.com/aporeto-inc/trireme/eventlog"
 	"github.com/aporeto-inc/trireme/monitor"
 )
@@ -25,16 +25,15 @@ func NewTriremeWithDockerMonitor(
 	serverID string,
 	targetNetworks []string,
 	policyEngine trireme.PolicyResolver,
-	svcImpl datapath.Service,
-	secrets tokens.Secrets,
+	svcImpl enforcer.PacketProcessor, secrets tokens.Secrets,
 	syncAtStart bool,
 ) (trireme.Trireme, monitor.Monitor) {
 
-	dp := datapath.NewDefault(serverID, secrets)
+	dp := enforcer.NewDefault(serverID, secrets)
 	eventLogger := &eventlog.DefaultLogger{}
-	controller := controller.New(eventLogger, dp, targetNetworks)
+	supervisor := supervisor.New(eventLogger, dp, targetNetworks)
 
-	trireme := trireme.NewTrireme(serverID, dp, controller, policyEngine)
+	trireme := trireme.NewTrireme(serverID, dp, supervisor, policyEngine)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventLogger, syncAtStart)
 
 	return trireme, monitor
@@ -46,8 +45,7 @@ func NewPSKTriremeWithDockerMonitor(
 	serverID string,
 	targetNetworks []string,
 	policyEngine trireme.PolicyResolver,
-	svcImpl datapath.Service,
-	syncAtStart bool,
+	svcImpl enforcer.PacketProcessor, syncAtStart bool,
 	key []byte,
 ) (trireme.Trireme, monitor.Monitor) {
 
@@ -62,12 +60,11 @@ func NewPKITriremeWithDockerMonitor(
 	serverID string,
 	targetNetworks []string,
 	policyEngine trireme.PolicyResolver,
-	svcImpl datapath.Service,
-	syncAtStart bool,
+	svcImpl enforcer.PacketProcessor, syncAtStart bool,
 	keyPEM []byte,
 	certPEM []byte,
 	caCertPEM []byte,
-) (trireme.Trireme, monitor.Monitor, datapath.PublicKeyAdder) {
+) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
 
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 

@@ -18,15 +18,15 @@ import (
 	"github.com/golang/glog"
 )
 
-// enforcer is the structure holding all information about a connection filter
-type enforcer struct {
+// datapathEnforcer is the structure holding all information about a connection filter
+type datapathEnforcer struct {
 
 	// Configuration parameters
 	mutualAuthorization bool
 	filterQueue         *FilterQueueConfig
 	tokenEngine         tokens.TokenEngine
 	logger              eventlog.EventLogger
-	service             Service
+	service             PacketProcessor
 
 	// Internal structures and caches
 	puTracker                cache.DataStore
@@ -49,13 +49,12 @@ func New(
 	mutualAuth bool,
 	filterQueue *FilterQueueConfig,
 	logger eventlog.EventLogger,
-	service Service,
-	secrets tokens.Secrets,
+	service PacketProcessor, secrets tokens.Secrets,
 	serverID string,
 	validity time.Duration,
 ) PolicyEnforcer {
 
-	d := &enforcer{
+	d := &datapathEnforcer{
 		puTracker:                cache.NewCache(nil),
 		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second*60, 100000),
 		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second*60, 100000),
@@ -108,7 +107,7 @@ func NewDefault(
 	return dp
 }
 
-func (d *enforcer) AddPU(contextID string, puInfo *policy.PUInfo) error {
+func (d *datapathEnforcer) AddPU(contextID string, puInfo *policy.PUInfo) error {
 
 	rules := createRuleDB(puInfo.Policy.Rules)
 
@@ -125,7 +124,7 @@ func (d *enforcer) AddPU(contextID string, puInfo *policy.PUInfo) error {
 	return nil
 }
 
-func (d *enforcer) UpdatePU(ipaddress string, containerInfo *policy.PUInfo) error {
+func (d *datapathEnforcer) UpdatePU(ipaddress string, containerInfo *policy.PUInfo) error {
 
 	container, err := d.puTracker.Get(ipaddress)
 	if err != nil {
@@ -139,19 +138,19 @@ func (d *enforcer) UpdatePU(ipaddress string, containerInfo *policy.PUInfo) erro
 	return nil
 }
 
-func (d *enforcer) DeletePU(ip string) error {
+func (d *datapathEnforcer) DeletePU(ip string) error {
 
 	return d.puTracker.Remove(ip)
 }
 
-func (d *enforcer) GetFilterQueue() *FilterQueueConfig {
+func (d *datapathEnforcer) GetFilterQueue() *FilterQueueConfig {
 
 	return d.filterQueue
 }
 
 // StartNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
-func (d *enforcer) StartNetworkInterceptor() {
+func (d *datapathEnforcer) StartNetworkInterceptor() {
 	var err error
 
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
@@ -168,7 +167,7 @@ func (d *enforcer) StartNetworkInterceptor() {
 }
 
 // Start starts the application and network interceptors
-func (d *enforcer) Start() error {
+func (d *datapathEnforcer) Start() error {
 
 	d.StartApplicationInterceptor()
 
@@ -178,13 +177,13 @@ func (d *enforcer) Start() error {
 }
 
 // Stop stops the enforcer
-func (d *enforcer) Stop() error {
+func (d *datapathEnforcer) Stop() error {
 	return nil
 }
 
 // StartApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
-func (d *enforcer) StartApplicationInterceptor() {
+func (d *datapathEnforcer) StartApplicationInterceptor() {
 	var err error
 
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
@@ -209,7 +208,7 @@ func createRuleDB(policyRules []policy.TagSelector) *lookup.PolicyDB {
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
-func (d *enforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) *netfilter.Verdict {
+func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) *netfilter.Verdict {
 
 	d.net.IncomingPackets++
 
@@ -241,7 +240,7 @@ func (d *enforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) *netfilte
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *enforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) *netfilter.Verdict {
+func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) *netfilter.Verdict {
 
 	d.app.IncomingPackets++
 	// Being liberal on what we transmit - malformed TCP packets are let go
@@ -274,7 +273,7 @@ func (d *enforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) *netf
 }
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
-func (d *enforcer) processNetworkPackets(p *packet.Packet) error {
+func (d *datapathEnforcer) processNetworkPackets(p *packet.Packet) error {
 
 	p.Print(packet.PacketStageIncoming)
 
@@ -315,7 +314,7 @@ func (d *enforcer) processNetworkPackets(p *packet.Packet) error {
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *enforcer) processApplicationPackets(p *packet.Packet) error {
+func (d *datapathEnforcer) processApplicationPackets(p *packet.Packet) error {
 
 	if d.service != nil {
 		// PreProcessServiceInterface
@@ -353,7 +352,7 @@ func (d *enforcer) processApplicationPackets(p *packet.Packet) error {
 	return nil
 }
 
-func (d *enforcer) createTCPAuthenticationOption(token []byte) []byte {
+func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte) []byte {
 
 	tokenLen := uint8(len(token))
 	options := []byte{packet.TCPAuthenticationOption, TCPAuthenticationOptionBaseLen + tokenLen, 0, 0}
@@ -363,7 +362,7 @@ func (d *enforcer) createTCPAuthenticationOption(token []byte) []byte {
 	return options
 }
 
-func (d *enforcer) createPacketToken(ackToken bool, context *PUContext, connection *Connection) []byte {
+func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, connection *Connection) []byte {
 
 	claims := &tokens.ConnectionClaims{
 		LCL: connection.LocalContext,
@@ -377,7 +376,7 @@ func (d *enforcer) createPacketToken(ackToken bool, context *PUContext, connecti
 	return d.tokenEngine.CreateAndSign(ackToken, claims)
 }
 
-func (d *enforcer) parseAckToken(connection *Connection, data []byte) (*tokens.ConnectionClaims, error) {
+func (d *datapathEnforcer) parseAckToken(connection *Connection, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
 	claims, _ := d.tokenEngine.Decode(true, data, connection.RemotePublicKey)
@@ -395,7 +394,7 @@ func (d *enforcer) parseAckToken(connection *Connection, data []byte) (*tokens.C
 	return claims, nil
 }
 
-func (d *enforcer) parsePacketToken(connection *Connection, data []byte) (*tokens.ConnectionClaims, error) {
+func (d *datapathEnforcer) parsePacketToken(connection *Connection, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
 	claims, cert := d.tokenEngine.Decode(false, data, connection.RemotePublicKey)
@@ -416,7 +415,7 @@ func (d *enforcer) parsePacketToken(connection *Connection, data []byte) (*token
 	return claims, nil
 }
 
-func (d *enforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	var connection *Connection
 
@@ -455,7 +454,7 @@ func (d *enforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interf
 	return nil, nil
 }
 
-func (d *enforcer) processApplicationSynAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Find the container context
 	context, cerr := d.puTracker.Get(tcpPacket.SourceAddress.String())
@@ -497,7 +496,7 @@ func (d *enforcer) processApplicationSynAckPacket(tcpPacket *packet.Packet) (int
 	return nil, fmt.Errorf("Received SynACK in wrong state ")
 }
 
-func (d *enforcer) processApplicationAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Find the container context
 	context, cerr := d.puTracker.Get(tcpPacket.SourceAddress.String())
@@ -551,7 +550,7 @@ func (d *enforcer) processApplicationAckPacket(tcpPacket *packet.Packet) (interf
 	return nil, fmt.Errorf("Received application ACK packet in the wrong state! %v", connection.(*Connection).State)
 }
 
-func (d *enforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Initialize payload and options buffer with our new TCP options. Currenty using
 	// the experimental option and padding the packet with two data fields to make
@@ -575,7 +574,7 @@ func (d *enforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interf
 	return nil, nil
 }
 
-func (d *enforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
 	var connection *Connection
 	// First check if a connection was previously established and this is a second SYNACK
@@ -651,7 +650,7 @@ func (d *enforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet
 	return nil, fmt.Errorf("No matched tags - reject %+v", claims.T)
 }
 
-func (d *enforcer) processNetworkSynAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
 	// First we need to receover our state of the connection. If we don't have any state
 	// we drop the packets and the connections
@@ -721,7 +720,7 @@ func (d *enforcer) processNetworkSynAckPacket(context *PUContext, tcpPacket *pac
 	return nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
-func (d *enforcer) processNetworkAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 	// Retrieve connection context
 	hash := tcpPacket.L4FlowHash()
 	connection, err := d.networkConnectionTracker.Get(hash)
@@ -786,7 +785,7 @@ func (d *enforcer) processNetworkAckPacket(context *PUContext, tcpPacket *packet
 	return nil, fmt.Errorf("Ack packet dropped - no matching rules")
 }
 
-func (d *enforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
+func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Lookup the policy rules for the packet - Return false if they don't exist
 	context, err := d.puTracker.Get(tcpPacket.DestinationAddress.String())

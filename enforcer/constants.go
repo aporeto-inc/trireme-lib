@@ -1,4 +1,4 @@
-package datapath
+package enforcer
 
 const (
 	// TCPAuthenticationOptionBaseLen specifies the length of base TCP Authentication Option packet
