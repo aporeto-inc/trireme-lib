@@ -119,6 +119,7 @@ func (d *dockerMonitor) AddHandler(event string, handler func(event *events.Mess
 // It applies a policy to each Container already Up and Running.
 // It listens to all ContainerEvents
 func (d *dockerMonitor) Start() error {
+
 	glog.Infoln("Starting the docker monitor ...")
 
 	// Starting the eventListener First.
@@ -134,14 +135,17 @@ func (d *dockerMonitor) Start() error {
 
 	// Processing the events received duringthe time of Sync.
 	go d.eventProcessor()
+
 	return nil
 }
 
 // Stop monitoring docker events.
 func (d *dockerMonitor) Stop() error {
+
 	glog.Infoln("Stopping the docker monitor ...")
 	d.stoplistener <- true
 	d.stopprocessor <- true
+
 	return nil
 }
 
@@ -170,6 +174,7 @@ func (d *dockerMonitor) eventProcessor() {
 // to the processor through a buffered channel. This minimizes the chances
 // that we will miss events because the processor is delayed
 func (d *dockerMonitor) eventListener() {
+
 	messages, errs := d.dockerClient.Events(context.Background(), types.EventsOptions{})
 
 	for {
@@ -191,6 +196,7 @@ func (d *dockerMonitor) eventListener() {
 // syncContainers resyncs all the existing containers on the Host, using the
 // same process as when a container is initially spawn up
 func (d *dockerMonitor) syncContainers() error {
+
 	glog.Infoln("Syncing all existing containers")
 
 	options := types.ContainerListOptions{All: true}
@@ -245,11 +251,14 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 	}
 
 	d.Logger.ContainerEvent(contextID, ip, runtimeInfo.Tags(), eventlog.ContainerStart)
+
 	return nil
 }
 
 func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
+
 	contextID, err := contextIDFromDockerID(dockerID)
+
 	if err != nil {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
@@ -270,17 +279,20 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 
 	runtimeInfo := policy.NewPURuntime()
 
-	runtimeInfo.SetName(dockerInfo.Name)
-	runtimeInfo.SetPid(dockerInfo.State.Pid)
-	ipa := map[string]string{}
-	ipa["bridge"] = dockerInfo.NetworkSettings.IPAddress
-	runtimeInfo.SetIPAddresses(ipa)
 	tags := policy.TagMap{}
 	tags["image"] = dockerInfo.Config.Image
 	tags["name"] = dockerInfo.Name
+
 	for k, v := range dockerInfo.Config.Labels {
 		tags[k] = v
 	}
+
+	ipa := map[string]string{}
+	ipa["bridge"] = dockerInfo.NetworkSettings.IPAddress
+
+	runtimeInfo.SetName(dockerInfo.Name)
+	runtimeInfo.SetPid(dockerInfo.State.Pid)
+	runtimeInfo.SetIPAddresses(ipa)
 	runtimeInfo.SetTags(tags)
 
 	return runtimeInfo, nil
@@ -307,6 +319,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 		glog.V(2).Infof("Error while trying to add container: %s", err)
 		return err
 	}
+
 	return nil
 }
 
@@ -324,7 +337,9 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 
 // handleDestroyEvent handles destroy events from Docker
 func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
+
 	containerID := event.ID
+
 	// Clear the policy cache
 	d.PUHandler.HandleDelete(containerID[:12])
 	d.Logger.ContainerEvent(containerID[:12], "", nil, eventlog.UnknownContainerDelete)
@@ -340,6 +355,8 @@ func (d *dockerMonitor) handleNetworkConnectEvent(event *events.Message) error {
 	if err != nil {
 		glog.V(2).Infoln("Failed to read the affected container.")
 	}
+
 	glog.V(5).Infoln(container)
+
 	return nil
 }
