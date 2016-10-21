@@ -28,6 +28,7 @@ type trireme struct {
 
 // New returns a reference to the trireme object based on the parameter subelements.
 func New(serverID string, datapath datapath.Datapath, controller controller.Controller, resolver PolicyResolver) Trireme {
+
 	trireme := &trireme{
 		serverID:         serverID,
 		containerTracker: cache.NewCache(nil),
@@ -38,18 +39,18 @@ func New(serverID string, datapath datapath.Datapath, controller controller.Cont
 		requestChan:      make(chan *triremeRequest),
 	}
 	resolver.SetPolicyUpdater(trireme)
+
 	return trireme
 }
 
 // Start starts trireme individual components.
 func (t *trireme) Start() error {
-	err := t.controller.Start()
-	if err != nil {
+
+	if err := t.controller.Start(); err != nil {
 		return fmt.Errorf("Error starting Controller: %s", err)
 	}
 
-	err = t.datapath.Start()
-	if err != nil {
+	if err := t.datapath.Start(); err != nil {
 		return fmt.Errorf("Error starting Datapath: %s", err)
 	}
 
@@ -61,15 +62,15 @@ func (t *trireme) Start() error {
 
 // Stop stops trireme individual components
 func (t *trireme) Stop() error {
+
 	// send the stop signal for the trireme worker routine.
 	t.stopChan <- true
-	err := t.controller.Stop()
-	if err != nil {
+
+	if err := t.controller.Stop(); err != nil {
 		return fmt.Errorf("Error stopping Controller: %s", err)
 	}
 
-	err = t.datapath.Stop()
-	if err != nil {
+	if err := t.datapath.Stop(); err != nil {
 		return fmt.Errorf("Error stopping Datapath: %s", err)
 	}
 
@@ -78,46 +79,60 @@ func (t *trireme) Stop() error {
 
 // HandleCreate is acting on a create monitoring event.
 func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
-	returnChan := make(chan error)
-	triremeRequest := &triremeRequest{
+
+	c := make(chan error)
+
+	req := &triremeRequest{
 		contextID:   contextID,
 		reqType:     requestCreate,
 		runtimeInfo: runtimeInfo,
-		returnChan:  returnChan,
+		returnChan:  c,
 	}
-	t.requestChan <- triremeRequest
-	return returnChan
+
+	t.requestChan <- req
+
+	return c
 }
 
 // HandleDelete is acting on a delete monitoring object
 func (t *trireme) HandleDelete(contextID string) <-chan error {
-	returnChan := make(chan error)
-	triremeRequest := &triremeRequest{
+
+	c := make(chan error)
+
+	req := &triremeRequest{
 		contextID:  contextID,
 		reqType:    requestDelete,
-		returnChan: returnChan,
+		returnChan: c,
 	}
-	t.requestChan <- triremeRequest
-	return returnChan
+
+	t.requestChan <- req
+
+	return c
 }
 
 // UpdatePolicy updates the policy of the isolator for a container
 // This is exposed in the interface and its only valid after a container has been started
 func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
-	returnChan := make(chan error)
-	triremeRequest := &triremeRequest{
+
+	c := make(chan error)
+
+	req := &triremeRequest{
 		contextID:  contextID,
 		reqType:    policyUpdate,
 		policyInfo: newPolicy,
-		returnChan: returnChan,
+		returnChan: c,
 	}
-	t.requestChan <- triremeRequest
-	return returnChan
+
+	t.requestChan <- req
+
+	return c
 }
 
 // PURuntime returns a getter for a specific contextID.
-func (t *trireme) PURuntime(contextID string) (RuntimeGetter, error) {
+func (t *trireme) PURuntime(contextID string) (policy.RuntimeGetter, error) {
+
 	container, err := t.containerTracker.Get(contextID)
+
 	if err != nil {
 		return nil, err
 	}

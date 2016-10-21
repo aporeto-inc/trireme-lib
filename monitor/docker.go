@@ -9,12 +9,11 @@ import (
 
 	"github.com/aporeto-inc/trireme/eventlog"
 	"github.com/aporeto-inc/trireme/policy"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
-	dockerClient "github.com/docker/docker/client"
-
 	"github.com/golang/glog"
+
+	dockerClient "github.com/docker/docker/client"
 )
 
 func contextIDFromDockerID(dockerID string) (string, error) {

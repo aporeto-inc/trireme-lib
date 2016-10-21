@@ -7,7 +7,7 @@ import (
 
 // Trireme is the interface to the Trireme package
 type Trireme interface {
-	PURuntime(contextID string) (RuntimeGetter, error)
+	PURuntime(contextID string) (policy.RuntimeGetter, error)
 	Start() error
 	Stop() error
 
@@ -22,19 +22,9 @@ type PolicyUpdater interface {
 // A PolicyResolver is responsible of creating the Policies for a specific PU.
 // The PolicyResolver also got the ability to update an already instantiated policy.
 type PolicyResolver interface {
-	GetPolicy(contextID string, runtimeGetter RuntimeGetter) (*policy.PUPolicy, error)
+	GetPolicy(contextID string, runtimeGetter policy.RuntimeGetter) (*policy.PUPolicy, error)
 	DeletePU(contextID string) error
 	SetPolicyUpdater(p PolicyUpdater) error
-}
-
-// RuntimeGetter allows to get the specific parameters stored in the Runtime
-type RuntimeGetter interface {
-	Pid() int
-	Name() string
-	Tag(string) (string, bool)
-	Tags() policy.TagMap
-	DefaultIPAddress() (string, bool)
-	IPAddresses() map[string]string
 }
 
 // PublicKeyAdder register a publicKey for a Node.
