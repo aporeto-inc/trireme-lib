@@ -16,6 +16,10 @@ import (
 	dockerClient "github.com/docker/docker/client"
 )
 
+// A DockerMetadataExtractor is a function used to extract a *policy.PURuntime from a given
+// docker ContainerJSON.
+type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, error)
+
 func contextIDFromDockerID(dockerID string) (string, error) {
 
 	if dockerID == "" {
@@ -51,6 +55,29 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 	}
 
 	return dockerClient, nil
+}
+
+func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
+
+	runtimeInfo := policy.NewPURuntime()
+
+	tags := policy.TagMap{}
+	tags["image"] = info.Config.Image
+	tags["name"] = info.Name
+
+	for k, v := range info.Config.Labels {
+		tags[k] = v
+	}
+
+	ipa := map[string]string{}
+	ipa["bridge"] = info.NetworkSettings.IPAddress
+
+	runtimeInfo.SetName(info.Name)
+	runtimeInfo.SetPid(info.State.Pid)
+	runtimeInfo.SetIPAddresses(ipa)
+	runtimeInfo.SetTags(tags)
+
+	return runtimeInfo, nil
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events
@@ -275,28 +302,10 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 	}
 
 	if d.metadataExtractor != nil {
-		return d.metadataExtractor.ExtractMetadata(dockerInfo)
+		return d.metadataExtractor(dockerInfo)
 	}
 
-	runtimeInfo := policy.NewPURuntime()
-
-	tags := policy.TagMap{}
-	tags["image"] = dockerInfo.Config.Image
-	tags["name"] = dockerInfo.Name
-
-	for k, v := range dockerInfo.Config.Labels {
-		tags[k] = v
-	}
-
-	ipa := map[string]string{}
-	ipa["bridge"] = dockerInfo.NetworkSettings.IPAddress
-
-	runtimeInfo.SetName(dockerInfo.Name)
-	runtimeInfo.SetPid(dockerInfo.State.Pid)
-	runtimeInfo.SetIPAddresses(ipa)
-	runtimeInfo.SetTags(tags)
-
-	return runtimeInfo, nil
+	return defaultDockerMetadataExtractor(dockerInfo)
 }
 
 // handleStartEvent will notify the agent immediately about the event in order

@@ -1,6 +1,4 @@
-package policy
-
-// The Policy package describes a generic interface for retrieving policies.
+// Packahe Policy describes a generic interface for retrieving policies.
 // Different implementations are possible for environments such as Kubernetes,
 // Mesos or other custom environments. An implementation has to provide
 // a method for retrieving policy based on the metadata associated with the container
@@ -9,6 +7,7 @@ package policy
 // The package also defines the basic data structure for communicating policy
 // information. The implementations are responsible for providing all the necessary
 // data.
+package policy
 
 // IPRule holds ingress IP table rules to external services
 type IPRule struct {
