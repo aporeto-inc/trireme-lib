@@ -22,11 +22,14 @@ func contextIDFromDockerID(dockerID string) (string, error) {
 	if dockerID == "" {
 		return "", fmt.Errorf("Empty DockerID String")
 	}
+
 	return dockerID[:12], nil
 }
 
 func initDockerClient(socketType string, socketAddress string) (*dockerClient.Client, error) {
+
 	var socket string
+
 	switch socketType {
 	case "tcp":
 		socket = "https://" + socketAddress
@@ -61,7 +64,8 @@ type dockerMonitor struct {
 	stoplistener       chan bool
 	syncAtStart        bool
 
-	EventMonitor
+	logger    eventlog.EventLogger
+	puHandler ProcessingUnitsHandler
 }
 
 // NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
@@ -75,7 +79,7 @@ func NewDockerMonitor(
 	socketAddress string,
 	p ProcessingUnitsHandler,
 	m DockerMetadataExtractor,
-	e eventlog.EventLogger,
+	l eventlog.EventLogger,
 	syncAtStart bool,
 ) (Monitor, error) {
 
@@ -85,10 +89,8 @@ func NewDockerMonitor(
 	}
 
 	d := &dockerMonitor{
-		EventMonitor: EventMonitor{
-			PUHandler: p,
-			Logger:    e,
-		},
+		puHandler:          p,
+		logger:             l,
 		syncAtStart:        syncAtStart,
 		eventnotifications: make(chan *events.Message, 1000),
 		handlers:           make(map[string]func(event *events.Message) error),
@@ -242,15 +244,15 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 		return fmt.Errorf("IP Not present in container, not policing")
 	}
 
-	returnChan := d.PUHandler.HandleCreate(contextID, runtimeInfo)
+	returnChan := d.puHandler.HandleCreate(contextID, runtimeInfo)
 	if err := <-returnChan; err != nil {
 		glog.V(2).Infoln("Setting policy failed. Stopping the container")
 		d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout)
-		d.Logger.ContainerEvent(contextID, ip, nil, eventlog.ContainerFailed)
+		d.logger.ContainerEvent(contextID, ip, nil, eventlog.ContainerFailed)
 		return fmt.Errorf("Policy cound't be set - container was killed")
 	}
 
-	d.Logger.ContainerEvent(contextID, ip, runtimeInfo.Tags(), eventlog.ContainerStart)
+	d.logger.ContainerEvent(contextID, ip, runtimeInfo.Tags(), eventlog.ContainerStart)
 
 	return nil
 }
@@ -263,7 +265,7 @@ func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	return <-d.PUHandler.HandleDelete(contextID)
+	return <-d.puHandler.HandleDelete(contextID)
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -311,7 +313,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 		glog.V(2).Infoln("Killing container because inspect returned error")
 		//If we see errors, we will kill the container for security reasons.
 		d.dockerClient.ContainerStop(context.Background(), id, &timeout)
-		d.Logger.ContainerEvent(id[:12], "", nil, eventlog.ContainerFailed)
+		d.logger.ContainerEvent(id[:12], "", nil, eventlog.ContainerFailed)
 		return fmt.Errorf("Cannot read container information. Killing container. ")
 	}
 
@@ -330,7 +332,7 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 	containerID := event.ID
 
 	d.removeDockerContainer(containerID)
-	d.Logger.ContainerEvent(containerID[:12], "", nil, eventlog.ContainerStop)
+	d.logger.ContainerEvent(containerID[:12], "", nil, eventlog.ContainerStop)
 
 	return nil
 }
@@ -341,8 +343,8 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 	containerID := event.ID
 
 	// Clear the policy cache
-	d.PUHandler.HandleDelete(containerID[:12])
-	d.Logger.ContainerEvent(containerID[:12], "", nil, eventlog.UnknownContainerDelete)
+	d.puHandler.HandleDelete(containerID[:12])
+	d.logger.ContainerEvent(containerID[:12], "", nil, eventlog.UnknownContainerDelete)
 
 	return nil
 }

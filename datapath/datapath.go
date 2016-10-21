@@ -23,7 +23,7 @@ type dataPath struct {
 
 	// Configuration parameters
 	mutualAuthorization bool
-	FilterQueue         *FilterQueueConfig
+	filterQueue         *FilterQueueConfig
 	tokenEngine         tokens.TokenEngine
 	logger              eventlog.EventLogger
 	service             Service
@@ -60,7 +60,7 @@ func New(
 		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second*60, 100000),
 		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second*60, 100000),
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second*60, 100000),
-		FilterQueue:              filterQueue,
+		filterQueue:              filterQueue,
 		mutualAuthorization:      mutualAuth,
 		service:                  service,
 		logger:                   logger,
@@ -146,7 +146,7 @@ func (d *dataPath) DeletePU(ip string) error {
 
 func (d *dataPath) GetFilterQueue() *FilterQueueConfig {
 
-	return d.FilterQueue
+	return d.filterQueue
 }
 
 // StartNetworkInterceptor will the process that processes  packets from the network
@@ -154,12 +154,12 @@ func (d *dataPath) GetFilterQueue() *FilterQueueConfig {
 func (d *dataPath) StartNetworkInterceptor() {
 	var err error
 
-	nfq := make([]*netfilter.NFQueue, d.FilterQueue.NumberOfNetworkQueues)
+	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
 
-	for i := uint16(0); i < d.FilterQueue.NumberOfNetworkQueues; i++ {
+	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 
 		// Initalize all the queues
-		nfq[i], err = netfilter.NewNFQueue(d.FilterQueue.NetworkQueue+i, d.FilterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize, d.processNetworkPacketsFromNFQ)
+		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize, d.processNetworkPacketsFromNFQ)
 		if err != nil {
 			glog.Error(err, "Unable to initialize netfilter queue - Aborting")
 			os.Exit(1)
@@ -187,10 +187,10 @@ func (d *dataPath) Stop() error {
 func (d *dataPath) StartApplicationInterceptor() {
 	var err error
 
-	nfq := make([]*netfilter.NFQueue, d.FilterQueue.NumberOfApplicationQueues)
+	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
 
-	for i := uint16(0); i < d.FilterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = netfilter.NewNFQueue(d.FilterQueue.ApplicationQueue+i, d.FilterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize, d.processApplicationPacketsFromNFQ)
+	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize, d.processApplicationPacketsFromNFQ)
 		if err != nil {
 			glog.Error(err, "Unable to initialize netfilter queue - Aborting")
 			os.Exit(1)
