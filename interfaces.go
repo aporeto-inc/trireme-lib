@@ -37,14 +37,6 @@ type RuntimeGetter interface {
 	IPAddresses() map[string]string
 }
 
-// RuntimeSetter allows to get the specific parameters stored in the Runtime
-type RuntimeSetter interface {
-	SetPid(pid int)
-	SetName(string)
-	SetTags(tags policy.TagMap)
-	SetIPAddresses(ipa map[string]string)
-}
-
 // PublicKeyAdder register a publicKey for a Node.
 type PublicKeyAdder interface {
 	PublicKeyAdd(host string, newCert []byte) error
