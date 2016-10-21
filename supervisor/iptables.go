@@ -22,18 +22,12 @@ type supervisorCacheEntry struct {
 
 // iptablesSupervisor is the structure holding all information about a connection filter
 type iptablesSupervisor struct {
-	versionTracker cache.DataStore
-
-	// Engine components
-	ipt       *iptables.IPTables
-	collector collector.EventCollector
-
-	// NFQUEUE configuration
+	versionTracker    cache.DataStore
+	ipt               *iptables.IPTables
+	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
-
-	// List of destination networks that require Trireme controls
-	targetNetworks []string
+	targetNetworks    []string
 }
 
 // NewIPTablesSupervisor will create a new connection supervisor. It instantiates multiple data stores
