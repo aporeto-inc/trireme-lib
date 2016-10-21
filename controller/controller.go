@@ -8,7 +8,6 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/datapath"
 	"github.com/aporeto-inc/trireme/eventlog"
-	"github.com/aporeto-inc/trireme/plugin"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/golang/glog"
@@ -21,7 +20,6 @@ type controller struct {
 	// Engine components
 	ipt    *iptables.IPTables
 	logger eventlog.EventLogger
-	plugin plugin.GenericPlugin
 
 	// NFQUEUE configuration
 	networkQueues     string
@@ -44,7 +42,6 @@ func New(
 	c := &controller{
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,
-		plugin:            nil,
 		logger:            logger,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
@@ -89,13 +86,6 @@ func (c *controller) AddPU(contextID string, container *policy.PUInfo) error {
 	if err := c.versionTracker.AddOrUpdate(contextID, cacheEntry); err != nil {
 		c.DeletePU(contextID)
 		return err
-	}
-
-	// Call extensions
-	if c.plugin != nil {
-		if err := c.plugin.AddContainer(contextID, container); err != nil {
-			c.DeletePU(contextID)
-		}
 	}
 
 	// Configure all the ACLs
@@ -155,13 +145,6 @@ func (c *controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) er
 
 	oldAppChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
 	oldNetChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-
-	if c.plugin != nil {
-		if err := c.plugin.UpdateContainer(contextID, containerInfo); err != nil {
-			c.DeletePU(contextID)
-			return err
-		}
-	}
 
 	//Add a new chain for this update and map all rules there
 	if err := c.addContainerChain(appChain, netChain); err != nil {
@@ -226,10 +209,6 @@ func (c *controller) DeletePU(contextID string) error {
 	ip, ok := cacheEntry.ips["bridge"]
 	if !ok {
 		return fmt.Errorf("Container IP address not found!")
-	}
-
-	if c.plugin != nil {
-		c.plugin.RemoveContainer(contextID)
 	}
 
 	c.deletePacketTrap(appChain, netChain, ip)
