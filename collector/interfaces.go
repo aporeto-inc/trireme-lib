@@ -1,4 +1,4 @@
-package eventlog
+package collector
 
 import "github.com/aporeto-inc/trireme/enforcer/packet"
 
@@ -37,21 +37,12 @@ var (
 	PolicyValid = "V"
 )
 
-// EventLogger is the interface to the logging functions
-type EventLogger interface {
-	FlowEvent(contextID string, labels map[string]string, action string, mode string, sourceID string, tcpPacket *packet.Packet)
-	ContainerEvent(contextID string, ip string, labels map[string]string, event string)
-}
+// EventCollector is the interface for collecting events.
+type EventCollector interface {
 
-// DefaultLogger implements a default logging infrastructure to syslog
-type DefaultLogger struct{}
+	// CollectFlowEvent collects flow events.
+	CollectFlowEvent(contextID string, labels map[string]string, action string, mode string, sourceID string, tcpPacket *packet.Packet)
 
-// FlowEvent  logs flows
-func (d *DefaultLogger) FlowEvent(contextID string, labels map[string]string, action string, mode string, sourceID string, tcpPacket *packet.Packet) {
-	return
-}
-
-// ContainerEvent logs container events
-func (d *DefaultLogger) ContainerEvent(contextID string, ip string, labels map[string]string, event string) {
-	return
+	// CollectContainerEvent collects container events.
+	CollectContainerEvent(contextID string, ip string, labels map[string]string, event string)
 }

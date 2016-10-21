@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/netfilter"
 	"github.com/aporeto-inc/trireme/enforcer/packet"
 	"github.com/aporeto-inc/trireme/enforcer/tokens"
-	"github.com/aporeto-inc/trireme/eventlog"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/golang/glog"
 )
@@ -25,7 +25,7 @@ type datapathEnforcer struct {
 	mutualAuthorization bool
 	filterQueue         *FilterQueueConfig
 	tokenEngine         tokens.TokenEngine
-	logger              eventlog.EventLogger
+	collector           collector.EventCollector
 	service             PacketProcessor
 
 	// Internal structures and caches
@@ -42,14 +42,15 @@ type datapathEnforcer struct {
 	ackSize uint32
 }
 
-// New will create a new data path structure. It instantiates the data stores
+// NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
 // needed to track sessions. The data path is started with a different call.
 // Only required parameters must be provided. Rest a pre-populated with defaults.
-func New(
+func NewDatapathEnforcer(
 	mutualAuth bool,
 	filterQueue *FilterQueueConfig,
-	logger eventlog.EventLogger,
-	service PacketProcessor, secrets tokens.Secrets,
+	collector collector.EventCollector,
+	service PacketProcessor,
+	secrets tokens.Secrets,
 	serverID string,
 	validity time.Duration,
 ) PolicyEnforcer {
@@ -62,7 +63,7 @@ func New(
 		filterQueue:              filterQueue,
 		mutualAuthorization:      mutualAuth,
 		service:                  service,
-		logger:                   logger,
+		collector:                collector,
 		tokenEngine:              tokens.NewJWT(validity, serverID, secrets),
 		net:                      &PacketStats{},
 		app:                      &PacketStats{},
@@ -77,8 +78,8 @@ func New(
 
 }
 
-// NewDefault create a new data path with most things used by default
-func NewDefault(
+// NewDefaultDatapathEnforcer create a new data path with most things used by default
+func NewDefaultDatapathEnforcer(
 	serverID string,
 	secrets tokens.Secrets,
 ) PolicyEnforcer {
@@ -92,13 +93,13 @@ func NewDefault(
 		ApplicationQueueSize:      DefaultQueueSize,
 		NumberOfApplicationQueues: DefaultNumberOfQueues,
 	}
-	eventLogger := &eventlog.DefaultLogger{}
+	collector := &collector.DefaultCollector{}
 	validity := time.Hour * 8760
 
-	dp := New(
+	dp := NewDatapathEnforcer(
 		mutualAuthorization,
 		fqConfig,
-		eventLogger,
+		collector,
 		nil,
 		secrets,
 		serverID,
@@ -598,13 +599,13 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
 		glog.V(1).Infoln("Syn packet dropped because of invalid token: ", err, claims)
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidToken, "", tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidToken, "", tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		glog.V(1).Infoln("TCP Authentication Option not found")
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
 
@@ -614,7 +615,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		glog.V(1).Infoln("Syn packet dropped because of invalid format")
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 	}
 	tcpPacket.DropDetachedBytes()
@@ -643,7 +644,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		return action, nil
 	}
 
-	d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.PolicyDrop, claims.T[TransmitterLabel], tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, claims.T[TransmitterLabel], tcpPacket)
 
 	// Reject all other connections
 	glog.V(1).Infoln("No matched tags - reject", claims.T)
@@ -659,7 +660,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
 		glog.V(1).Infoln("SynAck packet dropped because of missing token.")
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.MissingToken, "", tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.MissingToken, "", tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of missing token.")
 	}
 
@@ -667,7 +668,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	claims, cert := d.tokenEngine.Decode(false, tcpData, nil)
 	if claims == nil {
 		glog.V(1).Infoln("Synack  packet dropped because of bad claims", claims)
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.MissingToken, "", tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.MissingToken, "", tcpPacket)
 		return nil, fmt.Errorf("Synack  packet dropped because of bad claims %v", claims)
 	}
 
@@ -689,7 +690,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		glog.V(1).Infoln("TCP Authentication Option not found")
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
 	}
 
@@ -699,7 +700,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.IncreaseTCPAck(d.ackSize)
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		glog.V(1).Infoln("SynAck packet dropped because of invalid format")
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
 	tcpPacket.DropDetachedBytes()
@@ -716,7 +717,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	}
 
 	glog.V(1).Infoln("Dropping packet SYNACK at the network ")
-	d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.PolicyDrop, claims.T[TransmitterLabel], tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, claims.T[TransmitterLabel], tcpPacket)
 	return nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
@@ -728,7 +729,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	if err != nil {
 		// IGNORE THIS PACKET
 		// glog.V(2).Infoln("No context found for this packet")
-		// d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidState, "", tcpPacket)
+		// d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidState, "", tcpPacket)
 		return nil, nil
 	}
 
@@ -737,13 +738,13 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 			glog.V(1).Infoln("TCP Authentication Option not found")
-			d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidFormat, "", tcpPacket)
+			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
 		if _, err := d.parseAckToken(connection.(*Connection), tcpPacket.ReadTCPData()); err != nil {
 			glog.V(1).Infoln("Ack packet dropped because singature validation failed", err)
-			d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidFormat, "", tcpPacket)
+			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because singature validation failed %v", err)
 		}
 
@@ -753,7 +754,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen)
 		if err != nil {
 			glog.V(1).Infoln("Ack packet dropped because of invalid format")
-			d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidFormat, "", tcpPacket)
+			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because of invalid format %v", err)
 		}
 
@@ -766,7 +767,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		d.networkConnectionTracker.Remove(hash)
 
 		// We accept the packet as a new flow
-		d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowAccept, "NA", connection.(*Connection).RemoteContextID, tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowAccept, "NA", connection.(*Connection).RemoteContextID, tcpPacket)
 
 		// Accept the packet
 		return nil, nil
@@ -781,7 +782,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	}
 
 	// Everything else is dropped
-	d.logger.FlowEvent(context.ID, context.Tags, eventlog.FlowReject, eventlog.InvalidState, "", tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidState, "", tcpPacket)
 	return nil, fmt.Errorf("Ack packet dropped - no matching rules")
 }
 

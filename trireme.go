@@ -17,27 +17,28 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
 // trireme contains references to all the subElements of
 type trireme struct {
-	serverID         string
-	containerTracker cache.DataStore
-	supervisor       supervisor.Supervisor
-	enforcer         enforcer.PolicyEnforcer
-	resolver         PolicyResolver
-	stopChan         chan bool
-	requestChan      chan *triremeRequest
+	serverID   string
+	cache      cache.DataStore
+	supervisor supervisor.Supervisor
+	enforcer   enforcer.PolicyEnforcer
+	resolver   PolicyResolver
+	stop       chan bool
+	requests   chan *triremeRequest
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, enforcer enforcer.PolicyEnforcer, supervisor supervisor.Supervisor, resolver PolicyResolver) Trireme {
+func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.Supervisor, enforcer enforcer.PolicyEnforcer) Trireme {
 
 	trireme := &trireme{
-		serverID:         serverID,
-		containerTracker: cache.NewCache(nil),
-		supervisor:       supervisor,
-		enforcer:         enforcer,
-		resolver:         resolver,
-		stopChan:         make(chan bool),
-		requestChan:      make(chan *triremeRequest),
+		serverID:   serverID,
+		cache:      cache.NewCache(nil),
+		supervisor: supervisor,
+		enforcer:   enforcer,
+		resolver:   resolver,
+		stop:       make(chan bool),
+		requests:   make(chan *triremeRequest),
 	}
+
 	resolver.SetPolicyUpdater(trireme)
 
 	return trireme
@@ -55,7 +56,7 @@ func (t *trireme) Start() error {
 	}
 
 	// Starting main trireme routine
-	go t.triremeWorker()
+	go t.run()
 
 	return nil
 }
@@ -64,7 +65,7 @@ func (t *trireme) Start() error {
 func (t *trireme) Stop() error {
 
 	// send the stop signal for the trireme worker routine.
-	t.stopChan <- true
+	t.stop <- true
 
 	if err := t.supervisor.Stop(); err != nil {
 		return fmt.Errorf("Error stopping Controller: %s", err)
@@ -89,7 +90,7 @@ func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) 
 		returnChan:  c,
 	}
 
-	t.requestChan <- req
+	t.requests <- req
 
 	return c
 }
@@ -105,7 +106,7 @@ func (t *trireme) HandleDelete(contextID string) <-chan error {
 		returnChan: c,
 	}
 
-	t.requestChan <- req
+	t.requests <- req
 
 	return c
 }
@@ -121,14 +122,14 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 		returnChan: c,
 	}
 
-	t.requestChan <- req
+	t.requests <- req
 
 	return c
 }
 
 func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 
-	container, err := t.containerTracker.Get(contextID)
+	container, err := t.cache.Get(contextID)
 
 	if err != nil {
 		return nil, err
@@ -140,11 +141,11 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime) error {
 
 	// Cache all the container runtime information
-	if err := t.containerTracker.AddOrUpdate(contextID, runtimeInfo); err != nil {
+	if err := t.cache.AddOrUpdate(contextID, runtimeInfo); err != nil {
 		return err
 	}
 
-	policyInfo, err := t.resolver.GetPolicy(contextID, runtimeInfo)
+	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 	if err != nil {
 		glog.V(2).Infoln("Policy Error for this context: %s . Container killed. %s", contextID, err)
 		return fmt.Errorf("Policy Error for this context: %s . Container killed. %s", contextID, err)
@@ -175,7 +176,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	t.supervisor.DeletePU(contextID)
 
 	runtimeInfo, err := t.PURuntime(contextID)
-	t.containerTracker.Remove(contextID)
+	t.cache.Remove(contextID)
 	if err != nil {
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
@@ -224,13 +225,13 @@ func (t *trireme) handleRequest(request *triremeRequest) error {
 	}
 }
 
-func (t *trireme) triremeWorker() {
+func (t *trireme) run() {
 	for {
 		select {
-		case <-t.stopChan:
+		case <-t.stop:
 			glog.V(2).Infof("Stopping trireme worker.")
 			return
-		case req := <-t.requestChan:
+		case req := <-t.requests:
 			glog.V(5).Infof("Handling trireme Request Type %d ", req.reqType)
 			req.returnChan <- t.handleRequest(req)
 		}

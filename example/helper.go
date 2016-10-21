@@ -9,23 +9,47 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-// PolicyInfo holds the configuration of the policy engine
-type PolicyInfo struct {
+// CustomPolicyResolver holds the configuration of the policy engine
+type CustomPolicyResolver struct {
 	cache map[string]policy.RuntimeReader
 }
 
-// NewPolicyEngine creates a new policy engine for the Trireme package
-func NewPolicyEngine() *PolicyInfo {
+// NewCustomPolicyResolver creates a new policy engine for the Trireme package
+func NewCustomPolicyResolver() *CustomPolicyResolver {
 
-	return &PolicyInfo{
+	return &CustomPolicyResolver{
 		cache: map[string]policy.RuntimeReader{},
 	}
+}
+
+// ResolvePolicy implements the Trireme interface. Here we just create a simple
+// policy that accepts packets with the same labels as the target container.
+func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error) {
+
+	containerPolicyInfo := p.createRules(runtimeInfo)
+
+	p.cache[context] = runtimeInfo
+	containerPolicyInfo.PolicyTags = runtimeInfo.Tags()
+	containerPolicyInfo.TriremeAction = policy.Police
+
+	return containerPolicyInfo, nil
+}
+
+// DeletePU implements the corresponding interface. We have no
+// state in this example
+func (p *CustomPolicyResolver) DeletePU(context string) error {
+	return nil
+}
+
+// SetPolicyUpdater is used in order to register a pointer to the policyUpdater
+func (p *CustomPolicyResolver) SetPolicyUpdater(pu trireme.PolicyUpdater) error {
+	return nil
 }
 
 // CreateRuleDB creates a simple Rule DB that accepts packets from
 // containers with the same labels as the instantiated container.
 // If any of the labels matches, the packet is accepted.
-func (p *PolicyInfo) createRules(runtimeInfo policy.RuntimeReader) *policy.PUPolicy {
+func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *policy.PUPolicy {
 
 	containerPolicyInfo := policy.NewPUPolicy()
 
@@ -51,7 +75,7 @@ func (p *PolicyInfo) createRules(runtimeInfo policy.RuntimeReader) *policy.PUPol
 
 // createSecrets will create the per-container secrets and associated them with
 // the policy
-func (p *PolicyInfo) createSecrets(container *policy.PUInfo) error {
+func (p *CustomPolicyResolver) createSecrets(container *policy.PUInfo) error {
 
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -62,28 +86,4 @@ func (p *PolicyInfo) createSecrets(container *policy.PUInfo) error {
 
 	return nil
 
-}
-
-// GetPolicy implements the Trireme interface. Here we just create a simple
-// policy that accepts packets with the same labels as the target container.
-func (p *PolicyInfo) GetPolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error) {
-
-	containerPolicyInfo := p.createRules(runtimeInfo)
-
-	p.cache[context] = runtimeInfo
-	containerPolicyInfo.PolicyTags = runtimeInfo.Tags()
-	containerPolicyInfo.TriremeAction = policy.Police
-
-	return containerPolicyInfo, nil
-}
-
-// DeletePU implements the corresponding interface. We have no
-// state in this example
-func (p *PolicyInfo) DeletePU(context string) error {
-	return nil
-}
-
-// SetPolicyUpdater is used in order to register a pointer to the policyUpdater
-func (p *PolicyInfo) SetPolicyUpdater(pu trireme.PolicyUpdater) error {
-	return nil
 }

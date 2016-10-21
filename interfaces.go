@@ -31,8 +31,8 @@ type PolicyUpdater interface {
 // The PolicyResolver also got the ability to update an already instantiated policy.
 type PolicyResolver interface {
 
-	// GetPolicy returns the policy.PUPolicy associated with the given contextID using the given policy.RuntimeReader.
-	GetPolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
+	// ResolvePolicy returns the policy.PUPolicy associated with the given contextID using the given policy.RuntimeReader.
+	ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
 	// DeletePU deletes the processing unit with the given contextID.
 	DeletePU(contextID string) error

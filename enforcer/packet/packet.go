@@ -14,13 +14,12 @@ import (
 	"github.com/golang/glog"
 )
 
-
 var (
 	// printCount prints the debug header for packets every few lines that it prints
 	printCount int
 
 	// Debugging for Packets
-	debugContext uint64
+	debugContext    uint64
 	debugContextApp uint64
 	debugContextNet uint64
 )
@@ -40,9 +39,9 @@ func init() {
 		PacketStageService,
 		PacketStageOutgoing)
 
-	flag.Uint64Var(&debugContext, "debug-packet-context", 0, "packet contexts to debug -" + cbuf + fbuf)
-	flag.Uint64Var(&debugContextApp, "debug-packet-context-app", 0, "app packet contexts to debug -" + fbuf)
-	flag.Uint64Var(&debugContextNet, "debug-packet-context-net", 0, "net packet contexts to debug -" + fbuf)
+	flag.Uint64Var(&debugContext, "debug-packet-context", 0, "packet contexts to debug -"+cbuf+fbuf)
+	flag.Uint64Var(&debugContextApp, "debug-packet-context-app", 0, "app packet contexts to debug -"+fbuf)
+	flag.Uint64Var(&debugContextNet, "debug-packet-context-net", 0, "net packet contexts to debug -"+fbuf)
 }
 
 // New returns a pointer to Packet structure built from the
@@ -348,7 +347,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint
 
 	// Update DataOffset
 	p.tcpDataOffset = p.tcpDataOffset - uint8(optionLength/4)
-	p.Buffer[tcpDataOffsetPos] = byte(p.tcpDataOffset << 4)
+	p.Buffer[tcpDataOffsetPos] = p.tcpDataOffset << 4
 }
 
 // tcpDataDetach splits the p.Buffer into p.Buffer (header + some options), p.tcpOptions (optionLength) and p.TCPData (dataLength)
@@ -383,7 +382,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 	// Length
-	dataLength := uint16(p.IPTotalLength - p.TCPDataStartBytes())
+	dataLength := p.IPTotalLength - p.TCPDataStartBytes()
 
 	// detach TCP data
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
@@ -421,7 +420,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 	// Modify the fields
 	p.tcpDataOffset = p.tcpDataOffset + uint8(numberOfOptions)
 	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
-	p.Buffer[tcpDataOffsetPos] = byte(p.tcpDataOffset << 4)
+	p.Buffer[tcpDataOffsetPos] = p.tcpDataOffset << 4
 }
 
 // tcpDataAttach splits the p.Buffer into p.Buffer (header + some options), p.tcpOptions (optionLength) and p.TCPData (dataLength)

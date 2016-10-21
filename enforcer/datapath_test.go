@@ -54,7 +54,7 @@ func TestInvalidContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
-		dp := NewDefault("SomeServerId", secret).(*datapathEnforcer)
+		dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
@@ -78,7 +78,7 @@ func TestInvalidIPContext(t *testing.T) {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
-		dp := NewDefault("SomeServerId", secret).(*datapathEnforcer)
+		dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
 		dp.AddPU("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
@@ -107,7 +107,7 @@ func TestInvalidTokenContext(t *testing.T) {
 		ip := make(map[string]string)
 		ip["bridge"] = "164.67.228.152"
 		puInfo.Runtime.SetIPAddresses(ip)
-		dp := NewDefault("SomeServerId", secret).(*datapathEnforcer)
+		dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
 		dp.AddPU("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
@@ -165,7 +165,7 @@ func TestPacketHandling(t *testing.T) {
 
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
-			dp := NewDefault("SomeServerId", secret).(*datapathEnforcer)
+			dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
 			dp.AddPU("SomeProcessingUnitId1", puInfo1)
 			dp.AddPU("SomeProcessingUnitId2", puInfo2)
 

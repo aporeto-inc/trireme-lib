@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/aporeto-inc/trireme/eventlog"
+	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
@@ -90,7 +90,7 @@ type dockerMonitor struct {
 	stoplistener       chan bool
 	syncAtStart        bool
 
-	logger    eventlog.EventLogger
+	collector collector.EventCollector
 	puHandler ProcessingUnitsHandler
 }
 
@@ -105,8 +105,7 @@ func NewDockerMonitor(
 	socketAddress string,
 	p ProcessingUnitsHandler,
 	m DockerMetadataExtractor,
-	l eventlog.EventLogger,
-	syncAtStart bool,
+	l collector.EventCollector, syncAtStart bool,
 ) Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
@@ -116,7 +115,7 @@ func NewDockerMonitor(
 
 	d := &dockerMonitor{
 		puHandler:          p,
-		logger:             l,
+		collector:          l,
 		syncAtStart:        syncAtStart,
 		eventnotifications: make(chan *events.Message, 1000),
 		handlers:           make(map[DockerEvent]func(event *events.Message) error),
@@ -274,11 +273,11 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 	if err := <-returnChan; err != nil {
 		glog.V(2).Infoln("Setting policy failed. Stopping the container")
 		d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout)
-		d.logger.ContainerEvent(contextID, ip, nil, eventlog.ContainerFailed)
+		d.collector.CollectContainerEvent(contextID, ip, nil, collector.ContainerFailed)
 		return fmt.Errorf("Policy cound't be set - container was killed")
 	}
 
-	d.logger.ContainerEvent(contextID, ip, runtimeInfo.Tags(), eventlog.ContainerStart)
+	d.collector.CollectContainerEvent(contextID, ip, runtimeInfo.Tags(), collector.ContainerStart)
 
 	return nil
 }
@@ -321,7 +320,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 		glog.V(2).Infoln("Killing container because inspect returned error")
 		//If we see errors, we will kill the container for security reasons.
 		d.dockerClient.ContainerStop(context.Background(), id, &timeout)
-		d.logger.ContainerEvent(id[:12], "", nil, eventlog.ContainerFailed)
+		d.collector.CollectContainerEvent(id[:12], "", nil, collector.ContainerFailed)
 		return fmt.Errorf("Cannot read container information. Killing container. ")
 	}
 
@@ -340,7 +339,7 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 	containerID := event.ID
 
 	d.removeDockerContainer(containerID)
-	d.logger.ContainerEvent(containerID[:12], "", nil, eventlog.ContainerStop)
+	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.ContainerStop)
 
 	return nil
 }
@@ -352,7 +351,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 	// Clear the policy cache
 	d.puHandler.HandleDelete(containerID[:12])
-	d.logger.ContainerEvent(containerID[:12], "", nil, eventlog.UnknownContainerDelete)
+	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.UnknownContainerDelete)
 
 	return nil
 }
