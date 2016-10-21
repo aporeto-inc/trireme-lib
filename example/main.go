@@ -87,8 +87,8 @@ func triremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, moni
 	networks := []string{"0.0.0.0/0"}
 	policyEngine := NewPolicyEngine()
 
-	// Use this to use PKI Trireme
 	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, keyPEM, certPEM, caCertPEM)
+
 	p.PublicKeyAdd("Server1", certPEM)
 
 	return t, m
