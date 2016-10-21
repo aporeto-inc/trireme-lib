@@ -13,6 +13,17 @@ import (
 	"github.com/golang/glog"
 )
 
+const (
+	chainPrefix                = "TRIREME-"
+	appPacketIPTableContext    = "raw"
+	appAckPacketIPTableContext = "mangle"
+	appPacketIPTableSection    = "PREROUTING"
+	appChainPrefix             = chainPrefix + "App-"
+	netPacketIPTableContext    = "mangle"
+	netPacketIPTableSection    = "POSTROUTING"
+	netChainPrefix             = chainPrefix + "Net-"
+)
+
 type supervisorCacheEntry struct {
 	index       int
 	ips         map[string]string
@@ -64,8 +75,8 @@ func (c *iptablesSupervisor) Supervise(contextID string, container *policy.PUInf
 
 	index := 0
 
-	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(index)
-	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(index)
+	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(index)
+	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(index)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := container.Runtime.DefaultIPAddress()
@@ -138,11 +149,11 @@ func (c *iptablesSupervisor) UpdatePU(contextID string, containerInfo *policy.PU
 		return fmt.Errorf("Container IP address not found!")
 	}
 
-	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(newindex)
-	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(newindex)
 
-	oldAppChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-	oldNetChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldAppChain := appChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldNetChain := netChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
 
 	//Add a new chain for this update and map all rules there
 	if err := c.addContainerChain(appChain, netChain); err != nil {
@@ -200,8 +211,8 @@ func (c *iptablesSupervisor) Unsupervise(contextID string) error {
 	}
 	cacheEntry := result.(*supervisorCacheEntry)
 
-	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
 
 	// Currently processing only containers with one IP address
 	ip, ok := cacheEntry.ips["bridge"]
@@ -228,16 +239,16 @@ func (c *iptablesSupervisor) Unsupervise(contextID string) error {
 func (c *iptablesSupervisor) CleanACL() {
 
 	// Clean Application Rules/Chains
-	c.cleanACLSection(triremeAppPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
+	c.cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix)
 
 	// Clean Application Rules/Chains
-	c.cleanACLSection(triremeAppAckPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
+	c.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
 
 	// Clean Application Rules/Chains
-	c.cleanACLSection(triremeAppAckPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
+	c.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
 
 	// Clean Network Rules/Chains
-	c.cleanACLSection(triremeNetPacketIPTableContext, triremeNetPacketIPTableSection, triremeChainPrefix)
+	c.cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix)
 }
 
 // Start starts the supervisor
@@ -257,17 +268,17 @@ func (c *iptablesSupervisor) Stop() error {
 // All rules related to a container are contained within the dedicated chain
 func (c *iptablesSupervisor) addContainerChain(appChain string, netChain string) error {
 
-	if err := c.ipt.NewChain(triremeAppPacketIPTableContext, appChain); err != nil {
+	if err := c.ipt.NewChain(appPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to create container specific chain", appChain, err)
 		return err
 	}
 
-	if err := c.ipt.NewChain(triremeAppAckPacketIPTableContext, appChain); err != nil {
+	if err := c.ipt.NewChain(appAckPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to create container specific chain", appChain, err)
 		return err
 	}
 
-	if err := c.ipt.NewChain(triremeNetPacketIPTableContext, netChain); err != nil {
+	if err := c.ipt.NewChain(netPacketIPTableContext, netChain); err != nil {
 		glog.V(2).Infoln("Failed to create container specific chain", netChain, err)
 		return err
 	}
@@ -294,15 +305,15 @@ func (c *iptablesSupervisor) deleteChain(context, chain string) error {
 // deleteAllContainerChains removes all the container specific chains and basic rules
 func (c *iptablesSupervisor) deleteAllContainerChains(appChain, netChain string) error {
 
-	if err := c.deleteChain(triremeAppPacketIPTableContext, appChain); err != nil {
+	if err := c.deleteChain(appPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to clear and delete the appChain: ", appChain, err)
 	}
 
-	if err := c.deleteChain(triremeAppAckPacketIPTableContext, appChain); err != nil {
+	if err := c.deleteChain(appAckPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to clear and delete the appChain: ", appChain, err)
 	}
 
-	if err := c.deleteChain(triremeNetPacketIPTableContext, netChain); err != nil {
+	if err := c.deleteChain(netPacketIPTableContext, netChain); err != nil {
 		glog.V(2).Infoln("Failed to clear and delete the netChain: ", netChain, err)
 	}
 
@@ -315,15 +326,15 @@ func (c *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 
 	chainRules := [][]string{
 		{
-			triremeAppPacketIPTableContext,
-			triremeAppPacketIPTableSection,
+			appPacketIPTableContext,
+			appPacketIPTableSection,
 			"-s", ip,
 			"-i", "docker0",
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
-		{triremeAppAckPacketIPTableContext,
-			triremeAppPacketIPTableSection,
+		{appAckPacketIPTableContext,
+			appPacketIPTableSection,
 			"-s", ip,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-i", "docker0",
@@ -331,8 +342,8 @@ func (c *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 			"-j", appChain,
 		},
 		{
-			triremeNetPacketIPTableContext,
-			triremeNetPacketIPTableSection,
+			netPacketIPTableContext,
+			netPacketIPTableSection,
 			"-d", ip,
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", netChain,
@@ -378,7 +389,7 @@ func (c *iptablesSupervisor) trapRules(appChain string, netChain string, network
 	trapRules := [][]string{
 		// Application Syn and Syn/Ack
 		{
-			triremeAppPacketIPTableContext, appChain,
+			appPacketIPTableContext, appChain,
 			"-d", network,
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", c.applicationQueues,
@@ -386,7 +397,7 @@ func (c *iptablesSupervisor) trapRules(appChain string, netChain string, network
 
 		// Application everything else
 		{
-			triremeAppAckPacketIPTableContext, appChain,
+			appAckPacketIPTableContext, appChain,
 			"-d", network,
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
@@ -395,7 +406,7 @@ func (c *iptablesSupervisor) trapRules(appChain string, netChain string, network
 
 		// Network side rules
 		{
-			triremeNetPacketIPTableContext, netChain,
+			netPacketIPTableContext, netChain,
 			"-s", network,
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
@@ -449,7 +460,7 @@ func (c *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.
 	for i := range rules {
 
 		if err := c.ipt.Insert(
-			triremeAppPacketIPTableContext, chain, 1,
+			appPacketIPTableContext, chain, 1,
 			"-p", rules[i].Protocol,
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -462,7 +473,7 @@ func (c *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.
 	}
 
 	if err := c.ipt.Append(
-		triremeAppPacketIPTableContext, chain,
+		appPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "NEW",
 		"-j", "DROP"); err != nil {
@@ -478,7 +489,7 @@ func (c *iptablesSupervisor) deleteAppACLs(chain string, ip string, rules []poli
 
 	for i := range rules {
 		if err := c.ipt.Delete(
-			triremeAppPacketIPTableContext, chain,
+			appPacketIPTableContext, chain,
 			"-p", rules[i].Protocol,
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -489,7 +500,7 @@ func (c *iptablesSupervisor) deleteAppACLs(chain string, ip string, rules []poli
 	}
 
 	if err := c.ipt.Delete(
-		triremeAppPacketIPTableContext, chain,
+		appPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "NEW",
 		"-j", "DROP",
@@ -508,7 +519,7 @@ func (c *iptablesSupervisor) addNetACLs(chain, ip string, rules []policy.IPRule)
 	for i := range rules {
 
 		if err := c.ipt.Insert(
-			triremeNetPacketIPTableContext, chain, 1,
+			netPacketIPTableContext, chain, 1,
 			"-p", rules[i].Protocol,
 			"-s", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -521,7 +532,7 @@ func (c *iptablesSupervisor) addNetACLs(chain, ip string, rules []policy.IPRule)
 	}
 
 	if err := c.ipt.Append(
-		triremeNetPacketIPTableContext, chain,
+		netPacketIPTableContext, chain,
 		"-s", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "NEW",
 		"-j", "DROP",
@@ -538,7 +549,7 @@ func (c *iptablesSupervisor) deleteNetACLs(chain string, ip string, rules []poli
 
 	for i := range rules {
 		if err := c.ipt.Delete(
-			triremeNetPacketIPTableContext, chain,
+			netPacketIPTableContext, chain,
 			"-p", rules[i].Protocol,
 			"-s", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -549,7 +560,7 @@ func (c *iptablesSupervisor) deleteNetACLs(chain string, ip string, rules []poli
 	}
 
 	if err := c.ipt.Delete(
-		triremeNetPacketIPTableContext, chain,
+		netPacketIPTableContext, chain,
 		"-s", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "NEW",
 		"-j", "DROP",
