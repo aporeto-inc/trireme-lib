@@ -13,7 +13,7 @@ import (
 //handleStartEvent will notify the agent immediately about the event in order
 //to start the implementation of the functions. The agent must query
 //the policy engine for details on what to do with this container.
-func (d *Docker) handleStartEvent(event *events.Message) error {
+func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 
 	timeout := time.Second * 0
 	id := event.ID
@@ -36,7 +36,7 @@ func (d *Docker) handleStartEvent(event *events.Message) error {
 
 //handleDie event is called when a container dies. It updates the agent
 //data structures and stops enforcement.
-func (d *Docker) handleDieEvent(event *events.Message) error {
+func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 
 	containerID := event.ID
 
@@ -47,7 +47,7 @@ func (d *Docker) handleDieEvent(event *events.Message) error {
 }
 
 // handleDestroyEvent handles destroy events from Docker
-func (d *Docker) handleDestroyEvent(event *events.Message) error {
+func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 	containerID := event.ID
 	// Clear the policy cache
 	d.PUHandler.HandleDelete(containerID[:12])
@@ -56,7 +56,7 @@ func (d *Docker) handleDestroyEvent(event *events.Message) error {
 	return nil
 }
 
-func (d *Docker) handleNetworkConnectEvent(event *events.Message) error {
+func (d *dockerMonitor) handleNetworkConnectEvent(event *events.Message) error {
 
 	id := event.Actor.Attributes["container"]
 

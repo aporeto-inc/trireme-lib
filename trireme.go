@@ -11,6 +11,10 @@ import (
 	"github.com/golang/glog"
 )
 
+func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
+	containerInfo.Policy.PolicyTags[datapath.TransmitterLabel] = contextID
+}
+
 // trireme contains references to all the subElements of trireme.
 type trireme struct {
 	serverID         string
@@ -109,10 +113,6 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 	}
 	t.requestChan <- triremeRequest
 	return returnChan
-}
-
-func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
-	containerInfo.Policy.PolicyTags[datapath.TransmitterLabel] = contextID
 }
 
 // PURuntime returns a getter for a specific contextID.

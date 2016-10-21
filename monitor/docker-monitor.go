@@ -17,57 +17,15 @@ import (
 	"github.com/golang/glog"
 )
 
-// Docker implements the connection to Docker and monitoring based on events
-type Docker struct {
-	EventMonitor
-	dockerClient       *dockerClient.Client
-	metadataExtractor  MetadataExtractor
-	handlers           map[string]func(event *events.Message) error
-	eventnotifications chan *events.Message
-	stopprocessor      chan bool
-	stoplistener       chan bool
-	syncAtStart        bool
+func contextIDFromDockerID(dockerID string) (string, error) {
+
+	if dockerID == "" {
+		return "", fmt.Errorf("Empty DockerID String")
+	}
+	return dockerID[:12], nil
 }
 
-// NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
-// socketType ('tcp' or 'unix') and socketAddress (a port for 'tcp' or
-// a socket file for 'unix').
-//
-// After creating a new DockerMonitor, call AddHandler to install one
-// or more callback handlers for the events to monitor. Then call Start.
-func NewDockerMonitor(socketType string, socketAddress string, p ProcessingUnitsHandler, m MetadataExtractor, e eventlog.EventLogger, syncAtStart bool) (docker *Docker, err error) {
-	var d Docker
-
-	if d.initDockerClient(socketType, socketAddress) != nil {
-		return nil, err
-	}
-
-	// register the base objects for callbacks
-	d.PUHandler = p
-	d.Logger = e
-	d.syncAtStart = syncAtStart
-
-	d.eventnotifications = make(chan *events.Message, 1000)
-	d.handlers = make(map[string]func(event *events.Message) error)
-	d.stoplistener = make(chan bool)
-	d.stopprocessor = make(chan bool)
-
-	if m == nil {
-		d.metadataExtractor = &d
-	} else {
-		d.metadataExtractor = m
-	}
-
-	// Add handlers for the events that we know how to process
-	d.AddHandler("start", d.handleStartEvent)
-	d.AddHandler("die", d.handleDieEvent)
-	d.AddHandler("destroy", d.handleDestroyEvent)
-	d.AddHandler("connect", d.handleNetworkConnectEvent)
-
-	return &d, nil
-}
-
-func (d *Docker) initDockerClient(socketType string, socketAddress string) (err error) {
+func initDockerClient(socketType string, socketAddress string) (*dockerClient.Client, error) {
 	var socket string
 	switch socketType {
 	case "tcp":
@@ -76,34 +34,91 @@ func (d *Docker) initDockerClient(socketType string, socketAddress string) (err 
 	case "unix":
 		// Sanity check that this path exists
 		if _, oserr := os.Stat(socketAddress); os.IsNotExist(oserr) {
-			return err
+			return nil, oserr
 		}
 		socket = "unix://" + socketAddress
 
 	default:
-		return fmt.Errorf("Bad socket type %s", socketType)
+		return nil, fmt.Errorf("Bad socket type %s", socketType)
 	}
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
-	d.dockerClient, err = dockerClient.NewClient(socket, "v1.23", nil, defaultHeaders)
+	dockerClient, err := dockerClient.NewClient(socket, "v1.23", nil, defaultHeaders)
 	if err != nil {
-		return fmt.Errorf("Error creating Docker Client %s", err)
+		return nil, fmt.Errorf("Error creating Docker Client %s", err)
 	}
-	return nil
+
+	return dockerClient, nil
+}
+
+// dockerMonitor implements the connection to Docker and monitoring based on events
+type dockerMonitor struct {
+	dockerClient       *dockerClient.Client
+	metadataExtractor  DockerMetadataExtractor
+	handlers           map[string]func(event *events.Message) error
+	eventnotifications chan *events.Message
+	stopprocessor      chan bool
+	stoplistener       chan bool
+	syncAtStart        bool
+
+	EventMonitor
+}
+
+// NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
+// socketType ('tcp' or 'unix') and socketAddress (a port for 'tcp' or
+// a socket file for 'unix').
+//
+// After creating a new DockerMonitor, call AddHandler to install one
+// or more callback handlers for the events to monitor. Then call Start.
+func NewDockerMonitor(
+	socketType string,
+	socketAddress string,
+	p ProcessingUnitsHandler,
+	m DockerMetadataExtractor,
+	e eventlog.EventLogger,
+	syncAtStart bool,
+) (Monitor, error) {
+
+	cli, err := initDockerClient(socketType, socketAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	d := &dockerMonitor{
+		EventMonitor: EventMonitor{
+			PUHandler: p,
+			Logger:    e,
+		},
+		syncAtStart:        syncAtStart,
+		eventnotifications: make(chan *events.Message, 1000),
+		handlers:           make(map[string]func(event *events.Message) error),
+		stoplistener:       make(chan bool),
+		stopprocessor:      make(chan bool),
+		metadataExtractor:  m,
+		dockerClient:       cli,
+	}
+
+	// Add handlers for the events that we know how to process
+	d.AddHandler("start", d.handleStartEvent)
+	d.AddHandler("die", d.handleDieEvent)
+	d.AddHandler("destroy", d.handleDestroyEvent)
+	d.AddHandler("connect", d.handleNetworkConnectEvent)
+
+	return d, nil
 }
 
 // AddHandler adds a callback handler for the given docker event.
 // Interesting event names include 'start' and 'die'. For more on events see
 // https://docs.docker.com/engine/reference/api/docker_remote_api/
 // under the section 'Docker Events'.
-func (d *Docker) AddHandler(event string, handler func(event *events.Message) error) {
+func (d *dockerMonitor) AddHandler(event string, handler func(event *events.Message) error) {
 	d.handlers[event] = handler
 }
 
 // Start will start the DockerPolicy Enforcement.
 // It applies a policy to each Container already Up and Running.
 // It listens to all ContainerEvents
-func (d *Docker) Start() error {
+func (d *dockerMonitor) Start() error {
 	glog.Infoln("Starting the docker monitor ...")
 
 	// Starting the eventListener First.
@@ -123,7 +138,7 @@ func (d *Docker) Start() error {
 }
 
 // Stop monitoring docker events.
-func (d *Docker) Stop() error {
+func (d *dockerMonitor) Stop() error {
 	glog.Infoln("Stopping the docker monitor ...")
 	d.stoplistener <- true
 	d.stopprocessor <- true
@@ -131,7 +146,7 @@ func (d *Docker) Stop() error {
 }
 
 // eventProcessor processes docker events
-func (d *Docker) eventProcessor() {
+func (d *dockerMonitor) eventProcessor() {
 
 	for {
 		select {
@@ -154,7 +169,7 @@ func (d *Docker) eventProcessor() {
 // eventListener listens to Docker events from the daemon and passes to
 // to the processor through a buffered channel. This minimizes the chances
 // that we will miss events because the processor is delayed
-func (d *Docker) eventListener() {
+func (d *dockerMonitor) eventListener() {
 	messages, errs := d.dockerClient.Events(context.Background(), types.EventsOptions{})
 
 	for {
@@ -175,7 +190,7 @@ func (d *Docker) eventListener() {
 
 // syncContainers resyncs all the existing containers on the Host, using the
 // same process as when a container is initially spawn up
-func (d *Docker) syncContainers() error {
+func (d *dockerMonitor) syncContainers() error {
 	glog.Infoln("Syncing all existing containers")
 
 	options := types.ContainerListOptions{All: true}
@@ -196,37 +211,7 @@ func (d *Docker) syncContainers() error {
 	return nil
 }
 
-// ExtractMetadata generates the RuntimeInfo based on Docker primitive
-func (d *Docker) ExtractMetadata(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
-	if dockerInfo == nil {
-		return nil, fmt.Errorf("DockerInfo is empty.")
-	}
-
-	runtimeInfo := policy.NewPURuntime()
-
-	runtimeInfo.SetName(dockerInfo.Name)
-	runtimeInfo.SetPid(dockerInfo.State.Pid)
-	ipa := map[string]string{}
-	ipa["bridge"] = dockerInfo.NetworkSettings.IPAddress
-	runtimeInfo.SetIPAddresses(ipa)
-	tags := policy.TagMap{}
-	tags["image"] = dockerInfo.Config.Image
-	tags["name"] = dockerInfo.Name
-	for k, v := range dockerInfo.Config.Labels {
-		tags[k] = v
-	}
-	runtimeInfo.SetTags(tags)
-	return runtimeInfo, nil
-}
-
-func contextIDFromDockerID(dockerID string) (string, error) {
-	if dockerID == "" {
-		return "", fmt.Errorf("Empty DockerID String")
-	}
-	return dockerID[:12], nil
-}
-
-func (d *Docker) addOrUpdateDockerContainer(dockerInfo *types.ContainerJSON) error {
+func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJSON) error {
 
 	timeout := time.Second * 0
 
@@ -240,7 +225,7 @@ func (d *Docker) addOrUpdateDockerContainer(dockerInfo *types.ContainerJSON) err
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	runtimeInfo, err := d.ExtractMetadata(dockerInfo)
+	runtimeInfo, err := d.extractMetadata(dockerInfo)
 
 	if err != nil {
 		return fmt.Errorf("Error getting some of the Docker primitives")
@@ -263,11 +248,40 @@ func (d *Docker) addOrUpdateDockerContainer(dockerInfo *types.ContainerJSON) err
 	return nil
 }
 
-func (d *Docker) removeDockerContainer(dockerID string) error {
+func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
 	contextID, err := contextIDFromDockerID(dockerID)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
 	return <-d.PUHandler.HandleDelete(contextID)
+}
+
+// ExtractMetadata generates the RuntimeInfo based on Docker primitive
+func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
+
+	if dockerInfo == nil {
+		return nil, fmt.Errorf("DockerInfo is empty.")
+	}
+
+	if d.metadataExtractor != nil {
+		return d.metadataExtractor.ExtractMetadata(dockerInfo)
+	}
+
+	runtimeInfo := policy.NewPURuntime()
+
+	runtimeInfo.SetName(dockerInfo.Name)
+	runtimeInfo.SetPid(dockerInfo.State.Pid)
+	ipa := map[string]string{}
+	ipa["bridge"] = dockerInfo.NetworkSettings.IPAddress
+	runtimeInfo.SetIPAddresses(ipa)
+	tags := policy.TagMap{}
+	tags["image"] = dockerInfo.Config.Image
+	tags["name"] = dockerInfo.Name
+	for k, v := range dockerInfo.Config.Labels {
+		tags[k] = v
+	}
+	runtimeInfo.SetTags(tags)
+
+	return runtimeInfo, nil
 }

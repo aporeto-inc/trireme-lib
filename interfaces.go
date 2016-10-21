@@ -5,6 +5,15 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
+// Trireme is the interface to the Trireme package
+type Trireme interface {
+	PURuntime(contextID string) (RuntimeGetter, error)
+	Start() error
+	Stop() error
+
+	monitor.ProcessingUnitsHandler
+}
+
 // A PolicyUpdater has the ability to receive an update for a specific policy
 type PolicyUpdater interface {
 	UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error
@@ -34,15 +43,6 @@ type RuntimeSetter interface {
 	SetName(string)
 	SetTags(tags policy.TagMap)
 	SetIPAddresses(ipa map[string]string)
-}
-
-// Trireme is the interface to the Trireme package
-type Trireme interface {
-	PURuntime(contextID string) (RuntimeGetter, error)
-	Start() error
-	Stop() error
-
-	monitor.ProcessingUnitsHandler
 }
 
 // PublicKeyAdder register a publicKey for a Node.

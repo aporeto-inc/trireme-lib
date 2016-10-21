@@ -99,15 +99,13 @@ func (c *Cache) schedule(t time.Time, u interface{}) {
 
 // collect processes calendar entries and removes flows from the cache after they have expired
 func (c *Cache) collect() {
-	for {
-		select {
-		case entry := <-c.calendar:
-			if entry.timestamp.After(time.Now()) {
-				wait := entry.timestamp.Sub(time.Now())
-				time.Sleep(wait)
-			}
-			c.Remove(entry.u)
+
+	for entry := range c.calendar {
+		if entry.timestamp.After(time.Now()) {
+			wait := entry.timestamp.Sub(time.Now())
+			time.Sleep(wait)
 		}
+		c.Remove(entry.u)
 	}
 }
 

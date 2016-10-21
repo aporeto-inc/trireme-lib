@@ -14,17 +14,6 @@ import (
 	"github.com/golang/glog"
 )
 
-const (
-	triremeChainPrefix                = "TRIREME-"
-	triremeAppPacketIPTableContext    = "raw"
-	triremeAppAckPacketIPTableContext = "mangle"
-	triremeAppPacketIPTableSection    = "PREROUTING"
-	triremeAppChainPrefix             = triremeChainPrefix + "App-"
-	triremeNetPacketIPTableContext    = "mangle"
-	triremeNetPacketIPTableSection    = "POSTROUTING"
-	triremeNetChainPrefix             = triremeChainPrefix + "Net-"
-)
-
 //controller is the structure holding all information about a connection filter
 type controller struct {
 	versionTracker cache.DataStore
@@ -40,13 +29,6 @@ type controller struct {
 
 	// List of destination networks that require Trireme controls
 	targetNetworks []string
-}
-
-type controllerCacheEntry struct {
-	index       int
-	ips         map[string]string
-	ingressACLs []policy.IPRule
-	egressACLs  []policy.IPRule
 }
 
 // New will create a new connection controller. It instantiates multiple data stores
@@ -79,6 +61,206 @@ func New(
 	c.CleanACL()
 
 	return c
+}
+
+// AddPU creates a mapping between an IP address and the corresponding labels
+// and the invokes the various handlers that process all policies.
+func (c *controller) AddPU(contextID string, container *policy.PUInfo) error {
+
+	index := 0
+
+	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(index)
+	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(index)
+
+	// Currently processing only containers with one IP address
+	ipAddress, ok := container.Runtime.DefaultIPAddress()
+	if !ok {
+		return fmt.Errorf("Container IP address not found")
+	}
+
+	cacheEntry := &controllerCacheEntry{
+		index:       index,
+		ips:         container.Runtime.IPAddresses(),
+		ingressACLs: container.Policy.IngressACLs,
+		egressACLs:  container.Policy.EgressACLs,
+	}
+
+	// Version the policy so that we can do hitless policy changes
+	if err := c.versionTracker.AddOrUpdate(contextID, cacheEntry); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	// Call extensions
+	if c.plugin != nil {
+		if err := c.plugin.AddContainer(contextID, container); err != nil {
+			c.DeletePU(contextID)
+		}
+	}
+
+	// Configure all the ACLs
+	if err := c.addContainerChain(appChain, netChain); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	if err := c.addChainRules(appChain, netChain, ipAddress); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	if err := c.addPacketTrap(appChain, netChain, ipAddress); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	if err := c.addAppACLs(appChain, ipAddress, container.Policy.IngressACLs); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	if err := c.addNetACLs(netChain, ipAddress, container.Policy.IngressACLs); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	ip, _ := container.Runtime.DefaultIPAddress()
+	c.logger.ContainerEvent(contextID, ip, container.Runtime.Tags(), "start")
+
+	return nil
+}
+
+//UpdatePU creates a mapping between an IP address and the corresponding labels
+//and the invokes the various handlers that process all policies.
+func (c *controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) error {
+
+	cacheEntry, err := c.versionTracker.LockedModify(contextID, add, 1)
+	newindex := cacheEntry.(*controllerCacheEntry).index
+	oldindex := newindex - 1
+
+	result, err := c.versionTracker.Get(contextID)
+	if err != nil {
+		return err
+	}
+	cachedEntry := result.(*controllerCacheEntry)
+
+	// Currently processing only containers with one IP address
+	ipAddress, ok := cachedEntry.ips["bridge"]
+	if !ok {
+		return fmt.Errorf("Container IP address not found!")
+	}
+
+	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+
+	oldAppChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldNetChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+
+	if c.plugin != nil {
+		if err := c.plugin.UpdateContainer(contextID, containerInfo); err != nil {
+			c.DeletePU(contextID)
+			return err
+		}
+	}
+
+	//Add a new chain for this update and map all rules there
+	if err := c.addContainerChain(appChain, netChain); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	if err := c.addPacketTrap(appChain, netChain, ipAddress); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	if err := c.addAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	if err := c.addNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	// Add mapping to new chain
+	if err := c.addChainRules(appChain, netChain, ipAddress); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	//Remove mapping from old chain
+	if err := c.deleteChainRules(oldAppChain, oldNetChain, ipAddress); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	// Delete the old chain to clean up
+	if err := c.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
+		c.DeletePU(contextID)
+		return err
+	}
+
+	ip, _ := containerInfo.Runtime.DefaultIPAddress()
+	c.logger.ContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")
+
+	return nil
+}
+
+// DeletePU removes the mapping from cache and cleans up the iptable rules. ALL
+// remove operations will print errors by they don't return error. We want to force
+// as much cleanup as possible to avoid stale state
+func (c *controller) DeletePU(contextID string) error {
+
+	result, err := c.versionTracker.Get(contextID)
+	if err != nil {
+		return fmt.Errorf("Cannot find policy version!")
+	}
+	cacheEntry := result.(*controllerCacheEntry)
+
+	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+
+	// Currently processing only containers with one IP address
+	ip, ok := cacheEntry.ips["bridge"]
+	if !ok {
+		return fmt.Errorf("Container IP address not found!")
+	}
+
+	if c.plugin != nil {
+		c.plugin.RemoveContainer(contextID)
+	}
+
+	c.deletePacketTrap(appChain, netChain, ip)
+
+	c.deleteAppACLs(appChain, ip, cacheEntry.ingressACLs)
+
+	c.deleteNetACLs(netChain, ip, cacheEntry.egressACLs)
+
+	c.deleteChainRules(appChain, netChain, ip)
+
+	c.deleteAllContainerChains(appChain, netChain)
+
+	c.versionTracker.Remove(contextID)
+
+	return nil
+}
+
+// CleanACL cleans up all the ACLs that have an Trireme  Label in the mangle table
+func (c *controller) CleanACL() {
+
+	// Clean Application Rules/Chains
+	c.cleanACLSection(triremeAppPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
+
+	// Clean Application Rules/Chains
+	c.cleanACLSection(triremeAppAckPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
+
+	// Clean Application Rules/Chains
+	c.cleanACLSection(triremeAppAckPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
+
+	// Clean Network Rules/Chains
+	c.cleanACLSection(triremeNetPacketIPTableContext, triremeNetPacketIPTableSection, triremeChainPrefix)
 }
 
 // Start starts the controller
@@ -148,7 +330,6 @@ func (c *controller) deleteAllContainerChains(appChain, netChain string) error {
 	}
 
 	return nil
-
 }
 
 // chainRules provides the list of rules that are used to send traffic to
@@ -197,7 +378,6 @@ func (c *controller) addChainRules(appChain string, netChain string, ip string) 
 	}
 
 	return nil
-
 }
 
 //deleteChainRules deletes the rules that send traffic to our chain
@@ -283,7 +463,6 @@ func (c *controller) deletePacketTrap(appChain, netChain, ip string) error {
 	}
 
 	return nil
-
 }
 
 // addAppACLs adds a set of rules to the external services that are initiated
@@ -404,196 +583,6 @@ func (c *controller) deleteNetACLs(chain string, ip string, rules []policy.IPRul
 	return nil
 }
 
-// AddPU creates a mapping between an IP address and the corresponding labels
-// and the invokes the various handlers that process all policies.
-func (c *controller) AddPU(contextID string, container *policy.PUInfo) error {
-
-	index := 0
-
-	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(index)
-	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(index)
-
-	// Currently processing only containers with one IP address
-	ipAddress, ok := container.Runtime.DefaultIPAddress()
-	if !ok {
-		return fmt.Errorf("Container IP address not found")
-	}
-
-	cacheEntry := &controllerCacheEntry{
-		index:       index,
-		ips:         container.Runtime.IPAddresses(),
-		ingressACLs: container.Policy.IngressACLs,
-		egressACLs:  container.Policy.EgressACLs,
-	}
-
-	// Version the policy so that we can do hitless policy changes
-	if err := c.versionTracker.AddOrUpdate(contextID, cacheEntry); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	// Call extensions
-	if c.plugin != nil {
-		if err := c.plugin.AddContainer(contextID, container); err != nil {
-			c.DeletePU(contextID)
-		}
-	}
-
-	// Configure all the ACLs
-	if err := c.addContainerChain(appChain, netChain); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	if err := c.addChainRules(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	if err := c.addPacketTrap(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	if err := c.addAppACLs(appChain, ipAddress, container.Policy.IngressACLs); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	if err := c.addNetACLs(netChain, ipAddress, container.Policy.IngressACLs); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	ip, _ := container.Runtime.DefaultIPAddress()
-	c.logger.ContainerEvent(contextID, ip, container.Runtime.Tags(), "start")
-
-	return nil
-}
-
-// DeletePU removes the mapping from cache and cleans up the iptable rules. ALL
-// remove operations will print errors by they don't return error. We want to force
-// as much cleanup as possible to avoid stale state
-func (c *controller) DeletePU(contextID string) error {
-
-	result, err := c.versionTracker.Get(contextID)
-	if err != nil {
-		return fmt.Errorf("Cannot find policy version!")
-	}
-	cacheEntry := result.(*controllerCacheEntry)
-
-	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-
-	// Currently processing only containers with one IP address
-	ip, ok := cacheEntry.ips["bridge"]
-	if !ok {
-		return fmt.Errorf("Container IP address not found!")
-	}
-
-	if c.plugin != nil {
-		c.plugin.RemoveContainer(contextID)
-	}
-
-	c.deletePacketTrap(appChain, netChain, ip)
-
-	c.deleteAppACLs(appChain, ip, cacheEntry.ingressACLs)
-
-	c.deleteNetACLs(netChain, ip, cacheEntry.egressACLs)
-
-	c.deleteChainRules(appChain, netChain, ip)
-
-	c.deleteAllContainerChains(appChain, netChain)
-
-	c.versionTracker.Remove(contextID)
-
-	return nil
-}
-
-func add(a, b interface{}) interface{} {
-	entry := a.(*controllerCacheEntry)
-	entry.index += b.(int)
-	return entry
-}
-
-//UpdatePU creates a mapping between an IP address and the corresponding labels
-//and the invokes the various handlers that process all policies.
-func (c *controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) error {
-
-	cacheEntry, err := c.versionTracker.LockedModify(contextID, add, 1)
-	newindex := cacheEntry.(*controllerCacheEntry).index
-	oldindex := newindex - 1
-
-	result, err := c.versionTracker.Get(contextID)
-	if err != nil {
-		return err
-	}
-	cachedEntry := result.(*controllerCacheEntry)
-
-	// Currently processing only containers with one IP address
-	ipAddress, ok := cachedEntry.ips["bridge"]
-	if !ok {
-		return fmt.Errorf("Container IP address not found!")
-	}
-
-	appChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(newindex)
-	netChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(newindex)
-
-	oldAppChain := triremeAppChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-	oldNetChain := triremeNetChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-
-	if c.plugin != nil {
-		if err := c.plugin.UpdateContainer(contextID, containerInfo); err != nil {
-			c.DeletePU(contextID)
-			return err
-		}
-	}
-
-	//Add a new chain for this update and map all rules there
-	if err := c.addContainerChain(appChain, netChain); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	if err := c.addPacketTrap(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	if err := c.addAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	if err := c.addNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	// Add mapping to new chain
-	if err := c.addChainRules(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	//Remove mapping from old chain
-	if err := c.deleteChainRules(oldAppChain, oldNetChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	// Delete the old chain to clean up
-	if err := c.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
-		c.DeletePU(contextID)
-		return err
-	}
-
-	ip, _ := containerInfo.Runtime.DefaultIPAddress()
-	c.logger.ContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")
-
-	return nil
-}
-
 func (c *controller) cleanACLSection(context, section, chainPrefix string) {
 
 	if err := c.ipt.ClearChain(context, section); err != nil {
@@ -616,18 +605,8 @@ func (c *controller) cleanACLSection(context, section, chainPrefix string) {
 	}
 }
 
-// CleanACL cleans up all the ACLs that have an Trireme  Label in the mangle table
-func (c *controller) CleanACL() {
-
-	// Clean Application Rules/Chains
-	c.cleanACLSection(triremeAppPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
-
-	// Clean Application Rules/Chains
-	c.cleanACLSection(triremeAppAckPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
-
-	// Clean Application Rules/Chains
-	c.cleanACLSection(triremeAppAckPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)
-
-	// Clean Network Rules/Chains
-	c.cleanACLSection(triremeNetPacketIPTableContext, triremeNetPacketIPTableSection, triremeChainPrefix)
+func add(a, b interface{}) interface{} {
+	entry := a.(*controllerCacheEntry)
+	entry.index += b.(int)
+	return entry
 }
