@@ -15,7 +15,7 @@ type PolicyInfo struct {
 }
 
 // NewPolicyEngine creates a new policy engine for the Trireme package
-func NewPolicyEngine(privateKeyPem, publicKeyPem, caCertificatePem []byte) *PolicyInfo {
+func NewPolicyEngine() *PolicyInfo {
 
 	return &PolicyInfo{
 		cache: map[string]policy.RuntimeReader{},

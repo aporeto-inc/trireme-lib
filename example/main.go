@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/ecdsa"
-	"crypto/x509"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -11,7 +9,9 @@ import (
 	"os"
 	"sync"
 
+	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/configurator"
+	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/pkg/profile"
 )
 
@@ -27,14 +27,39 @@ func main() {
 
 	flag.Usage = usage
 
-	var keyFile, certFile, caCertFile string
-	var wg sync.WaitGroup
-	var err error
+	usePKI := *flag.Bool("pki", false, "Use PKI trireme")
+	certFile := *flag.String("certFile", "cert.pem", "Set the path of certificate.")
+	keyFile := *flag.String("keyFile", "key.pem", "Set the path of key certificate key to use.")
+	caCertFile := *flag.String("caCertFile", "ca.crt", "Set the path of certificate authority to use.")
 
-	flag.StringVar(&keyFile, "keyFile", "key.pem", "-keyFile")
-	flag.StringVar(&certFile, "certFile", "cert.pem", "-certFile")
-	flag.StringVar(&caCertFile, "caCertFile", "ca.crt", "ca.crt default")
 	flag.Parse()
+
+	var t trireme.Trireme
+	var m monitor.Monitor
+
+	if usePKI {
+		t, m = triremeWithPKI(keyFile, certFile, caCertFile)
+	} else {
+		t, m = triremeWithPSK()
+	}
+
+	if t == nil {
+		panic("Failed to create Trireme")
+	}
+
+	if m == nil {
+		panic("Failed to create Monitor")
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	t.Start()
+	m.Start()
+	wg.Wait()
+}
+
+func triremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, monitor.Monitor) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -53,12 +78,6 @@ func main() {
 		log.Fatal("Failed to read key PEM ")
 	}
 
-	// Parse the key
-	key, err := x509.ParseECPrivateKey(block.Bytes)
-	if err != nil {
-		log.Fatal("Failed to read private key ")
-	}
-
 	// Load CA cert
 	caCertPEM, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
@@ -66,28 +85,20 @@ func main() {
 	}
 
 	networks := []string{"0.0.0.0/0"}
-	policyEngine := NewPolicyEngine(keyPEM, certPEM, caCertPEM)
-	keyPool := map[string]*ecdsa.PublicKey{"Server1": &key.PublicKey}
-
-	fmt.Println(keyPool)
+	policyEngine := NewPolicyEngine()
 
 	// Use this to use PKI Trireme
-	trireme, monitor, pkadder := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, keyPEM, certPEM, caCertPEM)
-	pkadder.PublicKeyAdd("Server1", certPEM)
+	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, keyPEM, certPEM, caCertPEM)
+	p.PublicKeyAdd("Server1", certPEM)
+
+	return t, m
+}
+
+func triremeWithPSK() (trireme.Trireme, monitor.Monitor) {
+
+	networks := []string{"0.0.0.0/0"}
+	policyEngine := NewPolicyEngine()
 
 	// Use this if you want a pre-shared key implementation
-	// trireme, monitor = configurator.NewPSKTrireme("Server1", networks, policyEngine, svcImpl, false, []byte("THIS IS A BAD PASSWORD"))
-
-	if trireme == nil {
-		panic("Failed to create Trireme")
-	}
-
-	if monitor == nil {
-		panic("Failed to create Monitor")
-	}
-
-	wg.Add(1)
-	trireme.Start()
-	monitor.Start()
-	wg.Wait()
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, []byte("THIS IS A BAD PASSWORD"))
 }
