@@ -71,7 +71,7 @@ func New(
 	}
 
 	if d.tokenEngine == nil {
-		return nil
+		panic("Unable to create Datapath")
 	}
 
 	return d

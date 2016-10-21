@@ -13,7 +13,7 @@ import (
 	"github.com/golang/glog"
 )
 
-//controller is the structure holding all information about a connection filter
+// controller is the structure holding all information about a connection filter
 type controller struct {
 	versionTracker cache.DataStore
 

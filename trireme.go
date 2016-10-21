@@ -15,7 +15,7 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 	containerInfo.Policy.PolicyTags[datapath.TransmitterLabel] = contextID
 }
 
-// trireme contains references to all the subElements of trireme.
+// trireme contains references to all the subElements of
 type trireme struct {
 	serverID         string
 	containerTracker cache.DataStore
@@ -26,8 +26,8 @@ type trireme struct {
 	requestChan      chan *triremeRequest
 }
 
-// New returns a reference to the trireme object based on the parameter subelements.
-func New(serverID string, datapath datapath.Datapath, controller controller.Controller, resolver PolicyResolver) Trireme {
+// NewTrireme returns a reference to the trireme object based on the parameter subelements.
+func NewTrireme(serverID string, datapath datapath.Datapath, controller controller.Controller, resolver PolicyResolver) Trireme {
 
 	trireme := &trireme{
 		serverID:         serverID,
@@ -110,8 +110,6 @@ func (t *trireme) HandleDelete(contextID string) <-chan error {
 	return c
 }
 
-// UpdatePolicy updates the policy of the isolator for a container
-// This is exposed in the interface and its only valid after a container has been started
 func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
 
 	c := make(chan error)
@@ -128,7 +126,6 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 	return c
 }
 
-// PURuntime returns a getter for a specific contextID.
 func (t *trireme) PURuntime(contextID string) (policy.RuntimeGetter, error) {
 
 	container, err := t.containerTracker.Get(contextID)

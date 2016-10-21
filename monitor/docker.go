@@ -107,11 +107,11 @@ func NewDockerMonitor(
 	m DockerMetadataExtractor,
 	l eventlog.EventLogger,
 	syncAtStart bool,
-) (Monitor, error) {
+) Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
 	if err != nil {
-		return nil, err
+		panic(fmt.Sprintf("Unable to initialize Docker client: %s", err))
 	}
 
 	d := &dockerMonitor{
@@ -132,7 +132,7 @@ func NewDockerMonitor(
 	d.AddHandler("destroy", d.handleDestroyEvent)
 	d.AddHandler("connect", d.handleNetworkConnectEvent)
 
-	return d, nil
+	return d
 }
 
 // AddHandler adds a callback handler for the given docker event.

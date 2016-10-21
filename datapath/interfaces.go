@@ -12,3 +12,8 @@ type Datapath interface {
 
 	GetFilterQueue() *FilterQueueConfig
 }
+
+// PublicKeyAdder register a publicKey for a Node.
+type PublicKeyAdder interface {
+	PublicKeyAdd(host string, newCert []byte) error
+}
