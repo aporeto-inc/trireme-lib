@@ -34,8 +34,8 @@ type PolicyResolver interface {
 	// ResolvePolicy returns the policy.PUPolicy associated with the given contextID using the given policy.RuntimeReader.
 	ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
-	// DeletePU deletes the processing unit with the given contextID.
-	DeletePU(contextID string) error
+	// HandleDeletePU is called when a PU is removed.
+	HandleDeletePU(contextID string) error
 
 	// SetPolicyUpdater sets the PolicyUpdater to use by the PolicyResolver.
 	SetPolicyUpdater(p PolicyUpdater) error

@@ -157,13 +157,13 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 	err = t.supervisor.Supervise(contextID, containerInfo)
 	if err != nil {
-		t.resolver.DeletePU(contextID)
+		t.resolver.HandleDeletePU(contextID)
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
 	err = t.enforcer.Enforce(contextID, containerInfo)
 	if err != nil {
-		t.resolver.DeletePU(contextID)
+		t.resolver.HandleDeletePU(contextID)
 		t.supervisor.Unsupervise(contextID)
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
@@ -172,7 +172,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 }
 
 func (t *trireme) doHandleDelete(contextID string) error {
-	t.resolver.DeletePU(contextID)
+	t.resolver.HandleDeletePU(contextID)
 	t.supervisor.Unsupervise(contextID)
 
 	runtimeInfo, err := t.PURuntime(contextID)

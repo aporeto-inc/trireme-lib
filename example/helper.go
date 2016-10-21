@@ -35,9 +35,9 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	return containerPolicyInfo, nil
 }
 
-// DeletePU implements the corresponding interface. We have no
+// HandleDeletePU implements the corresponding interface. We have no
 // state in this example
-func (p *CustomPolicyResolver) DeletePU(context string) error {
+func (p *CustomPolicyResolver) HandleDeletePU(context string) error {
 	return nil
 }
 
