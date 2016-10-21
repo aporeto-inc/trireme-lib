@@ -23,7 +23,7 @@ type datapathEnforcer struct {
 
 	// Configuration parameters
 	mutualAuthorization bool
-	filterQueue         *FilterQueueConfig
+	filterQueue         *FilterQueue
 	tokenEngine         tokens.TokenEngine
 	collector           collector.EventCollector
 	service             PacketProcessor
@@ -47,7 +47,7 @@ type datapathEnforcer struct {
 // Only required parameters must be provided. Rest a pre-populated with defaults.
 func NewDatapathEnforcer(
 	mutualAuth bool,
-	filterQueue *FilterQueueConfig,
+	filterQueue *FilterQueue,
 	collector collector.EventCollector,
 	service PacketProcessor,
 	secrets tokens.Secrets,
@@ -85,7 +85,7 @@ func NewDefaultDatapathEnforcer(
 ) PolicyEnforcer {
 
 	mutualAuthorization := false
-	fqConfig := &FilterQueueConfig{
+	fqConfig := &FilterQueue{
 		NetworkQueue:              DefaultNetworkQueue,
 		NetworkQueueSize:          DefaultQueueSize,
 		NumberOfNetworkQueues:     DefaultNumberOfQueues,
@@ -143,7 +143,7 @@ func (d *datapathEnforcer) Unenforce(ip string) error {
 	return d.puTracker.Remove(ip)
 }
 
-func (d *datapathEnforcer) GetFilterQueue() *FilterQueueConfig {
+func (d *datapathEnforcer) GetFilterQueue() *FilterQueue {
 
 	return d.filterQueue
 }

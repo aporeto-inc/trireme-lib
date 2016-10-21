@@ -46,7 +46,7 @@ type PacketStats struct {
 }
 
 // FilterQueueConfig captures all the configuration parameters of the NFQUEUEs
-type FilterQueueConfig struct {
+type FilterQueue struct {
 	// Network Queue is the queue number of the base queue for network packets
 	NetworkQueue uint16
 	// NetworkQueueSize is the size of the network queue

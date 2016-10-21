@@ -16,6 +16,26 @@ import (
 	dockerClient "github.com/docker/docker/client"
 )
 
+// DockerEvent is the type of various docker events.
+type DockerEvent string
+
+const (
+	// DockerEventStart represents the Docker "start" event.
+	DockerEventStart DockerEvent = "start"
+
+	// DockerEventDie represents the Docker "die" event.
+	DockerEventDie DockerEvent = "die"
+
+	// DockerEventDestroy represents the Docker "destroy" event.
+	DockerEventDestroy DockerEvent = "destroy"
+
+	// DockerEventConnect represents the Docker "connect" event.
+	DockerEventConnect DockerEvent = "connect"
+)
+
+// A DockerEventHandler is type of docker event handler functions.
+type DockerEventHandler func(event *events.Message) error
+
 // A DockerMetadataExtractor is a function used to extract a *policy.PURuntime from a given
 // docker ContainerJSON.
 type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, error)
@@ -98,7 +118,7 @@ type dockerMonitor struct {
 // socketType ('tcp' or 'unix') and socketAddress (a port for 'tcp' or
 // a socket file for 'unix').
 //
-// After creating a new DockerMonitor, call AddHandler to install one
+// After creating a new DockerMonitor, call addHandler to install one
 // or more callback handlers for the events to monitor. Then call Start.
 func NewDockerMonitor(
 	socketType string,
@@ -126,19 +146,19 @@ func NewDockerMonitor(
 	}
 
 	// Add handlers for the events that we know how to process
-	d.AddHandler(DockerEventStart, d.handleStartEvent)
-	d.AddHandler(DockerEventDie, d.handleDieEvent)
-	d.AddHandler(DockerEventDestroy, d.handleDestroyEvent)
-	d.AddHandler(DockerEventConnect, d.handleNetworkConnectEvent)
+	d.addHandler(DockerEventStart, d.handleStartEvent)
+	d.addHandler(DockerEventDie, d.handleDieEvent)
+	d.addHandler(DockerEventDestroy, d.handleDestroyEvent)
+	d.addHandler(DockerEventConnect, d.handleNetworkConnectEvent)
 
 	return d
 }
 
-// AddHandler adds a callback handler for the given docker event.
+// addHandler adds a callback handler for the given docker event.
 // Interesting event names include 'start' and 'die'. For more on events see
 // https://docs.docker.com/engine/reference/api/docker_remote_api/
 // under the section 'Docker Events'.
-func (d *dockerMonitor) AddHandler(event DockerEvent, handler DockerEventHandler) {
+func (d *dockerMonitor) addHandler(event DockerEvent, handler DockerEventHandler) {
 	d.handlers[event] = handler
 }
 
