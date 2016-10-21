@@ -84,7 +84,7 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 type dockerMonitor struct {
 	dockerClient       *dockerClient.Client
 	metadataExtractor  DockerMetadataExtractor
-	handlers           map[string]func(event *events.Message) error
+	handlers           map[DockerEvent]func(event *events.Message) error
 	eventnotifications chan *events.Message
 	stopprocessor      chan bool
 	stoplistener       chan bool
@@ -119,7 +119,7 @@ func NewDockerMonitor(
 		logger:             l,
 		syncAtStart:        syncAtStart,
 		eventnotifications: make(chan *events.Message, 1000),
-		handlers:           make(map[string]func(event *events.Message) error),
+		handlers:           make(map[DockerEvent]func(event *events.Message) error),
 		stoplistener:       make(chan bool),
 		stopprocessor:      make(chan bool),
 		metadataExtractor:  m,
@@ -127,10 +127,10 @@ func NewDockerMonitor(
 	}
 
 	// Add handlers for the events that we know how to process
-	d.AddHandler("start", d.handleStartEvent)
-	d.AddHandler("die", d.handleDieEvent)
-	d.AddHandler("destroy", d.handleDestroyEvent)
-	d.AddHandler("connect", d.handleNetworkConnectEvent)
+	d.AddHandler(DockerEventStart, d.handleStartEvent)
+	d.AddHandler(DockerEventDie, d.handleDieEvent)
+	d.AddHandler(DockerEventDestroy, d.handleDestroyEvent)
+	d.AddHandler(DockerEventConnect, d.handleNetworkConnectEvent)
 
 	return d
 }
@@ -139,7 +139,7 @@ func NewDockerMonitor(
 // Interesting event names include 'start' and 'die'. For more on events see
 // https://docs.docker.com/engine/reference/api/docker_remote_api/
 // under the section 'Docker Events'.
-func (d *dockerMonitor) AddHandler(event string, handler func(event *events.Message) error) {
+func (d *dockerMonitor) AddHandler(event DockerEvent, handler DockerEventHandler) {
 	d.handlers[event] = handler
 }
 
@@ -184,7 +184,7 @@ func (d *dockerMonitor) eventProcessor() {
 		select {
 		case event := <-d.eventnotifications:
 			if event.Action != "" {
-				f, present := d.handlers[event.Action]
+				f, present := d.handlers[DockerEvent(event.Action)]
 				if present {
 					glog.V(1).Infof("Handling docker event [%s].", event.Action)
 					f(event)
