@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme/cryptofunctions"
+	"github.com/aporeto-inc/trireme/crypto"
 	jwt "github.com/dgrijalva/jwt-go"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -146,7 +146,7 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 	Convey("Given a JWT valid engine with a PKI  key ", t, func() {
 		secrets := NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
 		jwtConfig := NewJWT(validity, "TRIREME", secrets)
-		_, cert, _, _ := cryptofunctions.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
+		_, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 
 		Convey("Given a signature request for a normal packet", func() {
 			token := jwtConfig.CreateAndSign(false, &defaultClaims)

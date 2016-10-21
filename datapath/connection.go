@@ -1,6 +1,6 @@
 package datapath
 
-import "github.com/aporeto-inc/trireme/cryptofunctions"
+import "github.com/aporeto-inc/trireme/crypto"
 
 // Connection keeps information about a connection
 type Connection struct {
@@ -22,7 +22,7 @@ func NewConnection() *Connection {
 		RemotePublicKey: nil,
 	}
 
-	nonse, err := cryptofunctions.GenerateRandomBytes(32)
+	nonse, err := crypto.GenerateRandomBytes(32)
 	if err != nil {
 		return nil
 	}

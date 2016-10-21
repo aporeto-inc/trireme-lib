@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"github.com/aporeto-inc/trireme/cryptofunctions"
+	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/golang/glog"
 )
 
@@ -23,7 +23,7 @@ type PKISecrets struct {
 // NewPKISecrets creates new secrets for PKI implementations
 func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) *PKISecrets {
 
-	key, cert, caCertPool, err := cryptofunctions.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
+	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
 		return nil
 	}
@@ -77,7 +77,7 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 
 // VerifyPublicKey verifies if the inband public key is correct.
 func (p *PKISecrets) VerifyPublicKey(pkey []byte) (interface{}, error) {
-	decodedCert, err := cryptofunctions.LoadAndVerifyCertificate(pkey, p.certPool)
+	decodedCert, err := crypto.LoadAndVerifyCertificate(pkey, p.certPool)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +99,7 @@ func (p *PKISecrets) AckSize() uint32 {
 // If valid, the corresponding key is added in the PublicKeyCache.
 // If Invalid, an error is returned.
 func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
-	cert, err := cryptofunctions.LoadAndVerifyCertificate(newCert, p.certPool)
+	cert, err := crypto.LoadAndVerifyCertificate(newCert, p.certPool)
 	if err != nil {
 		return fmt.Errorf("Error loading new Cert: %s", err)
 	}

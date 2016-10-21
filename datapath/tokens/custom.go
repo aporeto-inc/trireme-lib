@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme/cryptofunctions"
+	"github.com/aporeto-inc/trireme/crypto"
 )
 
 // CustomTokenSignMethod describes the sign methods for the custome tokens
@@ -84,7 +84,7 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 	}
 
 	// Sign the buffer
-	signature := cryptofunctions.ComputeHmac256(buffer[lclIndex:], c.Key.([]byte))
+	signature := crypto.ComputeHmac256(buffer[lclIndex:], c.Key.([]byte))
 
 	// Add the signature as the first part of the buffer
 	copy(buffer[0:], signature)
@@ -103,7 +103,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, cert *x509.Certifica
 	}
 
 	messageMac := data[:sizeOfMessageMac]
-	expectedMac := cryptofunctions.ComputeHmac256(data[lclIndex:], c.Key.([]byte))
+	expectedMac := crypto.ComputeHmac256(data[lclIndex:], c.Key.([]byte))
 
 	if !hmac.Equal(messageMac, expectedMac) {
 		return nil, nil
