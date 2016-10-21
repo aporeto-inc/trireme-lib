@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"sync"
+	"os/signal"
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/configurator"
@@ -51,12 +51,17 @@ func main() {
 		panic("Failed to create Monitor")
 	}
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
 	t.Start()
 	m.Start()
-	wg.Wait()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+
+	<-c
+
+	fmt.Println("Bye!")
+	m.Stop()
+	t.Stop()
 }
 
 func triremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, monitor.Monitor) {
