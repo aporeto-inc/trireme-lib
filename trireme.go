@@ -126,7 +126,7 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 	return c
 }
 
-func (t *trireme) PURuntime(contextID string) (policy.RuntimeGetter, error) {
+func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 
 	container, err := t.containerTracker.Get(contextID)
 

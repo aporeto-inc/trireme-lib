@@ -1,4 +1,4 @@
-// Package Policy describes a generic interface for retrieving policies.
+// Package policy describes a generic interface for retrieving policies.
 // Different implementations are possible for environments such as Kubernetes,
 // Mesos or other custom environments. An implementation has to provide
 // a method for retrieving policy based on the metadata associated with the container

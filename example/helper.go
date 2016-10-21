@@ -11,21 +11,21 @@ import (
 
 // PolicyInfo holds the configuration of the policy engine
 type PolicyInfo struct {
-	cache map[string]policy.RuntimeGetter
+	cache map[string]policy.RuntimeReader
 }
 
 // NewPolicyEngine creates a new policy engine for the Trireme package
 func NewPolicyEngine(privateKeyPem, publicKeyPem, caCertificatePem []byte) *PolicyInfo {
 
 	return &PolicyInfo{
-		cache: map[string]policy.RuntimeGetter{},
+		cache: map[string]policy.RuntimeReader{},
 	}
 }
 
 // CreateRuleDB creates a simple Rule DB that accepts packets from
 // containers with the same labels as the instantiated container.
 // If any of the labels matches, the packet is accepted.
-func (p *PolicyInfo) createRules(runtimeInfo policy.RuntimeGetter) *policy.PUPolicy {
+func (p *PolicyInfo) createRules(runtimeInfo policy.RuntimeReader) *policy.PUPolicy {
 
 	containerPolicyInfo := policy.NewPUPolicy()
 
@@ -66,7 +66,7 @@ func (p *PolicyInfo) createSecrets(container *policy.PUInfo) error {
 
 // GetPolicy implements the Trireme interface. Here we just create a simple
 // policy that accepts packets with the same labels as the target container.
-func (p *PolicyInfo) GetPolicy(context string, runtimeInfo policy.RuntimeGetter) (*policy.PUPolicy, error) {
+func (p *PolicyInfo) GetPolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error) {
 
 	containerPolicyInfo := p.createRules(runtimeInfo)
 

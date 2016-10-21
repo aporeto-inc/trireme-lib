@@ -1,7 +1,7 @@
 package policy
 
-// A RuntimeGetter allows to get the specific parameters stored in the Runtime
-type RuntimeGetter interface {
+// A RuntimeReader allows to get the specific parameters stored in the Runtime
+type RuntimeReader interface {
 
 	// Pid returns the Pid of the Runtime.
 	Pid() int
