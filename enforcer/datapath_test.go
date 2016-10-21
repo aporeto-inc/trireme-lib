@@ -54,13 +54,13 @@ func TestInvalidContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
-		dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
 
-			err1 := dp.processApplicationPackets(tcpPacket)
-			err2 := dp.processNetworkPackets(tcpPacket)
+			err1 := enforcer.processApplicationPackets(tcpPacket)
+			err2 := enforcer.processNetworkPackets(tcpPacket)
 
 			Convey("Then I should see an error for non existing context", func() {
 
@@ -78,14 +78,14 @@ func TestInvalidIPContext(t *testing.T) {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
-		dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
-		dp.AddPU("SomeServerId", puInfo)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
+		enforcer.Enforce("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
 
-			err1 := dp.processApplicationPackets(tcpPacket)
-			err2 := dp.processNetworkPackets(tcpPacket)
+			err1 := enforcer.processApplicationPackets(tcpPacket)
+			err2 := enforcer.processNetworkPackets(tcpPacket)
 
 			Convey("Then I should see an error for missing IP", func() {
 
@@ -107,14 +107,14 @@ func TestInvalidTokenContext(t *testing.T) {
 		ip := make(map[string]string)
 		ip["bridge"] = "164.67.228.152"
 		puInfo.Runtime.SetIPAddresses(ip)
-		dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
-		dp.AddPU("SomeServerId", puInfo)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
+		enforcer.Enforce("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing token)", func() {
 
-			err1 := dp.processApplicationPackets(tcpPacket)
-			err2 := dp.processNetworkPackets(tcpPacket)
+			err1 := enforcer.processApplicationPackets(tcpPacket)
+			err2 := enforcer.processNetworkPackets(tcpPacket)
 
 			Convey("Then I should see an error for missing IP", func() {
 
@@ -165,9 +165,9 @@ func TestPacketHandling(t *testing.T) {
 
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
-			dp := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
-			dp.AddPU("SomeProcessingUnitId1", puInfo1)
-			dp.AddPU("SomeProcessingUnitId2", puInfo2)
+			enforcer := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
+			enforcer.Enforce("SomeProcessingUnitId1", puInfo1)
+			enforcer.Enforce("SomeProcessingUnitId2", puInfo2)
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
@@ -203,7 +203,7 @@ func TestPacketHandling(t *testing.T) {
 						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 						t.Error("Invalid Test Packet")
 					}
-					err = dp.processApplicationPackets(tcpPacket)
+					err = enforcer.processApplicationPackets(tcpPacket)
 					So(err, ShouldBeNil)
 
 					if debug {
@@ -217,7 +217,7 @@ func TestPacketHandling(t *testing.T) {
 					outPacket, errp := packet.New(0, output)
 					So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 					So(errp, ShouldBeNil)
-					err = dp.processNetworkPackets(outPacket)
+					err = enforcer.processNetworkPackets(outPacket)
 					So(err, ShouldBeNil)
 
 					if debug {

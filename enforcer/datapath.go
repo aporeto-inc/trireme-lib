@@ -96,7 +96,7 @@ func NewDefaultDatapathEnforcer(
 	collector := &collector.DefaultCollector{}
 	validity := time.Hour * 8760
 
-	dp := NewDatapathEnforcer(
+	return NewDatapathEnforcer(
 		mutualAuthorization,
 		fqConfig,
 		collector,
@@ -105,10 +105,9 @@ func NewDefaultDatapathEnforcer(
 		serverID,
 		validity,
 	)
-	return dp
 }
 
-func (d *datapathEnforcer) AddPU(contextID string, puInfo *policy.PUInfo) error {
+func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	rules := createRuleDB(puInfo.Policy.Rules)
 
@@ -139,7 +138,7 @@ func (d *datapathEnforcer) UpdatePU(ipaddress string, containerInfo *policy.PUIn
 	return nil
 }
 
-func (d *datapathEnforcer) DeletePU(ip string) error {
+func (d *datapathEnforcer) Unenforce(ip string) error {
 
 	return d.puTracker.Remove(ip)
 }

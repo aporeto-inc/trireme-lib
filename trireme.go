@@ -161,7 +161,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
-	err = t.enforcer.AddPU(contextID, containerInfo)
+	err = t.enforcer.Enforce(contextID, containerInfo)
 	if err != nil {
 		t.resolver.DeletePU(contextID)
 		t.supervisor.Unsupervise(contextID)
@@ -184,7 +184,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	if !ok {
 		return fmt.Errorf("default IPAddress not found for %s", contextID)
 	}
-	t.enforcer.DeletePU(ip)
+	t.enforcer.Unenforce(ip)
 	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
 	return nil
 }

@@ -4,9 +4,11 @@ import "github.com/aporeto-inc/trireme/policy"
 
 // A PolicyEnforcer is implementing the enforcer that will modify//analyze the capture packets
 type PolicyEnforcer interface {
-	AddPU(contextID string, puInfo *policy.PUInfo) error
-	DeletePU(ip string) error
+	Enforce(contextID string, puInfo *policy.PUInfo) error
+	Unenforce(ip string) error
+
 	UpdatePU(ipaddress string, puInfo *policy.PUInfo) error
+
 	Start() error
 	Stop() error
 
