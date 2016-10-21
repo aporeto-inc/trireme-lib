@@ -40,6 +40,10 @@ type Monitor interface {
 
 // A ProcessingUnitsHandler is responsible for monitoring creation and deletion of ProcessingUnits.
 type ProcessingUnitsHandler interface {
+
+	// HandleCreate handles the create ProcessingUnit event.
 	HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error
+
+	// HandleDelete handles the delete ProcessingUnit event.
 	HandleDelete(contextID string) <-chan error
 }
