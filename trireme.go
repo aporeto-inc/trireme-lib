@@ -155,7 +155,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.supervisor.AddPU(contextID, containerInfo)
+	err = t.supervisor.Supervise(contextID, containerInfo)
 	if err != nil {
 		t.resolver.DeletePU(contextID)
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
@@ -164,7 +164,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 	err = t.enforcer.AddPU(contextID, containerInfo)
 	if err != nil {
 		t.resolver.DeletePU(contextID)
-		t.supervisor.DeletePU(contextID)
+		t.supervisor.Unsupervise(contextID)
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 	glog.V(2).Infoln("Finished PUHandleCreate: %s .", contextID)
@@ -173,7 +173,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 func (t *trireme) doHandleDelete(contextID string) error {
 	t.resolver.DeletePU(contextID)
-	t.supervisor.DeletePU(contextID)
+	t.supervisor.Unsupervise(contextID)
 
 	runtimeInfo, err := t.PURuntime(contextID)
 	t.cache.Remove(contextID)
@@ -205,7 +205,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	err = t.enforcer.UpdatePU(containerInfo.Runtime.IPAddresses()["bridge"], containerInfo)
 	if err != nil {
-		t.supervisor.DeletePU(contextID)
+		t.supervisor.Unsupervise(contextID)
 		return err
 	}
 	glog.V(5).Infof("Finished UpdatePolicy. %s", contextID)

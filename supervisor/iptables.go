@@ -60,7 +60,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 
 // AddPU creates a mapping between an IP address and the corresponding labels
 // and the invokes the various handlers that process all policies.
-func (c *iptablesSupervisor) AddPU(contextID string, container *policy.PUInfo) error {
+func (c *iptablesSupervisor) Supervise(contextID string, container *policy.PUInfo) error {
 
 	index := 0
 
@@ -82,33 +82,33 @@ func (c *iptablesSupervisor) AddPU(contextID string, container *policy.PUInfo) e
 
 	// Version the policy so that we can do hitless policy changes
 	if err := c.versionTracker.AddOrUpdate(contextID, cacheEntry); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	// Configure all the ACLs
 	if err := c.addContainerChain(appChain, netChain); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	if err := c.addChainRules(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	if err := c.addPacketTrap(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	if err := c.addAppACLs(appChain, ipAddress, container.Policy.IngressACLs); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	if err := c.addNetACLs(netChain, ipAddress, container.Policy.IngressACLs); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
@@ -146,40 +146,40 @@ func (c *iptablesSupervisor) UpdatePU(contextID string, containerInfo *policy.PU
 
 	//Add a new chain for this update and map all rules there
 	if err := c.addContainerChain(appChain, netChain); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	if err := c.addPacketTrap(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	if err := c.addAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	if err := c.addNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	// Add mapping to new chain
 	if err := c.addChainRules(appChain, netChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	//Remove mapping from old chain
 	if err := c.deleteChainRules(oldAppChain, oldNetChain, ipAddress); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
 	// Delete the old chain to clean up
 	if err := c.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
-		c.DeletePU(contextID)
+		c.Unsupervise(contextID)
 		return err
 	}
 
@@ -189,10 +189,10 @@ func (c *iptablesSupervisor) UpdatePU(contextID string, containerInfo *policy.PU
 	return nil
 }
 
-// DeletePU removes the mapping from cache and cleans up the iptable rules. ALL
+// Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
-func (c *iptablesSupervisor) DeletePU(contextID string) error {
+func (c *iptablesSupervisor) Unsupervise(contextID string) error {
 
 	result, err := c.versionTracker.Get(contextID)
 	if err != nil {
