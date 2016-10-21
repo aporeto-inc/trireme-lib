@@ -1,11 +1,6 @@
 package datapath
 
-import (
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/datapath/lookup"
-	"github.com/aporeto-inc/trireme/datapath/tokens"
-	"github.com/aporeto-inc/trireme/eventlog"
-)
+import "github.com/aporeto-inc/trireme/datapath/lookup"
 
 // FlowState identifies the constants of the state of a connectioncon
 type FlowState int
@@ -73,30 +68,6 @@ type FilterQueueConfig struct {
 	ApplicationQueueSize uint32
 	// NumberOfApplicationQueues is the number of queues that must be allocated
 	NumberOfApplicationQueues uint16
-}
-
-//DataPath is the structure holding all information about a connection filter
-type DataPath struct {
-
-	// Configuration parameters
-	mutualAuthorization bool
-	FilterQueue         *FilterQueueConfig
-	tokenEngine         tokens.TokenEngine
-	logger              eventlog.EventLogger
-	service             Service
-
-	// Internal structures and caches
-	puTracker                cache.DataStore
-	networkConnectionTracker cache.DataStore
-	appConnectionTracker     cache.DataStore
-	contextConnectionTracker cache.DataStore
-
-	// stats
-	net *PacketStats
-	app *PacketStats
-
-	// ack size
-	ackSize uint32
 }
 
 // PUContext holds data indexed by the docker ID

@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	debug bool
+	debug   bool
 	TCPFlow [][]byte
 )
 
@@ -54,13 +54,13 @@ func TestInvalidContext(t *testing.T) {
 	Convey("Given I create a new datapath instance", t, func() {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
-		dataPath := NewDefault("SomeServerId", secret)
+		dp := NewDefault("SomeServerId", secret).(*dataPath)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
 
-			err1 := dataPath.processApplicationPackets(tcpPacket)
-			err2 := dataPath.processNetworkPackets(tcpPacket)
+			err1 := dp.processApplicationPackets(tcpPacket)
+			err2 := dp.processNetworkPackets(tcpPacket)
 
 			Convey("Then I should see an error for non existing context", func() {
 
@@ -78,14 +78,14 @@ func TestInvalidIPContext(t *testing.T) {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
-		dataPath := NewDefault("SomeServerId", secret)
-		dataPath.AddPU("SomeServerId", puInfo)
+		dp := NewDefault("SomeServerId", secret).(*dataPath)
+		dp.AddPU("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
 
-			err1 := dataPath.processApplicationPackets(tcpPacket)
-			err2 := dataPath.processNetworkPackets(tcpPacket)
+			err1 := dp.processApplicationPackets(tcpPacket)
+			err2 := dp.processNetworkPackets(tcpPacket)
 
 			Convey("Then I should see an error for missing IP", func() {
 
@@ -107,14 +107,14 @@ func TestInvalidTokenContext(t *testing.T) {
 		ip := make(map[string]string)
 		ip["bridge"] = "164.67.228.152"
 		puInfo.Runtime.SetIPAddresses(ip)
-		dataPath := NewDefault("SomeServerId", secret)
-		dataPath.AddPU("SomeServerId", puInfo)
+		dp := NewDefault("SomeServerId", secret).(*dataPath)
+		dp.AddPU("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing token)", func() {
 
-			err1 := dataPath.processApplicationPackets(tcpPacket)
-			err2 := dataPath.processNetworkPackets(tcpPacket)
+			err1 := dp.processApplicationPackets(tcpPacket)
+			err2 := dp.processNetworkPackets(tcpPacket)
 
 			Convey("Then I should see an error for missing IP", func() {
 
@@ -135,14 +135,14 @@ func TestPacketHandling(t *testing.T) {
 
 		tagSelector := policy.TagSelector{
 
-			Clause : []policy.KeyValueOperator{
+			Clause: []policy.KeyValueOperator{
 				{
-					Key : TransmitterLabel,
-					Value : []string{"value"},
-					Operator : policy.Equal,
+					Key:      TransmitterLabel,
+					Value:    []string{"value"},
+					Operator: policy.Equal,
 				},
 			},
-			Action : policy.Accept,
+			Action: policy.Accept,
 		}
 
 		Convey("Given I create a two processing unit instances", func() {
@@ -165,9 +165,9 @@ func TestPacketHandling(t *testing.T) {
 
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
-			dataPath := NewDefault("SomeServerId", secret)
-			dataPath.AddPU("SomeProcessingUnitId1", puInfo1)
-			dataPath.AddPU("SomeProcessingUnitId2", puInfo2)
+			dp := NewDefault("SomeServerId", secret).(*dataPath)
+			dp.AddPU("SomeProcessingUnitId1", puInfo1)
+			dp.AddPU("SomeProcessingUnitId2", puInfo2)
 
 			Convey("When I pass multiple packets through the datapath", func() {
 
@@ -200,10 +200,10 @@ func TestPacketHandling(t *testing.T) {
 						SIP = tcpPacket.SourceAddress
 					}
 					if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-					   !reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
-	   					t.Error("Invalid Test Packet")
-				    }
-					err = dataPath.processApplicationPackets(tcpPacket)
+						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+						t.Error("Invalid Test Packet")
+					}
+					err = dp.processApplicationPackets(tcpPacket)
 					So(err, ShouldBeNil)
 
 					if debug {
@@ -217,7 +217,7 @@ func TestPacketHandling(t *testing.T) {
 					outPacket, errp := packet.New(0, output)
 					So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 					So(errp, ShouldBeNil)
-					err = dataPath.processNetworkPackets(outPacket)
+					err = dp.processNetworkPackets(outPacket)
 					So(err, ShouldBeNil)
 
 					if debug {

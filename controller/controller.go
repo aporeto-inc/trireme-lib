@@ -25,8 +25,8 @@ const (
 	triremeNetChainPrefix             = triremeChainPrefix + "Net-"
 )
 
-//Controller is the structure holding all information about a connection filter
-type Controller struct {
+//controller is the structure holding all information about a connection filter
+type controller struct {
 	versionTracker cache.DataStore
 
 	// Engine components
@@ -54,16 +54,18 @@ type controllerCacheEntry struct {
 // simplifies the lookup operations at the expense of memory.
 func New(
 	logger eventlog.EventLogger,
-	dp *datapath.DataPath,
-	targetNetworks []string) *Controller {
+	dp datapath.Datapath,
+	targetNetworks []string) Controller {
 
-	c := &Controller{
+	filterQueue := dp.GetFilterQueue()
+
+	c := &controller{
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,
 		plugin:            nil,
 		logger:            logger,
-		networkQueues:     strconv.Itoa(int(dp.FilterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(dp.FilterQueue.NetworkQueue+dp.FilterQueue.NumberOfNetworkQueues-1)),
-		applicationQueues: strconv.Itoa(int(dp.FilterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(dp.FilterQueue.ApplicationQueue+dp.FilterQueue.NumberOfApplicationQueues-1)),
+		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
+		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
 	}
 
 	// Make sure that the iptables command is accessible. Panic if its not there.
@@ -80,12 +82,12 @@ func New(
 }
 
 // Start starts the controller
-func (c *Controller) Start() error {
+func (c *controller) Start() error {
 	return nil
 }
 
 // Stop stops the controller
-func (c *Controller) Stop() error {
+func (c *controller) Stop() error {
 	// Clean any previous ACLs that we have installed
 	c.CleanACL()
 	return nil
@@ -94,7 +96,7 @@ func (c *Controller) Stop() error {
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
-func (c *Controller) addContainerChain(appChain string, netChain string) error {
+func (c *controller) addContainerChain(appChain string, netChain string) error {
 
 	if err := c.ipt.NewChain(triremeAppPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to create container specific chain", appChain, err)
@@ -115,7 +117,7 @@ func (c *Controller) addContainerChain(appChain string, netChain string) error {
 
 // delete removes all the rules in the provided chain and deletes the
 // chain
-func (c *Controller) deleteChain(context, chain string) error {
+func (c *controller) deleteChain(context, chain string) error {
 
 	if err := c.ipt.ClearChain(context, chain); err != nil {
 		glog.V(2).Infoln("Failed to clear the container specific chain: ", chain, err)
@@ -131,7 +133,7 @@ func (c *Controller) deleteChain(context, chain string) error {
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
-func (c *Controller) deleteAllContainerChains(appChain, netChain string) error {
+func (c *controller) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := c.deleteChain(triremeAppPacketIPTableContext, appChain); err != nil {
 		glog.V(2).Infoln("Failed to clear and delete the appChain: ", appChain, err)
@@ -151,7 +153,7 @@ func (c *Controller) deleteAllContainerChains(appChain, netChain string) error {
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (c *Controller) chainRules(appChain string, netChain string, ip string) [][]string {
+func (c *controller) chainRules(appChain string, netChain string, ip string) [][]string {
 
 	chainRules := [][]string{
 		{
@@ -183,7 +185,7 @@ func (c *Controller) chainRules(appChain string, netChain string, ip string) [][
 }
 
 // addChains rules implements all the iptable rules that redirect traffic to a chain
-func (c *Controller) addChainRules(appChain string, netChain string, ip string) error {
+func (c *controller) addChainRules(appChain string, netChain string, ip string) error {
 
 	chainRules := c.chainRules(appChain, netChain, ip)
 	for _, cr := range chainRules {
@@ -199,7 +201,7 @@ func (c *Controller) addChainRules(appChain string, netChain string, ip string) 
 }
 
 //deleteChainRules deletes the rules that send traffic to our chain
-func (c *Controller) deleteChainRules(appChain, netChain, ip string) error {
+func (c *controller) deleteChainRules(appChain, netChain, ip string) error {
 
 	chainRules := c.chainRules(appChain, netChain, ip)
 	for _, cr := range chainRules {
@@ -214,7 +216,7 @@ func (c *Controller) deleteChainRules(appChain, netChain, ip string) error {
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (c *Controller) trapRules(appChain string, netChain string, network string) [][]string {
+func (c *controller) trapRules(appChain string, netChain string, network string) [][]string {
 
 	trapRules := [][]string{
 		// Application Syn and Syn/Ack
@@ -248,7 +250,7 @@ func (c *Controller) trapRules(appChain string, netChain string, network string)
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (c *Controller) addPacketTrap(appChain string, netChain string, ip string) error {
+func (c *controller) addPacketTrap(appChain string, netChain string, ip string) error {
 
 	for _, network := range c.targetNetworks {
 
@@ -266,7 +268,7 @@ func (c *Controller) addPacketTrap(appChain string, netChain string, ip string) 
 }
 
 // deletePacketTrap deletes the iptables rules that trap control  packets to user space
-func (c *Controller) deletePacketTrap(appChain, netChain, ip string) error {
+func (c *controller) deletePacketTrap(appChain, netChain, ip string) error {
 
 	for _, network := range c.targetNetworks {
 
@@ -286,7 +288,7 @@ func (c *Controller) deletePacketTrap(appChain, netChain, ip string) error {
 
 // addAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (c *Controller) addAppACLs(chain string, ip string, rules []policy.IPRule) error {
+func (c *controller) addAppACLs(chain string, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 
@@ -316,7 +318,7 @@ func (c *Controller) addAppACLs(chain string, ip string, rules []policy.IPRule) 
 }
 
 // deleteAppACLs deletes the rules associated with traffic to external services
-func (c *Controller) deleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
+func (c *controller) deleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 		if err := c.ipt.Delete(
@@ -345,7 +347,7 @@ func (c *Controller) deleteAppACLs(chain string, ip string, rules []policy.IPRul
 
 // addNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the higest priority since they are direct allows.
-func (c *Controller) addNetACLs(chain, ip string, rules []policy.IPRule) error {
+func (c *controller) addNetACLs(chain, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 
@@ -376,7 +378,7 @@ func (c *Controller) addNetACLs(chain, ip string, rules []policy.IPRule) error {
 }
 
 // deleteNetACLs removes the iptable rules that manage traffic from external services
-func (c *Controller) deleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
+func (c *controller) deleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
 
 	for i := range rules {
 		if err := c.ipt.Delete(
@@ -404,7 +406,7 @@ func (c *Controller) deleteNetACLs(chain string, ip string, rules []policy.IPRul
 
 // AddPU creates a mapping between an IP address and the corresponding labels
 // and the invokes the various handlers that process all policies.
-func (c *Controller) AddPU(contextID string, container *policy.PUInfo) error {
+func (c *controller) AddPU(contextID string, container *policy.PUInfo) error {
 
 	index := 0
 
@@ -472,7 +474,7 @@ func (c *Controller) AddPU(contextID string, container *policy.PUInfo) error {
 // DeletePU removes the mapping from cache and cleans up the iptable rules. ALL
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
-func (c *Controller) DeletePU(contextID string) error {
+func (c *controller) DeletePU(contextID string) error {
 
 	result, err := c.versionTracker.Get(contextID)
 	if err != nil {
@@ -516,7 +518,7 @@ func add(a, b interface{}) interface{} {
 
 //UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
-func (c *Controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) error {
+func (c *controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) error {
 
 	cacheEntry, err := c.versionTracker.LockedModify(contextID, add, 1)
 	newindex := cacheEntry.(*controllerCacheEntry).index
@@ -592,7 +594,7 @@ func (c *Controller) UpdatePU(contextID string, containerInfo *policy.PUInfo) er
 	return nil
 }
 
-func (c *Controller) cleanACLSection(context, section, chainPrefix string) {
+func (c *controller) cleanACLSection(context, section, chainPrefix string) {
 
 	if err := c.ipt.ClearChain(context, section); err != nil {
 		glog.V(2).Infoln("Can't clear ", section, " iptables command")
@@ -615,7 +617,7 @@ func (c *Controller) cleanACLSection(context, section, chainPrefix string) {
 }
 
 // CleanACL cleans up all the ACLs that have an Trireme  Label in the mangle table
-func (c *Controller) CleanACL() {
+func (c *controller) CleanACL() {
 
 	// Clean Application Rules/Chains
 	c.cleanACLSection(triremeAppPacketIPTableContext, triremeAppPacketIPTableSection, triremeChainPrefix)

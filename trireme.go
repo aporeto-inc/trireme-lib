@@ -4,39 +4,27 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/controller"
 	"github.com/aporeto-inc/trireme/datapath"
-	"github.com/aporeto-inc/trireme/interfaces"
 	"github.com/aporeto-inc/trireme/policy"
 
 	"github.com/golang/glog"
 )
 
-// Trireme contains references to all the subElements of Trireme.
-type Trireme struct {
+// trireme contains references to all the subElements of trireme.
+type trireme struct {
 	serverID         string
 	containerTracker cache.DataStore
-	controller       interfaces.Controller
-	datapath         interfaces.Datapath
-	resolver         interfaces.PolicyResolver
+	controller       controller.Controller
+	datapath         datapath.Datapath
+	resolver         PolicyResolver
 	stopChan         chan bool
 	requestChan      chan *triremeRequest
 }
 
-const requestCreate = 1
-const requestDelete = 2
-const policyUpdate = 3
-
-type triremeRequest struct {
-	contextID   string
-	reqType     int
-	runtimeInfo *policy.PURuntime
-	policyInfo  *policy.PUPolicy
-	returnChan  chan error
-}
-
 // New returns a reference to the trireme object based on the parameter subelements.
-func New(serverID string, datapath interfaces.Datapath, controller interfaces.Controller, resolver interfaces.PolicyResolver) *Trireme {
-	trireme := &Trireme{
+func New(serverID string, datapath datapath.Datapath, controller controller.Controller, resolver PolicyResolver) Trireme {
+	trireme := &trireme{
 		serverID:         serverID,
 		containerTracker: cache.NewCache(nil),
 		controller:       controller,
@@ -47,11 +35,10 @@ func New(serverID string, datapath interfaces.Datapath, controller interfaces.Co
 	}
 	resolver.SetPolicyUpdater(trireme)
 	return trireme
-
 }
 
 // Start starts trireme individual components.
-func (t *Trireme) Start() error {
+func (t *trireme) Start() error {
 	err := t.controller.Start()
 	if err != nil {
 		return fmt.Errorf("Error starting Controller: %s", err)
@@ -62,15 +49,15 @@ func (t *Trireme) Start() error {
 		return fmt.Errorf("Error starting Datapath: %s", err)
 	}
 
-	// Starting main Trireme routine
+	// Starting main trireme routine
 	go t.triremeWorker()
 
 	return nil
 }
 
 // Stop stops trireme individual components
-func (t *Trireme) Stop() error {
-	// send the stop signal for the Trireme worker routine.
+func (t *trireme) Stop() error {
+	// send the stop signal for the trireme worker routine.
 	t.stopChan <- true
 	err := t.controller.Stop()
 	if err != nil {
@@ -86,7 +73,7 @@ func (t *Trireme) Stop() error {
 }
 
 // HandleCreate is acting on a create monitoring event.
-func (t *Trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
+func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
 	returnChan := make(chan error)
 	triremeRequest := &triremeRequest{
 		contextID:   contextID,
@@ -99,7 +86,7 @@ func (t *Trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) 
 }
 
 // HandleDelete is acting on a delete monitoring object
-func (t *Trireme) HandleDelete(contextID string) <-chan error {
+func (t *trireme) HandleDelete(contextID string) <-chan error {
 	returnChan := make(chan error)
 	triremeRequest := &triremeRequest{
 		contextID:  contextID,
@@ -112,7 +99,7 @@ func (t *Trireme) HandleDelete(contextID string) <-chan error {
 
 // UpdatePolicy updates the policy of the isolator for a container
 // This is exposed in the interface and its only valid after a container has been started
-func (t *Trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
+func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
 	returnChan := make(chan error)
 	triremeRequest := &triremeRequest{
 		contextID:  contextID,
@@ -129,7 +116,7 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 }
 
 // PURuntime returns a getter for a specific contextID.
-func (t *Trireme) PURuntime(contextID string) (interfaces.RuntimeGetter, error) {
+func (t *trireme) PURuntime(contextID string) (RuntimeGetter, error) {
 	container, err := t.containerTracker.Get(contextID)
 	if err != nil {
 		return nil, err
@@ -138,7 +125,7 @@ func (t *Trireme) PURuntime(contextID string) (interfaces.RuntimeGetter, error) 
 	return container.(*policy.PURuntime), nil
 }
 
-func (t *Trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime) error {
+func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime) error {
 
 	// Cache all the container runtime information
 	if err := t.containerTracker.AddOrUpdate(contextID, runtimeInfo); err != nil {
@@ -171,7 +158,7 @@ func (t *Trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 	return nil
 }
 
-func (t *Trireme) doHandleDelete(contextID string) error {
+func (t *trireme) doHandleDelete(contextID string) error {
 	t.resolver.DeletePU(contextID)
 	t.controller.DeletePU(contextID)
 
@@ -189,7 +176,7 @@ func (t *Trireme) doHandleDelete(contextID string) error {
 	return nil
 }
 
-func (t *Trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
+func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 	runtimeInfo, err := t.PURuntime(contextID)
 	if err != nil {
 		return err
@@ -212,7 +199,7 @@ func (t *Trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	return nil
 }
 
-func (t *Trireme) handleRequest(request *triremeRequest) error {
+func (t *trireme) handleRequest(request *triremeRequest) error {
 	switch request.reqType {
 	case requestCreate:
 		return t.doHandleCreate(request.contextID, request.runtimeInfo)
@@ -221,18 +208,18 @@ func (t *Trireme) handleRequest(request *triremeRequest) error {
 	case policyUpdate:
 		return t.doUpdatePolicy(request.contextID, request.policyInfo)
 	default:
-		return fmt.Errorf("Trireme Request format not recognized: %d", request.reqType)
+		return fmt.Errorf("trireme Request format not recognized: %d", request.reqType)
 	}
 }
 
-func (t *Trireme) triremeWorker() {
+func (t *trireme) triremeWorker() {
 	for {
 		select {
 		case <-t.stopChan:
-			glog.V(2).Infof("Stopping Trireme worker.")
+			glog.V(2).Infof("Stopping trireme worker.")
 			return
 		case req := <-t.requestChan:
-			glog.V(5).Infof("Handling Trireme Request Type %d ", req.reqType)
+			glog.V(5).Infof("Handling trireme Request Type %d ", req.reqType)
 			req.returnChan <- t.handleRequest(req)
 		}
 	}

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme/eventlog"
-	"github.com/aporeto-inc/trireme/interfaces"
 	"github.com/aporeto-inc/trireme/policy"
 
 	"github.com/docker/docker/api/types"
@@ -22,7 +21,7 @@ import (
 type Docker struct {
 	EventMonitor
 	dockerClient       *dockerClient.Client
-	metadataExtractor  interfaces.DockerMetadataExtractor
+	metadataExtractor  MetadataExtractor
 	handlers           map[string]func(event *events.Message) error
 	eventnotifications chan *events.Message
 	stopprocessor      chan bool
@@ -36,7 +35,7 @@ type Docker struct {
 //
 // After creating a new DockerMonitor, call AddHandler to install one
 // or more callback handlers for the events to monitor. Then call Start.
-func NewDockerMonitor(socketType string, socketAddress string, p interfaces.ProcessingUnitsHandler, m interfaces.DockerMetadataExtractor, e eventlog.EventLogger, syncAtStart bool) (docker *Docker, err error) {
+func NewDockerMonitor(socketType string, socketAddress string, p ProcessingUnitsHandler, m MetadataExtractor, e eventlog.EventLogger, syncAtStart bool) (docker *Docker, err error) {
 	var d Docker
 
 	if d.initDockerClient(socketType, socketAddress) != nil {
@@ -197,8 +196,8 @@ func (d *Docker) syncContainers() error {
 	return nil
 }
 
-// DockerMetadataExtract generates the RuntimeInfo based on Docker primitive
-func (d *Docker) DockerMetadataExtract(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
+// ExtractMetadata generates the RuntimeInfo based on Docker primitive
+func (d *Docker) ExtractMetadata(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
 	if dockerInfo == nil {
 		return nil, fmt.Errorf("DockerInfo is empty.")
 	}
@@ -241,7 +240,7 @@ func (d *Docker) addOrUpdateDockerContainer(dockerInfo *types.ContainerJSON) err
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	runtimeInfo, err := d.DockerMetadataExtract(dockerInfo)
+	runtimeInfo, err := d.ExtractMetadata(dockerInfo)
 
 	if err != nil {
 		return fmt.Errorf("Error getting some of the Docker primitives")

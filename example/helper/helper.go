@@ -10,32 +10,30 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"sync"
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/datapath"
-	"github.com/aporeto-inc/trireme/interfaces"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
 // PolicyInfo holds the configuration of the policy engine
 type PolicyInfo struct {
-	cache map[string]interfaces.RuntimeGetter
+	cache map[string]trireme.RuntimeGetter
 }
 
 // NewPolicyEngine creates a new policy engine for the Trireme package
 func NewPolicyEngine(privateKeyPem, publicKeyPem, caCertificatePem []byte) *PolicyInfo {
 
 	return &PolicyInfo{
-		cache: map[string]interfaces.RuntimeGetter{},
+		cache: map[string]trireme.RuntimeGetter{},
 	}
 }
 
 // CreateRuleDB creates a simple Rule DB that accepts packets from
 // containers with the same labels as the instantiated container.
 // If any of the labels matches, the packet is accepted.
-func (p *PolicyInfo) createRules(runtimeInfo interfaces.RuntimeGetter) *policy.PUPolicy {
+func (p *PolicyInfo) createRules(runtimeInfo trireme.RuntimeGetter) *policy.PUPolicy {
 
 	containerPolicyInfo := policy.NewPUPolicy()
 
@@ -76,7 +74,7 @@ func (p *PolicyInfo) createSecrets(container *policy.PUInfo) error {
 
 // GetPolicy implements the Trireme interface. Here we just create a simple
 // policy that accepts packets with the same labels as the target container.
-func (p *PolicyInfo) GetPolicy(context string, runtimeInfo interfaces.RuntimeGetter) (*policy.PUPolicy, error) {
+func (p *PolicyInfo) GetPolicy(context string, runtimeInfo trireme.RuntimeGetter) (*policy.PUPolicy, error) {
 
 	containerPolicyInfo := p.createRules(runtimeInfo)
 
@@ -94,14 +92,8 @@ func (p *PolicyInfo) DeletePU(context string) error {
 }
 
 // SetPolicyUpdater is used in order to register a pointer to the policyUpdater
-func (p *PolicyInfo) SetPolicyUpdater(pu interfaces.PolicyUpdater) error {
+func (p *PolicyInfo) SetPolicyUpdater(pu trireme.PolicyUpdater) error {
 	return nil
-}
-
-func usage() {
-	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]\n")
-	flag.PrintDefaults()
-	os.Exit(2)
 }
 
 // New starts a new example

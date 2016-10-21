@@ -1,13 +1,13 @@
-package trireme
+package helper
 
 import (
 	"crypto/ecdsa"
 
+	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/controller"
 	"github.com/aporeto-inc/trireme/datapath"
 	"github.com/aporeto-inc/trireme/datapath/tokens"
 	"github.com/aporeto-inc/trireme/eventlog"
-	"github.com/aporeto-inc/trireme/interfaces"
 	"github.com/aporeto-inc/trireme/monitor"
 )
 
@@ -25,18 +25,25 @@ type Helper struct {
 	ServerID    string
 	SyncAtStart bool
 
-	PkAdder        interfaces.PublicKeyAdder
+	PkAdder        trireme.PublicKeyAdder
 	targetNetworks []string
 	secrets        tokens.Secrets
 	dp             *datapath.DataPath
-	controller     *controller.Controller
-	Monitor        *monitor.Docker
-	policyEngine   interfaces.PolicyResolver
-	Trireme        interfaces.Trireme
+	controller     controller.Controller
+	Monitor        monitor.Monitor
+	policyEngine   trireme.PolicyResolver
+	Trireme        trireme.Trireme
 }
 
 // NewTrireme TODO
-func NewTrireme(serverID string, targetNetworks []string, policyEngine interfaces.PolicyResolver, svcImpl datapath.Service, secrets tokens.Secrets, syncAtStart bool) *Helper {
+func NewTrireme(
+	serverID string,
+	targetNetworks []string,
+	policyEngine trireme.PolicyResolver,
+	svcImpl datapath.Service,
+	secrets tokens.Secrets,
+	syncAtStart bool,
+) *Helper {
 
 	helper := Helper{
 		EventLogger: &eventlog.DefaultLogger{},
@@ -69,7 +76,7 @@ func NewTrireme(serverID string, targetNetworks []string, policyEngine interface
 	}
 	helper.controller = controller
 
-	trireme := New(serverID, helper.dp, helper.controller, helper.policyEngine)
+	trireme := trireme.New(serverID, helper.dp, helper.controller, helper.policyEngine)
 	helper.Trireme = trireme
 
 	monitor, err := monitor.NewDockerMonitor(
@@ -91,7 +98,7 @@ func NewTrireme(serverID string, targetNetworks []string, policyEngine interface
 // a policy engine implementation and private/public key pair and parent certificate.
 // All certificates are passed in PEM format. If a certificate pool is provided
 // certificates will not be transmitted on the wire
-func NewPKITrireme(serverID string, targetNetworks []string, policyEngine interfaces.PolicyResolver, svcImpl datapath.Service, syncAtStart bool, keyPEM, certPEM, caCertPEM []byte) *Helper {
+func NewPKITrireme(serverID string, targetNetworks []string, policyEngine trireme.PolicyResolver, svcImpl datapath.Service, syncAtStart bool, keyPEM, certPEM, caCertPEM []byte) *Helper {
 	certCache := map[string]*ecdsa.PublicKey{}
 	tokens := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, certCache)
 	helper := NewTrireme(
@@ -108,7 +115,7 @@ func NewPKITrireme(serverID string, targetNetworks []string, policyEngine interf
 
 // NewPSKTrireme creates a new network isolator. The calling module must provide
 // a policy engine implementation and a pre-shared secret
-func NewPSKTrireme(serverID string, targetNetworks []string, policyEngine interfaces.PolicyResolver, svcImpl datapath.Service, syncAtStart bool, key []byte) *Helper {
+func NewPSKTrireme(serverID string, targetNetworks []string, policyEngine trireme.PolicyResolver, svcImpl datapath.Service, syncAtStart bool, key []byte) *Helper {
 
 	return NewTrireme(
 		serverID,

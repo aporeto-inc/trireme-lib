@@ -14,6 +14,7 @@ type Connection struct {
 
 // NewConnection creates the state information for a new connection
 func NewConnection() *Connection {
+
 	var err error
 
 	c := &Connection{
