@@ -16,8 +16,8 @@ type IPRule struct {
 	Protocol string
 }
 
-// TagMap is a map of Key:Values used as tags.
-type TagMap map[string]string
+// A TagsMap is a map of Key:Values used as tags.
+type TagsMap map[string]string
 
 // Operator defines the operation between your key and value.
 type Operator string
@@ -82,7 +82,7 @@ type PUPolicy struct {
 	// the data center
 	EgressACLs []IPRule
 	// PolicyTags are the tags that will be sent on the wire and used for policing.
-	PolicyTags TagMap
+	PolicyTags TagsMap
 	// Rules is the set of rules that implement the label matching.
 	Rules []TagSelector
 	// Extensions is an interface to a data structure that allows the policy supervisor
@@ -100,7 +100,7 @@ type PURuntime struct {
 	// IPAddress is the IP Address of the container
 	iPAddresses map[string]string
 	// Tags is a map of the metadata of the container
-	tags TagMap
+	tags TagsMap
 }
 
 // Pid returns the PID
@@ -146,12 +146,12 @@ func (r *PURuntime) Tag(key string) (string, bool) {
 }
 
 //Tags returns tags for the processing unit
-func (r *PURuntime) Tags() TagMap {
+func (r *PURuntime) Tags() TagsMap {
 	return r.tags
 }
 
 //SetTags sets tags for the processing unit
-func (r *PURuntime) SetTags(tags TagMap) {
+func (r *PURuntime) SetTags(tags TagsMap) {
 	r.tags = tags
 }
 

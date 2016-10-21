@@ -61,7 +61,7 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 
 	runtimeInfo := policy.NewPURuntime()
 
-	tags := policy.TagMap{}
+	tags := policy.TagsMap{}
 	tags["image"] = info.Config.Image
 	tags["name"] = info.Name
 

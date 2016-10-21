@@ -44,7 +44,6 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.
 	return trireme
 }
 
-// Start starts trireme individual components.
 func (t *trireme) Start() error {
 
 	if err := t.supervisor.Start(); err != nil {
@@ -61,7 +60,6 @@ func (t *trireme) Start() error {
 	return nil
 }
 
-// Stop stops trireme individual components
 func (t *trireme) Stop() error {
 
 	// send the stop signal for the trireme worker routine.
@@ -78,7 +76,6 @@ func (t *trireme) Stop() error {
 	return nil
 }
 
-// HandleCreate is acting on a create monitoring event.
 func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
 
 	c := make(chan error)
@@ -95,7 +92,6 @@ func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) 
 	return c
 }
 
-// HandleDelete is acting on a delete monitoring object
 func (t *trireme) HandleDelete(contextID string) <-chan error {
 
 	c := make(chan error)

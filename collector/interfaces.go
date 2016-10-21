@@ -1,6 +1,9 @@
 package collector
 
-import "github.com/aporeto-inc/trireme/enforcer/packet"
+import (
+	"github.com/aporeto-inc/trireme/enforcer/packet"
+	"github.com/aporeto-inc/trireme/policy"
+)
 
 var (
 	// FlowReject indicates that a flow was rejected
@@ -41,8 +44,8 @@ var (
 type EventCollector interface {
 
 	// CollectFlowEvent collects flow events.
-	CollectFlowEvent(contextID string, labels map[string]string, action string, mode string, sourceID string, tcpPacket *packet.Packet)
+	CollectFlowEvent(contextID string, tags policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet)
 
 	// CollectContainerEvent collects container events.
-	CollectContainerEvent(contextID string, ip string, labels map[string]string, event string)
+	CollectContainerEvent(contextID string, ip string, tags policy.TagsMap, event string)
 }

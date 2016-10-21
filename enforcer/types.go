@@ -1,6 +1,9 @@
 package enforcer
 
-import "github.com/aporeto-inc/trireme/enforcer/lookup"
+import (
+	"github.com/aporeto-inc/trireme/enforcer/lookup"
+	"github.com/aporeto-inc/trireme/policy"
+)
 
 // FlowState identifies the constants of the state of a connectioncon
 type FlowState int
@@ -61,7 +64,7 @@ type FilterQueueConfig struct {
 // PUContext holds data indexed by the docker ID
 type PUContext struct {
 	ID        string
-	Tags      map[string]string
+	Tags      policy.TagsMap
 	rules     *lookup.PolicyDB
 	Extension interface{}
 }

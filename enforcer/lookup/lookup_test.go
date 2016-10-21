@@ -163,7 +163,7 @@ func TestFuncSearch(t *testing.T) {
 			So(index6, ShouldEqual, 6)
 
 			Convey("Given that I search for a single matching that matches the equal rules, it should return the correct index,", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"app": "web",
 					"env": "demo",
 				}
@@ -173,7 +173,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for a single matching that matches the not equal rules, it should return the right index,", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"lang": "go",
 					"env":  "demo",
 				}
@@ -183,7 +183,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for rules that match the KeyExists Policy, it should return the right index  ", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"dc":  "EAST",
 					"env": "demo",
 				}
@@ -193,7 +193,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for a single matching that matches the Or rules, it should return the right index,", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"app": "web",
 					"env": "qa",
 				}
@@ -203,7 +203,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for a single matching that matches the NOT Or rlues, it should return the right index,", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"app": "web",
 					"env": "prod",
 				}
@@ -213,7 +213,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for a single clause  that fails in the Not OR operator, it should fail ,", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"lang": "java",
 					"env":  "demo",
 					"app":  "db",
@@ -224,7 +224,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for rules that do not match, it should return an error ", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"tag": "none",
 				}
 				index, action := policyDB.Search(tags)
@@ -233,7 +233,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for a single that succeds in the Not Key  operator, it should succeed ,", func() {
-				tags := map[string]string{
+				tags := policy.TagsMap{
 					"app": "web",
 				}
 				index, action := policyDB.Search(tags)

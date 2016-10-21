@@ -92,7 +92,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 }
 
 //Search searches for a set of tags in the database to find a policy match
-func (m *PolicyDB) Search(tags map[string]string) (int, interface{}) {
+func (m *PolicyDB) Search(tags policy.TagsMap) (int, interface{}) {
 
 	count := make([]int, m.numberOfPolicies+1)
 
