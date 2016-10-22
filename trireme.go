@@ -11,11 +11,7 @@ import (
 	"github.com/golang/glog"
 )
 
-func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
-	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
-}
-
-// trireme contains references to all the subElements of
+// trireme contains references to all the different components involved.
 type trireme struct {
 	serverID   string
 	cache      cache.DataStore
@@ -44,6 +40,8 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.
 	return trireme
 }
 
+// Start starts the supervisor and the enforcer. It will also start to handling requests
+// For new PU Creation and Policy Updates.
 func (t *trireme) Start() error {
 
 	if err := t.supervisor.Start(); err != nil {
@@ -60,6 +58,8 @@ func (t *trireme) Start() error {
 	return nil
 }
 
+// Stop stops the supervisor and enforcer. It also stops handling new request
+// for PU Creation/Update and Policy Updates
 func (t *trireme) Stop() error {
 
 	// send the stop signal for the trireme worker routine.
@@ -76,6 +76,8 @@ func (t *trireme) Stop() error {
 	return nil
 }
 
+// HandleCreate implements the logic needed between all the Trireme components for
+// explicitely adding a new PU.
 func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
 
 	c := make(chan error)
@@ -92,6 +94,8 @@ func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) 
 	return c
 }
 
+// HandleDelete implements the logic needed between all the Trireme components for
+// explicitely deleting an existing PU.
 func (t *trireme) HandleDelete(contextID string) <-chan error {
 
 	c := make(chan error)
@@ -107,6 +111,7 @@ func (t *trireme) HandleDelete(contextID string) <-chan error {
 	return c
 }
 
+// UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
 
 	c := make(chan error)
@@ -123,6 +128,7 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 	return c
 }
 
+// PURuntime returns the RuntimeInfo based on the contextID.
 func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 
 	container, err := t.cache.Get(contextID)
@@ -132,6 +138,11 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 	}
 
 	return container.(*policy.PURuntime), nil
+}
+
+// addTransmitterLabel adds the TransmitterLabel as a fixed label in the policy.
+func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
+	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
 }
 
 func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime) error {
