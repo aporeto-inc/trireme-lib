@@ -28,6 +28,11 @@ type mockedMethodsPolicyEnforcer struct {
 	stopMock func() error
 }
 
+type mockedMethodsPublicKeyAdder struct {
+	// PublicKeyAdd adds the given cert for the given host.
+	publicKeyAddMock func(host string, cert []byte) error
+}
+
 // TestPolicyEnforcer vxcv
 type TestPolicyEnforcer interface {
 	PolicyEnforcer
@@ -39,9 +44,22 @@ type TestPolicyEnforcer interface {
 	MockStop(t *testing.T, impl func() error)
 }
 
-// A testSupervisor is an empty TransactionalManipulator that can be easily mocked.
+// TestPublicKeyAdder vxcv
+type TestPublicKeyAdder interface {
+	PublicKeyAdder
+	MockPublicKeyAdd(t *testing.T, impl func(host string, cert []byte) error)
+}
+
+// A testPolicyEnforcer is an empty TransactionalManipulator that can be easily mocked.
 type testPolicyEnforcer struct {
 	mocks       map[*testing.T]*mockedMethodsPolicyEnforcer
+	lock        *sync.Mutex
+	currentTest *testing.T
+}
+
+// A testPublicKeyAdder is an empty TransactionalManipulator that can be easily mocked.
+type testPublicKeyAdder struct {
+	mocks       map[*testing.T]*mockedMethodsPublicKeyAdder
 	lock        *sync.Mutex
 	currentTest *testing.T
 }
@@ -54,39 +72,47 @@ func NewTestPolicyEnforcer() TestPolicyEnforcer {
 	}
 }
 
+// NewTestPublicKeyAdder returns a new TestManipulator.
+func NewTestPublicKeyAdder() TestPublicKeyAdder {
+	return &testPublicKeyAdder{
+		lock:  &sync.Mutex{},
+		mocks: map[*testing.T]*mockedMethodsPublicKeyAdder{},
+	}
+}
+
 func (m *testPolicyEnforcer) MockEnforce(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error) {
 
-	m.currentMocks(t).enforceMock = impl
+	m.currentMocksPolicyEnforcer(t).enforceMock = impl
 }
 
 func (m *testPolicyEnforcer) MockUnenforce(t *testing.T, impl func(ip string) error) {
 
-	m.currentMocks(t).unenforceMock = impl
+	m.currentMocksPolicyEnforcer(t).unenforceMock = impl
 }
 
 func (m *testPolicyEnforcer) MockUpdatePU(t *testing.T, impl func(ip string, puInfo *policy.PUInfo) error) {
 
-	m.currentMocks(t).updatePUMock = impl
+	m.currentMocksPolicyEnforcer(t).updatePUMock = impl
 }
 
 func (m *testPolicyEnforcer) MockGetFilterQueue(t *testing.T, impl func() *FilterQueue) {
 
-	m.currentMocks(t).getFilterQueueMock = impl
+	m.currentMocksPolicyEnforcer(t).getFilterQueueMock = impl
 }
 
 func (m *testPolicyEnforcer) MockStart(t *testing.T, impl func() error) {
 
-	m.currentMocks(t).startMock = impl
+	m.currentMocksPolicyEnforcer(t).startMock = impl
 }
 
 func (m *testPolicyEnforcer) MockStop(t *testing.T, impl func() error) {
 
-	m.currentMocks(t).stopMock = impl
+	m.currentMocksPolicyEnforcer(t).stopMock = impl
 }
 
 func (m *testPolicyEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.enforceMock != nil {
+	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.enforceMock != nil {
 		return mock.enforceMock(contextID, puInfo)
 	}
 
@@ -95,7 +121,7 @@ func (m *testPolicyEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) er
 
 func (m *testPolicyEnforcer) Unenforce(ip string) error {
 
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.unenforceMock != nil {
+	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.unenforceMock != nil {
 		return mock.unenforceMock(ip)
 	}
 
@@ -104,7 +130,7 @@ func (m *testPolicyEnforcer) Unenforce(ip string) error {
 
 func (m *testPolicyEnforcer) UpdatePU(ip string, puInfo *policy.PUInfo) error {
 
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.updatePUMock != nil {
+	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.updatePUMock != nil {
 		return mock.updatePUMock(ip, puInfo)
 	}
 
@@ -113,7 +139,7 @@ func (m *testPolicyEnforcer) UpdatePU(ip string, puInfo *policy.PUInfo) error {
 
 func (m *testPolicyEnforcer) GetFilterQueue() *FilterQueue {
 
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.getFilterQueueMock != nil {
+	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.getFilterQueueMock != nil {
 		return mock.getFilterQueueMock()
 	}
 
@@ -122,7 +148,7 @@ func (m *testPolicyEnforcer) GetFilterQueue() *FilterQueue {
 
 func (m *testPolicyEnforcer) Start() error {
 
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.startMock != nil {
+	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.startMock != nil {
 		return mock.startMock()
 	}
 
@@ -131,14 +157,14 @@ func (m *testPolicyEnforcer) Start() error {
 
 func (m *testPolicyEnforcer) Stop() error {
 
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.stopMock != nil {
+	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.stopMock != nil {
 		return mock.stopMock()
 	}
 
 	return nil
 }
 
-func (m *testPolicyEnforcer) currentMocks(t *testing.T) *mockedMethodsPolicyEnforcer {
+func (m *testPolicyEnforcer) currentMocksPolicyEnforcer(t *testing.T) *mockedMethodsPolicyEnforcer {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
@@ -146,6 +172,35 @@ func (m *testPolicyEnforcer) currentMocks(t *testing.T) *mockedMethodsPolicyEnfo
 
 	if mocks == nil {
 		mocks = &mockedMethodsPolicyEnforcer{}
+		m.mocks[t] = mocks
+	}
+
+	m.currentTest = t
+	return mocks
+}
+
+func (m *testPublicKeyAdder) MockPublicKeyAdd(t *testing.T, impl func(host string, cert []byte) error) {
+
+	m.currentMocksPublicKeyAdder(t).publicKeyAddMock = impl
+}
+
+func (m *testPublicKeyAdder) PublicKeyAdd(host string, cert []byte) error {
+
+	if mock := m.currentMocksPublicKeyAdder(m.currentTest); mock != nil && mock.publicKeyAddMock != nil {
+		return mock.publicKeyAddMock(host, cert)
+	}
+
+	return nil
+}
+
+func (m *testPublicKeyAdder) currentMocksPublicKeyAdder(t *testing.T) *mockedMethodsPublicKeyAdder {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	mocks := m.mocks[t]
+
+	if mocks == nil {
+		mocks = &mockedMethodsPublicKeyAdder{}
 		m.mocks[t] = mocks
 	}
 
