@@ -45,7 +45,7 @@ type PacketStats struct {
 	ServicePostDropPackets uint32
 }
 
-// FilterQueueConfig captures all the configuration parameters of the NFQUEUEs
+// FilterQueue captures all the configuration parameters of the NFQUEUEs
 type FilterQueue struct {
 	// Network Queue is the queue number of the base queue for network packets
 	NetworkQueue uint16
