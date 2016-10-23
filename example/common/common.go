@@ -1,11 +1,16 @@
-package main
+package common
 
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"encoding/pem"
+	"io/ioutil"
+	"log"
 
 	"github.com/aporeto-inc/trireme"
+	"github.com/aporeto-inc/trireme/configurator"
+	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -86,4 +91,50 @@ func (p *CustomPolicyResolver) createSecrets(container *policy.PUInfo) error {
 
 	return nil
 
+}
+
+//TriremeWithPKI is a helper method to created a PKI implementation of Trireme
+func TriremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, monitor.Monitor) {
+
+	// Load client cert
+	certPEM, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Load key
+	keyPEM, err := ioutil.ReadFile(keyFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	block, _ := pem.Decode(keyPEM)
+	if block == nil {
+		log.Fatal("Failed to read key PEM ")
+	}
+
+	// Load CA cert
+	caCertPEM, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	networks := []string{"0.0.0.0/0"}
+	policyEngine := NewCustomPolicyResolver()
+
+	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, keyPEM, certPEM, caCertPEM)
+
+	p.PublicKeyAdd("Server1", certPEM)
+
+	return t, m
+}
+
+//TriremeWithPSK is a helper method to created a PSK implementation of Trireme
+func TriremeWithPSK() (trireme.Trireme, monitor.Monitor) {
+
+	networks := []string{"0.0.0.0/0"}
+	policyEngine := NewCustomPolicyResolver()
+
+	// Use this if you want a pre-shared key implementation
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, []byte("THIS IS A BAD PASSWORD"))
 }
