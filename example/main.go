@@ -1,17 +1,15 @@
 package main
 
 import (
-	"encoding/pem"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
 
 	"github.com/aporeto-inc/trireme"
-	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/pkg/profile"
 )
 
@@ -38,9 +36,9 @@ func main() {
 	var m monitor.Monitor
 
 	if usePKI {
-		t, m = triremeWithPKI(keyFile, certFile, caCertFile)
+		t, m = common.TriremeWithPKI(keyFile, certFile, caCertFile)
 	} else {
-		t, m = triremeWithPSK()
+		t, m = common.TriremeWithPSK()
 	}
 
 	if t == nil {
@@ -62,48 +60,4 @@ func main() {
 	fmt.Println("Bye!")
 	m.Stop()
 	t.Stop()
-}
-
-func triremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, monitor.Monitor) {
-
-	// Load client cert
-	certPEM, err := ioutil.ReadFile(certFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Load key
-	keyPEM, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	block, _ := pem.Decode(keyPEM)
-	if block == nil {
-		log.Fatal("Failed to read key PEM ")
-	}
-
-	// Load CA cert
-	caCertPEM, err := ioutil.ReadFile(caCertFile)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	networks := []string{"0.0.0.0/0"}
-	policyEngine := NewCustomPolicyResolver()
-
-	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, keyPEM, certPEM, caCertPEM)
-
-	p.PublicKeyAdd("Server1", certPEM)
-
-	return t, m
-}
-
-func triremeWithPSK() (trireme.Trireme, monitor.Monitor) {
-
-	networks := []string{"0.0.0.0/0"}
-	policyEngine := NewCustomPolicyResolver()
-
-	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, []byte("THIS IS A BAD PASSWORD"))
 }
