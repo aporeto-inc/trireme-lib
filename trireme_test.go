@@ -2,6 +2,8 @@ package trireme
 
 import (
 	"reflect"
+	"strconv"
+	"sync"
 	"testing"
 
 	"github.com/aporeto-inc/trireme/enforcer"
@@ -187,7 +189,6 @@ func TestSimpleDelete(t *testing.T) {
 	runtime := policy.NewPURuntime()
 
 	doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
-
 }
 
 func TestSimpleUpdate(t *testing.T) {
@@ -248,5 +249,33 @@ func TestStop(t *testing.T) {
 	trireme.Stop()
 	trireme.Start()
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+
+}
+
+func TestConcurrency(t *testing.T) {
+	var wg sync.WaitGroup
+	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	trireme.Start()
+
+	for i := 0; i < 2; i++ {
+		context := strconv.Itoa(i)
+		runtime := policy.NewPURuntime()
+		newPolicy := policy.NewPUPolicy()
+
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
+			doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, context, runtime)
+		}()
+		go func() {
+			wg.Add(1)
+			defer wg.Done()
+			doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, context, runtime, newPolicy)
+		}()
+
+	}
+
+	wg.Wait()
 
 }

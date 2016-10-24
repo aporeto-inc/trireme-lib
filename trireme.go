@@ -184,18 +184,21 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 }
 
 func (t *trireme) doHandleDelete(contextID string) error {
-	t.resolver.HandleDeletePU(contextID)
-	t.supervisor.Unsupervise(contextID)
-
 	runtimeInfo, err := t.PURuntime(contextID)
-	t.cache.Remove(contextID)
 	if err != nil {
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
+
+	t.resolver.HandleDeletePU(contextID)
+	t.supervisor.Unsupervise(contextID)
+
+	t.cache.Remove(contextID)
+
 	ip, ok := runtimeInfo.DefaultIPAddress()
 	if !ok {
 		return fmt.Errorf("default IPAddress not found for %s", contextID)
 	}
+
 	t.enforcer.Unenforce(ip)
 	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
 	return nil
@@ -204,7 +207,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 	runtimeInfo, err := t.PURuntime(contextID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)
 	}
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtimeInfo.(*policy.PURuntime))
 
@@ -212,10 +215,10 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	err = t.supervisor.UpdatePU(contextID, containerInfo)
 	if err != nil {
-		return err
+		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
 	}
 
-	err = t.enforcer.UpdatePU(containerInfo.Runtime.IPAddresses()["bridge"], containerInfo)
+	err = t.enforcer.UpdatePU(containerInfo.Runtime.DefaultIPAddress(), containerInfo)
 	if err != nil {
 		t.supervisor.Unsupervise(contextID)
 		return err
