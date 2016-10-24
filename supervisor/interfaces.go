@@ -11,9 +11,6 @@ type Supervisor interface {
 	// Unsupervise unsupervises the given PU
 	Unsupervise(contextID string) error
 
-	// UpdatePU updates the information of a supervised PU.
-	UpdatePU(contextID string, puInfo *policy.PUInfo) error
-
 	// Start starts the Supervisor.
 	Start() error
 

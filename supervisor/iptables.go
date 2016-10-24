@@ -72,7 +72,16 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 
 // AddPU creates a mapping between an IP address and the corresponding labels
 // and the invokes the various handlers that process all policies.
-func (s *iptablesSupervisor) Supervise(contextID string, container *policy.PUInfo) error {
+func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.PUInfo) error {
+	_, err := s.versionTracker.Get(contextID)
+	if err != nil {
+		glog.V(2).Infoln("ContextID Already exist in Cache. Do update")
+		return s.doUpdatePU(contextID, containerInfo)
+	}
+	return s.doCreatePU(contextID, containerInfo)
+}
+
+func (s *iptablesSupervisor) doCreatePU(contextID string, container *policy.PUInfo) error {
 
 	index := 0
 
@@ -132,7 +141,7 @@ func (s *iptablesSupervisor) Supervise(contextID string, container *policy.PUInf
 
 //UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
-func (s *iptablesSupervisor) UpdatePU(contextID string, containerInfo *policy.PUInfo) error {
+func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUInfo) error {
 
 	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
 	newindex := cacheEntry.(*supervisorCacheEntry).index

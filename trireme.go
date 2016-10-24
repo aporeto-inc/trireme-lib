@@ -213,12 +213,17 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.supervisor.UpdatePU(contextID, containerInfo)
+	err = t.supervisor.Supervise(contextID, containerInfo)
 	if err != nil {
 		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
 	}
 
-	err = t.enforcer.UpdatePU(containerInfo.Runtime.DefaultIPAddress(), containerInfo)
+	ip, ok := containerInfo.Runtime.DefaultIPAddress()
+	if !ok {
+		t.supervisor.Unsupervise(contextID)
+		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
+	}
+	err = t.enforcer.UpdatePU(ip, containerInfo)
 	if err != nil {
 		t.supervisor.Unsupervise(contextID)
 		return err
