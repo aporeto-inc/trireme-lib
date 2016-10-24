@@ -108,10 +108,65 @@ func doTestDelete(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		return nil
 	})
 
-	err := trireme.HandleDelete("12345")
+	err := trireme.HandleDelete(id)
 	if e := <-err; e == nil {
 		t.Errorf("Delete was not supposed to be nil, was %s", e)
 	}
+}
+
+func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, tsupervisor supervisor.TestSupervisor, tenforcer enforcer.TestPolicyEnforcer, tmonitor monitor.TestMonitor, id string, initialRuntime *policy.PURuntime, updatedPolicy *policy.PUPolicy) {
+	supervisorCount := 0
+	enforcerCount := 0
+
+	tsupervisor.MockUpdatePU(t, func(contextID string, puInfo *policy.PUInfo) error {
+
+		if contextID != id {
+			t.Errorf("Id in Supervisor was expected to be %s, but is %s", id, contextID)
+		}
+
+		if !reflect.DeepEqual(puInfo.Runtime, initialRuntime) {
+			t.Errorf("Runtime given to Supervisor is not the same. Received %v, expected %v", puInfo.Runtime, initialRuntime)
+		}
+
+		if !reflect.DeepEqual(puInfo.Policy, updatedPolicy) {
+			t.Errorf("Policy given to Supervisor is not the same. Received %v, expected %v", puInfo.Policy, updatedPolicy)
+		}
+
+		t.Logf("Into Supervise Update")
+		supervisorCount++
+		return nil
+	})
+
+	tenforcer.MockUpdatePU(t, func(contextID string, puInfo *policy.PUInfo) error {
+		//		if contextID != id {
+		//			t.Errorf("Id in Enforcer was expected to be %s, but is %s", id, contextID)
+		//		}
+
+		if !reflect.DeepEqual(puInfo.Runtime, initialRuntime) {
+			t.Errorf("Runtime given to Supervisor is not the same. Received %v, expected %v", puInfo.Runtime, initialRuntime)
+		}
+
+		if !reflect.DeepEqual(puInfo.Policy, updatedPolicy) {
+			t.Errorf("Policy given to Supervisor is not the same. Received %v, expected %v", puInfo.Policy, updatedPolicy)
+		}
+
+		t.Logf("Into Enforce Update")
+		enforcerCount++
+		return nil
+	})
+
+	err := trireme.UpdatePolicy(id, updatedPolicy)
+	if e := <-err; e != nil {
+		t.Errorf("Update was supposed to be nil, was %s", e)
+	}
+
+	if supervisorCount != 1 {
+		t.Errorf("Update didn't go to Supervisor")
+	}
+	if enforcerCount != 1 {
+		t.Errorf("Update didn't go to Enforcer")
+	}
+
 }
 
 func TestSimpleCreate(t *testing.T) {
@@ -135,7 +190,7 @@ func TestSimpleDelete(t *testing.T) {
 
 }
 
-func TestCache(t *testing.T) {
+func TestSimpleUpdate(t *testing.T) {
 	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
@@ -143,12 +198,55 @@ func TestCache(t *testing.T) {
 	runtime := policy.NewPURuntime()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
-	cacheRuntime, err := trireme.PURuntime(contextID)
-	if err != nil {
-		t.Errorf("Cache failed. No Error expected, but error returned %v", err)
+
+	// Generate a new Policy ...
+
+	newPolicy := policy.NewPUPolicy()
+	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
+}
+
+func TestCache(t *testing.T) {
+	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	trireme.Start()
+	contextID := "123123"
+	runtime := policy.NewPURuntime()
+
+	for i := 0; i < 5; i++ {
+		doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+
+		// Expecting cache to find it
+		cacheRuntime, err := trireme.PURuntime(contextID)
+		if err != nil {
+			t.Errorf("Cache failed. No Error expected, but error returned %v", err)
+		}
+
+		if !reflect.DeepEqual(runtime, cacheRuntime) {
+			t.Errorf("Cache failed. Expected %v, got %v", runtime, cacheRuntime)
+		}
+
+		doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+
+		// Expecting cache to not find it
+		_, err = trireme.PURuntime(contextID)
+		if err == nil {
+			t.Errorf("Cache succeeded. Error expected, but No error returned ")
+		}
 	}
 
-	if !reflect.DeepEqual(runtime, cacheRuntime) {
-		t.Errorf("Cache failed. Expected %v, got %v", runtime, cacheRuntime)
-	}
+}
+
+func TestStop(t *testing.T) {
+	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	trireme.Start()
+	contextID := "123123"
+	runtime := policy.NewPURuntime()
+
+	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+
+	trireme.Stop()
+	trireme.Start()
+	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+
 }

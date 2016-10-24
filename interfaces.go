@@ -18,6 +18,8 @@ type Trireme interface {
 	Stop() error
 
 	monitor.ProcessingUnitsHandler
+
+	PolicyUpdater
 }
 
 // A PolicyUpdater has the ability to receive an update for a specific policy.
