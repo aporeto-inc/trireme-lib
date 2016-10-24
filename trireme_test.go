@@ -236,7 +236,6 @@ func TestCache(t *testing.T) {
 			t.Errorf("Cache succeeded. Error expected, but No error returned ")
 		}
 	}
-
 }
 
 func TestStop(t *testing.T) {
@@ -251,7 +250,6 @@ func TestStop(t *testing.T) {
 	trireme.Stop()
 	trireme.Start()
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
-
 }
 
 func TestConcurrency(t *testing.T) {
@@ -260,7 +258,7 @@ func TestConcurrency(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 0; i++ {
 		context := strconv.Itoa(i)
 		runtime := policy.NewPURuntime()
 		newPolicy := policy.NewPUPolicy()
