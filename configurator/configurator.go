@@ -33,7 +33,7 @@ func NewTriremeWithDockerMonitor(
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, secrets)
 	eventLogger := &collector.DefaultCollector{}
-	supervisor := supervisor.NewIPTablesSupervisor(eventLogger, enforcer, networks)
+	supervisor, _ := supervisor.NewIPTablesSupervisor(eventLogger, enforcer, networks)
 
 	trireme := trireme.NewTrireme(serverID, resolver, supervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventLogger, syncAtStart)
