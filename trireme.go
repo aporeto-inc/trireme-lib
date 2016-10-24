@@ -158,6 +158,11 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 		return fmt.Errorf("Policy Error for this context: %s . Container killed. %s", contextID, err)
 	}
 
+	if policyInfo == nil {
+		glog.V(2).Infoln("Nil policy returned for context: %s . Container killed.", contextID)
+		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
+	}
+
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 
 	addTransmitterLabel(contextID, containerInfo)
