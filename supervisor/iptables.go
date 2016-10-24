@@ -45,9 +45,19 @@ type iptablesSupervisor struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string) Supervisor {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string) (Supervisor, error) {
+
+	if enforcer == nil {
+		return nil, fmt.Errorf("Enforcer cannot be nil")
+	}
+	if targetNetworks == nil {
+		return nil, fmt.Errorf("TargetNetworks cannot be nil")
+	}
 
 	filterQueue := enforcer.GetFilterQueue()
+	if filterQueue == nil {
+		return nil, fmt.Errorf("Enforcer FilterQueues cannot be nil")
+	}
 
 	s := &iptablesSupervisor{
 		versionTracker:    cache.NewCache(nil),
@@ -67,18 +77,68 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 	// Clean any previous ACLs that we have installed
 	s.CleanACL()
 
-	return s
+	return s, nil
 }
 
 // AddPU creates a mapping between an IP address and the corresponding labels
 // and the invokes the various handlers that process all policies.
 func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.PUInfo) error {
+	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
+		return fmt.Errorf("Runtime, Policy and ContainerInfo should not be nil")
+	}
 	_, err := s.versionTracker.Get(contextID)
 	if err != nil {
-		glog.V(2).Infoln("ContextID Already exist in Cache. Do update")
-		return s.doUpdatePU(contextID, containerInfo)
+		glog.V(5).Infoln("ContextID Already exist in Cache. Do update")
+		return s.doCreatePU(contextID, containerInfo)
 	}
-	return s.doCreatePU(contextID, containerInfo)
+	return s.doUpdatePU(contextID, containerInfo)
+}
+
+// Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
+// remove operations will print errors by they don't return error. We want to force
+// as much cleanup as possible to avoid stale state
+func (s *iptablesSupervisor) Unsupervise(contextID string) error {
+
+	result, err := s.versionTracker.Get(contextID)
+	if err != nil {
+		return fmt.Errorf("Cannot find policy version!")
+	}
+	cacheEntry := result.(*supervisorCacheEntry)
+
+	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+
+	// Currently processing only containers with one IP address
+	ip, ok := cacheEntry.ips["bridge"]
+	if !ok {
+		return fmt.Errorf("Container IP address not found!")
+	}
+
+	s.deletePacketTrap(appChain, netChain, ip)
+
+	s.deleteAppACLs(appChain, ip, cacheEntry.ingressACLs)
+
+	s.deleteNetACLs(netChain, ip, cacheEntry.egressACLs)
+
+	s.deleteChainRules(appChain, netChain, ip)
+
+	s.deleteAllContainerChains(appChain, netChain)
+
+	s.versionTracker.Remove(contextID)
+
+	return nil
+}
+
+// Start starts the supervisor
+func (s *iptablesSupervisor) Start() error {
+	return nil
+}
+
+// Stop stops the supervisor
+func (s *iptablesSupervisor) Stop() error {
+	// Clean any previous ACLs that we have installed
+	s.CleanACL()
+	return nil
 }
 
 func (s *iptablesSupervisor) doCreatePU(contextID string, container *policy.PUInfo) error {
@@ -210,41 +270,6 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	return nil
 }
 
-// Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
-// remove operations will print errors by they don't return error. We want to force
-// as much cleanup as possible to avoid stale state
-func (s *iptablesSupervisor) Unsupervise(contextID string) error {
-
-	result, err := s.versionTracker.Get(contextID)
-	if err != nil {
-		return fmt.Errorf("Cannot find policy version!")
-	}
-	cacheEntry := result.(*supervisorCacheEntry)
-
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-
-	// Currently processing only containers with one IP address
-	ip, ok := cacheEntry.ips["bridge"]
-	if !ok {
-		return fmt.Errorf("Container IP address not found!")
-	}
-
-	s.deletePacketTrap(appChain, netChain, ip)
-
-	s.deleteAppACLs(appChain, ip, cacheEntry.ingressACLs)
-
-	s.deleteNetACLs(netChain, ip, cacheEntry.egressACLs)
-
-	s.deleteChainRules(appChain, netChain, ip)
-
-	s.deleteAllContainerChains(appChain, netChain)
-
-	s.versionTracker.Remove(contextID)
-
-	return nil
-}
-
 // CleanACL cleans up all the ACLs that have an Trireme  Label in the mangle table
 func (s *iptablesSupervisor) CleanACL() {
 
@@ -259,18 +284,6 @@ func (s *iptablesSupervisor) CleanACL() {
 
 	// Clean Network Rules/Chains
 	s.cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix)
-}
-
-// Start starts the supervisor
-func (s *iptablesSupervisor) Start() error {
-	return nil
-}
-
-// Stop stops the supervisor
-func (s *iptablesSupervisor) Stop() error {
-	// Clean any previous ACLs that we have installed
-	s.CleanACL()
-	return nil
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
