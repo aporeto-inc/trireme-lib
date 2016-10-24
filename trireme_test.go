@@ -120,7 +120,7 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 	supervisorCount := 0
 	enforcerCount := 0
 
-	tsupervisor.MockUpdatePU(t, func(contextID string, puInfo *policy.PUInfo) error {
+	tsupervisor.MockSupervise(t, func(contextID string, puInfo *policy.PUInfo) error {
 
 		if contextID != id {
 			t.Errorf("Id in Supervisor was expected to be %s, but is %s", id, contextID)
@@ -197,6 +197,8 @@ func TestSimpleUpdate(t *testing.T) {
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntime()
+	ipa := map[string]string{"bridge": "10.10.10.10"}
+	runtime.SetIPAddresses(ipa)
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 
@@ -234,7 +236,6 @@ func TestCache(t *testing.T) {
 			t.Errorf("Cache succeeded. Error expected, but No error returned ")
 		}
 	}
-
 }
 
 func TestStop(t *testing.T) {
@@ -249,7 +250,6 @@ func TestStop(t *testing.T) {
 	trireme.Stop()
 	trireme.Start()
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
-
 }
 
 func TestConcurrency(t *testing.T) {
@@ -258,7 +258,7 @@ func TestConcurrency(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 0; i++ {
 		context := strconv.Itoa(i)
 		runtime := policy.NewPURuntime()
 		newPolicy := policy.NewPUPolicy()

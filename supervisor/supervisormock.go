@@ -15,9 +15,6 @@ type mockedMethods struct {
 	// Unsupervise unsupervises the given PU
 	unsuperviseMock func(contextID string) error
 
-	// UpdatePU updates the information of a supervised PU.
-	updatePUMock func(contextID string, puInfo *policy.PUInfo) error
-
 	// Start starts the Supervisor.
 	startMock func() error
 
@@ -30,7 +27,6 @@ type TestSupervisor interface {
 	Supervisor
 	MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnsupervise(t *testing.T, impl func(contextID string) error)
-	MockUpdatePU(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
 }
@@ -60,11 +56,6 @@ func (m *testSupervisor) MockUnsupervise(t *testing.T, impl func(contextID strin
 	m.currentMocks(t).unsuperviseMock = impl
 }
 
-func (m *testSupervisor) MockUpdatePU(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error) {
-
-	m.currentMocks(t).updatePUMock = impl
-}
-
 func (m *testSupervisor) MockStart(t *testing.T, impl func() error) {
 
 	m.currentMocks(t).startMock = impl
@@ -88,15 +79,6 @@ func (m *testSupervisor) Unsupervise(contextID string) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.unsuperviseMock != nil {
 		return mock.unsuperviseMock(contextID)
-	}
-
-	return nil
-}
-
-func (m *testSupervisor) UpdatePU(contextID string, puInfo *policy.PUInfo) error {
-
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.updatePUMock != nil {
-		return mock.updatePUMock(contextID, puInfo)
 	}
 
 	return nil
