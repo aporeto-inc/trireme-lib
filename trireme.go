@@ -189,10 +189,13 @@ func (t *trireme) doHandleDelete(contextID string) error {
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
 
-	t.resolver.HandleDeletePU(contextID)
-	t.supervisor.Unsupervise(contextID)
-	t.enforcer.Unenforce(contextID)
+	errR := t.resolver.HandleDeletePU(contextID)
+	errS := t.supervisor.Unsupervise(contextID)
+	errE := t.enforcer.Unenforce(contextID)
 	t.cache.Remove(contextID)
+	if errR != nil || errS != nil || errE != nil {
+		return fmt.Errorf("Delete Error for contextID %s. resolver %s, supervisor %s, enforcer %s", contextID, errR, errS, errE)
+	}
 	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
 	return nil
 }
