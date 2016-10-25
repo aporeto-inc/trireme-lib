@@ -246,3 +246,43 @@ func TestPacketHandling(t *testing.T) {
 		})
 	})
 }
+
+func TestCacheState(t *testing.T) {
+	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+	enforcer := NewDefaultDatapathEnforcer("SomeServerId", secret).(*datapathEnforcer)
+	contextID := "123"
+
+	puInfo := policy.NewPUInfo(contextID)
+
+	// Should fail: No IP
+	err := enforcer.Enforce(contextID, puInfo)
+	if err == nil {
+		t.Errorf("Expected failure, no IP but passed")
+	}
+
+	// Should fail: Not in cache
+	err = enforcer.Unenforce(contextID)
+	if err == nil {
+		t.Errorf("Expected failure, no contextID in cache")
+	}
+
+	puInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "127.0.0.1"})
+
+	// Should  not fail:  IP is valid
+	err = enforcer.Enforce(contextID, puInfo)
+	if err != nil {
+		t.Errorf("Expected no failure %s", err)
+	}
+
+	// Should  not fail:  Update
+	err = enforcer.Enforce(contextID, puInfo)
+	if err != nil {
+		t.Errorf("Expected no failure %s", err)
+	}
+
+	// Should  not fail:  IP is valid
+	err = enforcer.Unenforce(contextID)
+	if err != nil {
+		t.Errorf("Expected failure, no IP but passed %s", err)
+	}
+}

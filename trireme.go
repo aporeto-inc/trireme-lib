@@ -154,12 +154,10 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 	if err != nil {
-		glog.V(2).Infoln("Policy Error for this context: %s . Container killed. %s", contextID, err)
 		return fmt.Errorf("Policy Error for this context: %s . Container killed. %s", contextID, err)
 	}
 
 	if policyInfo == nil {
-		glog.V(2).Infoln("Nil policy returned for context: %s . Container killed.", contextID)
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
 	}
 
@@ -179,7 +177,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 		t.supervisor.Unsupervise(contextID)
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
-	glog.V(2).Infoln("Finished PUHandleCreate: %s .", contextID)
+	glog.V(2).Infoln("Finished HandleCreate: %s .", contextID)
 	return nil
 }
 
@@ -243,7 +241,7 @@ func (t *trireme) run() {
 			glog.V(2).Infof("Stopping trireme worker.")
 			return
 		case req := <-t.requests:
-			glog.V(5).Infof("Handling trireme Request Type %d ", req.reqType)
+			glog.V(5).Infof("Handling trireme Request Type %d for contextID %s ", req.reqType, req.contextID)
 			req.returnChan <- t.handleRequest(req)
 		}
 	}
