@@ -15,9 +15,6 @@ type mockedMethodsPolicyEnforcer struct {
 	// Unenforce stops enforcing policy for the given IP.
 	unenforceMock func(ip string) error
 
-	// UpdatePU will be deprecated soon.
-	updatePUMock func(ip string, puInfo *policy.PUInfo) error
-
 	// GetFilterQueue returns the current FilterQueueConfig.
 	getFilterQueueMock func() *FilterQueue
 
@@ -38,7 +35,6 @@ type TestPolicyEnforcer interface {
 	PolicyEnforcer
 	MockEnforce(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnenforce(t *testing.T, impl func(ip string) error)
-	MockUpdatePU(t *testing.T, impl func(ip string, puInfo *policy.PUInfo) error)
 	MockGetFilterQueue(t *testing.T, impl func() *FilterQueue)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
@@ -90,11 +86,6 @@ func (m *testPolicyEnforcer) MockUnenforce(t *testing.T, impl func(ip string) er
 	m.currentMocksPolicyEnforcer(t).unenforceMock = impl
 }
 
-func (m *testPolicyEnforcer) MockUpdatePU(t *testing.T, impl func(ip string, puInfo *policy.PUInfo) error) {
-
-	m.currentMocksPolicyEnforcer(t).updatePUMock = impl
-}
-
 func (m *testPolicyEnforcer) MockGetFilterQueue(t *testing.T, impl func() *FilterQueue) {
 
 	m.currentMocksPolicyEnforcer(t).getFilterQueueMock = impl
@@ -123,15 +114,6 @@ func (m *testPolicyEnforcer) Unenforce(ip string) error {
 
 	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.unenforceMock != nil {
 		return mock.unenforceMock(ip)
-	}
-
-	return nil
-}
-
-func (m *testPolicyEnforcer) UpdatePU(ip string, puInfo *policy.PUInfo) error {
-
-	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.updatePUMock != nil {
-		return mock.updatePUMock(ip, puInfo)
 	}
 
 	return nil
