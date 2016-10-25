@@ -78,21 +78,6 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 
 }
 
-// createSecrets will create the per-container secrets and associated them with
-// the policy
-func (p *CustomPolicyResolver) createSecrets(container *policy.PUInfo) error {
-
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return err
-	}
-
-	container.Policy.Extensions = key
-
-	return nil
-
-}
-
 //TriremeWithPKI is a helper method to created a PKI implementation of Trireme
 func TriremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, monitor.Monitor) {
 
