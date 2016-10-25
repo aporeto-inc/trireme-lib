@@ -7,8 +7,8 @@ import (
 	"os/signal"
 
 	"github.com/aporeto-inc/trireme"
-	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/example/common"
+	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/pkg/profile"
 )
 
