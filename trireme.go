@@ -154,12 +154,10 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 	if err != nil {
-		glog.V(2).Infoln("Policy Error for this context: %s . Container killed. %s", contextID, err)
 		return fmt.Errorf("Policy Error for this context: %s . Container killed. %s", contextID, err)
 	}
 
 	if policyInfo == nil {
-		glog.V(2).Infoln("Nil policy returned for context: %s . Container killed.", contextID)
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
 	}
 
@@ -179,27 +177,23 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 		t.supervisor.Unsupervise(contextID)
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
-	glog.V(2).Infoln("Finished PUHandleCreate: %s .", contextID)
+	glog.V(2).Infoln("Finished HandleCreate: %s .", contextID)
 	return nil
 }
 
 func (t *trireme) doHandleDelete(contextID string) error {
-	runtimeInfo, err := t.PURuntime(contextID)
+	_, err := t.PURuntime(contextID)
 	if err != nil {
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
 
-	t.resolver.HandleDeletePU(contextID)
-	t.supervisor.Unsupervise(contextID)
-
+	errR := t.resolver.HandleDeletePU(contextID)
+	errS := t.supervisor.Unsupervise(contextID)
+	errE := t.enforcer.Unenforce(contextID)
 	t.cache.Remove(contextID)
-
-	ip, ok := runtimeInfo.DefaultIPAddress()
-	if !ok {
-		return fmt.Errorf("default IPAddress not found for %s", contextID)
+	if errR != nil || errS != nil || errE != nil {
+		return fmt.Errorf("Delete Error for contextID %s. resolver %s, supervisor %s, enforcer %s", contextID, errR, errS, errE)
 	}
-
-	t.enforcer.Unenforce(ip)
 	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
 	return nil
 }
@@ -218,15 +212,10 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
 	}
 
-	ip, ok := containerInfo.Runtime.DefaultIPAddress()
-	if !ok {
-		t.supervisor.Unsupervise(contextID)
-		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
-	}
-	err = t.enforcer.UpdatePU(ip, containerInfo)
+	err = t.enforcer.Enforce(contextID, containerInfo)
 	if err != nil {
 		t.supervisor.Unsupervise(contextID)
-		return err
+		return fmt.Errorf("Policy Update failed for Enforcer %s", err)
 	}
 	glog.V(5).Infof("Finished UpdatePolicy. %s", contextID)
 	return nil
@@ -252,7 +241,7 @@ func (t *trireme) run() {
 			glog.V(2).Infof("Stopping trireme worker.")
 			return
 		case req := <-t.requests:
-			glog.V(5).Infof("Handling trireme Request Type %d ", req.reqType)
+			glog.V(5).Infof("Handling trireme Request Type %d for contextID %s ", req.reqType, req.contextID)
 			req.returnChan <- t.handleRequest(req)
 		}
 	}

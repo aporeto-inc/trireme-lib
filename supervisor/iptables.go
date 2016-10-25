@@ -46,7 +46,9 @@ type iptablesSupervisor struct {
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
 func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string) (Supervisor, error) {
-
+	if collector == nil {
+		return nil, fmt.Errorf("Collector cannot be nil")
+	}
 	if enforcer == nil {
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}

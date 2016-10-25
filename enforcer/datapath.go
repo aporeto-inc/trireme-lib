@@ -29,6 +29,7 @@ type datapathEnforcer struct {
 	service             PacketProcessor
 
 	// Internal structures and caches
+	contextTracker           cache.DataStore
 	puTracker                cache.DataStore
 	networkConnectionTracker cache.DataStore
 	appConnectionTracker     cache.DataStore
@@ -56,6 +57,7 @@ func NewDatapathEnforcer(
 ) PolicyEnforcer {
 
 	d := &datapathEnforcer{
+		contextTracker:           cache.NewCache(nil),
 		puTracker:                cache.NewCache(nil),
 		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second*60, 100000),
 		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second*60, 100000),
@@ -108,37 +110,57 @@ func NewDefaultDatapathEnforcer(
 }
 
 func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
+	ip, err := d.contextTracker.Get(contextID)
+	if err != nil {
+		return d.doCreatePU(contextID, puInfo)
+	}
+	puContext, err := d.puTracker.Get(ip)
+	if err != nil {
+		return d.doCreatePU(contextID, puInfo)
+	}
+	return d.doUpdatePU(puContext.(*PUContext), puInfo)
+}
+
+func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
+	ip, ok := puInfo.Runtime.DefaultIPAddress()
+	if !ok {
+		return fmt.Errorf("No Default IP for PU, not enforcing.")
+	}
+	//TODO: Add Check that IP is valid.
 
 	rules := createRuleDB(puInfo.Policy.Rules)
 
 	pu := &PUContext{
-		ID:        contextID,
-		rules:     rules,
-		Tags:      puInfo.Policy.PolicyTags,
+		ID:    contextID,
+		rules: rules,
+		Tags:  puInfo.Policy.PolicyTags,
 	}
 
-	ip, _ := puInfo.Runtime.DefaultIPAddress()
+	d.contextTracker.AddOrUpdate(contextID, ip)
 	d.puTracker.AddOrUpdate(ip, pu)
 
 	return nil
 }
 
-func (d *datapathEnforcer) UpdatePU(ipaddress string, containerInfo *policy.PUInfo) error {
+func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
 
-	container, err := d.puTracker.Get(ipaddress)
-	if err != nil {
-		return fmt.Errorf("Couldn't find PU in enforcer cache: %s", err)
-	}
-
-	container.(*PUContext).rules = createRuleDB(containerInfo.Policy.Rules)
-	container.(*PUContext).Tags = containerInfo.Policy.PolicyTags
-
+	puContext.rules = createRuleDB(containerInfo.Policy.Rules)
+	puContext.Tags = containerInfo.Policy.PolicyTags
 	return nil
 }
 
-func (d *datapathEnforcer) Unenforce(ip string) error {
+func (d *datapathEnforcer) Unenforce(contextID string) error {
 
-	return d.puTracker.Remove(ip)
+	ip, err := d.contextTracker.Get(contextID)
+	if err != nil {
+		return fmt.Errorf("ContextID not found in Enforcer")
+	}
+	err = d.puTracker.Remove(ip)
+	d.contextTracker.Remove(contextID)
+	if err != nil {
+		return fmt.Errorf("IP not found in Enforcer")
+	}
+	return nil
 }
 
 func (d *datapathEnforcer) GetFilterQueue() *FilterQueue {
