@@ -113,7 +113,6 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 
 	pu := &PUContext{
 		ID:        contextID,
-		Extension: puInfo.Policy.Extensions,
 		rules:     rules,
 		Tags:      puInfo.Policy.PolicyTags,
 	}
@@ -132,7 +131,6 @@ func (d *datapathEnforcer) UpdatePU(ipaddress string, containerInfo *policy.PUIn
 	}
 
 	container.(*PUContext).rules = createRuleDB(containerInfo.Policy.Rules)
-	container.(*PUContext).Extension = containerInfo.Policy.Extensions
 	container.(*PUContext).Tags = containerInfo.Policy.PolicyTags
 
 	return nil
