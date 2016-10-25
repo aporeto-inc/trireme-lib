@@ -1,9 +1,6 @@
 package common
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/pem"
 	"io/ioutil"
 	"log"
