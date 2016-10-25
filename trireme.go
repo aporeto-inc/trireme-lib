@@ -111,6 +111,23 @@ func (t *trireme) HandleDelete(contextID string) <-chan error {
 	return c
 }
 
+// HandleDelete implements the logic needed between all the Trireme components for
+// explicitely deleting an existing PU.
+func (t *trireme) HandleDestroy(contextID string) <-chan error {
+
+	c := make(chan error)
+
+	req := &triremeRequest{
+		contextID:  contextID,
+		reqType:    requestDelete,
+		returnChan: c,
+	}
+
+	t.requests <- req
+
+	return c
+}
+
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
 
@@ -196,6 +213,10 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	}
 	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
 	return nil
+}
+
+func (t *trireme) doHandleDestroy(contextID string) error {
+
 }
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {

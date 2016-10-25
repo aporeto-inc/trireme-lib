@@ -3,9 +3,10 @@ package trireme
 import "github.com/aporeto-inc/trireme/policy"
 
 const (
-	requestCreate = 1
-	requestDelete = 2
-	policyUpdate  = 3
+	requestCreate  = 1
+	requestDelete  = 2
+	requestDestroy = 3
+	policyUpdate   = 4
 )
 
 type triremeRequest struct {
