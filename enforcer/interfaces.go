@@ -9,10 +9,7 @@ type PolicyEnforcer interface {
 	Enforce(contextID string, puInfo *policy.PUInfo) error
 
 	// Unenforce stops enforcing policy for the given IP.
-	Unenforce(ip string) error
-
-	// UpdatePU will be deprecated soon.
-	UpdatePU(ip string, puInfo *policy.PUInfo) error
+	Unenforce(contextID string) error
 
 	// GetFilterQueue returns the current FilterQueueConfig.
 	GetFilterQueue() *FilterQueue

@@ -139,7 +139,7 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		return nil
 	})
 
-	tenforcer.MockUpdatePU(t, func(contextID string, puInfo *policy.PUInfo) error {
+	tenforcer.MockEnforce(t, func(contextID string, puInfo *policy.PUInfo) error {
 		//		if contextID != id {
 		//			t.Errorf("Id in Enforcer was expected to be %s, but is %s", id, contextID)
 		//		}

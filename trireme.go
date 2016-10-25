@@ -218,15 +218,10 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
 	}
 
-	ip, ok := containerInfo.Runtime.DefaultIPAddress()
-	if !ok {
-		t.supervisor.Unsupervise(contextID)
-		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
-	}
-	err = t.enforcer.UpdatePU(ip, containerInfo)
+	err = t.enforcer.Enforce(contextID, containerInfo)
 	if err != nil {
 		t.supervisor.Unsupervise(contextID)
-		return err
+		return fmt.Errorf("Policy Update failed for Enforcer %s", err)
 	}
 	glog.V(5).Infof("Finished UpdatePolicy. %s", contextID)
 	return nil
