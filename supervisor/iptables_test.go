@@ -26,6 +26,11 @@ func mockenforcerDefaultFQConfig(t *testing.T) enforcer.PolicyEnforcer {
 }
 
 func doNewIPTSupervisor(t *testing.T) *iptablesSupervisor {
+	_, err := iptables.New()
+	if err != nil {
+		t.Logf("IPTables not present on this system, not testing")
+		t.SkipNow()
+	}
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
 	networks := []string{"0.0.0.0/0"}

@@ -206,7 +206,10 @@ func (d *dockerMonitor) eventProcessor() {
 				f, present := d.handlers[DockerEvent(event.Action)]
 				if present {
 					glog.V(1).Infof("Handling docker event [%s].", event.Action)
-					f(event)
+					err := f(event)
+					if err != nil {
+						glog.V(1).Infof("Error while handling event: %s", err)
+					}
 				} else {
 					glog.V(2).Infof("Docker event [%s] not handled.", event.Action)
 				}
@@ -310,7 +313,8 @@ func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	return <-d.puHandler.HandleDelete(contextID)
+	errchan := d.puHandler.HandleDelete(contextID)
+	return <-errchan
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -358,20 +362,20 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 
 	containerID := event.ID
 
-	d.removeDockerContainer(containerID)
+	err := d.removeDockerContainer(containerID)
 	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.ContainerStop)
 
-	return nil
+	return err
 }
 
 // handleDestroyEvent handles destroy events from Docker
 func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
-	containerID := event.ID
+	//containerID := event.ID
 
 	// Clear the policy cache
-	d.puHandler.HandleDelete(containerID[:12])
-	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.UnknownContainerDelete)
+	//d.puHandler.HandleDelete(containerID[:12])
+	//d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.UnknownContainerDelete)
 
 	return nil
 }
