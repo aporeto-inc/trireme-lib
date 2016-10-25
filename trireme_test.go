@@ -111,8 +111,47 @@ func doTestDelete(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 	})
 
 	err := trireme.HandleDelete(id)
+	if e := <-err; e != nil {
+		t.Errorf("Delete was supposed to be nil, was %s", e)
+	}
+	if resolverCount != 1 {
+		t.Errorf("Delete didn't go to Resolver")
+	}
+	if supervisorCount != 1 {
+		t.Errorf("Delete didn't go to Supervisor")
+	}
+	if enforcerCount != 1 {
+		t.Errorf("Delete didn't go to Enforcer")
+	}
+}
+
+func doTestDeleteNotExist(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, tsupervisor supervisor.TestSupervisor, tenforcer enforcer.TestPolicyEnforcer, tmonitor monitor.TestMonitor, id string, runtime *policy.PURuntime) {
+
+	resolverCount := 0
+	supervisorCount := 0
+	enforcerCount := 0
+
+	tresolver.MockHandleDeletePU(t, func(contextID string) error {
+		t.Logf("Into HandleDeletePU")
+		resolverCount++
+		return nil
+	})
+
+	tsupervisor.MockUnsupervise(t, func(contextID string) error {
+		t.Logf("Into Unsupervise")
+		supervisorCount++
+		return nil
+	})
+
+	tenforcer.MockUnenforce(t, func(ip string) error {
+		t.Logf("Into Unenforce")
+		enforcerCount++
+		return nil
+	})
+
+	err := trireme.HandleDelete(id)
 	if e := <-err; e == nil {
-		t.Errorf("Delete was not supposed to be nil, was %s", e)
+		t.Errorf("Delete was not supposed to be nil, was nil")
 	}
 }
 
@@ -188,6 +227,17 @@ func TestSimpleDelete(t *testing.T) {
 	contextID := "123123"
 	runtime := policy.NewPURuntime()
 
+	doTestDeleteNotExist(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+}
+
+func TestCreateDelete(t *testing.T) {
+	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	trireme.Start()
+	contextID := "123123"
+	runtime := policy.NewPURuntime()
+
+	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 	doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 }
 

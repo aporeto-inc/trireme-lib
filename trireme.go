@@ -184,22 +184,15 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 }
 
 func (t *trireme) doHandleDelete(contextID string) error {
-	runtimeInfo, err := t.PURuntime(contextID)
+	_, err := t.PURuntime(contextID)
 	if err != nil {
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
 
 	t.resolver.HandleDeletePU(contextID)
 	t.supervisor.Unsupervise(contextID)
-
+	t.enforcer.Unenforce(contextID)
 	t.cache.Remove(contextID)
-
-	ip, ok := runtimeInfo.DefaultIPAddress()
-	if !ok {
-		return fmt.Errorf("default IPAddress not found for %s", contextID)
-	}
-
-	t.enforcer.Unenforce(ip)
 	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
 	return nil
 }
