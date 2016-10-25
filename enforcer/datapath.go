@@ -114,14 +114,21 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 	if err != nil {
 		return d.doCreatePU(contextID, puInfo)
 	}
-	puContext, err := d.contextTracker.Get(ip)
+	puContext, err := d.puTracker.Get(ip)
 	if err != nil {
+		fmt.Println("asd")
 		return d.doCreatePU(contextID, puInfo)
 	}
 	return d.doUpdatePU(puContext.(*PUContext), puInfo)
 }
 
 func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
+	ip, ok := puInfo.Runtime.DefaultIPAddress()
+	fmt.Print(ip)
+	if !ok {
+		return fmt.Errorf("No Default IP for PU, not enforcing.")
+	}
+	//TODO: Add Check that IP is valid.
 
 	rules := createRuleDB(puInfo.Policy.Rules)
 
@@ -131,7 +138,6 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 		Tags:  puInfo.Policy.PolicyTags,
 	}
 
-	ip, _ := puInfo.Runtime.DefaultIPAddress()
 	d.contextTracker.AddOrUpdate(contextID, ip)
 	d.puTracker.AddOrUpdate(ip, pu)
 
