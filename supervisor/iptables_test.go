@@ -41,7 +41,7 @@ func TestNewIPTables(t *testing.T) {
 	_, err := iptables.New()
 	if err != nil {
 		t.Logf("IPTables not present on this system, not testing")
-		return
+		t.SkipNow()
 	}
 
 	doNewIPTSupervisor(t)
@@ -52,7 +52,7 @@ func TestSupervise(t *testing.T) {
 	_, err := iptables.New()
 	if err != nil {
 		t.Logf("IPTables not present on this system, not testing")
-		return
+		t.SkipNow()
 	}
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
