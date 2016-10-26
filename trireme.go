@@ -194,7 +194,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 		t.supervisor.Unsupervise(contextID)
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
-	glog.V(2).Infoln("Finished HandleCreate: %s .", contextID)
+	glog.V(2).Infoln("Finished HandleCreate: %s", contextID)
 	return nil
 }
 
@@ -211,7 +211,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	if errR != nil || errS != nil || errE != nil {
 		return fmt.Errorf("Delete Error for contextID %s. resolver %s, supervisor %s, enforcer %s", contextID, errR, errS, errE)
 	}
-	glog.V(5).Infof("Finished HandleDelete. %s", contextID)
+	glog.V(5).Infof("Finished HandleDelete %s", contextID)
 	return nil
 }
 
@@ -238,7 +238,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		t.supervisor.Unsupervise(contextID)
 		return fmt.Errorf("Policy Update failed for Enforcer %s", err)
 	}
-	glog.V(5).Infof("Finished UpdatePolicy. %s", contextID)
+	glog.V(5).Infof("Finished UpdatePolicy %s", contextID)
 	return nil
 }
 

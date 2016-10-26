@@ -90,9 +90,10 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 	}
 	_, err := s.versionTracker.Get(contextID)
 	if err != nil {
-		glog.V(5).Infoln("ContextID Already exist in Cache. Do update")
+		// ContextID is not found in Cache, New PU: Do create.
 		return s.doCreatePU(contextID, containerInfo)
 	}
+	glog.V(5).Infoln("ContextID Already exist in Cache. Do Update")
 	return s.doUpdatePU(contextID, containerInfo)
 }
 
