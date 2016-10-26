@@ -20,4 +20,7 @@ type ProcessingUnitsHandler interface {
 
 	// HandleDelete handles the delete ProcessingUnit event.
 	HandleDelete(contextID string) <-chan error
+
+	// HandleDelete handles the delete ProcessingUnit event.
+	HandleDestroy(contextID string) <-chan error
 }

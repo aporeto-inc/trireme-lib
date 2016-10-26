@@ -31,6 +31,9 @@ const (
 
 	// DockerEventConnect represents the Docker "connect" event.
 	DockerEventConnect DockerEvent = "connect"
+
+	// DockerClientVersion is the version sent out as the client
+	DockerClientVersion = "v1.23"
 )
 
 // A DockerEventHandler is type of docker event handler functions.
@@ -69,7 +72,7 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 	}
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
-	dockerClient, err := dockerClient.NewClient(socket, "v1.23", nil, defaultHeaders)
+	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating Docker Client %s", err)
 	}
@@ -205,10 +208,13 @@ func (d *dockerMonitor) eventProcessor() {
 			if event.Action != "" {
 				f, present := d.handlers[DockerEvent(event.Action)]
 				if present {
-					glog.V(1).Infof("Handling docker event [%s].", event.Action)
-					f(event)
+					glog.V(5).Infof("Handling docker event [%s].", event.Action)
+					err := f(event)
+					if err != nil {
+						glog.V(1).Infof("Error while handling event [%s]. : %s", event.Action, err)
+					}
 				} else {
-					glog.V(2).Infof("Docker event [%s] not handled.", event.Action)
+					glog.V(10).Infof("Docker event [%s] not handled.", event.Action)
 				}
 			}
 		case <-d.stopprocessor:
@@ -230,7 +236,7 @@ func (d *dockerMonitor) eventListener() {
 			d.eventnotifications <- &message
 		case err := <-errs:
 			if err != nil && err != io.EOF {
-				glog.V(1).Infoln("Received docer event error ", err)
+				glog.V(1).Infoln("Received docker event error ", err)
 			}
 		case stop := <-d.stoplistener:
 			if stop {
@@ -244,21 +250,21 @@ func (d *dockerMonitor) eventListener() {
 // same process as when a container is initially spawn up
 func (d *dockerMonitor) syncContainers() error {
 
-	glog.Infoln("Syncing all existing containers")
+	glog.V(2).Infoln("Syncing all existing containers")
 
 	options := types.ContainerListOptions{All: true}
 	containers, err := d.dockerClient.ContainerList(context.Background(), options)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error Getting ContainerList: %s", err)
 	}
 
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 		if err != nil {
-			glog.V(1).Infoln("Error Syncing existing Container: %s", err)
+			glog.V(1).Infof("Error Syncing existing Container: %s", err)
 		}
 		if err := d.addOrUpdateDockerContainer(&container); err != nil {
-			glog.V(1).Infoln("Error Syncing existing Container: %s", err)
+			glog.V(1).Infof("Error Syncing existing Container: %s", err)
 		}
 	}
 	return nil
@@ -310,7 +316,8 @@ func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	return <-d.puHandler.HandleDelete(contextID)
+	errchan := d.puHandler.HandleDelete(contextID)
+	return <-errchan
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -358,19 +365,20 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 
 	containerID := event.ID
 
-	d.removeDockerContainer(containerID)
+	err := d.removeDockerContainer(containerID)
 	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.ContainerStop)
 
-	return nil
+	return err
 }
 
-// handleDestroyEvent handles destroy events from Docker
+// handleDestroyEvent handles destroy events from Docker. This means that the Policy
+// can be safely deleted.
 func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 	containerID := event.ID
 
 	// Clear the policy cache
-	d.puHandler.HandleDelete(containerID[:12])
+	//d.puHandler.HandleDelete(containerID[:12])
 	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.UnknownContainerDelete)
 
 	return nil
