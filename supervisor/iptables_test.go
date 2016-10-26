@@ -6,7 +6,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/policy"
+	// "github.com/aporeto-inc/trireme/policy"
 	"github.com/coreos/go-iptables/iptables"
 )
 
