@@ -119,7 +119,7 @@ func (t *trireme) HandleDestroy(contextID string) <-chan error {
 
 	req := &triremeRequest{
 		contextID:  contextID,
-		reqType:    requestDelete,
+		reqType:    requestDestroy,
 		returnChan: c,
 	}
 
@@ -216,7 +216,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 }
 
 func (t *trireme) doHandleDestroy(contextID string) error {
-
+	return nil
 }
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
@@ -248,6 +248,8 @@ func (t *trireme) handleRequest(request *triremeRequest) error {
 		return t.doHandleCreate(request.contextID, request.runtimeInfo)
 	case requestDelete:
 		return t.doHandleDelete(request.contextID)
+	case requestDestroy:
+		return t.doHandleDestroy(request.contextID)
 	case policyUpdate:
 		return t.doUpdatePolicy(request.contextID, request.policyInfo)
 	default:
