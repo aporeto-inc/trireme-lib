@@ -80,7 +80,7 @@ func (t *trireme) Stop() error {
 // explicitely adding a new PU.
 func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
 
-	c := make(chan error)
+	c := make(chan error, 1)
 
 	req := &triremeRequest{
 		contextID:   contextID,
@@ -98,7 +98,7 @@ func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) 
 // explicitely deleting an existing PU.
 func (t *trireme) HandleDelete(contextID string) <-chan error {
 
-	c := make(chan error)
+	c := make(chan error, 1)
 
 	req := &triremeRequest{
 		contextID:  contextID,
@@ -115,7 +115,7 @@ func (t *trireme) HandleDelete(contextID string) <-chan error {
 // explicitely deleting an existing PU.
 func (t *trireme) HandleDestroy(contextID string) <-chan error {
 
-	c := make(chan error)
+	c := make(chan error, 1)
 
 	req := &triremeRequest{
 		contextID:  contextID,
@@ -131,7 +131,7 @@ func (t *trireme) HandleDestroy(contextID string) <-chan error {
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
 
-	c := make(chan error)
+	c := make(chan error, 1)
 
 	req := &triremeRequest{
 		contextID:  contextID,
