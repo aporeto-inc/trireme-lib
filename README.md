@@ -1,6 +1,6 @@
 # Trireme
 
-![Trireme Logo](https://www.aporeto.com/wp-content/uploads/2016/10/trireme-logo-final-b.png)
+![Trireme Logo](https://www.aporeto.com/wp-content/uploads/2016/10/trireme-logo-final-b.png =250x250)
 
 Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/Port-centric ACLs and east-west firewalls.
 
@@ -16,7 +16,7 @@ The technology behind Trireme is actually very simple:
 3. Every communication between two processes or containers is controlled through a cryptographic end-to-end authentication and authorization step, by overlaying an authorization function over the TCP negotiation. The authorization steps are performed during the SYN/SYNACK/ACK negotiation.
 
 
-2The result of this approach is that application segmentation is completely decoupled from the underlying network IP addresses and it is centered around workload identity attributes and interactions between workloads. Application segmentation can be simply achieved by managing application identity and authorization policy and the granularity of the segmentation can be refined based on the needs of the platform.
+The result of this approach is that application segmentation is completely decoupled from the underlying network IP addresses and it is centered around workload identity attributes and interactions between workloads. Application segmentation can be simply achieved by managing application identity and authorization policy and the granularity of the segmentation can be refined based on the needs of the platform.
 
 
 Trireme is a node-centric library.  Each node participating in the Trireme cluster must spawn one instance of a process that uses this library to transparently insert the authentication and authorization step. Trireme provides the data path functions, but does not implement either the identity management or the policy resolution functions. This depends on the specific operational environment. Users of the have to provide the PolicyLogic (ABAC “rules”) to Trireme for well-defined Processing Units (PUs), such as containers.  
