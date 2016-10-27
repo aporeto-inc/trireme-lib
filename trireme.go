@@ -216,7 +216,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 }
 
 func (t *trireme) doHandleDestroy(contextID string) error {
-	return nil
+	return t.resolver.HandleDestroyPU(contextID)
 }
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
