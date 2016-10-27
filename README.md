@@ -1,6 +1,6 @@
 # Trireme
 
-<img src="https://www.aporeto.com/wp-content/uploads/2016/10/trireme-logo-final-b.png" width="250">
+<img src="https://www.aporeto.com/wp-content/uploads/2016/10/trireme-logo-final-b.png" width="400">
 
 Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/Port-centric ACLs and east-west firewalls.
 
@@ -13,7 +13,7 @@ The technology behind Trireme is actually very simple:
 
 1. Every PU gets an identity description. The identity is the set of attributes/metadata that can describe the container as key/value pairs and Trireme provides an extensible interface for defining such an identity. Users can choose methods custom to their environment for defining PU identity. For example in a Kubernetes environment, the identity can be the set of labels identifying a POD.
 2. An authorization policy that defines when containers with different types of identity attributes can interact or exchange traffic. The authorization policy essentially implements an Attribute Based Access Control (ABAC) mechanism (https://en.wikipedia.org/wiki/Attribute-Based_Access_Control) , where the policy describes relationships between identity attributes. (for an intro to ABAC see the NIST Video https://www.youtube.com/watch?v=cgTa7YnGfHA)
-3. Every communication between two processes or containers is controlled through a cryptographic end-to-end authentication and authorization step, by overlaying an authorization function over the TCP negotiation. The authorization steps are performed during the SYN/SYNACK/ACK negotiation.
+3. Every communication between two processes or containers is controlled through a cryptographic end-to-end authentication and authorization step, by overlaying an authorization function over the TCP negotiation. The authorization steps are performed during the `SYN`/`SYNACK`/`ACK` negotiation.
 
 
 The result of this approach is that application segmentation is completely decoupled from the underlying network IP addresses and it is centered around workload identity attributes and interactions between workloads. Application segmentation can be simply achieved by managing application identity and authorization policy and the granularity of the segmentation can be refined based on the needs of the platform.
@@ -70,12 +70,15 @@ In order to define your own policies and identities, you need to implement a Pol
 
 # PolicyResolver Implementation
 
-A couple of Helpers are provided as part of the configurator packages that loads all of Trireme’s modules with the most common settings:
+A couple of Helpers are provided as part of the `configurator` packages that loads all of Trireme’s modules with the most common settings:
 
-`NewPSKTriremeWithDockerMonitor` loads Trireme with the default Docker Monitor. A PreSharedKey is used for remote node signature verification.
+* `NewPSKTriremeWithDockerMonitor` loads Trireme with the default Docker Monitor. A PreSharedKey is used for remote node signature verification.
 
 
-`NewPKITriremeWithDockerMonitor` loads Trireme with the default Docker Monitor. ECDSA is used for signatures. In this case, a publicKeyAdder interface is returned. This interface is used to populate the certificates of the remote nodes.
+* `NewPKITriremeWithDockerMonitor` loads Trireme with the default Docker Monitor. ECDSA is used for signatures. In this case, a publicKeyAdder interface is returned. This interface is used to populate the certificates of the remote nodes.
+
+
+In parameter to the helper of your choice, you need to give your own `PolicyResolver` interface implementation
 
 
 * `ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error)` is called by Trireme in order to Resolve policies for specific ProcessingUnit runtimes that was just created.
