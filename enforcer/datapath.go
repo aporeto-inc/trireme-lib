@@ -83,8 +83,13 @@ func NewDatapathEnforcer(
 // NewDefaultDatapathEnforcer create a new data path with most things used by default
 func NewDefaultDatapathEnforcer(
 	serverID string,
+	collector collector.EventCollector,
 	secrets tokens.Secrets,
 ) PolicyEnforcer {
+
+	if collector == nil {
+		panic("Collector must be given to NewDefaultDatapathEnforcer")
+	}
 
 	mutualAuthorization := false
 	fqConfig := &FilterQueue{
@@ -95,7 +100,7 @@ func NewDefaultDatapathEnforcer(
 		ApplicationQueueSize:      DefaultQueueSize,
 		NumberOfApplicationQueues: DefaultNumberOfQueues,
 	}
-	collector := &collector.DefaultCollector{}
+
 	validity := time.Hour * 8760
 
 	return NewDatapathEnforcer(
