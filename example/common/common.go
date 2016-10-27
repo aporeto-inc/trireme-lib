@@ -104,7 +104,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, moni
 	networks := []string{"0.0.0.0/0"}
 	policyEngine := NewCustomPolicyResolver()
 
-	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, keyPEM, certPEM, caCertPEM)
+	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM)
 
 	p.PublicKeyAdd("Server1", certPEM)
 
@@ -118,5 +118,5 @@ func TriremeWithPSK() (trireme.Trireme, monitor.Monitor) {
 	policyEngine := NewCustomPolicyResolver()
 
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, false, []byte("THIS IS A BAD PASSWORD"))
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"))
 }

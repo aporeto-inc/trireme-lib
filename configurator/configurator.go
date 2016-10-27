@@ -27,16 +27,19 @@ func NewTriremeWithDockerMonitor(
 	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
 	secrets tokens.Secrets,
 	syncAtStart bool,
 ) (trireme.Trireme, monitor.Monitor) {
 
-	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, secrets)
-	eventLogger := &collector.DefaultCollector{}
-	supervisor, _ := supervisor.NewIPTablesSupervisor(eventLogger, enforcer, networks)
+	if eventCollector == nil {
+		eventCollector = &collector.DefaultCollector{}
+	}
 
+	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, secrets)
+	supervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, networks)
 	trireme := trireme.NewTrireme(serverID, resolver, supervisor, enforcer)
-	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventLogger, syncAtStart)
+	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 
 	return trireme, monitor
 }
@@ -48,11 +51,12 @@ func NewPSKTriremeWithDockerMonitor(
 	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
 ) (trireme.Trireme, monitor.Monitor) {
 
-	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, tokens.NewPSKSecrets(key), syncAtStart)
+	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart)
 }
 
 // NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -64,6 +68,7 @@ func NewPKITriremeWithDockerMonitor(
 	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	keyPEM []byte,
 	certPEM []byte,
@@ -72,7 +77,7 @@ func NewPKITriremeWithDockerMonitor(
 
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 
-	trireme, monitor := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, publicKeyAdder, syncAtStart)
+	trireme, monitor := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart)
 
 	return trireme, monitor, publicKeyAdder
 }
