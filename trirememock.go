@@ -15,6 +15,9 @@ type mockedMethodsPolicyResolver struct {
 	// HandleDeletePU is called when a PU is removed.
 	handleDeletePUMock func(contextID string) error
 
+	// HandleDeletePU is called when a PU is removed.
+	handleDestroyPUMock func(contextID string) error
+
 	// SetPolicyUpdater sets the PolicyUpdater to use by the PolicyResolver.
 	setPolicyUpdaterMock func(p PolicyUpdater) error
 }
@@ -24,6 +27,7 @@ type TestPolicyResolver interface {
 	PolicyResolver
 	MockResolvePolicy(t *testing.T, impl func(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error))
 	MockHandleDeletePU(t *testing.T, impl func(contextID string) error)
+	MockHandleDestroyPU(t *testing.T, impl func(contextID string) error)
 	MockSetPolicyUpdater(t *testing.T, impl func(p PolicyUpdater) error)
 }
 
@@ -52,6 +56,11 @@ func (m *testPolicyResolver) MockHandleDeletePU(t *testing.T, impl func(contextI
 	m.currentMocks(t).handleDeletePUMock = impl
 }
 
+func (m *testPolicyResolver) MockHandleDestroyPU(t *testing.T, impl func(contextID string) error) {
+
+	m.currentMocks(t).handleDestroyPUMock = impl
+}
+
 func (m *testPolicyResolver) MockSetPolicyUpdater(t *testing.T, impl func(p PolicyUpdater) error) {
 
 	m.currentMocks(t).setPolicyUpdaterMock = impl
@@ -70,6 +79,15 @@ func (m *testPolicyResolver) HandleDeletePU(contextID string) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.handleDeletePUMock != nil {
 		return mock.handleDeletePUMock(contextID)
+	}
+
+	return nil
+}
+
+func (m *testPolicyResolver) HandleDestroyPU(contextID string) error {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.handleDestroyPUMock != nil {
+		return mock.handleDestroyPUMock(contextID)
 	}
 
 	return nil

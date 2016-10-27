@@ -194,7 +194,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 		t.supervisor.Unsupervise(contextID)
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
-	glog.V(2).Infoln("Finished HandleCreate: %s", contextID)
+	glog.V(2).Infof("Finished HandleCreate: %s", contextID)
 	return nil
 }
 

@@ -292,7 +292,8 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 
 	ip, ok := runtimeInfo.DefaultIPAddress()
 	if !ok || ip == "" {
-		return fmt.Errorf("IP Not present in container, not policing")
+		glog.V(2).Infof("IP Not present in container, not policing")
+		return nil
 	}
 
 	returnChan := d.puHandler.HandleCreate(contextID, runtimeInfo)
@@ -378,7 +379,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 	containerID := event.ID
 
 	// Clear the policy cache
-	//d.puHandler.HandleDelete(containerID[:12])
+	d.puHandler.HandleDestroy(containerID[:12])
 	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.UnknownContainerDelete)
 
 	return nil
