@@ -43,6 +43,12 @@ func (p *CustomPolicyResolver) HandleDeletePU(context string) error {
 	return nil
 }
 
+// HandleDestroyPU implements the corresponding interface. We have no
+// state in this example
+func (p *CustomPolicyResolver) HandleDestroyPU(context string) error {
+	return nil
+}
+
 // SetPolicyUpdater is used in order to register a pointer to the policyUpdater
 func (p *CustomPolicyResolver) SetPolicyUpdater(pu trireme.PolicyUpdater) error {
 	return nil
