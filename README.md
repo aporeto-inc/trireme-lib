@@ -22,10 +22,9 @@ The technology behind Trireme is actually very simple:
 Trireme is a node-centric library.  Each node participating in the Trireme cluster must spawn one instance of a process that uses this library to transparently insert the authentication and authorization step. Trireme provides the data path functions, but does not implement either the identity management or the policy resolution functions. This depends on the specific operational environment. Users of the have to provide the PolicyLogic (ABAC “rules”) to Trireme for well-defined Processing Units (PUs), such as containers.  
 
 
-This example is a good and straightforward implementation of the PolicyLogic for a simple use-case. [NEEDS EXAMPLE]
+[This example ](https://github.com/aporeto-inc/trireme/tree/master/example) is a good and straightforward implementation of the PolicyLogic for a simple use-case.
 
-
-Kubernetes-Integration is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
+[Kubernetes-Integration ] (https://github.com/aporeto-inc/kubernetes-integration) is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
 
 # Security Model
 
@@ -79,7 +78,7 @@ A couple of Helpers are provided as part of the configurator packages that loads
 `NewPKITriremeWithDockerMonitor` loads Trireme with the default Docker Monitor. ECDSA is used for signatures. In this case, a publicKeyAdder interface is returned. This interface is used to populate the certificates of the remote nodes.
 
 
-* `ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error)`` is called by Trireme in order to Resolve policies for specific ProcessingUnit runtimes that was just created.
+* `ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error)` is called by Trireme in order to Resolve policies for specific ProcessingUnit runtimes that was just created.
 
 
 * `HandleDeletePU(context string) error` is called by Trireme whenever a ProcessingUnit is stopped/deleted.
