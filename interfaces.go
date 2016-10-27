@@ -40,7 +40,7 @@ type PolicyResolver interface {
 	HandleDeletePU(contextID string) error
 
 	// HandleDeletePU is called when a PU is removed permanently.
-	HandleDestroyPU(contextID string) error
+	// HandleDestroyPU(contextID string) error
 
 	// SetPolicyUpdater sets the PolicyUpdater to use by the PolicyResolver.
 	SetPolicyUpdater(p PolicyUpdater) error
