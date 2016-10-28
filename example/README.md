@@ -8,7 +8,18 @@ talk to each other if they have at least one label that matches.
 
 # Trying it quickly
 
-In order to get a quick proof of concept up and running, you can run the `launch.sh` script.
+In order to get a quick proof of concept up and running, you can run the `launch.sh` script or run the following command:
+
+```
+docker run \
+  --name "Trireme" \
+  --privileged \
+  --net host \
+  -t \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+aporeto/trireme-example
+
+```
 This script will load a docker container in privileged and host mode that will run this example.
 
 
