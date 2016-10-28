@@ -191,7 +191,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, container *policy.PUIn
 		return err
 	}
 
-	if err := s.addNetACLs(netChain, ipAddress, container.Policy.IngressACLs); err != nil {
+	if err := s.addNetACLs(netChain, ipAddress, container.Policy.EgressACLs); err != nil {
 		s.Unsupervise(contextID)
 		return err
 	}
@@ -483,10 +483,12 @@ func (s *iptablesSupervisor) deletePacketTrap(appChain, netChain, ip string) err
 // by an application. The allow rules are inserted with highest priority.
 func (s *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.IPRule) error {
 
+	fmt.Println("-------", chain, ip, rules)
+
 	for i := range rules {
 
 		if err := s.ipt.Insert(
-			appPacketIPTableContext, chain, 1,
+			appAckPacketIPTableContext, chain, 1,
 			"-p", rules[i].Protocol,
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -499,7 +501,7 @@ func (s *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.
 	}
 
 	if err := s.ipt.Append(
-		appPacketIPTableContext, chain,
+		appAckPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "NEW",
 		"-j", "DROP"); err != nil {
