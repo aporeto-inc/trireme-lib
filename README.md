@@ -2,7 +2,7 @@
 
 <img src="https://www.aporeto.com/wp-content/uploads/2016/10/trireme-logo-final-b.png" width="400">
 
-Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/Port-centric ACLs and east-west firewalls.
+Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
 
 
 In the Trireme world, an end-point can be a container, Kubernetes POD, or in general any Linux process and will be referred as Processing Unit (PU) in this discussion.
@@ -59,7 +59,7 @@ Conceptually, Trireme acts on PU events. In the default implementation, the PU i
 * The `Supervisor` implements the policy by redirecting the TCP negotiation packets to user space. The default implementation uses IPTables with LibNetfilter.
 * The `Enforcer` enforces the policy by analyzing the redirected packets and enforcing the identity and policy rules that are defined by the `PolicyResolver` in the PU policy.
 
-# Give it a spin
+# Give It a Spin
 
 To get started and try it out for yourself, we packaged a simple example into a docker container. [we packaged a simple example into a docker container. ](https://github.com/aporeto-inc/trireme/tree/master/example)
 
