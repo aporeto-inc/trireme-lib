@@ -5,7 +5,6 @@ DOCKER_IMAGE_NAME?=$(PROJECT_NAME)
 DOCKER_IMAGE_TAG?=$(BUILD_NUMBER)
 
 build:
-	rm -rf ${GOPATH}/src/k8s.io/kubernetes/vendor/github.com/golang/glog
 	CGO_ENABLED=1 go build -a -installsuffix cgo
 	make package
 
