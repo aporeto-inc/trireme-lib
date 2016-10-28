@@ -51,7 +51,7 @@ Trireme is built as a set of modules (Go packages) that provides a default imple
 
 Conceptually, Trireme acts on PU events. In the default implementation, the PU is a Docker container.  Trireme can be extended easily to other PUs such as processes, files, sockets, and so forth.
 
-![Trireme Architecture](/architecture.png)
+![Trireme Architecture](https://www.aporeto.com/wp-content/uploads/2016/10/trireme.png)
 
 * `Trireme` is the central package providing policy instantiation logic. It receives PU events from the `Monitor` and dispatches the resulting generated policy to the other modules.
 * The `Monitor` listens to a well-defined PU creation module.  The built-in monitor listens to Docker events and generates a standard Trireme Processing Unit runtime representation. The `Monitor` hands-over the Processing Unit runtime to `Trireme`.
