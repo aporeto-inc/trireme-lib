@@ -30,6 +30,23 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	containerPolicyInfo := p.createRules(runtimeInfo)
 
+	// Access google as an example of external ACL
+	ingress := policy.IPRule{
+		Address:  "216.0.0.0/8",
+		Port:     "80",
+		Protocol: "TCP",
+	}
+
+	// Allow access to container from localhost
+	egress := policy.IPRule{
+		Address:  "172.17.0.1/32",
+		Port:     "80",
+		Protocol: "TCP",
+	}
+
+	containerPolicyInfo.IngressACLs = []policy.IPRule{ingress}
+	containerPolicyInfo.EgressACLs = []policy.IPRule{egress}
+
 	p.cache[context] = runtimeInfo
 	containerPolicyInfo.PolicyTags = runtimeInfo.Tags()
 	containerPolicyInfo.TriremeAction = policy.Police
@@ -82,7 +99,7 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 }
 
 //TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, monitor.Monitor) {
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string) (trireme.Trireme, monitor.Monitor) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -107,7 +124,6 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, moni
 		log.Fatal(err)
 	}
 
-	networks := []string{"0.0.0.0/0"}
 	policyEngine := NewCustomPolicyResolver()
 
 	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM)
@@ -118,9 +134,8 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string) (trireme.Trireme, moni
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK() (trireme.Trireme, monitor.Monitor) {
+func TriremeWithPSK(networks []string) (trireme.Trireme, monitor.Monitor) {
 
-	networks := []string{"0.0.0.0/0"}
 	policyEngine := NewCustomPolicyResolver()
 
 	// Use this if you want a pre-shared key implementation
