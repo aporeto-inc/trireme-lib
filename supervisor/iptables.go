@@ -491,8 +491,6 @@ func (s *iptablesSupervisor) deletePacketTrap(appChain, netChain, ip string) err
 // by an application. The allow rules are inserted with highest priority.
 func (s *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.IPRule) error {
 
-	fmt.Println("-------", chain, ip, rules)
-
 	for i := range rules {
 
 		if err := s.ipt.Insert(
