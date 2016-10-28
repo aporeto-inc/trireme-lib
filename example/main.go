@@ -35,9 +35,9 @@ func main() {
 	var m monitor.Monitor
 
 	if usePKI {
-		t, m = common.TriremeWithPKI(keyFile, certFile, caCertFile)
+		t, m = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"})
 	} else {
-		t, m = common.TriremeWithPSK()
+		t, m = common.TriremeWithPSK([]string{"172.17.0.0/24"})
 	}
 
 	if t == nil {

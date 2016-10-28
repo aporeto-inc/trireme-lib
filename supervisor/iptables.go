@@ -362,7 +362,7 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 		{appAckPacketIPTableContext,
 			appPacketIPTableSection,
 			"-s", ip,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-p", "tcp",
 			"-i", "docker0",
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
@@ -425,7 +425,15 @@ func (s *iptablesSupervisor) trapRules(appChain string, netChain string, network
 		{
 			appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp",
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-j", "ACCEPT",
+		},
+
+		// Application everything else
+		{
+			appAckPacketIPTableContext, appChain,
+			"-d", network,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
 		},
@@ -483,13 +491,11 @@ func (s *iptablesSupervisor) deletePacketTrap(appChain, netChain, ip string) err
 // by an application. The allow rules are inserted with highest priority.
 func (s *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.IPRule) error {
 
-	fmt.Println("-------", chain, ip, rules)
-
 	for i := range rules {
 
 		if err := s.ipt.Insert(
 			appAckPacketIPTableContext, chain, 1,
-			"-p", rules[i].Protocol,
+			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
 			"-j", "ACCEPT",
