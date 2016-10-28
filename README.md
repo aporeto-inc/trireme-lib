@@ -78,17 +78,25 @@ A couple of Helpers are provided as part of the `configurator` packages that loa
 * `NewPKITriremeWithDockerMonitor` loads Trireme with the default Docker Monitor. ECDSA is used for signatures. In this case, a publicKeyAdder interface is returned. This interface is used to populate the certificates of the remote nodes.
 
 
-In parameter to the helper of your choice, you need to give your own `PolicyResolver` interface implementation
+In parameter to the helper of your choice, you need to give your own `PolicyResolver` interface implementation:
 
+```
+type PolicyResolver interface {
 
-* `ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error)` is called by Trireme in order to Resolve policies for specific ProcessingUnit runtimes that was just created.
+    // ResolvePolicy returns the policy.PUPolicy associated with the given ProcessingUnit using the given policy.RuntimeReader.
+    ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
+    // HandleDeletePU is called when a PU is stopped/killed.
+    HandleDeletePU(contextID string) error
 
-* `HandleDeletePU(context string) error` is called by Trireme whenever a ProcessingUnit is stopped/deleted.
+    // HandleDeletePU is called when a PU is removed permanently.
+    HandleDestroyPU(contextID string) error
 
-
-* `SetPolicyUpdater(pu trireme.PolicyUpdater) error` is called by Trireme in order to provide a callback pointer in case a Policy needs to be explicitely updated by the PolicyResolver.
-
+    // SetPolicyUpdater sets the PolicyUpdater to use by the PolicyResolver.
+    // The PolicyUpdater is used later on as a reference for Policy Updates.
+    SetPolicyUpdater(p PolicyUpdater) error
+}
+```
 
 The `PolicyResolver` can then issue explicit calls to UpdatePolicy in order to push a policyUpdate for an already running ProcessingUnit.
 
