@@ -10,7 +10,7 @@ talk to each other if they have at least one label that matches.
 
 In order to get a quick proof of concept up and running, you can run the `launch.sh` script or run the following command:
 
-```
+```bash
 docker run \
   --name "Trireme" \
   --privileged \
@@ -57,7 +57,7 @@ In both those cases, the configurator package provides helpers that will instant
 ## Trireme with PSK.
 
 To instantiate Trireme, the following Helper is used:
-```
+```go
 configurator.NewPSKTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, syncAtStart, key)
 ```
 The parameters are the following:
@@ -77,7 +77,7 @@ For more complex use cases, Trireme can be used with a Private Key Infrastructur
 
 The configurator helper is similar to the PresharedKey one, except that it takes into input the PKI information:
 
-```
+```go
 configurator.NewPKITriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, syncAtStart, keyPEM, certPEM, caCertPEM)
 ```
 

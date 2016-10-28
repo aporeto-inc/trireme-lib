@@ -80,7 +80,7 @@ A couple of Helpers are provided as part of the `configurator` packages that loa
 
 In parameter to the helper of your choice, you need to give your own `PolicyResolver` interface implementation:
 
-```
+```go
 type PolicyResolver interface {
 
     // ResolvePolicy returns the policy.PUPolicy associated with the given ProcessingUnit using the given policy.RuntimeReader.
@@ -100,7 +100,7 @@ type PolicyResolver interface {
 
 The `PolicyResolver` can then issue explicit calls to the `PolicyUpdater` in order to push a policyUpdate for an already running ProcessingUnit:
 
-```
+```go
 type PolicyUpdater interface {
 
     // UpdatePolicy updates the policy of the isolator for a container.
