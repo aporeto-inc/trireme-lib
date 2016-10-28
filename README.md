@@ -98,7 +98,16 @@ type PolicyResolver interface {
 }
 ```
 
-The `PolicyResolver` can then issue explicit calls to UpdatePolicy in order to push a policyUpdate for an already running ProcessingUnit.
+The `PolicyResolver` can then issue explicit calls to the `PolicyUpdater` in order to push a policyUpdate for an already running ProcessingUnit:
+
+```
+type PolicyUpdater interface {
+
+    // UpdatePolicy updates the policy of the isolator for a container.
+    UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error
+}
+```
+
 
 # License
 
