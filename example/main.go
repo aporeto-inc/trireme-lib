@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/pkg/profile"
 )
 
 func usage() {
@@ -19,8 +18,6 @@ func usage() {
 }
 
 func main() {
-
-	defer profile.Start(profile.CPUProfile).Stop()
 
 	flag.Usage = usage
 
