@@ -9,6 +9,8 @@ import (
 	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
+
+	"github.com/golang/glog"
 )
 
 // CustomPolicyResolver holds the configuration of the policy engine
@@ -27,6 +29,8 @@ func NewCustomPolicyResolver() *CustomPolicyResolver {
 // ResolvePolicy implements the Trireme interface. Here we just create a simple
 // policy that accepts packets with the same labels as the target container.
 func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error) {
+
+	glog.V(1).Infof("Getting Policy for ContainerID %s , name: %s ", context, runtimeInfo.Name())
 
 	containerPolicyInfo := p.createRules(runtimeInfo)
 
@@ -51,12 +55,19 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	containerPolicyInfo.PolicyTags = runtimeInfo.Tags()
 	containerPolicyInfo.TriremeAction = policy.Police
 
+	for i, selector := range containerPolicyInfo.Rules {
+		for _, clause := range selector.Clause {
+			glog.V(1).Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
+		}
+	}
+
 	return containerPolicyInfo, nil
 }
 
 // HandleDeletePU implements the corresponding interface. We have no
 // state in this example
 func (p *CustomPolicyResolver) HandleDeletePU(context string) error {
+	glog.V(1).Infof("Deleting Container %s", context)
 	return nil
 }
 

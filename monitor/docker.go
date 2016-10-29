@@ -208,7 +208,7 @@ func (d *dockerMonitor) eventProcessor() {
 			if event.Action != "" {
 				f, present := d.handlers[DockerEvent(event.Action)]
 				if present {
-					glog.V(5).Infof("Handling docker event [%s].", event.Action)
+					glog.V(6).Infof("Handling docker event [%s].", event.Action)
 					err := f(event)
 					if err != nil {
 						glog.V(1).Infof("Error while handling event [%s]. : %s", event.Action, err)
@@ -389,12 +389,11 @@ func (d *dockerMonitor) handleNetworkConnectEvent(event *events.Message) error {
 
 	id := event.Actor.Attributes["container"]
 
-	container, err := d.dockerClient.ContainerInspect(context.Background(), id)
+	_, err := d.dockerClient.ContainerInspect(context.Background(), id)
 	if err != nil {
-		glog.V(2).Infoln("Failed to read the affected container.")
+		glog.V(2).Infoln("Failed to read the affected container. %s ", err)
+		return err
 	}
-
-	glog.V(5).Infoln(container)
 
 	return nil
 }
