@@ -5,40 +5,40 @@
 Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
 
 
-In the Trireme world, an end-point can be a container, Kubernetes POD, or in general any Linux process and will be referred as Processing Unit (PU) in this discussion.
+In the Trireme world, a processing unit end-point can be a container, Kubernetes POD, or a general Linux process. We will be referring to processing units as PUs throughout this discussion.
 
 
-The technology behind Trireme is actually very simple:
+The technology behind Trireme is streamlined, elegant, and simple:
 
 
-1. Every PU gets an identity description. The identity is the set of attributes/metadata that can describe the container as key/value pairs and Trireme provides an extensible interface for defining such an identity. Users can choose methods custom to their environment for defining PU identity. For example in a Kubernetes environment, the identity can be the set of labels identifying a POD.
-2. An authorization policy that defines when containers with different types of identity attributes can interact or exchange traffic. The authorization policy essentially implements an Attribute Based Access Control (ABAC) mechanism (https://en.wikipedia.org/wiki/Attribute-Based_Access_Control) , where the policy describes relationships between identity attributes. (for an intro to ABAC see the NIST Video https://www.youtube.com/watch?v=cgTa7YnGfHA)
+1. The identity is the set of attributes and metadata that describes the container as key/value pairs. Trireme provides an extensible interface for defining these identities. Users can choose customized methods appropriate to their environment for establishing PU identity. For example, in a Kubernetes environment, the identity can be the set of labels identifying a POD.
+2. There is an authorization policy that defines when containers with different types of identity attributes can interact or exchange traffic. The authorization policy implements an Attribute-Based Access Control (ABAC) mechanism (https://en.wikipedia.org/wiki/Attribute-Based_Access_Control), where the policy describes relationships between identity attributes (for an intro to ABAC see the NIST Video https://www.youtube.com/watch?v=cgTa7YnGfHA).
 3. Every communication between two processes or containers is controlled through a cryptographic end-to-end authentication and authorization step, by overlaying an authorization function over the TCP negotiation. The authorization steps are performed during the `SYN`/`SYNACK`/`ACK` negotiation.
 
 
-The result of this approach is that application segmentation is completely decoupled from the underlying network IP addresses and it is centered around workload identity attributes and interactions between workloads. Application segmentation can be simply achieved by managing application identity and authorization policy and the granularity of the segmentation can be refined based on the needs of the platform.
+The result of this approach is the decoupling of application segmentation from the underlying network IP addresses because this approach is centered on workload identity attributes and interactions between workloads. Application segmentation can be achieved simply by managing application identity and authorization policy. Segmentation granularity can be adjusted based on the needs of the platform.
 
 
-Trireme is a node-centric library.  Each node participating in the Trireme cluster must spawn one instance of a process that uses this library to transparently insert the authentication and authorization step. Trireme provides the data path functions, but does not implement either the identity management or the policy resolution functions. This depends on the specific operational environment. Users of the have to provide the PolicyLogic (ABAC “rules”) to Trireme for well-defined Processing Units (PUs), such as containers.  
+Trireme is a node-centric library.  Each node participating in the Trireme cluster must spawn one instance of a process that uses this library to transparently insert the authentication and authorization step. Trireme provides the data path functions but does not implement either the identity management or the policy resolution function. Function implementation depends on the particular operational environment. Users of the have to provide PolicyLogic (ABAC “rules”) to Trireme for well-defined PUs, such as containers.
 
 
-[This example ](https://github.com/aporeto-inc/trireme/tree/master/example) is a good and straightforward implementation of the PolicyLogic for a simple use-case.
+[This example ](https://github.com/aporeto-inc/trireme/tree/master/example) is a straightforward implementation of the PolicyLogic for a simple use-case.
 
 [Kubernetes-Integration ] (https://github.com/aporeto-inc/kubernetes-integration) is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
 
 # Security Model
 
 
-With Trireme, there is no need to define any security rules with IPs, port numbers or ACLs.   Everything is based on identity attributes; your IP and port allocation scheme is not relevant to Trireme and it is compatible with most underlying networking technologies. The end-to-end authentication and authorization approach is also compatible with NATs and IPv4/IPv6 translations.
+With Trireme, there is no need to define any security rules with IPs, port numbers, or ACLs.   Everything is based on identity attributes; your IP and port allocation scheme is not relevant to Trireme and it is compatible with most underlying networking technologies. The end-to-end authentication and authorization approach is also compatible with NATs and IPv4/IPv6 translations.
 
 
-A Processing Unit (PU) is a logical unit of control to which you attach identity and authorization policies.  It provides a simple mechanism where the identity is derived out of the Docker manifest, but other mechanisms are possible for more sophisticated identity definition.   For instance, you may want to tag your 3-tier container application as "frontend," "backend," and "database", by associating the corresponding  labels with the containers and these labels become the identity. A policy for the “backend” containers is simply to accept traffic only from the “frontend” containers. Alternatively, an orchestration system might define a composite identity for each container and more sophisticated policies.
+A PU is a logical unit of control to which you attach identity and authorization policies. It provides a simple mechanism where the identity is derived out of the Docker manifest; however, other mechanisms are possible for more sophisticated identity definition.   For instance, you may want to tag your 3-tier container application as "frontend," "backend," and "database." By associating corresponding labels and containers, these labels become "the identity." A policy for the “backend” containers can simply to accept traffic only from “frontend” containers. Alternatively, an orchestration system might define a composite identity for each container and implement more sophisticated policies.
 
 
-The Policy Logic defines the set of authorization rules as a function of the identity of attributes and loads these rules into Trireme when a container is instantiated. The authorization rules describe the set of identities that the particular container is allowed to interact with. We provide an example of this integration logic with Kubernetes in [link] and an example of simplistic policy where two containers can only talk to each other if they have the same labels in [link]. Each rule defines a match based on the identity attributes and it assumes a white-list model where everything is dropped unless explicitly allowed by the authorization policy.
+PolicyLogic defines the set of authorization rules as a function of the identity of attributes and loads these rules into Trireme when a container is instantiated. Authorization rules describe the set of identities with which a particular container is allowed to interact. We provide an example of this integration logic with Kubernetes in [link]. Furthermore, we provide an example of a simple policy where two containers can only talk to each other if they have matching labels in [link]. Each rule defines a match based on the identity attributes. PolicyLogic assumes a whitelist model where everything is dropped unless explicitly allowed by the authorization policy.
 
 
-PU identities are cryptographically signed with a node specific secret and sent as part of a TCP connection setup negotiation. Trireme supports both mutual authorization or receiver only authorization and supports two authentication and signing modes:  a pre-shared key mechanism and a PKI mechanism based on ECDSA. In the case of ECDSA, public keys are either transmitted on the wire or pre-populated through an out-of-band mechanism to improve efficiency. Trireme supports two identity encoding mechanisms:  either as a signed JSON Web Token (JWT) or through a custom binary mapping mechanism.
+PU identities are cryptographically signed with a node specific secret and sent as part of a TCP connection setup negotiation. Trireme supports both mutual and receiver-only authorization. Moreover, it supports two authentication and signing modes: (1) A pre-shared key and (2) a PKI mechanism based on ECDSA. In the case of ECDSA, public keys are either transmitted on the wire or pre-populated through an out-of-band mechanism to improve efficiency. Trireme also supports two identity encoding mechanisms: (1) A signed JSON Web Token (JWT) and (2) a custom binary mapping mechanism.
 
 
 With these mechanisms, the Trireme agent on each node will only allow communication after an end-to-end authentication and authorization step is performed between the containers.
