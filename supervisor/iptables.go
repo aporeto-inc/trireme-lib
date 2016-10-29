@@ -523,7 +523,7 @@ func (s *iptablesSupervisor) deleteAppACLs(chain string, ip string, rules []poli
 
 	for i := range rules {
 		if err := s.ipt.Delete(
-			appPacketIPTableContext, chain,
+			appAckPacketIPTableContext, chain,
 			"-p", rules[i].Protocol,
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -534,7 +534,7 @@ func (s *iptablesSupervisor) deleteAppACLs(chain string, ip string, rules []poli
 	}
 
 	if err := s.ipt.Delete(
-		appPacketIPTableContext, chain,
+		appAckPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "NEW",
 		"-j", "DROP",
