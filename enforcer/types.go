@@ -29,9 +29,9 @@ const (
 	AckProcessed
 )
 
-var (
+const (
 	// TransmitterLabel is the name of the label used to identify the Transmitter Context
-	TransmitterLabel = "AporetoContextID"
+	TransmitterLabel = "TriremeContextID"
 )
 
 // PacketStats for interface
