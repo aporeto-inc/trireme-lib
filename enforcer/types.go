@@ -29,7 +29,7 @@ const (
 	AckProcessed
 )
 
-const (
+var (
 	// TransmitterLabel is the name of the label used to identify the Transmitter Context
 	TransmitterLabel = "AporetoContextID"
 )
