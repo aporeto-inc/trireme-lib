@@ -108,6 +108,16 @@ type PolicyUpdater interface {
 }
 ```
 
+# Contributing
+
+Filing issues is the most important part of contributing to Trireme. It provides a metric for measuring progress and allows the community to know what is being worked on. "Issues" in the context of the project refer to everything from broken aspect of the framework, to regressions, to unimplemented features. Here, for Trireme, we use [GitHub Issues](https://github.com/aporeto-inc/trireme/issues)!
+
+There are always bugs to be fixed and features to be implemented, some large, some small. Fixing event the smallest bug is enormously helpful! If you have something in mind, don't hesitate and create a pull request [here](https://github.com/aporeto-inc/trireme/pulls)!
+Before creating the pull request, make sure to add the new unit tests of the feature and check if the current unit tests are still passing, to do so, please run the following command :
+
+```bash
+go test ./...
+```
 
 # License
 
