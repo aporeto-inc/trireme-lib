@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/golang/glog"
 )
 
 func usage() {
@@ -32,8 +33,10 @@ func main() {
 	var m monitor.Monitor
 
 	if usePKI {
+		glog.V(1).Infof("Setting up trireme with PKI")
 		t, m = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"})
 	} else {
+		glog.V(1).Infof("Setting up trireme with PSK")
 		t, m = common.TriremeWithPSK([]string{"172.17.0.0/24"})
 	}
 
