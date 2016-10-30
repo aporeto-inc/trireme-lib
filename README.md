@@ -1,8 +1,9 @@
-[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&style=flat-square)](https://twitter.com/aporeto_trireme) [![Slack URL](https://img.shields.io/badge/slack-up-green.svg)](https://triremehq.slack.com/messages/general/) [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html) [![Documentation](https://img.shields.io/badge/docs-godoc-blue.svg)](https://godoc.org/github.com/aporeto-inc/trireme)
-
 # Trireme
 
 <img src="https://www.aporeto.com/wp-content/uploads/2016/10/trireme-logo-final-b.png" width="400">
+
+[![Twitter URL](https://img.shields.io/twitter/url/http/shields.io.svg?style=social&style=flat-square)](https://twitter.com/aporeto_trireme) [![Slack URL](https://img.shields.io/badge/slack-up-green.svg)](https://triremehq.slack.com/messages/general/) [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html) [![Documentation](https://img.shields.io/badge/docs-godoc-blue.svg)](https://godoc.org/github.com/aporeto-inc/trireme)
+
 
 Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
 
