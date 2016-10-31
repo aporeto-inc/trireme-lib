@@ -44,7 +44,7 @@ PolicyLogic defines the set of authorization rules as a function of the identity
 PU identities are cryptographically signed with a node specific secret and sent as part of a TCP connection setup negotiation. Trireme supports both mutual and receiver-only authorization. Moreover, it supports two authentication and signing modes: (1) A pre-shared key and (2) a PKI mechanism based on ECDSA. In the case of ECDSA, public keys are either transmitted on the wire or pre-populated through an out-of-band mechanism to improve efficiency. Trireme also supports two identity encoding mechanisms: (1) A signed JSON Web Token (JWT) and (2) a custom binary mapping mechanism.
 
 
-With these mechanisms, the Trireme agent on each node will only allow communication after an end-to-end authentication and authorization step is performed between the containers.
+With these mechanisms, the Trireme run-time on each node will only allow communication after an end-to-end authentication and authorization step is performed between the containers.
 
 
 # Trireme Architecture
