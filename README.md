@@ -122,6 +122,8 @@ Before creating the pull request, make sure to add the new unit tests of the fea
 go test ./...
 ```
 
+*IMPORTANT* You *must* follow the [Trireme Coding Style Guidelines](https://github.com/aporeto-inc/trireme/wiki/Contributing-Code) when writing contributing to Trireme.
+
 # License
 
 The Trireme package, although written in Go currently uses the libnetfilter-queue library:
