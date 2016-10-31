@@ -275,8 +275,8 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 	timeout := time.Second * 0
 
 	if !dockerInfo.State.Running {
-		glog.V(2).Infoln("Container is not running - False alarm")
-		return fmt.Errorf("Container not running - return error")
+		glog.V(2).Infoln("Container is not running - Activation not needed.")
+		return nil
 	}
 
 	contextID, err := contextIDFromDockerID(dockerInfo.ID)
