@@ -7,6 +7,11 @@
 
 Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
 
+# TL;DR
+
+To get started and try it out for yourself, we packaged a simple example into a docker container. [we packaged a simple example into a docker container. ](https://github.com/aporeto-inc/trireme/tree/master/example)
+
+# Description
 
 In the Trireme world, a processing unit end-point can be a container, Kubernetes POD, or a general Linux process. We will be referring to processing units as PUs throughout this discussion.
 
@@ -15,7 +20,7 @@ The technology behind Trireme is streamlined, elegant, and simple:
 
 
 1. The identity is the set of attributes and metadata that describes the container as key/value pairs. Trireme provides an extensible interface for defining these identities. Users can choose customized methods appropriate to their environment for establishing PU identity. For example, in a Kubernetes environment, the identity can be the set of labels identifying a POD.
-2. There is an authorization policy that defines when containers with different types of identity attributes can interact or exchange traffic. The authorization policy implements an Attribute-Based Access Control (ABAC) mechanism (https://en.wikipedia.org/wiki/Attribute-Based_Access_Control), where the policy describes relationships between identity attributes (for an intro to ABAC see the NIST Video https://www.youtube.com/watch?v=cgTa7YnGfHA).
+2. There is an authorization policy that defines when containers with different types of identity attributes can interact or exchange traffic. The authorization policy implements an Attribute-Based Access Control (ABAC) mechanism (https://en.wikipedia.org/wiki/Attribute-Based_Access_Control), where the policy describes relationships between identity attributes.
 3. Every communication between two processes or containers is controlled through a cryptographic end-to-end authentication and authorization step, by overlaying an authorization function over the TCP negotiation. The authorization steps are performed during the `SYN`/`SYNACK`/`ACK` negotiation.
 
 
@@ -62,9 +67,6 @@ Conceptually, Trireme acts on PU events. In the default implementation, the PU i
 * The `Supervisor` implements the policy by redirecting the TCP negotiation packets to user space. The default implementation uses IPTables with LibNetfilter.
 * The `Enforcer` enforces the policy by analyzing the redirected packets and enforcing the identity and policy rules that are defined by the `PolicyResolver` in the PU policy.
 
-# Give It a Spin
-
-To get started and try it out for yourself, we packaged a simple example into a docker container. [we packaged a simple example into a docker container. ](https://github.com/aporeto-inc/trireme/tree/master/example)
 
 # Defining Your Own Policy
 
