@@ -3,9 +3,11 @@ go:
  - 1.6.3
  - 1.7.3
 
-before_install:
-  - apt-get update && apt-get install -y libnetfilter-queue-dev iptables
-  - go get ./...
+addons:
+   apt:
+     packages:
+       - libnetfilter-queue-dev
+       - iptables
 
 script:
  - go test -v ./...
