@@ -5,6 +5,7 @@ The concept of segmentation, or separating applications in different domains, is
 Over the last several years segmentation was often translated to a network isolation problem where, by restricting network reachability, we could achieve isolation. VLANs, VXLAN, MPLS, firewall ACLs, host ACLs are all trying to segment applications by associating application context to an IP address/port and then managing reachability between two components by controlling routing or five-tuple rules.
 
 Network segmentation approaches had to solve two problems:
+
 1. Associate a workload with an IP address and port number; and
 2. create the necessary network structures or reachability rules to limit communication.
 
@@ -23,6 +24,7 @@ Transitioning to such a model comes with some fundamental benefits for any deplo
 5. The scheme does not require any control plane. The technique is completely distributed with no shared state and no eventual consistency problems.
 
 The biggest value of Trireme is its simplicity: simple deployment and simple operations. One would naturally ask the question why this has never be done before. Actually,similar techniques have been attempted in the past but with less success. The first example of such a technique was [the CIPSO standard] (https://tools.ietf.org/html/draft-ietf-cipso-ipsecurity-01). The idea, embraced by US government agencies, Trusted Solaris, and SELinux, was was to carry applicationcontext in IP options. There are several differences of Trireme compared to this initial approach:
+
 1. IP options are dropped or improperly handled by the majority of high-speed routers and switches;
 2. although some application context is carried in packets, this context is rather limited and not cryptographically protected.
 
