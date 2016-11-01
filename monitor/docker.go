@@ -48,7 +48,9 @@ func contextIDFromDockerID(dockerID string) (string, error) {
 	if dockerID == "" {
 		return "", fmt.Errorf("Empty DockerID String")
 	}
-
+	if len(dockerID) < 12 {
+		return "", fmt.Errorf("dockerID smaller than 12 characters")
+	}
 	return dockerID[:12], nil
 }
 
@@ -341,14 +343,18 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 
 	timeout := time.Second * 0
-	id := event.ID
+	dockerID := event.ID
+	contextID, err := contextIDFromDockerID(dockerID)
+	if err != nil {
+		return fmt.Errorf("Error Generating ContextID: %s", err)
+	}
 
-	info, err := d.dockerClient.ContainerInspect(context.Background(), id)
+	info, err := d.dockerClient.ContainerInspect(context.Background(), dockerID)
 	if err != nil {
 		glog.V(2).Infoln("Killing container because inspect returned error")
 		//If we see errors, we will kill the container for security reasons.
-		d.dockerClient.ContainerStop(context.Background(), id, &timeout)
-		d.collector.CollectContainerEvent(id[:12], "", nil, collector.ContainerFailed)
+		d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout)
+		d.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerFailed)
 		return fmt.Errorf("Cannot read container information. Killing container. ")
 	}
 
@@ -364,25 +370,30 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 //data structures and stops enforcement.
 func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 
-	containerID := event.ID
+	dockerID := event.ID
+	contextID, err := contextIDFromDockerID(dockerID)
+	if err != nil {
+		return fmt.Errorf("Error Generating ContextID: %s", err)
+	}
+	d.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerStop)
 
-	err := d.removeDockerContainer(containerID)
-	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.ContainerStop)
-
-	return err
+	return d.removeDockerContainer(dockerID)
 }
 
 // handleDestroyEvent handles destroy events from Docker. This means that the Policy
 // can be safely deleted.
 func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
-	containerID := event.ID
+	dockerID := event.ID
+	contextID, err := contextIDFromDockerID(dockerID)
+	if err != nil {
+		return fmt.Errorf("Error Generating ContextID: %s", err)
+	}
 
+	d.collector.CollectContainerEvent(contextID, "", nil, collector.UnknownContainerDelete)
 	// Clear the policy cache
-	d.puHandler.HandleDestroy(containerID[:12])
-	d.collector.CollectContainerEvent(containerID[:12], "", nil, collector.UnknownContainerDelete)
-
-	return nil
+	errChan := d.puHandler.HandleDestroy(contextID)
+	return <-errChan
 }
 
 func (d *dockerMonitor) handleNetworkConnectEvent(event *events.Message) error {
