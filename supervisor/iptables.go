@@ -529,7 +529,7 @@ func (s *iptablesSupervisor) deleteAppACLs(chain string, ip string, rules []poli
 			"--dport", rules[i].Port,
 			"-j", "ACCEPT",
 		); err != nil {
-			glog.V(2).Infoln("Error removing ingress ACL rule ", rules[i], err)
+			glog.V(8).Infoln("Error removing ingress ACL rule ", rules[i], err)
 		}
 	}
 
