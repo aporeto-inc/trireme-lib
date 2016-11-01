@@ -493,29 +493,15 @@ func (s *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.
 
 	for i := range rules {
 
-		if rules[i].Address == "0.0.0.0/0" {
-
-			if err := s.ipt.Append(
-				appAckPacketIPTableContext, chain,
-				"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
-				"-d", rules[i].Address,
-				"--dport", rules[i].Port,
-				"-j", "ACCEPT",
-			); err != nil {
-				glog.V(2).Infoln("Error adding rule ", rules[i], err)
-				return err
-			}
-		} else {
-			if err := s.ipt.Insert(
-				appAckPacketIPTableContext, chain, 1,
-				"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
-				"-d", rules[i].Address,
-				"--dport", rules[i].Port,
-				"-j", "ACCEPT",
-			); err != nil {
-				glog.V(2).Infoln("Error adding rule ", rules[i], err)
-				return err
-			}
+		if err := s.ipt.Insert(
+			appAckPacketIPTableContext, chain, 1,
+			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
+			"-d", rules[i].Address,
+			"--dport", rules[i].Port,
+			"-j", "ACCEPT",
+		); err != nil {
+			glog.V(2).Infoln("Error adding rule ", rules[i], err)
+			return err
 		}
 
 	}
@@ -566,28 +552,15 @@ func (s *iptablesSupervisor) addNetACLs(chain, ip string, rules []policy.IPRule)
 
 	for i := range rules {
 
-		if rules[i].Address == "0.0.0.0/0" {
-			if err := s.ipt.Append(
-				netPacketIPTableContext, chain,
-				"-p", rules[i].Protocol,
-				"-s", rules[i].Address,
-				"--dport", rules[i].Port,
-				"-j", "ACCEPT",
-			); err != nil {
-				glog.V(2).Infoln("Error adding rule ", rules[i], err)
-				return err
-			}
-		} else {
-			if err := s.ipt.Insert(
-				netPacketIPTableContext, chain, 1,
-				"-p", rules[i].Protocol,
-				"-s", rules[i].Address,
-				"--dport", rules[i].Port,
-				"-j", "ACCEPT",
-			); err != nil {
-				glog.V(2).Infoln("Error adding rule ", rules[i], err)
-				return err
-			}
+		if err := s.ipt.Insert(
+			netPacketIPTableContext, chain, 1,
+			"-p", rules[i].Protocol,
+			"-s", rules[i].Address,
+			"--dport", rules[i].Port,
+			"-j", "ACCEPT",
+		); err != nil {
+			glog.V(2).Infoln("Error adding rule ", rules[i], err)
+			return err
 		}
 
 	}
