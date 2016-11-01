@@ -10,7 +10,7 @@ Welcome to Trireme, an open-source library curated by Aporeto to provide segment
 
 # TL;DR
 
-To get started and try it out for yourself, we packaged a simple example into a docker container. [we packaged a simple example into a docker container. ](https://github.com/aporeto-inc/trireme/tree/master/example)
+To get started and try it out for yourself,  [we packaged a simple example into a docker container. ](https://github.com/aporeto-inc/trireme/tree/master/example)
 
 # Description
 
