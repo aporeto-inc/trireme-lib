@@ -36,11 +36,12 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	// Access google as an example of external ACL
 	ingress := policy.IPRule{
-		Address:  "0.0.0.0/0",
+		Address:  "216.0.0.0/8",
 		Port:     "80",
 		Protocol: "TCP",
 	}
 
+	// Allow access to container from localhost
 	egress := policy.IPRule{
 		Address:  "172.17.0.1/32",
 		Port:     "80",
