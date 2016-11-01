@@ -34,10 +34,10 @@ func main() {
 
 	if usePKI {
 		glog.V(1).Infof("Setting up trireme with PKI")
-		t, m = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"})
+		t, m = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"})
 	} else {
 		glog.V(1).Infof("Setting up trireme with PSK")
-		t, m = common.TriremeWithPSK([]string{"172.17.0.0/24"})
+		t, m = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"})
 	}
 
 	if t == nil {
