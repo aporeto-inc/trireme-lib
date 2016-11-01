@@ -1,0 +1,12 @@
+language: go
+go:
+ - 1.7.3
+
+addons:
+   apt:
+     packages:
+       - libnetfilter-queue-dev
+       - iptables
+
+script:
+ - go test -v ./...
