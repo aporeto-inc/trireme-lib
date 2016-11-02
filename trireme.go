@@ -77,7 +77,7 @@ func (t *trireme) Stop() error {
 }
 
 // HandleCreate implements the logic needed between all the Trireme components for
-// explicitely adding a new PU.
+// explicitly adding a new PU.
 func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
 
 	c := make(chan error, 1)
@@ -95,7 +95,7 @@ func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) 
 }
 
 // HandleDelete implements the logic needed between all the Trireme components for
-// explicitely deleting an existing PU.
+// explicitly deleting an existing PU.
 func (t *trireme) HandleDelete(contextID string) <-chan error {
 
 	c := make(chan error, 1)
@@ -112,7 +112,7 @@ func (t *trireme) HandleDelete(contextID string) <-chan error {
 }
 
 // HandleDelete implements the logic needed between all the Trireme components for
-// explicitely deleting an existing PU.
+// explicitly deleting an existing PU.
 func (t *trireme) HandleDestroy(contextID string) <-chan error {
 
 	c := make(chan error, 1)
