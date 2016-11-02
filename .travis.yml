@@ -13,5 +13,5 @@ before_install:
   - gometalinter.v1 --install
 
 script:
- - gometalinter --disable-all --enable=vet --enable=vetshadow --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell
+ - gometalinter.v1 --disable-all --enable=vet --enable=vetshadow --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell
  - go test -v ./...
