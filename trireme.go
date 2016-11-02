@@ -166,7 +166,7 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 	// Cache all the container runtime information
 	if err := t.cache.AddOrUpdate(contextID, runtimeInfo); err != nil {
-		return err
+		return fmt.Errorf("Couldn't add the runtimeInfo to the cache %s", err)
 	}
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
