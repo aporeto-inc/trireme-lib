@@ -26,7 +26,7 @@ const (
 
 type supervisorCacheEntry struct {
 	index       int
-	ips         map[string]string
+	ips         []string
 	ingressACLs []policy.IPRule
 	egressACLs  []policy.IPRule
 }
@@ -97,6 +97,13 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 	return s.doUpdatePU(contextID, containerInfo)
 }
 
+func defaultCacheIP(ips []string) (string, error) {
+	if len(ips) == 0 || ips == nil {
+		return "", fmt.Errorf("No IPs present")
+	}
+	return ips[0], nil
+}
+
 // Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
@@ -112,9 +119,9 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
 
 	// Currently processing only containers with one IP address
-	ip, ok := cacheEntry.ips["bridge"]
-	if !ok {
-		return fmt.Errorf("Container IP address not found!")
+	ip, err := defaultCacheIP(cacheEntry.ips)
+	if err != nil {
+		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
 	s.deletePacketTrap(appChain, netChain, ip)
@@ -152,14 +159,14 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, container *policy.PUIn
 	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(index)
 
 	// Currently processing only containers with one IP address
-	ipAddress, ok := container.Runtime.DefaultIPAddress()
+	ipAddress, ok := container.Policy.DefaultIPAddress()
 	if !ok {
 		return fmt.Errorf("Container IP address not found")
 	}
 
 	cacheEntry := &supervisorCacheEntry{
 		index:       index,
-		ips:         container.Runtime.IPAddresses(),
+		ips:         container.Policy.IPAddresses(),
 		ingressACLs: container.Policy.IngressACLs,
 		egressACLs:  container.Policy.EgressACLs,
 	}
@@ -207,19 +214,17 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, container *policy.PUIn
 func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUInfo) error {
 
 	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
-	newindex := cacheEntry.(*supervisorCacheEntry).index
+	if err != nil {
+		return fmt.Errorf("Error finding PU in cache %s", err)
+	}
+	cachedEntry := cacheEntry.(*supervisorCacheEntry)
+	newindex := cachedEntry.index
 	oldindex := newindex - 1
 
-	result, err := s.versionTracker.Get(contextID)
-	if err != nil {
-		return err
-	}
-	cachedEntry := result.(*supervisorCacheEntry)
-
 	// Currently processing only containers with one IP address
-	ipAddress, ok := cachedEntry.ips["bridge"]
-	if !ok {
-		return fmt.Errorf("Container IP address not found!")
+	ipAddress, err := defaultCacheIP(cachedEntry.ips)
+	if err != nil {
+		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
 	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(newindex)

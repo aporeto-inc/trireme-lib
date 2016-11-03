@@ -274,6 +274,7 @@ func TestCacheState(t *testing.T) {
 	}
 
 	puInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "127.0.0.1"})
+	puInfo.Policy.PolicyIPs = []string{"127.0.0.1"}
 
 	// Should  not fail:  IP is valid
 	err = enforcer.Enforce(contextID, puInfo)

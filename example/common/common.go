@@ -52,7 +52,19 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	containerPolicyInfo.EgressACLs = []policy.IPRule{egress}
 
 	p.cache[context] = runtimeInfo
+
+	// Use all the labels from Docker
 	containerPolicyInfo.PolicyTags = runtimeInfo.Tags()
+
+	// Use the bridge IP from Docker.
+	ip, ok := runtimeInfo.DefaultIPAddress()
+	if ok {
+		containerPolicyInfo.PolicyIPs = []string{ip}
+	} else {
+		containerPolicyInfo.PolicyIPs = []string{}
+	}
+
+	// Police the container
 	containerPolicyInfo.TriremeAction = policy.Police
 
 	for i, selector := range containerPolicyInfo.Rules {

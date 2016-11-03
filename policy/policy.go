@@ -83,6 +83,8 @@ type PUPolicy struct {
 	EgressACLs []IPRule
 	// PolicyTags are the tags that will be sent on the wire and used for policing.
 	PolicyTags TagsMap
+	// PolicyIPs are the endpoint PU IP that we want to apply Trireme to. By default this would represent the same set of IPs as the Runtime would give you.
+	PolicyIPs []string
 	// Rules is the set of rules that implement the label matching.
 	Rules []TagSelector
 	// Extensions is an interface to a data structure that allows the policy supervisor
@@ -155,6 +157,20 @@ func (r *PURuntime) SetTags(tags TagsMap) {
 	r.tags = tags
 }
 
+// IPAddresses returns all the IP addresses for the processing unit
+func (r *PUPolicy) IPAddresses() []string {
+	return r.PolicyIPs
+}
+
+// DefaultIPAddress returns the default IP address for the processing unit
+func (r *PUPolicy) DefaultIPAddress() (string, bool) {
+	if len(r.PolicyIPs) == 0 {
+		return "", false
+	}
+	ip := r.PolicyIPs[0]
+	return ip, true
+}
+
 // PUInfo  captures all policy information related to a connection
 type PUInfo struct {
 	// ContextID is the ID of the container that the policy applies to
@@ -179,6 +195,7 @@ func NewPUPolicy() *PUPolicy {
 		EgressACLs:  []IPRule{},
 		Rules:       []TagSelector{},
 		PolicyTags:  map[string]string{},
+		PolicyIPs:   []string{},
 	}
 }
 
