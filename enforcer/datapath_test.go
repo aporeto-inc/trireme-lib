@@ -156,6 +156,7 @@ func TestPacketHandling(t *testing.T) {
 			ip1 := make(map[string]string)
 			ip1["bridge"] = "164.67.228.152"
 			puInfo1.Runtime.SetIPAddresses(ip1)
+			puInfo1.Policy.PolicyIPs = []string{"164.67.228.152"}
 			puInfo1.Policy.PolicyTags[TransmitterLabel] = "value"
 			puInfo1.Policy.Rules = append(puInfo1.Policy.Rules, tagSelector)
 
@@ -164,6 +165,7 @@ func TestPacketHandling(t *testing.T) {
 			ip2 := make(map[string]string)
 			ip2["bridge"] = "10.1.10.76"
 			puInfo2.Runtime.SetIPAddresses(ip2)
+			puInfo2.Policy.PolicyIPs = []string{"10.1.10.76"}
 			puInfo2.Policy.PolicyTags[TransmitterLabel] = "value"
 			puInfo1.Policy.Rules = append(puInfo1.Policy.Rules, tagSelector)
 
