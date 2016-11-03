@@ -167,6 +167,9 @@ func (r *PUPolicy) DefaultIPAddress() (string, bool) {
 	if len(r.PolicyIPs) == 0 {
 		return "", false
 	}
+	if r.PolicyIPs[0] == "" {
+		return "", false
+	}
 	ip := r.PolicyIPs[0]
 	return ip, true
 }
