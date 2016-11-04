@@ -1,4 +1,8 @@
 language: go
+language: go
+sudo: required
+dist: trusty
+
 go:
  - 1.7.3
 
@@ -7,6 +11,12 @@ addons:
      packages:
        - libnetfilter-queue-dev
        - iptables
+
+env:
+  global:
+    - TOOLS_CMD=golang.org/x/tools/cmd
+    - PATH=$GOROOT/bin:$PATH
+    - SUDO_PERMITTED=1
 
 before_install:
   - go get -u gopkg.in/alecthomas/gometalinter.v1
