@@ -1,5 +1,4 @@
 language: go
-language: go
 sudo: required
 dist: trusty
 
@@ -23,6 +22,7 @@ before_install:
   - gometalinter.v1 --install
 
 script:
+ - sudo modprobe iptables_raw
  - gometalinter.v1 --disable-all --enable=vet --enable=vetshadow --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell --deadline=30s
  - ./.test.sh
 
