@@ -82,8 +82,8 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 	return s, nil
 }
 
-// AddPU creates a mapping between an IP address and the corresponding labels
-// and the invokes the various handlers that process all policies.
+// Supervise creates a mapping between an IP address and the corresponding labels.
+// it invokes the various handlers that process the parameter policy.
 func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		return fmt.Errorf("Runtime, Policy and ContainerInfo should not be nil")
@@ -493,8 +493,8 @@ func (s *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.
 
 	for i := range rules {
 
-		if err := s.ipt.Insert(
-			appAckPacketIPTableContext, chain, 1,
+		if err := s.ipt.Append(
+			appAckPacketIPTableContext, chain,
 			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -524,7 +524,7 @@ func (s *iptablesSupervisor) deleteAppACLs(chain string, ip string, rules []poli
 	for i := range rules {
 		if err := s.ipt.Delete(
 			appAckPacketIPTableContext, chain,
-			"-p", rules[i].Protocol,
+			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
 			"-j", "ACCEPT",
@@ -552,8 +552,8 @@ func (s *iptablesSupervisor) addNetACLs(chain, ip string, rules []policy.IPRule)
 
 	for i := range rules {
 
-		if err := s.ipt.Insert(
-			netPacketIPTableContext, chain, 1,
+		if err := s.ipt.Append(
+			netPacketIPTableContext, chain,
 			"-p", rules[i].Protocol,
 			"-s", rules[i].Address,
 			"--dport", rules[i].Port,
