@@ -6,6 +6,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/policy"
 	// "github.com/aporeto-inc/trireme/policy"
 	"github.com/coreos/go-iptables/iptables"
 )
@@ -51,7 +52,6 @@ func TestNewIPTables(t *testing.T) {
 
 }
 
-/*
 func TestSupervise(t *testing.T) {
 	_, err := iptables.New()
 	if err != nil {
@@ -60,8 +60,7 @@ func TestSupervise(t *testing.T) {
 	}
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
-
-	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "127.0.0.1"})
+	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 
 	err = s.Supervise("12345", containerInfo)
 	if err != nil {
@@ -79,4 +78,3 @@ func TestSupervise(t *testing.T) {
 	}
 
 }
-*/
