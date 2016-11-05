@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/golang/glog"
 )
 
@@ -34,7 +33,7 @@ type supervisorCacheEntry struct {
 // iptablesSupervisor is the structure holding all information about a connection filter
 type iptablesSupervisor struct {
 	versionTracker    cache.DataStore
-	ipt               *iptables.IPTables
+	ipt               IptablesProvider
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
@@ -45,7 +44,7 @@ type iptablesSupervisor struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string) (Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider IptablesProvider, targetNetworks []string) (Supervisor, error) {
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
@@ -69,12 +68,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
 	}
 
-	// Make sure that the iptables command is accessible. Panic if its not there.
-	var err error
-	s.ipt, err = iptables.New()
-	if err != nil {
-		panic("Can't find iptables command")
-	}
+	s.ipt = iptablesProvider
 
 	// Clean any previous ACLs that we have installed
 	s.CleanACL()
@@ -82,8 +76,8 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 	return s, nil
 }
 
-// AddPU creates a mapping between an IP address and the corresponding labels
-// and the invokes the various handlers that process all policies.
+// Supervise creates a mapping between an IP address and the corresponding labels.
+// it invokes the various handlers that process the parameter policy.
 func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		return fmt.Errorf("Runtime, Policy and ContainerInfo should not be nil")
@@ -493,8 +487,8 @@ func (s *iptablesSupervisor) addAppACLs(chain string, ip string, rules []policy.
 
 	for i := range rules {
 
-		if err := s.ipt.Insert(
-			appAckPacketIPTableContext, chain, 1,
+		if err := s.ipt.Append(
+			appAckPacketIPTableContext, chain,
 			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
@@ -524,7 +518,7 @@ func (s *iptablesSupervisor) deleteAppACLs(chain string, ip string, rules []poli
 	for i := range rules {
 		if err := s.ipt.Delete(
 			appAckPacketIPTableContext, chain,
-			"-p", rules[i].Protocol,
+			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
 			"-d", rules[i].Address,
 			"--dport", rules[i].Port,
 			"-j", "ACCEPT",
@@ -552,8 +546,8 @@ func (s *iptablesSupervisor) addNetACLs(chain, ip string, rules []policy.IPRule)
 
 	for i := range rules {
 
-		if err := s.ipt.Insert(
-			netPacketIPTableContext, chain, 1,
+		if err := s.ipt.Append(
+			netPacketIPTableContext, chain,
 			"-p", rules[i].Protocol,
 			"-s", rules[i].Address,
 			"--dport", rules[i].Port,

@@ -22,7 +22,7 @@ type mockedMethods struct {
 	stopMock func() error
 }
 
-// TestSupervisor us
+// TestSupervisor is a test implementation for IptablesProvider
 type TestSupervisor interface {
 	Supervisor
 	MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
