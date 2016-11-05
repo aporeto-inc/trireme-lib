@@ -4,6 +4,7 @@ package configurator
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
@@ -39,7 +40,8 @@ func NewTriremeWithDockerMonitor(
 	// Make sure that the iptables command is accessible. Panic if its not there.
 	ipt, err := supervisor.NewGoIPTablesProvider()
 	if err != nil {
-		panic("Failed to load Go-Iptables: ", err)
+		fmt.Printf("Failed to load Go-Iptables: %s", err)
+		panic("Failed to load Go-Iptables: ")
 	}
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
