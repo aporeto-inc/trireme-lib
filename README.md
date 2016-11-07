@@ -115,6 +115,12 @@ type PolicyUpdater interface {
 }
 ```
 
+# Prerequisites
+
+* Trireme requires IPTables with access to the `Raw` and `Mangle` modules.
+* Trireme requires access to the Docker event API socket (`/var/run/docker.sock` by default)
+* Trireme requires privileged access.
+
 # License
 
 The Trireme package, although written in Go currently uses the libnetfilter-queue library:
