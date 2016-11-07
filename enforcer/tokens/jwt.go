@@ -2,6 +2,7 @@ package tokens
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"time"
 
@@ -29,10 +30,10 @@ type JWTConfig struct {
 }
 
 // NewJWT creates a new JWT token processor
-func NewJWT(validity time.Duration, issuer string, secrets Secrets) *JWTConfig {
+func NewJWT(validity time.Duration, issuer string, secrets Secrets) (*JWTConfig, error) {
 
 	if len(issuer) > MaxServerName {
-		return nil
+		return nil, fmt.Errorf("Server ID should be max %d chars. Got %s", MaxServerName, issuer)
 	}
 
 	for i := len(issuer); i < MaxServerName; i++ {
@@ -52,7 +53,7 @@ func NewJWT(validity time.Duration, issuer string, secrets Secrets) *JWTConfig {
 		Issuer:         issuer,
 		signMethod:     signMethod,
 		secrets:        secrets,
-	}
+	}, nil
 }
 
 // CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
