@@ -53,6 +53,7 @@ func TestSupervise(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 
 	err := s.Supervise("12345", containerInfo)
 	if err != nil {
@@ -86,6 +87,7 @@ func TestSuperviseACLs(t *testing.T) {
 		Protocol: "tcp",
 	}}
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 
 	err := s.Supervise("12345", containerInfo)
 	if err != nil {
