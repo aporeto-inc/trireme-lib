@@ -35,6 +35,7 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		}
 
 		tpolicy := policy.NewPUPolicy()
+		tpolicy.PolicyIPs = []string{"127.0.0.1"}
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -253,6 +254,7 @@ func TestSimpleUpdate(t *testing.T) {
 	// Generate a new Policy ...
 
 	newPolicy := policy.NewPUPolicy()
+	newPolicy.PolicyIPs = []string{"127.0.0.1"}
 	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
 }
 

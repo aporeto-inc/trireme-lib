@@ -162,6 +162,16 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
 }
 
+// isPolicyIPValid validates the user IP on which to apply the policy.
+// if IP is present and valid, then return true
+// if IP is nil then return false.
+// if IP is invalid, return false and an error.
+func isPolicyIPValid(pUPolicy *policy.PUPolicy) (bool, error) {
+	_, ok := pUPolicy.DefaultIPAddress()
+	// TODO: Validate IP validity
+	return ok, nil
+}
+
 func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime) error {
 
 	// Cache all the container runtime information
@@ -176,6 +186,15 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 
 	if policyInfo == nil {
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
+	}
+
+	present, err := isPolicyIPValid(policyInfo)
+	if !present {
+		glog.V(6).Infof("No IP given as part of policy, not policing: %s", contextID)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("Invalid IP given in Policy %s", contextID)
 	}
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
@@ -221,6 +240,15 @@ func (t *trireme) doHandleDestroy(contextID string) error {
 }
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
+
+	present, err := isPolicyIPValid(newPolicy)
+	if !present {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("Invalid IP given in Policy %s", contextID)
+	}
+
 	runtimeInfo, err := t.PURuntime(contextID)
 	if err != nil {
 		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)

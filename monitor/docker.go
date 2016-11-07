@@ -294,8 +294,8 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 
 	ip, ok := runtimeInfo.DefaultIPAddress()
 	if !ok || ip == "" {
-		glog.V(2).Infof("IP Not present in container, not policing")
-		return nil
+		glog.V(2).Infof("IP Not present in container, Attempting activation")
+		ip = ""
 	}
 
 	returnChan := d.puHandler.HandleCreate(contextID, runtimeInfo)
