@@ -56,6 +56,11 @@ func NewDatapathEnforcer(
 	validity time.Duration,
 ) PolicyEnforcer {
 
+	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
+	if err != nil {
+		glog.Fatalf("unable to create TokenEngine in Enforcer: %s", err)
+	}
+
 	d := &datapathEnforcer{
 		contextTracker:           cache.NewCache(nil),
 		puTracker:                cache.NewCache(nil),
@@ -66,7 +71,7 @@ func NewDatapathEnforcer(
 		mutualAuthorization:      mutualAuth,
 		service:                  service,
 		collector:                collector,
-		tokenEngine:              tokens.NewJWT(validity, serverID, secrets),
+		tokenEngine:              tokenEngine,
 		net:                      &PacketStats{},
 		app:                      &PacketStats{},
 		ackSize:                  secrets.AckSize(),
