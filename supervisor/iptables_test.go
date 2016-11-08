@@ -190,6 +190,7 @@ func TestAddChainRules(t *testing.T){
 		if(table == "raw" && chain == "PREROUTING"){
 			return errors.New("Append Failed")
 		}
+		return nil
 	})
 	err := s.Supervise("12345",containerInfo)
 	if(err == nil){
