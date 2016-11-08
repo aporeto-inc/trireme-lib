@@ -3,7 +3,7 @@ package supervisor
 import (
 	"reflect"
 	"testing"
-
+	"errors"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
@@ -48,6 +48,7 @@ func TestNewIPTables(t *testing.T) {
 
 }
 
+//Invalid IP is checked in the caller 
 func TestSupervise(t *testing.T) {
 
 	s := doNewIPTSupervisor(t)
@@ -69,6 +70,7 @@ func TestSupervise(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error %s", err)
 	}
+	
 }
 
 func TestSuperviseACLs(t *testing.T) {
@@ -105,3 +107,103 @@ func TestSuperviseACLs(t *testing.T) {
 	}
 
 }
+
+
+//Call Supervise and we will mock AddContainer Chain here  by changing the mock defintions of newChain
+//The function should cleanup on all errors 
+func TestAddContainerChain(t *testing.T){
+	s := doNewIPTSupervisor(t)
+	containerInfo := policy.NewPUInfo("12345")
+	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
+		Address:  "20.20.0.0/16",
+		Port:     "80",
+		Protocol: "tcp",
+	}}
+
+	containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
+		Address:  "20.20.0.0/16",
+		Port:     "80",
+		Protocol: "tcp",
+	}}
+	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
+	m := s.ipt.(TestIptablesProvider)
+
+	m.MockNewChain(t,func(table,chain string)(error){
+		if(table == "raw" ){
+			return errors.New("Failed to create raw table")
+		}
+		return nil
+	})
+	err := s.Supervise("12345",containerInfo)
+	if(err == nil){
+		t.Errorf("ignored Error from add ContainerChain:raw")
+		t.SkipNow()
+	}
+	//Check if there are now rules anymore
+	rules,err := m.ListChains("12345")
+	if( len(rules) != 0 ){
+		t.Errorf("State was not cleared after error")
+	}
+
+	
+	m.MockNewChain(t,func(table,chain string)(error){
+		if(table == "mangle"){
+			return errors.New("Failed to create raw table")
+		}
+		return nil
+	})
+	err = s.Supervise("12345",containerInfo)
+	
+	if(err == nil){
+		t.Errorf("ignored Error from addContainerChain:mangle")
+		t.SkipNow()
+	}
+	//Check if there are now rules anymore
+	rules,err = m.ListChains("12345")
+	if( len(rules) != 0 ){
+		t.Errorf("State was not cleared after error")
+	}
+}
+
+
+func TestAddChainRules(t *testing.T){
+	s := doNewIPTSupervisor(t)
+	containerInfo := policy.NewPUInfo("12345")
+	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
+		Address:  "20.20.0.0/16",
+		Port:     "80",
+		Protocol: "tcp",
+	}}
+
+	containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
+		Address:  "20.20.0.0/16",
+		Port:     "80",
+		Protocol: "tcp",
+	}}
+	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
+	m := s.ipt.(TestIptablesProvider)
+	
+
+	m.MockAppend(t,func(table,chain string,rulespec ...string)(error){
+		if(table == "raw" && chain == "PREROUTING"){
+			return errors.New("Append Failed")
+		}
+	})
+	err := s.Supervise("12345",containerInfo)
+	if(err == nil){
+		t.Errorf("ignored Error from Append")
+		t.SkipNow()
+	}
+	//Check if there are now rules anymore
+	rules,err := m.ListChains("12345")
+	if( len(rules) != 0 ){
+		t.Errorf("State was not cleared after error")
+	}
+	
+	
+	
+}
+
+
