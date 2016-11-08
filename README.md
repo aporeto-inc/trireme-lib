@@ -115,6 +115,13 @@ type PolicyUpdater interface {
 }
 ```
 
+# Prerequisites
+
+* Trireme requires bridged-based networking solutions for which we can redirect traffic to IPTables (Flannel, default docker networks, ...). We are working on a generic solution that allows any traffic backed by any networking vendor to always be redirected from the namespace to IPTables.
+* Trireme requires IPTables with access to the `Raw` and `Mangle` modules.
+* Trireme requires access to the Docker event API socket (`/var/run/docker.sock` by default)
+* Trireme requires privileged access.
+
 # License
 
 The Trireme package, although written in Go currently uses the libnetfilter-queue library:
