@@ -35,8 +35,6 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.
 		requests:   make(chan *triremeRequest),
 	}
 
-	resolver.SetPolicyUpdater(trireme)
-
 	return trireme
 }
 
