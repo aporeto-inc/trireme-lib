@@ -76,17 +76,10 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	return containerPolicyInfo, nil
 }
 
-// HandleDeletePU implements the corresponding interface. We have no
+// HandlePUEvent implements the corresponding interface. We have no
 // state in this example
-func (p *CustomPolicyResolver) HandleDeletePU(context string) error {
-	glog.V(1).Infof("Deleting Container %s", context)
-	return nil
-}
-
-// HandleDestroyPU implements the corresponding interface. We have no
-// state in this example
-func (p *CustomPolicyResolver) HandleDestroyPU(context string) error {
-	return nil
+func (p *CustomPolicyResolver) HandlePUEvent(context string, eventType monitor.Event) {
+	glog.V(1).Infof("ContainerEvent %s, EventType: %s", context, eventType)
 }
 
 // SetPolicyUpdater is used in order to register a pointer to the policyUpdater
