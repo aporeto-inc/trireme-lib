@@ -68,7 +68,11 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		return nil
 	})
 
-	err := trireme.HandleCreate(id, runtime)
+	e := trireme.SetPURuntime(id, runtime)
+	if e != nil {
+		t.Errorf("Error while setting the Runtime in Trireme,  %s", e)
+	}
+	err := trireme.HandlePUEvent(id, monitor.StartEvent)
 	if e := <-err; e != nil {
 		t.Errorf("Create was supposed to be nil, was %s", e)
 	}
@@ -91,10 +95,11 @@ func doTestDelete(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 	supervisorCount := 0
 	enforcerCount := 0
 
-	tresolver.MockHandleDeletePU(t, func(contextID string) error {
+	tresolver.MockHandlePUEvent(t, func(contextID string, eventType monitor.Event) {
 		t.Logf("Into HandleDeletePU")
-		resolverCount++
-		return nil
+		if eventType == monitor.StopEvent {
+			resolverCount++
+		}
 	})
 
 	tsupervisor.MockUnsupervise(t, func(contextID string) error {
@@ -109,7 +114,7 @@ func doTestDelete(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		return nil
 	})
 
-	err := trireme.HandleDelete(id)
+	err := trireme.HandlePUEvent(id, monitor.StopEvent)
 	if e := <-err; e != nil {
 		t.Errorf("Delete was supposed to be nil, was %s", e)
 	}
@@ -130,10 +135,9 @@ func doTestDeleteNotExist(t *testing.T, trireme Trireme, tresolver TestPolicyRes
 	supervisorCount := 0
 	enforcerCount := 0
 
-	tresolver.MockHandleDeletePU(t, func(contextID string) error {
+	tresolver.MockHandlePUEvent(t, func(contextID string, eventType monitor.Event) {
 		t.Logf("Into HandleDeletePU")
 		resolverCount++
-		return nil
 	})
 
 	tsupervisor.MockUnsupervise(t, func(contextID string) error {
@@ -148,7 +152,7 @@ func doTestDeleteNotExist(t *testing.T, trireme Trireme, tresolver TestPolicyRes
 		return nil
 	})
 
-	err := trireme.HandleDelete(id)
+	err := trireme.HandlePUEvent(id, monitor.StopEvent)
 	if e := <-err; e == nil {
 		t.Errorf("Delete was not supposed to be nil, was nil")
 	}

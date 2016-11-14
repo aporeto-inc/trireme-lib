@@ -298,8 +298,9 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 		ip = ""
 	}
 
-	returnChan := d.puHandler.HandleCreate(contextID, runtimeInfo)
-	if err := <-returnChan; err != nil {
+	d.puHandler.SetPURuntime(contextID, runtimeInfo)
+	errorChan := d.puHandler.HandlePUEvent(contextID, StartEvent)
+	if err := <-errorChan; err != nil {
 		glog.V(2).Infoln("Setting policy failed. Stopping the container")
 		d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout)
 		d.collector.CollectContainerEvent(contextID, ip, nil, collector.ContainerFailed)
@@ -319,8 +320,8 @@ func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	errchan := d.puHandler.HandleDelete(contextID)
-	return <-errchan
+	errChan := d.puHandler.HandlePUEvent(contextID, StopEvent)
+	return <-errChan
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -391,8 +392,8 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 	}
 
 	d.collector.CollectContainerEvent(contextID, "", nil, collector.UnknownContainerDelete)
-	// Clear the policy cache
-	errChan := d.puHandler.HandleDestroy(contextID)
+	// Send the event upstream
+	errChan := d.puHandler.HandlePUEvent(contextID, DestroyEvent)
 	return <-errChan
 }
 
