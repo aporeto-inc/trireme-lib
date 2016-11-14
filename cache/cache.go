@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 //DataStore is the interface to a datastore that will evolve to hold basic
@@ -121,6 +121,13 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 		}
 		return nil
 	}
+
+	log.WithFields(log.Fields{
+		"package": "cache",
+		"cache":   c,
+		"data":    u,
+	}).Error("Item exist, use update of the cahce")
+
 	return fmt.Errorf("Item Exists - Use update")
 }
 
@@ -129,6 +136,7 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 	c.Lock()
 	defer c.Unlock()
 	t := time.Now()
+
 	if _, ok := c.data[u]; ok {
 		c.data[u] = entry{value, t}
 		if c.autocollect {
@@ -136,6 +144,13 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 		}
 		return nil
 	}
+
+	log.WithFields(log.Fields{
+		"package": "cache",
+		"cache":   c,
+		"data":    u,
+	}).Error("Item not found in Update")
+
 	return fmt.Errorf("Cannot update item - it doesn't exist")
 }
 
@@ -158,6 +173,11 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 	defer c.Unlock()
 
 	if _, ok := c.data[u]; !ok {
+		log.WithFields(log.Fields{
+			"package": "cache",
+			"cache":   c,
+			"data":    u,
+		}).Error("Item not found in Get")
 		return nil, fmt.Errorf("Item does not exist.")
 	}
 
@@ -172,6 +192,11 @@ func (c *Cache) Remove(u interface{}) (err error) {
 
 	val, ok := c.data[u]
 	if !ok {
+		log.WithFields(log.Fields{
+			"package": "cache",
+			"cache":   c,
+			"data":    u,
+		}).Error("Item not found in Remove")
 		return fmt.Errorf("Item does not exist")
 	}
 
@@ -212,7 +237,13 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 	defer c.Unlock()
 
 	e, ok := c.data[u]
+
 	if !ok {
+		log.WithFields(log.Fields{
+			"package": "cache",
+			"cache":   c,
+			"data":    u,
+		}).Error("Item not found in LockedModify")
 		return nil, fmt.Errorf("Item not found")
 	}
 
@@ -225,7 +256,12 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 
 //DumpStore prints the whole data store for debuggin
 func (c *Cache) DumpStore() {
+
 	for u := range c.data {
-		glog.V(5).Infoln(u, c.data[u])
+		log.WithFields(log.Fields{
+			"package": "cache",
+			"cache":   c,
+			"data":    u,
+		}).Debug("Current data of the cache")
 	}
 }

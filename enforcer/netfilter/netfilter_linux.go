@@ -32,7 +32,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 type verdictType C.uint
@@ -91,14 +91,32 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 	var ret C.int
 
 	if nfq.h, err = C.nfq_open(); err != nil {
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err,
+		}).Error("Error opening NFQueue handle")
+
 		return nil, fmt.Errorf("Error opening NFQueue handle: %v\n", err)
 	}
 
 	if ret, err = C.nfq_unbind_pf(nfq.h, AfInet); err != nil || ret < 0 {
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err,
+		}).Error("Error unbinding existing NFQ handler from AfInet protocol family")
+
 		return nil, fmt.Errorf("Error unbinding existing NFQ handler from AfInet protocol family: %v\n", err)
 	}
 
 	if ret, err = C.nfq_bind_pf(nfq.h, AfInet); err != nil || ret < 0 {
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err,
+		}).Error("Error binding to AfInet protocol family")
+
 		return nil, fmt.Errorf("Error binding to AfInet protocol family: %v\n", err)
 	}
 
@@ -110,6 +128,12 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 	if nfq.qh, err = C.CreateQueue(nfq.h, C.u_int16_t(queueID), C.u_int32_t(nfq.idx)); err != nil || nfq.qh == nil {
 		C.nfq_close(nfq.h)
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err,
+		}).Error("Error binding to queue")
+
 		return nil, fmt.Errorf("Error binding to queue: %v\n", err)
 	}
 
@@ -117,6 +141,12 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(maxPacketsInQueue)); err != nil || ret < 0 {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err,
+		}).Error("Unable to set max packets in queue")
+
 		return nil, fmt.Errorf("Unable to set max packets in queue: %v\n", err)
 	}
 
@@ -125,6 +155,12 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 	if C.nfq_set_mode(nfq.qh, C.u_int8_t(2), C.uint(packetSize)) < 0 {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err,
+		}).Error("Unable to set packets copy mode")
+
 		return nil, fmt.Errorf("Unable to set packets copy mode: %v\n", err)
 	}
 
@@ -132,6 +168,12 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 	if nfq.fd, err = C.nfq_fd(nfq.h); err != nil {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err,
+		}).Error("Unable to get queue file-descriptor.")
+
 		return nil, fmt.Errorf("Unable to get queue file-descriptor. %v", err)
 	}
 
@@ -174,7 +216,11 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 	nfq, ok := theTable[idx]
 
 	if !ok {
-		glog.V(5).Infoln("Dropping, unexpectedly due to bad idx=", idx)
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"idx":     idx,
+		}).Debug("Dropping, unexpectedly due to bad idx=")
+
 		return NfDrop
 	}
 
