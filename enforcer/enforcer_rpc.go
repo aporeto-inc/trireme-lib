@@ -1,6 +1,14 @@
 package enforcer
 
-type RPC_handler struct{}
+import (
+	"net/rpc"
+
+	"github.com/aporeto-inc/trireme/enforcer_adaptor"
+)
+
+type RPC_handler struct {
+	Rpc_client *rpc.Client
+}
 
 const (
 	// Defaults used by HandleHTTP
@@ -12,12 +20,11 @@ func (r *RPC_handler) ProcessMessage(req *enforcer_adaptor.Enforcer_request, res
 	return nil
 }
 
-
-func NewRPC_handler(path string) error {
+func NewRPC_handler(path string) (*RPC_handler, error) {
 	rpc_hdl := new(RPC_handler)
-	client, err := net.DialHTTP("unix",path)
-	server.RegisterName("client", rpc_hdl)
-	
-
-	return nil
+	client, _ := rpc.DialHTTP("unix", path)
+	if client == nil {
+	}
+	rpc_hdl.Rpc_client = client
+	return rpc_hdl, nil
 }

@@ -3,6 +3,7 @@ package enforcer_impl
 import (
 	"github.com/aporeto-inc/trireme/enforcer_adaptor"
 	"github.com/aporeto-inc/trireme/policy"
+	_ "github.com/aporeto-inc/trireme/utils/nsenter"
 )
 
 type enforcer_conf struct {
@@ -38,10 +39,9 @@ func (s *enforcer) GetFilterQueue() *enforcer_adaptor.FilterQueue {
 
 }
 
-func NewEnforcer(contextID string, unix_sock_path string) enforcer_adaptor.PolicyEnforcer {
+func NewEnforcer(contextID string, unix_sock_path string) {
 	a := &enforcer{config: enforcer_conf{contextID: contextID, comm_channel: unix_sock_path}}
 	active_enforcers[contextID] = a
-	return a
 }
 func (s *enforcer) PublicKeyAdd(host string, cert []byte) error {
 	return nil

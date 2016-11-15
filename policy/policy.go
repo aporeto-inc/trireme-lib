@@ -19,6 +19,11 @@ type IPRule struct {
 // A TagsMap is a map of Key:Values used as tags.
 type TagsMap map[string]string
 
+type MountPoints struct {
+	host_path      string
+	container_path string
+}
+
 // Operator defines the operation between your key and value.
 type Operator string
 
@@ -103,6 +108,8 @@ type PURuntime struct {
 	iPAddresses map[string]string
 	// Tags is a map of the metadata of the container
 	tags TagsMap
+	//
+	mounts []MountPoints
 }
 
 // Pid returns the PID
