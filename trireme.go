@@ -167,19 +167,19 @@ func isPolicyIPValid(pUPolicy *policy.PUPolicy) (bool, error) {
 func (t *trireme) doHandleCreate(contextID string) error {
 
 	log.WithFields(log.Fields{
-		"package":     "trireme",
-		"trireme":     t,
-		"contextID":   contextID,
+		"package":   "trireme",
+		"trireme":   t,
+		"contextID": contextID,
 	}).Info("Started HandleCreate")
 
 	// Cache all the container runtime information
 	cachedElement, err := t.cache.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":     "trireme",
-			"trireme":     t,
-			"contextID":   contextID,
-			"error":       err,
+			"package":   "trireme",
+			"trireme":   t,
+			"contextID": contextID,
+			"error":     err,
 		}).Error("Couldn't add the runtimeInfo to the cache")
 
 		return fmt.Errorf("Couldn't add the runtimeInfo to the cache %s", err)
@@ -316,7 +316,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			"enforcerError":   errE,
 		}).Error("Error when deleting")
 
-		return fmt.Errorf("Delete Error for contextID %s. resolver %s, supervisor %s, enforcer %s", contextID, errR, errS, errE)
+		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
 	}
 
 	log.WithFields(log.Fields{
