@@ -206,7 +206,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 }
 
 func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
-	// Notify The PolicyResolver that an event occured:
+	// Notify The PolicyResolver that an event occurred:
 	t.resolver.HandlePUEvent(contextID, event)
 
 	switch event {
