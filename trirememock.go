@@ -4,6 +4,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -13,18 +14,14 @@ type mockedMethodsPolicyResolver struct {
 	resolvePolicyMock func(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
 	// HandleDeletePU is called when a PU is removed.
-	handleDeletePUMock func(contextID string) error
-
-	// HandleDeletePU is called when a PU is removed.
-	handleDestroyPUMock func(contextID string) error
+	handlePUEventMock func(contextID string, eventType monitor.Event)
 }
 
 // TestPolicyResolver us
 type TestPolicyResolver interface {
 	PolicyResolver
 	MockResolvePolicy(t *testing.T, impl func(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error))
-	MockHandleDeletePU(t *testing.T, impl func(contextID string) error)
-	MockHandleDestroyPU(t *testing.T, impl func(contextID string) error)
+	MockHandlePUEvent(t *testing.T, impl func(contextID string, eventType monitor.Event))
 }
 
 // A testPolicyResolver is an empty TransactionalManipulator that can be easily mocked.
@@ -47,14 +44,9 @@ func (m *testPolicyResolver) MockResolvePolicy(t *testing.T, impl func(contextID
 	m.currentMocks(t).resolvePolicyMock = impl
 }
 
-func (m *testPolicyResolver) MockHandleDeletePU(t *testing.T, impl func(contextID string) error) {
+func (m *testPolicyResolver) MockHandlePUEvent(t *testing.T, impl func(contextID string, eventType monitor.Event)) {
 
-	m.currentMocks(t).handleDeletePUMock = impl
-}
-
-func (m *testPolicyResolver) MockHandleDestroyPU(t *testing.T, impl func(contextID string) error) {
-
-	m.currentMocks(t).handleDestroyPUMock = impl
+	m.currentMocks(t).handlePUEventMock = impl
 }
 
 func (m *testPolicyResolver) ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error) {
@@ -66,22 +58,12 @@ func (m *testPolicyResolver) ResolvePolicy(contextID string, RuntimeReader polic
 	return nil, nil
 }
 
-func (m *testPolicyResolver) HandleDeletePU(contextID string) error {
+func (m *testPolicyResolver) HandlePUEvent(contextID string, eventType monitor.Event) {
 
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.handleDeletePUMock != nil {
-		return mock.handleDeletePUMock(contextID)
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.handlePUEventMock != nil {
+		mock.handlePUEventMock(contextID, eventType)
 	}
 
-	return nil
-}
-
-func (m *testPolicyResolver) HandleDestroyPU(contextID string) error {
-
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.handleDestroyPUMock != nil {
-		return mock.handleDestroyPUMock(contextID)
-	}
-
-	return nil
 }
 
 func (m *testPolicyResolver) currentMocks(t *testing.T) *mockedMethodsPolicyResolver {
