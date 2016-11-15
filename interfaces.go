@@ -37,11 +37,5 @@ type PolicyResolver interface {
 	ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
 	// HandleDeletePU is called when a PU is stopped/killed.
-	HandleDeletePU(contextID string) error
-
-	// HandleDeletePU is called when a PU is removed permanently.
-	HandleDestroyPU(contextID string) error
-
-	// SetPolicyUpdater sets the PolicyUpdater to use by the PolicyResolver.
-	SetPolicyUpdater(p PolicyUpdater) error
+	HandlePUEvent(contextID string, eventType monitor.Event)
 }

@@ -1,18 +1,19 @@
 package trireme
 
-import "github.com/aporeto-inc/trireme/policy"
+import (
+	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/policy"
+)
 
 const (
-	requestCreate  = 1
-	requestDelete  = 2
-	requestDestroy = 3
-	policyUpdate   = 4
+	handleEvent  = 1
+	policyUpdate = 2
 )
 
 type triremeRequest struct {
-	contextID   string
-	reqType     int
-	runtimeInfo *policy.PURuntime
-	policyInfo  *policy.PUPolicy
-	returnChan  chan error
+	contextID  string
+	reqType    int
+	eventType  monitor.Event
+	policyInfo *policy.PUPolicy
+	returnChan chan error
 }

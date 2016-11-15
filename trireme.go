@@ -5,6 +5,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 
@@ -34,8 +35,6 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.
 		stop:       make(chan bool),
 		requests:   make(chan *triremeRequest),
 	}
-
-	resolver.SetPolicyUpdater(trireme)
 
 	return trireme
 }
@@ -98,48 +97,14 @@ func (t *trireme) Stop() error {
 
 // HandleCreate implements the logic needed between all the Trireme components for
 // explicitly adding a new PU.
-func (t *trireme) HandleCreate(contextID string, runtimeInfo *policy.PURuntime) <-chan error {
-
-	c := make(chan error, 1)
-
-	req := &triremeRequest{
-		contextID:   contextID,
-		reqType:     requestCreate,
-		runtimeInfo: runtimeInfo,
-		returnChan:  c,
-	}
-
-	t.requests <- req
-
-	return c
-}
-
-// HandleDelete implements the logic needed between all the Trireme components for
-// explicitly deleting an existing PU.
-func (t *trireme) HandleDelete(contextID string) <-chan error {
+func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) <-chan error {
 
 	c := make(chan error, 1)
 
 	req := &triremeRequest{
 		contextID:  contextID,
-		reqType:    requestDelete,
-		returnChan: c,
-	}
-
-	t.requests <- req
-
-	return c
-}
-
-// HandleDelete implements the logic needed between all the Trireme components for
-// explicitly deleting an existing PU.
-func (t *trireme) HandleDestroy(contextID string) <-chan error {
-
-	c := make(chan error, 1)
-
-	req := &triremeRequest{
-		contextID:  contextID,
-		reqType:    requestDestroy,
+		reqType:    handleEvent,
+		eventType:  event,
 		returnChan: c,
 	}
 
@@ -177,6 +142,13 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 	return container.(*policy.PURuntime), nil
 }
 
+// SetPURuntime returns the RuntimeInfo based on the contextID.
+func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
+
+	return t.cache.AddOrUpdate(contextID, runtimeInfo)
+
+}
+
 // addTransmitterLabel adds the TransmitterLabel as a fixed label in the policy.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
@@ -192,27 +164,28 @@ func isPolicyIPValid(pUPolicy *policy.PUPolicy) (bool, error) {
 	return ok, nil
 }
 
-func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime) error {
+func (t *trireme) doHandleCreate(contextID string) error {
 
 	log.WithFields(log.Fields{
 		"package":     "trireme",
 		"trireme":     t,
 		"contextID":   contextID,
-		"runtimeInfo": runtimeInfo,
 	}).Info("Started HandleCreate")
 
 	// Cache all the container runtime information
-	if err := t.cache.AddOrUpdate(contextID, runtimeInfo); err != nil {
+	cachedElement, err := t.cache.Get(contextID)
+	if err != nil {
 		log.WithFields(log.Fields{
 			"package":     "trireme",
 			"trireme":     t,
 			"contextID":   contextID,
-			"runtimeInfo": runtimeInfo,
 			"error":       err,
 		}).Error("Couldn't add the runtimeInfo to the cache")
+
 		return fmt.Errorf("Couldn't add the runtimeInfo to the cache %s", err)
 	}
 
+	runtimeInfo := cachedElement.(*policy.PURuntime)
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 
 	if err != nil {
@@ -271,8 +244,6 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 	err = t.supervisor.Supervise(contextID, containerInfo)
 
 	if err != nil {
-		t.resolver.HandleDeletePU(contextID)
-
 		log.WithFields(log.Fields{
 			"package":       "trireme",
 			"trireme":       t,
@@ -288,7 +259,6 @@ func (t *trireme) doHandleCreate(contextID string, runtimeInfo *policy.PURuntime
 	err = t.enforcer.Enforce(contextID, containerInfo)
 
 	if err != nil {
-		t.resolver.HandleDeletePU(contextID)
 		t.supervisor.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -333,17 +303,15 @@ func (t *trireme) doHandleDelete(contextID string) error {
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
 
-	errR := t.resolver.HandleDeletePU(contextID)
 	errS := t.supervisor.Unsupervise(contextID)
 	errE := t.enforcer.Unenforce(contextID)
 	t.cache.Remove(contextID)
 
-	if errR != nil || errS != nil || errE != nil {
+	if errS != nil || errE != nil {
 		log.WithFields(log.Fields{
 			"package":         "trireme",
 			"trireme":         t,
 			"contextID":       contextID,
-			"resolverError":   errR,
 			"supervisorError": errS,
 			"enforcerError":   errE,
 		}).Error("Error when deleting")
@@ -360,14 +328,17 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	return nil
 }
 
-func (t *trireme) doHandleDestroy(contextID string) error {
-	log.WithFields(log.Fields{
-		"package":   "trireme",
-		"trireme":   t,
-		"contextID": contextID,
-	}).Info("Finished HandleDestroy")
+func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
+	// Notify The PolicyResolver that an event occurred:
+	t.resolver.HandlePUEvent(contextID, event)
 
-	return t.resolver.HandleDestroyPU(contextID)
+	switch event {
+	case monitor.EventStart:
+		return t.doHandleCreate(contextID)
+	case monitor.EventStop:
+		return t.doHandleDelete(contextID)
+	}
+	return nil
 }
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
@@ -457,12 +428,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 func (t *trireme) handleRequest(request *triremeRequest) error {
 	switch request.reqType {
-	case requestCreate:
-		return t.doHandleCreate(request.contextID, request.runtimeInfo)
-	case requestDelete:
-		return t.doHandleDelete(request.contextID)
-	case requestDestroy:
-		return t.doHandleDestroy(request.contextID)
+	case handleEvent:
+		return t.doHandleEvent(request.contextID, request.eventType)
 	case policyUpdate:
 		return t.doUpdatePolicy(request.contextID, request.policyInfo)
 	default:
