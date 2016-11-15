@@ -72,7 +72,7 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 	if e != nil {
 		t.Errorf("Error while setting the Runtime in Trireme,  %s", e)
 	}
-	err := trireme.HandlePUEvent(id, monitor.StartEvent)
+	err := trireme.HandlePUEvent(id, monitor.EventStart)
 	if e := <-err; e != nil {
 		t.Errorf("Create was supposed to be nil, was %s", e)
 	}
@@ -97,7 +97,7 @@ func doTestDelete(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 
 	tresolver.MockHandlePUEvent(t, func(contextID string, eventType monitor.Event) {
 		t.Logf("Into HandleDeletePU")
-		if eventType == monitor.StopEvent {
+		if eventType == monitor.EventStop {
 			resolverCount++
 		}
 	})
@@ -114,7 +114,7 @@ func doTestDelete(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		return nil
 	})
 
-	err := trireme.HandlePUEvent(id, monitor.StopEvent)
+	err := trireme.HandlePUEvent(id, monitor.EventStop)
 	if e := <-err; e != nil {
 		t.Errorf("Delete was supposed to be nil, was %s", e)
 	}
@@ -152,7 +152,7 @@ func doTestDeleteNotExist(t *testing.T, trireme Trireme, tresolver TestPolicyRes
 		return nil
 	})
 
-	err := trireme.HandlePUEvent(id, monitor.StopEvent)
+	err := trireme.HandlePUEvent(id, monitor.EventStop)
 	if e := <-err; e == nil {
 		t.Errorf("Delete was not supposed to be nil, was nil")
 	}

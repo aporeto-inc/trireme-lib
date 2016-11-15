@@ -20,6 +20,9 @@ import (
 type DockerEvent string
 
 const (
+	// DockerEventCreate represents the Docker "create" event.
+	DockerEventCreate DockerEvent = "create"
+
 	// DockerEventStart represents the Docker "start" event.
 	DockerEventStart DockerEvent = "start"
 
@@ -28,6 +31,12 @@ const (
 
 	// DockerEventDestroy represents the Docker "destroy" event.
 	DockerEventDestroy DockerEvent = "destroy"
+
+	// DockerEventPause represents the Docker "destroy" event.
+	DockerEventPause DockerEvent = "pause"
+
+	// DockerEventUnpause represents the Docker "destroy" event.
+	DockerEventUnpause DockerEvent = "unpause"
 
 	// DockerEventConnect represents the Docker "connect" event.
 	DockerEventConnect DockerEvent = "connect"
@@ -151,9 +160,12 @@ func NewDockerMonitor(
 	}
 
 	// Add handlers for the events that we know how to process
+	d.addHandler(DockerEventCreate, d.handleCreateEvent)
 	d.addHandler(DockerEventStart, d.handleStartEvent)
 	d.addHandler(DockerEventDie, d.handleDieEvent)
 	d.addHandler(DockerEventDestroy, d.handleDestroyEvent)
+	d.addHandler(DockerEventPause, d.handlePauseEvent)
+	d.addHandler(DockerEventUnpause, d.handleUnpauseEvent)
 	d.addHandler(DockerEventConnect, d.handleNetworkConnectEvent)
 
 	return d
@@ -265,14 +277,14 @@ func (d *dockerMonitor) syncContainers() error {
 		if err != nil {
 			glog.V(1).Infof("Error Syncing existing Container: %s", err)
 		}
-		if err := d.addOrUpdateDockerContainer(&container); err != nil {
+		if err := d.startDockerContainer(&container); err != nil {
 			glog.V(1).Infof("Error Syncing existing Container: %s", err)
 		}
 	}
 	return nil
 }
 
-func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJSON) error {
+func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
 
 	timeout := time.Second * 0
 
@@ -299,7 +311,7 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 	}
 
 	d.puHandler.SetPURuntime(contextID, runtimeInfo)
-	errorChan := d.puHandler.HandlePUEvent(contextID, StartEvent)
+	errorChan := d.puHandler.HandlePUEvent(contextID, EventStart)
 	if err := <-errorChan; err != nil {
 		glog.V(2).Infoln("Setting policy failed. Stopping the container")
 		d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout)
@@ -312,7 +324,7 @@ func (d *dockerMonitor) addOrUpdateDockerContainer(dockerInfo *types.ContainerJS
 	return nil
 }
 
-func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
+func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 
 	contextID, err := contextIDFromDockerID(dockerID)
 
@@ -320,7 +332,7 @@ func (d *dockerMonitor) removeDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	errChan := d.puHandler.HandlePUEvent(contextID, StopEvent)
+	errChan := d.puHandler.HandlePUEvent(contextID, EventStop)
 	return <-errChan
 }
 
@@ -336,6 +348,20 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 	}
 
 	return defaultDockerMetadataExtractor(dockerInfo)
+}
+
+// handleCreateEvent generates a create event type.
+func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
+	dockerID := event.ID
+	contextID, err := contextIDFromDockerID(dockerID)
+	if err != nil {
+		return fmt.Errorf("Error Generating ContextID: %s", err)
+	}
+
+	d.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerCreate)
+	// Send the event upstream
+	errChan := d.puHandler.HandlePUEvent(contextID, EventCreate)
+	return <-errChan
 }
 
 // handleStartEvent will notify the agent immediately about the event in order
@@ -359,7 +385,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 		return fmt.Errorf("Cannot read container information. Killing container. ")
 	}
 
-	if err := d.addOrUpdateDockerContainer(&info); err != nil {
+	if err := d.startDockerContainer(&info); err != nil {
 		glog.V(2).Infof("Error while trying to add container: %s", err)
 		return err
 	}
@@ -367,8 +393,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 	return nil
 }
 
-//handleDie event is called when a container dies. It updates the agent
-//data structures and stops enforcement.
+//handleDie event is called when a container dies. It generates a "Stop" event.
 func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 
 	dockerID := event.ID
@@ -378,11 +403,10 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 	}
 	d.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerStop)
 
-	return d.removeDockerContainer(dockerID)
+	return d.stopDockerContainer(dockerID)
 }
 
-// handleDestroyEvent handles destroy events from Docker. This means that the Policy
-// can be safely deleted.
+// handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
 func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 	dockerID := event.ID
@@ -393,7 +417,32 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 	d.collector.CollectContainerEvent(contextID, "", nil, collector.UnknownContainerDelete)
 	// Send the event upstream
-	errChan := d.puHandler.HandlePUEvent(contextID, DestroyEvent)
+	errChan := d.puHandler.HandlePUEvent(contextID, EventDestroy)
+	return <-errChan
+}
+
+// handleCreateEvent generates a create event type.
+func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
+	dockerID := event.ID
+	contextID, err := contextIDFromDockerID(dockerID)
+	if err != nil {
+		return fmt.Errorf("Error Generating ContextID: %s", err)
+	}
+
+	errChan := d.puHandler.HandlePUEvent(contextID, EventPause)
+	return <-errChan
+}
+
+// handleCreateEvent generates a create event type.
+func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
+	dockerID := event.ID
+	contextID, err := contextIDFromDockerID(dockerID)
+	if err != nil {
+		return fmt.Errorf("Error Generating ContextID: %s", err)
+	}
+
+	// Send the event upstream
+	errChan := d.puHandler.HandlePUEvent(contextID, EventUnpause)
 	return <-errChan
 }
 

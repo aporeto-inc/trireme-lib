@@ -3,20 +3,20 @@ package monitor
 // Event represents the event picked up by the monitor.
 type Event string
 
-// StartEvent is the event generated when a PU starts.
-const StartEvent = "start"
+// EventStart is the event generated when a PU starts.
+const EventStart = "start"
 
-// StopEvent is the event generated when a PU starts.
-const StopEvent = "stop"
+// EventStop is the event generated when a PU stops/dies.
+const EventStop = "stop"
 
-// CreateEvent is the event generated when a PU starts.
-const CreateEvent = "create"
+// EventCreate is the event generated when a PU gets created.
+const EventCreate = "create"
 
-// DestroyEvent is the event generated when a PU starts.
-const DestroyEvent = "destroy"
+// EventDestroy is the event generated when a PU is definitely removed.
+const EventDestroy = "destroy"
 
-// PauseEvent is the event generated when a PU starts.
-const PauseEvent = "pause"
+// EventPause is the event generated when a PU is set to pause.
+const EventPause = "pause"
 
-// UnpauseEvent is the event generated when a PU starts.
-const UnpauseEvent = "unpause"
+// EventUnpause is the event generated when a PU is unpaused.
+const EventUnpause = "unpause"

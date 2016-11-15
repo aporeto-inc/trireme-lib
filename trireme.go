@@ -210,9 +210,9 @@ func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
 	t.resolver.HandlePUEvent(contextID, event)
 
 	switch event {
-	case monitor.StartEvent:
+	case monitor.EventStart:
 		return t.doHandleCreate(contextID)
-	case monitor.StopEvent:
+	case monitor.EventStop:
 		return t.doHandleDelete(contextID)
 	}
 	return nil
