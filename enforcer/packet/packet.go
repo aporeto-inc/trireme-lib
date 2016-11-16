@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 
 	"github.com/golang/glog"
@@ -139,10 +138,6 @@ func (p *Packet) Print(context uint64) {
 	dbgContext := context | p.context
 	logPkt := false
 	detailed := false
-
-	if !flag.Parsed() {
-		os.Stderr.Write([]byte("ERROR: packet logging before flag.Parse: "))
-	}
 
 	if glog.V(10) || context == 0 {
 		logPkt = true
