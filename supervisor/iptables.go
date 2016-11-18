@@ -659,7 +659,7 @@ func (s *iptablesSupervisor) exclusionChainRules(ip string) [][]string {
 func (s *iptablesSupervisor) AddExcludedIP(ip string) error {
 	chainRules := s.exclusionChainRules(ip)
 	for _, cr := range chainRules {
-		if err := s.ipt.Insert(cr[0], cr[1], 0, cr[2:]...); err != nil {
+		if err := s.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
 			glog.V(2).Infoln("Failed to create "+cr[0]+":"+cr[1]+" rule that redirects to container chain", err)
 			return err
 		}
