@@ -151,12 +151,6 @@ func (p *Packet) Print(context uint64) {
 	logPkt := false
 	detailed := false
 
-	if !flag.Parsed() {
-		log.WithFields(log.Fields{
-			"package": "packet",
-		}).Error("ERROR: packet logging before flag.Parse: ")
-	}
-
 	if (log.GetLevel() == log.DebugLevel || context == 0) || (dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0) || (dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0) {
 		logPkt = true
 		detailed = true
