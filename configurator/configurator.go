@@ -4,7 +4,6 @@ package configurator
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
@@ -12,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/golang/glog"
 )
 
 const (
@@ -31,7 +31,7 @@ func NewTriremeWithDockerMonitor(
 	eventCollector collector.EventCollector,
 	secrets tokens.Secrets,
 	syncAtStart bool,
-) (trireme.Trireme, monitor.Monitor) {
+) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
 		eventCollector = &collector.DefaultCollector{}
@@ -40,16 +40,15 @@ func NewTriremeWithDockerMonitor(
 	// Make sure that the iptables command is accessible. Panic if its not there.
 	ipt, err := supervisor.NewGoIPTablesProvider()
 	if err != nil {
-		fmt.Printf("Failed to load Go-Iptables: %s", err)
-		panic("Failed to load Go-Iptables: ")
+		glog.Fatalf("Failed to load Go-Iptables: %s", err)
 	}
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-	supervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
-	trireme := trireme.NewTrireme(serverID, resolver, supervisor, enforcer)
+	IPTsupervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
+	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 
-	return trireme, monitor
+	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 }
 
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -62,7 +61,7 @@ func NewPSKTriremeWithDockerMonitor(
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
-) (trireme.Trireme, monitor.Monitor) {
+) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart)
 }
@@ -81,11 +80,11 @@ func NewPKITriremeWithDockerMonitor(
 	keyPEM []byte,
 	certPEM []byte,
 	caCertPEM []byte,
-) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
+) (trireme.Trireme, monitor.Monitor, supervisor.Excluder, enforcer.PublicKeyAdder) {
 
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 
-	trireme, monitor := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart)
+	trireme, monitor, excluder := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart)
 
-	return trireme, monitor, publicKeyAdder
+	return trireme, monitor, excluder, publicKeyAdder
 }

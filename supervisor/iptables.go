@@ -624,7 +624,7 @@ func (s *iptablesSupervisor) cleanACLSection(context, section, chainPrefix strin
 	}
 }
 
-// chainRules provides the list of rules that are used to send traffic to
+// exclusionChainRules provides the list of rules that are used to send traffic to
 // a particular chain
 func (s *iptablesSupervisor) exclusionChainRules(ip string) [][]string {
 
@@ -655,12 +655,30 @@ func (s *iptablesSupervisor) exclusionChainRules(ip string) [][]string {
 	return chainRules
 }
 
-func (s *iptablesSupervisor) addExclusion(ip string) {
-
+// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
+func (s *iptablesSupervisor) AddExcludedIP(ip string) error {
+	chainRules := s.exclusionChainRules(ip)
+	for _, cr := range chainRules {
+		if err := s.ipt.Insert(cr[0], cr[1], 0, cr[2:]...); err != nil {
+			glog.V(2).Infoln("Failed to create "+cr[0]+":"+cr[1]+" rule that redirects to container chain", err)
+			return err
+		}
+	}
+	return nil
 }
 
-func (s *iptablesSupervisor) deleteExclusion(ip string) {
+// RemoveExcludedIP removes the exception for the destion IP given in parameter.
+func (s *iptablesSupervisor) RemoveExcludedIP(ip string) error {
 
+	chainRules := s.exclusionChainRules(ip)
+	for _, cr := range chainRules {
+
+		if err := s.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
+			glog.V(2).Infoln("Failed to delete "+cr[0]+":"+cr[1]+" rule that redirects to container chain", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func add(a, b interface{}) interface{} {
