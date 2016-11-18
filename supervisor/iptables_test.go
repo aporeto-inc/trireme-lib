@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -496,5 +497,168 @@ func TestDeleteChainRules(t *testing.T) {
 	err = s.Supervise("12345", containerInfo1)
 	if err != nil {
 		t.Errorf("Update of container failed")
+	}
+}
+
+func TestExcludedIP(t *testing.T) {
+	supervisor := doNewIPTSupervisor(t)
+	ipt := supervisor.ipt.(TestIptablesProvider)
+
+	// Testing normal Workflow:Add and Remove 10.0.0.1/32
+
+	excludedIP := "10.0.0.1/32"
+	indexInsert := 0
+	ipt.MockInsert(t, func(table, chain string, pos int, rulespec ...string) error {
+		fmt.Println(table)
+		switch indexInsert {
+		case 0:
+			// First Iteration
+			expectedTable := "raw"
+			expectedChain := "PREROUTING"
+			expectedPos := 1
+			expectedRuleSpec := []string{"-d", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
+			if table != expectedTable {
+				t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
+			}
+			if chain != expectedChain {
+				t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
+
+			}
+			if pos != expectedPos {
+				t.Errorf("Was expecting Position to be %d , got %d", expectedPos, pos)
+			}
+			if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
+				t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
+			}
+
+		case 1:
+			// First Iteration
+			expectedTable := "mangle"
+			expectedChain := "PREROUTING"
+			expectedPos := 1
+			expectedRuleSpec := []string{"-d", excludedIP, "-p", "tcp", "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
+			if table != expectedTable {
+				t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
+			}
+			if chain != expectedChain {
+				t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
+
+			}
+			if pos != expectedPos {
+				t.Errorf("Was expecting Position to be %d , got %d", expectedPos, pos)
+			}
+			if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
+				t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
+			}
+
+		case 2:
+			// First Iteration
+			expectedTable := "mangle"
+			expectedChain := "POSTROUTING"
+			expectedPos := 1
+			expectedRuleSpec := []string{"-s", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
+			if table != expectedTable {
+				t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
+			}
+			if chain != expectedChain {
+				t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
+
+			}
+			if pos != expectedPos {
+				t.Errorf("Was expecting Position to be %d , got %d", expectedPos, pos)
+			}
+			if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
+				t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
+			}
+
+		}
+		indexInsert++
+		return nil
+	})
+	indexDelete := 0
+
+	ipt.MockDelete(t, func(table, chain string, rulespec ...string) error {
+		fmt.Println(table)
+		switch indexDelete {
+		case 0:
+			// First Iteration
+			expectedTable := "raw"
+			expectedChain := "PREROUTING"
+			expectedRuleSpec := []string{"-d", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
+			if table != expectedTable {
+				t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
+			}
+			if chain != expectedChain {
+				t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
+
+			}
+			if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
+				t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
+			}
+
+		case 1:
+			// First Iteration
+			expectedTable := "mangle"
+			expectedChain := "PREROUTING"
+			expectedRuleSpec := []string{"-d", excludedIP, "-p", "tcp", "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
+			if table != expectedTable {
+				t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
+			}
+			if chain != expectedChain {
+				t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
+
+			}
+			if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
+				t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
+			}
+
+		case 2:
+			// First Iteration
+			expectedTable := "mangle"
+			expectedChain := "POSTROUTING"
+			expectedRuleSpec := []string{"-s", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
+			if table != expectedTable {
+				t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
+			}
+			if chain != expectedChain {
+				t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
+
+			}
+			if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
+				t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
+			}
+		}
+		indexDelete++
+		return nil
+	})
+
+	err := supervisor.AddExcludedIP(excludedIP)
+	if err != nil {
+		t.Errorf("Was expecting nil error return, got %s", err)
+	}
+	err = supervisor.RemoveExcludedIP(excludedIP)
+	if err != nil {
+		t.Errorf("Was expecting nil error return, got %s", err)
+	}
+
+	// ErrorReturn Tests:
+	excludedIP = "20.0.0.1/32"
+	ipt.MockInsert(t, func(table, chain string, pos int, rulespec ...string) error {
+		return fmt.Errorf("IPTable Error ")
+	})
+	ipt.MockDelete(t, func(table, chain string, rulespec ...string) error {
+		return fmt.Errorf("IPTable Error ")
+	})
+
+	// Testing Error on Adding
+	err = supervisor.AddExcludedIP(excludedIP)
+	if err == nil {
+		t.Errorf("Was expecting error return, got nil")
+	}
+
+	// Testing error on Removing
+	err = supervisor.RemoveExcludedIP(excludedIP)
+	if err == nil {
+		t.Errorf("Was expecting error return, got nil")
 	}
 }
