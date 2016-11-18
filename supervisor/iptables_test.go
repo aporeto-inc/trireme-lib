@@ -1,16 +1,14 @@
 package supervisor
 
 import (
+	"errors"
 	"reflect"
 	"testing"
-	"errors"
-	
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
-	// "github.com/aporeto-inc/trireme/policy"
 )
-
 
 func mockenforcerDefaultFQConfig(t *testing.T) enforcer.PolicyEnforcer {
 	pe := enforcer.NewTestPolicyEnforcer()
@@ -50,7 +48,7 @@ func TestNewIPTables(t *testing.T) {
 
 }
 
-//Invalid IP is checked in the caller 
+//Invalid IP is checked in the caller
 func TestSupervise(t *testing.T) {
 
 	s := doNewIPTSupervisor(t)
@@ -72,7 +70,7 @@ func TestSupervise(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error %s", err)
 	}
-	
+
 }
 
 func TestSuperviseACLs(t *testing.T) {
@@ -110,10 +108,9 @@ func TestSuperviseACLs(t *testing.T) {
 
 }
 
-
 //Call Supervise and we will mock AddContainer Chain here  by changing the mock defintions of newChain
-//The function should cleanup on all errors 
-func TestAddContainerChain(t *testing.T){
+//The function should cleanup on all errors
+func TestAddContainerChain(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
@@ -128,64 +125,60 @@ func TestAddContainerChain(t *testing.T){
 		Protocol: "tcp",
 	}}
 	const (
-		test_point int =iota
-		test_point_1 =1
-		test_point_2 =2
-		test_point_3 =3 
-		test_point_4 = 4
+		testPoint  = iota
+		testPoint1 = 1
+		testPoint2 = 2
+		testPoint3 = 3
+		testPoint4 = 4
 	)
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(TestIptablesProvider)
-	test_points := test_point_1
-	target_point := test_point_1
-	m.MockNewChain(t,func(table,chain string)(error){
-		
-		if test_points==target_point {
+	testPoints := testPoint1
+	targetPoint := testPoint1
+	m.MockNewChain(t, func(table, chain string) error {
+
+		if testPoints == targetPoint {
 			return errors.New("Failed to create raw table")
-		}else{
-			test_points++
-			return nil
 		}
-		
+		testPoints++
 		return nil
+
 	})
-	err := s.Supervise("12345",containerInfo)
-	if(err == nil){
-		t.Errorf("ignored Error from add ContainerChain raw::  %s",err)
+	err := s.Supervise("12345", containerInfo)
+	if err == nil {
+		t.Errorf("ignored Error from add ContainerChain raw::  %s", err)
 		t.SkipNow()
 	}
-		
-	test_points = test_point_1
-	target_point = test_point_2
-	err = s.Supervise("12345",containerInfo)
-	
-	if(err == nil){
+
+	testPoints = testPoint1
+	targetPoint = testPoint2
+	err = s.Supervise("12345", containerInfo)
+
+	if err == nil {
 		t.Errorf("ignored Error from add app specific ContainerChain")
 		t.SkipNow()
 	}
-	test_points = test_point_1
-	target_point = test_point_3
-	err = s.Supervise("12345",containerInfo)
-	if(err == nil){
+	testPoints = testPoint1
+	targetPoint = testPoint3
+	err = s.Supervise("12345", containerInfo)
+	if err == nil {
 		t.Errorf("ignored Error from add net specific ContainerChain")
 		t.SkipNow()
 	}
-	
-	test_points = test_point_1
-	target_point = test_point_4
-	err = s.Supervise("12345",containerInfo)
-	if(err != nil){
-		t.Errorf("Supervise failed %s",err)
+
+	testPoints = testPoint1
+	targetPoint = testPoint4
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
+		t.Errorf("Supervise failed %s", err)
 		t.SkipNow()
 	}
-	err = s.Unsupervise("12345")
-	
-	
+	s.Unsupervise("12345")
+
 }
 
-
-func TestAddChainRules(t *testing.T){
+func TestAddChainRules(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
@@ -202,46 +195,44 @@ func TestAddChainRules(t *testing.T){
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(TestIptablesProvider)
-	
+
 	const (
-		test_point int =iota
-		test_point_1
-		test_point_2
-		test_point_3
-		test_point_4
+		testPoint = iota
+		testPoint1
+		testPoint2
+		testPoint3
+		testPoint4
 	)
-	test_points := test_point_1
-	target_point := test_point_1
+	testPoints := testPoint1
+	targetPoint := testPoint1
 	//Check if there are now rules anymore
-	m.MockAppend(t,func(table,chain string,rulespec ...string)(error){
-		
-		if test_points==target_point {
+	m.MockAppend(t, func(table, chain string, rulespec ...string) error {
+
+		if testPoints == targetPoint {
 			return errors.New("Failed to append")
-		}else{
-			test_points++
-			return nil
 		}
-		
+		testPoints++
 		return nil
+
 	})
-	err := s.Supervise("12345",containerInfo)
-	if(err == nil){
+	err := s.Supervise("12345", containerInfo)
+	if err == nil {
 		t.Errorf("ignored Error from Append")
 		t.SkipNow()
 	}
 
 	//Sucess Case
-	test_points = test_point_1
-	target_point = 0
-	err = s.Supervise("12345",containerInfo)
-	if(err != nil){
-		t.Errorf("Supervise failed %s",err)
+	testPoints = testPoint1
+	targetPoint = 0
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
+		t.Errorf("Supervise failed %s", err)
 		t.SkipNow()
 	}
-	err = s.Unsupervise("12345")
+	s.Unsupervise("12345")
 }
 
-func TestAddPacketTrap(t *testing.T){
+func TestAddPacketTrap(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
@@ -259,45 +250,43 @@ func TestAddPacketTrap(t *testing.T){
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(TestIptablesProvider)
 	const (
-		test_point int =0
-		test_point_1 = 3
-		test_point_2
-		test_point_3
-		test_point_4
+		testPoint  = 0
+		testPoint1 = 3
+		testPoint2
+		testPoint3
+		testPoint4
 	)
-	test_points := test_point
-	target_point := test_point_1
+	testPoints := testPoint
+	targetPoint := testPoint1
 	//Check if there are now rules anymore
-	m.MockAppend(t,func(table,chain string,rulespec ...string)(error){
-		if test_points==target_point {
+	m.MockAppend(t, func(table, chain string, rulespec ...string) error {
+		if testPoints == targetPoint {
 			return errors.New("Failed to append")
-		}else{
-			test_points++
-			return nil
 		}
-		
+		testPoints++
 		return nil
+
 	})
-	err := s.Supervise("12345",containerInfo)
-	if(err == nil){
+	err := s.Supervise("12345", containerInfo)
+	if err == nil {
 		t.Errorf("ignored Error from Append")
 		//debug.PrintStack()
 		t.SkipNow()
 	}
 
 	//Sucess Case
-	test_points = test_point_1
-	target_point = test_point
-	err = s.Supervise("12345",containerInfo)
-	if(err != nil){
-		t.Errorf("Supervise failed %s",err)
+	testPoints = testPoint1
+	targetPoint = testPoint
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
+		t.Errorf("Supervise failed %s", err)
 		t.SkipNow()
 	}
-	err = s.Unsupervise("12345")
-	
+	s.Unsupervise("12345")
+
 }
 
-func TestAddAppACLs(t *testing.T){
+func TestAddAppACLs(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
@@ -315,59 +304,57 @@ func TestAddAppACLs(t *testing.T){
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(TestIptablesProvider)
 	//25 is derived from the addchainrules+addPacketTrap calling append
-	//We don't want append to fail in addchainrules 
+	//We don't want append to fail in addchainrules
 	const (
-		test_point int =25
-		test_point_0 =0
-		test_point_1 = 7
-		test_point_2 = 15
-		test_point_3
-		test_point_4
+		testPoint  = 25
+		testPoint0 = 0
+		testPoint1 = 7
+		testPoint2 = 15
+		testPoint3
+		testPoint4
 	)
-	test_points := test_point_0
-	target_point := test_point_1
+	testPoints := testPoint0
+	targetPoint := testPoint1
 	//Check if there are now rules anymore
 
-	m.MockAppend(t,func(table,chain string,rulespec ...string)(error){
-		if test_points==target_point {
-			test_points++
+	m.MockAppend(t, func(table, chain string, rulespec ...string) error {
+		if testPoints == targetPoint {
+			testPoints++
 			return errors.New("Failed to append")
-		}else{
-			test_points++
-			return nil
 		}
-		
+		testPoints++
 		return nil
+
 	})
-	err := s.Supervise("12345",containerInfo)
-	if(err == nil){
+	err := s.Supervise("12345", containerInfo)
+	if err == nil {
 		t.Errorf("ignored Error from Append")
 		//debug.PrintStack()
 		t.SkipNow()
 	}
 
-	//Second if condition 
-	test_points = test_point_1
-	target_point = test_point_3
-	err = s.Supervise("12345",containerInfo)
-	if(err == nil){
+	//Second if condition
+	testPoints = testPoint1
+	targetPoint = testPoint3
+	err = s.Supervise("12345", containerInfo)
+	if err == nil {
 		t.Errorf("ignored Error from Append")
 		//debug.PrintStack()
 		t.SkipNow()
 	}
 	//Success Case
-	test_points = test_point_1
-	target_point = test_point_0
-	err = s.Supervise("12345",containerInfo)
-	if(err != nil){
-		t.Errorf("Supervise failed %s",err)
+	testPoints = testPoint1
+	targetPoint = testPoint0
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
+		t.Errorf("Supervise failed %s", err)
 		t.SkipNow()
 	}
-	err = s.Unsupervise("12345")
+	s.Unsupervise("12345")
 
 }
 
-func TestAddNetACLs(t *testing.T){
+func TestAddNetACLs(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
@@ -385,60 +372,58 @@ func TestAddNetACLs(t *testing.T){
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(TestIptablesProvider)
 	//25 is derived from the addchainrules+addPacketTrap calling append
-	//We don't want append to fail in addchainrules 
+	//We don't want append to fail in addchainrules
 	const (
-		test_point int=0
-		test_point_0 =0
-		test_point_1 = 9
-		test_point_2 = 10
-		test_point_3
-		test_point_4
+		testPoint  = 0
+		testPoint0 = 0
+		testPoint1 = 9
+		testPoint2 = 10
+		testPoint3
+		testPoint4
 	)
-	test_points := test_point_0
-	target_point := test_point_1
+	testPoints := testPoint0
+	targetPoint := testPoint1
 	//Check if there are now rules anymore
 
-	m.MockAppend(t,func(table,chain string,rulespec ...string)(error){
+	m.MockAppend(t, func(table, chain string, rulespec ...string) error {
 
-		if test_points==target_point {
-			test_points++
+		if testPoints == targetPoint {
+			testPoints++
 			return errors.New("Failed to append")
-		}else{
-			test_points++
-			return nil
 		}
-		
+		testPoints++
 		return nil
+
 	})
-	err := s.Supervise("12345",containerInfo)
-	if(err == nil){
+	err := s.Supervise("12345", containerInfo)
+	if err == nil {
 		t.Errorf("ignored Error from Append")
 		//debug.PrintStack()
 		t.SkipNow()
 	}
 
 	//Second Append for default rule
-	test_points = test_point_0
-	target_point = test_point_2
-	err = s.Supervise("12345",containerInfo)
-	if(err == nil){
+	testPoints = testPoint0
+	targetPoint = testPoint2
+	err = s.Supervise("12345", containerInfo)
+	if err == nil {
 		t.Errorf("ignored Error from Append")
 		//debug.PrintStack()
 		t.SkipNow()
 	}
 	//Sucess Case
-	test_points = test_point_1
-	target_point = test_point_0
-	err = s.Supervise("12345",containerInfo)
-	if(err != nil){
+	testPoints = testPoint1
+	targetPoint = testPoint0
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
 		t.Errorf("Error in Supervise")
 		//debug.PrintStack()
 		t.SkipNow()
 	}
-	err = s.Unsupervise("12345")
+	s.Unsupervise("12345")
 }
 
-func TestDeleteChainRules(t *testing.T){
+func TestDeleteChainRules(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
@@ -456,60 +441,60 @@ func TestDeleteChainRules(t *testing.T){
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(TestIptablesProvider)
 	//25 is derived from the addchainrules+addPacketTrap calling append
-	//We don't want append to fail in addchainrules 
+	//We don't want append to fail in addchainrules
 	const (
-		test_point int=0
-		test_point_0 =0
-		test_point_1 = 1
-		test_point_2
-		test_point_3
-		test_point_4
+		testPoint  = 0
+		testPoint0 = 0
+		testPoint1 = 1
+		testPoint2
+		testPoint3
+		testPoint4
 	)
-	
-	err := s.Supervise("12345",containerInfo)
+
+	err := s.Supervise("12345", containerInfo)
 	//Call Supervise again with the same context id
 	//Will force a doUpDatePU
-	containerInfo_1 := policy.NewPUInfo("12345")
-	containerInfo_1.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
+	containerInfo1 := policy.NewPUInfo("12345")
+	containerInfo1.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
 		Address:  "10.10.0.0/16",
 		Port:     "80",
 		Protocol: "tcp",
 	}}
 
-	containerInfo_1.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
+	containerInfo1.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
 		Address:  "10.20.0.0/16",
 		Port:     "80",
 		Protocol: "tcp",
 	}}
-	containerInfo_1.Runtime.SetIPAddresses(map[string]string{"bridge": "15.30.30.30"})
-	containerInfo_1.Policy.PolicyIPs = []string{"15.30.30.30"}
-	test_points := test_point_0
-	target_point := test_point_1
-	m.MockDelete(t,func(table,chain string,rulespec ...string)(error){
-		if test_points==target_point {
-			test_points++
+	containerInfo1.Runtime.SetIPAddresses(map[string]string{"bridge": "15.30.30.30"})
+	containerInfo1.Policy.PolicyIPs = []string{"15.30.30.30"}
+	testPoints := testPoint0
+	targetPoint := testPoint1
+	m.MockDelete(t, func(table, chain string, rulespec ...string) error {
+		if testPoints == targetPoint {
+			testPoints++
 			return errors.New("Failed to append")
-		}else{
-			test_points++
-			return nil
 		}
+		testPoints++
+		return nil
+
 	})
 
-	err = s.Supervise("12345",containerInfo_1)
-	if(err == nil){
+	err = s.Supervise("12345", containerInfo1)
+	if err == nil {
 		t.Errorf("ignored delete error")
 	}
 
 	//Sucess case now
-	test_points = test_point_1
-	target_point = test_point_0
-	err = s.Supervise("12345",containerInfo)
-	if(err != nil){
+	testPoints = testPoint1
+	targetPoint = testPoint0
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
 		t.Errorf("Error during Supervise")
 	}
 	//Trigger and doUpdatePU
-	err = s.Supervise("12345",containerInfo_1)
-	if(err != nil){
+	err = s.Supervise("12345", containerInfo1)
+	if err != nil {
 		t.Errorf("Update of container failed")
 	}
 }
