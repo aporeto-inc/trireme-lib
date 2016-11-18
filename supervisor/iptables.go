@@ -76,6 +76,13 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 	return s, nil
 }
 
+func defaultCacheIP(ips []string) (string, error) {
+	if len(ips) == 0 || ips == nil {
+		return "", fmt.Errorf("No IPs present")
+	}
+	return ips[0], nil
+}
+
 // Supervise creates a mapping between an IP address and the corresponding labels.
 // it invokes the various handlers that process the parameter policy.
 func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.PUInfo) error {
@@ -89,13 +96,6 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 	}
 	glog.V(5).Infoln("ContextID Already exist in Cache. Do Update")
 	return s.doUpdatePU(contextID, containerInfo)
-}
-
-func defaultCacheIP(ips []string) (string, error) {
-	if len(ips) == 0 || ips == nil {
-		return "", fmt.Errorf("No IPs present")
-	}
-	return ips[0], nil
 }
 
 // Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
@@ -203,7 +203,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, container *policy.PUIn
 	return nil
 }
 
-//UpdatePU creates a mapping between an IP address and the corresponding labels
+// UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
 func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUInfo) error {
 
@@ -354,7 +354,6 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 			appPacketIPTableContext,
 			appPacketIPTableSection,
 			"-s", ip,
-			// "-i", "docker0",
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
@@ -362,7 +361,6 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 			appPacketIPTableSection,
 			"-s", ip,
 			"-p", "tcp",
-			// "-i", "docker0",
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
@@ -624,6 +622,45 @@ func (s *iptablesSupervisor) cleanACLSection(context, section, chainPrefix strin
 			s.ipt.DeleteChain(context, rule)
 		}
 	}
+}
+
+// chainRules provides the list of rules that are used to send traffic to
+// a particular chain
+func (s *iptablesSupervisor) exclusionChainRules(ip string) [][]string {
+
+	chainRules := [][]string{
+		{
+			appPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", "ACCEPT",
+		},
+		{appAckPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", "ACCEPT",
+		},
+		{
+			netPacketIPTableContext,
+			netPacketIPTableSection,
+			"-s", ip,
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", "ACCEPT",
+		},
+	}
+
+	return chainRules
+}
+
+func (s *iptablesSupervisor) addExclusion(ip string) {
+
+}
+
+func (s *iptablesSupervisor) deleteExclusion(ip string) {
+
 }
 
 func add(a, b interface{}) interface{} {
