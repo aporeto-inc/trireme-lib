@@ -182,7 +182,7 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 
 	packetLength := len(v.Buffer) + len(v.Options) + len(v.Payload)
 	if packetLength > len(xbuf) {
-		fmt.Printf("XBuffer %v Buffer %v Options %v Payload %v\n", len(xbuf), len(v.Buffer), len(v.Options), len(v.Payload))
+		glog.V(3).Infof("XBuffer %v Buffer %v Options %v Payload %v\n", len(xbuf), len(v.Buffer), len(v.Options), len(v.Payload))
 		return NfDrop
 	}
 
