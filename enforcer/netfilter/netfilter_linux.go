@@ -180,6 +180,12 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 
 	v := nfq.processor(&p)
 
+	packetLength := len(v.Buffer) + len(v.Options) + len(v.Payload)
+	if packetLength > len(xbuf) {
+		fmt.Printf("XBuffer %v Buffer %v Options %v Payload %v\n", len(xbuf), len(v.Buffer), len(v.Options), len(v.Payload))
+		return NfDrop
+	}
+
 	// Do the memcopy to the new packet format that must be transmitted
 	// We need to copy the data to the C allocated buffer
 	length := 0
