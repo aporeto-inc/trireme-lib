@@ -150,8 +150,15 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 }
 
 // addTransmitterLabel adds the TransmitterLabel as a fixed label in the policy.
+// The ManagementID part of the policy is used as the TransmitterLabel.
+// If the Policy didn't set the ManagementID, we use the Local contextID as the
+// default TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
-	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
+
+	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = containerInfo.Policy.ManagementID
+	if containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] == "" {
+		containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
+	}
 }
 
 // isPolicyIPValid validates the user IP on which to apply the policy.

@@ -305,3 +305,27 @@ func TestStop(t *testing.T) {
 	trireme.Start()
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 }
+
+func TestTransmitterLabel(t *testing.T) {
+
+	// If management ID is set, use it as the TransmitterLabel
+
+	mgmtID := "mgmt"
+	contextID := "Context"
+	containerInfo := policy.NewPUInfo(contextID)
+	containerInfo.Policy.ManagementID = mgmtID
+	addTransmitterLabel(contextID, containerInfo)
+	if containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] != mgmtID {
+		t.Errorf("Expecting Transmitter label to be set to MgmtID: %s , but was set to: %s", mgmtID, containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel])
+	}
+
+	// If management ID is not set, use contextID as the TransmitterLabel
+
+	contextID = "Context"
+	containerInfo = policy.NewPUInfo(contextID)
+	addTransmitterLabel(contextID, containerInfo)
+	if containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] != contextID {
+		t.Errorf("Expecting Transmitter label to be set to ContextID: %s , but was set to: %s", contextID, containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel])
+	}
+
+}

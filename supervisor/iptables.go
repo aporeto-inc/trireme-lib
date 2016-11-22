@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/golang/glog"
 )
 
 const (
@@ -95,6 +96,13 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 	s.CleanACL()
 
 	return s, nil
+}
+
+func defaultCacheIP(ips []string) (string, error) {
+	if len(ips) == 0 || ips == nil {
+		return "", fmt.Errorf("No IPs present")
+	}
+	return ips[0], nil
 }
 
 // Supervise creates a mapping between an IP address and the corresponding labels.
@@ -355,7 +363,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	return nil
 }
 
-//UpdatePU creates a mapping between an IP address and the corresponding labels
+// UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
 func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUInfo) error {
 
@@ -694,7 +702,6 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 			appPacketIPTableContext,
 			appPacketIPTableSection,
 			"-s", ip,
-			// "-i", "docker0",
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
@@ -702,7 +709,6 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 			appPacketIPTableSection,
 			"-s", ip,
 			"-p", "tcp",
-			// "-i", "docker0",
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
@@ -1145,6 +1151,63 @@ func (s *iptablesSupervisor) cleanACLSection(context, section, chainPrefix strin
 			s.ipt.DeleteChain(context, rule)
 		}
 	}
+}
+
+// exclusionChainRules provides the list of rules that are used to send traffic to
+// a particular chain
+func (s *iptablesSupervisor) exclusionChainRules(ip string) [][]string {
+
+	chainRules := [][]string{
+		{
+			appPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+		{appAckPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+		{
+			netPacketIPTableContext,
+			netPacketIPTableSection,
+			"-s", ip,
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+	}
+
+	return chainRules
+}
+
+// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
+func (s *iptablesSupervisor) AddExcludedIP(ip string) error {
+	chainRules := s.exclusionChainRules(ip)
+	for _, cr := range chainRules {
+		if err := s.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
+			glog.V(2).Infoln("Failed to create "+cr[0]+":"+cr[1]+" rule that redirects to container chain", err)
+			return err
+		}
+	}
+	return nil
+}
+
+// RemoveExcludedIP removes the exception for the destion IP given in parameter.
+func (s *iptablesSupervisor) RemoveExcludedIP(ip string) error {
+
+	chainRules := s.exclusionChainRules(ip)
+	for _, cr := range chainRules {
+
+		if err := s.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
+			glog.V(2).Infoln("Failed to delete "+cr[0]+":"+cr[1]+" rule that redirects to container chain", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func add(a, b interface{}) interface{} {
