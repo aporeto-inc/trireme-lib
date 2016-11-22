@@ -230,18 +230,29 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 	// We need to copy the data to the C allocated buffer
 	length := 0
 	for i := range v.Buffer {
-		xbuf[i] = C.uchar(v.Buffer[i])
+		if length < newLength {
+			xbuf[i] = C.uchar(v.Buffer[i])
+		}
 		length++
 	}
 
 	for i := range v.Options {
-		xbuf[length] = C.uchar(v.Options[i])
+		if length < newLength {
+			xbuf[length] = C.uchar(v.Options[i])
+		}
 		length++
 	}
 
 	for i := range v.Payload {
-		xbuf[length] = C.uchar(v.Payload[i])
+		if length < newLength {
+			xbuf[length] = C.uchar(v.Payload[i])
+		}
 		length++
+	}
+
+	if length > newLength {
+		glog.Infof("modifiedLength %d AllowedLength %d\n", length, newLength)
+		return NfDrop
 	}
 
 	// The C side needs the actuall length. It can't figure this out from the buffer size
