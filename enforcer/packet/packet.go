@@ -243,7 +243,9 @@ func (p *Packet) fixupIPHdrOnTCPDataModify(packetLenIncrease uint16) {
 
 	// IP Header Processing
 	// IP chekcsum fixup.
-	p.ipChecksum = -(-p.ipChecksum + packetLenIncrease)
+	a := uint32(p.ipChecksum + (packetLenIncrease ^ 0xFFFF))
+	p.ipChecksum = uint16(a + (a >> 16))
+
 	// Update IP Total Length.
 	p.IPTotalLength = p.IPTotalLength + packetLenIncrease
 
