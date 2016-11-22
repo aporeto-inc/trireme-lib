@@ -3,7 +3,6 @@ package common
 import (
 	"encoding/pem"
 	"io/ioutil"
-	"log"
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/configurator"
@@ -11,7 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // CustomPolicyResolver holds the configuration of the policy engine
@@ -31,7 +30,7 @@ func NewCustomPolicyResolver() *CustomPolicyResolver {
 // policy that accepts packets with the same labels as the target container.
 func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error) {
 
-	glog.V(1).Infof("Getting Policy for ContainerID %s , name: %s ", context, runtimeInfo.Name())
+	log.Infof("Getting Policy for ContainerID %s , name: %s ", context, runtimeInfo.Name())
 
 	containerPolicyInfo := p.createRules(runtimeInfo)
 
@@ -70,7 +69,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	for i, selector := range containerPolicyInfo.Rules {
 		for _, clause := range selector.Clause {
-			glog.V(1).Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
+			log.Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
 		}
 	}
 
@@ -80,7 +79,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 // HandlePUEvent implements the corresponding interface. We have no
 // state in this example
 func (p *CustomPolicyResolver) HandlePUEvent(context string, eventType monitor.Event) {
-	glog.V(1).Infof("ContainerEvent %s, EventType: %s", context, eventType)
+	log.Infof("ContainerEvent %s, EventType: %s", context, eventType)
 }
 
 // SetPolicyUpdater is used in order to register a pointer to the policyUpdater
@@ -132,13 +131,13 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string) (tr
 
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
-		log.Fatal("Failed to read key PEM ")
+		log.Fatalf("Failed to read key PEM ")
 	}
 
 	// Load CA cert
 	caCertPEM, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("%s", err)
 	}
 
 	policyEngine := NewCustomPolicyResolver()
