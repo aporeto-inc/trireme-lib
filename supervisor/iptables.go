@@ -143,15 +143,6 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 	return s.doUpdatePU(contextID, containerInfo)
 }
 
-func defaultCacheIP(ips []string) (string, error) {
-
-	if len(ips) == 0 || ips == nil {
-		return "", fmt.Errorf("No IPs present")
-	}
-
-	return ips[0], nil
-}
-
 // Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
