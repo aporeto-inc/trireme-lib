@@ -23,6 +23,7 @@ func NewConnection() *Connection {
 	}
 
 	nonse, err := crypto.GenerateRandomBytes(32)
+
 	if err != nil {
 		return nil
 	}

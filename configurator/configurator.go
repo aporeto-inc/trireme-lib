@@ -5,13 +5,13 @@ package configurator
 import (
 	"crypto/ecdsa"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/golang/glog"
 )
 
 const (
@@ -39,8 +39,12 @@ func NewTriremeWithDockerMonitor(
 
 	// Make sure that the iptables command is accessible. Panic if its not there.
 	ipt, err := supervisor.NewGoIPTablesProvider()
+
 	if err != nil {
-		glog.Fatalf("Failed to load Go-Iptables: %s", err)
+		log.WithFields(log.Fields{
+			"package": "configurator",
+			"error":   err,
+		}).Fatal("Failed to load Go-Iptables")
 	}
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)

@@ -10,7 +10,8 @@ import (
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/golang/glog"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 func usage() {
@@ -20,6 +21,9 @@ func usage() {
 }
 
 func main() {
+
+	log.SetLevel(log.DebugLevel)
+	log.SetFormatter(&log.TextFormatter{})
 
 	flag.Usage = usage
 
@@ -35,10 +39,10 @@ func main() {
 	var e supervisor.Excluder
 
 	if usePKI {
-		glog.V(1).Infof("Setting up trireme with PKI")
+		log.Infof("Setting up trireme with PKI")
 		t, m, e = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"})
 	} else {
-		glog.V(1).Infof("Setting up trireme with PSK")
+		log.Infof("Setting up trireme with PSK")
 		t, m, e = common.TriremeWithPSK([]string{"172.17.0.0/24"})
 	}
 

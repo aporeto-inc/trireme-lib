@@ -1,8 +1,8 @@
 package lookup
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/golang/glog"
 )
 
 // ForwardingPolicy is an instance of the forwarding policy
@@ -157,19 +157,33 @@ func searchInMapTabe(table []*ForwardingPolicy, count []int, skip []bool) (int, 
 // PrintPolicyDB is a debugging function to dump the map
 func (m *PolicyDB) PrintPolicyDB() {
 
-	glog.V(5).Infoln("Equal Table")
+	log.WithFields(log.Fields{
+		"package": "lookup",
+	}).Debug("Print Policy DB - equal table")
+
 	for key, values := range m.equalMapTable {
 		for value, policies := range values {
-			glog.V(5).Infoln("Key,Value", key, value)
-			glog.V(5).Infoln(policies)
+			log.WithFields(log.Fields{
+				"package":  "lookup",
+				"policies": policies,
+				"key":      key,
+				"value":    value,
+			}).Debug("Print Policy DB")
 		}
 	}
 
-	glog.V(5).Infoln("Not Equal Table")
+	log.WithFields(log.Fields{
+		"package": "lookup",
+	}).Debug("Print Policy DB - not equal table")
+
 	for key, values := range m.notEqualMapTable {
 		for value, policies := range values {
-			glog.V(5).Infoln("Key,Value", key, value)
-			glog.V(5).Infoln(policies)
+			log.WithFields(log.Fields{
+				"package":  "lookup",
+				"policies": policies,
+				"key":      key,
+				"value":    value,
+			}).Debug("Print Policy DB")
 		}
 	}
 
