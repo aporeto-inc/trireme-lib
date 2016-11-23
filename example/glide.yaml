@@ -1,15 +1,9 @@
-package: github.com/aporeto-inc/trireme
+package: github.com/aporeto-inc/trireme/example
 import:
-- package: github.com/coreos/go-iptables
+- package: github.com/Sirupsen/logrus
+- package: github.com/aporeto-inc/trireme
   subpackages:
-  - iptables
-- package: github.com/dgrijalva/jwt-go
-- package: github.com/golang/glog
-- package: golang.org/x/net
-  subpackages:
-  - ipv4
-testImport:
-- package: github.com/satori/go.uuid
-- package: github.com/smartystreets/goconvey
-  subpackages:
-  - convey
+  - configurator
+  - monitor
+  - policy
+  - supervisor
