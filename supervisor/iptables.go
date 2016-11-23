@@ -83,14 +83,13 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 	}
 
 	s := &iptablesSupervisor{
+		ipt:               iptablesProvider,
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
 	}
-
-	s.ipt = iptablesProvider
 
 	// Clean any previous ACLs that we have installed
 	s.CleanACL()
@@ -696,7 +695,8 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
-		{appAckPacketIPTableContext,
+		{
+			appAckPacketIPTableContext,
 			appPacketIPTableSection,
 			"-s", ip,
 			"-p", "tcp",
