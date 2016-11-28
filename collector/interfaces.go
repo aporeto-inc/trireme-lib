@@ -3,6 +3,7 @@ package collector
 import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/utils/packet"
 )
 
 var (

@@ -13,14 +13,14 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor/remote/supervisorLauncher"
 
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/remote/enforcerLauncher"
+	"github.com/aporeto-inc/trireme/remote/supervisorLauncher"
+
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
-<<<<<<< c9cbe22ae8b53295bd01fb7acddd4878487c3378
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 	"github.com/aporeto-inc/trireme/utils/tokens"
-=======
->>>>>>> RPC wrapper work and changed directory structure
 )
 
 const (
@@ -79,7 +79,6 @@ func NewTriremeWithDockerMonitor(
 	syncAtStart bool,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
-
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
@@ -105,11 +104,16 @@ func NewTriremeWithDockerMonitor(
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 	}
+	if remoteEnforcer {
+		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
+		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
+		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
+		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
+		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
+	}
 
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
-
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
-
 	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 
 }
@@ -153,6 +157,5 @@ func NewPKITriremeWithDockerMonitor(
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 
 	trireme, monitor, excluder := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart, dockerMetadataExtractor, remoteEnforcer)
-
 	return trireme, monitor, excluder, publicKeyAdder
 }

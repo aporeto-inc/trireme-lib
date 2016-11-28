@@ -15,6 +15,8 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/utils/packet"
+	"github.com/aporeto-inc/trireme/utils/tokens"
 )
 
 // datapathEnforcer is the structure holding all information about a connection filter
