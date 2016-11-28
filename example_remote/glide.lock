@@ -1,0 +1,43 @@
+hash: 2bd597c816dc878a2b0a573af7b24d2e40820c85cf8e018a8786228780f2fce9
+updated: 2016-10-20T15:50:19.462718564-07:00
+imports:
+- name: github.com/aporeto-inc/trireme
+  version: 999dce270e2d8f0def1807cb29223d3cbcad248a
+  subpackages:
+  - plugin
+  - policy
+- name: github.com/coreos/go-iptables
+  version: 5463fbac3bcc6b990663941c2e12660d19f6b36d
+  subpackages:
+  - iptables
+- name: github.com/dgrijalva/jwt-go
+  version: 24c63f56522a87ec5339cc3567883f1039378fdb
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: golang.org/x/net
+  version: daba796358cd2742b75aae05761f1b898c9f6a5c
+  subpackages:
+  - bpf
+  - internal/iana
+  - internal/netreflect
+  - ipv4
+testImports:
+- name: github.com/gopherjs/gopherjs
+  version: c79d0a5dbbdaf21092548246e69886a08f5a8e31
+  subpackages:
+  - js
+- name: github.com/jtolds/gls
+  version: 8ddce2a84170772b95dd5d576c48d517b22cac63
+- name: github.com/satori/go.uuid
+  version: b061729afc07e77a8aa4fad0a2fd840958f1942a
+- name: github.com/smartystreets/assertions
+  version: 2063fd1cc7c975db70502811a34b06ad034ccdf2
+  subpackages:
+  - internal/go-render/render
+  - internal/oglematchers
+- name: github.com/smartystreets/goconvey
+  version: 7befa7fd6e2e8ca28d2b94f2d39111929904b08d
+  subpackages:
+  - convey
+  - convey/gotest
+  - convey/reporting
