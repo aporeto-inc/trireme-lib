@@ -12,9 +12,9 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/netfilter"
-	"github.com/aporeto-inc/trireme/enforcer/packet"
-	"github.com/aporeto-inc/trireme/enforcer/tokens"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/utils/packet"
+	"github.com/aporeto-inc/trireme/utils/tokens"
 )
 
 // datapathEnforcer is the structure holding all information about a connection filter

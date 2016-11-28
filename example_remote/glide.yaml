@@ -1,0 +1,15 @@
+package: github.com/aporeto-inc/trireme
+import:
+- package: github.com/coreos/go-iptables
+  subpackages:
+  - iptables
+- package: github.com/dgrijalva/jwt-go
+- package: github.com/golang/glog
+- package: golang.org/x/net
+  subpackages:
+  - ipv4
+testImport:
+- package: github.com/satori/go.uuid
+- package: github.com/smartystreets/goconvey
+  subpackages:
+  - convey

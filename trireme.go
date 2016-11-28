@@ -207,7 +207,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"runtimeInfo": runtimeInfo,
 			"error":       err,
 		}).Error("Nil policy returned when resolving the context")
-		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
+		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
 
 	present, err := isPolicyIPValid(policyInfo)
@@ -239,24 +239,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.supervisor.Supervise(contextID, containerInfo)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package":       "trireme",
-			"contextID":     contextID,
-			"error":         err,
-			"containerInfo": containerInfo,
-			"runtimeInfo":   runtimeInfo,
-		}).Error("Not able to setup supervisor")
-
-		return fmt.Errorf("Not able to setup supervisor: %s", err)
-	}
-
 	err = t.enforcer.Enforce(contextID, containerInfo)
 
 	if err != nil {
-		t.supervisor.Unsupervise(contextID)
+		//t.supervisor.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
 			"package":       "trireme",
@@ -266,6 +252,21 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		}).Error("Not able to setup enforcer")
 
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
+	}
+
+	err = t.supervisor.Supervise(contextID, containerInfo)
+
+	if err != nil {
+		t.enforcer.Unenforce(contextID)
+		log.WithFields(log.Fields{
+			"package":       "trireme",
+			"contextID":     contextID,
+			"error":         err,
+			"containerInfo": containerInfo,
+			"runtimeInfo":   runtimeInfo,
+		}).Error("Not able to setup supervisor")
+
+		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
 	log.WithFields(log.Fields{
@@ -373,23 +374,10 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.supervisor.Supervise(contextID, containerInfo)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package":     "trireme",
-			"contextID":   contextID,
-			"policy":      newPolicy,
-			"runtimeInfo": runtimeInfo,
-			"error":       err,
-		}).Error("Policy Update failed for Supervisor")
-		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
-	}
-
 	err = t.enforcer.Enforce(contextID, containerInfo)
 
 	if err != nil {
-		t.supervisor.Unsupervise(contextID)
+
 		log.WithFields(log.Fields{
 			"package":       "trireme",
 			"contextID":     contextID,
@@ -399,6 +387,21 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 			"error":         err,
 		}).Error("Policy Update failed for Enforcer")
 		return fmt.Errorf("Policy Update failed for Enforcer %s", err)
+	}
+
+	err = t.supervisor.Supervise(contextID, containerInfo)
+
+	if err != nil {
+		t.enforcer.Unenforce(contextID)
+		log.WithFields(log.Fields{
+			"package":     "trireme",
+			"trireme":     t,
+			"contextID":   contextID,
+			"policy":      newPolicy,
+			"runtimeInfo": runtimeInfo,
+			"error":       err,
+		}).Error("Policy Update failed for Supervisor")
+		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
 	}
 
 	log.WithFields(log.Fields{

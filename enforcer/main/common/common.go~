@@ -1,0 +1,19 @@
+package remoteEnforcer
+
+import (
+	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/utils/packet"
+)
+
+//CollectorImpl exported
+type CollectorImpl struct{}
+
+//CollectFlowEvent expoted
+func (c *CollectorImpl) CollectFlowEvent(contextID string, tags policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet) {
+
+}
+
+//CollectContainerEvent exported
+//This event should not be expected here in the enforcer process inside a particular container context
+func (c *collectorImpl) CollectContainerEvent(contextID string, ip string, tags policy.TagsMap, event string) {
+}
