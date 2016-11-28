@@ -1,4 +1,4 @@
-package supervisor
+package provider
 
 import "github.com/janeczku/go-ipset/ipset"
 
@@ -12,7 +12,7 @@ type IpsetProvider interface {
 	Test(entry string) (bool, error)
 }
 
-// NewIPset returns an IpsetProvider interface based on the go-iptables
+// NewIPset returns an IpsetProvider interface based on the go-ipset
 // external package.
 func NewIPset(name string, hasht string, p *ipset.Params) (IpsetProvider, error) {
 	return ipset.New(name, hasht, p)

@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 func mockenforcerDefaultFQConfig(t *testing.T) enforcer.PolicyEnforcer {
@@ -29,7 +30,7 @@ func mockenforcerDefaultFQConfig(t *testing.T) enforcer.PolicyEnforcer {
 func doNewIPTSupervisor(t *testing.T) *iptablesSupervisor {
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
-	ipt := NewTestIptablesProvider()
+	ipt := provider.NewTestIptablesProvider()
 	networks := []string{"0.0.0.0/0"}
 
 	s, err := NewIPTablesSupervisor(c, pe, ipt, networks)
@@ -134,7 +135,7 @@ func TestAddContainerChain(t *testing.T) {
 	)
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-	m := s.ipt.(TestIptablesProvider)
+	m := s.ipt.(provider.TestIptablesProvider)
 	testPoints := testPoint1
 	targetPoint := testPoint1
 	m.MockNewChain(t, func(table, chain string) error {
@@ -195,7 +196,7 @@ func TestAddChainRules(t *testing.T) {
 	}}
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-	m := s.ipt.(TestIptablesProvider)
+	m := s.ipt.(provider.TestIptablesProvider)
 
 	const (
 		testPoint = iota
@@ -249,7 +250,7 @@ func TestAddPacketTrap(t *testing.T) {
 	}}
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-	m := s.ipt.(TestIptablesProvider)
+	m := s.ipt.(provider.TestIptablesProvider)
 	const (
 		testPoint  = 0
 		testPoint1 = 3
@@ -303,7 +304,7 @@ func TestAddAppACLs(t *testing.T) {
 	}}
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-	m := s.ipt.(TestIptablesProvider)
+	m := s.ipt.(provider.TestIptablesProvider)
 	//25 is derived from the addchainrules+addPacketTrap calling append
 	//We don't want append to fail in addchainrules
 	const (
@@ -371,7 +372,7 @@ func TestAddNetACLs(t *testing.T) {
 	}}
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-	m := s.ipt.(TestIptablesProvider)
+	m := s.ipt.(provider.TestIptablesProvider)
 	//25 is derived from the addchainrules+addPacketTrap calling append
 	//We don't want append to fail in addchainrules
 	const (
@@ -440,7 +441,7 @@ func TestDeleteChainRules(t *testing.T) {
 	}}
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-	m := s.ipt.(TestIptablesProvider)
+	m := s.ipt.(provider.TestIptablesProvider)
 	//25 is derived from the addchainrules+addPacketTrap calling append
 	//We don't want append to fail in addchainrules
 	const (
@@ -502,7 +503,7 @@ func TestDeleteChainRules(t *testing.T) {
 
 func TestExcludedIP(t *testing.T) {
 	supervisor := doNewIPTSupervisor(t)
-	ipt := supervisor.ipt.(TestIptablesProvider)
+	ipt := supervisor.ipt.(provider.TestIptablesProvider)
 
 	// Testing normal Workflow:Add and Remove 10.0.0.1/32
 
