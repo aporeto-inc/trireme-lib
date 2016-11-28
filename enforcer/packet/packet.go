@@ -258,13 +258,13 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 }
 
 // fixupIPHdrOnTCPDataModify modifies the IP header fields and checksum
-func (p *Packet) fixupIPHdrOnTCPDataModify(packetLenIncrease uint16) {
+func (p *Packet) fixupIPHdrOnTCPDataModify(old, new uint16) {
 
 	// IP Header Processing
 	// IP chekcsum fixup.
-	p.ipChecksum = -(-p.ipChecksum + packetLenIncrease)
+	p.ipChecksum = incCsum16(p.ipChecksum, old, new)
 	// Update IP Total Length.
-	p.IPTotalLength = p.IPTotalLength + packetLenIncrease
+	p.IPTotalLength = p.IPTotalLength + new - old
 
 	binary.BigEndian.PutUint16(p.Buffer[ipLengthPos:ipLengthPos+2], p.IPTotalLength)
 	binary.BigEndian.PutUint16(p.Buffer[ipChecksumPos:ipChecksumPos+2], p.ipChecksum)
@@ -338,11 +338,6 @@ func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16,
 	}
 
 	return
-}
-
-// FixupIPHdrOnTCPDataDetach modifies the IP header fields and checksum
-func (p *Packet) FixupIPHdrOnTCPDataDetach(packetLenDecrease uint16) {
-	p.fixupIPHdrOnTCPDataModify(-(packetLenDecrease))
 }
 
 // FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
@@ -442,14 +437,8 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 	p.FixupTCPHdrOnTCPDataDetach(dataLength, optionLength)
 
 	// Process IP Header fields
-	p.FixupIPHdrOnTCPDataDetach(dataLength + optionLength)
-
+	p.fixupIPHdrOnTCPDataModify(p.IPTotalLength, p.IPTotalLength-(dataLength+optionLength))
 	return
-}
-
-// FixupIPHdrOnTCPDataAttach modifies the IP header fields and checksum
-func (p *Packet) FixupIPHdrOnTCPDataAttach(packetLenIncrease uint16) {
-	p.fixupIPHdrOnTCPDataModify(packetLenIncrease)
 }
 
 // FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
@@ -523,7 +512,7 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 	packetLenIncrease := uint16(len(tcpData) + len(tcpOptions))
 
 	// IP Header Processing
-	p.FixupIPHdrOnTCPDataAttach(packetLenIncrease)
+	p.fixupIPHdrOnTCPDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
 
 	// TCP Header Processing
 	p.FixupTCPHdrOnTCPDataAttach(tcpOptions, tcpData)

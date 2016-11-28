@@ -127,6 +127,20 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	return checksum(buf)
 }
 
+// incCsum16 implements rfc1624, equation 3.
+func incCsum16(start, old, new uint16) uint16 {
+
+	start = start ^ 0xffff
+	old = old ^ 0xffff
+
+	csum := uint32(start) + uint32(old) + uint32(new)
+	for (csum >> 16) > 0 {
+		csum = (csum & 0xffff) + ((csum >> 16) & 0xffff)
+	}
+	csum = csum ^ 0xffff
+	return uint16(csum)
+}
+
 // Compute a 16 bit delta for ones checksum when old value is being replaced by new
 func uint32Delta(new, old uint32) uint16 {
 
