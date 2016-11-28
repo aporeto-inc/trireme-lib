@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 const (
@@ -38,7 +39,7 @@ func NewTriremeWithDockerMonitor(
 	}
 
 	// Make sure that the iptables command is accessible. Panic if its not there.
-	ipt, err := supervisor.NewGoIPTablesProvider()
+	ipt, err := provider.NewGoIPTablesProvider()
 
 	if err != nil {
 		log.WithFields(log.Fields{
