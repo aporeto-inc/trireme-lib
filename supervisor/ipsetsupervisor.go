@@ -97,6 +97,7 @@ func (s *ipsetSupervisor) Supervise(contextID string, containerInfo *policy.PUIn
 
 	if err != nil {
 		// ContextID is not found in Cache, New PU: Do create.
+		fmt.Println("error:", err)
 		return s.doCreatePU(contextID, containerInfo)
 	}
 
@@ -132,8 +133,8 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 
 	cacheEntry := result.(*supervisorCacheEntry)
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	appSet := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	netSet := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
 
 	// Currently processing only containers with one IP address
 	ip, err := defaultCacheIP(cacheEntry.ips)
@@ -149,13 +150,9 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	deleteAppACLs(appChain, ip, cacheEntry.ingressACLs, s.ipt)
+	deleteAppSetRule(appSet, ip, s.ipt)
 
-	deleteNetACLs(netChain, ip, cacheEntry.egressACLs, s.ipt)
-
-	deleteChainRules(appChain, netChain, ip, s.ipt)
-
-	deleteAllContainerChains(appChain, netChain, s.ipt)
+	deleteNetSetRule(netSet, ip, s.ipt)
 
 	s.versionTracker.Remove(contextID)
 
@@ -184,7 +181,7 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 		"supervisor":    s,
 		"contextID":     contextID,
 		"containerInfo": containerInfo,
-	}).Info("IPTables update for the creation of a pu")
+	}).Info("IPTables creation of a pu")
 
 	index := 0
 
@@ -332,51 +329,49 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(newindex)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	appSet := appChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	netSet := netChainPrefix + contextID + "-" + strconv.Itoa(newindex)
 
-	oldAppChain := appChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-	oldNetChain := netChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldAppSet := appChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldNetSet := netChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
 
-	//Add a new chain for this update and map all rules there
-	if err := addContainerChain(appChain, netChain, s.ipt); err != nil {
-		s.Unsupervise(contextID)
-
-		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   oldAppChain,
-			"netChain":   oldNetChain,
-			"error":      err,
-		}).Error("Failed to add container chain rule when updating a PU")
-
-		return err
-	}
-
-	if err := addAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs, s.ipt); err != nil {
+	if err := createACLSets(appSet, containerInfo.Policy.IngressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
 			"package":     "supervisor",
 			"supervisor":  s,
 			"contextID":   contextID,
-			"appChain":    appChain,
+			"appSet":      appSet,
 			"ingressACLs": containerInfo.Policy.IngressACLs,
 			"error":       err,
-		}).Error("Failed to add the new chain app acls rules when updating a PU")
+		}).Error("Failed to add the new chain app acls rules when creating a PU")
 
 		return err
 	}
 
-	if err := addNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs, s.ipt); err != nil {
+	if err := createACLSets(netSet, containerInfo.Policy.EgressACLs); err != nil {
+		s.Unsupervise(contextID)
+
+		log.WithFields(log.Fields{
+			"package":     "supervisor",
+			"supervisor":  s,
+			"contextID":   contextID,
+			"netSet":      netSet,
+			"ingressACLs": containerInfo.Policy.EgressACLs,
+			"error":       err,
+		}).Error("Failed to add the new chain app acls rules when creating a PU")
+
+		return err
+	}
+
+	if err := addAppSetRule(appSet, ipAddress, s.ipt); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
 			"package":    "supervisor",
 			"supervisor": s,
 			"contextID":  contextID,
-			"netChain":   netChain,
 			"egressACLs": containerInfo.Policy.EgressACLs,
 			"error":      err,
 		}).Error("Failed to add the new chain net acls rules when updating a PU")
@@ -384,56 +379,23 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 		return err
 	}
 
-	// Add mapping to new chain
-	if err := addChainRules(appChain, netChain, ipAddress, s.ipt); err != nil {
+	if err := addNetSetRule(netSet, ipAddress, s.ipt); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
 			"package":    "supervisor",
 			"supervisor": s,
 			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"ipAddress":  ipAddress,
+			"egressACLs": containerInfo.Policy.EgressACLs,
 			"error":      err,
-		}).Error("Failed to add the new chain rules when updating a PU")
+		}).Error("Failed to add the new chain net acls rules when updating a PU")
 
 		return err
 	}
 
-	//Remove mapping from old chain
+	deleteAppSetRule(oldAppSet, ipAddress, s.ipt)
 
-	if err := deleteChainRules(oldAppChain, oldNetChain, ipAddress, s.ipt); err != nil {
-		s.Unsupervise(contextID)
-
-		log.WithFields(log.Fields{
-			"package":     "supervisor",
-			"supervisor":  s,
-			"contextID":   contextID,
-			"oldAppChain": oldAppChain,
-			"oldNetChain": oldNetChain,
-			"ipAddress":   ipAddress,
-			"error":       err,
-		}).Error("Failed to remove the old chain rules when updating a PU")
-
-		return err
-	}
-
-	// Delete the old chain to clean up
-	if err := deleteAllContainerChains(oldAppChain, oldNetChain, s.ipt); err != nil {
-		s.Unsupervise(contextID)
-
-		log.WithFields(log.Fields{
-			"package":     "supervisor",
-			"supervisor":  s,
-			"contextID":   contextID,
-			"oldAppChain": oldAppChain,
-			"oldNetChain": oldNetChain,
-			"error":       err,
-		}).Error("Failed to delete the old chain container rules when updating a PU")
-
-		return err
-	}
+	deleteNetSetRule(oldNetSet, ipAddress, s.ipt)
 
 	ip, _ := containerInfo.Runtime.DefaultIPAddress()
 	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")

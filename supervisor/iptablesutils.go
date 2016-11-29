@@ -604,15 +604,15 @@ func addAppSetRule(set string, ip string, provider provider.IptablesProvider) er
 
 	if err := provider.Append(
 		appAckPacketIPTableContext, appPacketIPTableSection,
-		"-p", "TCP", "-m", "state", "--state", "NEW",
-		"set", "--match-set", set, "dst",
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", set, "dst",
 		"-s", ip,
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                 "supervisor",
-			"netPacketIPTableContext": netPacketIPTableContext,
-			"error":                   err,
+			"package":                    "supervisor",
+			"appAckPacketIPTableContext": appAckPacketIPTableContext,
+			"error": err,
 		}).Error("Error when adding app acl rule")
 		return err
 
@@ -631,8 +631,8 @@ func deleteAppSetRule(set string, ip string, provider provider.IptablesProvider)
 
 	if err := provider.Delete(
 		appAckPacketIPTableContext, appPacketIPTableSection,
-		"-p", "TCP", "-m", "state", "--state", "NEW",
-		"set", "--match-set", set, "dst",
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", set, "dst",
 		"-s", ip,
 		"-j", "ACCEPT",
 	); err != nil {
@@ -659,8 +659,8 @@ func addNetSetRule(set string, ip string, provider provider.IptablesProvider) er
 
 	if err := provider.Append(
 		netPacketIPTableContext, netPacketIPTableSection,
-		"-p", "TCP", "-m", "state", "--state", "NEW",
-		"set", "--match-set", set, "src",
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", set, "src",
 		"-d", ip,
 		"-j", "ACCEPT",
 	); err != nil {
@@ -684,8 +684,8 @@ func deleteNetSetRule(set string, ip string, provider provider.IptablesProvider)
 
 	if err := provider.Delete(
 		netPacketIPTableContext, netPacketIPTableSection,
-		"-p", "TCP", "-m", "state", "--state", "NEW",
-		"set", "--match-set", set, "src",
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", set, "src",
 		"-d", ip,
 		"-j", "ACCEPT",
 	); err != nil {
