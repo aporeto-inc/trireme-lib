@@ -2,10 +2,12 @@ package supervisor
 
 import (
 	"fmt"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/bvandewalle/go-ipset/ipset"
 )
 
 const (
@@ -548,5 +550,182 @@ func deleteNetACLs(chain string, ip string, rules []policy.IPRule, provider prov
 		}).Error("Error when removing the net ACL rule")
 	}
 
+	return nil
+}
+
+func cleanACLSection(context, section, chainPrefix string, provider provider.IptablesProvider) {
+
+	log.WithFields(log.Fields{
+		"package":     "supervisor",
+		"context":     context,
+		"section":     section,
+		"chainPrefix": chainPrefix,
+	}).Info("Clean ACL section")
+
+	if err := provider.ClearChain(context, section); err != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+			"context": context,
+			"section": section,
+			"error":   err,
+		}).Error("Can not clear the section in iptables.")
+		return
+	}
+
+	rules, err := provider.ListChains(context)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+			"context": context,
+			"section": section,
+			"error":   err,
+		}).Error("No chain rules found in iptables")
+		return
+	}
+
+	for _, rule := range rules {
+
+		if strings.Contains(rule, chainPrefix) {
+			provider.ClearChain(context, rule)
+			provider.DeleteChain(context, rule)
+		}
+	}
+}
+
+// addAppSetRule
+func addAppSetRule(set string, ip string, provider provider.IptablesProvider) error {
+
+	log.WithFields(log.Fields{
+		"package": "supervisor",
+		"ip":      ip,
+		"set":     set,
+	}).Info("Add App ACLs")
+
+	if err := provider.Append(
+		appAckPacketIPTableContext, appPacketIPTableSection,
+		"-p", "TCP", "-m", "state", "--state", "NEW",
+		"set", "--match-set", set, "dst",
+		"-s", ip,
+		"-j", "ACCEPT",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                 "supervisor",
+			"netPacketIPTableContext": netPacketIPTableContext,
+			"error":                   err,
+		}).Error("Error when adding app acl rule")
+		return err
+
+	}
+
+	return nil
+}
+
+// deleteAppSetRule
+func deleteAppSetRule(set string, ip string, provider provider.IptablesProvider) error {
+
+	log.WithFields(log.Fields{
+		"package": "supervisor",
+		"ip":      ip,
+	}).Info("Delete App ACLs")
+
+	if err := provider.Delete(
+		appAckPacketIPTableContext, appPacketIPTableSection,
+		"-p", "TCP", "-m", "state", "--state", "NEW",
+		"set", "--match-set", set, "dst",
+		"-s", ip,
+		"-j", "ACCEPT",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                 "supervisor",
+			"netPacketIPTableContext": netPacketIPTableContext,
+			"chain":                   appPacketIPTableSection,
+			"error":                   err,
+		}).Error("Error when removing ingress app acl rule")
+
+	}
+
+	return nil
+}
+
+// addNetSetRule
+func addNetSetRule(set string, ip string, provider provider.IptablesProvider) error {
+
+	log.WithFields(log.Fields{
+		"package": "supervisor",
+		"ip":      ip,
+		"set":     set,
+	}).Info("Add App ACLs")
+
+	if err := provider.Append(
+		netPacketIPTableContext, netPacketIPTableSection,
+		"-p", "TCP", "-m", "state", "--state", "NEW",
+		"set", "--match-set", set, "src",
+		"-d", ip,
+		"-j", "ACCEPT",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                 "supervisor",
+			"netPacketIPTableContext": netPacketIPTableContext,
+			"error":                   err,
+		}).Error("Error when adding app acl rule")
+		return err
+	}
+	return nil
+}
+
+// deleteNetSetRule
+func deleteNetSetRule(set string, ip string, provider provider.IptablesProvider) error {
+
+	log.WithFields(log.Fields{
+		"package": "supervisor",
+		"ip":      ip,
+	}).Info("Delete App ACLs")
+
+	if err := provider.Delete(
+		netPacketIPTableContext, netPacketIPTableSection,
+		"-p", "TCP", "-m", "state", "--state", "NEW",
+		"set", "--match-set", set, "src",
+		"-d", ip,
+		"-j", "ACCEPT",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                 "supervisor",
+			"netPacketIPTableContext": netPacketIPTableContext,
+			"chain":                   appPacketIPTableSection,
+			"error":                   err,
+		}).Error("Error when removing ingress app acl rule")
+
+	}
+
+	return nil
+}
+
+func createACLSets(set string, rules []policy.IPRule) error {
+	appSet, err := provider.NewIPset(set, "hash:net,port", &ipset.Params{})
+	if err != nil {
+		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+	}
+
+	for _, rule := range rules {
+		if err := appSet.Add(rule.Address+","+rule.Port, 0); err != nil {
+			return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+		}
+	}
+	return nil
+}
+
+func deleteSets(set string) error {
+	appSetTCP, err := provider.NewIPset(set+"TCP", "hash:net,port", &ipset.Params{})
+	if err != nil {
+		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+	}
+
+	appSetUDP, err := provider.NewIPset(set+"UDP", "hash:net,port", &ipset.Params{})
+	if err != nil {
+		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+	}
+	appSetTCP.Destroy()
+	appSetUDP.Destroy()
 	return nil
 }

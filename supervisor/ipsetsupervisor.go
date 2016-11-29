@@ -7,12 +7,11 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/janeczku/go-ipset/ipset"
-
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/bvandewalle/go-ipset/ipset"
 )
 
 const triremeSet = "TriremeSet"
@@ -189,8 +188,8 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 
 	index := 0
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(index)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(index)
+	appSet := appChainPrefix + contextID + "-" + strconv.Itoa(index)
+	netSet := netChainPrefix + contextID + "-" + strconv.Itoa(index)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
@@ -226,46 +225,14 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 		return err
 	}
 
-	// Configure all the ACLs
-	if err := addContainerChain(appChain, netChain, s.ipt); err != nil {
-		s.Unsupervise(contextID)
-
-		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"error":      err,
-		}).Error("Failed to add containerInfo chain rule when ceating a PU")
-
-		return err
-	}
-
-	if err := addChainRules(appChain, netChain, ipAddress, s.ipt); err != nil {
-		s.Unsupervise(contextID)
-
-		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"ipAddress":  ipAddress,
-			"error":      err,
-		}).Error("Failed to add the new chain rules when creating a PU")
-
-		return err
-	}
-
-	if err := addAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs, s.ipt); err != nil {
+	if err := createACLSets(appSet, containerInfo.Policy.IngressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
 			"package":     "supervisor",
 			"supervisor":  s,
 			"contextID":   contextID,
-			"appChain":    appChain,
+			"appSet":      appSet,
 			"ingressACLs": containerInfo.Policy.IngressACLs,
 			"error":       err,
 		}).Error("Failed to add the new chain app acls rules when creating a PU")
@@ -273,14 +240,42 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 		return err
 	}
 
-	if err := addNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs, s.ipt); err != nil {
+	if err := createACLSets(netSet, containerInfo.Policy.EgressACLs); err != nil {
+		s.Unsupervise(contextID)
+
+		log.WithFields(log.Fields{
+			"package":     "supervisor",
+			"supervisor":  s,
+			"contextID":   contextID,
+			"netSet":      netSet,
+			"ingressACLs": containerInfo.Policy.EgressACLs,
+			"error":       err,
+		}).Error("Failed to add the new chain app acls rules when creating a PU")
+
+		return err
+	}
+
+	if err := addAppSetRule(appSet, ipAddress, s.ipt); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
 			"package":    "supervisor",
 			"supervisor": s,
 			"contextID":  contextID,
-			"netChain":   netChain,
+			"egressACLs": containerInfo.Policy.EgressACLs,
+			"error":      err,
+		}).Error("Failed to add the new chain net acls rules when updating a PU")
+
+		return err
+	}
+
+	if err := addNetSetRule(netSet, ipAddress, s.ipt); err != nil {
+		s.Unsupervise(contextID)
+
+		log.WithFields(log.Fields{
+			"package":    "supervisor",
+			"supervisor": s,
+			"contextID":  contextID,
 			"egressACLs": containerInfo.Policy.EgressACLs,
 			"error":      err,
 		}).Error("Failed to add the new chain net acls rules when updating a PU")
@@ -505,7 +500,6 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 func (s *ipsetSupervisor) createInitialRules() error {
 	trapRules := s.trapRulesSet(triremeSet)
 	for _, tr := range trapRules {
-		fmt.Printf("LALALA: %+v", tr)
 		if err := s.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
 			log.WithFields(log.Fields{
 				"package":     "supervisor",
@@ -522,13 +516,30 @@ func (s *ipsetSupervisor) createInitialRules() error {
 }
 
 func (s *ipsetSupervisor) cleanACLs() error {
+	log.WithFields(log.Fields{
+		"package":    "supervisor",
+		"supervisor": s,
+	}).Info("Clean all ACL")
+
+	// Clean Application Rules/Chains
+	cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
+
+	// Clean Application Rules/Chains
+	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
+
+	// Clean Application Rules/Chains
+	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
+
+	// Clean Network Rules/Chains
+	cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
+
 	return nil
 }
 
 func (s *ipsetSupervisor) AddExcludedIP(ip string) error {
-	return s.triremeSet.Add(ip+" nomatch", 0)
+	return s.triremeSet.AddOption(ip, "nomatch", 0)
 }
 
 func (s *ipsetSupervisor) RemoveExcludedIP(ip string) error {
-	return s.triremeSet.Del(ip + " nomatch")
+	return s.triremeSet.Del(ip)
 }

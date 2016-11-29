@@ -3,7 +3,6 @@ package supervisor
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
@@ -512,59 +511,16 @@ func (s *iptablesSupervisor) CleanACL() {
 	}).Info("Clean all ACL")
 
 	// Clean Application Rules/Chains
-	s.cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+	cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
 
 	// Clean Application Rules/Chains
-	s.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
 
 	// Clean Application Rules/Chains
-	s.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
 
 	// Clean Network Rules/Chains
-	s.cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix)
-}
-
-func (s *iptablesSupervisor) cleanACLSection(context, section, chainPrefix string) {
-
-	log.WithFields(log.Fields{
-		"package":     "supervisor",
-		"supervisor":  s,
-		"context":     context,
-		"section":     section,
-		"chainPrefix": chainPrefix,
-	}).Info("Clean ACL section")
-
-	if err := s.ipt.ClearChain(context, section); err != nil {
-		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"context":    context,
-			"section":    section,
-			"error":      err,
-		}).Error("Can not clear the section in iptables.")
-		return
-	}
-
-	rules, err := s.ipt.ListChains(context)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"context":    context,
-			"section":    section,
-			"error":      err,
-		}).Error("No chain rules found in iptables")
-		return
-	}
-
-	for _, rule := range rules {
-
-		if strings.Contains(rule, chainPrefix) {
-			s.ipt.ClearChain(context, rule)
-			s.ipt.DeleteChain(context, rule)
-		}
-	}
+	cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
 }
 
 // exclusionChainRules provides the list of rules that are used to send traffic to
