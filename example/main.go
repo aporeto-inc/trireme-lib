@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/supervisor"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -36,14 +35,13 @@ func main() {
 
 	var t trireme.Trireme
 	var m monitor.Monitor
-	var e supervisor.Excluder
 
 	if usePKI {
 		log.Infof("Setting up trireme with PKI")
-		t, m, e = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"})
+		t, m, _ = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"})
 	} else {
 		log.Infof("Setting up trireme with PSK")
-		t, m, e = common.TriremeWithPSK([]string{"172.17.0.0/24"})
+		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24"})
 	}
 
 	if t == nil {
@@ -56,9 +54,6 @@ func main() {
 
 	t.Start()
 	m.Start()
-
-	e.AddExcludedIP("172.17.0.45/32")
-	e.AddExcludedIP("172.17.0.46/32")
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
