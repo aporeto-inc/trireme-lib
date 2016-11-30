@@ -9,14 +9,18 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/remote/enforcerLauncher"
-	"github.com/aporeto-inc/trireme/remote/supervisorLauncher"
+	"github.com/aporeto-inc/trireme/enforcer/remote/enforcerLauncher"
+	"github.com/aporeto-inc/trireme/supervisor/remote/supervisorLauncher"
 
+	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
+<<<<<<< c9cbe22ae8b53295bd01fb7acddd4878487c3378
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 	"github.com/aporeto-inc/trireme/utils/tokens"
+=======
+>>>>>>> RPC wrapper work and changed directory structure
 )
 
 const (
