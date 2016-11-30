@@ -15,7 +15,7 @@ import (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]\n")
+	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]\n -enforcer=[remote|local]")
 	flag.PrintDefaults()
 	os.Exit(2)
 }
@@ -31,19 +31,25 @@ func main() {
 	certFile := *flag.String("certFile", "cert.pem", "Set the path of certificate.")
 	keyFile := *flag.String("keyFile", "key.pem", "Set the path of key certificate key to use.")
 	caCertFile := *flag.String("caCertFile", "ca.crt", "Set the path of certificate authority to use.")
+	remote := *flag.String("enforcer", "local", "Launch enforcer process in the network namespace of container")
 
 	flag.Parse()
 
 	var t trireme.Trireme
 	var m monitor.Monitor
 	var e supervisor.Excluder
-
+	var remoteEnforcer bool
+	if remote == "local" {
+		remoteEnforcer = false
+	} else {
+		remoteEnforcer = true
+	}
 	if usePKI {
 		log.Infof("Setting up trireme with PKI")
-		t, m, e = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"})
+		t, m, e = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"}, remoteEnforcer)
 	} else {
 		log.Infof("Setting up trireme with PSK")
-		t, m, e = common.TriremeWithPSK([]string{"172.17.0.0/24"})
+		t, m, e = common.TriremeWithPSK([]string{"172.17.0.0/24"}, remoteEnforcer)
 	}
 
 	if t == nil {

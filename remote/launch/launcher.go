@@ -10,7 +10,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/utils/rpc_payloads"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpcWrapper"
 )
 
 const (
@@ -56,7 +56,10 @@ var ErrProcessDoesNotExists = errors.New("Process in that context does not exist
 //GetExitStatus exported
 func GetExitStatus(contextID string) bool {
 
-	s, _ := activeProcesses.Get(contextID)
+	s, err := activeProcesses.Get(contextID)
+	if err != nil {
+		return true
+	}
 	return (s.(*processInfo)).deleted
 }
 
@@ -70,7 +73,9 @@ func SetExitStatus(contextID string, status bool) {
 
 //KillProcess exported
 func KillProcess(contextID string) {
-	s, _ := activeProcesses.Get(contextID)
+	s, err := activeProcesses.Get(contextID)
+	if err != nil {
+	}
 	s.(*processInfo).process.Kill()
 	os.Remove(s.(*processInfo).RPCHdl.Channel)
 	os.Remove("/var/run/netns/" + contextID)
@@ -117,16 +122,6 @@ func LaunchProcess(contextID string, refPid int) error {
 		deleted: false})
 
 	return nil
-}
-
-//GetRPCClient exported
-func GetRPCClient(contextID string) (*rpcWrapper.RPCHdl, error) {
-	val, err := activeProcesses.Get(contextID)
-	if err == nil {
-		return val.(*processInfo).RPCHdl, nil
-	}
-	return nil, fmt.Errorf("Process in that context does not exist")
-
 }
 
 //SetRPCClient exported

@@ -4,12 +4,17 @@ DOCKER_REGISTRY?=aporeto
 DOCKER_IMAGE_NAME?=$(PROJECT_NAME)
 DOCKER_IMAGE_TAG?=$(BUILD_NUMBER)
 
-build:
+remote_enforcer_build:
+	make -C ../cmd/ build
+
+build:  remote_enforcer_build
 	CGO_ENABLED=1 go build -a -installsuffix cgo
 	make package
 
 package:
 	mv example docker/trireme-example
+	make -C ../cmd package
+	mv $(GOPATH)/bin/remote_enforcer docker/enforcer
 
 docker_build: build
 	docker \

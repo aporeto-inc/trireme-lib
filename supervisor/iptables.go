@@ -17,10 +17,10 @@ const (
 	chainPrefix                = "TRIREME-"
 	appPacketIPTableContext    = "raw"
 	appAckPacketIPTableContext = "mangle"
-	appPacketIPTableSection    = "PREROUTING"
+	appPacketIPTableSection    = "OUTPUT"
 	appChainPrefix             = chainPrefix + "App-"
 	netPacketIPTableContext    = "mangle"
-	netPacketIPTableSection    = "POSTROUTING"
+	netPacketIPTableSection    = "INPUT"
 	netChainPrefix             = chainPrefix + "Net-"
 )
 
@@ -692,13 +692,13 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 		{
 			appPacketIPTableContext,
 			appPacketIPTableSection,
-			"-s", ip,
+			//"-s", ip,
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
 		{appAckPacketIPTableContext,
 			appPacketIPTableSection,
-			"-s", ip,
+			//"-s", ip,
 			"-p", "tcp",
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
@@ -706,7 +706,7 @@ func (s *iptablesSupervisor) chainRules(appChain string, netChain string, ip str
 		{
 			netPacketIPTableContext,
 			netPacketIPTableSection,
-			"-d", ip,
+			//"-d", ip,
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", netChain,
 		},
@@ -787,7 +787,7 @@ func (s *iptablesSupervisor) trapRules(appChain string, netChain string, network
 		// Application Syn and Syn/Ack
 		{
 			appPacketIPTableContext, appChain,
-			"-d", network,
+			//"-d", network,
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
 		},
@@ -795,7 +795,7 @@ func (s *iptablesSupervisor) trapRules(appChain string, netChain string, network
 		// Application everything else
 		{
 			appAckPacketIPTableContext, appChain,
-			"-d", network,
+			//"-d", network,
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "ACCEPT",
 		},
@@ -803,7 +803,7 @@ func (s *iptablesSupervisor) trapRules(appChain string, netChain string, network
 		// Application everything else
 		{
 			appAckPacketIPTableContext, appChain,
-			"-d", network,
+			//"-d", network,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
@@ -812,7 +812,7 @@ func (s *iptablesSupervisor) trapRules(appChain string, netChain string, network
 		// Network side rules
 		{
 			netPacketIPTableContext, netChain,
-			"-s", network,
+			//"-s", network,
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", s.networkQueues,
