@@ -715,17 +715,12 @@ func createACLSets(set string, rules []policy.IPRule) error {
 	return nil
 }
 
-func deleteSets(set string) error {
-	appSetTCP, err := provider.NewIPset(set+"TCP", "hash:net,port", &ipset.Params{})
+func deleteSet(set string) error {
+	ipSet, err := provider.NewIPset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
 
-	appSetUDP, err := provider.NewIPset(set+"UDP", "hash:net,port", &ipset.Params{})
-	if err != nil {
-		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
-	}
-	appSetTCP.Destroy()
-	appSetUDP.Destroy()
+	ipSet.Destroy()
 	return nil
 }

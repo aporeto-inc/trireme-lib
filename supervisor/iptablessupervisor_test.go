@@ -44,35 +44,123 @@ func doNewIPTSupervisor(t *testing.T) *iptablesSupervisor {
 	return s.(*iptablesSupervisor)
 }
 
-func TestNewIPTables(t *testing.T) {
+func TestNewIPTablesSupervisor(t *testing.T) {
 
-	doNewIPTSupervisor(t)
+	c := &collector.DefaultCollector{}
+	pe := mockenforcerDefaultFQConfig(t)
+	ipt := provider.NewTestIptablesProvider()
+	networks := []string{"0.0.0.0/0"}
 
+	// Test with normal parameters
+	_, err := NewIPTablesSupervisor(c, pe, ipt, networks)
+	if err != nil {
+		t.Errorf("NewIPTables should not fail. Error received: %s", err)
+	}
+	// Test with Empty Collector
+	_, err = NewIPTablesSupervisor(nil, pe, ipt, networks)
+	if err == nil {
+		t.Errorf("NewIPTables should fail because of empty Collector. No Error received.")
+	}
+
+	// Test with Empty Enforcer
+	_, err = NewIPTablesSupervisor(c, nil, ipt, networks)
+	if err == nil {
+		t.Errorf("NewIPTables should fail because of empty Enforcer. No Error received.")
+	}
+
+	// Test with Empty iptables
+	_, err = NewIPTablesSupervisor(c, pe, nil, networks)
+	if err == nil {
+		t.Errorf("NewIPTables should fail because of empty IPTables Provider. No Error received.")
+	}
+
+	// Test with Empty Networks
+	_, err = NewIPTablesSupervisor(c, pe, ipt, nil)
+	if err == nil {
+		t.Errorf("NewIPTables should fail because of empty TriremeNetworks. No Error received.")
+	}
 }
 
-//Invalid IP is checked in the caller
-func TestSupervise(t *testing.T) {
-
+func TestIPTablesSupervise(t *testing.T) {
 	s := doNewIPTSupervisor(t)
+
+	// Test empty ContainerInfo
+	err := s.Supervise("123", nil)
+	if err == nil {
+		t.Errorf("Empty containerInfo should result in Error")
+	}
+
 	containerInfo := policy.NewPUInfo("12345")
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 
-	err := s.Supervise("12345", containerInfo)
-	if err != nil {
-		t.Errorf("Got error %s", err)
-	}
-
+	// Test expected parameters. Create case
 	err = s.Supervise("12345", containerInfo)
 	if err != nil {
-		t.Errorf("Got error %s", err)
+		t.Errorf("Got error on create %s", err)
 	}
 
+	// Test expected parameters. Update case
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
+		t.Errorf("Got error on Update %s", err)
+	}
+
+	containerInfo = policy.NewPUInfo("1234567")
+	// Test no IP parameters. Create case
+	err = s.Supervise("1234567", containerInfo)
+	if err == nil {
+		t.Errorf("No Error even though IP not part of Policy")
+	}
+}
+
+func TestIPTablesUnsupervise(t *testing.T) {
+	s := doNewIPTSupervisor(t)
+
+	// Test Unsupervise for nonexistingContainer. Should return an error
+	err := s.Unsupervise("123")
+	if err == nil {
+		t.Errorf("Empty containerInfo should result in Error")
+	}
+
+	containerInfo := policy.NewPUInfo("12345")
+	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
+
+	// Test expected parameters. Create case
+	err = s.Supervise("12345", containerInfo)
+	if err != nil {
+		t.Errorf("Got error on create %s", err)
+	}
+
+	// Test Unsupervise for existingContainer. Should not return an error
 	err = s.Unsupervise("12345")
 	if err != nil {
-		t.Errorf("Got error %s", err)
+		t.Errorf("Unsupervise of existing container should not result in error: %s", err)
 	}
 
+	// Test Unsupervise for nonexistingContainer. Should return an error
+	err = s.Unsupervise("12345")
+	if err == nil {
+		t.Errorf("Unsupervise of existing container should  result in an error")
+	}
+}
+
+func TestIPTablesStart(t *testing.T) {
+	s := doNewIPTSupervisor(t)
+	err := s.Start()
+	if err != nil {
+		t.Errorf("Start should not return an errir: %s", err)
+	}
+}
+
+func TestIPTablesStop(t *testing.T) {
+	s := doNewIPTSupervisor(t)
+	s.Start()
+	err := s.Stop()
+	if err != nil {
+		t.Errorf("Stop should not return an errir: %s", err)
+	}
 }
 
 func TestSuperviseACLs(t *testing.T) {
@@ -107,7 +195,6 @@ func TestSuperviseACLs(t *testing.T) {
 	if err != nil {
 		t.Errorf("Got error %s", err)
 	}
-
 }
 
 //Call Supervise and we will mock AddContainer Chain here  by changing the mock defintions of newChain
@@ -177,7 +264,6 @@ func TestAddContainerChain(t *testing.T) {
 		t.SkipNow()
 	}
 	s.Unsupervise("12345")
-
 }
 
 func TestAddChainRules(t *testing.T) {
@@ -285,7 +371,6 @@ func TestAddPacketTrap(t *testing.T) {
 		t.SkipNow()
 	}
 	s.Unsupervise("12345")
-
 }
 
 func TestAddAppACLs(t *testing.T) {
@@ -353,7 +438,6 @@ func TestAddAppACLs(t *testing.T) {
 		t.SkipNow()
 	}
 	s.Unsupervise("12345")
-
 }
 
 func TestAddNetACLs(t *testing.T) {

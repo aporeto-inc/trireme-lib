@@ -42,6 +42,14 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
 
+	if iptablesProvider == nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Error("IptablesProvider cannot be nil in NewIPTablesSupervisor")
+
+		return nil, fmt.Errorf("Enforcer cannot be nil")
+	}
+
 	if targetNetworks == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -139,6 +147,10 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 	deleteAppSetRule(appSet, ip, s.ipt)
 
 	deleteNetSetRule(netSet, ip, s.ipt)
+
+	deleteSet(appSet)
+
+	deleteSet(netSet)
 
 	s.versionTracker.Remove(contextID)
 
@@ -317,6 +329,10 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 	deleteAppSetRule(oldAppSet, ipAddress, s.ipt)
 
 	deleteNetSetRule(oldNetSet, ipAddress, s.ipt)
+
+	deleteSet(oldAppSet)
+
+	deleteSet(oldNetSet)
 
 	ip, _ := containerInfo.Runtime.DefaultIPAddress()
 	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")

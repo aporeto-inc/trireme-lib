@@ -52,6 +52,14 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
 
+	if iptablesProvider == nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Error("IptablesProvider cannot be nil in NewIPTablesSupervisor")
+
+		return nil, fmt.Errorf("Enforcer cannot be nil")
+	}
+
 	if targetNetworks == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -64,8 +72,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 
 	if filterQueue == nil {
 		log.WithFields(log.Fields{
-			"package":  "supervisor",
-			"enforcer": enforcer,
+			"package": "supervisor",
 		}).Error("Enforcer FilterQueues cannot be nil in NewIPTablesSupervisor")
 
 		return nil, fmt.Errorf("Enforcer FilterQueues cannot be nil")
@@ -91,16 +98,13 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 
 	log.WithFields(log.Fields{
-		"package":       "supervisor",
-		"supervisor":    s,
-		"contextID":     contextID,
-		"containerInfo": containerInfo,
-	}).Info("Supervise the given contextID and containerInfo")
+		"package":   "supervisor",
+		"contextID": contextID,
+	}).Info("Supervise PU")
 
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		log.WithFields(log.Fields{
 			"package":       "supervisor",
-			"supervisor":    s,
 			"containerInfo": containerInfo,
 		}).Error("Runtime issue, Policy and ContainerInfo should not be nil")
 
@@ -113,14 +117,6 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 		// ContextID is not found in Cache, New PU: Do create.
 		return s.doCreatePU(contextID, containerInfo)
 	}
-
-	log.WithFields(log.Fields{
-		"package":       "supervisor",
-		"supervisor":    s,
-		"contextID":     contextID,
-		"containerInfo": containerInfo,
-	}).Info("ContextID Already exist in Cache. Do Update on the PU")
-
 	return s.doUpdatePU(contextID, containerInfo)
 }
 
@@ -130,19 +126,17 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 
 	log.WithFields(log.Fields{
-		"package":    "supervisor",
-		"supervisor": s,
-		"contextID":  contextID,
+		"package":   "supervisor",
+		"contextID": contextID,
 	}).Info("Unsupervise the given contextID, clean the iptable rules")
 
 	result, err := s.versionTracker.Get(contextID)
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-		}).Error("Cannot find policy version!")
+			"package":   "supervisor",
+			"contextID": contextID,
+		}).Error("Cannot find policy version")
 
 		return fmt.Errorf("Cannot find policy version!")
 	}
@@ -158,7 +152,6 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package":    "supervisor",
-			"supervisor": s,
 			"contextID":  contextID,
 			"cacheEntry": cacheEntry,
 		}).Error("Container IP address not found in cache")
@@ -184,8 +177,7 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 // Start starts the supervisor
 func (s *iptablesSupervisor) Start() error {
 	log.WithFields(log.Fields{
-		"package":    "supervisor",
-		"supervisor": s,
+		"package": "supervisor",
 	}).Info("Start the supervisor")
 
 	return nil
@@ -194,8 +186,7 @@ func (s *iptablesSupervisor) Start() error {
 // Stop stops the supervisor
 func (s *iptablesSupervisor) Stop() error {
 	log.WithFields(log.Fields{
-		"package":    "supervisor",
-		"supervisor": s,
+		"package": "supervisor",
 	}).Info("Stop the supervisor")
 
 	// Clean any previous ACLs that we have installed
@@ -207,7 +198,6 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 	log.WithFields(log.Fields{
 		"package":       "supervisor",
-		"supervisor":    s,
 		"contextID":     contextID,
 		"containerInfo": containerInfo,
 	}).Info("IPTables update for the creation of a pu")
@@ -223,12 +213,11 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	if !ok {
 		log.WithFields(log.Fields{
 			"package":       "supervisor",
-			"supervisor":    s,
 			"contextID":     contextID,
 			"containerInfo": containerInfo,
-		}).Error("Container IP address not found when creatin a PU")
+		}).Error("PU IP address not found when creating a PU")
 
-		return fmt.Errorf("Container IP address not found")
+		return fmt.Errorf("PU IP address not found")
 	}
 
 	cacheEntry := &supervisorCacheEntry{
@@ -243,7 +232,6 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		s.Unsupervise(contextID)
 		log.WithFields(log.Fields{
 			"package":       "supervisor",
-			"supervisor":    s,
 			"contextID":     contextID,
 			"containerInfo": containerInfo,
 			"cacheEntry":    cacheEntry,
@@ -256,12 +244,11 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"error":      err,
+			"package":   "supervisor",
+			"contextID": contextID,
+			"appChain":  appChain,
+			"netChain":  netChain,
+			"error":     err,
 		}).Error("Failed to add containerInfo chain rule when ceating a PU")
 
 		return err
@@ -271,13 +258,12 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"ipAddress":  ipAddress,
-			"error":      err,
+			"package":   "supervisor",
+			"contextID": contextID,
+			"appChain":  appChain,
+			"netChain":  netChain,
+			"ipAddress": ipAddress,
+			"error":     err,
 		}).Error("Failed to add the new chain rules when creating a PU")
 
 		return err
@@ -287,13 +273,12 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"ipAddress":  ipAddress,
-			"error":      err,
+			"package":   "supervisor",
+			"contextID": contextID,
+			"appChain":  appChain,
+			"netChain":  netChain,
+			"ipAddress": ipAddress,
+			"error":     err,
 		}).Error("Failed to add the packet trap rule when creating a PU")
 
 		return err
@@ -319,7 +304,6 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 		log.WithFields(log.Fields{
 			"package":    "supervisor",
-			"supervisor": s,
 			"contextID":  contextID,
 			"netChain":   netChain,
 			"egressACLs": containerInfo.Policy.EgressACLs,
@@ -350,10 +334,9 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"error":      err,
+			"package":   "supervisor",
+			"contextID": contextID,
+			"error":     err,
 		}).Error("Error finding PU in cache")
 
 		return fmt.Errorf("Error finding PU in cache %s", err)
@@ -369,7 +352,6 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package":    "supervisor",
-			"supervisor": s,
 			"contextID":  contextID,
 			"cacheEntry": cacheEntry,
 			"error":      err,
@@ -389,12 +371,11 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   oldAppChain,
-			"netChain":   oldNetChain,
-			"error":      err,
+			"package":   "supervisor",
+			"contextID": contextID,
+			"appChain":  oldAppChain,
+			"netChain":  oldNetChain,
+			"error":     err,
 		}).Error("Failed to add container chain rule when updating a PU")
 
 		return err
@@ -404,13 +385,12 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"ipAddress":  ipAddress,
-			"error":      err,
+			"package":   "supervisor",
+			"contextID": contextID,
+			"appChain":  appChain,
+			"netChain":  netChain,
+			"ipAddress": ipAddress,
+			"error":     err,
 		}).Error("Failed to add the packet trap rule when updating a PU")
 
 		return err
@@ -421,7 +401,6 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 		log.WithFields(log.Fields{
 			"package":     "supervisor",
-			"supervisor":  s,
 			"contextID":   contextID,
 			"appChain":    appChain,
 			"ingressACLs": containerInfo.Policy.IngressACLs,
@@ -436,7 +415,6 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 		log.WithFields(log.Fields{
 			"package":    "supervisor",
-			"supervisor": s,
 			"contextID":  contextID,
 			"netChain":   netChain,
 			"egressACLs": containerInfo.Policy.EgressACLs,
@@ -451,13 +429,12 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"supervisor": s,
-			"contextID":  contextID,
-			"appChain":   appChain,
-			"netChain":   netChain,
-			"ipAddress":  ipAddress,
-			"error":      err,
+			"package":   "supervisor",
+			"contextID": contextID,
+			"appChain":  appChain,
+			"netChain":  netChain,
+			"ipAddress": ipAddress,
+			"error":     err,
 		}).Error("Failed to add the new chain rules when updating a PU")
 
 		return err
@@ -469,7 +446,6 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 		log.WithFields(log.Fields{
 			"package":     "supervisor",
-			"supervisor":  s,
 			"contextID":   contextID,
 			"oldAppChain": oldAppChain,
 			"oldNetChain": oldNetChain,
@@ -486,7 +462,6 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 		log.WithFields(log.Fields{
 			"package":     "supervisor",
-			"supervisor":  s,
 			"contextID":   contextID,
 			"oldAppChain": oldAppChain,
 			"oldNetChain": oldNetChain,
@@ -506,8 +481,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 func (s *iptablesSupervisor) CleanACL() {
 
 	log.WithFields(log.Fields{
-		"package":    "supervisor",
-		"supervisor": s,
+		"package": "supervisor",
 	}).Info("Clean all ACL")
 
 	// Clean Application Rules/Chains
