@@ -48,8 +48,11 @@ func NewTriremeWithDockerMonitor(
 		}).Fatal("Failed to load Go-Iptables")
 	}
 
+	// Make sure that the iptables command is accessible. Panic if its not there.
+	ips := provider.NewGoIPsetProvider()
+
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, networks)
+	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks)
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 
