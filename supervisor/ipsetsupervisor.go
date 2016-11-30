@@ -400,6 +400,13 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
 		},
 
+		// Default Drop from Trireme to Network
+		{
+			appAckPacketIPTableContext, appPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
+			"-j", "DROP",
+		},
+
 		// Network side rules
 		{
 			netPacketIPTableContext, netPacketIPTableSection,
@@ -407,6 +414,13 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", s.networkQueues,
+		},
+
+		// Default Drop from Network to Trireme
+		{
+			netPacketIPTableContext, netPacketIPTableSection,
+			"-m", "set", "--match-set", set, "dst",
+			"-j", "DROP",
 		},
 	}
 

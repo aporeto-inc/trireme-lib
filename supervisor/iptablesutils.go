@@ -602,8 +602,8 @@ func addAppSetRule(set string, ip string, provider provider.IptablesProvider) er
 		"set":     set,
 	}).Info("Add App ACLs")
 
-	if err := provider.Append(
-		appAckPacketIPTableContext, appPacketIPTableSection,
+	if err := provider.Insert(
+		appAckPacketIPTableContext, appPacketIPTableSection, 3,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", set, "dst",
 		"-s", ip,
@@ -657,8 +657,8 @@ func addNetSetRule(set string, ip string, provider provider.IptablesProvider) er
 		"set":     set,
 	}).Info("Add App ACLs")
 
-	if err := provider.Append(
-		netPacketIPTableContext, netPacketIPTableSection,
+	if err := provider.Insert(
+		netPacketIPTableContext, netPacketIPTableSection, 2,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", set, "src",
 		"-d", ip,
