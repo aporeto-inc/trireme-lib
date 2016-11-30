@@ -1,13 +1,8 @@
 package collector
 
 import (
-<<<<<<< f904b9eb16171cdcc03b2c73dccb39ee8933dbfc
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
-=======
-	log "github.com/Sirupsen/logrus"
->>>>>>> Merged with mainline
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/utils/packet"
 )
 
 // DefaultCollector implements a default collector infrastructure to syslog

@@ -112,7 +112,8 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 }
 
 //TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractorPath string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -154,7 +155,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK(networks []string, extractorPath string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPSK(networks []string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	policyEngine := NewCustomPolicyResolver()
 	var bashExtractor monitor.DockerMetadataExtractor
@@ -168,5 +169,4 @@ func TriremeWithPSK(networks []string, extractorPath string, remoteEnforcer bool
 
 	// Use this if you want a pre-shared key implementation
 	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"), bashExtractor, remoteEnforcer)
-
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/aporeto-inc/temp/supervisor"
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
@@ -47,6 +48,8 @@ func main() {
 
 	var t trireme.Trireme
 	var m monitor.Monitor
+	var e supervisor.Excluder
+	var remoteEnforcer bool
 
 	var e supervisor.Excluder
 	var remoteEnforcer bool
@@ -61,6 +64,7 @@ func main() {
 	} else {
 		log.Infof("Setting up trireme with PSK")
 		t, m, e = common.TriremeWithPSK([]string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
+
 	}
 
 	if t == nil {

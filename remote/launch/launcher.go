@@ -73,10 +73,10 @@ func SetExitStatus(contextID string, status bool) {
 
 //KillProcess exported
 func KillProcess(contextID string) {
+
 	s, err := activeProcesses.Get(contextID)
 	if err != nil {
 	}
-
 	s.(*processInfo).process.Kill()
 	os.Remove(s.(*processInfo).RPCHdl.Channel)
 	os.Remove("/var/run/netns/" + contextID)
