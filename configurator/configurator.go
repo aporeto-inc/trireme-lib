@@ -9,11 +9,13 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/remote/enforcerLauncher"
-	"github.com/aporeto-inc/trireme/remote/supervisorLauncher"
+	"github.com/aporeto-inc/trireme/enforcer/remote/enforcerLauncher"
+	"github.com/aporeto-inc/trireme/supervisor/remote/supervisorLauncher"
 
+	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
+
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 	"github.com/aporeto-inc/trireme/utils/tokens"
 )
