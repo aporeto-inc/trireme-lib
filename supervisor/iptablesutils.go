@@ -724,3 +724,7 @@ func deleteSet(set string, ips provider.IpsetProvider) error {
 	ipSet.Destroy()
 	return nil
 }
+
+func cleanIPSets(ips provider.IpsetProvider) error {
+	return ips.DestroyAll()
+}

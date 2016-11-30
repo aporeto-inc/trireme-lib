@@ -459,13 +459,14 @@ func (s *ipsetSupervisor) cleanACLs() error {
 	// Clean Network Rules/Chains
 	cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
 
+	cleanIPSets(s.ips)
+
 	return nil
 }
 
 func (s *ipsetSupervisor) AddExcludedIP(ip string) error {
 	log.WithFields(log.Fields{
 		"package":    "supervisor",
-		"supervisor": s,
 		"excludedIP": ip,
 	}).Info("Adding ExclusionIP")
 	return s.triremeSet.AddOption(ip, "nomatch", 0)
@@ -474,7 +475,6 @@ func (s *ipsetSupervisor) AddExcludedIP(ip string) error {
 func (s *ipsetSupervisor) RemoveExcludedIP(ip string) error {
 	log.WithFields(log.Fields{
 		"package":    "supervisor",
-		"supervisor": s,
 		"excludedIP": ip,
 	}).Info("Removing ExclusionIP")
 	return s.triremeSet.Del(ip)
