@@ -19,15 +19,16 @@ const triremeSet = "TriremeSet"
 type ipsetSupervisor struct {
 	versionTracker    cache.DataStore
 	ipt               provider.IptablesProvider
+	ips               provider.IpsetProvider
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
 	targetNetworks    []string
-	triremeSet        provider.IpsetProvider
+	triremeSet        provider.Ipset
 }
 
 // NewIPSetSupervisor returns a new implementation of the Supervisor based on IPSets.
-func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (Supervisor, error) {
+func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, ipsetProvider provider.IpsetProvider, targetNetworks []string) (Supervisor, error) {
 	if collector == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -45,9 +46,17 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	if iptablesProvider == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Error("IptablesProvider cannot be nil in NewIPTablesSupervisor")
+		}).Error("IptablesProvider cannot be nil in NewIPSetSupervisor")
 
-		return nil, fmt.Errorf("Enforcer cannot be nil")
+		return nil, fmt.Errorf("IptablesProvider cannot be nil")
+	}
+
+	if ipsetProvider == nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Error("IpsetProvider cannot be nil in NewIPSetSupervisor")
+
+		return nil, fmt.Errorf("IpsetProvider cannot be nil")
 	}
 
 	if targetNetworks == nil {
@@ -70,6 +79,7 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 
 	s := &ipsetSupervisor{
 		ipt:               iptablesProvider,
+		ips:               ipsetProvider,
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,
 		collector:         collector,
@@ -148,9 +158,9 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 
 	deleteNetSetRule(netSet, ip, s.ipt)
 
-	deleteSet(appSet)
+	deleteSet(appSet, s.ips)
 
-	deleteSet(netSet)
+	deleteSet(netSet, s.ips)
 
 	s.versionTracker.Remove(contextID)
 
@@ -174,7 +184,7 @@ func (s *ipsetSupervisor) Stop() error {
 
 func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet string, appACLs []policy.IPRule, netACLs []policy.IPRule, ip string) error {
 
-	if err := createACLSets(appSet, appACLs); err != nil {
+	if err := createACLSets(appSet, appACLs, s.ips); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -187,7 +197,7 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		return err
 	}
 
-	if err := createACLSets(netSet, netACLs); err != nil {
+	if err := createACLSets(netSet, netACLs, s.ips); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -330,9 +340,9 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 
 	deleteNetSetRule(oldNetSet, ipAddress, s.ipt)
 
-	deleteSet(oldAppSet)
+	deleteSet(oldAppSet, s.ips)
 
-	deleteSet(oldNetSet)
+	deleteSet(oldNetSet, s.ips)
 
 	ip, _ := containerInfo.Runtime.DefaultIPAddress()
 	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")
@@ -341,7 +351,7 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 }
 
 func (s *ipsetSupervisor) createInitialIPSet() error {
-	triremeSet, err := provider.NewIPset(triremeSet, "hash:net", &ipset.Params{})
+	triremeSet, err := s.ips.NewIPset(triremeSet, "hash:net", &ipset.Params{})
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",

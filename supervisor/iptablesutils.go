@@ -701,8 +701,8 @@ func deleteNetSetRule(set string, ip string, provider provider.IptablesProvider)
 	return nil
 }
 
-func createACLSets(set string, rules []policy.IPRule) error {
-	appSet, err := provider.NewIPset(set, "hash:net,port", &ipset.Params{})
+func createACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider) error {
+	appSet, err := ips.NewIPset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
@@ -715,8 +715,8 @@ func createACLSets(set string, rules []policy.IPRule) error {
 	return nil
 }
 
-func deleteSet(set string) error {
-	ipSet, err := provider.NewIPset(set, "hash:net,port", &ipset.Params{})
+func deleteSet(set string, ips provider.IpsetProvider) error {
+	ipSet, err := ips.NewIPset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
