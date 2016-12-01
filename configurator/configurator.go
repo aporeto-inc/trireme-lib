@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 const (
@@ -38,7 +39,7 @@ func NewTriremeWithDockerMonitor(
 	}
 
 	// Make sure that the iptables command is accessible. Panic if its not there.
-	ipt, err := supervisor.NewGoIPTablesProvider()
+	ipt, err := provider.NewGoIPTablesProvider()
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -47,8 +48,11 @@ func NewTriremeWithDockerMonitor(
 		}).Fatal("Failed to load Go-Iptables")
 	}
 
+	// Make sure that the iptables command is accessible. Panic if its not there.
+	ips := provider.NewGoIPsetProvider()
+
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-	IPTsupervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
+	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks)
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 
