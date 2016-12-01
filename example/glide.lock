@@ -1,43 +1,84 @@
-hash: 2bd597c816dc878a2b0a573af7b24d2e40820c85cf8e018a8786228780f2fce9
-updated: 2016-10-20T15:50:19.462718564-07:00
+hash: 779b82d945462f365111c2afa862aa16f84bd722f4e65ccead6f2d993211dd75
+updated: 2016-11-22T23:43:53.44437346-08:00
 imports:
 - name: github.com/aporeto-inc/trireme
-  version: 999dce270e2d8f0def1807cb29223d3cbcad248a
+  version: e5d1ef794d9fbe9ed659f0a0902a649b6670f6f0
   subpackages:
-  - plugin
+  - cache
+  - collector
+  - configurator
+  - crypto
+  - enforcer
+  - enforcer/lookup
+  - enforcer/netfilter
+  - enforcer/packet
+  - enforcer/tokens
+  - monitor
   - policy
+  - supervisor
 - name: github.com/coreos/go-iptables
   version: 5463fbac3bcc6b990663941c2e12660d19f6b36d
   subpackages:
   - iptables
 - name: github.com/dgrijalva/jwt-go
-  version: 24c63f56522a87ec5339cc3567883f1039378fdb
+  version: 9ed569b5d1ac936e6494082958d63a6aa4fff99a
+- name: github.com/docker/distribution
+  version: a6bf3dd064f15598166bca2d66a9962a9555139e
+  subpackages:
+  - digest
+  - reference
+- name: github.com/docker/docker
+  version: 5afdacb20ecbae338480a0382d62f7aabb6b9e8a
+  subpackages:
+  - api/types
+  - api/types/blkiodev
+  - api/types/container
+  - api/types/events
+  - api/types/filters
+  - api/types/mount
+  - api/types/network
+  - api/types/reference
+  - api/types/registry
+  - api/types/strslice
+  - api/types/swarm
+  - api/types/time
+  - api/types/versions
+  - api/types/volume
+  - client
+  - pkg/tlsconfig
+- name: github.com/docker/go-connections
+  version: 4ccf312bf1d35e5dbda654e57a9be4c3f3cd0366
+  subpackages:
+  - nat
+  - sockets
+  - tlsconfig
+- name: github.com/docker/go-units
+  version: 8a7beacffa3009a9ac66bad506b18ffdd110cf97
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: github.com/Microsoft/go-winio
+  version: 24a3e3d3fc7451805e09d11e11e95d9a0a4f205e
+- name: github.com/opencontainers/runc
+  version: a6e649f5835b7ebf354a73ff3a80f3223e3cb5de
+  subpackages:
+  - libcontainer/user
+- name: github.com/pkg/errors
+  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
+- name: github.com/Sirupsen/logrus
+  version: a437dfd2463eaedbec3dfe443e477d3b0a810b3f
 - name: golang.org/x/net
-  version: daba796358cd2742b75aae05761f1b898c9f6a5c
+  version: 4971afdc2f162e82d185353533d3cf16188a9f4e
   subpackages:
   - bpf
+  - context
+  - context/ctxhttp
   - internal/iana
   - internal/netreflect
   - ipv4
-testImports:
-- name: github.com/gopherjs/gopherjs
-  version: c79d0a5dbbdaf21092548246e69886a08f5a8e31
+  - proxy
+- name: golang.org/x/sys
+  version: 30237cf4eefd639b184d1f2cb77a581ea0be8947
   subpackages:
-  - js
-- name: github.com/jtolds/gls
-  version: 8ddce2a84170772b95dd5d576c48d517b22cac63
-- name: github.com/satori/go.uuid
-  version: b061729afc07e77a8aa4fad0a2fd840958f1942a
-- name: github.com/smartystreets/assertions
-  version: 2063fd1cc7c975db70502811a34b06ad034ccdf2
-  subpackages:
-  - internal/go-render/render
-  - internal/oglematchers
-- name: github.com/smartystreets/goconvey
-  version: 7befa7fd6e2e8ca28d2b94f2d39111929904b08d
-  subpackages:
-  - convey
-  - convey/gotest
-  - convey/reporting
+  - unix
+  - windows
+testImports: []
