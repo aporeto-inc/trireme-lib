@@ -375,7 +375,7 @@ func (s *ipsetSupervisor) createInitialIPSet() error {
 func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 
 	trapRules := [][]string{
-		// Application Syn and Syn/Ack
+		// Application Syn and Syn/Ack in RAW
 		{
 			appPacketIPTableContext, appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
@@ -383,17 +383,19 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
 		},
 
-		// Application everything else
+		// Application Matching Trireme SRC and DST. Established connections.
 		{
 			appAckPacketIPTableContext, appPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "ACCEPT",
 		},
 
-		// Application everything else
+		// Application Matching Trireme SRC and DST. SYN, SYNACK connections.
 		{
 			appAckPacketIPTableContext, appPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
@@ -407,16 +409,17 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 			"-j", "DROP",
 		},
 
-		// Network side rules
+		// Network Matching Trireme SRC and DST.
 		{
 			netPacketIPTableContext, netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
+			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", s.networkQueues,
 		},
 
-		// Default Drop from Network to Trireme
+		// Default Drop from Network to Trireme.
 		{
 			netPacketIPTableContext, netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
