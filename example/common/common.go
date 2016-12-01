@@ -15,15 +15,12 @@ import (
 
 // CustomPolicyResolver holds the configuration of the policy engine
 type CustomPolicyResolver struct {
-	cache map[string]policy.RuntimeReader
 }
 
 // NewCustomPolicyResolver creates a new policy engine for the Trireme package
 func NewCustomPolicyResolver() *CustomPolicyResolver {
 
-	return &CustomPolicyResolver{
-		cache: map[string]policy.RuntimeReader{},
-	}
+	return &CustomPolicyResolver{}
 }
 
 // ResolvePolicy implements the Trireme interface. Here we just create a simple
@@ -50,8 +47,6 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	containerPolicyInfo.IngressACLs = []policy.IPRule{ingress}
 	containerPolicyInfo.EgressACLs = []policy.IPRule{egress}
-
-	p.cache[context] = runtimeInfo
 
 	// Use all the labels from Docker
 	containerPolicyInfo.PolicyTags = runtimeInfo.Tags()
