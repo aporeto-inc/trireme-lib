@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/utils/tokens"
 )
 
 var gobTypes = []interface{}{InitRequestPayload{},
