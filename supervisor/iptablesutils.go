@@ -293,16 +293,9 @@ func trapRules(appChain string, netChain string, network string, appQueue string
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
 func addPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error {
 
-	log.WithFields(log.Fields{
-		"package":  "supervisor",
-		"appChain": appChain,
-		"netChain": netChain,
-		"ip":       ip,
-	}).Info("Add Packet trap")
-
 	for _, network := range targetNetworks {
 
-		trapRules := trapRules(appChain, netChain, appQueue, netQueue, network)
+		trapRules := trapRules(appChain, netChain, network, appQueue, netQueue)
 		for _, tr := range trapRules {
 
 			if err := provider.Append(tr[0], tr[1], tr[2:]...); err != nil {
@@ -335,7 +328,7 @@ func deletePacketTrap(appChain string, netChain string, ip string, targetNetwork
 
 	for _, network := range targetNetworks {
 
-		trapRules := trapRules(appChain, netChain, appQueue, netQueue, network)
+		trapRules := trapRules(appChain, netChain, network, appQueue, netQueue)
 		for _, tr := range trapRules {
 
 			if err := provider.Delete(tr[0], tr[1], tr[2:]...); err != nil {

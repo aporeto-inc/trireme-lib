@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
@@ -15,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 const (
@@ -84,7 +86,7 @@ func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Respons
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
-	ipt, err := supervisor.NewGoIPTablesProvider()
+	ipt, err := provider.NewGoIPTablesProvider()
 
 	if err != nil {
 		fmt.Printf("Failed to load Go-Iptables: %s", err)
@@ -158,7 +160,15 @@ func (s *Server) Enforce(req rpcWrapper.Request, resp *rpcWrapper.Response) erro
 	return err
 
 }
+
+//EnforcerExit exported
+func (s *Server) EnforcerExit(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+	os.Exit(0)
+	return nil
+}
 func main() {
+	log.SetLevel(log.DebugLevel)
+	log.SetFormatter(&log.TextFormatter{})
 	namedPipe := os.Getenv("SOCKET_PATH")
 	server := new(Server)
 	err := rpcWrapper.StartServer("unix", namedPipe, server)

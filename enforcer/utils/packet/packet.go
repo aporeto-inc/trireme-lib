@@ -336,12 +336,6 @@ func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16,
 	return
 }
 
-// FixupIPHdrOnTCPDataDetach modifies the IP header fields and checksum
-func (p *Packet) FixupIPHdrOnTCPDataDetach(packetLenDecrease uint16) {
-
-	p.fixupIPHdrOnTCPDataModify(-(packetLenDecrease))
-}
-
 // FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
 
@@ -408,12 +402,6 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 	// Process IP Header fields
 	p.fixupIPHdrOnTCPDataModify(p.IPTotalLength, p.IPTotalLength-(dataLength+optionLength))
 	return
-}
-
-// FixupIPHdrOnTCPDataAttach modifies the IP header fields and checksum
-func (p *Packet) FixupIPHdrOnTCPDataAttach(packetLenIncrease uint16) {
-
-	p.fixupIPHdrOnTCPDataModify(packetLenIncrease)
 }
 
 // FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
