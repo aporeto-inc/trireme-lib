@@ -26,8 +26,11 @@ type ipsetSupervisor struct {
 	targetNetworks    []string
 }
 
+
+
 // NewIPSetSupervisor returns a new implementation of the Supervisor based on IPSets.
-func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, ipsetUtils iptablesutils.IpsetUtils, targetNetworks []string) (Supervisor, error) {
+func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, ipsetProvider provider.IpsetProvider, targetNetworks []string, remote bool) (Supervisor, error) {
+>>>>>>> Remote Trap Rules for iptables supervisor
 	if collector == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",

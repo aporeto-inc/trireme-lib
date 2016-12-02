@@ -97,20 +97,19 @@ func NewTriremeWithDockerMonitor(
 		}).Fatal("Failed to load Supervisor")
 	}
 	if remoteEnforcer {
-		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
-		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
-		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
-		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
-	}
-	if remoteEnforcer {
 		//processmonitor := ProcessMon.NewProcessMon()
 		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
+		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, true)
 		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 	}
+
+	// Make sure that the iptables command is accessible. Panic if its not there.
+	ips := provider.NewGoIPsetProvider()
+
+	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
+	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks, false)
 
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)

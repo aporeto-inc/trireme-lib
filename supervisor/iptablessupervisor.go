@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
+	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 type supervisorCacheEntry struct {
@@ -27,15 +28,16 @@ type iptablesSupervisor struct {
 	networkQueues     string
 	applicationQueues string
 	targetNetworks    []string
-
-	Mark int
+	Mark              int
+	remote            bool
 }
 
 // NewIPTablesSupervisor will create a new connection supervisor that uses IPTables
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesUtils iptablesutils.IptableUtils, targetNetworks []string) (Supervisor, error) {
+
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string, remote bool) (Supervisor, error) {
 
 	if collector == nil {
 		log.WithFields(log.Fields{
