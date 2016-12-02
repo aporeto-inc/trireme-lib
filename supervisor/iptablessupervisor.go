@@ -28,13 +28,14 @@ type iptablesSupervisor struct {
 	networkQueues     string
 	applicationQueues string
 	targetNetworks    []string
+	remote            bool
 }
 
 // NewIPTablesSupervisor will create a new connection supervisor that uses IPTables
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string, remote bool) (Supervisor, error) {
 
 	if collector == nil {
 		log.WithFields(log.Fields{
@@ -159,7 +160,7 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	deletePacketTrap(appChain, netChain, ip, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt)
+	deletePacketTrap(appChain, netChain, ip, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt, s.remote)
 
 	deleteAppACLs(appChain, ip, cacheEntry.ingressACLs, s.ipt)
 
@@ -269,7 +270,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt); err != nil {
+	if err := addPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt, s.remote); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -381,7 +382,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt); err != nil {
+	if err := addPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt, s.remote); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{

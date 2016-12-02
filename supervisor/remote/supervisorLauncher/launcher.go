@@ -25,6 +25,7 @@ type RemoteSupervisorHandle struct {
 	targetNetworks    []string
 	ExcludedIP        []string
 	prochdl           *ProcessMon.ProcessMon
+	remote            bool
 }
 
 //Supervise exported
@@ -77,7 +78,7 @@ func (s *RemoteSupervisorHandle) Stop() error {
 }
 
 //NewIPTablesSupervisor exported
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (supervisor.Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string, remote bool) (supervisor.Supervisor, error) {
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
@@ -94,6 +95,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
 		prochdl:           ProcessMon.GetProcessMonHdl(),
+		remote:            remote,
 	}
 
 	s.ipt = iptablesProvider

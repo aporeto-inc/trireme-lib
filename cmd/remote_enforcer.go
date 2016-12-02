@@ -96,7 +96,7 @@ func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Respons
 
 	payload := req.Payload.(rpcWrapper.InitSupervisorPayload)
 
-	s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector, s.Enforcer, ipt, payload.TargetNetworks)
+	s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector, s.Enforcer, ipt, payload.TargetNetworks, true)
 
 	resp.Status = err
 	return nil

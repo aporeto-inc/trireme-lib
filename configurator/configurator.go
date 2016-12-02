@@ -55,7 +55,7 @@ func NewTriremeWithDockerMonitor(
 	if remoteEnforcer {
 		//processmonitor := ProcessMon.NewProcessMon()
 		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
+		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, true)
 		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
@@ -65,7 +65,7 @@ func NewTriremeWithDockerMonitor(
 	ips := provider.NewGoIPsetProvider()
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks)
+	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks, false)
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
