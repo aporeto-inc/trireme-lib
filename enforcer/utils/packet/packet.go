@@ -358,23 +358,6 @@ func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16,
 // FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
 
-	log.WithFields(log.Fields{
-		"package":          "packet",
-		"flags":            p.TCPFlags,
-		"len":              p.IPTotalLength - p.TCPDataStartBytes(),
-		"bufLen":           len(p.Buffer),
-		"dataLength":       dataLength,
-		"tcpDataLength":    len(p.tcpData),
-		"optionLength":     optionLength,
-		"tcpOptionsLength": len(p.tcpOptions),
-	}).Debug("Fixup TCP Hdr On TCP Data Detach")
-
-	p.fixupIPHdrOnTCPDataModify(-(packetLenDecrease))
-}
-
-// FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
-func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
-
 	// Update TCP checksum
 	a := uint32(-p.TCPChecksum) - p.computeTCPChecksumDelta(p.tcpOptions[:optionLength], optionLength, p.tcpData[:dataLength], dataLength)
 	a = a + (a >> 16)
@@ -454,18 +437,6 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 	return
 }
 
-
-// FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
-func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
-
-	log.WithFields(log.Fields{
-		"package":   "packet",
-		"Flags":     p.TCPFlags,
-		"newLength": p.IPTotalLength - p.TCPDataStartBytes(),
-	}).Debug("Fixup TCP Hdr On TCP Data Attach")
-
-	p.fixupIPHdrOnTCPDataModify(packetLenIncrease)
-}
 
 // FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {

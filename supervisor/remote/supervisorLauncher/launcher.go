@@ -12,17 +12,19 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/remote/launch"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 //RemoteSupervisorHandle exported
 type RemoteSupervisorHandle struct {
 	versionTracker    cache.DataStore
-	ipt               supervisor.IptablesProvider
+	ipt               provider.IptablesProvider
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
 	targetNetworks    []string
 	ExcludedIP        []string
+	prochdl           *ProcessMon.ProcessMon
 }
 
 //Supervise exported
@@ -54,12 +56,12 @@ func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
 	request.Payload = payload
 	gob.Register(rpcWrapper.UnSupervisePayload{})
 	rpcWrapper.RemoteCall(contextID, "Server.Unsupervise", request, unenfresp)
-	if ProcessMon.GetExitStatus(contextID) == false {
+	if s.prochdl.GetExitStatus(contextID) == false {
 		//Unsupervise not called yet
-		ProcessMon.SetExitStatus(contextID, true)
+		s.prochdl.SetExitStatus(contextID, true)
 	} else {
-		ProcessMon.KillProcess(contextID)
 		//We are coming here last
+		s.prochdl.KillProcess(contextID)
 	}
 	return nil
 }
@@ -75,7 +77,7 @@ func (s *RemoteSupervisorHandle) Stop() error {
 }
 
 //NewIPTablesSupervisor exported
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider supervisor.IptablesProvider, targetNetworks []string) (supervisor.Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (supervisor.Supervisor, error) {
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
@@ -91,6 +93,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
+		prochdl:           ProcessMon.GetProcessMonHdl(),
 	}
 
 	s.ipt = iptablesProvider
