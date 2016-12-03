@@ -94,8 +94,8 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 		log.WithFields(log.Fields{
 			"package": "netfilter",
-			"error":   err,
-		}).Error("Error opening NFQueue handle")
+			"error":   err.Error(),
+		}).Debug("Error opening NFQueue handle")
 
 		return nil, fmt.Errorf("Error opening NFQueue handle: %v\n", err)
 	}
@@ -104,8 +104,8 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 		log.WithFields(log.Fields{
 			"package": "netfilter",
-			"error":   err,
-		}).Error("Error unbinding existing NFQ handler from AfInet protocol family")
+			"error":   err.Error(),
+		}).Debug("Error unbinding existing NFQ handler from AfInet protocol family")
 
 		return nil, fmt.Errorf("Error unbinding existing NFQ handler from AfInet protocol family: %v\n", err)
 	}
@@ -114,8 +114,8 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 		log.WithFields(log.Fields{
 			"package": "netfilter",
-			"error":   err,
-		}).Error("Error binding to AfInet protocol family")
+			"error":   err.Error(),
+		}).Debug("Error binding to AfInet protocol family")
 
 		return nil, fmt.Errorf("Error binding to AfInet protocol family: %v\n", err)
 	}
@@ -131,8 +131,8 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 		log.WithFields(log.Fields{
 			"package": "netfilter",
-			"error":   err,
-		}).Error("Error binding to queue")
+			"error":   err.Error(),
+		}).Debug("Error binding to queue")
 
 		return nil, fmt.Errorf("Error binding to queue: %v\n", err)
 	}
@@ -144,8 +144,8 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 		log.WithFields(log.Fields{
 			"package": "netfilter",
-			"error":   err,
-		}).Error("Unable to set max packets in queue")
+			"error":   err.Error(),
+		}).Debug("Unable to set max packets in queue")
 
 		return nil, fmt.Errorf("Unable to set max packets in queue: %v\n", err)
 	}
@@ -158,8 +158,8 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 		log.WithFields(log.Fields{
 			"package": "netfilter",
-			"error":   err,
-		}).Error("Unable to set packets copy mode")
+			"error":   err.Error(),
+		}).Debug("Unable to set packets copy mode")
 
 		return nil, fmt.Errorf("Unable to set packets copy mode: %v\n", err)
 	}
@@ -171,8 +171,8 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 		log.WithFields(log.Fields{
 			"package": "netfilter",
-			"error":   err,
-		}).Error("Unable to get queue file-descriptor.")
+			"error":   err.Error(),
+		}).Debug("Unable to get queue file-descriptor.")
 
 		return nil, fmt.Errorf("Unable to get queue file-descriptor. %v", err)
 	}

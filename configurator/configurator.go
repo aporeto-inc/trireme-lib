@@ -44,7 +44,7 @@ func NewTriremeWithDockerMonitor(
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
-			"error":   err,
+			"error":   err.Error(),
 		}).Fatal("Failed to load Go-Iptables")
 	}
 

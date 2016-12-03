@@ -45,8 +45,8 @@ func addContainerChain(appChain string, netChain string, provider provider.Iptab
 			"appChain":                appChain,
 			"netChain":                netChain,
 			"appPacketIPTableContext": appPacketIPTableContext,
-			"error":                   err,
-		}).Error("Failed to create the container specific chain")
+			"error":                   err.Error(),
+		}).Debug("Failed to create the container specific chain")
 
 		return err
 	}
@@ -57,8 +57,8 @@ func addContainerChain(appChain string, netChain string, provider provider.Iptab
 			"appChain":                   appChain,
 			"netChain":                   netChain,
 			"appAckPacketIPTableContext": appAckPacketIPTableContext,
-			"error": err,
-		}).Error("Failed to create the container specific chain")
+			"error": err.Error(),
+		}).Debug("Failed to create the container specific chain")
 
 		return err
 	}
@@ -69,8 +69,8 @@ func addContainerChain(appChain string, netChain string, provider provider.Iptab
 			"appChain":                appChain,
 			"netChain":                netChain,
 			"netPacketIPTableContext": netPacketIPTableContext,
-			"error":                   err,
-		}).Error("Failed to create the container specific chain")
+			"error":                   err.Error(),
+		}).Debug("Failed to create the container specific chain")
 
 		return err
 	}
@@ -92,8 +92,8 @@ func deleteChain(context, chain string, provider provider.IptablesProvider) erro
 		log.WithFields(log.Fields{
 			"package": "supervisor",
 			"chain":   chain,
-			"error":   err,
-		}).Error("Failed to clear the container specific chain")
+			"error":   err.Error(),
+		}).Debug("Failed to clear the container specific chain")
 
 		return err
 	}
@@ -102,8 +102,8 @@ func deleteChain(context, chain string, provider provider.IptablesProvider) erro
 		log.WithFields(log.Fields{
 			"package": "supervisor",
 			"chain":   chain,
-			"error":   err,
-		}).Error("Failed to delete the container specific chain")
+			"error":   err.Error(),
+		}).Debug("Failed to delete the container specific chain")
 
 		return err
 	}
@@ -125,9 +125,9 @@ func deleteAllContainerChains(appChain, netChain string, provider provider.Iptab
 			"package":                 "supervisor",
 			"appChain":                appChain,
 			"netChain":                netChain,
-			"error":                   err,
+			"error":                   err.Error(),
 			"appPacketIPTableContext": appPacketIPTableContext,
-		}).Error("Failed to clear and delete the appChains")
+		}).Debug("Failed to clear and delete the appChains")
 
 		//TODO: how do we deal with errors here
 	}
@@ -137,9 +137,9 @@ func deleteAllContainerChains(appChain, netChain string, provider provider.Iptab
 			"package":  "supervisor",
 			"appChain": appChain,
 			"netChain": netChain,
-			"error":    err,
+			"error":    err.Error(),
 			"appAckPacketIPTableContext": appAckPacketIPTableContext,
-		}).Error("Failed to clear and delete the appChains")
+		}).Debug("Failed to clear and delete the appChains")
 	}
 
 	if err := deleteChain(netPacketIPTableContext, netChain, provider); err != nil {
@@ -147,9 +147,9 @@ func deleteAllContainerChains(appChain, netChain string, provider provider.Iptab
 			"package":                 "supervisor",
 			"appChain":                appChain,
 			"netChain":                netChain,
-			"error":                   err,
+			"error":                   err.Error(),
 			"netPacketIPTableContext": netPacketIPTableContext,
-		}).Error("Failed to clear and delete the netChain")
+		}).Debug("Failed to clear and delete the netChain")
 	}
 
 	return nil
@@ -202,14 +202,12 @@ func addChainRules(appChain string, netChain string, ip string, provider provide
 
 		if err := provider.Append(cr[0], cr[1], cr[2:]...); err != nil {
 			log.WithFields(log.Fields{
-				"package":       "supervisor",
-				"appChain":      appChain,
-				"netChain":      netChain,
-				"ip":            ip,
-				"chainRules[0]": cr[0],
-				"chainRules[1]": cr[1],
-				"error":         err,
-			}).Error("Failed to add the rule that redirects to container chain for chain rules")
+				"package":  "supervisor",
+				"appChain": appChain,
+				"netChain": netChain,
+				"ip":       ip,
+				"error":    err.Error(),
+			}).Debug("Failed to add the rule that redirects to container chain for chain rules")
 			return err
 		}
 	}
@@ -232,14 +230,12 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 
 		if err := provider.Delete(cr[0], cr[1], cr[2:]...); err != nil {
 			log.WithFields(log.Fields{
-				"package":       "supervisor",
-				"appChain":      appChain,
-				"netChain":      netChain,
-				"ip":            ip,
-				"chainRules[0]": cr[0],
-				"chainRules[1]": cr[1],
-				"error":         err,
-			}).Error("Failed to delete the rule that redirects to container chain for chain rules")
+				"package":  "supervisor",
+				"appChain": appChain,
+				"netChain": netChain,
+				"ip":       ip,
+				"error":    err.Error(),
+			}).Debug("Failed to delete the rule that redirects to container chain for chain rules")
 
 			return err
 		}
@@ -307,14 +303,12 @@ func addPacketTrap(appChain string, netChain string, ip string, targetNetworks [
 
 			if err := provider.Append(tr[0], tr[1], tr[2:]...); err != nil {
 				log.WithFields(log.Fields{
-					"package":     "supervisor",
-					"appChain":    appChain,
-					"netChain":    netChain,
-					"ip":          ip,
-					"trapRule[0]": tr[0],
-					"trapRule[1]": tr[1],
-					"error":       err,
-				}).Error("Failed to add the rule that redirects to container chain for packet trap")
+					"package":  "supervisor",
+					"appChain": appChain,
+					"netChain": netChain,
+					"ip":       ip,
+					"error":    err.Error(),
+				}).Debug("Failed to add the rule that redirects to container chain for packet trap")
 				return err
 			}
 		}
@@ -340,14 +334,12 @@ func deletePacketTrap(appChain string, netChain string, ip string, targetNetwork
 
 			if err := provider.Delete(tr[0], tr[1], tr[2:]...); err != nil {
 				log.WithFields(log.Fields{
-					"package":     "supervisor",
-					"appChain":    appChain,
-					"netChain":    netChain,
-					"ip":          ip,
-					"trapRule[0]": tr[0],
-					"trapRule[1]": tr[1],
-					"error":       err,
-				}).Error("Failed to delete the rule that redirects to container chain for packet trap")
+					"package":  "supervisor",
+					"appChain": appChain,
+					"netChain": netChain,
+					"ip":       ip,
+					"error":    err.Error(),
+				}).Debug("Failed to delete the rule that redirects to container chain for packet trap")
 				return err
 			}
 		}
@@ -363,7 +355,6 @@ func addAppACLs(chain string, ip string, rules []policy.IPRule, provider provide
 	log.WithFields(log.Fields{
 		"package": "supervisor",
 		"ip":      ip,
-		"rules":   rules,
 		"chain":   chain,
 	}).Info("Add App ACLs")
 
@@ -380,9 +371,8 @@ func addAppACLs(chain string, ip string, rules []policy.IPRule, provider provide
 				"package":                 "supervisor",
 				"netPacketIPTableContext": netPacketIPTableContext,
 				"chain":                   chain,
-				"rule":                    rules[i],
-				"error":                   err,
-			}).Error("Error when adding app acl rule")
+				"error":                   err.Error(),
+			}).Debug("Error when adding app acl rule")
 			return err
 		}
 
@@ -398,8 +388,8 @@ func addAppACLs(chain string, ip string, rules []policy.IPRule, provider provide
 			"package":                 "supervisor",
 			"netPacketIPTableContext": netPacketIPTableContext,
 			"chain":                   chain,
-			"error":                   err,
-		}).Error("Error when adding default app acl rule")
+			"error":                   err.Error(),
+		}).Debug("Error when adding default app acl rule")
 
 		return err
 	}
@@ -429,9 +419,8 @@ func deleteAppACLs(chain string, ip string, rules []policy.IPRule, provider prov
 				"package":                 "supervisor",
 				"netPacketIPTableContext": netPacketIPTableContext,
 				"chain":                   chain,
-				"rule":                    rules[i],
-				"error":                   err,
-			}).Error("Error when removing ingress app acl rule")
+				"error":                   err.Error(),
+			}).Debug("Error when removing ingress app acl rule")
 
 			// TODO: how do we deal with errors ?
 		}
@@ -447,8 +436,8 @@ func deleteAppACLs(chain string, ip string, rules []policy.IPRule, provider prov
 			"package":                 "supervisor",
 			"netPacketIPTableContext": netPacketIPTableContext,
 			"chain":                   chain,
-			"error":                   err,
-		}).Error("Error when removing default ingress app acl default rule")
+			"error":                   err.Error(),
+		}).Debug("Error when removing default ingress app acl default rule")
 	}
 
 	return nil
@@ -478,9 +467,8 @@ func addNetACLs(chain, ip string, rules []policy.IPRule, provider provider.Iptab
 				"package":                 "supervisor",
 				"netPacketIPTableContext": netPacketIPTableContext,
 				"chain":                   chain,
-				"error":                   err,
-				"rule":                    rules[i],
-			}).Error("Error when adding a net acl rule")
+				"error":                   err.Error(),
+			}).Debug("Error when adding a net acl rule")
 
 			return err
 		}
@@ -497,8 +485,8 @@ func addNetACLs(chain, ip string, rules []policy.IPRule, provider provider.Iptab
 			"package":                 "supervisor",
 			"netPacketIPTableContext": netPacketIPTableContext,
 			"chain":                   chain,
-			"error":                   err,
-		}).Error("Error when adding default net acl rule")
+			"error":                   err.Error(),
+		}).Debug("Error when adding default net acl rule")
 
 		return err
 	}
@@ -528,9 +516,8 @@ func deleteNetACLs(chain string, ip string, rules []policy.IPRule, provider prov
 				"package":                 "supervisor",
 				"netPacketIPTableContext": netPacketIPTableContext,
 				"chain":                   chain,
-				"rule":                    rules[i],
-				"error":                   err,
-			}).Error("Error when removing the egress net ACL rule")
+				"error":                   err.Error(),
+			}).Debug("Error when removing the egress net ACL rule")
 
 			// TODO: how do we deal with the errors here
 		}
@@ -546,8 +533,8 @@ func deleteNetACLs(chain string, ip string, rules []policy.IPRule, provider prov
 			"package":                 "supervisor",
 			"netPacketIPTableContext": netPacketIPTableContext,
 			"chain":                   chain,
-			"error":                   err,
-		}).Error("Error when removing the net ACL rule")
+			"error":                   err.Error(),
+		}).Debug("Error when removing the net ACL rule")
 	}
 
 	return nil
@@ -567,8 +554,8 @@ func cleanACLSection(context, section, chainPrefix string, provider provider.Ipt
 			"package": "supervisor",
 			"context": context,
 			"section": section,
-			"error":   err,
-		}).Error("Can not clear the section in iptables.")
+			"error":   err.Error(),
+		}).Debug("Can not clear the section in iptables.")
 		return
 	}
 
@@ -579,8 +566,8 @@ func cleanACLSection(context, section, chainPrefix string, provider provider.Ipt
 			"package": "supervisor",
 			"context": context,
 			"section": section,
-			"error":   err,
-		}).Error("No chain rules found in iptables")
+			"error":   err.Error(),
+		}).Debug("No chain rules found in iptables")
 		return
 	}
 
@@ -612,8 +599,8 @@ func addAppSetRule(set string, ip string, provider provider.IptablesProvider) er
 		log.WithFields(log.Fields{
 			"package":                    "supervisor",
 			"appAckPacketIPTableContext": appAckPacketIPTableContext,
-			"error": err,
-		}).Error("Error when adding app acl rule")
+			"error": err.Error(),
+		}).Debug("Error when adding app acl rule")
 		return err
 
 	}
@@ -640,8 +627,8 @@ func deleteAppSetRule(set string, ip string, provider provider.IptablesProvider)
 			"package":                 "supervisor",
 			"netPacketIPTableContext": netPacketIPTableContext,
 			"chain":                   appPacketIPTableSection,
-			"error":                   err,
-		}).Error("Error when removing ingress app acl rule")
+			"error":                   err.Error(),
+		}).Debug("Error when removing ingress app acl rule")
 
 	}
 
@@ -667,8 +654,8 @@ func addNetSetRule(set string, ip string, provider provider.IptablesProvider) er
 		log.WithFields(log.Fields{
 			"package":                 "supervisor",
 			"netPacketIPTableContext": netPacketIPTableContext,
-			"error":                   err,
-		}).Error("Error when adding app acl rule")
+			"error":                   err.Error(),
+		}).Debug("Error when adding app acl rule")
 		return err
 	}
 	return nil
@@ -693,8 +680,8 @@ func deleteNetSetRule(set string, ip string, provider provider.IptablesProvider)
 			"package":                 "supervisor",
 			"netPacketIPTableContext": netPacketIPTableContext,
 			"chain":                   appPacketIPTableSection,
-			"error":                   err,
-		}).Error("Error when removing ingress app acl rule")
+			"error":                   err.Error(),
+		}).Debug("Error when removing ingress app acl rule")
 
 	}
 

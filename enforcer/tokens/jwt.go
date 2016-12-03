@@ -37,7 +37,7 @@ func NewJWT(validity time.Duration, issuer string, secrets Secrets) (*JWTConfig,
 			"package":       "tokens",
 			"issuerLength":  len(issuer),
 			"maxServerName": MaxServerName,
-		}).Error("Server ID is to big")
+		}).Debug("Server ID is to big")
 
 		return nil, fmt.Errorf("Server ID should be max %d chars. Got %s", MaxServerName, issuer)
 	}
