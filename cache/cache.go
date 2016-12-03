@@ -126,7 +126,7 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 		"package": "cache",
 		"cache":   c,
 		"data":    u,
-	}).Error("Item exist, use update of the cahce")
+	}).Debug("Item exist, use update of the cahce")
 
 	return fmt.Errorf("Item Exists - Use update")
 }
@@ -149,7 +149,7 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 		"package": "cache",
 		"cache":   c,
 		"data":    u,
-	}).Error("Item not found in Update")
+	}).Debug("Item not found in Update")
 
 	return fmt.Errorf("Cannot update item - it doesn't exist")
 }
@@ -195,7 +195,7 @@ func (c *Cache) Remove(u interface{}) (err error) {
 			"package": "cache",
 			"cache":   c,
 			"data":    u,
-		}).Error("Item not found in Remove")
+		}).Debug("Item not found in Remove")
 		return fmt.Errorf("Item does not exist")
 	}
 
@@ -242,7 +242,7 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 			"package": "cache",
 			"cache":   c,
 			"data":    u,
-		}).Error("Item not found in LockedModify")
+		}).Debug("Item not found in LockedModify")
 		return nil, fmt.Errorf("Item not found")
 	}
 
