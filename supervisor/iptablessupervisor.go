@@ -537,7 +537,6 @@ func (s *iptablesSupervisor) RemoveExcludedIP(ip string) error {
 
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-			"error":   err.Error(),
 		}).Debug("Failed to delete rule that redirects to container chain")
 	}
 	return nil
