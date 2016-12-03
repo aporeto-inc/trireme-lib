@@ -177,12 +177,11 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 			"package": "cache",
 			"cache":   c,
 			"data":    u,
-		}).Error("Item not found in Get")
+		}).Debug("Item not found in Get")
 		return nil, fmt.Errorf("Item does not exist.")
 	}
 
 	return c.data[u].value, nil
-
 }
 
 //Remove removes the entry from the cache and returns error if not there
