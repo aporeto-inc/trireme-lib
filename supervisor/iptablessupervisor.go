@@ -535,9 +535,14 @@ func (s *iptablesSupervisor) RemoveExcludedIP(ip string) error {
 	chainRules := s.exclusionChainRules(ip)
 	for _, cr := range chainRules {
 
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-		}).Debug("Failed to delete rule that redirects to container chain")
+		if err := s.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
+
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Failed to delete rule that redirects to container chain")
+			return err
+		}
 	}
 	return nil
 }
