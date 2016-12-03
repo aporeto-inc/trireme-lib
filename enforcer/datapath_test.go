@@ -158,7 +158,7 @@ func TestPacketHandling(t *testing.T) {
 			puInfo1.Runtime.SetIPAddresses(ip1)
 			puInfo1.Policy.PolicyIPs = []string{"164.67.228.152"}
 			puInfo1.Policy.PolicyTags[TransmitterLabel] = "value"
-			puInfo1.Policy.Rules = append(puInfo1.Policy.Rules, tagSelector)
+			puInfo1.Policy.ReceiverRules = append(puInfo1.Policy.ReceiverRules, tagSelector)
 
 			// Create processing unit 2
 			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2")
@@ -167,7 +167,7 @@ func TestPacketHandling(t *testing.T) {
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			puInfo2.Policy.PolicyIPs = []string{"10.1.10.76"}
 			puInfo2.Policy.PolicyTags[TransmitterLabel] = "value"
-			puInfo1.Policy.Rules = append(puInfo1.Policy.Rules, tagSelector)
+			puInfo1.Policy.ReceiverRules = append(puInfo1.Policy.ReceiverRules, tagSelector)
 
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 

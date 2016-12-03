@@ -166,12 +166,14 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 	}
 	//TODO: Add Check that IP is valid.
 
-	rules := createRuleDB(puInfo.Policy.Rules)
+	receiverRules := createRuleDB(puInfo.Policy.ReceiverRules)
+	transmitterRules := createRuleDB(puInfo.Policy.TransmitterRules)
 
 	pu := &PUContext{
-		ID:    contextID,
-		rules: rules,
-		Tags:  puInfo.Policy.PolicyTags,
+		ID:               contextID,
+		receiverRules:    receiverRules,
+		transmitterRules: transmitterRules,
+		Tags:             puInfo.Policy.PolicyTags,
 	}
 
 	d.contextTracker.AddOrUpdate(contextID, ip)
@@ -182,7 +184,8 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 
 func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
 
-	puContext.rules = createRuleDB(containerInfo.Policy.Rules)
+	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules)
+	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules)
 	puContext.Tags = containerInfo.Policy.PolicyTags
 	return nil
 }
@@ -888,7 +891,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	claims.T[PortNumberLabelString] = strconv.Itoa(int(tcpPacket.DestinationPort))
 
 	// Search the policy rules for a matching rule.
-	if index, action := context.rules.Search(claims.T); index >= 0 {
+	if index, action := context.receiverRules.Search(claims.T); index >= 0 {
 
 		hash := tcpPacket.L4FlowHash()
 
@@ -1021,7 +1024,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
 
-	if index, action := context.rules.Search(claims.T); !d.mutualAuthorization || index >= 0 {
+	if index, action := context.transmitterRules.Search(claims.T); !d.mutualAuthorization || index >= 0 {
 		connection.(*Connection).State = SynAckReceived
 		return action, nil
 	}
