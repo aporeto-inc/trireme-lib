@@ -61,7 +61,7 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 			log.WithFields(log.Fields{
 				"package": "netfilter",
 				"server":  server,
-			}).Error("No certificate in cache for server")
+			}).Debug("No certificate in cache for server")
 
 			return nil, fmt.Errorf("No certificate in cache for server %s", server)
 		}

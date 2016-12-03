@@ -70,7 +70,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 		log.WithFields(log.Fields{
 			"package":        "packet",
 			"ipHeaderLength": p.ipHeaderLen,
-		}).Error("IP Packet too small")
+		}).Debug("IP Packet too small")
 
 		return nil, fmt.Errorf("IP Packet too small")
 	}
@@ -79,7 +79,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 		log.WithFields(log.Fields{
 			"package":        "packet",
 			"ipHeaderLength": p.ipHeaderLen,
-		}).Error("Packets with IP options not supported")
+		}).Debug("Packets with IP options not supported")
 
 		return nil, fmt.Errorf("Packets with IP options not supported (hdrlen=%d)", p.ipHeaderLen)
 	}
@@ -92,7 +92,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 				"package":       "packet",
 				"IPTotalLength": p.IPTotalLength,
 				"bufferLength":  len(p.Buffer),
-			}).Error("Stated IP packet length differs from bytes available")
+			}).Debug("Stated IP packet length differs from bytes available")
 			return nil, fmt.Errorf("Stated IP packet length (%d) differs from bytes available (%d)", p.IPTotalLength, len(p.Buffer))
 		}
 	}
@@ -248,7 +248,7 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 		log.WithFields(log.Fields{
 			"package":      "packet",
 			"optionLength": optionLength,
-		}).Error("TCP option not found when Checking TCPAuthenticationOption")
+		}).Debug("TCP option not found when Checking TCPAuthenticationOption")
 		err = fmt.Errorf("TCP option not found")
 		// TODO: what about the error here ?
 		return
@@ -375,10 +375,10 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		} else if (p.IPTotalLength - p.TCPDataStartBytes()) != uint16(len(p.tcpData)) {
 			log.WithFields(log.Fields{
 				"package":      "packet",
-				"error":        err,
+				"error":        err.Error(),
 				"optionLength": optionLength,
 				"dataLength":   dataLength,
-			}).Error("Not handling concat of data buffers in tcpDataDetach")
+			}).Debug("Not handling concat of data buffers in tcpDataDetach")
 
 			return fmt.Errorf("Not handling concat of data buffers")
 		}
@@ -390,10 +390,10 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		} else if optionLength != uint16(len(p.tcpOptions)) {
 			log.WithFields(log.Fields{
 				"package":      "packet",
-				"error":        err,
+				"error":        err.Error(),
 				"optionLength": optionLength,
 				"dataLength":   dataLength,
-			}).Error("Not handling concat of options buffers")
+			}).Debug("Not handling concat of options buffers")
 
 			return fmt.Errorf("Not handling concat of options buffers")
 		}
@@ -425,10 +425,10 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
 		log.WithFields(log.Fields{
 			"package":      "packet",
-			"error":        err,
+			"error":        err.Error(),
 			"optionLength": optionLength,
 			"dataLength":   dataLength,
-		}).Error("TCP Data Detach failed")
+		}).Debug("TCP Data Detach failed")
 
 		return err
 	}
@@ -470,11 +470,10 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 
 	if p.TCPDataStartBytes() != p.IPTotalLength && optionLength != 0 {
 		log.WithFields(log.Fields{
-			"package":               "packet",
-			"optionLength":          optionLength,
-			"p.TCPDataStartBytes()": p.TCPDataStartBytes(),
-			"p.IPTotalLength":       p.IPTotalLength,
-		}).Error("Cannot insert options with existing data")
+			"package":         "packet",
+			"optionLength":    optionLength,
+			"p.IPTotalLength": p.IPTotalLength,
+		}).Debug("Cannot insert options with existing data")
 		return fmt.Errorf("Cannot insert options with existing data")
 	}
 
@@ -493,16 +492,14 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 
 	log.WithFields(log.Fields{
-		"package":    "packet",
-		"tcpOptions": tcpOptions,
-		"tcpData":    tcpData,
+		"package": "packet",
 	}).Debug("TCP data attach")
 
 	if err = p.tcpDataAttach(tcpOptions, tcpData); err != nil {
 		log.WithFields(log.Fields{
 			"package": "packet",
-			"error":   err,
-		}).Error("TCP Data Attach failed")
+			"error":   err.Error(),
+		}).Debug("TCP Data Attach failed")
 
 		return err
 	}

@@ -59,7 +59,7 @@ func NewDatapathEnforcer(
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
-			"error":   err,
+			"error":   err.Error(),
 		}).Fatal("Unable to create TokenEngine in enforcer")
 	}
 
@@ -81,13 +81,10 @@ func NewDatapathEnforcer(
 
 	if d.tokenEngine == nil {
 		log.WithFields(log.Fields{
-			"package":          "enforcer",
-			"datapathEnforcer": d,
+			"package": "enforcer",
 		}).Fatal("Unable to create enforcer")
 	}
-
 	return d
-
 }
 
 // NewDefaultDatapathEnforcer create a new data path with most things used by default
@@ -99,10 +96,8 @@ func NewDefaultDatapathEnforcer(
 
 	if collector == nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"serverID":  serverID,
-			"collector": collector,
-			"secrets":   secrets,
+			"package":  "enforcer",
+			"serverID": serverID,
 		}).Fatal("Collector must be given to NewDefaultDatapathEnforcer")
 	}
 
@@ -134,7 +129,6 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 	log.WithFields(log.Fields{
 		"package":   "enforcer",
 		"contextID": contextID,
-		"puInfo":    puInfo,
 	}).Debug("Enforce IP")
 
 	ip, err := d.contextTracker.Get(contextID)
@@ -159,13 +153,11 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 		log.WithFields(log.Fields{
 			"package":   "enforcer",
 			"contextID": contextID,
-			"puInfo":    puInfo,
-		}).Error("No Default IP for PU, not enforcing.")
-
+		}).Debug("No Default IP for PU, not enforcing.")
 		return fmt.Errorf("No Default IP for PU, not enforcing.")
 	}
-	//TODO: Add Check that IP is valid.
 
+	//TODO: Add Check that IP is valid.
 	receiverRules := createRuleDB(puInfo.Policy.ReceiverRules)
 	transmitterRules := createRuleDB(puInfo.Policy.TransmitterRules)
 
@@ -202,8 +194,8 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "enforcer",
 			"contextID": contextID,
-			"error":     err,
-		}).Error("IP not found in Enforcer when unenforce")
+			"error":     err.Error(),
+		}).Debug("IP not found in Enforcer when unenforce")
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}
 
@@ -214,9 +206,8 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "enforcer",
 			"contextID": contextID,
-			"error":     err,
-		}).Error("IP not found in Enforcer when unenforce")
-
+			"error":     err.Error(),
+		}).Debug("IP not found in Enforcer when unenforce")
 		return fmt.Errorf("IP not found in Enforcer")
 	}
 
@@ -243,7 +234,7 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 		if err != nil {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
-				"error":   err,
+				"error":   err.Error(),
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
 	}
@@ -287,7 +278,7 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 		if err != nil {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
-				"error":   err,
+				"error":   err.Error(),
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
 	}
@@ -308,7 +299,6 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) *
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-		"packet":  p,
 	}).Debug("process network packets from NFQ")
 
 	d.net.IncomingPackets++
@@ -325,9 +315,8 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) *
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
-			"packet":  p,
-			"error":   err,
-		}).Error("Error when processing network packets from NFQ")
+			"error":   err.Error(),
+		}).Debug("Error when processing network packets from NFQ")
 
 		return &netfilter.Verdict{
 			V:       netfilter.NfDrop,
@@ -351,7 +340,6 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-		"packet":  p,
 	}).Debug("process application packets from NFQ")
 
 	d.app.IncomingPackets++
@@ -370,9 +358,8 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
-			"packet":  p,
-			"error":   err,
-		}).Error("Error when processing application packets from NFQ")
+			"error":   err.Error(),
+		}).Debug("Error when processing application packets from NFQ")
 
 		return &netfilter.Verdict{
 			V:       netfilter.NfDrop,
@@ -396,7 +383,6 @@ func (d *datapathEnforcer) processNetworkPackets(p *packet.Packet) error {
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-		"packet":  p,
 	}).Debug("process network packets")
 
 	p.Print(packet.PacketStageIncoming)
@@ -409,9 +395,7 @@ func (d *datapathEnforcer) processNetworkPackets(p *packet.Packet) error {
 
 			log.WithFields(log.Fields{
 				"package": "enforcer",
-				"packet":  p,
-			}).Error("Pre service processing failed for network packet")
-
+			}).Debug("Pre service processing failed for network packet")
 			return fmt.Errorf("Pre service processing failed")
 		}
 	}
@@ -426,10 +410,8 @@ func (d *datapathEnforcer) processNetworkPackets(p *packet.Packet) error {
 
 		log.WithFields(log.Fields{
 			"package": "enforcer",
-			"packet":  p,
-			"error":   err,
-		}).Error("Service processing failed for network packet")
-
+			"error":   err.Error(),
+		}).Debug("Service processing failed for network packet")
 		return fmt.Errorf("Processing failed %v", err)
 	}
 
@@ -443,9 +425,7 @@ func (d *datapathEnforcer) processNetworkPackets(p *packet.Packet) error {
 
 			log.WithFields(log.Fields{
 				"package": "enforcer",
-				"packet":  p,
-			}).Error("Post service processing failed for network packet")
-
+			}).Debug("Post service processing failed for network packet")
 			return fmt.Errorf("Post service processing failed")
 		}
 	}
@@ -461,7 +441,6 @@ func (d *datapathEnforcer) processApplicationPackets(p *packet.Packet) error {
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-		"packet":  p,
 	}).Debug("process application packets")
 
 	if d.service != nil {
@@ -472,9 +451,7 @@ func (d *datapathEnforcer) processApplicationPackets(p *packet.Packet) error {
 
 			log.WithFields(log.Fields{
 				"package": "enforcer",
-				"packet":  p,
-			}).Error("Pre service processing failed for application packet")
-
+			}).Debug("Pre service processing failed for application packet")
 			return fmt.Errorf("Pre service processing failed")
 		}
 	}
@@ -489,10 +466,8 @@ func (d *datapathEnforcer) processApplicationPackets(p *packet.Packet) error {
 
 		log.WithFields(log.Fields{
 			"package": "enforcer",
-			"packet":  p,
-			"error":   err,
-		}).Error("Processing failed for application packet")
-
+			"error":   err.Error(),
+		}).Debug("Processing failed for application packet")
 		return fmt.Errorf("Processing failed %v", err)
 	}
 
@@ -506,9 +481,7 @@ func (d *datapathEnforcer) processApplicationPackets(p *packet.Packet) error {
 
 			log.WithFields(log.Fields{
 				"package": "enforcer",
-				"packet":  p,
-			}).Error("Post service processing failed for application packet")
-
+			}).Debug("Post service processing failed for application packet")
 			return fmt.Errorf("Post service processing failed")
 		}
 	}
@@ -587,8 +560,7 @@ func (d *datapathEnforcer) parsePacketToken(connection *Connection, data []byte)
 func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
+		"package": "enforcer",
 	}).Debug("process application syn packet")
 
 	var connection *Connection
@@ -598,11 +570,9 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"error":     cerr,
-		}).Error("Container not found for application syn packet")
-
+			"package": "enforcer",
+			"error":   cerr.Error(),
+		}).Debug("Container not found for application syn packet")
 		return nil, nil
 	}
 
@@ -611,8 +581,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 		connection = existing.(*Connection)
 	} else {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
+			"package": "enforcer",
 		}).Debug("Connection not found, creating new connection")
 		connection = NewConnection()
 	}
@@ -640,8 +609,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
+		"package": "enforcer",
 	}).Debug("process application syn ack packet")
 
 	// Find the container context
@@ -649,25 +617,20 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"error":     cerr,
-		}).Error("Container not found for application syn ack packet")
-
+			"package": "enforcer",
+			"error":   cerr.Error(),
+		}).Debug("Container not found for application syn ack packet")
 		return nil, nil
 	}
 
 	// Create the reverse hash since we have cached based on the SYN and
 	// Retrieve the connection context
 	connection, err := d.networkConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
-
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"error":     err,
-		}).Error("Connection not found for application syn ack packet")
-
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("Connection not found for application syn ack packet")
 		return nil, nil
 	}
 
@@ -693,11 +656,8 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	}
 
 	log.WithFields(log.Fields{
-		"package":    "enforcer",
-		"tcpPacket":  tcpPacket,
-		"connection": connection,
+		"package": "enforcer",
 	}).Error("Received SynACK in wrong state ")
-
 	return nil, fmt.Errorf("Received SynACK in wrong state ")
 }
 
@@ -716,7 +676,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 			"package":   "enforcer",
 			"tcpPacket": tcpPacket,
 			"error":     cerr,
-		}).Error("Container not found for application ack packet")
+		}).Debug("Container not found for application ack packet")
 		return nil, nil
 	}
 
@@ -728,8 +688,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 			"package":   "enforcer",
 			"tcpPacket": tcpPacket,
 			"error":     err,
-		}).Error("Connection not found for application ack packet")
-
+		}).Debug("Connection not found for application ack packet")
 		return nil, nil
 	}
 
@@ -750,7 +709,6 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 				"connection":  connection,
 				"ackSize":     int(d.ackSize),
 			}).Error("Protocol error for application ack packet")
-
 			return nil, fmt.Errorf("Protocol Error %d", len(token))
 		}
 
@@ -774,11 +732,8 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	}
 
 	log.WithFields(log.Fields{
-		"package":    "enforcer",
-		"tcpPacket":  tcpPacket,
-		"connection": connection,
-	}).Error("Received application ACK packet in the wrong state")
-
+		"package": "enforcer",
+	}).Debug("Received application ACK packet in the wrong state")
 	return nil, fmt.Errorf("Received application ACK packet in the wrong state! %v", connection.(*Connection).State)
 }
 
@@ -814,9 +769,7 @@ func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet)
 func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
 	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-		"context":   context,
+		"package": "enforcer",
 	}).Debug("Process network Syn packet")
 
 	var connection *Connection
@@ -841,12 +794,9 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"context":   context,
-			"claims":    claims,
-			"error":     err,
-		}).Error("Syn packet dropped because of invalid token")
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("Syn packet dropped because of invalid token")
 
 		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidToken, "", tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
@@ -854,12 +804,9 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"context":   context,
-			"claims":    claims,
-			"error":     err,
-		}).Error("TCP Authentication Option not found")
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("TCP Authentication Option not found")
 
 		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found %v", err)
@@ -872,12 +819,9 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"context":   context,
-			"claims":    claims,
-			"error":     err,
-		}).Error("Syn packet dropped because of invalid format")
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("Syn packet dropped because of invalid format")
 
 		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
@@ -912,21 +856,15 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 	// Reject all other connections
 	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-		"context":   context,
-		"claims":    claims,
-	}).Error("Syn packet - no matched tags - reject")
-
+		"package": "enforcer",
+	}).Debug("Syn packet - no matched tags - reject")
 	return nil, fmt.Errorf("No matched tags - reject %+v", claims.T)
 }
 
 func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
 	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-		"context":   context,
+		"package": "enforcer",
 	}).Debug("Process network Syn Ack packet")
 
 	// First we need to receover our state of the connection. If we don't have any state
@@ -936,10 +874,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"context":   context,
-		}).Error("SynAck packet dropped because of missing token.")
+			"package": "enforcer",
+		}).Debug("SynAck packet dropped because of missing token.")
 
 		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.MissingToken, "", tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of missing token.")
@@ -949,11 +885,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	claims, cert := d.tokenEngine.Decode(false, tcpData, nil)
 	if claims == nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"claims":    claims,
-			"context":   context,
-		}).Error("Synack  packet dropped because of bad claims")
+			"package": "enforcer",
+		}).Debug("Synack  packet dropped because of bad claims")
 
 		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.MissingToken, "", tcpPacket)
 		return nil, fmt.Errorf("Synack  packet dropped because of bad claims %v", claims)
@@ -963,11 +896,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	remoteContextID, ok := claims.T[TransmitterLabel]
 	if !ok {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"claims":    claims,
-			"context":   context,
-		}).Error("Synack, no remote context for the claims")
+			"package": "enforcer",
+		}).Debug("Synack, no remote context for the claims")
 		return nil, fmt.Errorf("No remote context %v", claims.T)
 	}
 
@@ -975,11 +905,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	if err != nil {
 		d.contextConnectionTracker.DumpStore()
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"claims":    claims,
-			"context":   context,
-		}).Error("Synack, no connection found for the claims")
+			"package": "enforcer",
+		}).Debug("Synack, no connection found for the claims")
 		return nil, fmt.Errorf("No connection found for %v", claims.RMT)
 	}
 
@@ -989,12 +916,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
-			"package":    "enforcer",
-			"tcpPacket":  tcpPacket,
-			"claims":     claims,
-			"connection": connection,
-			"context":    context,
-		}).Error("Synack, TCP Authentication Option not found")
+			"package": "enforcer",
+		}).Debug("Synack, TCP Authentication Option not found")
 
 		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
@@ -1007,12 +930,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
-			"package":    "enforcer",
-			"tcpPacket":  tcpPacket,
-			"claims":     claims,
-			"connection": connection,
-			"context":    context,
-		}).Error("SynAck packet dropped because of invalid format")
+			"package": "enforcer",
+		}).Debug("SynAck packet dropped because of invalid format")
 		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
@@ -1030,11 +949,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	}
 
 	log.WithFields(log.Fields{
-		"package":    "enforcer",
-		"tcpPacket":  tcpPacket,
-		"claims":     claims,
-		"connection": connection,
-		"context":    context,
+		"package": "enforcer",
 	}).Error("Dropping packet SYNACK at the network")
 
 	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, claims.T[TransmitterLabel], tcpPacket)
@@ -1044,9 +959,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
 	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-		"context":   context,
+		"package": "enforcer",
 	}).Debug("Process network Ack packet")
 
 	// Retrieve connection context
@@ -1055,13 +968,8 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"context":   context,
+			"package": "enforcer",
 		}).Debug("Ignore the packet")
-		// IGNORE THIS PACKET
-		// glog.V(2).Infoln("No context found for this packet")
-		// d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidState, "", tcpPacket)
 		return nil, nil
 	}
 
@@ -1070,10 +978,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 			log.WithFields(log.Fields{
-				"package":    "enforcer",
-				"tcpPacket":  tcpPacket,
-				"error":      err,
-				"connection": connection,
+				"package": "enforcer",
 			}).Error("TCP Authentication Option not found")
 
 			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
@@ -1082,10 +987,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		if _, err := d.parseAckToken(connection.(*Connection), tcpPacket.ReadTCPData()); err != nil {
 			log.WithFields(log.Fields{
-				"package":    "enforcer",
-				"tcpPacket":  tcpPacket,
-				"error":      err,
-				"connection": connection,
+				"package": "enforcer",
 			}).Error("Ack packet dropped because singature validation failed")
 
 			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
@@ -1099,10 +1001,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		if err != nil {
 			log.WithFields(log.Fields{
-				"package":    "enforcer",
-				"tcpPacket":  tcpPacket,
-				"error":      err,
-				"connection": connection,
+				"package": "enforcer",
 			}).Error("Ack packet dropped because of invalid format")
 			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because of invalid format %v", err)
@@ -1114,9 +1013,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		// Delete the state
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"context":   context,
+			"package": "enforcer",
 		}).Debug("processApplicationAckPacket() Connection Removed")
 
 		d.networkConnectionTracker.Remove(hash)
@@ -1144,8 +1041,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
+		"package": "enforcer",
 	}).Debug("Process network TCP packet")
 
 	// Lookup the policy rules for the packet - Return false if they don't exist
@@ -1153,10 +1049,9 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"tcpPacket": tcpPacket,
-			"error":     err,
-		}).Error("Failed to retrieve context for this packet")
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("Failed to retrieve context for this packet")
 		return nil, fmt.Errorf("Context not found for container %s %v", tcpPacket.DestinationAddress.String(), d.puTracker)
 	}
 

@@ -47,8 +47,8 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "crypto",
-			"error":   err,
-		}).Error("GenerateRandomBytes failed")
+			"error":   err.Error(),
+		}).Debug("GenerateRandomBytes failed")
 		return nil, err
 	}
 
@@ -74,9 +74,8 @@ func CreateEphemeralKey(curve func() elliptic.Curve, pub *ecdsa.PublicKey) (*ecd
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "crypto",
-			"error":   err,
-		}).Error("CreateEphemeralKey failed, returning empty array of bytes")
-
+			"error":   err.Error(),
+		}).Debug("CreateEphemeralKey failed, returning empty array of bytes")
 		return nil, []byte{}
 	}
 
@@ -112,7 +111,6 @@ func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
 	if block == nil {
 		log.WithFields(log.Fields{
 			"package": "crypto",
-			"keyPEM":  keyPEM,
 		}).Debug("Failed to Parse PEM block")
 		return nil, fmt.Errorf("Failed to Parse PEM block")
 	}
@@ -123,7 +121,6 @@ func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "crypto",
-			"block":   block,
 		}).Debug("ParseECPrivateKey failed")
 		return nil, err
 	}
@@ -140,7 +137,6 @@ func LoadAndVerifyCertificate(certPEM []byte, roots *x509.CertPool) (*x509.Certi
 	if certBlock == nil {
 		log.WithFields(log.Fields{
 			"package": "crypto",
-			"certPEM": certPEM,
 		}).Debug("Failed to decode PEM block")
 		return nil, fmt.Errorf("Failed to decode PEM block")
 	}
@@ -149,9 +145,8 @@ func LoadAndVerifyCertificate(certPEM []byte, roots *x509.CertPool) (*x509.Certi
 	cert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":   "crypto",
-			"certBlock": certBlock,
-			"error":     err,
+			"package": "crypto",
+			"error":   err.Error(),
 		}).Debug("Failed to ParseCertificate")
 		return nil, err
 	}
@@ -162,10 +157,8 @@ func LoadAndVerifyCertificate(certPEM []byte, roots *x509.CertPool) (*x509.Certi
 
 	if _, err := cert.Verify(opts); err != nil {
 		log.WithFields(log.Fields{
-			"package":     "crypto",
-			"certBlock":   certBlock,
-			"error":       err,
-			"certificate": cert,
+			"package": "crypto",
+			"error":   err.Error(),
 		}).Debug("Failed to verify the option for the certificate ")
 		return nil, err
 	}
@@ -183,30 +176,17 @@ func LoadAndVerifyECSecrets(keyPEM, certPEM, caCertPEM []byte) (key *ecdsa.Priva
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "crypto",
-			"keyPEM":  keyPEM,
-			"error":   err,
 		}).Debug("Failed to LoadEllipticCurveKey")
 		return nil, nil, nil, err
 	}
 
 	rootCertPool = LoadRootCertificates(caCertPEM)
 	if rootCertPool == nil {
-		log.WithFields(log.Fields{
-			"package":   "crypto",
-			"caCertPEM": caCertPEM,
-			"error":     err,
-		}).Debug("Failed to LoadRootCertificates")
 		return nil, nil, nil, fmt.Errorf("Failed to load root certificate pool")
 	}
 
 	cert, err = LoadAndVerifyCertificate(certPEM, rootCertPool)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package":      "crypto",
-			"caCertPEM":    certPEM,
-			"rootCertPool": rootCertPool,
-			"error":        err,
-		}).Debug("Failed to LoadAndVerifyCertificate")
 		return nil, nil, nil, err
 	}
 

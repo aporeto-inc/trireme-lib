@@ -122,12 +122,6 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 		return nil
 	}
 
-	log.WithFields(log.Fields{
-		"package": "cache",
-		"cache":   c,
-		"data":    u,
-	}).Debug("Item exist, use update of the cahce")
-
 	return fmt.Errorf("Item Exists - Use update")
 }
 
@@ -144,12 +138,6 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 		}
 		return nil
 	}
-
-	log.WithFields(log.Fields{
-		"package": "cache",
-		"cache":   c,
-		"data":    u,
-	}).Debug("Item not found in Update")
 
 	return fmt.Errorf("Cannot update item - it doesn't exist")
 }
@@ -173,11 +161,7 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 	defer c.Unlock()
 
 	if _, ok := c.data[u]; !ok {
-		log.WithFields(log.Fields{
-			"package": "cache",
-			"cache":   c,
-			"data":    u,
-		}).Debug("Item not found in Get")
+
 		return nil, fmt.Errorf("Item does not exist.")
 	}
 
@@ -191,11 +175,7 @@ func (c *Cache) Remove(u interface{}) (err error) {
 
 	val, ok := c.data[u]
 	if !ok {
-		log.WithFields(log.Fields{
-			"package": "cache",
-			"cache":   c,
-			"data":    u,
-		}).Debug("Item not found in Remove")
+
 		return fmt.Errorf("Item does not exist")
 	}
 
@@ -238,11 +218,7 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 	e, ok := c.data[u]
 
 	if !ok {
-		log.WithFields(log.Fields{
-			"package": "cache",
-			"cache":   c,
-			"data":    u,
-		}).Debug("Item not found in LockedModify")
+
 		return nil, fmt.Errorf("Item not found")
 	}
 
