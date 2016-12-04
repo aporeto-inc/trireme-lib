@@ -91,6 +91,7 @@ func NewDatapathEnforcer(
 func NewDefaultDatapathEnforcer(
 	serverID string,
 	collector collector.EventCollector,
+	service PacketProcessor,
 	secrets tokens.Secrets,
 ) PolicyEnforcer {
 
@@ -117,7 +118,7 @@ func NewDefaultDatapathEnforcer(
 		mutualAuthorization,
 		fqConfig,
 		collector,
-		nil,
+		service,
 		secrets,
 		serverID,
 		validity,

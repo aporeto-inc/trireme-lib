@@ -352,7 +352,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint
 		"tcpDataLength":    len(p.tcpData),
 		"optionLength":     optionLength,
 		"tcpOptionsLength": len(p.tcpOptions),
-	}).Info("Fixup TCP Hdr On TCP Data Detach")
+	}).Debug("Fixup TCP Hdr On TCP Data Detach")
 
 	// Update TCP checksum
 	a := uint32(-p.TCPChecksum) - p.computeTCPChecksumDelta(p.tcpOptions[:optionLength], optionLength, p.tcpData[:dataLength], dataLength)
@@ -448,7 +448,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 		"package":   "packet",
 		"Flags":     p.TCPFlags,
 		"newLength": p.IPTotalLength - p.TCPDataStartBytes(),
-	}).Info("Fixup TCP Hdr On TCP Data Attach")
+	}).Debug("Fixup TCP Hdr On TCP Data Attach")
 
 	numberOfOptions := len(tcpOptions) / 4
 	// TCP checksum fixup. Start with old checksum
