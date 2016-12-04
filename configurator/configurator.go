@@ -35,6 +35,9 @@ func NewTriremeWithDockerMonitor(
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
+		log.WithFields(log.Fields{
+			"package": "configurator",
+		}).Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
