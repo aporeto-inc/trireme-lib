@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/golang/glog"
 )
 

@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/golang/glog"
 )
