@@ -10,6 +10,8 @@ type Connection struct {
 	LocalContextID  string
 	RemoteContextID string
 	RemotePublicKey interface{}
+	RemoteIP        string
+	RemotePort      string
 }
 
 // NewConnection creates the state information for a new connection

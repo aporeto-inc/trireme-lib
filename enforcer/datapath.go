@@ -28,10 +28,14 @@ type datapathEnforcer struct {
 	service             PacketProcessor
 
 	// Internal structures and caches
-	contextTracker           cache.DataStore
-	puTracker                cache.DataStore
+	// Key=ContextId Value=ContainerIP
+	contextTracker cache.DataStore
+	puTracker      cache.DataStore
+	// Key=FlowHash Value=Connection. Created on syn packet from network with regular flow hash
 	networkConnectionTracker cache.DataStore
-	appConnectionTracker     cache.DataStore
+	// Key=FlowHash Value=Connection. Created on syn packet from application with regular flow hash
+	appConnectionTracker cache.DataStore
+	// Key=Context Value=Connection. Create on syn packet from application with local context-id
 	contextConnectionTracker cache.DataStore
 
 	// stats
@@ -581,10 +585,14 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	if err == nil {
 		connection = existing.(*Connection)
 	} else {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Debug("Connection not found, creating new connection")
 		connection = NewConnection()
+		connection.RemoteIP = tcpPacket.DestinationAddress.String()
+		connection.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
+		log.WithFields(log.Fields{
+			"package":    "enforcer",
+			"remoteip":   connection.RemoteIP,
+			"remoteport": connection.RemotePort,
+		}).Debug("Connection not found, creating new connection")
 	}
 
 	// Create TCP Option
@@ -910,6 +918,9 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		}).Debug("Synack, no connection found for the claims")
 		return nil, fmt.Errorf("No connection found for %v", claims.RMT)
 	}
+
+	// Stash connection
+	tcpPacket.ConnectionMetadata = connection.(*Connection)
 
 	connection.(*Connection).RemotePublicKey = cert
 	connection.(*Connection).RemoteContext = claims.LCL

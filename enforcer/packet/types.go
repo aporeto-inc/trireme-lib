@@ -131,4 +131,6 @@ type Packet struct {
 
 	// Service Metadata
 	SvcMetadata interface{}
+	// Connection Metadata
+	ConnectionMetadata interface{}
 }
