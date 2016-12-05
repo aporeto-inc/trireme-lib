@@ -2,7 +2,6 @@ package ProcessMon
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -10,7 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcWrapper"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 )
 
 const (
@@ -24,19 +23,10 @@ type ProcessMon struct {
 
 var launcher *ProcessMon
 
-//ProcInitInfo exported
-type ProcInitInfo struct {
-	EnforcerInfo  interface{}
-	SupevisorInfo interface{}
-}
-
-//RemoteInitInfo exported
-//var RemoteInitInfo = new(ProceInitInfo)
-
 //ProcessInfo exported
 type processInfo struct {
 	contextID string
-	RPCHdl    *rpcWrapper.RPCHdl
+	RPCHdl    rpcWrapper.RPCClient
 	process   *os.Process
 	deleted   bool
 }
@@ -83,16 +73,17 @@ func (p *ProcessMon) GetExitStatus(contextID string) bool {
 }
 
 //SetExitStatus exported
-func (p *ProcessMon) SetExitStatus(contextID string, status bool) {
+func (p *ProcessMon) SetExitStatus(contextID string, status bool) error {
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
 			"error": err}).Error("Process already dead")
-		return
+		return err
 	}
 	val := s.(*processInfo)
 	val.deleted = status
 	p.activeProcesses.AddOrUpdate(contextID, val)
+	return nil
 }
 
 //KillProcess exported
@@ -106,11 +97,11 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	req := new(rpcWrapper.Request)
 	resp := new(rpcWrapper.Response)
 	req.Payload = s.(*processInfo).process.Pid
-	err = rpcWrapper.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
+	err = s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
 	if err != nil {
 		s.(*processInfo).process.Kill()
 	}
-	os.Remove(s.(*processInfo).RPCHdl.Channel)
+	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
 	os.Remove("/var/run/netns/" + contextID)
 	p.activeProcesses.Remove(contextID)
 
@@ -133,7 +124,7 @@ func collectChildExitStatus() {
 }
 
 //LaunchProcess exported
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapper.RPCClient) error {
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
 		return nil
@@ -147,11 +138,12 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int) error {
 
 		}
 	}
+
 	linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
 		"/var/run/netns/"+contextID)
 	if linkErr != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon", "error": linkErr}).Error(ErrSymLinkFailed)
-		return ErrSymLinkFailed
+		return linkErr
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
 
@@ -166,48 +158,30 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int) error {
 		log.WithFields(log.Fields{"package": "ProcessMon",
 			"error": err,
 			"PATH":  cmdName}).Error("Enforcer Binary not present in expected location")
+		//Cleanup resources
+		os.Remove("/var/run/netns/" + contextID)
 		return ErrBinaryNotFound
 	}
 	go processMonWait(cmd, contextID)
 	go io.Copy(os.Stdout, stdout)
 	go io.Copy(os.Stderr, stderr)
-	rpcHdl := rpcWrapper.NewRPCClient(contextID, "/tmp/"+strconv.Itoa(refPid)+".sock")
+	rpchdl.NewRPCClient(contextID, "/tmp/"+strconv.Itoa(refPid)+".sock")
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
 		process: cmd.Process,
-		RPCHdl:  rpcHdl,
+		RPCHdl:  rpchdl,
 		deleted: false})
 
 	return nil
 }
 
-//SetRPCClient exported
-func (p *ProcessMon) SetRPCClient(contextID string, client *rpcWrapper.RPCHdl) error {
-	val, err := p.activeProcesses.Get(contextID)
-	if err == nil {
-		val.(*processInfo).RPCHdl = client
-		p.activeProcesses.AddOrUpdate(contextID, val)
-	}
-	return fmt.Errorf("Process in that context does not exist")
-}
-
-//GetProcessHdl exported
-func (p *ProcessMon) GetProcessHdl(contextID string) (*os.Process, error) {
-	val, err := p.activeProcesses.Get(contextID)
-	if err == nil {
-		return val.(*processInfo).process, err
-
-	}
-	return nil, fmt.Errorf("Process in that context does not exist")
-}
-
 //NewProcessMon exported
-func NewProcessMon() *ProcessMon {
+func NewProcessMon() ProcessManager {
 	launcher = &ProcessMon{activeProcesses: cache.NewCache(nil)}
 	return launcher
 }
 
 //GetProcessMonHdl exported
-func GetProcessMonHdl() *ProcessMon {
+func GetProcessMonHdl() ProcessManager {
 	if launcher == nil {
 		return NewProcessMon()
 	}

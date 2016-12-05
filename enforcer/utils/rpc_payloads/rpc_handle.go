@@ -23,12 +23,20 @@ type RPCHdl struct {
 	Channel string
 }
 
-var rpcClientMap = cache.NewCache(nil)
+type RPCWrapper struct {
+	rpcClientMap *cache.Cache
+}
+
+func NewRPCWrapper() *RPCWrapper {
+	rpcWrapper := new(RPCWrapper)
+	rpcWrapper.rpcClientMap = cache.NewCache(nil)
+	return rpcWrapper
+}
 
 //NewRPCClient exported
 //Will worry about locking later ... there is a small case where two callers
 //call NewRPCClient from a different thread
-func NewRPCClient(contextID string, channel string) *RPCHdl {
+func (r *RPCWrapper) NewRPCClient(contextID string, channel string) {
 	//establish new connection to context/container
 	RegisterTypes()
 	client, err := rpc.DialHTTP("unix", channel)
@@ -37,13 +45,14 @@ func NewRPCClient(contextID string, channel string) *RPCHdl {
 		err = nil
 		client, err = rpc.DialHTTP("unix", channel)
 	}
-	rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel})
-	return &RPCHdl{Client: client, Channel: channel}
+
+	r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel})
+	return
 }
 
 //GetRPCClient exported
-func GetRPCClient(contextID string) (*RPCHdl, error) {
-	val, err := rpcClientMap.Get(contextID)
+func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
+	val, err := r.rpcClientMap.Get(contextID)
 	if err == nil {
 		return val.(*RPCHdl), err
 	}
@@ -56,13 +65,13 @@ func getsharedKey() []byte {
 }
 
 //RemoteCall exported
-func RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
+func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
 	var rpcBuf bytes.Buffer
 	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
 	digest := hmac.New(sha256.New, getsharedKey())
 	digest.Write(rpcBuf.Bytes())
 	req.HashAuth = digest.Sum(nil)
-	rpcClient, err := GetRPCClient(contextID)
+	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
 		fmt.Println("Cant find rpc handle")
 		return err
@@ -72,16 +81,19 @@ func RemoteCall(contextID string, methodName string, req *Request, resp *Respons
 }
 
 //CheckValidity exported
-func CheckValidity(req *Request) bool {
+func (r *RPCWrapper) CheckValidity(req *Request) bool {
 	var rpcBuf bytes.Buffer
 	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
 	digest := hmac.New(sha256.New, getsharedKey())
 	digest.Write(rpcBuf.Bytes())
 	return hmac.Equal(req.HashAuth, digest.Sum(nil))
 }
+func NewRPCServer() RPCServer {
+	return new(RPCWrapper)
+}
 
 //StartServer exported
-func StartServer(protocol string, path string, handler interface{}) error {
+func (r *RPCWrapper) StartServer(protocol string, path string, handler interface{}) error {
 	RegisterTypes()
 	rpc.Register(handler)
 	rpc.HandleHTTP()
@@ -106,6 +118,16 @@ func StartServer(protocol string, path string, handler interface{}) error {
 		os.Remove(path)
 	}
 	return nil
+}
+
+func (r *RPCWrapper) DestroyRPCClient(contextID string) {
+	rpcHdl, _ := r.rpcClientMap.Get(contextID)
+	rpcHdl.(*RPCHdl).Client.Close()
+	os.Remove(rpcHdl.(*RPCHdl).Channel)
+}
+
+func (r *RPCWrapper) ProcessMessage(req *Request) bool {
+	return r.CheckValidity(req)
 }
 
 //RegisterTypes exported

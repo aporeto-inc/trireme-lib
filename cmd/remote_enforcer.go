@@ -12,7 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcWrapper"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -47,7 +47,8 @@ type Server struct {
 	CAPEM      []byte
 	PublicPEM  []byte
 	PrivatePEM []byte
-
+	rpcchannel string
+	rpchdl     *rpcWrapper.RPCWrapper
 	Enforcer   enforcer.PolicyEnforcer
 	Collector  collector.EventCollector
 	Supervisor supervisor.Supervisor
@@ -58,7 +59,7 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 
 	collector := new(CollectorImpl)
 	s.Collector = collector
-	if !rpcWrapper.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
@@ -82,7 +83,7 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 //InitSupervisor exported
 func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
 
-	if !rpcWrapper.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
@@ -104,7 +105,7 @@ func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Respons
 
 //Supervise exported
 func (s *Server) Supervise(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
-	if !rpcWrapper.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
@@ -122,7 +123,7 @@ func (s *Server) Supervise(req rpcWrapper.Request, resp *rpcWrapper.Response) er
 
 //Unenforce exported
 func (s *Server) Unenforce(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
-	if !rpcWrapper.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
@@ -133,7 +134,7 @@ func (s *Server) Unenforce(req rpcWrapper.Request, resp *rpcWrapper.Response) er
 
 //Unsupervise exported
 func (s *Server) Unsupervise(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
-	if !rpcWrapper.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
@@ -143,7 +144,7 @@ func (s *Server) Unsupervise(req rpcWrapper.Request, resp *rpcWrapper.Response) 
 
 //Enforce exported
 func (s *Server) Enforce(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
-	if !rpcWrapper.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
@@ -171,7 +172,10 @@ func main() {
 	log.SetFormatter(&log.TextFormatter{})
 	namedPipe := os.Getenv("SOCKET_PATH")
 	server := new(Server)
-	err := rpcWrapper.StartServer("unix", namedPipe, server)
+	rpchdl := rpcWrapper.NewRPCServer()
+	//Map not initialized here since we don't use it on the server
+	server.rpcchannel = namedPipe
+	err := rpchdl.StartServer("unix", namedPipe, server)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(-1)

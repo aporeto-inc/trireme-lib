@@ -8,7 +8,8 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcWrapper"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
+
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/remote/launch"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -24,14 +25,12 @@ type RemoteSupervisorHandle struct {
 	applicationQueues string
 	targetNetworks    []string
 	ExcludedIP        []string
-	prochdl           *ProcessMon.ProcessMon
-	remote            bool
+	prochdl           ProcessMon.ProcessManager
+	rpchdl            rpcWrapper.RPCClient
 }
 
 //Supervise exported
 func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUInfo) error {
-	//Launched process
-	//Initialize the RPC client
 
 	err := s.InitRemoteSupervisor(contextID, puInfo)
 	if err != nil {
@@ -44,7 +43,7 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 	payload.PuPolicy = puInfo.Policy
 	req.Payload = payload
 	gob.Register(rpcWrapper.SuperviseRequestPayload{})
-	return rpcWrapper.RemoteCall(contextID, "Server.Supervise", req, response)
+	return s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, response)
 
 }
 
@@ -56,7 +55,7 @@ func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
 	payload.ContextID = contextID
 	request.Payload = payload
 	gob.Register(rpcWrapper.UnSupervisePayload{})
-	rpcWrapper.RemoteCall(contextID, "Server.Unsupervise", request, unenfresp)
+	s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, unenfresp)
 	if s.prochdl.GetExitStatus(contextID) == false {
 		//Unsupervise not called yet
 		s.prochdl.SetExitStatus(contextID, true)
@@ -78,7 +77,7 @@ func (s *RemoteSupervisorHandle) Stop() error {
 }
 
 //NewIPTablesSupervisor exported
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string, remote bool) (supervisor.Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string, rpchdl rpcWrapper.RPCClient) (supervisor.Supervisor, error) {
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
@@ -95,7 +94,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
 		prochdl:           ProcessMon.GetProcessMonHdl(),
-		remote:            remote,
+		rpchdl:            rpchdl,
 	}
 
 	s.ipt = iptablesProvider
@@ -115,7 +114,7 @@ func (s *RemoteSupervisorHandle) InitRemoteSupervisor(contextID string, puInfo *
 	payload.TargetNetworks = s.targetNetworks
 	request.Payload = payload
 	gob.Register(rpcWrapper.InitSupervisorPayload{})
-	return rpcWrapper.RemoteCall(contextID, "Server.InitSupervisor", request, response)
+	return s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, response)
 
 }
 

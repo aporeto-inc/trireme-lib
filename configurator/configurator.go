@@ -15,6 +15,7 @@ import (
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
 
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
@@ -54,8 +55,9 @@ func NewTriremeWithDockerMonitor(
 	}
 	if remoteEnforcer {
 		//processmonitor := ProcessMon.NewProcessMon()
-		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, true)
+		rpcwrapper := rpcWrapper.NewRPCWrapper()
+		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
+		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, rpcwrapper)
 		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)

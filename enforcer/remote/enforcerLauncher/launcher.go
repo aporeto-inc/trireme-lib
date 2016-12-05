@@ -6,13 +6,12 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcWrapper"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/remote/launch"
@@ -30,22 +29,19 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 // ErrInitFailed exported
 var ErrInitFailed = errors.New("Failed remote Init")
 
-type enforcerInitValue struct {
-	process    *os.Process
-	client     *rpcWrapper.RPCHdl
-	socketPath string
-}
 type launcherState struct {
 	MutualAuth bool
 	Secrets    tokens.Secrets
 	serverID   string
 	validity   time.Duration
-	prochdl    *ProcessMon.ProcessMon
+	prochdl    ProcessMon.ProcessManager
+	rpchdl     rpcWrapper.RPCClient
 }
 
 func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUInfo) error {
 	payload := new(rpcWrapper.InitRequestPayload)
 	request := new(rpcWrapper.Request)
+
 	resp := new(rpcWrapper.Response)
 
 	payload.MutualAuth = s.MutualAuth
@@ -61,7 +57,7 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 
 	request.Payload = payload
 	gob.Register(rpcWrapper.InitRequestPayload{})
-	err := rpcWrapper.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
+	err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -74,7 +70,7 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 
 }
 func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid())
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl)
 	if err != nil {
 		return err
 	}
@@ -88,7 +84,7 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	enfReq.PuPolicy = puInfo.Policy
 	request.Payload = enfReq
 	gob.Register(rpcWrapper.EnforcePayload{})
-	err = rpcWrapper.RemoteCall(contextID, "Server.Enforce", request, enfResp)
+	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, enfResp)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcerLauncher",
@@ -100,11 +96,12 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 // Unenforce stops enforcing policy for the given IP.
 func (s *launcherState) Unenforce(contextID string) error {
-	rpcClient, _ := rpcWrapper.GetRPCClient(contextID)
-	unenfreq := new(rpcWrapper.UnEnforcePayload)
-	unenfresp := new(rpcWrapper.UnEnforceResponsePayload)
-	unenfreq.ContextID = contextID
-	rpcClient.Client.Call("Server.Unenforce", unenfreq, unenfresp)
+	request := new(rpcWrapper.Request)
+	payload := new(rpcWrapper.UnEnforcePayload)
+	unenfresp := new(rpcWrapper.Response)
+	payload.ContextID = contextID
+	request.Payload = payload
+	s.rpchdl.RemoteCall(contextID, "Server.Unenforce", request, unenfresp)
 	if s.prochdl.GetExitStatus(contextID) == false {
 		s.prochdl.SetExitStatus(contextID, true)
 	} else {
@@ -148,6 +145,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 	secrets tokens.Secrets,
 	serverID string,
 	validity time.Duration,
+	rpchdl rpcWrapper.RPCClient,
 ) enforcer.PolicyEnforcer {
 	launcher := &launcherState{
 		MutualAuth: mutualAuth,
@@ -155,7 +153,9 @@ func NewDatapathEnforcer(mutualAuth bool,
 		serverID:   serverID,
 		validity:   validity,
 		prochdl:    ProcessMon.GetProcessMonHdl(),
+		rpchdl:     rpchdl,
 	}
+
 	return launcher
 }
 
@@ -163,7 +163,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 func NewDefaultDatapathEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
-) enforcer.PolicyEnforcer {
+	rpchdl *rpcWrapper.RPCWrapper) enforcer.PolicyEnforcer {
 	mutualAuthorization := false
 	fqConfig := &enforcer.FilterQueue{
 		NetworkQueue:              enforcer.DefaultNetworkQueue,
@@ -183,5 +183,5 @@ func NewDefaultDatapathEnforcer(serverID string,
 		secrets,
 		serverID,
 		validity,
-	)
+		rpchdl)
 }
