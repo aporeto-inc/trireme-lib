@@ -41,6 +41,9 @@ func NewTriremeWithDockerMonitor(
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
+		log.WithFields(log.Fields{
+			"package": "configurator",
+		}).Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -50,7 +53,7 @@ func NewTriremeWithDockerMonitor(
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
-			"error":   err,
+			"error":   err.Error(),
 		}).Fatal("Failed to load Go-Iptables")
 	}
 	if remoteEnforcer {
@@ -64,10 +67,10 @@ func NewTriremeWithDockerMonitor(
 	}
 
 	// Make sure that the iptables command is accessible. Panic if its not there.
-	ips := provider.NewGoIPsetProvider()
 
-	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks, false)
+	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets)
+	IPTsupervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, false)
+
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)

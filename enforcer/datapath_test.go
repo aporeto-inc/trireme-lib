@@ -56,7 +56,7 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, secret).(*datapathEnforcer)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret).(*datapathEnforcer)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
@@ -81,7 +81,7 @@ func TestInvalidIPContext(t *testing.T) {
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, secret).(*datapathEnforcer)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret).(*datapathEnforcer)
 		enforcer.Enforce("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
@@ -111,7 +111,7 @@ func TestInvalidTokenContext(t *testing.T) {
 		ip["bridge"] = "164.67.228.152"
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, secret).(*datapathEnforcer)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret).(*datapathEnforcer)
 		enforcer.Enforce("SomeServerId", puInfo)
 		tcpPacket, err := packet.New(0, TCPFlow[0])
 
@@ -158,7 +158,7 @@ func TestPacketHandling(t *testing.T) {
 			puInfo1.Runtime.SetIPAddresses(ip1)
 			puInfo1.Policy.PolicyIPs = []string{"164.67.228.152"}
 			puInfo1.Policy.PolicyTags[TransmitterLabel] = "value"
-			puInfo1.Policy.Rules = append(puInfo1.Policy.Rules, tagSelector)
+			puInfo1.Policy.ReceiverRules = append(puInfo1.Policy.ReceiverRules, tagSelector)
 
 			// Create processing unit 2
 			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2")
@@ -167,12 +167,12 @@ func TestPacketHandling(t *testing.T) {
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			puInfo2.Policy.PolicyIPs = []string{"10.1.10.76"}
 			puInfo2.Policy.PolicyTags[TransmitterLabel] = "value"
-			puInfo1.Policy.Rules = append(puInfo1.Policy.Rules, tagSelector)
+			puInfo1.Policy.ReceiverRules = append(puInfo1.Policy.ReceiverRules, tagSelector)
 
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
 			collector := &collector.DefaultCollector{}
-			enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, secret).(*datapathEnforcer)
+			enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret).(*datapathEnforcer)
 			enforcer.Enforce("SomeProcessingUnitId1", puInfo1)
 			enforcer.Enforce("SomeProcessingUnitId2", puInfo2)
 
@@ -258,7 +258,7 @@ func TestCacheState(t *testing.T) {
 
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 	collector := &collector.DefaultCollector{}
-	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, secret).(*datapathEnforcer)
+	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret).(*datapathEnforcer)
 	contextID := "123"
 
 	puInfo := policy.NewPUInfo(contextID)

@@ -62,7 +62,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	// Police the container
 	containerPolicyInfo.TriremeAction = policy.Police
 
-	for i, selector := range containerPolicyInfo.Rules {
+	for i, selector := range containerPolicyInfo.ReceiverRules {
 		for _, clause := range selector.Clause {
 			log.Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
 		}
@@ -103,7 +103,7 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 			Action: policy.Accept,
 		}
 
-		containerPolicyInfo.Rules = append(containerPolicyInfo.Rules, selector)
+		containerPolicyInfo.ReceiverRules = append(containerPolicyInfo.ReceiverRules, selector)
 	}
 	return containerPolicyInfo
 

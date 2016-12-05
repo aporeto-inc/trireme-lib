@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/golang/glog"
 )
@@ -57,6 +58,11 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 	if p.CertificateCache != nil {
 		cert, ok := p.CertificateCache[server]
 		if !ok {
+			log.WithFields(log.Fields{
+				"package": "netfilter",
+				"server":  server,
+			}).Debug("No certificate in cache for server")
+
 			return nil, fmt.Errorf("No certificate in cache for server %s", server)
 		}
 		return cert, nil

@@ -33,21 +33,21 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	if collector == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Error("Collector cannot be nil in NewIPSetSupervisor")
+		}).Debug("Collector cannot be nil in NewIPSetSupervisor")
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
 
 	if enforcer == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Error("Enforcer cannot be nil in NewIPSetSupervisor")
+		}).Debug("Enforcer cannot be nil in NewIPSetSupervisor")
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
 
 	if iptablesProvider == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Error("IptablesProvider cannot be nil in NewIPSetSupervisor")
+		}).Debug("IptablesProvider cannot be nil in NewIPSetSupervisor")
 
 		return nil, fmt.Errorf("IptablesProvider cannot be nil")
 	}
@@ -55,7 +55,7 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	if ipsetProvider == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Error("IpsetProvider cannot be nil in NewIPSetSupervisor")
+		}).Debug("IpsetProvider cannot be nil in NewIPSetSupervisor")
 
 		return nil, fmt.Errorf("IpsetProvider cannot be nil")
 	}
@@ -63,7 +63,7 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	if targetNetworks == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Error("TargetNetworks cannot be nil in NewIPSetSupervisor")
+		}).Debug("TargetNetworks cannot be nil in NewIPSetSupervisor")
 
 		return nil, fmt.Errorf("TargetNetworks cannot be nil")
 	}
@@ -73,7 +73,7 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	if filterQueue == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Error("Enforcer FilterQueues cannot be nil in NewIPSetSupervisor")
+		}).Debug("Enforcer FilterQueues cannot be nil in NewIPSetSupervisor")
 
 		return nil, fmt.Errorf("Enforcer FilterQueues cannot be nil")
 	}
@@ -99,9 +99,8 @@ func (s *ipsetSupervisor) Supervise(contextID string, containerInfo *policy.PUIn
 
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		log.WithFields(log.Fields{
-			"package":       "supervisor",
-			"containerInfo": containerInfo,
-		}).Error("Runtime issue, Policy and ContainerInfo should not be nil")
+			"package": "supervisor",
+		}).Debug("Runtime issue, Policy and ContainerInfo should not be nil")
 
 		return fmt.Errorf("Runtime, Policy and ContainerInfo should not be nil")
 	}
@@ -134,7 +133,7 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "supervisor",
 			"contextID": contextID,
-		}).Error("Cannot find policy version in cache")
+		}).Debug("Cannot find policy version in cache")
 		return fmt.Errorf("Cannot find policy version in cache")
 	}
 
@@ -150,7 +149,7 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "supervisor",
 			"contextID": contextID,
-		}).Error("PU IP address not found in cache")
+		}).Debug("PU IP address not found in cache")
 
 		return fmt.Errorf("PU IP address not found in cache: %s", err)
 	}
@@ -189,12 +188,10 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":     "supervisor",
-			"contextID":   contextID,
-			"appSet":      appSet,
-			"IngressACLs": appACLs,
-			"error":       err,
-		}).Error("Failed to create the AppSet IPSet.")
+			"package":   "supervisor",
+			"contextID": contextID,
+			"error":     err.Error(),
+		}).Debug("Failed to create the AppSet IPSet.")
 		return err
 	}
 
@@ -202,12 +199,10 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"contextID":  contextID,
-			"netSet":     netSet,
-			"EgressACLs": netACLs,
-			"error":      err,
-		}).Error("Failed to create the NetSet IPSet.")
+			"package":   "supervisor",
+			"contextID": contextID,
+			"error":     err.Error(),
+		}).Debug("Failed to create the NetSet IPSet.")
 		return err
 	}
 
@@ -217,10 +212,9 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		log.WithFields(log.Fields{
 			"package":   "supervisor",
 			"contextID": contextID,
-			"appSet":    appSet,
 			"ipAddress": ip,
-			"error":     err,
-		}).Error("Failed to add a rule that matches the AppSet IPSet")
+			"error":     err.Error(),
+		}).Debug("Failed to add a rule that matches the AppSet IPSet")
 		return err
 	}
 
@@ -230,10 +224,8 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		log.WithFields(log.Fields{
 			"package":   "supervisor",
 			"contextID": contextID,
-			"netSet":    netSet,
-			"ipAddress": ip,
-			"error":     err,
-		}).Error("Failed to add a rule that matches the AppSet IPSet")
+			"error":     err.Error(),
+		}).Debug("Failed to add a rule that matches the AppSet IPSet")
 
 		return err
 	}
@@ -259,7 +251,7 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 		log.WithFields(log.Fields{
 			"package":   "supervisor",
 			"contextID": contextID,
-		}).Error("Default Container IP address not found in Policy")
+		}).Debug("Default Container IP address not found in Policy")
 
 		return fmt.Errorf("Container IP address not found")
 	}
@@ -277,7 +269,7 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 		log.WithFields(log.Fields{
 			"package":   "supervisor",
 			"contextID": contextID,
-		}).Error("Error Versioning the policy")
+		}).Debug("Error Versioning the policy")
 		return err
 	}
 
@@ -304,7 +296,7 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 		log.WithFields(log.Fields{
 			"package":   "supervisor",
 			"contextID": contextID,
-			"error":     err,
+			"error":     err.Error(),
 		}).Error("Error finding PU in cache")
 		return fmt.Errorf("Error finding PU in cache %s", err)
 	}
@@ -318,11 +310,10 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":    "supervisor",
-			"contextID":  contextID,
-			"cacheEntry": cacheEntry,
-			"error":      err,
-		}).Error("PU IP address not found in cache when updating a PU")
+			"package":   "supervisor",
+			"contextID": contextID,
+			"error":     err.Error(),
+		}).Debug("PU IP address not found in cache when updating a PU")
 
 		return fmt.Errorf("PU IP address not found in cache: %s", err)
 	}
@@ -356,8 +347,8 @@ func (s *ipsetSupervisor) createInitialIPSet() error {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-			"error":   err,
-		}).Error("Error creating NewIPSet")
+			"error":   err.Error(),
+		}).Debug("Error creating NewIPSet")
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
 	s.triremeSet = triremeSet
@@ -365,8 +356,8 @@ func (s *ipsetSupervisor) createInitialIPSet() error {
 		if err := s.triremeSet.Add(net, 0); err != nil {
 			log.WithFields(log.Fields{
 				"package": "supervisor",
-				"error":   err,
-			}).Error("Error adding network  to Trireme IPSet")
+				"error":   err.Error(),
+			}).Debug("Error adding network  to Trireme IPSet")
 			return fmt.Errorf("Error adding network %s to Trireme IPSet: %s", net, err)
 		}
 	}
@@ -376,7 +367,7 @@ func (s *ipsetSupervisor) createInitialIPSet() error {
 func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 
 	trapRules := [][]string{
-		// Application Syn and Syn/Ack
+		// Application Syn and Syn/Ack in RAW
 		{
 			appPacketIPTableContext, appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
@@ -384,17 +375,19 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
 		},
 
-		// Application everything else
+		// Application Matching Trireme SRC and DST. Established connections.
 		{
 			appAckPacketIPTableContext, appPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "ACCEPT",
 		},
 
-		// Application everything else
+		// Application Matching Trireme SRC and DST. SYN, SYNACK connections.
 		{
 			appAckPacketIPTableContext, appPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
@@ -408,16 +401,17 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 			"-j", "DROP",
 		},
 
-		// Network side rules
+		// Network Matching Trireme SRC and DST.
 		{
 			netPacketIPTableContext, netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
+			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", s.networkQueues,
 		},
 
-		// Default Drop from Network to Trireme
+		// Default Drop from Network to Trireme.
 		{
 			netPacketIPTableContext, netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
@@ -434,8 +428,8 @@ func (s *ipsetSupervisor) createInitialRules() error {
 		if err := s.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
 			log.WithFields(log.Fields{
 				"package": "supervisor",
-				"error":   err,
-			}).Error("Failed to add initial rules for TriremeNet IPSet.")
+				"error":   err.Error(),
+			}).Debug("Failed to add initial rules for TriremeNet IPSet.")
 			return err
 		}
 	}
@@ -444,8 +438,7 @@ func (s *ipsetSupervisor) createInitialRules() error {
 
 func (s *ipsetSupervisor) cleanACLs() error {
 	log.WithFields(log.Fields{
-		"package":    "supervisor",
-		"supervisor": s,
+		"package": "supervisor",
 	}).Info("Cleaning all IPTables")
 
 	// Clean Application Rules/Chains

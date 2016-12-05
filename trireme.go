@@ -46,16 +46,16 @@ func (t *trireme) Start() error {
 	if err := t.supervisor.Start(); err != nil {
 		log.WithFields(log.Fields{
 			"package": "trireme",
-			"error":   err,
-		}).Error("Error when starting the controller")
+			"error":   err.Error(),
+		}).Debug("Error when starting the controller")
 		return fmt.Errorf("Error starting Controller: %s", err)
 	}
 
 	if err := t.enforcer.Start(); err != nil {
 		log.WithFields(log.Fields{
 			"package": "trireme",
-			"error":   err,
-		}).Error("Error when starting the enforcer")
+			"error":   err.Error(),
+		}).Debug("Error when starting the enforcer")
 		return fmt.Errorf("Error starting enforcer: %s", err)
 	}
 
@@ -75,16 +75,16 @@ func (t *trireme) Stop() error {
 	if err := t.supervisor.Stop(); err != nil {
 		log.WithFields(log.Fields{
 			"package": "trireme",
-			"error":   err,
-		}).Error("Error when stopping the controller")
+			"error":   err.Error(),
+		}).Debug("Error when stopping the controller")
 		return fmt.Errorf("Error stopping Controller: %s", err)
 	}
 
 	if err := t.enforcer.Stop(); err != nil {
 		log.WithFields(log.Fields{
 			"package": "trireme",
-			"error":   err,
-		}).Error("Error when stopping the enforcer")
+			"error":   err.Error(),
+		}).Debug("Error when stopping the enforcer")
 		return fmt.Errorf("Error stopping enforcer: %s", err)
 	}
 
@@ -180,8 +180,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
-			"error":     err,
-		}).Error("Couldn't add the runtimeInfo to the cache")
+			"error":     err.Error(),
+		}).Debug("Couldn't add the runtimeInfo to the cache")
 
 		return fmt.Errorf("Couldn't add the runtimeInfo to the cache %s", err)
 	}
@@ -192,11 +192,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package":     "trireme",
-			"trireme":     t,
 			"contextID":   contextID,
 			"runtimeInfo": runtimeInfo,
-			"error":       err,
-		}).Error("Error returned when resolving the context")
+			"error":       err.Error(),
+		}).Debug("Error returned when resolving the context")
 		return fmt.Errorf("Policy Error for this context: %s . Container killed. %s", contextID, err)
 	}
 
@@ -205,19 +204,18 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"package":     "trireme",
 			"contextID":   contextID,
 			"runtimeInfo": runtimeInfo,
-			"error":       err,
-		}).Error("Nil policy returned when resolving the context")
-		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
+			"error":       err.Error(),
+		}).Debug("Nil policy returned when resolving the context")
+		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
+
 	}
 
 	present, err := isPolicyIPValid(policyInfo)
 
 	if !present {
 		log.WithFields(log.Fields{
-			"package":     "trireme",
-			"contextID":   contextID,
-			"policyInfo":  policyInfo,
-			"runtimeInfo": runtimeInfo,
+			"package":   "trireme",
+			"contextID": contextID,
 		}).Info("No IP given in the policy, not activating")
 
 		return nil
@@ -225,12 +223,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package":     "trireme",
-			"contextID":   contextID,
-			"error":       err,
-			"policyInfo":  policyInfo,
-			"runtimeInfo": runtimeInfo,
-		}).Error("Invalid IP given in the policy")
+			"package":   "trireme",
+			"contextID": contextID,
+			"error":     err.Error(),
+		}).Debug("Invalid IP given in the policy")
 
 		return fmt.Errorf("Invalid IP given in Policy %s", contextID)
 	}
@@ -245,11 +241,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		//t.supervisor.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
-			"package":       "trireme",
-			"contextID":     contextID,
-			"error":         err,
-			"containerInfo": containerInfo,
-		}).Error("Not able to setup enforcer")
+			"package":   "trireme",
+			"contextID": contextID,
+			"error":     err.Error(),
+		}).Debug("Not able to setup supervisor")
 
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
@@ -259,21 +254,17 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	if err != nil {
 		t.enforcer.Unenforce(contextID)
 		log.WithFields(log.Fields{
-			"package":       "trireme",
-			"contextID":     contextID,
-			"error":         err,
-			"containerInfo": containerInfo,
-			"runtimeInfo":   runtimeInfo,
-		}).Error("Not able to setup supervisor")
+			"package":   "trireme",
+			"contextID": contextID,
+			"error":     err.Error(),
+		}).Debug("Not able to setup enforcer")
 
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
 	log.WithFields(log.Fields{
-		"package":       "trireme",
-		"contextID":     contextID,
-		"containerInfo": containerInfo,
-		"policyInfo":    policyInfo,
+		"package":   "trireme",
+		"contextID": contextID,
 	}).Debug("Finished HandleCreate")
 
 	return nil
@@ -282,7 +273,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 func (t *trireme) doHandleDelete(contextID string) error {
 	log.WithFields(log.Fields{
 		"package":   "trireme",
-		"trireme":   t,
 		"contextID": contextID,
 	}).Debug("Started HandleDelete")
 
@@ -292,8 +282,8 @@ func (t *trireme) doHandleDelete(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
-			"error":     err,
-		}).Error("Error when getting runtime out of cache for ContextID")
+			"error":     err.Error(),
+		}).Debug("Error when getting runtime out of cache for ContextID")
 
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
@@ -306,9 +296,9 @@ func (t *trireme) doHandleDelete(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":         "trireme",
 			"contextID":       contextID,
-			"supervisorError": errS,
-			"enforcerError":   errE,
-		}).Error("Error when deleting")
+			"supervisorError": errS.Error(),
+			"enforcerError":   errE.Error(),
+		}).Debug("Error when deleting")
 
 		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
 	}
@@ -339,7 +329,6 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	log.WithFields(log.Fields{
 		"package":   "trireme",
 		"contextID": contextID,
-		"policy":    newPolicy,
 	}).Debug("Start to update a policy")
 
 	present, err := isPolicyIPValid(newPolicy)
@@ -352,9 +341,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
-			"policy":    newPolicy,
-			"error":     err,
-		}).Error("Invalid IP given in the policy")
+			"error":     err.Error(),
+		}).Debug("Invalid IP given in the policy")
 		return fmt.Errorf("Invalid IP given in Policy %s", contextID)
 	}
 
@@ -364,9 +352,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
-			"policy":    newPolicy,
-			"error":     err,
-		}).Error("Policy Update failed because couldn't find runtime for contextID")
+			"error":     err.Error(),
+		}).Debug("Policy Update failed because couldn't find runtime for contextID")
 		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)
 	}
 
@@ -379,12 +366,9 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	if err != nil {
 
 		log.WithFields(log.Fields{
-			"package":       "trireme",
-			"contextID":     contextID,
-			"policy":        newPolicy,
-			"runtimeInfo":   runtimeInfo,
-			"containerInfo": containerInfo,
-			"error":         err,
+			"package":   "trireme",
+			"contextID": contextID,
+			"error":     err.Error(),
 		}).Error("Policy Update failed for Enforcer")
 		return fmt.Errorf("Policy Update failed for Enforcer %s", err)
 	}
@@ -405,11 +389,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	log.WithFields(log.Fields{
-		"package":       "trireme",
-		"contextID":     contextID,
-		"policy":        newPolicy,
-		"runtimeInfo":   runtimeInfo,
-		"containerInfo": containerInfo,
+		"package":   "trireme",
+		"contextID": contextID,
 	}).Debug("Finish to update a policy")
 
 	return nil
@@ -424,9 +405,8 @@ func (t *trireme) handleRequest(request *triremeRequest) error {
 	default:
 		log.WithFields(log.Fields{
 			"package": "trireme",
-			"request": request,
 			"type":    request.reqType,
-		}).Error("Trireme Request format not recognized for the request")
+		}).Debug("Trireme Request format not recognized for the request")
 		return fmt.Errorf("trireme Request format not recognized: %d", request.reqType)
 	}
 }
@@ -437,13 +417,11 @@ func (t *trireme) run() {
 		case <-t.stop:
 			log.WithFields(log.Fields{
 				"package": "trireme",
-				"trireme": t,
 			}).Info("Stopping trireme worker.")
 			return
 		case req := <-t.requests:
 			log.WithFields(log.Fields{
 				"package":   "trireme",
-				"request":   req,
 				"type":      req.reqType,
 				"contextID": req.contextID,
 			}).Debug("Handling Trireme Request.")

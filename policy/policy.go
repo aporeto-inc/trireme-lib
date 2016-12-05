@@ -85,8 +85,10 @@ type PUPolicy struct {
 	PolicyTags TagsMap
 	// PolicyIPs are the endpoint PU IP that we want to apply Trireme to. By default this would represent the same set of IPs as the Runtime would give you.
 	PolicyIPs []string
-	// Rules is the set of rules that implement the label matching.
-	Rules []TagSelector
+	// TransmitterRules is the set of rules that implement the label matching at the Transmitter
+	TransmitterRules []TagSelector
+	// ReceiverRules is the set of rules that implement matching at the Receiver
+	ReceiverRules []TagSelector
 	// Extensions is an interface to a data structure that allows the policy supervisor
 	// to pass additional instructions to a plugin. Plugin and policy must be
 	// coordinated to implement the interface
@@ -194,11 +196,12 @@ func NewPUInfo(contextID string) *PUInfo {
 // NewPUPolicy generates a new ContainerPolicyInfo
 func NewPUPolicy() *PUPolicy {
 	return &PUPolicy{
-		IngressACLs: []IPRule{},
-		EgressACLs:  []IPRule{},
-		Rules:       []TagSelector{},
-		PolicyTags:  map[string]string{},
-		PolicyIPs:   []string{},
+		IngressACLs:      []IPRule{},
+		EgressACLs:       []IPRule{},
+		TransmitterRules: []TagSelector{},
+		ReceiverRules:    []TagSelector{},
+		PolicyTags:       map[string]string{},
+		PolicyIPs:        []string{},
 	}
 }
 

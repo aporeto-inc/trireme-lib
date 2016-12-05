@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/golang/glog"
 )
@@ -33,6 +34,12 @@ type JWTConfig struct {
 func NewJWT(validity time.Duration, issuer string, secrets Secrets) (*JWTConfig, error) {
 
 	if len(issuer) > MaxServerName {
+		log.WithFields(log.Fields{
+			"package":       "tokens",
+			"issuerLength":  len(issuer),
+			"maxServerName": MaxServerName,
+		}).Debug("Server ID is to big")
+
 		return nil, fmt.Errorf("Server ID should be max %d chars. Got %s", MaxServerName, issuer)
 	}
 
