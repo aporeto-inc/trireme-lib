@@ -234,7 +234,7 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 
 		// Initalize all the queues
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize, d.processNetworkPacketsFromNFQ)
+		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -242,6 +242,16 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 				"error":   err.Error(),
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
+
+		go func(i uint16) {
+			for true {
+				select {
+				case packet := <-nfq[i].Packets:
+					d.processNetworkPacketsFromNFQ(packet)
+				}
+			}
+		}(i)
+
 	}
 }
 
@@ -278,7 +288,7 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize, d.processApplicationPacketsFromNFQ)
+		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize)
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -286,6 +296,15 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 				"error":   err.Error(),
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
+
+		go func(i uint16) {
+			for true {
+				select {
+				case packet := <-nfq[i].Packets:
+					d.processApplicationPacketsFromNFQ(packet)
+				}
+			}
+		}(i)
 	}
 }
 
@@ -300,7 +319,7 @@ func createRuleDB(policyRules []policy.TagSelector) *lookup.PolicyDB {
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
-func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) *netfilter.Verdict {
+func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
@@ -323,25 +342,33 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) *
 			"error":   err.Error(),
 		}).Debug("Error when processing network packets from NFQ")
 
-		return &netfilter.Verdict{
-			V:       netfilter.NfDrop,
-			Buffer:  tcpPacket.Buffer,
-			Payload: nil,
-			Options: nil,
-		}
+		netfilter.CreateVerdict(&netfilter.Verdict{
+			V:           netfilter.NfDrop,
+			Buffer:      tcpPacket.Buffer,
+			Payload:     nil,
+			Options:     nil,
+			Xbuffer:     p.Xbuffer,
+			ID:          p.ID,
+			QueueHandle: p.QueueHandle,
+		})
+		return
 	}
 
 	// Accept the packet
-	return &netfilter.Verdict{
-		V:       netfilter.NfAccept,
-		Buffer:  tcpPacket.Buffer,
-		Payload: tcpPacket.GetTCPData(),
-		Options: tcpPacket.GetTCPOptions(),
-	}
+	netfilter.CreateVerdict(&netfilter.Verdict{
+		V:           netfilter.NfAccept,
+		Buffer:      tcpPacket.Buffer,
+		Payload:     tcpPacket.GetTCPData(),
+		Options:     tcpPacket.GetTCPOptions(),
+		Xbuffer:     p.Xbuffer,
+		ID:          p.ID,
+		QueueHandle: p.QueueHandle,
+	})
+	return
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) *netfilter.Verdict {
+func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
@@ -366,21 +393,29 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 			"error":   err.Error(),
 		}).Debug("Error when processing application packets from NFQ")
 
-		return &netfilter.Verdict{
-			V:       netfilter.NfDrop,
-			Buffer:  tcpPacket.Buffer,
-			Payload: nil,
-			Options: nil,
-		}
+		netfilter.CreateVerdict(&netfilter.Verdict{
+			V:           netfilter.NfDrop,
+			Buffer:      tcpPacket.Buffer,
+			Payload:     nil,
+			Options:     nil,
+			Xbuffer:     p.Xbuffer,
+			ID:          p.ID,
+			QueueHandle: p.QueueHandle,
+		})
+		return
 	}
 
 	// Accept the packet
-	return &netfilter.Verdict{
-		V:       netfilter.NfAccept,
-		Buffer:  tcpPacket.Buffer,
-		Payload: tcpPacket.GetTCPData(),
-		Options: tcpPacket.GetTCPOptions(),
-	}
+	netfilter.CreateVerdict(&netfilter.Verdict{
+		V:           netfilter.NfAccept,
+		Buffer:      tcpPacket.Buffer,
+		Payload:     tcpPacket.GetTCPData(),
+		Options:     tcpPacket.GetTCPOptions(),
+		Xbuffer:     p.Xbuffer,
+		ID:          p.ID,
+		QueueHandle: p.QueueHandle,
+	})
+
 }
 
 // processNetworkPackets processes packets arriving from network and are destined to the application

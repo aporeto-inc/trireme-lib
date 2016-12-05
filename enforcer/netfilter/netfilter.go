@@ -46,14 +46,20 @@ const (
 
 //NFPacket structure holds the packet
 type NFPacket struct {
-	Buffer []byte
+	Buffer      []byte
+	Xbuffer     *C.uchar
+	QueueHandle *C.struct_nfq_q_handle
+	ID          int
 }
 
 //NFQueue implements the queue and holds all related state information
 type NFQueue struct {
-	packets   chan NFPacket
-	idx       uint32
-	processor func(*NFPacket) *Verdict
+	h       *C.struct_nfq_handle
+	qh      *C.struct_nfq_q_handle
+	fd      C.int
+	packets chan NFPacket
+	idx     uint32
+	Packets chan *NFPacket
 }
 
 // Verdict for a packet. Buffer is the original buffer of the packet
@@ -63,12 +69,16 @@ type Verdict struct {
 	Buffer  []byte
 	Payload []byte
 	Options []byte
+
+	Xbuffer     *C.uchar
+	ID          int
+	QueueHandle *C.struct_nfq_q_handle
 }
 
 var theTable = make(map[uint32]*NFQueue, 0)
 
 // NewNFQueue creates and bind to queue specified by queueID.
-func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, processor func(*NFPacket) *Verdict) (*NFQueue, error) {
+func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*NFQueue, error) {
 
 	return nil, nil
 }
@@ -88,4 +98,9 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 
 	return NfDrop
 
+}
+
+// CreateVerdict creates a verdict
+func CreateVerdict(v *Verdict) int {
+	return 0
 }

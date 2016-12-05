@@ -40,7 +40,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	// Allow access to container from localhost
 	egress := policy.IPRule{
-		Address:  "172.17.0.1/32",
+		Address:  "172.0.0.1/32",
 		Port:     "80",
 		Protocol: "TCP",
 	}
