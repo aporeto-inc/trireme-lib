@@ -112,8 +112,8 @@ func NewTriremeWithDockerMonitor(
 	// Make sure that the iptables command is accessible. Panic if its not there.
 	ips := provider.NewGoIPsetProvider()
 
-	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets)
-	IPTsupervisor, _ := supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks, false)
+	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets)
+	IPTsupervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, false)
 
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)

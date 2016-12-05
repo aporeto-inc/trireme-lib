@@ -65,15 +65,15 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 	}
 	payload := req.Payload.(rpcWrapper.InitRequestPayload)
 	usePKI := (payload.SecretType == tokens.PKIType)
-
+	//Need to revisit what is packet processor
 	if usePKI {
 		//PKI params
 		publicKeyAdder := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
-		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, publicKeyAdder)
+		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
 	} else {
 		//PSK params
 		publicKeyAdder := tokens.NewPSKSecrets(payload.PublicPEM)
-		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, publicKeyAdder)
+		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
 	}
 
 	resp.Status = nil
