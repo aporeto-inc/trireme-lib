@@ -57,6 +57,12 @@ const (
 
 	//NfDefaultPacketSize default packet size
 	NfDefaultPacketSize uint32 = 0xffff
+
+	// NETLINK_NO_ENOBUFS
+	NETLINK_NO_ENOBUFS = 5
+
+	// SOL_NETLINK
+	SOL_NETLINK = 270
 )
 
 //NFPacket structure holds the packet
@@ -187,15 +193,17 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	}
 
 	netlinkHandle := C.nfq_nfnlh(nfq.h)
-	C.nfnl_rcvbufsiz(netlinkHandle, 4000000)
+	C.nfnl_rcvbufsiz(netlinkHandle, packetSize*2000)
 
-	// fd := C.nfnl_fd(netlinkHandle)
-	//
-	// opterr := setsockopt(int(fd), SOL_NETLINK, NETLINK_BROADCAST_SEND_ERROR, unsafe.Pointer(&val), unsafe.Sizeof(val))
-	// fmt.Println("Set sock opt error ", opterr)
-	//
-	// opterr = setsockopt(int(fd), SOL_NETLINK, NETLINK_NO_ENOBUFS, unsafe.Pointer(&val), unsafe.Sizeof(val))
-	// fmt.Println("Set sock opt error ", opterr)
+	fd := C.nfnl_fd(netlinkHandle)
+	opt := 1
+	optionsError := setsockopt(int(fd), SOL_NETLINK, NETLINK_NO_ENOBUFS, unsafe.Pointer(&opt), unsafe.Sizeof(opt))
+	if optionsError != nil {
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   optionsError.Error(),
+		}).Error("Unable to get queue file-descriptor.")
+	}
 
 	theTable[nfq.idx] = &nfq
 

@@ -70,7 +70,7 @@ static inline void Run(struct nfq_handle *h, int fd)
       if (rv >= 0) {
         nfq_handle_packet(h, buf, rv) ;
       } else {
-        printf("Error in receiving packets from NFQUEUE %d\n", queue )
+        printf("Error in receiving packets from NFQUEUE %d \n", errno  );
       }
     }
 
