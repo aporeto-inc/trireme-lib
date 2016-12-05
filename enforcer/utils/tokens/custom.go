@@ -123,7 +123,6 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, cert *x509.Certifica
 				if len(values) != 2 {
 					continue
 				}
-
 				claims.T[values[0]] = values[1]
 				continue
 			}

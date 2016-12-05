@@ -244,6 +244,48 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 	return nil
 }
 
+//RemotetrapRules exported
+//provides rules for remote supervisor
+func RemotetrapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
+	trapRules := [][]string{
+		// Application Syn and Syn/Ack
+		{
+			appPacketIPTableContext, appChain,
+			//"-d", network,
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		},
+
+		// Application everything else
+		{
+			appAckPacketIPTableContext, appChain,
+			//"-d", network,
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-j", "ACCEPT",
+		},
+
+		// Application everything else
+		{
+			appAckPacketIPTableContext, appChain,
+			//"-d", network,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		},
+
+		// Network side rules
+		{
+			netPacketIPTableContext, netChain,
+			//"-s", network,
+			"-p", "tcp",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", netQueue,
+		},
+	}
+
+	return trapRules
+}
+
 //trapRules provides the packet trap rules to add/delete
 func trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
 
@@ -287,20 +329,17 @@ func trapRules(appChain string, netChain string, network string, appQueue string
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func addPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error {
-
-	log.WithFields(log.Fields{
-		"package":  "supervisor",
-		"appChain": appChain,
-		"netChain": netChain,
-		"ip":       ip,
-	}).Info("Add Packet trap")
+func addPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider, remote bool) error {
 
 	for _, network := range targetNetworks {
 
-		trapRules := trapRules(appChain, netChain, network, appQueue, netQueue)
-		for _, tr := range trapRules {
-
+		var rules [][]string
+		if remote {
+			rules = RemotetrapRules(appChain, netChain, network, appQueue, netQueue)
+		} else {
+			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
+		}
+		for _, tr := range rules {
 			if err := provider.Append(tr[0], tr[1], tr[2:]...); err != nil {
 				log.WithFields(log.Fields{
 					"package":  "supervisor",
@@ -318,7 +357,7 @@ func addPacketTrap(appChain string, netChain string, ip string, targetNetworks [
 }
 
 // deletePacketTrap deletes the iptables rules that trap control  packets to user space
-func deletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error {
+func deletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider, remote bool) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -328,10 +367,13 @@ func deletePacketTrap(appChain string, netChain string, ip string, targetNetwork
 	}).Info("Delete Packet trap")
 
 	for _, network := range targetNetworks {
-
-		trapRules := trapRules(appChain, netChain, network, appQueue, netQueue)
-		for _, tr := range trapRules {
-
+		var rules [][]string
+		if remote {
+			rules = RemotetrapRules(appChain, netChain, network, appQueue, netQueue)
+		} else {
+			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
+		}
+		for _, tr := range rules {
 			if err := provider.Delete(tr[0], tr[1], tr[2:]...); err != nil {
 				log.WithFields(log.Fields{
 					"package":  "supervisor",

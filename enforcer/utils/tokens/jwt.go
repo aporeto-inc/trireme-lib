@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/golang/glog"
 )
 
 // JWTClaims captures all the custom  clains
@@ -77,7 +77,6 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) []byte {
 
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())
-
 	if err != nil {
 		return []byte{}
 	}
@@ -146,13 +145,8 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*
 
 	// If error is returned or the token is not valid, reject it
 	if err != nil || !jwttoken.Valid {
-		log.WithFields(log.Fields{
-			"package": "tokens",
-			"error":   err,
-		}).Error("ParseWithClaim failed")
-
+		glog.V(1).Infoln("ParseWithClaim failed: ", err)
 		return nil, nil
 	}
-
 	return jwtClaims.ConnectionClaims, ackCert
 }

@@ -5,8 +5,8 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/crypto"
+	"github.com/golang/glog"
 )
 
 // PKISecrets holds all PKI information
@@ -56,7 +56,6 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 	// If we have a cache of certificates, just look there
 	if p.CertificateCache != nil {
 		cert, ok := p.CertificateCache[server]
-
 		if !ok {
 			log.WithFields(log.Fields{
 				"package": "netfilter",
@@ -65,7 +64,6 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 
 			return nil, fmt.Errorf("No certificate in cache for server %s", server)
 		}
-
 		return cert, nil
 	}
 
@@ -85,11 +83,9 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 // VerifyPublicKey verifies if the inband public key is correct.
 func (p *PKISecrets) VerifyPublicKey(pkey []byte) (interface{}, error) {
 	decodedCert, err := crypto.LoadAndVerifyCertificate(pkey, p.certPool)
-
 	if err != nil {
 		return nil, err
 	}
-
 	return decodedCert, nil
 }
 
@@ -109,16 +105,22 @@ func (p *PKISecrets) AckSize() uint32 {
 // If Invalid, an error is returned.
 func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 	cert, err := crypto.LoadAndVerifyCertificate(newCert, p.certPool)
-
 	if err != nil {
 		return fmt.Errorf("Error loading new Cert: %s", err)
 	}
-
-	log.WithFields(log.Fields{
-		"package": "tokens",
-		"host":    host,
-	}).Info("Adding Cert for host")
-
+	glog.V(4).Infof("Adding Cert for host %s ", host)
 	p.CertificateCache[host] = cert.PublicKey.(*ecdsa.PublicKey)
 	return nil
+}
+
+func (p *PKISecrets) AuthPEM() []byte {
+	return p.AuthorityPEM
+}
+
+func (p *PKISecrets) TransmittedPEM() []byte {
+	return p.PublicKeyPEM
+}
+
+func (p *PKISecrets) EncodingPEM() []byte {
+	return p.PrivateKeyPEM
 }

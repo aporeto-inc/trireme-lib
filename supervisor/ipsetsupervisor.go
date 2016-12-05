@@ -25,10 +25,11 @@ type ipsetSupervisor struct {
 	applicationQueues string
 	targetNetworks    []string
 	triremeSet        provider.Ipset
+	remote            bool
 }
 
 // NewIPSetSupervisor returns a new implementation of the Supervisor based on IPSets.
-func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, ipsetProvider provider.IpsetProvider, targetNetworks []string) (Supervisor, error) {
+func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, ipsetProvider provider.IpsetProvider, targetNetworks []string, remote bool) (Supervisor, error) {
 	if collector == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",

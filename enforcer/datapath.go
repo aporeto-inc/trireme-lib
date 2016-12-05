@@ -12,8 +12,8 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/netfilter"
-	"github.com/aporeto-inc/trireme/enforcer/packet"
-	"github.com/aporeto-inc/trireme/enforcer/tokens"
+	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 )
 

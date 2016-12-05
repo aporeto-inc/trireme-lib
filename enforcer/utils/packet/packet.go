@@ -3,14 +3,16 @@
 package packet
 
 import (
+	"bufio"
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/golang/glog"
 )
 
 var (
@@ -24,23 +26,35 @@ var (
 )
 
 func init() {
+	f, _ := os.Create("/tmp/packet")
+	defer f.Close()
+	w := bufio.NewWriter(f)
 	debugContext = 0
 	debugContextApp = 0 //PacketStageIncoming
 	debugContextNet = 0 //PacketStageOutgoing
-
+	w.WriteString("Declared Globals")
+	w.Flush()
 	cbuf := fmt.Sprintf(" Network:0x%04x Application:0x%04x",
 		PacketTypeNetwork,
 		PacketTypeApplication)
-
+	w.WriteString("CBUF done")
+	w.Flush()
 	fbuf := fmt.Sprintf(" Incoming:0x%04x Auth:0x%04x Service:0x%04x Outgoing:0x%04x",
 		PacketStageIncoming,
 		PacketStageAuth,
 		PacketStageService,
 		PacketStageOutgoing)
-
+	w.WriteString("fbuf done")
+	w.Flush()
 	flag.Uint64Var(&debugContext, "debug-packet-context", 0, "packet contexts to debug -"+cbuf+fbuf)
+	w.WriteString("DebugContext done")
+	w.Flush()
 	flag.Uint64Var(&debugContextApp, "debug-packet-context-app", 0, "app packet contexts to debug -"+fbuf)
+	w.WriteString("DebugContextApp done")
+	w.Flush()
 	flag.Uint64Var(&debugContextNet, "debug-packet-context-net", 0, "net packet contexts to debug -"+fbuf)
+	w.WriteString("DebugContextNet done")
+	w.Flush()
 }
 
 // New returns a pointer to Packet structure built from the
@@ -74,8 +88,8 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 
 		return nil, fmt.Errorf("IP Packet too small")
 	}
-
 	if p.ipHeaderLen != minIPHdrWords {
+
 		log.WithFields(log.Fields{
 			"package":        "packet",
 			"ipHeaderLength": p.ipHeaderLen,
@@ -83,11 +97,11 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 
 		return nil, fmt.Errorf("Packets with IP options not supported (hdrlen=%d)", p.ipHeaderLen)
 	}
-
 	if p.IPTotalLength != uint16(len(p.Buffer)) {
 		if p.IPTotalLength < uint16(len(p.Buffer)) {
 			p.Buffer = p.Buffer[:p.IPTotalLength]
 		} else {
+
 			log.WithFields(log.Fields{
 				"package":       "packet",
 				"IPTotalLength": p.IPTotalLength,
@@ -114,21 +128,25 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 
 // GetTCPData returns any additional data in the packet
 func (p *Packet) GetTCPData() []byte {
+
 	return p.tcpData
 }
 
 // SetTCPData returns any additional data in the packet
 func (p *Packet) SetTCPData(b []byte) {
+
 	p.tcpData = b
 }
 
 // GetTCPOptions returns any additional options in the packet
 func (p *Packet) GetTCPOptions() []byte {
+
 	return p.tcpOptions
 }
 
 // DropDetachedDataBytes removes any bytes that have been detached and stored locally
 func (p *Packet) DropDetachedDataBytes() {
+
 	p.tcpData = []byte{}
 }
 
@@ -141,6 +159,7 @@ func (p *Packet) DropDetachedBytes() {
 
 // TCPDataStartBytes provides the tcp data start offset in bytes
 func (p *Packet) TCPDataStartBytes() uint16 {
+
 	return p.tcpBeginPos + uint16(p.tcpDataOffset)*4
 }
 
@@ -151,36 +170,41 @@ func (p *Packet) Print(context uint64) {
 	logPkt := false
 	detailed := false
 
-	if (log.GetLevel() == log.DebugLevel || context == 0) || (dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0) || (dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0) {
+	if !flag.Parsed() {
+		os.Stderr.Write([]byte("ERROR: packet logging before flag.Parse: "))
+	}
+
+	if glog.V(10) || context == 0 {
 		logPkt = true
 		detailed = true
 	} else if dbgContext&debugContext != 0 {
 		logPkt = true
+	} else if dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0 {
+		logPkt = true
+		detailed = true
+	} else if dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0 {
+		logPkt = true
+		detailed = true
 	}
 
 	var buf string
 	print := false
-
-	if logPkt || log.GetLevel() == log.DebugLevel {
+	if logPkt || glog.V(8) == glog.Verbose(true) {
 		if printCount%200 == 0 {
 			buf += fmt.Sprintf("Packet: %5s %5s %25s %15s %5s %15s %5s %6s %20s %20s %6s %20s %20s %2s %5s %5s\n",
 				"IPID", "Dir", "Comment", "SIP", "SP", "DIP", "DP", "Flags", "TCPSeq", "TCPAck", "TCPLen", "ExpAck", "ExpSeq", "DO", "Acsum", "Ccsum")
 		}
 		printCount++
 		offset := 0
-
 		if (p.TCPFlags & TCPSynMask) == TCPSynMask {
 			offset = 1
 		}
-
 		expAck := p.TCPSeq + uint32(p.IPTotalLength-p.TCPDataStartBytes()) + uint32(offset)
 		ccsum := p.computeTCPChecksum()
 		csumValidationStr := ""
-
 		if p.TCPChecksum != ccsum {
 			csumValidationStr = "Bad Checksum"
 		}
-
 		buf += fmt.Sprintf("Packet: %5d %5s %25s %15s %5d %15s %5d %6s %20d %20d %6d %20d %20d %2d %5d %5d %12s\n",
 			p.ipID,
 			flagsToDir(p.context|context),
@@ -194,7 +218,7 @@ func (p *Packet) Print(context uint64) {
 		print = true
 	}
 
-	if detailed || log.GetLevel() == log.DebugLevel {
+	if detailed || glog.V(9) == glog.Verbose(true) {
 		pktBytes := []byte{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 8, 0}
 		pktBytes = append(pktBytes, p.Buffer...)
 		pktBytes = append(pktBytes, p.tcpOptions...)
@@ -204,9 +228,7 @@ func (p *Packet) Print(context uint64) {
 	}
 
 	if print {
-		log.WithFields(log.Fields{
-			"package": "packet",
-		}).Debug(buf)
+		fmt.Print(buf)
 	}
 }
 
@@ -223,6 +245,7 @@ func (p *Packet) GetBytes() []byte {
 // ReadTCPDataString returns ths payload in a string variable
 // It does not remove the payload from the packet
 func (p *Packet) ReadTCPDataString() string {
+
 	return string(p.ReadTCPData())
 }
 
@@ -233,7 +256,6 @@ func (p *Packet) ReadTCPData() []byte {
 	if uint16(len(p.Buffer)) >= p.IPTotalLength {
 		return p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
 	}
-
 	return []byte{}
 }
 
@@ -250,10 +272,8 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 			"optionLength": optionLength,
 		}).Debug("TCP option not found when Checking TCPAuthenticationOption")
 		err = fmt.Errorf("TCP option not found")
-		// TODO: what about the error here ?
 		return
 	}
-
 	return
 }
 
@@ -275,11 +295,9 @@ func (p *Packet) FixTCPCsum(old, new uint32) {
 
 	a := uint32(-p.TCPChecksum)
 	a += uint32(uint32Delta(new, old))
-
 	for (a >> 16) != 0 {
 		a = (a & 0xffff) + (a >> 16)
 	}
-
 	p.TCPChecksum = -uint16(a)
 	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
 }
@@ -336,7 +354,6 @@ func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16,
 	for (delta >> 16) != 0 {
 		delta = (delta & 0xffff) + (delta >> 16)
 	}
-
 	return
 }
 
@@ -353,7 +370,6 @@ func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint
 		"optionLength":     optionLength,
 		"tcpOptionsLength": len(p.tcpOptions),
 	}).Debug("Fixup TCP Hdr On TCP Data Detach")
-
 	// Update TCP checksum
 	a := uint32(-p.TCPChecksum) - p.computeTCPChecksumDelta(p.tcpOptions[:optionLength], optionLength, p.tcpData[:dataLength], dataLength)
 	a = a + (a >> 16)
@@ -383,7 +399,6 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 			return fmt.Errorf("Not handling concat of data buffers")
 		}
 	}
-
 	if optionLength != 0 {
 		if uint16(len(p.Buffer)) >= p.TCPDataStartBytes() {
 			p.tcpOptions = p.Buffer[p.TCPDataStartBytes()-optionLength : p.TCPDataStartBytes()]
@@ -398,11 +413,9 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 			return fmt.Errorf("Not handling concat of options buffers")
 		}
 	}
-
 	if uint16(len(p.Buffer)) >= (p.TCPDataStartBytes() - optionLength) {
 		p.Buffer = p.Buffer[:p.TCPDataStartBytes()-optionLength]
 	}
-
 	return
 }
 
@@ -413,16 +426,12 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 //   - Updates TCP header (checksums)
 func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
-	log.WithFields(log.Fields{
-		"package":      "packet",
-		"optionLength": optionLength,
-	}).Debug("TCP data detach")
-
 	// Length
 	dataLength := p.IPTotalLength - p.TCPDataStartBytes()
 
 	// detach TCP data
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
+
 		log.WithFields(log.Fields{
 			"package":      "packet",
 			"error":        err.Error(),
@@ -467,7 +476,6 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 
 	optionLength := len(options)
-
 	if p.TCPDataStartBytes() != p.IPTotalLength && optionLength != 0 {
 		log.WithFields(log.Fields{
 			"package":         "packet",
@@ -476,15 +484,12 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 		}).Debug("Cannot insert options with existing data")
 		return fmt.Errorf("Cannot insert options with existing data")
 	}
-
 	p.tcpOptions = append(p.tcpOptions, options...)
 
 	dataLength := len(data)
-
 	if dataLength != 0 {
 		p.tcpData = append(p.tcpData, data...)
 	}
-
 	return
 }
 
@@ -519,10 +524,12 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 
 // L4FlowHash caclulate a hash string based on the 4-tuple
 func (p *Packet) L4FlowHash() string {
+
 	return p.SourceAddress.String() + ":" + p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
 }
 
 // L4ReverseFlowHash caclulate a hash string based on the 4-tuple by reversing source and destination information
 func (p *Packet) L4ReverseFlowHash() string {
+
 	return p.DestinationAddress.String() + ":" + p.SourceAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort)) + ":" + strconv.Itoa(int(p.SourcePort))
 }
