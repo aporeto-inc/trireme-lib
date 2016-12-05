@@ -96,11 +96,6 @@ type UnEnforceResponsePayload struct {
 	Status int
 }
 
-//RPCServer exported
-type RPCServer interface {
-	ProcessMessage(req *Request, resp *Response) error
-}
-
 //exported
 const (
 	InitEnforcer   = 0
