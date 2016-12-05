@@ -193,7 +193,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	}
 
 	netlinkHandle := C.nfq_nfnlh(nfq.h)
-	C.nfnl_rcvbufsiz(netlinkHandle, packetSize*2000)
+	C.nfnl_rcvbufsiz(netlinkHandle, C.uint(packetSize*2000))
 
 	fd := C.nfnl_fd(netlinkHandle)
 	opt := 1
