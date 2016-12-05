@@ -1,7 +1,7 @@
 package rpcWrapper
 
 type RPCClient interface {
-	NewRPCClient(contextID string, channel string)
+	NewRPCClient(contextID string, channel string) error
 	GetRPCClient(contextID string) (*RPCHdl, error)
 	RemoteCall(contextID string, methodName string, req *Request, resp *Response) error
 	DestroyRPCClient(contextID string)

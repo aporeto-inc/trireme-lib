@@ -33,21 +33,31 @@ func NewRPCWrapper() *RPCWrapper {
 	return rpcWrapper
 }
 
+const (
+	maxRetries = 100
+)
+
 //NewRPCClient exported
 //Will worry about locking later ... there is a small case where two callers
 //call NewRPCClient from a different thread
-func (r *RPCWrapper) NewRPCClient(contextID string, channel string) {
+func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 	//establish new connection to context/container
 	RegisterTypes()
+	numRetries := 0
 	client, err := rpc.DialHTTP("unix", channel)
+
 	for err != nil {
 		time.Sleep(5 * time.Millisecond)
 		err = nil
-		client, err = rpc.DialHTTP("unix", channel)
+		numRetries = numRetries + 1
+		if numRetries < maxRetries {
+			client, err = rpc.DialHTTP("unix", channel)
+		} else {
+			return err
+		}
 	}
+	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel})
 
-	r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel})
-	return
 }
 
 //GetRPCClient exported

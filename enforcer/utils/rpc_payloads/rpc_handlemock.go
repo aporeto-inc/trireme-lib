@@ -12,7 +12,7 @@ type MockRPCHdl struct {
 }
 
 type mockedMethods struct {
-	NewRPCClientMock     func(contextID string, channel string)
+	NewRPCClientMock     func(contextID string, channel string) error
 	GetRPCClientMock     func(contextID string) (*RPCHdl, error)
 	RemoteCallMock       func(contextID string, methodName string, req *Request, resp *Response) error
 	DestroyRPCClientMock func(contextID string)
@@ -22,7 +22,7 @@ type mockedMethods struct {
 
 type TestRPCClient interface {
 	RPCClient
-	MockNewRPCClient(t *testing.T, impl func(contextID string, channel string))
+	MockNewRPCClient(t *testing.T, impl func(contextID string, channel string) error)
 	MockGetRPCClient(t *testing.T, impl func(contextID string) (*RPCHdl, error))
 	MockRemoteCall(t *testing.T, impl func(contextID string, methodName string, req *Request, resp *Response) error)
 	MockDestroyRPCClient(t *testing.T, impl func(contextID string))
@@ -53,7 +53,7 @@ func NewTestRPCClient() TestRPCClient {
 		mocks: map[*testing.T]*mockedMethods{},
 	}
 }
-func (m *testRPC) MockNewRPCClient(t *testing.T, impl func(contextID string, channel string)) {
+func (m *testRPC) MockNewRPCClient(t *testing.T, impl func(contextID string, channel string) error) {
 	m.currentMocks(t).NewRPCClientMock = impl
 }
 
@@ -78,11 +78,12 @@ func (m *testRPC) MockProcessMessage(t *testing.T, impl func(req *Request) bool)
 	m.currentMocks(t).ProcessMessageMock = impl
 }
 
-func (m *testRPC) NewRPCClient(contextID string, channel string) {
+func (m *testRPC) NewRPCClient(contextID string, channel string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.NewRPCClientMock != nil {
-		mock.NewRPCClientMock(contextID, channel)
-		return
+		return mock.NewRPCClientMock(contextID, channel)
+
 	}
+	return nil
 }
 func (m *testRPC) GetRPCClient(contextID string) (*RPCHdl, error) {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.GetRPCClientMock != nil {
