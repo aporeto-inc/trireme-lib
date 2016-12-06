@@ -271,9 +271,9 @@ func setsockopt(s int, level int, name int, val unsafe.Pointer, vallen uintptr) 
 	return
 }
 
-// CreateVerdict receives the response from the processor, copies the buffers
+// SetVerdict receives the response from the processor, copies the buffers
 // and passes the result to the C code
-func CreateVerdict(v *Verdict) int {
+func SetVerdict(v *Verdict, mark int) int {
 
 	var bufferLength int
 	bufferLength = len(v.Buffer) + len(v.Options) + len(v.Payload)
@@ -300,7 +300,7 @@ func CreateVerdict(v *Verdict) int {
 		length++
 	}
 
-	verdict := C.SetVerdict(v.QueueHandle, C.int(v.ID), C.int(v.V), C.int(length), v.Xbuffer)
+	verdict := C.nfq_set_verdict2(v.QueueHandle, C.u_int32_t(v.ID), C.u_int32_t(v.V), C.u_int32_t(mark), C.u_int32_t(length), v.Xbuffer)
 
 	return int(verdict)
 }

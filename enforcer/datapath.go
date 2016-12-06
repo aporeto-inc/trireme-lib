@@ -114,6 +114,7 @@ func NewDefaultDatapathEnforcer(
 		ApplicationQueue:          DefaultApplicationQueue,
 		ApplicationQueueSize:      DefaultQueueSize,
 		NumberOfApplicationQueues: DefaultNumberOfQueues,
+		MarkValue:                 DefaultMarkValue,
 	}
 
 	validity := time.Hour * 8760
@@ -342,7 +343,7 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 			"error":   err.Error(),
 		}).Debug("Error when processing network packets from NFQ")
 
-		netfilter.CreateVerdict(&netfilter.Verdict{
+		netfilter.SetVerdict(&netfilter.Verdict{
 			V:           netfilter.NfDrop,
 			Buffer:      tcpPacket.Buffer,
 			Payload:     nil,
@@ -350,12 +351,12 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 			Xbuffer:     p.Xbuffer,
 			ID:          p.ID,
 			QueueHandle: p.QueueHandle,
-		})
+		}, d.filterQueue.MarkValue)
 		return
 	}
 
 	// Accept the packet
-	netfilter.CreateVerdict(&netfilter.Verdict{
+	netfilter.SetVerdict(&netfilter.Verdict{
 		V:           netfilter.NfAccept,
 		Buffer:      tcpPacket.Buffer,
 		Payload:     tcpPacket.GetTCPData(),
@@ -363,7 +364,7 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 		Xbuffer:     p.Xbuffer,
 		ID:          p.ID,
 		QueueHandle: p.QueueHandle,
-	})
+	}, d.filterQueue.MarkValue)
 	return
 }
 
@@ -393,7 +394,7 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 			"error":   err.Error(),
 		}).Debug("Error when processing application packets from NFQ")
 
-		netfilter.CreateVerdict(&netfilter.Verdict{
+		netfilter.SetVerdict(&netfilter.Verdict{
 			V:           netfilter.NfDrop,
 			Buffer:      tcpPacket.Buffer,
 			Payload:     nil,
@@ -401,12 +402,12 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 			Xbuffer:     p.Xbuffer,
 			ID:          p.ID,
 			QueueHandle: p.QueueHandle,
-		})
+		}, d.filterQueue.MarkValue)
 		return
 	}
 
 	// Accept the packet
-	netfilter.CreateVerdict(&netfilter.Verdict{
+	netfilter.SetVerdict(&netfilter.Verdict{
 		V:           netfilter.NfAccept,
 		Buffer:      tcpPacket.Buffer,
 		Payload:     tcpPacket.GetTCPData(),
@@ -414,7 +415,7 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 		Xbuffer:     p.Xbuffer,
 		ID:          p.ID,
 		QueueHandle: p.QueueHandle,
-	})
+	}, d.filterQueue.MarkValue)
 
 }
 

@@ -100,7 +100,7 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 
 }
 
-// CreateVerdict creates a verdict
-func CreateVerdict(v *Verdict) int {
+// SetVerdict creates a verdict
+func SetVerdict(v *Verdict, mark int) int {
 	return 0
 }
