@@ -89,6 +89,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
 		Mark:              enforcer.DefaultMarkValue,
+		remote:            remote,
 	}
 
 	// Clean any previous ACLs that we have installed
