@@ -143,7 +143,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 		"/var/run/netns/"+contextID)
 	if linkErr != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon", "error": linkErr}).Error(ErrSymLinkFailed)
-		return linkErr
+		//return linkErr
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
 

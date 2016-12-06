@@ -85,6 +85,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
+		remote:            remote,
 	}
 
 	// Clean any previous ACLs that we have installed
@@ -163,7 +164,7 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 
 	deleteNetACLs(netChain, ip, cacheEntry.egressACLs, s.ipt)
 
-	deleteChainRules(appChain, netChain, ip, s.ipt)
+	deleteChainRules(appChain, netChain, ip, s.ipt, s.remote)
 
 	deleteAllContainerChains(appChain, netChain, s.ipt)
 
@@ -248,7 +249,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addChainRules(appChain, netChain, ipAddress, s.ipt); err != nil {
+	if err := addChainRules(appChain, netChain, ipAddress, s.ipt, s.remote); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -411,7 +412,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	}
 
 	// Add mapping to new chain
-	if err := addChainRules(appChain, netChain, ipAddress, s.ipt); err != nil {
+	if err := addChainRules(appChain, netChain, ipAddress, s.ipt, s.remote); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -427,7 +428,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	}
 
 	//Remove mapping from old chain
-	if err := deleteChainRules(oldAppChain, oldNetChain, ipAddress, s.ipt); err != nil {
+	if err := deleteChainRules(oldAppChain, oldNetChain, ipAddress, s.ipt, s.remote); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{

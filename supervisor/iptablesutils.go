@@ -11,14 +11,16 @@ import (
 )
 
 const (
-	chainPrefix                = "TRIREME-"
-	appPacketIPTableContext    = "raw"
-	appAckPacketIPTableContext = "mangle"
-	appPacketIPTableSection    = "PREROUTING"
-	appChainPrefix             = chainPrefix + "App-"
-	netPacketIPTableContext    = "mangle"
-	netPacketIPTableSection    = "POSTROUTING"
-	netChainPrefix             = chainPrefix + "Net-"
+	chainPrefix                   = "TRIREME-"
+	appPacketIPTableContext       = "raw"
+	appAckPacketIPTableContext    = "mangle"
+	appPacketIPTableSection       = "PREROUTING"
+	appPacketIPTableSectionRemote = "OUTPUT"
+	appChainPrefix                = chainPrefix + "App-"
+	netPacketIPTableContext       = "mangle"
+	netPacketIPTableSection       = "POSTROUTING"
+	netPacketIPTableSectionRemote = "INPUT"
+	netChainPrefix                = chainPrefix + "Net-"
 )
 
 func defaultCacheIP(ips []string) (string, error) {
@@ -187,8 +189,38 @@ func chainRules(appChain string, netChain string, ip string) [][]string {
 	return chainRules
 }
 
+func remoteChainRules(appChain string, netChain string, ip string) [][]string {
+
+	chainRules := [][]string{
+		{
+			appPacketIPTableContext,
+			appPacketIPTableSectionRemote,
+			//"-s", ip,
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", appChain,
+		},
+		{
+			appAckPacketIPTableContext,
+			appPacketIPTableSectionRemote,
+			//"-s", ip,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", appChain,
+		},
+		{
+			netPacketIPTableContext,
+			netPacketIPTableSectionRemote,
+			//"-d", ip,
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", netChain,
+		},
+	}
+
+	return chainRules
+}
+
 // addChains rules implements all the iptable rules that redirect traffic to a chain
-func addChainRules(appChain string, netChain string, ip string, provider provider.IptablesProvider) error {
+func addChainRules(appChain string, netChain string, ip string, provider provider.IptablesProvider, remote bool) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -196,9 +228,13 @@ func addChainRules(appChain string, netChain string, ip string, provider provide
 		"netChain": netChain,
 		"ip":       ip,
 	}).Info("Add chain rules")
-
-	chainRules := chainRules(appChain, netChain, ip)
-	for _, cr := range chainRules {
+	var chainrules [][]string
+	if remote {
+		chainrules = remoteChainRules(appChain, netChain, ip)
+	} else {
+		chainrules = chainRules(appChain, netChain, ip)
+	}
+	for _, cr := range chainrules {
 
 		if err := provider.Append(cr[0], cr[1], cr[2:]...); err != nil {
 			log.WithFields(log.Fields{
@@ -216,7 +252,7 @@ func addChainRules(appChain string, netChain string, ip string, provider provide
 }
 
 //deleteChainRules deletes the rules that send traffic to our chain
-func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesProvider) error {
+func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesProvider, remote bool) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -224,9 +260,13 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 		"netChain": netChain,
 		"ip":       ip,
 	}).Info("Delete chain rules")
-
-	chainRules := chainRules(appChain, netChain, ip)
-	for _, cr := range chainRules {
+	var chainrules [][]string
+	if remote {
+		chainrules = remoteChainRules(appChain, netChain, ip)
+	} else {
+		chainrules = chainRules(appChain, netChain, ip)
+	}
+	for _, cr := range chainrules {
 
 		if err := provider.Delete(cr[0], cr[1], cr[2:]...); err != nil {
 			log.WithFields(log.Fields{
@@ -247,6 +287,7 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 //RemotetrapRules exported
 //provides rules for remote supervisor
 func RemotetrapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
+
 	trapRules := [][]string{
 		// Application Syn and Syn/Ack
 		{
