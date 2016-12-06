@@ -463,7 +463,7 @@ func TestAddNetACLs(t *testing.T) {
 		testPoint  = 0
 		testPoint0 = 0
 		testPoint1 = 9
-		testPoint2 = 10
+		testPoint2 = 9
 		testPoint3
 		testPoint4
 	)
@@ -483,7 +483,7 @@ func TestAddNetACLs(t *testing.T) {
 	})
 	err := s.Supervise("12345", containerInfo)
 	if err == nil {
-		t.Errorf("ignored Error from Append")
+		t.Errorf("ignored Error from Append expected:%v actual:%v", targetPoint, testPoints)
 		//debug.PrintStack()
 		t.SkipNow()
 	}
@@ -493,7 +493,7 @@ func TestAddNetACLs(t *testing.T) {
 	targetPoint = testPoint2
 	err = s.Supervise("12345", containerInfo)
 	if err == nil {
-		t.Errorf("ignored Error from Append")
+		t.Errorf("ignored Error from Append expected:%v actual:%v", targetPoint, testPoints)
 		//debug.PrintStack()
 		t.SkipNow()
 	}
@@ -502,7 +502,7 @@ func TestAddNetACLs(t *testing.T) {
 	targetPoint = testPoint0
 	err = s.Supervise("12345", containerInfo)
 	if err != nil {
-		t.Errorf("Error in Supervise")
+		t.Errorf("Error in Supervise expected:%v actual:%v", targetPoint, testPoints)
 		//debug.PrintStack()
 		t.SkipNow()
 	}
