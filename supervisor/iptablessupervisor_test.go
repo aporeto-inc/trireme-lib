@@ -463,7 +463,7 @@ func TestAddNetACLs(t *testing.T) {
 		testPoint  = 0
 		testPoint0 = 0
 		testPoint1 = 9
-		testPoint2 = 10
+		testPoint2 = 9
 		testPoint3
 		testPoint4
 	)
@@ -492,6 +492,7 @@ func TestAddNetACLs(t *testing.T) {
 	testPoints = testPoint0
 	targetPoint = testPoint2
 	err = s.Supervise("12345", containerInfo)
+	fmt.Println("Testpoints", testPoints, targetPoint)
 	if err == nil {
 		t.Errorf("ignored Error from Append")
 		//debug.PrintStack()
