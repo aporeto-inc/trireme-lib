@@ -27,13 +27,15 @@ type iptablesSupervisor struct {
 	networkQueues     string
 	applicationQueues string
 	targetNetworks    []string
+
+	Mark int
 }
 
 // NewIPTablesSupervisor will create a new connection supervisor that uses IPTables
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (Supervisor, error) {
 
 	if collector == nil {
 		log.WithFields(log.Fields{
@@ -43,7 +45,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
 
-	if enforcer == nil {
+	if enforcerInstance == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
 		}).Debug("Enforcer cannot be nil in NewIPTablesSupervisor")
@@ -67,7 +69,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		return nil, fmt.Errorf("TargetNetworks cannot be nil")
 	}
 
-	filterQueue := enforcer.GetFilterQueue()
+	filterQueue := enforcerInstance.GetFilterQueue()
 
 	if filterQueue == nil {
 		log.WithFields(log.Fields{
@@ -84,6 +86,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
+		Mark:              enforcer.DefaultMarkValue,
 	}
 
 	// Clean any previous ACLs that we have installed
@@ -176,6 +179,14 @@ func (s *iptablesSupervisor) Start() error {
 	log.WithFields(log.Fields{
 		"package": "supervisor",
 	}).Info("Start the supervisor")
+
+	if filterMarkedPackets(appAckPacketIPTableContext, appPacketIPTableSection, s.Mark, s.ipt) != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Debug("Cannot filter marked packets. Abort")
+
+		return fmt.Errorf("Filter of marked packets was not set")
+	}
 
 	return nil
 }
