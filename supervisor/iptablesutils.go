@@ -2,6 +2,7 @@ package supervisor
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -28,6 +29,22 @@ func defaultCacheIP(ips []string) (string, error) {
 		return "", fmt.Errorf("No IPs present")
 	}
 	return ips[0], nil
+}
+
+func filterMarkedPackets(table, chain string, mark int, provider provider.IptablesProvider) error {
+	err := provider.Insert(table, chain, 1,
+		"-m", "mark",
+		"--mark", strconv.Itoa(mark),
+		"-j", "ACCEPT")
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+			"table":   table,
+			"chain":   chain,
+		}).Error("Failed to install default mark chain.")
+
+	}
+	return err
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
@@ -337,14 +354,6 @@ func trapRules(appChain string, netChain string, network string, appQueue string
 			"-d", network,
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
-
-		// Application everything else
-		{
-			appAckPacketIPTableContext, appChain,
-			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
-			"-j", "ACCEPT",
 		},
 
 		// Application everything else

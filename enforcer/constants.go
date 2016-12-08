@@ -20,5 +20,7 @@ const (
 	// DefaultNetworkQueue represents the queue for the network packets
 	DefaultNetworkQueue = 4
 	// DefaultQueueSize is the size of the queues
-	DefaultQueueSize = 100
+	DefaultQueueSize = 500
+	// DefaultMarkValue is the default Mark for packets in the raw chain
+	DefaultMarkValue = 0x1111
 )

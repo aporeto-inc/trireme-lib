@@ -29,6 +29,7 @@ import "C"
 
 import (
 	"fmt"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -56,21 +57,31 @@ const (
 
 	//NfDefaultPacketSize default packet size
 	NfDefaultPacketSize uint32 = 0xffff
+
+	// NETLINK_NO_ENOBUFS
+	NETLINK_NO_ENOBUFS = 5
+
+	// SOL_NETLINK
+	SOL_NETLINK = 270
 )
 
 //NFPacket structure holds the packet
 type NFPacket struct {
 	Buffer []byte
+
+	Xbuffer     *C.uchar
+	QueueHandle *C.struct_nfq_q_handle
+	ID          int
 }
 
 //NFQueue implements the queue and holds all related state information
 type NFQueue struct {
-	h         *C.struct_nfq_handle
-	qh        *C.struct_nfq_q_handle
-	fd        C.int
-	packets   chan NFPacket
-	idx       uint32
-	processor func(*NFPacket) *Verdict
+	h       *C.struct_nfq_handle
+	qh      *C.struct_nfq_q_handle
+	fd      C.int
+	packets chan NFPacket
+	idx     uint32
+	Packets chan *NFPacket
 }
 
 // Verdict for a packet. Buffer is the original buffer of the packet
@@ -80,13 +91,19 @@ type Verdict struct {
 	Buffer  []byte
 	Payload []byte
 	Options []byte
+
+	Xbuffer     *C.uchar
+	ID          int
+	QueueHandle *C.struct_nfq_q_handle
 }
 
 var theTable = make(map[uint32]*NFQueue, 0)
 
 // NewNFQueue creates and bind to queue specified by queueID.
-func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, processor func(*NFPacket) *Verdict) (*NFQueue, error) {
-	var nfq = NFQueue{}
+func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*NFQueue, error) {
+	var nfq = NFQueue{
+		Packets: make(chan *NFPacket, 2000),
+	}
 	var err error
 	var ret C.int
 
@@ -122,8 +139,6 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 
 	nfq.idx = uint32(time.Now().UnixNano())
 
-	nfq.processor = processor
-
 	// Create the queue
 
 	if nfq.qh, err = C.CreateQueue(nfq.h, C.u_int16_t(queueID), C.u_int32_t(nfq.idx)); err != nil || nfq.qh == nil {
@@ -135,19 +150,6 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 		}).Debug("Error binding to queue")
 
 		return nil, fmt.Errorf("Error binding to queue: %v\n", err)
-	}
-
-	// Set the max length of the queue
-	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(maxPacketsInQueue)); err != nil || ret < 0 {
-		C.nfq_destroy_queue(nfq.qh)
-		C.nfq_close(nfq.h)
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Unable to set max packets in queue")
-
-		return nil, fmt.Errorf("Unable to set max packets in queue: %v\n", err)
 	}
 
 	// Set packets to copy mode - We need to investigate if we can avoid one copy
@@ -164,6 +166,19 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 		return nil, fmt.Errorf("Unable to set packets copy mode: %v\n", err)
 	}
 
+	// Set the max length of the queue
+	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(1000)); err != nil || ret < 0 {
+		C.nfq_destroy_queue(nfq.qh)
+		C.nfq_close(nfq.h)
+
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   err.Error(),
+		}).Debug("Unable to set max packets in queue")
+
+		return nil, fmt.Errorf("Unable to set max packets in queue: %v\n", err)
+	}
+
 	// Get the queue file descriptor
 	if nfq.fd, err = C.nfq_fd(nfq.h); err != nil {
 		C.nfq_destroy_queue(nfq.qh)
@@ -175,6 +190,19 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32, pro
 		}).Debug("Unable to get queue file-descriptor.")
 
 		return nil, fmt.Errorf("Unable to get queue file-descriptor. %v", err)
+	}
+
+	netlinkHandle := C.nfq_nfnlh(nfq.h)
+	C.nfnl_rcvbufsiz(netlinkHandle, C.uint(packetSize*2000))
+
+	fd := C.nfnl_fd(netlinkHandle)
+	opt := 1
+	optionsError := setsockopt(int(fd), SOL_NETLINK, NETLINK_NO_ENOBUFS, unsafe.Pointer(&opt), unsafe.Sizeof(opt))
+	if optionsError != nil {
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"error":   optionsError.Error(),
+		}).Error("Unable to get queue file-descriptor.")
 	}
 
 	theTable[nfq.idx] = &nfq
@@ -203,18 +231,9 @@ func (nfq *NFQueue) run() {
 }
 
 //export processPacket
-func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, newLength *C.int, idx uint32) verdictType {
-
-	// Translate the C pointer to an array that can be handled in the C space
-	xbuf := (*[1 << 30]C.uchar)(unsafe.Pointer(newData))[:int(*newLength):int(*newLength)]
-
-	// Create a new packet and associated the pointers
-	p := NFPacket{
-		Buffer: C.GoBytes(unsafe.Pointer(data), len),
-	}
+func processPacket(packetID C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
 
 	nfq, ok := theTable[idx]
-
 	if !ok {
 		log.WithFields(log.Fields{
 			"package": "netfilter",
@@ -224,10 +243,47 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 		return NfDrop
 	}
 
-	v := nfq.processor(&p)
+	// Create a new packet and associated the pointers
+	p := NFPacket{
+		Buffer:      C.GoBytes(unsafe.Pointer(data), len),
+		Xbuffer:     newData,
+		ID:          int(packetID),
+		QueueHandle: nfq.qh,
+	}
 
+	select {
+	case nfq.Packets <- &p:
+	default:
+		log.WithFields(log.Fields{
+			"package": "netfilter",
+			"idx":     idx,
+		}).Debug("Dropping packet - queue full ")
+	}
+
+	return 1
+}
+
+func setsockopt(s int, level int, name int, val unsafe.Pointer, vallen uintptr) (err error) {
+	_, _, e1 := syscall.Syscall6(syscall.SYS_SETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(vallen), 0)
+	if e1 != 0 {
+		err = e1
+	}
+	return
+}
+
+// SetVerdict receives the response from the processor, copies the buffers
+// and passes the result to the C code
+func SetVerdict(v *Verdict, mark int) int {
+
+	var bufferLength int
+	bufferLength = len(v.Buffer) + len(v.Options) + len(v.Payload)
+
+	xbuf := (*[1 << 30]C.uchar)(unsafe.Pointer(v.Xbuffer))[:bufferLength:bufferLength]
+	// Do the memcopy to the new packet format that must be transmitted
+	// We need to use a new buffer since we are extending the packet
 	// Do the memcopy to the new packet format that must be transmitted
 	// We need to copy the data to the C allocated buffer
+
 	length := 0
 	for i := range v.Buffer {
 		xbuf[i] = C.uchar(v.Buffer[i])
@@ -244,9 +300,7 @@ func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, ne
 		length++
 	}
 
-	// The C side needs the actuall length. It can't figure this out from the buffer size
-	*newLength = C.int(length)
+	verdict := C.nfq_set_verdict2(v.QueueHandle, C.u_int32_t(v.ID), C.u_int32_t(v.V), C.u_int32_t(mark), C.u_int32_t(length), v.Xbuffer)
 
-	return verdictType(v.V)
-
+	return int(verdict)
 }

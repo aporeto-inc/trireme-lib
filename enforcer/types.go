@@ -60,6 +60,8 @@ type FilterQueue struct {
 	ApplicationQueueSize uint32
 	// NumberOfApplicationQueues is the number of queues that must be allocated
 	NumberOfApplicationQueues uint16
+	// MarkValue is the default mark to set in packets in the RAW chain
+	MarkValue int
 }
 
 // PUContext holds data indexed by the docker ID
