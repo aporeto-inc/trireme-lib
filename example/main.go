@@ -39,7 +39,6 @@ func main() {
 	var m monitor.Monitor
 	//var e supervisor.Excluder
 	var remoteEnforcer bool
-	fmt.Println(remote)
 	if remote == "local" {
 		remoteEnforcer = false
 		fmt.Println("Local Enforcer")

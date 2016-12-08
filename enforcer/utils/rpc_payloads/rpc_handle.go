@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
-	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -48,7 +47,7 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 
 	for err != nil {
 		time.Sleep(5 * time.Millisecond)
-		err = nil
+
 		numRetries = numRetries + 1
 		if numRetries < maxRetries {
 			client, err = rpc.DialHTTP("unix", channel)
@@ -62,6 +61,7 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 
 //GetRPCClient exported
 func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
+
 	val, err := r.rpcClientMap.Get(contextID)
 	if err == nil {
 		return val.(*RPCHdl), err
@@ -83,7 +83,6 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	req.HashAuth = digest.Sum(nil)
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
-		fmt.Println("Cant find rpc handle")
 		return err
 	}
 	return rpcClient.Client.Call(methodName, req, resp)
@@ -107,17 +106,20 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 	RegisterTypes()
 	rpc.Register(handler)
 	rpc.HandleHTTP()
+	os.Remove(path)
 	if len(path) == 0 {
 		panic("Sock param not passed in environment")
 	}
 	listen, err := net.Listen(protocol, path)
 
 	if err != nil {
+
 		return err
 	}
 	go http.Serve(listen, nil)
 	defer func() {
 		listen.Close()
+		os.Remove(path)
 	}()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -151,4 +153,5 @@ func RegisterTypes() {
 
 	gob.Register(SuperviseRequestPayload{})
 	gob.Register(UnSupervisePayload{})
+	gob.Register(StatsPayload{})
 }

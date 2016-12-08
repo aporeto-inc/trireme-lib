@@ -155,7 +155,9 @@ func NewDatapathEnforcer(mutualAuth bool,
 		prochdl:    ProcessMon.GetProcessMonHdl(),
 		rpchdl:     rpchdl,
 	}
-
+	rpcwrapper := rpcWrapper.NewRPCWrapper()
+	rpcserver := &RPCSERVER{rpchdl: rpcwrapper, collector: collector}
+	go rpcwrapper.StartServer("unix", rpcWrapper.StatsChannel, rpcserver)
 	return launcher
 }
 
@@ -184,4 +186,30 @@ func NewDefaultDatapathEnforcer(serverID string,
 		serverID,
 		validity,
 		rpchdl)
+}
+
+type RPCSERVER struct {
+	collector collector.EventCollector
+	rpchdl    rpcWrapper.RPCServer
+}
+
+func (r *RPCSERVER) GetStats(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+	if !r.rpchdl.ProcessMessage(&req) {
+		log.WithFields(log.Fields{"package": "enforcerLauncher"}).Error("Message sender cannot be verified")
+		return errors.New("Message sender cannot be verified")
+	}
+	payload := req.Payload.(rpcWrapper.StatsPayload)
+	// var flowSlice []enforcer.StatsPayload
+	// flowSlice = payload.Flows
+	for _, flow := range payload.Flows {
+		if r.collector != nil {
+			r.collector.CollectFlowEvent(flow.ContextID,
+				flow.Tags,
+				flow.Action,
+				flow.Mode,
+				flow.Source,
+				flow.Packet)
+		}
+	}
+	return nil
 }

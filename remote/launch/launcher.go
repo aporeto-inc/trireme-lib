@@ -152,7 +152,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 	cmd := exec.Command(cmdName, cmdArgs...)
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
-	cmd.Env = append(os.Environ(), []string{namedPipe, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+	statschannelenv := "STATSCHANNEL_PATH=" + rpcWrapper.StatsChannel
+	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 	err = cmd.Start()
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",

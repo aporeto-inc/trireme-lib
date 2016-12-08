@@ -26,7 +26,8 @@ type Request struct {
 
 //exported
 const (
-	SUCCESS = 0
+	SUCCESS      = 0
+	StatsChannel = "/tmp/statschannel.sock"
 )
 
 //Response exported
@@ -96,10 +97,7 @@ type UnEnforceResponsePayload struct {
 	Status int
 }
 
-//exported
-const (
-	InitEnforcer   = 0
-	InitSupervisor = 1
-	Enforce        = 2
-	Supervise      = 3
-)
+type StatsPayload struct {
+	NumFlows int
+	Flows    []enforcer.StatsPayload
+}
