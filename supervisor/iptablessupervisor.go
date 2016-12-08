@@ -147,8 +147,8 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 
 	cacheEntry := result.(*supervisorCacheEntry)
 
-	appChain := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netChain := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	appChain := s.ipu.AppChainPrefix(contextID, cacheEntry.index)
+	netChain := s.ipu.NetChainPrefix(contextID, cacheEntry.index)
 
 	// Currently processing only containers with one IP address
 	ip, err := s.ipu.DefaultCacheIP(cacheEntry.ips)
@@ -214,8 +214,8 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 	index := 0
 
-	appChain := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(index)
-	netChain := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(index)
+	appChain := s.ipu.AppChainPrefix(contextID, index)
+	netChain := s.ipu.NetChainPrefix(contextID, index)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
@@ -361,11 +361,11 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	appChain := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(newindex)
-	netChain := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(newindex)
+	appChain := s.ipu.AppChainPrefix(contextID, newindex)
+	netChain := s.ipu.NetChainPrefix(contextID, newindex)
 
-	oldAppChain := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(oldindex)
-	oldNetChain := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(oldindex)
+	oldAppChain := s.ipu.AppChainPrefix(contextID, oldindex)
+	oldNetChain := s.ipu.NetChainPrefix(contextID, oldindex)
 
 	//Add a new chain for this update and map all rules there
 	if err := s.ipu.AddContainerChain(appChain, netChain, s.ipt); err != nil {

@@ -27,8 +27,8 @@ type ipTableUtils struct {
 
 //IptableUtils is a utility interface for programming IP Tables and IP S
 type IptableUtils interface {
-	AppChainPrefix() string
-	NetChainPrefix() string
+	AppChainPrefix(contextID string, index int) string
+	NetChainPrefix(contextID string, index int) string
 	DefaultCacheIP(ips []string) (string, error)
 	chainRules(appChain string, netChain string, ip string) [][]string
 	trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string
@@ -72,12 +72,12 @@ func NewIptableUtils() IptableUtils {
 	return &ipTableUtils{}
 }
 
-func (r *ipTableUtils) AppChainPrefix() string {
-	return appChainPrefix
+func (r *ipTableUtils) AppChainPrefix(contextID string, index int) string {
+	return appChainPrefix + contextID + "-" + strconv.Itoa(index)
 }
 
-func (r *ipTableUtils) NetChainPrefix() string {
-	return netChainPrefix
+func (r *ipTableUtils) NetChainPrefix(contextID string, index int) string {
+	return netChainPrefix + contextID + "-" + strconv.Itoa(index)
 }
 
 func (r *ipTableUtils) DefaultCacheIP(ips []string) (string, error) {
