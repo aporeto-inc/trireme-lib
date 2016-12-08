@@ -56,7 +56,7 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 	payload.ContextID = contextID
 
 	request.Payload = payload
-	gob.Register(rpcWrapper.InitRequestPayload{})
+	//gob.Register(rpcWrapper.InitRequestPayload{})
 	err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
 	if err != nil {
 		fmt.Println(err)

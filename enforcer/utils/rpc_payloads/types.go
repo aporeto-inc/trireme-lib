@@ -8,7 +8,8 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-var gobTypes = []interface{}{InitRequestPayload{},
+var gobTypes = []interface{}{
+	InitRequestPayload{},
 	InitResponsePayload{},
 	InitSupervisorPayload{},
 	EnforcePayload{},
