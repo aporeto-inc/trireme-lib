@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/supervisor"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -26,6 +27,8 @@ func main() {
 
 	flag.Usage = usage
 
+	supervisor.NewIPTablesSupervisor(nil, nil, nil, []string{})
+	supervisor.NewIPSetSupervisor(nil, nil, nil, nil, []string{})
 	usePKI := *flag.Bool("pki", false, "Use PKI trireme")
 	certFile := *flag.String("certFile", "cert.pem", "Set the path of certificate.")
 	keyFile := *flag.String("keyFile", "key.pem", "Set the path of key certificate key to use.")

@@ -151,8 +151,8 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 
 	cacheEntry := result.(*supervisorCacheEntry)
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	appChain := AppChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	netChain := NetChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
 
 	// Currently processing only containers with one IP address
 	ip, err := s.ipu.DefaultCacheIP(cacheEntry.ips)
@@ -218,8 +218,8 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 	index := 0
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(index)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(index)
+	appChain := AppChainPrefix + contextID + "-" + strconv.Itoa(index)
+	netChain := NetChainPrefix + contextID + "-" + strconv.Itoa(index)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
@@ -365,11 +365,11 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(newindex)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	appChain := AppChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	netChain := NetChainPrefix + contextID + "-" + strconv.Itoa(newindex)
 
-	oldAppChain := appChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-	oldNetChain := netChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldAppChain := AppChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldNetChain := NetChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
 
 	//Add a new chain for this update and map all rules there
 	if err := s.ipu.AddContainerChain(appChain, netChain, s.ipt); err != nil {
@@ -488,16 +488,7 @@ func (s *iptablesSupervisor) CleanACL() {
 	}).Info("Clean all ACL")
 
 	// Clean Application Rules/Chains
-	CleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Application Rules/Chains
-	CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Application Rules/Chains
-	CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Network Rules/Chains
-	CleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
+	s.ipu.CleanACLs(s.ipt)
 }
 
 // exclusionChainRules provides the list of rules that are used to send traffic to

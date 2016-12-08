@@ -141,8 +141,8 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 
 	cacheEntry := result.(*supervisorCacheEntry)
 
-	appSet := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netSet := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	appSet := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	netSet := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(cacheEntry.index)
 
 	// Currently processing only containers with one IP address
 	ip, err := s.ipu.DefaultCacheIP(cacheEntry.ips)
@@ -156,13 +156,13 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("PU IP address not found in cache: %s", err)
 	}
 
-	DeleteAppSetRule(appSet, ip, s.ipt)
+	s.ipu.DeleteAppSetRule(appSet, ip, s.ipt)
 
-	DeleteNetSetRule(netSet, ip, s.ipt)
+	s.ipu.DeleteNetSetRule(netSet, ip, s.ipt)
 
-	DeleteSet(appSet, s.ips)
+	s.ipu.DeleteSet(appSet, s.ips)
 
-	DeleteSet(netSet, s.ips)
+	s.ipu.DeleteSet(netSet, s.ips)
 
 	s.versionTracker.Remove(contextID)
 
@@ -186,7 +186,7 @@ func (s *ipsetSupervisor) Stop() error {
 
 func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet string, appACLs []policy.IPRule, netACLs []policy.IPRule, ip string) error {
 
-	if err := CreateACLSets(appSet, appACLs, s.ips); err != nil {
+	if err := s.ipu.CreateACLSets(appSet, appACLs, s.ips); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -197,7 +197,7 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		return err
 	}
 
-	if err := CreateACLSets(netSet, netACLs, s.ips); err != nil {
+	if err := s.ipu.CreateACLSets(netSet, netACLs, s.ips); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -208,7 +208,7 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		return err
 	}
 
-	if err := AddAppSetRule(appSet, ip, s.ipt); err != nil {
+	if err := s.ipu.AddAppSetRule(appSet, ip, s.ipt); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -220,7 +220,7 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		return err
 	}
 
-	if err := AddNetSetRule(netSet, ip, s.ipt); err != nil {
+	if err := s.ipu.AddNetSetRule(netSet, ip, s.ipt); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -243,8 +243,8 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 
 	index := 0
 
-	appSet := appChainPrefix + contextID + "-" + strconv.Itoa(index)
-	netSet := netChainPrefix + contextID + "-" + strconv.Itoa(index)
+	appSet := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(index)
+	netSet := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(index)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
@@ -320,23 +320,23 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 		return fmt.Errorf("PU IP address not found in cache: %s", err)
 	}
 
-	appSet := appChainPrefix + contextID + "-" + strconv.Itoa(newindex)
-	netSet := netChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	appSet := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(newindex)
+	netSet := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(newindex)
 
-	oldAppSet := appChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-	oldNetSet := netChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldAppSet := s.ipu.AppChainPrefix() + contextID + "-" + strconv.Itoa(oldindex)
+	oldNetSet := s.ipu.NetChainPrefix() + contextID + "-" + strconv.Itoa(oldindex)
 
 	if err := s.doAddSets(contextID, appSet, netSet, containerInfo.Policy.IngressACLs, containerInfo.Policy.EgressACLs, ipAddress); err != nil {
 		return err
 	}
 
-	DeleteAppSetRule(oldAppSet, ipAddress, s.ipt)
+	s.ipu.DeleteAppSetRule(oldAppSet, ipAddress, s.ipt)
 
-	DeleteNetSetRule(oldNetSet, ipAddress, s.ipt)
+	s.ipu.DeleteNetSetRule(oldNetSet, ipAddress, s.ipt)
 
-	DeleteSet(oldAppSet, s.ips)
+	s.ipu.DeleteSet(oldAppSet, s.ips)
 
-	DeleteSet(oldNetSet, s.ips)
+	s.ipu.DeleteSet(oldNetSet, s.ips)
 
 	ip, _ := containerInfo.Runtime.DefaultIPAddress()
 	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")
@@ -366,66 +366,8 @@ func (s *ipsetSupervisor) createInitialIPSet() error {
 	return nil
 }
 
-func (s *ipsetSupervisor) TrapRulesSet(set string) [][]string {
-
-	TrapRules := [][]string{
-		// Application Syn and Syn/Ack in RAW
-		{
-			appPacketIPTableContext, appPacketIPTableSection,
-			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
-			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
-		},
-
-		// Application Matching Trireme SRC and DST. Established connections.
-		{
-			appAckPacketIPTableContext, appPacketIPTableSection,
-			"-m", "set", "--match-set", set, "src",
-			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
-			"-j", "ACCEPT",
-		},
-
-		// Application Matching Trireme SRC and DST. SYN, SYNACK connections.
-		{
-			appAckPacketIPTableContext, appPacketIPTableSection,
-			"-m", "set", "--match-set", set, "src",
-			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
-			"-j", "NFQUEUE", "--queue-balance", s.applicationQueues,
-		},
-
-		// Default Drop from Trireme to Network
-		{
-			appAckPacketIPTableContext, appPacketIPTableSection,
-			"-m", "set", "--match-set", set, "src",
-			"-j", "DROP",
-		},
-
-		// Network Matching Trireme SRC and DST.
-		{
-			netPacketIPTableContext, netPacketIPTableSection,
-			"-m", "set", "--match-set", set, "src",
-			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
-			"-j", "NFQUEUE", "--queue-balance", s.networkQueues,
-		},
-
-		// Default Drop from Network to Trireme.
-		{
-			netPacketIPTableContext, netPacketIPTableSection,
-			"-m", "set", "--match-set", set, "dst",
-			"-j", "DROP",
-		},
-	}
-
-	return TrapRules
-}
-
 func (s *ipsetSupervisor) createInitialRules() error {
-	TrapRules := s.TrapRulesSet(triremeSet)
+	TrapRules := s.ipu.TrapRulesSet(triremeSet, s.networkQueues, s.applicationQueues)
 	for _, tr := range TrapRules {
 		if err := s.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
 			log.WithFields(log.Fields{
@@ -444,18 +386,9 @@ func (s *ipsetSupervisor) cleanACLs() error {
 	}).Info("Cleaning all IPTables")
 
 	// Clean Application Rules/Chains
-	CleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
+	s.ipu.CleanACLs(s.ipt)
 
-	// Clean Application Rules/Chains
-	CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Application Rules/Chains
-	CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Network Rules/Chains
-	CleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
-
-	CleanIPSets(s.ips)
+	s.ipu.CleanIPSets(s.ips)
 
 	return nil
 }
