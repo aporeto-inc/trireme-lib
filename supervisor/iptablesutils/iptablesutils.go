@@ -25,19 +25,25 @@ const (
 type ipTableUtils struct {
 }
 
-//IptableUtils is a utility interface to programming IP Tables
+//IptableUtils is a utility interface for programming IP Tables and IP S
 type IptableUtils interface {
 	AppChainPrefix() string
 	NetChainPrefix() string
 	DefaultCacheIP(ips []string) (string, error)
+	chainRules(appChain string, netChain string, ip string) [][]string
+	trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string
+	IptableProviderUtils
+	IpsetProviderUtils
+}
+
+//IptableProviderUtils is a utility interface for programming IP Tables
+type IptableProviderUtils interface {
 	FilterMarkedPackets(mark int, provider provider.IptablesProvider) error
 	AddContainerChain(appChain string, netChain string, provider provider.IptablesProvider) error
 	deleteChain(context, chain string, provider provider.IptablesProvider) error
 	DeleteAllContainerChains(appChain, netChain string, provider provider.IptablesProvider) error
-	ChainRules(appChain string, netChain string, ip string) [][]string
 	AddChainRules(appChain string, netChain string, ip string, provider provider.IptablesProvider) error
 	DeleteChainRules(appChain, netChain, ip string, provider provider.IptablesProvider) error
-	trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string
 	AddPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error
 	DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error
 	AddAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
@@ -50,11 +56,15 @@ type IptableUtils interface {
 	DeleteAppSetRule(set string, ip string, provider provider.IptablesProvider) error
 	AddNetSetRule(set string, ip string, provider provider.IptablesProvider) error
 	DeleteNetSetRule(set string, ip string, provider provider.IptablesProvider) error
+	ExclusionChainRules(ip string) [][]string
+}
+
+//IpsetProviderUtils is a utility interface for programming IP Sets
+type IpsetProviderUtils interface {
+	TrapRulesSet(set string, networkQueues string, applicationQueues string) [][]string
 	CreateACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider) error
 	DeleteSet(set string, ips provider.IpsetProvider) error
 	CleanIPSets(ips provider.IpsetProvider) error
-	TrapRulesSet(set string, networkQueues string, applicationQueues string) [][]string
-	ExclusionChainRules(ip string) [][]string
 }
 
 // NewIptableUtils returns the IptableUtils implementer
@@ -224,7 +234,7 @@ func (r *ipTableUtils) DeleteAllContainerChains(appChain, netChain string, provi
 
 // ChainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (r *ipTableUtils) ChainRules(appChain string, netChain string, ip string) [][]string {
+func (r *ipTableUtils) chainRules(appChain string, netChain string, ip string) [][]string {
 
 	ChainRules := [][]string{
 		{
@@ -264,7 +274,7 @@ func (r *ipTableUtils) AddChainRules(appChain string, netChain string, ip string
 		"ip":       ip,
 	}).Info("Add chain rules")
 
-	ChainRules := r.ChainRules(appChain, netChain, ip)
+	ChainRules := r.chainRules(appChain, netChain, ip)
 	for _, cr := range ChainRules {
 
 		if err := provider.Append(cr[0], cr[1], cr[2:]...); err != nil {
@@ -292,7 +302,7 @@ func (r *ipTableUtils) DeleteChainRules(appChain, netChain, ip string, provider 
 		"ip":       ip,
 	}).Info("Delete chain rules")
 
-	ChainRules := r.ChainRules(appChain, netChain, ip)
+	ChainRules := r.chainRules(appChain, netChain, ip)
 	for _, cr := range ChainRules {
 
 		if err := provider.Delete(cr[0], cr[1], cr[2:]...); err != nil {
