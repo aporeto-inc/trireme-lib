@@ -25,15 +25,14 @@ const (
 type ipTableUtils struct {
 }
 
-//IptableUtils is a utility interface for programming IP Tables and IP S
-type IptableUtils interface {
+//IptableCommon is a utility interface for programming IP Tables and IP S
+type IptableCommon interface {
 	AppChainPrefix(contextID string, index int) string
 	NetChainPrefix(contextID string, index int) string
 	DefaultCacheIP(ips []string) (string, error)
 	chainRules(appChain string, netChain string, ip string) [][]string
 	trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string
-	IptableProviderUtils
-	IpsetProviderUtils
+	CleanACLs(provider provider.IptablesProvider) error
 }
 
 //IptableProviderUtils is a utility interface for programming IP Tables
@@ -50,25 +49,41 @@ type IptableProviderUtils interface {
 	DeleteAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
 	AddNetACLs(chain, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
 	DeleteNetACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
-	CleanACLs(provider provider.IptablesProvider) error
 	CleanACLSection(context, section, chainPrefix string, provider provider.IptablesProvider)
-	AddAppSetRule(set string, ip string, provider provider.IptablesProvider) error
-	DeleteAppSetRule(set string, ip string, provider provider.IptablesProvider) error
-	AddNetSetRule(set string, ip string, provider provider.IptablesProvider) error
-	DeleteNetSetRule(set string, ip string, provider provider.IptablesProvider) error
 	ExclusionChainRules(ip string) [][]string
 }
 
 //IpsetProviderUtils is a utility interface for programming IP Sets
 type IpsetProviderUtils interface {
+	AddAppSetRule(set string, ip string, provider provider.IptablesProvider) error
+	DeleteAppSetRule(set string, ip string, provider provider.IptablesProvider) error
+	AddNetSetRule(set string, ip string, provider provider.IptablesProvider) error
+	DeleteNetSetRule(set string, ip string, provider provider.IptablesProvider) error
 	TrapRulesSet(set string, networkQueues string, applicationQueues string) [][]string
 	CreateACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider) error
 	DeleteSet(set string, ips provider.IpsetProvider) error
 	CleanIPSets(ips provider.IpsetProvider) error
 }
 
+//IptableUtils is an interface
+type IptableUtils interface {
+	IptableCommon
+	IptableProviderUtils
+}
+
+// IpsetUtils is an interface
+type IpsetUtils interface {
+	IptableCommon
+	IpsetProviderUtils
+}
+
 // NewIptableUtils returns the IptableUtils implementer
 func NewIptableUtils() IptableUtils {
+	return &ipTableUtils{}
+}
+
+// NewIpsetUtils returns the IptableUtils implementer
+func NewIpsetUtils() IpsetUtils {
 	return &ipTableUtils{}
 }
 

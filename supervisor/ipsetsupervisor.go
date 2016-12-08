@@ -19,7 +19,7 @@ const triremeSet = "TriremeSet"
 
 type ipsetSupervisor struct {
 	versionTracker    cache.DataStore
-	ipu               iptablesutils.IptableUtils
+	ipu               iptablesutils.IpsetUtils
 	ipt               provider.IptablesProvider
 	ips               provider.IpsetProvider
 	collector         collector.EventCollector
@@ -80,7 +80,7 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	}
 
 	s := &ipsetSupervisor{
-		ipu:               iptablesutils.NewIptableUtils(),
+		ipu:               iptablesutils.NewIpsetUtils(),
 		ipt:               iptablesProvider,
 		ips:               ipsetProvider,
 		versionTracker:    cache.NewCache(nil),
