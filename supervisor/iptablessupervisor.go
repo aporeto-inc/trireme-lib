@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -22,7 +23,7 @@ type supervisorCacheEntry struct {
 // iptablesSupervisor is the structure holding all information about a connection filter
 type iptablesSupervisor struct {
 	versionTracker    cache.DataStore
-	ipu               iptablesutils.IptablesUtils
+	ipu               iptablesutils.IptableUtils
 	ipt               provider.IptablesProvider
 	collector         collector.EventCollector
 	networkQueues     string
