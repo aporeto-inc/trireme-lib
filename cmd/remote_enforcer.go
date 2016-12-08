@@ -1,13 +1,16 @@
 package main
 
 import (
+	"container/list"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
@@ -20,17 +23,35 @@ import (
 )
 
 const (
-	ipcProtocol = "unix"
-	defaultPath = "/var/run/default.sock"
+	ipcProtocol    = "unix"
+	defaultPath    = "/var/run/default.sock"
+	statsContextID = "UNUSED"
 )
 
 //CollectorImpl exported
 type CollectorImpl struct {
+	Flowentries *list.List
+	sync.RWMutex
+}
+type collectorentry struct {
+	L4FlowHash string
+	entry      *enforcer.StatsPayload
 }
 
 //CollectFlowEvent expoted
 func (c *CollectorImpl) CollectFlowEvent(contextID string, tags policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet) {
+	l4FlowHash := tcpPacket.L4FlowHash()
+	payload := &enforcer.StatsPayload{ContextID: contextID,
+		Tags:   tags,
+		Action: action,
+		Mode:   mode,
+		Source: sourceID,
+		Packet: tcpPacket,
+	}
 
+	c.Lock()
+	c.Flowentries.PushBack(&collectorentry{L4FlowHash: l4FlowHash, entry: payload})
+	c.Unlock()
 }
 
 //CollectContainerEvent exported
@@ -40,24 +61,82 @@ func (c *CollectorImpl) CollectContainerEvent(contextID string, ip string, tags 
 
 //Server exported
 type Server struct {
-	MutualAuth bool
-	Validity   time.Duration
-	SecretType tokens.SecretsType
-	ContextID  string
-	CAPEM      []byte
-	PublicPEM  []byte
-	PrivatePEM []byte
-	rpcchannel string
-	rpchdl     *rpcWrapper.RPCWrapper
-	Enforcer   enforcer.PolicyEnforcer
-	Collector  collector.EventCollector
-	Supervisor supervisor.Supervisor
+	MutualAuth  bool
+	Validity    time.Duration
+	SecretType  tokens.SecretsType
+	ContextID   string
+	CAPEM       []byte
+	PublicPEM   []byte
+	PrivatePEM  []byte
+	rpcchannel  string
+	rpchdl      *rpcWrapper.RPCWrapper
+	StatsClient *rpcWrapper.RPCWrapper
+	Enforcer    enforcer.PolicyEnforcer
+	Collector   collector.EventCollector
+	Supervisor  supervisor.Supervisor
+}
+
+type StatsClient struct {
+	collector *CollectorImpl
+	s         *Server
+	FlowCache *cache.Cache
+	Rpchdl    *rpcWrapper.RPCWrapper
+}
+
+func (s *StatsClient) SendStats() {
+	//We are connected and lets pack and ship
+	rpcpayload := new(rpcWrapper.StatsPayload)
+	var request rpcWrapper.Request
+	var response rpcWrapper.Response
+	rpcpayload.NumFlows = 0
+	starttime := time.Now()
+	for {
+
+		s.collector.Lock()
+		if !(s.collector.Flowentries.Len() > 0) {
+			s.collector.Unlock()
+			//starttime = time.Now()
+			continue
+		}
+		s.collector.Unlock()
+		element := s.collector.Flowentries.Remove(s.collector.Flowentries.Front())
+		//Now we can proceed lock free flowcache is not shared
+		_, err := s.FlowCache.Get(element.(*collectorentry).L4FlowHash)
+		if err != nil {
+			//this is new flow add it to our rpc payload
+			rpcpayload.NumFlows = rpcpayload.NumFlows + 1
+			rpcpayload.Flows = append(rpcpayload.Flows, *element.(*collectorentry).entry)
+
+		} else {
+			//Do nothing since we have added this flow already
+		}
+		if time.Since(starttime) > 2*time.Second {
+			//Send out everything we have in the payload
+			request.Payload = rpcpayload
+			err = s.Rpchdl.RemoteCall(statsContextID, "RPCSERVER.GetStats", &request, &response)
+
+			starttime = time.Now()
+		}
+
+	}
+}
+func (s *Server) connectStatsClient(statsClient *StatsClient) error {
+
+	statschannel := os.Getenv("STATSCHANNEL_PATH")
+	err := statsClient.Rpchdl.NewRPCClient(statsContextID, statschannel)
+	if err != nil {
+		log.WithFields(log.Fields{"package": "remote_enforcer", "error": err}).Error("Stats RPC client cannot connect")
+	}
+	_, err = statsClient.Rpchdl.GetRPCClient(statsContextID)
+
+	go statsClient.SendStats()
+	return err
 }
 
 //InitEnforcer exported
 func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
-
 	collector := new(CollectorImpl)
+	collector.Flowentries = list.New()
 	s.Collector = collector
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
@@ -75,6 +154,8 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 		publicKeyAdder := tokens.NewPSKSecrets(payload.PublicPEM)
 		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
 	}
+	statsClient := &StatsClient{collector: collector, s: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcWrapper.NewRPCWrapper()}
+	s.connectStatsClient(statsClient)
 
 	resp.Status = nil
 	return nil

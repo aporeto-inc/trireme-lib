@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/supervisor"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -50,7 +49,6 @@ func main() {
 	var m monitor.Monitor
 	//var e supervisor.Excluder
 	var remoteEnforcer bool
-	var e supervisor.Excluder
 
 	if remote == "local" {
 		remoteEnforcer = false
