@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 	"github.com/bvandewalle/go-ipset/ipset"
 )
@@ -18,6 +19,7 @@ const triremeSet = "TriremeSet"
 
 type ipsetSupervisor struct {
 	versionTracker    cache.DataStore
+	ipu               iptablesutils.IptableUtils
 	ipt               provider.IptablesProvider
 	ips               provider.IpsetProvider
 	collector         collector.EventCollector
@@ -78,6 +80,7 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	}
 
 	s := &ipsetSupervisor{
+		ipu:               iptablesutils.NewIptableUtils(),
 		ipt:               iptablesProvider,
 		ips:               ipsetProvider,
 		versionTracker:    cache.NewCache(nil),
@@ -142,7 +145,7 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 	netSet := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
 
 	// Currently processing only containers with one IP address
-	ip, err := defaultCacheIP(cacheEntry.ips)
+	ip, err := s.ipu.DefaultCacheIP(cacheEntry.ips)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -153,13 +156,13 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("PU IP address not found in cache: %s", err)
 	}
 
-	deleteAppSetRule(appSet, ip, s.ipt)
+	DeleteAppSetRule(appSet, ip, s.ipt)
 
-	deleteNetSetRule(netSet, ip, s.ipt)
+	DeleteNetSetRule(netSet, ip, s.ipt)
 
-	deleteSet(appSet, s.ips)
+	DeleteSet(appSet, s.ips)
 
-	deleteSet(netSet, s.ips)
+	DeleteSet(netSet, s.ips)
 
 	s.versionTracker.Remove(contextID)
 
@@ -183,7 +186,7 @@ func (s *ipsetSupervisor) Stop() error {
 
 func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet string, appACLs []policy.IPRule, netACLs []policy.IPRule, ip string) error {
 
-	if err := createACLSets(appSet, appACLs, s.ips); err != nil {
+	if err := CreateACLSets(appSet, appACLs, s.ips); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -194,7 +197,7 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		return err
 	}
 
-	if err := createACLSets(netSet, netACLs, s.ips); err != nil {
+	if err := CreateACLSets(netSet, netACLs, s.ips); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -205,7 +208,7 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		return err
 	}
 
-	if err := addAppSetRule(appSet, ip, s.ipt); err != nil {
+	if err := AddAppSetRule(appSet, ip, s.ipt); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -217,7 +220,7 @@ func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet stri
 		return err
 	}
 
-	if err := addNetSetRule(netSet, ip, s.ipt); err != nil {
+	if err := AddNetSetRule(netSet, ip, s.ipt); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -305,7 +308,7 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 	oldindex := newindex - 1
 
 	// Currently processing only containers with one IP address
-	ipAddress, err := defaultCacheIP(cachedEntry.ips)
+	ipAddress, err := s.ipu.DefaultCacheIP(cachedEntry.ips)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -327,13 +330,13 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 		return err
 	}
 
-	deleteAppSetRule(oldAppSet, ipAddress, s.ipt)
+	DeleteAppSetRule(oldAppSet, ipAddress, s.ipt)
 
-	deleteNetSetRule(oldNetSet, ipAddress, s.ipt)
+	DeleteNetSetRule(oldNetSet, ipAddress, s.ipt)
 
-	deleteSet(oldAppSet, s.ips)
+	DeleteSet(oldAppSet, s.ips)
 
-	deleteSet(oldNetSet, s.ips)
+	DeleteSet(oldNetSet, s.ips)
 
 	ip, _ := containerInfo.Runtime.DefaultIPAddress()
 	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")
@@ -363,9 +366,9 @@ func (s *ipsetSupervisor) createInitialIPSet() error {
 	return nil
 }
 
-func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
+func (s *ipsetSupervisor) TrapRulesSet(set string) [][]string {
 
-	trapRules := [][]string{
+	TrapRules := [][]string{
 		// Application Syn and Syn/Ack in RAW
 		{
 			appPacketIPTableContext, appPacketIPTableSection,
@@ -418,12 +421,12 @@ func (s *ipsetSupervisor) trapRulesSet(set string) [][]string {
 		},
 	}
 
-	return trapRules
+	return TrapRules
 }
 
 func (s *ipsetSupervisor) createInitialRules() error {
-	trapRules := s.trapRulesSet(triremeSet)
-	for _, tr := range trapRules {
+	TrapRules := s.TrapRulesSet(triremeSet)
+	for _, tr := range TrapRules {
 		if err := s.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
 			log.WithFields(log.Fields{
 				"package": "supervisor",
@@ -441,18 +444,18 @@ func (s *ipsetSupervisor) cleanACLs() error {
 	}).Info("Cleaning all IPTables")
 
 	// Clean Application Rules/Chains
-	cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
+	CleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
 
 	// Clean Application Rules/Chains
-	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
+	CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
 
 	// Clean Application Rules/Chains
-	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
+	CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
 
 	// Clean Network Rules/Chains
-	cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
+	CleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
 
-	cleanIPSets(s.ips)
+	CleanIPSets(s.ips)
 
 	return nil
 }

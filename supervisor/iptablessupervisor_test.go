@@ -390,7 +390,7 @@ func TestAddAppACLs(t *testing.T) {
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(provider.TestIptablesProvider)
-	//25 is derived from the addchainrules+addPacketTrap calling append
+	//25 is derived from the addchainrules+AddPacketTrap calling append
 	//We don't want append to fail in addchainrules
 	const (
 		testPoint  = 25
@@ -457,12 +457,12 @@ func TestAddNetACLs(t *testing.T) {
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(provider.TestIptablesProvider)
-	//25 is derived from the addchainrules+addPacketTrap calling append
+	//25 is derived from the addchainrules+AddPacketTrap calling append
 	//We don't want append to fail in addchainrules
 	const (
 		testPoint  = 0
 		testPoint0 = 0
-		testPoint1 = 9
+		testPoint1 = 8
 		testPoint2 = 9
 		testPoint3
 		testPoint4
@@ -492,7 +492,6 @@ func TestAddNetACLs(t *testing.T) {
 	testPoints = testPoint0
 	targetPoint = testPoint2
 	err = s.Supervise("12345", containerInfo)
-	fmt.Println("Testpoints", testPoints, targetPoint)
 	if err == nil {
 		t.Errorf("ignored Error from Append expected:%v actual:%v", targetPoint, testPoints)
 		//debug.PrintStack()
@@ -527,7 +526,7 @@ func TestDeleteChainRules(t *testing.T) {
 	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 	m := s.ipt.(provider.TestIptablesProvider)
-	//25 is derived from the addchainrules+addPacketTrap calling append
+	//25 is derived from the addchainrules+AddPacketTrap calling append
 	//We don't want append to fail in addchainrules
 	const (
 		testPoint  = 0

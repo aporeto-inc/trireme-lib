@@ -1,4 +1,4 @@
-package supervisor
+package iptablesutils
 
 import (
 	"fmt"
@@ -22,14 +22,47 @@ const (
 	netChainPrefix             = chainPrefix + "Net-"
 )
 
-func defaultCacheIP(ips []string) (string, error) {
+type ipTableUtils struct {
+}
+
+//IptableUtils is a utility interface to programming IP Tables
+type IptableUtils interface {
+	DefaultCacheIP(ips []string) (string, error)
+	FilterMarkedPackets(table, chain string, mark int, provider provider.IptablesProvider) error
+	AddContainerChain(appChain string, netChain string, provider provider.IptablesProvider) error
+	deleteChain(context, chain string, provider provider.IptablesProvider) error
+	DeleteAllContainerChains(appChain, netChain string, provider provider.IptablesProvider) error
+	ChainRules(appChain string, netChain string, ip string) [][]string
+	AddChainRules(appChain string, netChain string, ip string, provider provider.IptablesProvider) error
+	DeleteChainRules(appChain, netChain, ip string, provider provider.IptablesProvider) error
+	trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string
+	AddPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error
+	DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error
+	AddAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
+	DeleteAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
+	AddNetACLs(chain, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
+	DeleteNetACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error
+	CleanACLSection(context, section, chainPrefix string, provider provider.IptablesProvider)
+	AddAppSetRule(set string, ip string, provider provider.IptablesProvider) error
+	DeleteAppSetRule(set string, ip string, provider provider.IptablesProvider) error
+	AddNetSetRule(set string, ip string, provider provider.IptablesProvider) error
+	DeleteNetSetRule(set string, ip string, provider provider.IptablesProvider) error
+	CreateACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider) error
+}
+
+// NewIptableUtils returns the IptableUtils implementer
+func NewIptableUtils() IptableUtils {
+	return &ipTableUtils{}
+}
+
+func (r *ipTableUtils) DefaultCacheIP(ips []string) (string, error) {
 	if len(ips) == 0 || ips == nil {
 		return "", fmt.Errorf("No IPs present")
 	}
 	return ips[0], nil
 }
 
-func filterMarkedPackets(table, chain string, mark int, provider provider.IptablesProvider) error {
+func (r *ipTableUtils) FilterMarkedPackets(table, chain string, mark int, provider provider.IptablesProvider) error {
 	err := provider.Insert(table, chain, 1,
 		"-m", "mark",
 		"--mark", strconv.Itoa(mark),
@@ -45,10 +78,10 @@ func filterMarkedPackets(table, chain string, mark int, provider provider.Iptabl
 	return err
 }
 
-// addContainerChain adds a chain for the specific container and redirects traffic there
+// AddContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
-func addContainerChain(appChain string, netChain string, provider provider.IptablesProvider) error {
+func (r *ipTableUtils) AddContainerChain(appChain string, netChain string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -97,7 +130,7 @@ func addContainerChain(appChain string, netChain string, provider provider.Iptab
 
 // delete removes all the rules in the provided chain and deletes the
 // chain
-func deleteChain(context, chain string, provider provider.IptablesProvider) error {
+func (r *ipTableUtils) deleteChain(context, chain string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -128,8 +161,8 @@ func deleteChain(context, chain string, provider provider.IptablesProvider) erro
 	return nil
 }
 
-// deleteAllContainerChains removes all the container specific chains and basic rules
-func deleteAllContainerChains(appChain, netChain string, provider provider.IptablesProvider) error {
+// DeleteAllContainerChains removes all the container specific chains and basic rules
+func (r *ipTableUtils) DeleteAllContainerChains(appChain, netChain string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -137,7 +170,7 @@ func deleteAllContainerChains(appChain, netChain string, provider provider.Iptab
 		"netChain": netChain,
 	}).Info("Delete all container chains")
 
-	if err := deleteChain(appPacketIPTableContext, appChain, provider); err != nil {
+	if err := r.deleteChain(appPacketIPTableContext, appChain, provider); err != nil {
 		log.WithFields(log.Fields{
 			"package":                 "supervisor",
 			"appChain":                appChain,
@@ -149,7 +182,7 @@ func deleteAllContainerChains(appChain, netChain string, provider provider.Iptab
 		//TODO: how do we deal with errors here
 	}
 
-	if err := deleteChain(appAckPacketIPTableContext, appChain, provider); err != nil {
+	if err := r.deleteChain(appAckPacketIPTableContext, appChain, provider); err != nil {
 		log.WithFields(log.Fields{
 			"package":  "supervisor",
 			"appChain": appChain,
@@ -159,7 +192,7 @@ func deleteAllContainerChains(appChain, netChain string, provider provider.Iptab
 		}).Debug("Failed to clear and delete the appChains")
 	}
 
-	if err := deleteChain(netPacketIPTableContext, netChain, provider); err != nil {
+	if err := r.deleteChain(netPacketIPTableContext, netChain, provider); err != nil {
 		log.WithFields(log.Fields{
 			"package":                 "supervisor",
 			"appChain":                appChain,
@@ -172,11 +205,11 @@ func deleteAllContainerChains(appChain, netChain string, provider provider.Iptab
 	return nil
 }
 
-// chainRules provides the list of rules that are used to send traffic to
+// ChainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func chainRules(appChain string, netChain string, ip string) [][]string {
+func (r *ipTableUtils) ChainRules(appChain string, netChain string, ip string) [][]string {
 
-	chainRules := [][]string{
+	ChainRules := [][]string{
 		{
 			appPacketIPTableContext,
 			appPacketIPTableSection,
@@ -201,11 +234,11 @@ func chainRules(appChain string, netChain string, ip string) [][]string {
 		},
 	}
 
-	return chainRules
+	return ChainRules
 }
 
 // addChains rules implements all the iptable rules that redirect traffic to a chain
-func addChainRules(appChain string, netChain string, ip string, provider provider.IptablesProvider) error {
+func (r *ipTableUtils) AddChainRules(appChain string, netChain string, ip string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -214,8 +247,8 @@ func addChainRules(appChain string, netChain string, ip string, provider provide
 		"ip":       ip,
 	}).Info("Add chain rules")
 
-	chainRules := chainRules(appChain, netChain, ip)
-	for _, cr := range chainRules {
+	ChainRules := r.ChainRules(appChain, netChain, ip)
+	for _, cr := range ChainRules {
 
 		if err := provider.Append(cr[0], cr[1], cr[2:]...); err != nil {
 			log.WithFields(log.Fields{
@@ -232,8 +265,8 @@ func addChainRules(appChain string, netChain string, ip string, provider provide
 	return nil
 }
 
-//deleteChainRules deletes the rules that send traffic to our chain
-func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesProvider) error {
+//DeleteChainRules deletes the rules that send traffic to our chain
+func (r *ipTableUtils) DeleteChainRules(appChain, netChain, ip string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -242,8 +275,8 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 		"ip":       ip,
 	}).Info("Delete chain rules")
 
-	chainRules := chainRules(appChain, netChain, ip)
-	for _, cr := range chainRules {
+	ChainRules := r.ChainRules(appChain, netChain, ip)
+	for _, cr := range ChainRules {
 
 		if err := provider.Delete(cr[0], cr[1], cr[2:]...); err != nil {
 			log.WithFields(log.Fields{
@@ -262,9 +295,9 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 }
 
 //trapRules provides the packet trap rules to add/delete
-func trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
+func (r *ipTableUtils) trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
 
-	trapRules := [][]string{
+	TrapRules := [][]string{
 		// Application Syn and Syn/Ack
 		{
 			appPacketIPTableContext, appChain,
@@ -292,11 +325,11 @@ func trapRules(appChain string, netChain string, network string, appQueue string
 		},
 	}
 
-	return trapRules
+	return TrapRules
 }
 
-// addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func addPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error {
+// AddPacketTrap adds the necessary iptables rules to capture control packets to user space
+func (r *ipTableUtils) AddPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -307,8 +340,8 @@ func addPacketTrap(appChain string, netChain string, ip string, targetNetworks [
 
 	for _, network := range targetNetworks {
 
-		trapRules := trapRules(appChain, netChain, network, appQueue, netQueue)
-		for _, tr := range trapRules {
+		TrapRules := r.trapRules(appChain, netChain, network, appQueue, netQueue)
+		for _, tr := range TrapRules {
 
 			if err := provider.Append(tr[0], tr[1], tr[2:]...); err != nil {
 				log.WithFields(log.Fields{
@@ -326,8 +359,8 @@ func addPacketTrap(appChain string, netChain string, ip string, targetNetworks [
 	return nil
 }
 
-// deletePacketTrap deletes the iptables rules that trap control  packets to user space
-func deletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error {
+// DeletePacketTrap deletes the iptables rules that trap control  packets to user space
+func (r *ipTableUtils) DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package":  "supervisor",
@@ -338,8 +371,8 @@ func deletePacketTrap(appChain string, netChain string, ip string, targetNetwork
 
 	for _, network := range targetNetworks {
 
-		trapRules := trapRules(appChain, netChain, network, appQueue, netQueue)
-		for _, tr := range trapRules {
+		TrapRules := r.trapRules(appChain, netChain, network, appQueue, netQueue)
+		for _, tr := range TrapRules {
 
 			if err := provider.Delete(tr[0], tr[1], tr[2:]...); err != nil {
 				log.WithFields(log.Fields{
@@ -357,9 +390,9 @@ func deletePacketTrap(appChain string, netChain string, ip string, targetNetwork
 	return nil
 }
 
-// addAppACLs adds a set of rules to the external services that are initiated
+// AddAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func addAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
+func (r *ipTableUtils) AddAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -406,8 +439,8 @@ func addAppACLs(chain string, ip string, rules []policy.IPRule, provider provide
 	return nil
 }
 
-// deleteAppACLs deletes the rules associated with traffic to external services
-func deleteAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
+// DeleteAppACLs deletes the rules associated with traffic to external services
+func (r *ipTableUtils) DeleteAppACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -452,9 +485,9 @@ func deleteAppACLs(chain string, ip string, rules []policy.IPRule, provider prov
 	return nil
 }
 
-// addNetACLs adds iptables rules that manage traffic from external services. The
+// AddNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the higest priority since they are direct allows.
-func addNetACLs(chain, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
+func (r *ipTableUtils) AddNetACLs(chain, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -503,8 +536,8 @@ func addNetACLs(chain, ip string, rules []policy.IPRule, provider provider.Iptab
 	return nil
 }
 
-// deleteNetACLs removes the iptable rules that manage traffic from external services
-func deleteNetACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
+// DeleteNetACLs removes the iptable rules that manage traffic from external services
+func (r *ipTableUtils) DeleteNetACLs(chain string, ip string, rules []policy.IPRule, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -549,7 +582,7 @@ func deleteNetACLs(chain string, ip string, rules []policy.IPRule, provider prov
 	return nil
 }
 
-func cleanACLSection(context, section, chainPrefix string, provider provider.IptablesProvider) {
+func (r *ipTableUtils) CleanACLSection(context, section, chainPrefix string, provider provider.IptablesProvider) {
 
 	log.WithFields(log.Fields{
 		"package":     "supervisor",
@@ -589,8 +622,8 @@ func cleanACLSection(context, section, chainPrefix string, provider provider.Ipt
 	}
 }
 
-// addAppSetRule
-func addAppSetRule(set string, ip string, provider provider.IptablesProvider) error {
+// AddAppSetRule
+func (r *ipTableUtils) AddAppSetRule(set string, ip string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -617,8 +650,8 @@ func addAppSetRule(set string, ip string, provider provider.IptablesProvider) er
 	return nil
 }
 
-// deleteAppSetRule
-func deleteAppSetRule(set string, ip string, provider provider.IptablesProvider) error {
+// DeleteAppSetRule
+func (r *ipTableUtils) DeleteAppSetRule(set string, ip string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -644,8 +677,8 @@ func deleteAppSetRule(set string, ip string, provider provider.IptablesProvider)
 	return nil
 }
 
-// addNetSetRule
-func addNetSetRule(set string, ip string, provider provider.IptablesProvider) error {
+// AddNetSetRule
+func (r *ipTableUtils) AddNetSetRule(set string, ip string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -670,8 +703,8 @@ func addNetSetRule(set string, ip string, provider provider.IptablesProvider) er
 	return nil
 }
 
-// deleteNetSetRule
-func deleteNetSetRule(set string, ip string, provider provider.IptablesProvider) error {
+// DeleteNetSetRule
+func (r *ipTableUtils) DeleteNetSetRule(set string, ip string, provider provider.IptablesProvider) error {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
@@ -697,7 +730,7 @@ func deleteNetSetRule(set string, ip string, provider provider.IptablesProvider)
 	return nil
 }
 
-func createACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider) error {
+func (r *ipTableUtils) CreateACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider) error {
 	appSet, err := ips.NewIPset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
@@ -711,7 +744,7 @@ func createACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider
 	return nil
 }
 
-func deleteSet(set string, ips provider.IpsetProvider) error {
+func (r *ipTableUtils) DeleteSet(set string, ips provider.IpsetProvider) error {
 	ipSet, err := ips.NewIPset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
@@ -721,6 +754,6 @@ func deleteSet(set string, ips provider.IpsetProvider) error {
 	return nil
 }
 
-func cleanIPSets(ips provider.IpsetProvider) error {
+func (r *ipTableUtils) CleanIPSets(ips provider.IpsetProvider) error {
 	return ips.DestroyAll()
 }
