@@ -30,7 +30,7 @@ type IptableUtils interface {
 	AppChainPrefix() string
 	NetChainPrefix() string
 	DefaultCacheIP(ips []string) (string, error)
-	FilterMarkedPackets(table, chain string, mark int, provider provider.IptablesProvider) error
+	FilterMarkedPackets(mark int, provider provider.IptablesProvider) error
 	AddContainerChain(appChain string, netChain string, provider provider.IptablesProvider) error
 	deleteChain(context, chain string, provider provider.IptablesProvider) error
 	DeleteAllContainerChains(appChain, netChain string, provider provider.IptablesProvider) error
@@ -54,6 +54,7 @@ type IptableUtils interface {
 	DeleteSet(set string, ips provider.IpsetProvider) error
 	CleanIPSets(ips provider.IpsetProvider) error
 	TrapRulesSet(set string, networkQueues string, applicationQueues string) [][]string
+	ExclusionChainRules(ip string) [][]string
 }
 
 // NewIptableUtils returns the IptableUtils implementer
@@ -76,7 +77,9 @@ func (r *ipTableUtils) DefaultCacheIP(ips []string) (string, error) {
 	return ips[0], nil
 }
 
-func (r *ipTableUtils) FilterMarkedPackets(table, chain string, mark int, provider provider.IptablesProvider) error {
+func (r *ipTableUtils) FilterMarkedPackets(mark int, provider provider.IptablesProvider) error {
+	table := appAckPacketIPTableContext
+	chain := appPacketIPTableSection
 	err := provider.Insert(table, chain, 1,
 		"-m", "mark",
 		"--mark", strconv.Itoa(mark),
@@ -819,6 +822,37 @@ func (r *ipTableUtils) TrapRulesSet(set string, networkQueues string, applicatio
 	}
 
 	return TrapRules
+}
+
+// ExclusionChainRules provides the list of rules that are used to send traffic to
+// a particular chain
+func (r *ipTableUtils) ExclusionChainRules(ip string) [][]string {
+
+	ChainRules := [][]string{
+		{
+			appPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+		{appAckPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+		{
+			netPacketIPTableContext,
+			netPacketIPTableSection,
+			"-s", ip,
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+	}
+
+	return ChainRules
 }
 
 func (r *ipTableUtils) CreateACLSets(set string, rules []policy.IPRule, ips provider.IpsetProvider) error {
