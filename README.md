@@ -88,20 +88,15 @@ In parameter to the helper of your choice, you need to give your own `PolicyReso
 ```go
 type PolicyResolver interface {
 
-    // ResolvePolicy returns the policy.PUPolicy associated with the given ProcessingUnit using the given policy.RuntimeReader.
-    ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
+	// ResolvePolicy returns the policy.PUPolicy associated with the given contextID using the given policy.RuntimeReader.
+	ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
-    // HandleDeletePU is called when a PU is stopped/killed.
-    HandleDeletePU(contextID string) error
-
-    // HandleDeletePU is called when a PU is removed permanently.
-    HandleDestroyPU(contextID string) error
-
-    // SetPolicyUpdater sets the PolicyUpdater to use by the PolicyResolver.
-    // The PolicyUpdater is used later on as a reference for Policy Updates.
-    SetPolicyUpdater(p PolicyUpdater) error
+	// HandleDeletePU is called when a PU is stopped/killed.
+	HandlePUEvent(contextID string, eventType monitor.Event)
 }
 ```
+
+Each Container event generates a call to `HandlePUEvent`
 
 The `PolicyResolver` can then issue explicit calls to the `PolicyUpdater` in order to push a policyUpdate for an already running ProcessingUnit:
 
@@ -132,4 +127,3 @@ we are also releasing this code with a GPL v2 license.
 
 We are taking this step to protect any users of the library from an accidental violation
 of the GPL guidelines.
-
