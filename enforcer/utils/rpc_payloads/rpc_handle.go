@@ -144,7 +144,7 @@ func (r *RPCWrapper) ProcessMessage(req *Request) bool {
 
 //RegisterTypes exported
 func RegisterTypes() {
-	gob.RegisterName("Init_Request_Payload", *(&InitRequestPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.Init_Request_Payload", *(&InitRequestPayload{}))
 	gob.Register(InitResponsePayload{})
 	gob.Register(InitSupervisorPayload{})
 
