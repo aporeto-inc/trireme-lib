@@ -144,14 +144,14 @@ func (r *RPCWrapper) ProcessMessage(req *Request) bool {
 
 //RegisterTypes exported
 func RegisterTypes() {
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.Init_Request_Payload", *(&InitRequestPayload{}))
-	gob.Register(InitResponsePayload{})
-	gob.Register(InitSupervisorPayload{})
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.InitRequestPayload", *(&InitRequestPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.InitResponsePayload", *(&InitResponsePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.InitSupervisorPayload", *(&InitSupervisorPayload{}))
 
-	gob.Register(EnforcePayload{})
-	gob.Register(UnEnforcePayload{})
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.EnforcePayload", *(&EnforcePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.UnEnforcePayload", *(&UnEnforcePayload{}))
 
-	gob.Register(SuperviseRequestPayload{})
-	gob.Register(UnSupervisePayload{})
-	gob.Register(StatsPayload{})
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.SuperviseRequestPayload", *(&SuperviseRequestPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.UnSupervisePayload", *(&UnSupervisePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.StatsPayload", *(&StatsPayload{}))
 }
