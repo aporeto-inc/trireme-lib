@@ -37,7 +37,7 @@ type iptablesSupervisor struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, iptablesUtils iptablesutils.IptableUtils, targetNetworks []string) (Supervisor, error) {
 
 	if collector == nil {
 		log.WithFields(log.Fields{
@@ -82,7 +82,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance 
 	}
 
 	s := &iptablesSupervisor{
-		ipu:               iptablesutils.NewIptableUtils(),
+		ipu:               iptablesUtils,
 		ipt:               iptablesProvider,
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,

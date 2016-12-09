@@ -30,7 +30,7 @@ type ipsetSupervisor struct {
 }
 
 // NewIPSetSupervisor returns a new implementation of the Supervisor based on IPSets.
-func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, ipsetProvider provider.IpsetProvider, targetNetworks []string) (Supervisor, error) {
+func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, ipsetProvider provider.IpsetProvider, ipsetUtils iptablesutils.IpsetUtils, targetNetworks []string) (Supervisor, error) {
 	if collector == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -80,7 +80,7 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	}
 
 	s := &ipsetSupervisor{
-		ipu:               iptablesutils.NewIpsetUtils(),
+		ipu:               ipsetUtils,
 		ipt:               iptablesProvider,
 		ips:               ipsetProvider,
 		versionTracker:    cache.NewCache(nil),
