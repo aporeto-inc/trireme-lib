@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/supervisor"
 
 	log "github.com/Sirupsen/logrus"
 )
