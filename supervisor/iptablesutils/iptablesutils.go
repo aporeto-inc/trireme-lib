@@ -20,11 +20,13 @@ const (
 	netPacketIPTableContext    = "mangle"
 	netPacketIPTableSection    = "POSTROUTING"
 	netChainPrefix             = chainPrefix + "Net-"
+	triremeSet                 = "TriremeSet"
 )
 
 type ipTableUtils struct {
-	ipt provider.IptablesProvider
-	ips provider.IpsetProvider
+	ipt   provider.IptablesProvider
+	ips   provider.IpsetProvider
+	ipset provider.Ipset
 }
 
 //IptableCommon is a utility interface for programming IP Tables and IP S
@@ -52,16 +54,21 @@ type IptableProviderUtils interface {
 	AddNetACLs(chain, ip string, rules []policy.IPRule) error
 	DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error
 	CleanACLSection(context, section, chainPrefix string)
-	ExclusionChainRules(ip string) [][]string
+	exclusionChainRules(ip string) [][]string
+	AddExclusionChainRules(ip string) error
+	DeleteExclusionChainRules(ip string) error
 }
 
 //IpsetProviderUtils is a utility interface for programming IP Sets
 type IpsetProviderUtils interface {
+	SetupIpset(networks []string) error
+	AddIpsetOption(ip string) error
+	DeleteIpsetOption(ip string) error
 	AddAppSetRule(set string, ip string) error
 	DeleteAppSetRule(set string, ip string) error
 	AddNetSetRule(set string, ip string) error
 	DeleteNetSetRule(set string, ip string) error
-	TrapRulesSet(set string, networkQueues string, applicationQueues string) [][]string
+	SetupTrapRules(networkQueues string, applicationQueues string) error
 	CreateACLSets(set string, rules []policy.IPRule) error
 	DeleteSet(set string) error
 	CleanIPSets() error
@@ -87,11 +94,22 @@ func NewIptableUtils(p provider.IptablesProvider) IptableUtils {
 }
 
 // NewIpsetUtils returns the IptableUtils implementer
-func NewIpsetUtils(p provider.IptablesProvider, s provider.IpsetProvider) IpsetUtils {
-	return &ipTableUtils{
-		ipt: p,
-		ips: s,
+func NewIpsetUtils(p provider.IptablesProvider, s provider.IpsetProvider) (IpsetUtils, error) {
+
+	ipset, err := s.NewIpset(triremeSet, "hash:net", &ipset.Params{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+			"error":   err.Error(),
+		}).Debug("Error creating NewIPSet")
+		return nil, fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
+
+	return &ipTableUtils{
+		ipt:   p,
+		ips:   s,
+		ipset: ipset,
+	}, nil
 }
 
 func (r *ipTableUtils) AppChainPrefix(contextID string, index int) string {
@@ -690,6 +708,34 @@ func (r *ipTableUtils) CleanACLSection(context, section, chainPrefix string) {
 	}
 }
 
+// SetupIpset
+func (r *ipTableUtils) SetupIpset(targetNetworks []string) error {
+
+	for _, net := range targetNetworks {
+		if err := r.ipset.Add(net, 0); err != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Error adding network  to Trireme IPSet")
+			return fmt.Errorf("Error adding network %s to Trireme IPSet: %s", net, err)
+		}
+	}
+
+	return nil
+}
+
+// AddIpsetOption
+func (r *ipTableUtils) AddIpsetOption(ip string) error {
+
+	return r.ipset.AddOption(ip, "nomatch", 0)
+}
+
+// DeleteIpsetOption
+func (r *ipTableUtils) DeleteIpsetOption(ip string) error {
+
+	return r.ipset.Del(ip)
+}
+
 // AddAppSetRule
 func (r *ipTableUtils) AddAppSetRule(set string, ip string) error {
 
@@ -798,7 +844,9 @@ func (r *ipTableUtils) DeleteNetSetRule(set string, ip string) error {
 	return nil
 }
 
-func (r *ipTableUtils) TrapRulesSet(set string, networkQueues string, applicationQueues string) [][]string {
+func (r *ipTableUtils) SetupTrapRules(networkQueues string, applicationQueues string) error {
+
+	set := triremeSet
 
 	TrapRules := [][]string{
 		// Application Syn and Syn/Ack in RAW
@@ -853,12 +901,21 @@ func (r *ipTableUtils) TrapRulesSet(set string, networkQueues string, applicatio
 		},
 	}
 
-	return TrapRules
+	for _, tr := range TrapRules {
+		if err := r.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Failed to add initial rules for TriremeNet IPSet.")
+			return err
+		}
+	}
+	return nil
 }
 
-// ExclusionChainRules provides the list of rules that are used to send traffic to
+// exclusionChainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (r *ipTableUtils) ExclusionChainRules(ip string) [][]string {
+func (r *ipTableUtils) exclusionChainRules(ip string) [][]string {
 
 	ChainRules := [][]string{
 		{
@@ -868,7 +925,8 @@ func (r *ipTableUtils) ExclusionChainRules(ip string) [][]string {
 			"-m", "comment", "--comment", "Trireme excluded IP",
 			"-j", "ACCEPT",
 		},
-		{appAckPacketIPTableContext,
+		{
+			appAckPacketIPTableContext,
 			appPacketIPTableSection,
 			"-d", ip,
 			"-p", "tcp",
@@ -887,8 +945,41 @@ func (r *ipTableUtils) ExclusionChainRules(ip string) [][]string {
 	return ChainRules
 }
 
+func (r *ipTableUtils) AddExclusionChainRules(ip string) error {
+
+	ChainRules := r.exclusionChainRules(ip)
+	for _, cr := range ChainRules {
+		if err := r.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
+
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Failed to create rule that redirects to container chain")
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ipTableUtils) DeleteExclusionChainRules(ip string) error {
+
+	ChainRules := r.exclusionChainRules(ip)
+	for _, cr := range ChainRules {
+
+		if err := r.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
+
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Failed to delete rule that redirects to container chain")
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *ipTableUtils) CreateACLSets(set string, rules []policy.IPRule) error {
-	appSet, err := r.ips.NewIPset(set, "hash:net,port", &ipset.Params{})
+	appSet, err := r.ips.NewIpset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
@@ -902,7 +993,7 @@ func (r *ipTableUtils) CreateACLSets(set string, rules []policy.IPRule) error {
 }
 
 func (r *ipTableUtils) DeleteSet(set string) error {
-	ipSet, err := r.ips.NewIPset(set, "hash:net,port", &ipset.Params{})
+	ipSet, err := r.ips.NewIpset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}

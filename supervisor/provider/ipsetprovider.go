@@ -4,7 +4,7 @@ import "github.com/bvandewalle/go-ipset/ipset"
 
 // IpsetProvider returns a fabric for Ipset.
 type IpsetProvider interface {
-	NewIPset(name string, hasht string, p *ipset.Params) (Ipset, error)
+	NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error)
 	DestroyAll() error
 }
 
@@ -21,9 +21,9 @@ type Ipset interface {
 
 type goIpset struct{}
 
-// NewIPset returns an IpsetProvider interface based on the go-ipset
+// NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
-func (i *goIpset) NewIPset(name string, hasht string, p *ipset.Params) (Ipset, error) {
+func (i *goIpset) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
 	return ipset.New(name, hasht, p)
 }
 
