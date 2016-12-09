@@ -5,11 +5,13 @@ This document aims to explain the basic concepts behind the Trireme policies and
 
 As a user of the Trireme library, you need to implement a `Policy Resolver` interface that will fully define the policies that will apply to your traffic.
 
+The example part of Trireme can be used as a starting point for implementing your own `Policy Resolver`
+
 # Trireme Cluster
 
 When using Trireme, two different perimeters are defined:
 * Trireme endpoints is the set of all Processing Units (typically represents a container) that will get policed through Trireme as described in the next subsection. Trireme Endpoints get policed through `Trireme Internal Policies`
-* Outside world: Everything else that is not being policed through Trireme agent. Those other endpoints get policed through more traditionnal  `External policies`
+* Outside world: Everything else that is not being policed through Trireme agent. Those other endpoints get policed through more traditional  `External policies`
 
 The complex and granular Trireme policies can only be applied if both the receiver and destination are being part of the Trireme endpoints.
 In any other cases, a standard set of ACLs will be applied in egress and ingress.
