@@ -61,6 +61,14 @@ func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.Po
 		return nil, fmt.Errorf("IpsetProvider cannot be nil")
 	}
 
+	if ipsetUtils == nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Debug("IpsetUtils cannot be nil in NewIPSetSupervisor")
+
+		return nil, fmt.Errorf("IpsetProvider cannot be nil")
+	}
+
 	if targetNetworks == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",

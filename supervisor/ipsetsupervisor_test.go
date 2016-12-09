@@ -57,6 +57,12 @@ func TestNewIPSetSupervisor(t *testing.T) {
 		t.Errorf("NewIPTables should fail because of empty IPTables Provider. No Error received.")
 	}
 
+	// Test with Empty IpsetUtils
+	_, err = NewIPSetSupervisor(c, pe, ipt, ips, nil, networks)
+	if err == nil {
+		t.Errorf("NewIPTables should fail because of empty IPSetTables. No Error received.")
+	}
+
 	// Test with Empty Networks
 	_, err = NewIPSetSupervisor(c, pe, ipt, ips, ipu, nil)
 	if err == nil {

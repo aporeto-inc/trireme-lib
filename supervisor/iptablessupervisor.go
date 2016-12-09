@@ -63,6 +63,14 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance 
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
 
+	if iptablesUtils == nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Debug("IptablesUtils cannot be nil in NewIPTablesSupervisor")
+
+		return nil, fmt.Errorf("Enforcer cannot be nil")
+	}
+
 	if targetNetworks == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
