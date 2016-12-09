@@ -14,10 +14,10 @@ func doNewIPSetSupervisor(t *testing.T) *ipsetSupervisor {
 	pe := mockenforcerDefaultFQConfig(t)
 	ipt := provider.NewTestIptablesProvider()
 	ips := provider.NewTestIpsetProvider()
-	ipu := iptablesutils.NewIpsetUtils(ipt, ips)
+	ipu, _ := iptablesutils.NewIpsetUtils(ipt, ips)
 	networks := []string{"0.0.0.0/0"}
 
-	s, err := NewIPSetSupervisor(c, pe, ipt, ips, ipu, networks)
+	s, err := NewIPSetSupervisor(c, pe, ipu, networks)
 	if err != nil {
 		t.Errorf("NewIPTables should not fail. Error received: %s", err)
 		t.SkipNow()
@@ -31,40 +31,34 @@ func TestNewIPSetSupervisor(t *testing.T) {
 	pe := mockenforcerDefaultFQConfig(t)
 	ipt := provider.NewTestIptablesProvider()
 	ips := provider.NewTestIpsetProvider()
-	ipu := iptablesutils.NewIpsetUtils(ipt, ips)
+	ipu, _ := iptablesutils.NewIpsetUtils(ipt, ips)
 	networks := []string{"0.0.0.0/0"}
 
 	// Test with normal parameters
-	_, err := NewIPSetSupervisor(c, pe, ipt, ips, ipu, networks)
+	_, err := NewIPSetSupervisor(c, pe, ipu, networks)
 	if err != nil {
 		t.Errorf("NewIPTables should not fail. Error received: %s", err)
 	}
 	// Test with Empty Collector
-	_, err = NewIPSetSupervisor(nil, pe, ipt, ips, ipu, networks)
+	_, err = NewIPSetSupervisor(nil, pe, ipu, networks)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty Collector. No Error received.")
 	}
 
 	// Test with Empty Enforcer
-	_, err = NewIPSetSupervisor(c, nil, ipt, ips, ipu, networks)
+	_, err = NewIPSetSupervisor(c, nil, ipu, networks)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty Enforcer. No Error received.")
 	}
 
-	// Test with Empty iptables
-	_, err = NewIPSetSupervisor(c, pe, nil, ips, ipu, networks)
-	if err == nil {
-		t.Errorf("NewIPTables should fail because of empty IPTables Provider. No Error received.")
-	}
-
 	// Test with Empty IpsetUtils
-	_, err = NewIPSetSupervisor(c, pe, ipt, ips, nil, networks)
+	_, err = NewIPSetSupervisor(c, pe, nil, networks)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty IPSetTables. No Error received.")
 	}
 
 	// Test with Empty Networks
-	_, err = NewIPSetSupervisor(c, pe, ipt, ips, ipu, nil)
+	_, err = NewIPSetSupervisor(c, pe, ipu, nil)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty TriremeNetworks. No Error received.")
 	}
