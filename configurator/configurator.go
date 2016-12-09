@@ -23,6 +23,35 @@ const (
 	DefaultDockerSocketType = "unix"
 )
 
+// NewIPSetSupervisor is the Supervisor based on IPSets.
+func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
+	// Make sure that the iptables command is accessible. Panic if its not there.
+	ipt, err := provider.NewGoIPTablesProvider()
+	if err != nil {
+		return nil, err
+	}
+
+	ips := provider.NewGoIPsetProvider()
+
+	return supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks)
+}
+
+// NewIPTablesSupervisor is the current old supervisor implementation.
+func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
+	// Make sure that the iptables command is accessible. Panic if its not there.
+	ipt, err := provider.NewGoIPTablesProvider()
+	if err != nil {
+		return nil, err
+	}
+
+	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
+}
+
+// NewDefaultSupervisor returns the IPTables supervisor
+func NewDefaultSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
+	return NewIPTablesSupervisor(eventCollector, enforcer, networks)
+}
+
 // NewTriremeWithDockerMonitor TODO
 func NewTriremeWithDockerMonitor(
 	serverID string,
@@ -41,20 +70,16 @@ func NewTriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	// Make sure that the iptables command is accessible. Panic if its not there.
-	ipt, err := provider.NewGoIPTablesProvider()
-
+	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, processor, secrets)
+	IPTsupervisor, err := NewDefaultSupervisor(eventCollector, enforcer, networks)
+	// Make sure that the Supervisor was able to load. Panic if its not there.
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
 			"error":   err.Error(),
-		}).Fatal("Failed to load Go-Iptables")
+		}).Fatal("Failed to load Supervisor")
 	}
 
-	// Make sure that the iptables command is accessible. Panic if its not there.
-
-	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, processor, secrets)
-	IPTsupervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 
