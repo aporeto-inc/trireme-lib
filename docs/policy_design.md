@@ -3,6 +3,8 @@
 Trireme includes a powerful policy language that defines explicitely what is allowed and not allowed.
 This document aims to explain the basic concepts behind the Trireme policies and how to get started to define your own policies.
 
+As a user of the Trireme library, you need to implement a `Policy Resolver` interface that will fully define the policies that will apply to your traffic.
+
 # Trireme Cluster
 
 When using Trireme, two different perimeters are defined:
@@ -73,6 +75,46 @@ For traffic exiting the Processing Unit, the following logic is applied:
 - Drop unmatched traffic
 ```
 
-# Policies for Trireme traffic
+# Policies for Trireme traffic.
+
+Traffic flowing inside a cluster between two endpoints that are both policed by Trireme is subject to the Trireme policies.
+
+Those policies rely heavily on a set of metadata identity that is sent as part of the Trireme traffic and decapsulated/encapsulated by the endpoint agents.
+Those metadata are labels in the form of `Key:values` and are defined by the  Policy Resolver.
+Each Processing Unit will have a set of those labels associated.
+Each processing Unit also got a set of Trireme Policies that define which remote Trireme processing units are allowed to connect to the local processing unit.
+
+The Trireme policy is defined as a logical set of `OR` Rules that are each defined as `AND` Clauses:
+The action of a Trireme policy is applied IF at least one of the Rules is matched successfully. (Logical `OR`)
+In order for a rule to be matched successfully, each clause inside the rule needs to be successfully matched (Logical `AND`)
+
+Each clause is built as a `Key`, Set of `Values` and `Operator`.
+Each clause translated to a binary TRUE or FALSE.
+The following operations are supported:
+
+* `Equal` returns true if the PU got a label associated to the `Key` with a `value` equal to one of the `values` defined in the policy.
+Example:
+The clause
+```
+KEY: App
+VALUE: {'nginx', 'centos', 'mysql'}
+OPERATOR: `Equal`
+```
+will return TRUE for the following PU metadata:
+```
+Image:centos
+App:centos
+owner:admin
+```
+
+will return FALSE for the following PU metadata:
+```
+Image:server
+owner:root
+```
+
+* `NotEqual` returns true if the PU got a label associated to the `Key` with a `value` NOT equal to one of the `values` defined in the policy
+* `KeyExists`
+* `KeyNotExists`
 
 # Policies for External traffic.
