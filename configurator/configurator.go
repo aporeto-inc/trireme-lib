@@ -50,6 +50,7 @@ func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforc
 	}
 
 	return supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipu, networks)
+
 }
 
 // NewIPTablesSupervisor is the current old supervisor implementation.
@@ -64,6 +65,7 @@ func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enf
 	ipu := iptablesutils.NewIptableUtils(ipt)
 
 	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks)
+
 }
 
 // NewDefaultSupervisor returns the IPTables supervisor
@@ -139,6 +141,7 @@ func NewPSKTriremeWithDockerMonitor(
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart, dockerMetadataExtractor, remoteEnforcer)
+
 }
 
 // NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
