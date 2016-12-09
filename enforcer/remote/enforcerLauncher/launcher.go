@@ -3,7 +3,6 @@
 package enforcerLauncher
 
 import (
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"time"
@@ -83,7 +82,7 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	enfReq.ContextID = contextID
 	enfReq.PuPolicy = puInfo.Policy
 	request.Payload = enfReq
-	gob.Register(rpcWrapper.EnforcePayload{})
+
 	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, enfResp)
 	if err != nil {
 		log.WithFields(log.Fields{

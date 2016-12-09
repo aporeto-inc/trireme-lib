@@ -144,14 +144,14 @@ func (r *RPCWrapper) ProcessMessage(req *Request) bool {
 
 //RegisterTypes exported
 func RegisterTypes() {
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.InitRequestPayload", *(&InitRequestPayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.InitResponsePayload", *(&InitResponsePayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.InitSupervisorPayload", *(&InitSupervisorPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.Init_Request_Payload", *(&InitRequestPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.Init_Response_Payload", *(&InitResponsePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.Init_Supervisor_Payload", *(&InitSupervisorPayload{}))
 
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.EnforcePayload", *(&EnforcePayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.UnEnforcePayload", *(&UnEnforcePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.Enforce_Payload", *(&EnforcePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.UnEnforce_Payload", *(&UnEnforcePayload{}))
 
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.SuperviseRequestPayload", *(&SuperviseRequestPayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.UnSupervisePayload", *(&UnSupervisePayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads/rpcWrapper.StatsPayload", *(&StatsPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.UnSupervise_Payload", *(&UnSupervisePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpc_payloads.Stats_Payload", *(&StatsPayload{}))
 }
