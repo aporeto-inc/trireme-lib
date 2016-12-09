@@ -31,8 +31,8 @@ func mockenforcerDefaultFQConfig(t *testing.T) enforcer.PolicyEnforcer {
 func doNewIPTSupervisor(t *testing.T) *iptablesSupervisor {
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
-	ipu := iptablesutils.NewIptableUtils()
 	ipt := provider.NewTestIptablesProvider()
+	ipu := iptablesutils.NewIptableUtils(ipt)
 	networks := []string{"0.0.0.0/0"}
 
 	s, err := NewIPTablesSupervisor(c, pe, ipt, ipu, networks)
@@ -50,8 +50,8 @@ func TestNewIPTablesSupervisor(t *testing.T) {
 
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
-	ipu := iptablesutils.NewIptableUtils()
 	ipt := provider.NewTestIptablesProvider()
+	ipu := iptablesutils.NewIptableUtils(ipt)
 	networks := []string{"0.0.0.0/0"}
 
 	// Test with normal parameters

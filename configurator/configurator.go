@@ -32,9 +32,9 @@ func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforc
 		return nil, err
 	}
 
-	ipu := iptablesutils.NewIpsetUtils()
-
 	ips := provider.NewGoIPsetProvider()
+
+	ipu := iptablesutils.NewIpsetUtils(ipt, ips)
 
 	return supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, ipu, networks)
 }
@@ -42,13 +42,13 @@ func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforc
 // NewIPTablesSupervisor is the current old supervisor implementation.
 func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
 
-	ipu := iptablesutils.NewIptableUtils()
-
 	// Make sure that the iptables command is accessible. Panic if its not there.
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
 		return nil, err
 	}
+
+	ipu := iptablesutils.NewIptableUtils(ipt)
 
 	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, ipu, networks)
 }

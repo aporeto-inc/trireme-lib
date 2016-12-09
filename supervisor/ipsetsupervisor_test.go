@@ -12,9 +12,9 @@ import (
 func doNewIPSetSupervisor(t *testing.T) *ipsetSupervisor {
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
-	ipu := iptablesutils.NewIpsetUtils()
 	ipt := provider.NewTestIptablesProvider()
 	ips := provider.NewTestIpsetProvider()
+	ipu := iptablesutils.NewIpsetUtils(ipt, ips)
 	networks := []string{"0.0.0.0/0"}
 
 	s, err := NewIPSetSupervisor(c, pe, ipt, ips, ipu, networks)
@@ -29,9 +29,9 @@ func TestNewIPSetSupervisor(t *testing.T) {
 
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
-	ipu := iptablesutils.NewIpsetUtils()
 	ipt := provider.NewTestIptablesProvider()
 	ips := provider.NewTestIpsetProvider()
+	ipu := iptablesutils.NewIpsetUtils(ipt, ips)
 	networks := []string{"0.0.0.0/0"}
 
 	// Test with normal parameters
