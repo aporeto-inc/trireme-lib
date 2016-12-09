@@ -1,7 +1,6 @@
 package supervisorLauncher
 
 import (
-	"encoding/gob"
 	"fmt"
 	"strconv"
 
@@ -42,7 +41,6 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 	payload.ContextID = contextID
 	payload.PuPolicy = puInfo.Policy
 	req.Payload = payload
-	gob.Register(rpcWrapper.SuperviseRequestPayload{})
 	return s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, response)
 
 }
@@ -54,7 +52,6 @@ func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
 	unenfresp := new(rpcWrapper.Response)
 	payload.ContextID = contextID
 	request.Payload = payload
-	gob.Register(rpcWrapper.UnSupervisePayload{})
 	s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, unenfresp)
 	if s.prochdl.GetExitStatus(contextID) == false {
 		//Unsupervise not called yet
@@ -113,7 +110,6 @@ func (s *RemoteSupervisorHandle) InitRemoteSupervisor(contextID string, puInfo *
 	payload.ApplicationQueues = s.applicationQueues
 	payload.TargetNetworks = s.targetNetworks
 	request.Payload = payload
-	gob.Register(rpcWrapper.InitSupervisorPayload{})
 	return s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, response)
 
 }
