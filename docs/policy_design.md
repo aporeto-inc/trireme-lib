@@ -141,7 +141,70 @@ owner:root
 App:redis
 ```
 
-* `KeyExists`
-* `KeyNotExists`
+* `KeyExists` returns true if the PU got a label with  that key in it.
+
+Example:
+The clause
+```
+KEY: App
+VALUE: *
+OPERATOR: `KeyExists`
+```
+will return TRUE for the following PU metadata:
+```
+Image:centos
+App:abcd
+owner:admin
+```
+
+will return FALSE for the following PU metadata:
+```
+Image:server
+owner:root
+```
+
+* `KeyNotExists` returns true if the PU doesn't have a label with the specified key in it.
+
+Example:
+The clause
+```
+KEY: App
+VALUE: *
+OPERATOR: `KeyNotExists`
+```
+will return FALSE for the following PU metadata:
+```
+Image:centos
+App:centos
+owner:admin
+```
+
+will return TRUE for the following PU metadata:
+```
+Image:server
+owner:root
+```
+
+# Special tags for Port matching.
+
+Trireme introduces dynamically an extra label per TCP connection that represents the TCP destination port.
+That extra label got the following format:
+```
+@port:xx
+```
+This label can then be used for matching in any of the previously defined rules, like any other usual label.
 
 # Policies for External traffic.
+
+If the source or receiver endpoint is not part of the Trireme CIDRs, then the Policies for external traffic are used.
+Those policies are defined as usual Network ACLs with Network and port matches.
+
+For each Processing Unit, the following two policies are defined:
+* Application policy: The allowed traffic that originates from that processing unit.
+
+* Net policy: The traffic that is allowed to reach the Processing unit from the network.
+
+Both these policies take the format of a set of (Network/Port-range/Protocol type).
+* Network is the CIDR of the network traffic we want to allow (Example: `192.169.0.0/16`)
+* Port-range can be a single port or any range of port (Example: `100-200`)
+* Protocol type is the L4 protocol type (Must be one of `TCP`/`UDP`/`ICMP`)
