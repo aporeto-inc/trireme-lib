@@ -114,6 +114,33 @@ owner:root
 ```
 
 * `NotEqual` returns true if the PU got a label associated to the `Key` with a `value` NOT equal to one of the `values` defined in the policy
+Example:
+The clause
+```
+KEY: App
+VALUE: {'nginx', 'centos', 'mysql'}
+OPERATOR: `NotEqual`
+```
+will return FALSE for the following PU metadata:
+```
+Image:centos
+App:centos
+owner:admin
+```
+
+will return TRUE for the following PU metadata:
+```
+Image:server
+owner:root
+```
+
+will return TRUE for the following PU metadata:
+```
+Image:server
+owner:root
+App:redis
+```
+
 * `KeyExists`
 * `KeyNotExists`
 
