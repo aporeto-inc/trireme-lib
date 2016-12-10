@@ -52,7 +52,7 @@ type IptableProviderUtils interface {
 	DeleteAppACLs(chain string, ip string, rules []policy.IPRule) error
 	AddNetACLs(chain, ip string, rules []policy.IPRule) error
 	DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error
-	CleanACLSection(context, section, chainPrefix string)
+	cleanACLSection(context, section, chainPrefix string)
 	exclusionChainRules(ip string) [][]string
 	AddExclusionChainRules(ip string) error
 	DeleteExclusionChainRules(ip string) error
@@ -60,7 +60,7 @@ type IptableProviderUtils interface {
 
 //IpsetProviderUtils is a utility interface for programming IP Sets
 type IpsetProviderUtils interface {
-	SetupIpset(name string, networks []string) error
+	SetupIpset(name string, ips []string) error
 	AddIpsetOption(ip string) error
 	DeleteIpsetOption(ip string) error
 	AddAppSetRule(set string, ip string) error
@@ -113,6 +113,92 @@ func (r *ipTableUtils) DefaultCacheIP(ips []string) (string, error) {
 		return "", fmt.Errorf("No IPs present")
 	}
 	return ips[0], nil
+}
+
+// ChainRules provides the list of rules that are used to send traffic to
+// a particular chain
+func (r *ipTableUtils) chainRules(appChain string, netChain string, ip string) [][]string {
+
+	ChainRules := [][]string{
+		{
+			appPacketIPTableContext,
+			appPacketIPTableSection,
+			"-s", ip,
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", appChain,
+		},
+		{
+			appAckPacketIPTableContext,
+			appPacketIPTableSection,
+			"-s", ip,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", appChain,
+		},
+		{
+			netPacketIPTableContext,
+			netPacketIPTableSection,
+			"-d", ip,
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", netChain,
+		},
+	}
+
+	return ChainRules
+}
+
+//trapRules provides the packet trap rules to add/delete
+func (r *ipTableUtils) trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
+
+	TrapRules := [][]string{
+		// Application Syn and Syn/Ack
+		{
+			appPacketIPTableContext, appChain,
+			"-d", network,
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		},
+
+		// Application everything else
+		{
+			appAckPacketIPTableContext, appChain,
+			"-d", network,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		},
+
+		// Network side rules
+		{
+			netPacketIPTableContext, netChain,
+			"-s", network,
+			"-p", "tcp",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", netQueue,
+		},
+	}
+
+	return TrapRules
+}
+
+func (r *ipTableUtils) CleanACLs() error {
+	log.WithFields(log.Fields{
+		"package": "iptablesutils",
+	}).Info("Cleaning all IPTables")
+
+	// Clean Application Rules/Chains
+	r.cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+
+	// Clean Application Rules/Chains
+	r.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+
+	// Clean Application Rules/Chains
+	r.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+
+	// Clean Network Rules/Chains
+	r.cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix)
+
+	return nil
 }
 
 func (r *ipTableUtils) FilterMarkedPackets(mark int) error {
@@ -260,38 +346,6 @@ func (r *ipTableUtils) DeleteAllContainerChains(appChain, netChain string) error
 	return nil
 }
 
-// ChainRules provides the list of rules that are used to send traffic to
-// a particular chain
-func (r *ipTableUtils) chainRules(appChain string, netChain string, ip string) [][]string {
-
-	ChainRules := [][]string{
-		{
-			appPacketIPTableContext,
-			appPacketIPTableSection,
-			"-s", ip,
-			"-m", "comment", "--comment", "Container specific chain",
-			"-j", appChain,
-		},
-		{
-			appAckPacketIPTableContext,
-			appPacketIPTableSection,
-			"-s", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Container specific chain",
-			"-j", appChain,
-		},
-		{
-			netPacketIPTableContext,
-			netPacketIPTableSection,
-			"-d", ip,
-			"-m", "comment", "--comment", "Container specific chain",
-			"-j", netChain,
-		},
-	}
-
-	return ChainRules
-}
-
 // addChains rules implements all the iptable rules that redirect traffic to a chain
 func (r *ipTableUtils) AddChainRules(appChain string, netChain string, ip string) error {
 
@@ -347,40 +401,6 @@ func (r *ipTableUtils) DeleteChainRules(appChain, netChain, ip string) error {
 	}
 
 	return nil
-}
-
-//trapRules provides the packet trap rules to add/delete
-func (r *ipTableUtils) trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
-
-	TrapRules := [][]string{
-		// Application Syn and Syn/Ack
-		{
-			appPacketIPTableContext, appChain,
-			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
-			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
-
-		// Application everything else
-		{
-			appAckPacketIPTableContext, appChain,
-			"-d", network,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
-			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
-
-		// Network side rules
-		{
-			netPacketIPTableContext, netChain,
-			"-s", network,
-			"-p", "tcp",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
-			"-j", "NFQUEUE", "--queue-balance", netQueue,
-		},
-	}
-
-	return TrapRules
 }
 
 // AddPacketTrap adds the necessary iptables rules to capture control packets to user space
@@ -637,26 +657,7 @@ func (r *ipTableUtils) DeleteNetACLs(chain string, ip string, rules []policy.IPR
 	return nil
 }
 
-func (r *ipTableUtils) CleanACLs() error {
-	log.WithFields(log.Fields{
-		"package": "iptablesutils",
-	}).Info("Cleaning all IPTables")
-
-	// Clean Application Rules/Chains
-	r.CleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix)
-
-	// Clean Application Rules/Chains
-	r.CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
-
-	// Clean Application Rules/Chains
-	r.CleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
-
-	// Clean Network Rules/Chains
-	r.CleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix)
-
-	return nil
-}
-func (r *ipTableUtils) CleanACLSection(context, section, chainPrefix string) {
+func (r *ipTableUtils) cleanACLSection(context, section, chainPrefix string) {
 
 	log.WithFields(log.Fields{
 		"package":     "iptablesutils",
@@ -696,7 +697,74 @@ func (r *ipTableUtils) CleanACLSection(context, section, chainPrefix string) {
 	}
 }
 
-// SetupIpset
+// exclusionChainRules provides the list of rules that are used to send traffic to
+// a particular chain
+func (r *ipTableUtils) exclusionChainRules(ip string) [][]string {
+
+	ChainRules := [][]string{
+		{
+			appPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+		{
+			appAckPacketIPTableContext,
+			appPacketIPTableSection,
+			"-d", ip,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+		{
+			netPacketIPTableContext,
+			netPacketIPTableSection,
+			"-s", ip,
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		},
+	}
+
+	return ChainRules
+}
+
+// AddExclusionChainRules adds exclusion chain rules
+func (r *ipTableUtils) AddExclusionChainRules(ip string) error {
+
+	ChainRules := r.exclusionChainRules(ip)
+	for _, cr := range ChainRules {
+		if err := r.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
+
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Failed to create rule that redirects to container chain")
+			return err
+		}
+	}
+	return nil
+}
+
+// DeleteExclusionChainRules removes exclusion chain rules
+func (r *ipTableUtils) DeleteExclusionChainRules(ip string) error {
+
+	ChainRules := r.exclusionChainRules(ip)
+	for _, cr := range ChainRules {
+
+		if err := r.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
+
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Failed to delete rule that redirects to container chain")
+			return err
+		}
+	}
+	return nil
+}
+
+// SetupIpset sets up an ipset
 func (r *ipTableUtils) SetupIpset(name string, ips []string) error {
 
 	ipset, err := r.ips.NewIpset(name, "hash:net", &ipset.Params{})
@@ -904,71 +972,6 @@ func (r *ipTableUtils) SetupTrapRules(set string, networkQueues string, applicat
 				"package": "supervisor",
 				"error":   err.Error(),
 			}).Debug("Failed to add initial rules for TriremeNet IPSet.")
-			return err
-		}
-	}
-	return nil
-}
-
-// exclusionChainRules provides the list of rules that are used to send traffic to
-// a particular chain
-func (r *ipTableUtils) exclusionChainRules(ip string) [][]string {
-
-	ChainRules := [][]string{
-		{
-			appPacketIPTableContext,
-			appPacketIPTableSection,
-			"-d", ip,
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-		{
-			appAckPacketIPTableContext,
-			appPacketIPTableSection,
-			"-d", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-		{
-			netPacketIPTableContext,
-			netPacketIPTableSection,
-			"-s", ip,
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-	}
-
-	return ChainRules
-}
-
-func (r *ipTableUtils) AddExclusionChainRules(ip string) error {
-
-	ChainRules := r.exclusionChainRules(ip)
-	for _, cr := range ChainRules {
-		if err := r.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
-
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Failed to create rule that redirects to container chain")
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *ipTableUtils) DeleteExclusionChainRules(ip string) error {
-
-	ChainRules := r.exclusionChainRules(ip)
-	for _, cr := range ChainRules {
-
-		if err := r.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Failed to delete rule that redirects to container chain")
 			return err
 		}
 	}

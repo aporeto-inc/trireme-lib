@@ -231,12 +231,12 @@ func (_mr *_MockIptableProviderUtilsRecorder) DeleteNetACLs(arg0, arg1, arg2 int
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteNetACLs", arg0, arg1, arg2)
 }
 
-func (_m *MockIptableProviderUtils) CleanACLSection(context string, section string, chainPrefix string) {
-	_m.ctrl.Call(_m, "CleanACLSection", context, section, chainPrefix)
+func (_m *MockIptableProviderUtils) cleanACLSection(context string, section string, chainPrefix string) {
+	_m.ctrl.Call(_m, "cleanACLSection", context, section, chainPrefix)
 }
 
-func (_mr *_MockIptableProviderUtilsRecorder) CleanACLSection(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanACLSection", arg0, arg1, arg2)
+func (_mr *_MockIptableProviderUtilsRecorder) cleanACLSection(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "cleanACLSection", arg0, arg1, arg2)
 }
 
 func (_m *MockIptableProviderUtils) exclusionChainRules(ip string) [][]string {
@@ -290,8 +290,8 @@ func (_m *MockIpsetProviderUtils) EXPECT() *_MockIpsetProviderUtilsRecorder {
 	return _m.recorder
 }
 
-func (_m *MockIpsetProviderUtils) SetupIpset(name string, networks []string) error {
-	ret := _m.ctrl.Call(_m, "SetupIpset", name, networks)
+func (_m *MockIpsetProviderUtils) SetupIpset(name string, ips []string) error {
+	ret := _m.ctrl.Call(_m, "SetupIpset", name, ips)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -602,12 +602,12 @@ func (_mr *_MockIptableUtilsRecorder) DeleteNetACLs(arg0, arg1, arg2 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteNetACLs", arg0, arg1, arg2)
 }
 
-func (_m *MockIptableUtils) CleanACLSection(context string, section string, chainPrefix string) {
-	_m.ctrl.Call(_m, "CleanACLSection", context, section, chainPrefix)
+func (_m *MockIptableUtils) cleanACLSection(context string, section string, chainPrefix string) {
+	_m.ctrl.Call(_m, "cleanACLSection", context, section, chainPrefix)
 }
 
-func (_mr *_MockIptableUtilsRecorder) CleanACLSection(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanACLSection", arg0, arg1, arg2)
+func (_mr *_MockIptableUtilsRecorder) cleanACLSection(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "cleanACLSection", arg0, arg1, arg2)
 }
 
 func (_m *MockIptableUtils) exclusionChainRules(ip string) [][]string {
@@ -722,8 +722,8 @@ func (_mr *_MockIpsetUtilsRecorder) CleanACLs() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CleanACLs")
 }
 
-func (_m *MockIpsetUtils) SetupIpset(name string, networks []string) error {
-	ret := _m.ctrl.Call(_m, "SetupIpset", name, networks)
+func (_m *MockIpsetUtils) SetupIpset(name string, ips []string) error {
+	ret := _m.ctrl.Call(_m, "SetupIpset", name, ips)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
