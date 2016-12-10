@@ -25,7 +25,7 @@ func NewBashExtractor(filePath string) (monitor.DockerMetadataExtractor, error) 
 	}
 	log.WithFields(log.Fields{
 		"package": "monitor",
-	}).Debug("Initializing New Bash Extractor for External script: %s", filePath)
+	}).Debug("Initializing New Bash Extractor for External script: ", filePath)
 
 	// Generate a new function
 	bashExtractor := func(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
@@ -36,7 +36,7 @@ func NewBashExtractor(filePath string) (monitor.DockerMetadataExtractor, error) 
 
 		log.WithFields(log.Fields{
 			"package": "monitor",
-		}).Debug("Json to send to External Bash script: %s", string(dockerInfoJSON))
+		}).Debug("Json to send to External Bash script: ", string(dockerInfoJSON))
 
 		cmd := exec.Command(path, string(dockerInfoJSON))
 		jsonResult, err := cmd.Output()
@@ -46,7 +46,7 @@ func NewBashExtractor(filePath string) (monitor.DockerMetadataExtractor, error) 
 
 		log.WithFields(log.Fields{
 			"package": "monitor",
-		}).Debug("Result from external script: %s", string(jsonResult))
+		}).Debug("Result from external script: ", string(jsonResult))
 
 		var m policy.PURuntime
 		err = json.Unmarshal(jsonResult, &m)
