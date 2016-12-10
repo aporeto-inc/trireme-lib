@@ -13,6 +13,10 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 )
 
+const (
+	triremeSet = "TriremeSet"
+)
+
 type ipsetSupervisor struct {
 	versionTracker    cache.DataStore
 	ipu               iptablesutils.IpsetUtils
@@ -156,7 +160,7 @@ func (s *ipsetSupervisor) Start() error {
 	if err := s.createInitialIPSet(); err != nil {
 		return err
 	}
-	if err := s.ipu.SetupTrapRules(s.networkQueues, s.applicationQueues); err != nil {
+	if err := s.ipu.SetupTrapRules(triremeSet, s.networkQueues, s.applicationQueues); err != nil {
 		return err
 	}
 	return nil
@@ -329,7 +333,7 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 
 func (s *ipsetSupervisor) createInitialIPSet() error {
 
-	return s.ipu.SetupIpset(s.targetNetworks)
+	return s.ipu.SetupIpset(triremeSet, s.targetNetworks)
 }
 
 func (s *ipsetSupervisor) cleanACLs() error {

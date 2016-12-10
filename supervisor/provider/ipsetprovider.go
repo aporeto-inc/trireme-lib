@@ -19,19 +19,19 @@ type Ipset interface {
 	Test(entry string) (bool, error)
 }
 
-type goIpset struct{}
+type goIpsetProvider struct{}
 
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
-func (i *goIpset) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
+func (i *goIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
 	return ipset.New(name, hasht, p)
 }
 
-func (i *goIpset) DestroyAll() error {
+func (i *goIpsetProvider) DestroyAll() error {
 	return ipset.DestroyAll()
 }
 
 // NewGoIPsetProvider Return a Go IPSet Provider
 func NewGoIPsetProvider() IpsetProvider {
-	return &goIpset{}
+	return &goIpsetProvider{}
 }
