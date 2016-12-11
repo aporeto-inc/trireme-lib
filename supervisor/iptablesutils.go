@@ -279,7 +279,7 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 	}).Info("Delete chain rules")
 	var chainrules [][]string
 	if remote {
-		chainrules = ChainRules(appChain, netChain, ip)
+		chainrules = chainRules(appChain, netChain, ip)
 	} else {
 		chainrules = chainRules(appChain, netChain, ip)
 	}
