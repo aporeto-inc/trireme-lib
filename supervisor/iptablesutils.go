@@ -279,7 +279,7 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 	}).Info("Delete chain rules")
 	var chainrules [][]string
 	if remote {
-		chainrules = remoteChainRules(appChain, netChain, ip)
+		chainrules = ChainRules(appChain, netChain, ip)
 	} else {
 		chainrules = chainRules(appChain, netChain, ip)
 	}
@@ -385,7 +385,7 @@ func addPacketTrap(appChain string, netChain string, ip string, targetNetworks [
 
 		var rules [][]string
 		if remote {
-			rules = RemotetrapRules(appChain, netChain, network, appQueue, netQueue)
+			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
 		} else {
 			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
 		}
@@ -419,7 +419,7 @@ func deletePacketTrap(appChain string, netChain string, ip string, targetNetwork
 	for _, network := range targetNetworks {
 		var rules [][]string
 		if remote {
-			rules = RemotetrapRules(appChain, netChain, network, appQueue, netQueue)
+			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
 		} else {
 			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
 		}
