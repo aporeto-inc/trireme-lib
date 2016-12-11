@@ -192,9 +192,6 @@ func (r *ipTableUtils) CleanACLs() error {
 	// Clean Application Rules/Chains
 	r.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
 
-	// Clean Application Rules/Chains
-	r.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
-
 	// Clean Network Rules/Chains
 	r.cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix)
 
@@ -214,7 +211,6 @@ func (r *ipTableUtils) FilterMarkedPackets(mark int) error {
 			"table":   table,
 			"chain":   chain,
 		}).Error("Failed to install default mark chain.")
-
 	}
 	return err
 }
