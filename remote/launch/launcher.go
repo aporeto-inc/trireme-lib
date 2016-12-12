@@ -9,7 +9,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 )
 
 const (
@@ -148,7 +147,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
 
-	cmdName := "/opt/trireme/enforcer"
+	cmdName := processName
 	cmdArgs := []string{contextID}
 	cmd := exec.Command(cmdName, cmdArgs...)
 	stdout, err := cmd.StdoutPipe()
