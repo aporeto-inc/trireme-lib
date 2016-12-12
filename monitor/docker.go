@@ -198,7 +198,7 @@ func (d *dockerMonitor) Start() error {
 
 	log.WithFields(log.Fields{
 		"package": "monitor",
-	}).Info("Starting the docker monitor")
+	}).Debug("Starting the docker monitor")
 
 	// Starting the eventListener First.
 	go d.eventListener()
@@ -226,7 +226,7 @@ func (d *dockerMonitor) Stop() error {
 
 	log.WithFields(log.Fields{
 		"package": "monitor",
-	}).Info("Stopping the docker monitor")
+	}).Debug("Stopping the docker monitor")
 
 	d.stoplistener <- true
 	d.stopprocessor <- true
@@ -287,7 +287,7 @@ func (d *dockerMonitor) eventListener() {
 				log.WithFields(log.Fields{
 					"package": "monitor",
 					"error":   err.Error(),
-				}).Info("Received docker event error")
+				}).Debug("Received docker event error")
 			}
 		case stop := <-d.stoplistener:
 			if stop {
@@ -303,7 +303,7 @@ func (d *dockerMonitor) syncContainers() error {
 
 	log.WithFields(log.Fields{
 		"package": "monitor",
-	}).Info("Syncing all existing containers")
+	}).Debug("Syncing all existing containers")
 
 	options := types.ContainerListOptions{All: true}
 	containers, err := d.dockerClient.ContainerList(context.Background(), options)
@@ -380,7 +380,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		log.WithFields(log.Fields{
 			"package":   "monitor",
 			"contextID": contextID,
-		}).Info("IP Not present in container, Attempting activation")
+		}).Debug("IP Not present in container, Attempting activation")
 
 		ip = ""
 	}
@@ -409,7 +409,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 	log.WithFields(log.Fields{
 		"package":  "monitor",
 		"dockerID": dockerID,
-	}).Info("Monitor removed docker container")
+	}).Debug("Monitor removed docker container")
 
 	contextID, err := contextIDFromDockerID(dockerID)
 
@@ -435,7 +435,7 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 			"package": "monitor",
 		}).Debug("DockerInfo is empty when exacting the metadata")
 
-		return nil, fmt.Errorf("DockerInfo is empty.")
+		return nil, fmt.Errorf("DockerInfo is empty")
 	}
 
 	if d.metadataExtractor != nil {
