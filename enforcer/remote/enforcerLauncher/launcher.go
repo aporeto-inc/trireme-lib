@@ -73,7 +73,7 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		return err
 	}
-
+	log.WithFields(log.Fields{"package": "enforcerLauncher", "contexID": contextID, "Lauch Process": err}).Info("Called enforce and launched process")
 	s.InitRemoteEnforcer(contextID, puInfo)
 	request := new(rpcWrapper.Request)
 
@@ -154,6 +154,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 		prochdl:    ProcessMon.GetProcessMonHdl(),
 		rpchdl:     rpchdl,
 	}
+	log.WithFields(log.Fields{"package": "enforcerLauncher", "method": "NewDataPathEnforcer"}).Info("Called NewDataPathEnforcer")
 	rpcwrapper := rpcWrapper.NewRPCWrapper()
 	rpcserver := &RPCSERVER{rpchdl: rpcwrapper, collector: collector}
 	go rpcwrapper.StartServer("unix", rpcWrapper.StatsChannel, rpcserver)
