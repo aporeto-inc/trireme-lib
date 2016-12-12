@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/user"
 	"sync"
 	"time"
 
@@ -236,6 +237,7 @@ func (s *Server) Enforce(req rpcWrapper.Request, resp *rpcWrapper.Response) erro
 	if puInfo == nil {
 		fmt.Println("Failed Runtime")
 	}
+	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce"}).Info("Called enforce in remote enforcer")
 	s.Enforcer.Start()
 	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
 	resp.Status = err
@@ -256,6 +258,13 @@ func main() {
 	rpchdl := rpcWrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe
+
+	userDetails, _ := user.Current()
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"uid":      userDetails.Uid,
+		"gid":      userDetails.Gid,
+		"username": userDetails.Username,
+	}).Info("Enforcer user id")
 	err := rpchdl.StartServer("unix", namedPipe, server)
 	if err != nil {
 		fmt.Println(err)
