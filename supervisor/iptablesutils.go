@@ -12,16 +12,16 @@ import (
 )
 
 const (
-	chainPrefix                   = "TRIREME-"
-	appPacketIPTableContext       = "raw"
-	appAckPacketIPTableContext    = "mangle"
-	appPacketIPTableSection       = "PREROUTING"
-	appPacketIPTableSectionRemote = "OUTPUT"
-	appChainPrefix                = chainPrefix + "App-"
-	netPacketIPTableContext       = "mangle"
-	netPacketIPTableSection       = "POSTROUTING"
-	netPacketIPTableSectionRemote = "INPUT"
-	netChainPrefix                = chainPrefix + "Net-"
+	chainPrefix                = "TRIREME-"
+	appPacketIPTableContext    = "raw"
+	appAckPacketIPTableContext = "mangle"
+	appPacketIPTableSection    = "PREROUTING"
+	//appPacketIPTableSectionRemote = "OUTPUT"
+	appChainPrefix          = chainPrefix + "App-"
+	netPacketIPTableContext = "mangle"
+	netPacketIPTableSection = "POSTROUTING"
+	//netPacketIPTableSectionRemote = "INPUT"
+	netChainPrefix = chainPrefix + "Net-"
 )
 
 func defaultCacheIP(ips []string) (string, error) {
@@ -183,7 +183,7 @@ func chainRules(appChain string, netChain string, ip string) [][]string {
 			appPacketIPTableContext,
 			appPacketIPTableSection,
 			"-s", ip,
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container specific chain L186",
 			"-j", appChain,
 		},
 		{
@@ -191,14 +191,14 @@ func chainRules(appChain string, netChain string, ip string) [][]string {
 			appPacketIPTableSection,
 			"-s", ip,
 			"-p", "tcp",
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container specific chain L194",
 			"-j", appChain,
 		},
 		{
 			netPacketIPTableContext,
 			netPacketIPTableSection,
 			"-d", ip,
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container specific chain L201",
 			"-j", netChain,
 		},
 	}
@@ -211,24 +211,24 @@ func remoteChainRules(appChain string, netChain string, ip string) [][]string {
 	chainRules := [][]string{
 		{
 			appPacketIPTableContext,
-			appPacketIPTableSectionRemote,
+			appPacketIPTableSection,
 			"-s", ip,
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container specific chain L216",
 			"-j", appChain,
 		},
 		{
 			appAckPacketIPTableContext,
-			appPacketIPTableSectionRemote,
+			appPacketIPTableSection,
 			//"-s", ip,
 			"-p", "tcp",
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container specific chain L224",
 			"-j", appChain,
 		},
 		{
 			netPacketIPTableContext,
-			netPacketIPTableSectionRemote,
+			netPacketIPTableSection,
 			"-d", ip,
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container specific chain L231",
 			"-j", netChain,
 		},
 	}
