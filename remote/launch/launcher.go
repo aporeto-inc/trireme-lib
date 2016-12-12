@@ -9,6 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 )
 
 const (
