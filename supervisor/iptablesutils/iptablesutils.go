@@ -184,7 +184,7 @@ func (r *ipTableUtils) trapRules(appChain string, netChain string, network strin
 func (r *ipTableUtils) CleanACLs() error {
 	log.WithFields(log.Fields{
 		"package": "iptablesutils",
-	}).Debug("Cleaning all IPTables")
+	}).Info("Cleaning all IPTables")
 
 	// Clean Application Rules/Chains
 	r.cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix)
@@ -224,7 +224,7 @@ func (r *ipTableUtils) AddContainerChain(appChain string, netChain string) error
 		"package":  "iptablesutils",
 		"appChain": appChain,
 		"netChain": netChain,
-	}).Debug("Add a container chain")
+	}).Info("Add a container chain")
 
 	if err := r.ipt.NewChain(appPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
@@ -273,7 +273,7 @@ func (r *ipTableUtils) deleteChain(context, chain string) error {
 		"package": "iptablesutils",
 		"context": context,
 		"chain":   chain,
-	}).Debug("Delete a chain")
+	}).Info("Delete a chain")
 
 	if err := r.ipt.ClearChain(context, chain); err != nil {
 		log.WithFields(log.Fields{
@@ -305,7 +305,7 @@ func (r *ipTableUtils) DeleteAllContainerChains(appChain, netChain string) error
 		"package":  "iptablesutils",
 		"appChain": appChain,
 		"netChain": netChain,
-	}).Debug("Delete all container chains")
+	}).Info("Delete all container chains")
 
 	if err := r.deleteChain(appPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
@@ -350,7 +350,7 @@ func (r *ipTableUtils) AddChainRules(appChain string, netChain string, ip string
 		"appChain": appChain,
 		"netChain": netChain,
 		"ip":       ip,
-	}).Debug("Add chain rules")
+	}).Info("Add chain rules")
 
 	ChainRules := r.chainRules(appChain, netChain, ip)
 	for _, cr := range ChainRules {

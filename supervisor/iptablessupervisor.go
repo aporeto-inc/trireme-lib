@@ -423,7 +423,6 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 	// Add mapping to new chain
 	if err := s.ipu.AddChainRules(appChain, netChain, ipAddress); err != nil {
-
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
