@@ -164,14 +164,14 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 	}
 
 	//TODO: Add Check that IP is valid.
-	receiverRules := createRuleDB(puInfo.Policy.ReceiverRules)
-	transmitterRules := createRuleDB(puInfo.Policy.TransmitterRules)
+	receiverRules := createRuleDB(puInfo.Policy.ReceiverRules())
+	transmitterRules := createRuleDB(puInfo.Policy.TransmitterRules())
 
 	pu := &PUContext{
 		ID:               contextID,
 		receiverRules:    receiverRules,
 		transmitterRules: transmitterRules,
-		Tags:             puInfo.Policy.PolicyTags,
+		Tags:             puInfo.Policy.PolicyTags(),
 	}
 
 	d.contextTracker.AddOrUpdate(contextID, ip)
@@ -182,9 +182,9 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 
 func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
 
-	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules)
-	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules)
-	puContext.Tags = containerInfo.Policy.PolicyTags
+	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules())
+	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules())
+	puContext.Tags = containerInfo.Policy.PolicyTags()
 	return nil
 }
 
@@ -309,10 +309,10 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 	}
 }
 
-func createRuleDB(policyRules []policy.TagSelector) *lookup.PolicyDB {
+func createRuleDB(policyRules *policy.TagSelectorList) *lookup.PolicyDB {
 
 	rules := lookup.NewPolicyDB()
-	for _, rule := range policyRules {
+	for _, rule := range policyRules.TagSelectors {
 		rules.AddPolicy(rule)
 	}
 
@@ -586,7 +586,7 @@ func (d *datapathEnforcer) parsePacketToken(connection *Connection, data []byte)
 	}
 
 	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T[TransmitterLabel]
+	remoteContextID, ok := claims.T.Get(TransmitterLabel)
 	if !ok {
 		return nil, fmt.Errorf("No Transmitter Label ")
 	}
@@ -847,13 +847,16 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		return nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
 
+	txLabel, ok := claims.T.Get(TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
+			"txLabel": txLabel,
+			"ok":      ok,
 			"error":   err.Error(),
 		}).Debug("TCP Authentication Option not found")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
 
@@ -865,10 +868,12 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
+			"txLabel": txLabel,
+			"ok":      ok,
 			"error":   err.Error(),
 		}).Debug("Syn packet dropped because of invalid format")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 	}
 
@@ -877,7 +882,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T[PortNumberLabelString] = strconv.Itoa(int(tcpPacket.DestinationPort))
+	claims.T.Add(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	// Search the policy rules for a matching rule.
 	if index, action := context.receiverRules.Search(claims.T); index >= 0 {
@@ -897,7 +902,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		return action, nil
 	}
 
-	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, claims.T[TransmitterLabel], tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
 
 	// Reject all other connections
 	log.WithFields(log.Fields{
@@ -938,7 +943,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	}
 
 	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T[TransmitterLabel]
+	remoteContextID, ok := claims.T.Get(TransmitterLabel)
 	if !ok {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
@@ -967,7 +972,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 			"package": "enforcer",
 		}).Debug("Synack, TCP Authentication Option not found")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
 	}
 
@@ -980,7 +985,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 		}).Debug("SynAck packet dropped because of invalid format")
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, claims.T[TransmitterLabel], tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
 
@@ -1000,7 +1005,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		"package": "enforcer",
 	}).Error("Dropping packet SYNACK at the network")
 
-	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, claims.T[TransmitterLabel], tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, remoteContextID, tcpPacket)
 	return nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
