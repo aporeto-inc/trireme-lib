@@ -1,5 +1,5 @@
 hash: 779b82d945462f365111c2afa862aa16f84bd722f4e65ccead6f2d993211dd75
-updated: 2016-11-22T23:43:53.44437346-08:00
+updated: 2016-12-07T21:09:14.003142155-08:00
 imports:
 - name: github.com/aporeto-inc/trireme
   version: e5d1ef794d9fbe9ed659f0a0902a649b6670f6f0
@@ -13,6 +13,7 @@ imports:
   - enforcer/netfilter
   - enforcer/packet
   - enforcer/tokens
+  - example/common
   - monitor
   - policy
   - supervisor
@@ -67,13 +68,11 @@ imports:
 - name: github.com/Sirupsen/logrus
   version: a437dfd2463eaedbec3dfe443e477d3b0a810b3f
 - name: golang.org/x/net
-  version: 4971afdc2f162e82d185353533d3cf16188a9f4e
+  version: 4876518f9e71663000c348837735820161a42df7
   subpackages:
-  - bpf
   - context
   - context/ctxhttp
   - internal/iana
-  - internal/netreflect
   - ipv4
   - proxy
 - name: golang.org/x/sys

@@ -9,7 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 )
 
 type supervisorCacheEntry struct {
@@ -22,7 +22,7 @@ type supervisorCacheEntry struct {
 // iptablesSupervisor is the structure holding all information about a connection filter
 type iptablesSupervisor struct {
 	versionTracker    cache.DataStore
-	ipt               provider.IptablesProvider
+	ipu               iptablesutils.IptableUtils
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
@@ -35,7 +35,7 @@ type iptablesSupervisor struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string) (Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesUtils iptablesutils.IptableUtils, targetNetworks []string) (Supervisor, error) {
 
 	if collector == nil {
 		log.WithFields(log.Fields{
@@ -53,10 +53,10 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance 
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
 
-	if iptablesProvider == nil {
+	if iptablesUtils == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
-		}).Debug("IptablesProvider cannot be nil in NewIPTablesSupervisor")
+		}).Debug("IptablesUtils cannot be nil in NewIPTablesSupervisor")
 
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
@@ -80,7 +80,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance 
 	}
 
 	s := &iptablesSupervisor{
-		ipt:               iptablesProvider,
+		ipu:               iptablesUtils,
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,
 		collector:         collector,
@@ -144,11 +144,11 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 
 	cacheEntry := result.(*supervisorCacheEntry)
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(cacheEntry.index)
+	appChain := s.ipu.AppChainPrefix(contextID, cacheEntry.index)
+	netChain := s.ipu.NetChainPrefix(contextID, cacheEntry.index)
 
 	// Currently processing only containers with one IP address
-	ip, err := defaultCacheIP(cacheEntry.ips)
+	ip, err := s.ipu.DefaultCacheIP(cacheEntry.ips)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -159,15 +159,15 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	deletePacketTrap(appChain, netChain, ip, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt)
+	s.ipu.DeletePacketTrap(appChain, netChain, ip, s.targetNetworks, s.applicationQueues, s.networkQueues)
 
-	deleteAppACLs(appChain, ip, cacheEntry.ingressACLs, s.ipt)
+	s.ipu.DeleteAppACLs(appChain, ip, cacheEntry.ingressACLs)
 
-	deleteNetACLs(netChain, ip, cacheEntry.egressACLs, s.ipt)
+	s.ipu.DeleteNetACLs(netChain, ip, cacheEntry.egressACLs)
 
-	deleteChainRules(appChain, netChain, ip, s.ipt)
+	s.ipu.DeleteChainRules(appChain, netChain, ip)
 
-	deleteAllContainerChains(appChain, netChain, s.ipt)
+	s.ipu.DeleteAllContainerChains(appChain, netChain)
 
 	s.versionTracker.Remove(contextID)
 
@@ -180,7 +180,7 @@ func (s *iptablesSupervisor) Start() error {
 		"package": "supervisor",
 	}).Info("Start the supervisor")
 
-	if filterMarkedPackets(appAckPacketIPTableContext, appPacketIPTableSection, s.Mark, s.ipt) != nil {
+	if s.ipu.FilterMarkedPackets(s.Mark) != nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
 		}).Debug("Cannot filter marked packets. Abort")
@@ -211,8 +211,8 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 	index := 0
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(index)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(index)
+	appChain := s.ipu.AppChainPrefix(contextID, index)
+	netChain := s.ipu.NetChainPrefix(contextID, index)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
@@ -244,7 +244,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	}
 
 	// Configure all the ACLs
-	if err := addContainerChain(appChain, netChain, s.ipt); err != nil {
+	if err := s.ipu.AddContainerChain(appChain, netChain); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -258,7 +258,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addChainRules(appChain, netChain, ipAddress, s.ipt); err != nil {
+	if err := s.ipu.AddChainRules(appChain, netChain, ipAddress); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -273,7 +273,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt); err != nil {
+	if err := s.ipu.AddPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -288,7 +288,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs, s.ipt); err != nil {
+	if err := s.ipu.AddAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -301,7 +301,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs, s.ipt); err != nil {
+	if err := s.ipu.AddNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -346,7 +346,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	oldindex := newindex - 1
 
 	// Currently processing only containers with one IP address
-	ipAddress, err := defaultCacheIP(cachedEntry.ips)
+	ipAddress, err := s.ipu.DefaultCacheIP(cachedEntry.ips)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -358,14 +358,14 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	appChain := appChainPrefix + contextID + "-" + strconv.Itoa(newindex)
-	netChain := netChainPrefix + contextID + "-" + strconv.Itoa(newindex)
+	appChain := s.ipu.AppChainPrefix(contextID, newindex)
+	netChain := s.ipu.NetChainPrefix(contextID, newindex)
 
-	oldAppChain := appChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
-	oldNetChain := netChainPrefix + contextID + "-" + strconv.Itoa(oldindex)
+	oldAppChain := s.ipu.AppChainPrefix(contextID, oldindex)
+	oldNetChain := s.ipu.NetChainPrefix(contextID, oldindex)
 
 	//Add a new chain for this update and map all rules there
-	if err := addContainerChain(appChain, netChain, s.ipt); err != nil {
+	if err := s.ipu.AddContainerChain(appChain, netChain); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -379,7 +379,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.ipt); err != nil {
+	if err := s.ipu.AddPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -394,7 +394,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs, s.ipt); err != nil {
+	if err := s.ipu.AddAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -407,7 +407,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := addNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs, s.ipt); err != nil {
+	if err := s.ipu.AddNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -421,7 +421,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	}
 
 	// Add mapping to new chain
-	if err := addChainRules(appChain, netChain, ipAddress, s.ipt); err != nil {
+	if err := s.ipu.AddChainRules(appChain, netChain, ipAddress); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -437,7 +437,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	}
 
 	//Remove mapping from old chain
-	if err := deleteChainRules(oldAppChain, oldNetChain, ipAddress, s.ipt); err != nil {
+	if err := s.ipu.DeleteChainRules(oldAppChain, oldNetChain, ipAddress); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -453,7 +453,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	}
 
 	// Delete the old chain to clean up
-	if err := deleteAllContainerChains(oldAppChain, oldNetChain, s.ipt); err != nil {
+	if err := s.ipu.DeleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -481,81 +481,19 @@ func (s *iptablesSupervisor) CleanACL() {
 	}).Info("Clean all ACL")
 
 	// Clean Application Rules/Chains
-	cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Application Rules/Chains
-	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Application Rules/Chains
-	cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix, s.ipt)
-
-	// Clean Network Rules/Chains
-	cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix, s.ipt)
-}
-
-// exclusionChainRules provides the list of rules that are used to send traffic to
-// a particular chain
-func (s *iptablesSupervisor) exclusionChainRules(ip string) [][]string {
-
-	chainRules := [][]string{
-		{
-			appPacketIPTableContext,
-			appPacketIPTableSection,
-			"-d", ip,
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-		{appAckPacketIPTableContext,
-			appPacketIPTableSection,
-			"-d", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-		{
-			netPacketIPTableContext,
-			netPacketIPTableSection,
-			"-s", ip,
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-	}
-
-	return chainRules
+	s.ipu.CleanACLs()
 }
 
 // AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
 func (s *iptablesSupervisor) AddExcludedIP(ip string) error {
-	chainRules := s.exclusionChainRules(ip)
-	for _, cr := range chainRules {
-		if err := s.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
 
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Failed to create rule that redirects to container chain")
-			return err
-		}
-	}
-	return nil
+	return s.ipu.AddExclusionChainRules(ip)
 }
 
 // RemoveExcludedIP removes the exception for the destion IP given in parameter.
 func (s *iptablesSupervisor) RemoveExcludedIP(ip string) error {
 
-	chainRules := s.exclusionChainRules(ip)
-	for _, cr := range chainRules {
-
-		if err := s.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Failed to delete rule that redirects to container chain")
-			return err
-		}
-	}
-	return nil
+	return s.ipu.DeleteExclusionChainRules(ip)
 }
 
 func add(a, b interface{}) interface{} {

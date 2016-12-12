@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -33,18 +34,26 @@ func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforc
 
 	ips := provider.NewGoIPsetProvider()
 
-	return supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipt, ips, networks)
+	ipu, err := iptablesutils.NewIpsetUtils(ipt, ips)
+	if err != nil {
+		return nil, err
+	}
+
+	return supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipu, networks)
 }
 
 // NewIPTablesSupervisor is the current old supervisor implementation.
 func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
+
 	// Make sure that the iptables command is accessible. Panic if its not there.
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
 		return nil, err
 	}
 
-	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks)
+	ipu := iptablesutils.NewIptableUtils(ipt)
+
+	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks)
 }
 
 // NewDefaultSupervisor returns the IPTables supervisor

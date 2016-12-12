@@ -15,7 +15,7 @@ type ipsetProviderMockedMethods struct {
 // TestIpsetProvider is a test implementation for IpsetProvider
 type TestIpsetProvider interface {
 	IpsetProvider
-	MockNewIPset(t *testing.T, impl func(name string, hasht string, p *ipset.Params) (Ipset, error))
+	MockNewIpset(t *testing.T, impl func(name string, hasht string, p *ipset.Params) (Ipset, error))
 	MockDestroyAll(t *testing.T, impl func() error)
 }
 
@@ -33,7 +33,7 @@ func NewTestIpsetProvider() TestIpsetProvider {
 	}
 }
 
-func (m *testIpsetProvider) MockNewIPset(t *testing.T, impl func(name string, hasht string, p *ipset.Params) (Ipset, error)) {
+func (m *testIpsetProvider) MockNewIpset(t *testing.T, impl func(name string, hasht string, p *ipset.Params) (Ipset, error)) {
 
 	m.currentMocks(t).newMockIPset = impl
 }
@@ -43,7 +43,7 @@ func (m *testIpsetProvider) MockDestroyAll(t *testing.T, impl func() error) {
 	m.currentMocks(t).destroyAllMock = impl
 }
 
-func (m *testIpsetProvider) NewIPset(name string, hasht string, p *ipset.Params) (Ipset, error) {
+func (m *testIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.newMockIPset != nil {
 		return mock.newMockIPset(name, hasht, p)
