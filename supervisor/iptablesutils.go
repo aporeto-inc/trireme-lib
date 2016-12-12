@@ -279,7 +279,7 @@ func deleteChainRules(appChain, netChain, ip string, provider provider.IptablesP
 	}).Info("Delete chain rules")
 	var chainrules [][]string
 	if remote {
-		chainrules = chainRules(appChain, netChain, ip)
+		chainrules = remoteChainRules(appChain, netChain, ip)
 	} else {
 		chainrules = chainRules(appChain, netChain, ip)
 	}
@@ -310,7 +310,7 @@ func RemotetrapRules(appChain string, netChain string, network string, appQueue 
 		{
 			appPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN", "--comment", "trap rules L313",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		},
 
@@ -318,7 +318,7 @@ func RemotetrapRules(appChain string, netChain string, network string, appQueue 
 		{
 			appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN", "--comment", "trap rules L321",
 			"-j", "ACCEPT",
 		},
 
@@ -336,7 +336,7 @@ func RemotetrapRules(appChain string, netChain string, network string, appQueue 
 			netPacketIPTableContext, netChain,
 			"-s", network,
 			"-p", "tcp",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets", "--comment", "trap rules L339",
 			"-j", "NFQUEUE", "--queue-balance", netQueue,
 		},
 	}
@@ -385,7 +385,7 @@ func addPacketTrap(appChain string, netChain string, ip string, targetNetworks [
 
 		var rules [][]string
 		if remote {
-			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
+			rules = RemotetrapRules(appChain, netChain, network, appQueue, netQueue)
 		} else {
 			rules = trapRules(appChain, netChain, network, appQueue, netQueue)
 		}
