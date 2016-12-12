@@ -9,11 +9,11 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"vi gli
 )
 
 const (
-	processName = "./enforcer"
+	processName = "./remote_enforcer"
 )
 
 //ProcessMon exported

@@ -183,7 +183,7 @@ func chainRules(appChain string, netChain string, ip string) [][]string {
 			appPacketIPTableContext,
 			appPacketIPTableSection,
 			"-s", ip,
-			"-m", "comment", "--comment", "Container specific chain L186",
+			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
 		{
@@ -191,14 +191,14 @@ func chainRules(appChain string, netChain string, ip string) [][]string {
 			appPacketIPTableSection,
 			"-s", ip,
 			"-p", "tcp",
-			"-m", "comment", "--comment", "Container specific chain L194",
+			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
 		{
 			netPacketIPTableContext,
 			netPacketIPTableSection,
 			"-d", ip,
-			"-m", "comment", "--comment", "Container specific chain L201",
+			"-m", "comment", "--comment", "Container specific chain",
 			"-j", netChain,
 		},
 	}
@@ -213,7 +213,7 @@ func remoteChainRules(appChain string, netChain string, ip string) [][]string {
 			appPacketIPTableContext,
 			appPacketIPTableSection,
 			"-s", ip,
-			"-m", "comment", "--comment", "Container specific chain L216",
+			"-m", "comment", "--comment", "Remote Container specific chain",
 			"-j", appChain,
 		},
 		{
@@ -221,14 +221,14 @@ func remoteChainRules(appChain string, netChain string, ip string) [][]string {
 			appPacketIPTableSection,
 			//"-s", ip,
 			"-p", "tcp",
-			"-m", "comment", "--comment", "Container specific chain L224",
+			"-m", "comment", "--comment", "Remote Container specific chain",
 			"-j", appChain,
 		},
 		{
 			netPacketIPTableContext,
 			netPacketIPTableSection,
 			"-d", ip,
-			"-m", "comment", "--comment", "Container specific chain L231",
+			"-m", "comment", "--comment", "Remote Container specific chain",
 			"-j", netChain,
 		},
 	}
@@ -310,7 +310,7 @@ func RemotetrapRules(appChain string, netChain string, network string, appQueue 
 		{
 			appPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN", "--comment", "trap rules L313",
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		},
 
@@ -318,7 +318,7 @@ func RemotetrapRules(appChain string, netChain string, network string, appQueue 
 		{
 			appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN", "--comment", "trap rules L321",
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "ACCEPT",
 		},
 
@@ -336,7 +336,7 @@ func RemotetrapRules(appChain string, netChain string, network string, appQueue 
 			netPacketIPTableContext, netChain,
 			"-s", network,
 			"-p", "tcp",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets", "--comment", "trap rules L339",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", netQueue,
 		},
 	}
