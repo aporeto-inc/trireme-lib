@@ -47,21 +47,21 @@ func exampleExternalDockerMetadataExtractor(info *types.ContainerJSON) (*policy.
 
 	runtimeInfo := policy.NewPURuntime()
 
-	tags := policy.TagsMap{}
-	tags["image"] = info.Config.Image
-	tags["name"] = info.Name
+	tagsMap := policy.NewTagsMap()
+	tagsMap.Tags["image"] = info.Config.Image
+	tagsMap.Tags["name"] = info.Name
 
 	for k, v := range info.Config.Labels {
-		tags[k] = v
+		tagsMap.Tags[k] = v
 	}
 
-	ipa := map[string]string{}
-	ipa["bridge"] = info.NetworkSettings.IPAddress
+	ipa := policy.NewIPMap()
+	ipa.Add("bridge", info.NetworkSettings.IPAddress)
 
 	runtimeInfo.SetName(info.Name)
 	runtimeInfo.SetPid(info.State.Pid)
 	runtimeInfo.SetIPAddresses(ipa)
-	runtimeInfo.SetTags(tags)
+	runtimeInfo.SetTags(tagsMap)
 
 	return runtimeInfo, nil
 }
