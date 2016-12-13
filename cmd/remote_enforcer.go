@@ -196,9 +196,10 @@ func (s *Server) Supervise(req rpcWrapper.Request, resp *rpcWrapper.Response) er
 	runtime := policy.NewPURuntime()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	puInfo.Runtime.SetPid(os.Getpid())
+	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Supervise"}).Info("Called Supervise Start in remote_enforcer")
 	s.Supervisor.Start()
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
-
+	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Supervise", "error": err}).Info("Supervise status remote_enforcer ")
 	resp.Status = err
 	return err
 }
@@ -240,6 +241,7 @@ func (s *Server) Enforce(req rpcWrapper.Request, resp *rpcWrapper.Response) erro
 	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce"}).Info("Called enforce in remote enforcer")
 	s.Enforcer.Start()
 	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
+	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce", "error": err}).Info("ENFORCE STATUS")
 	resp.Status = err
 	return err
 
