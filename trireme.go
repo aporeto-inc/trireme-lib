@@ -210,6 +210,9 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
 	}
 
+	// Create a copy as we are going to modify it locally
+	policyInfo = policyInfo.Clone()
+
 	present, err := isPolicyIPValid(policyInfo)
 
 	if !present {
