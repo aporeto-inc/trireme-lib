@@ -2,11 +2,13 @@ package common
 
 import (
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/extractor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 
@@ -115,7 +117,7 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 }
 
 //TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractorPath string) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -142,7 +144,16 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string) (tr
 
 	policyEngine := NewCustomPolicyResolver()
 
-	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM)
+	var bashExtractor monitor.DockerMetadataExtractor
+	if extractorPath != "" {
+
+		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
+		if err != nil {
+			fmt.Printf("error: ABC, %s", err)
+		}
+	}
+
+	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM, bashExtractor)
 
 	p.PublicKeyAdd("Server1", certPEM)
 
@@ -150,10 +161,18 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string) (tr
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK(networks []string) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPSK(networks []string, extractorPath string) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	policyEngine := NewCustomPolicyResolver()
+	var bashExtractor monitor.DockerMetadataExtractor
+	if extractorPath != "" {
+		var err error
+		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
+		if err != nil {
+			fmt.Printf("error: ABC, %s", err)
+		}
+	}
 
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"))
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"), bashExtractor)
 }

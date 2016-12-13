@@ -261,7 +261,7 @@ func (d *datapathEnforcer) Start() error {
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-	}).Info("Start enforcer")
+	}).Debug("Start enforcer")
 
 	d.StartApplicationInterceptor()
 	d.StartNetworkInterceptor()
@@ -273,7 +273,7 @@ func (d *datapathEnforcer) Start() error {
 func (d *datapathEnforcer) Stop() error {
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-	}).Info("Stop enforcer")
+	}).Debug("Stop enforcer")
 	return nil
 }
 
@@ -282,7 +282,7 @@ func (d *datapathEnforcer) Stop() error {
 func (d *datapathEnforcer) StartApplicationInterceptor() {
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-	}).Info("Start application interceptor")
+	}).Debug("Start application interceptor")
 
 	var err error
 
