@@ -318,6 +318,12 @@ func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
 		"package":   "trireme",
 		"contextID": contextID}).Info("Received PU Event")
 	switch event {
+	case monitor.EventCreate:
+		log.WithFields(log.Fields{
+			"package":   "trireme",
+			"contextID": contextID,
+			"event":     event,
+		}).Info("Received Create Event")
 	case monitor.EventStart:
 		log.WithFields(log.Fields{
 			"package":   "trireme",
