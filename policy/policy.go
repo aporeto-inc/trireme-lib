@@ -352,6 +352,14 @@ func (p *PUPolicy) TransmitterRules() *TagSelectorList {
 	return p.transmitterRules.Clone()
 }
 
+// AddTransmitterRules adds a transmitter rule
+func (p *PUPolicy) AddTransmitterRules(t *TagSelector) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.transmitterRules.TagSelectors = append(p.transmitterRules.TagSelectors, *t.Clone())
+}
+
 // PolicyTags returns a copy of PolicyTag(s)
 func (p *PUPolicy) PolicyTags() *TagsMap {
 	p.puPolicyMutex.Lock()
