@@ -10,13 +10,13 @@ import (
 
 func TestCreate(t *testing.T) {
 	// Test for Empty file.
-	_, err := NewBashExtractor("")
+	_, err := NewExternalExtractor("")
 	if err == nil {
 		t.Errorf("Expected Error, but got none")
 	}
 
 	// Test for NonExistent file.
-	_, err = NewBashExtractor("/tmp/abcde.test")
+	_, err = NewExternalExtractor("/tmp/abcde.test")
 	if err == nil {
 		t.Errorf("Expected Error, but got none")
 	}
@@ -35,7 +35,7 @@ func createFileTest(destination string) {
 
 func TestReturnedFunc(t *testing.T) {
 	createFileTest("/tmp/test.sh")
-	function, err := NewBashExtractor("/tmp/test.sh")
+	function, err := NewExternalExtractor("/tmp/test.sh")
 	if err != nil {
 		t.Errorf("Didn't expect error but received %s", err)
 	}

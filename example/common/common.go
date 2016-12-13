@@ -142,7 +142,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 	var bashExtractor monitor.DockerMetadataExtractor
 	if extractorPath != "" {
 
-		bashExtractor, err = extractor.NewBashExtractor(extractorPath)
+		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
 		if err != nil {
 			fmt.Printf("error: ABC, %s", err)
 		}
@@ -162,7 +162,7 @@ func TriremeWithPSK(networks []string, extractorPath string) (trireme.Trireme, m
 	var bashExtractor monitor.DockerMetadataExtractor
 	if extractorPath != "" {
 		var err error
-		bashExtractor, err = extractor.NewBashExtractor(extractorPath)
+		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
 		if err != nil {
 			fmt.Printf("error: ABC, %s", err)
 		}

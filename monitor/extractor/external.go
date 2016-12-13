@@ -12,10 +12,10 @@ import (
 	"github.com/docker/docker/api/types"
 )
 
-// NewBashExtractor returns a new bash metadata extractor for Docker that will call
+// NewExternalExtractor returns a new bash metadata extractor for Docker that will call
 // the executable given in parameter and will generate a Policy Runtime as standard output
 // The format of Input/Output of the executable are in standard JSON.
-func NewBashExtractor(filePath string) (monitor.DockerMetadataExtractor, error) {
+func NewExternalExtractor(filePath string) (monitor.DockerMetadataExtractor, error) {
 	if filePath == "" {
 		return nil, fmt.Errorf("file argument is empty in NewBashExtractor")
 	}
@@ -33,7 +33,7 @@ func NewBashExtractor(filePath string) (monitor.DockerMetadataExtractor, error) 
 	}).Debug("Initializing New Bash Extractor for External script: ", filePath)
 
 	// Generate a new function
-	bashExtractor := func(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
+	externalExtractor := func(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
 		dockerInfoJSON, err := json.Marshal(dockerInfo)
 		if err != nil {
 			return nil, fmt.Errorf("Error marshaling dockerInfo: %s", err)
@@ -62,5 +62,5 @@ func NewBashExtractor(filePath string) (monitor.DockerMetadataExtractor, error) 
 		return &m, nil
 	}
 
-	return bashExtractor, nil
+	return externalExtractor, nil
 }
