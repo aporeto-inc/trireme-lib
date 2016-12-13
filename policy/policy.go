@@ -9,19 +9,8 @@
 // data.
 package policy
 
-
 import "sync"
 import "encoding/json"
-
-// IPRule holds ingress IP table rules to external services
-type IPRule struct {
-	Address  string
-	Port     string
-	Protocol string
-}
-
-// A TagsMap is a map of Key:Values used as tags.
-type TagsMap map[string]string
 
 // Operator defines the operation between your key and value.
 type Operator string
@@ -462,9 +451,9 @@ type PURuntimeJSON struct {
 	// Name is the name of the container
 	Name string
 	// IPAddress is the IP Address of the container
-	IPAddresses map[string]string
+	IPAddresses *IPMap
 	// Tags is a map of the metadata of the container
-	Tags TagsMap
+	Tags *TagsMap
 }
 
 // MarshalJSON Marshals this struct.
