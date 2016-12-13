@@ -6,15 +6,13 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme/crypto"
+	"github.com/aporeto-inc/trireme/policy"
 	jwt "github.com/dgrijalva/jwt-go"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (
-	tags = map[string]string{
-		"label1": "value1",
-		"label2": "value2",
-	}
+	tags = policy.NewTagsMap()
 
 	lcl           = "09876543210987654321098765432109"
 	rmt           = "12345678901234567890123456789012"
@@ -77,6 +75,11 @@ IG7Nv+YlTVp5qA==
 -----END CERTIFICATE-----`
 )
 
+func init() {
+	tags.Add("label1", "value1")
+	tags.Add("label2", "value2")
+}
+
 // TestConstructorNewPolicyDB tests the NewPolicyDB constructor
 func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT Engine with shared secrets, it should succeed", t, func() {
@@ -115,8 +118,8 @@ func TestCreateAndVerifyPSK(t *testing.T) {
 			recoveredClaims, _ := jwtConfig.Decode(false, token, nil)
 
 			So(recoveredClaims, ShouldNotBeNil)
-			So(recoveredClaims.T["label1"], ShouldEqual, defaultClaims.T["label1"])
-			So(recoveredClaims.T["label2"], ShouldEqual, defaultClaims.T["label2"])
+			So(recoveredClaims.T.Tags["label1"], ShouldEqual, defaultClaims.T.Tags["label1"])
+			So(recoveredClaims.T.Tags["label2"], ShouldEqual, defaultClaims.T.Tags["label2"])
 			So(string(recoveredClaims.RMT), ShouldEqual, rmt)
 			So(string(recoveredClaims.LCL), ShouldEqual, lcl)
 		})
@@ -153,8 +156,8 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 			recoveredClaims, _ := jwtConfig.Decode(false, token, nil)
 
 			So(recoveredClaims, ShouldNotBeNil)
-			So(recoveredClaims.T["label1"], ShouldEqual, defaultClaims.T["label1"])
-			So(recoveredClaims.T["label2"], ShouldEqual, defaultClaims.T["label2"])
+			So(recoveredClaims.T.Tags["label1"], ShouldEqual, defaultClaims.T.Tags["label1"])
+			So(recoveredClaims.T.Tags["label2"], ShouldEqual, defaultClaims.T.Tags["label2"])
 			So(string(recoveredClaims.RMT), ShouldEqual, rmt)
 			So(string(recoveredClaims.LCL), ShouldEqual, lcl)
 		})

@@ -123,6 +123,11 @@ func (i *IPMap) Clone() *IPMap {
 	return im
 }
 
+// Add adds a key value pair
+func (i *IPMap) Add(k, v string) {
+	i.IPs[k] = v
+}
+
 // Get returns the value of a given key
 func (i *IPMap) Get(k string) (string, bool) {
 	v, ok := i.IPs[k]
@@ -299,6 +304,14 @@ func (p *PUPolicy) IngressACLs() *IPRuleList {
 	return p.ingressACLs.Clone()
 }
 
+// SetIngressACLs adds ingress rules
+func (p *PUPolicy) SetIngressACLs(r *IPRuleList) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.ingressACLs = r.Clone()
+}
+
 // EgressACLs returns a copy of IPRuleList
 func (p *PUPolicy) EgressACLs() *IPRuleList {
 	p.puPolicyMutex.Lock()
@@ -307,12 +320,28 @@ func (p *PUPolicy) EgressACLs() *IPRuleList {
 	return p.egressACLs.Clone()
 }
 
+// SetEgressACLs adds ingress rules
+func (p *PUPolicy) SetEgressACLs(r *IPRuleList) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.egressACLs = r.Clone()
+}
+
 // ReceiverRules returns a copy of TagSelectorList
 func (p *PUPolicy) ReceiverRules() *TagSelectorList {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
 	return p.receiverRules.Clone()
+}
+
+// AddReceiverRules adds a receiver rule
+func (p *PUPolicy) AddReceiverRules(t *TagSelector) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.receiverRules.TagSelectors = append(p.receiverRules.TagSelectors, *t.Clone())
 }
 
 // TransmitterRules returns a copy of TagSelectorList
@@ -331,12 +360,36 @@ func (p *PUPolicy) PolicyTags() *TagsMap {
 	return p.policyTags.Clone()
 }
 
+// SetPolicyTags sets up policy tags
+func (p *PUPolicy) SetPolicyTags(t *TagsMap) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.policyTags = t.Clone()
+}
+
+// AddPolicyTag adds a policy tag
+func (p *PUPolicy) AddPolicyTag(k, v string) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.policyTags.Tags[k] = v
+}
+
 // IPAddresses returns all the IP addresses for the processing unit
 func (p *PUPolicy) IPAddresses() *IPList {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
 	return p.policyIPs.Clone()
+}
+
+// SetIPAddresses sets the IP addresses for the processing unit
+func (p *PUPolicy) SetIPAddresses(l *IPList) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.policyIPs = l.Clone()
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit
@@ -420,7 +473,7 @@ func (r *PURuntime) IPAddresses() *IPMap {
 }
 
 // SetIPAddresses sets up all the IP addresses for the processing unit
-func (r *PURuntime) SetIPAddresses(ipa IPMap) {
+func (r *PURuntime) SetIPAddresses(ipa *IPMap) {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
@@ -445,7 +498,7 @@ func (r *PURuntime) Tags() *TagsMap {
 }
 
 //SetTags sets tags for the processing unit
-func (r *PURuntime) SetTags(tags TagsMap) {
+func (r *PURuntime) SetTags(tags *TagsMap) {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 

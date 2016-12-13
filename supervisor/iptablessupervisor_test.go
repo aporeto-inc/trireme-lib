@@ -107,8 +107,12 @@ func TestIPTablesSuperviseCreateAndUpdate(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 
 	containerInfo := policy.NewPUInfo("12345")
-	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
-	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
+	ips := policy.NewIPMap()
+	ips.Add("bridge", "30.30.30.30")
+	containerInfo.Runtime.SetIPAddresses(ips)
+	ipl := policy.NewIPList()
+	ipl.IPs = append(ipl.IPs, "30.30.30.30")
+	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case
 	err := s.Supervise("12345", containerInfo)
@@ -137,8 +141,12 @@ func TestIPTablesUnsuperviseExistingContainer(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 
 	containerInfo := policy.NewPUInfo("12345")
-	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
-	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
+	ips := policy.NewIPMap()
+	ips.Add("bridge", "30.30.30.30")
+	containerInfo.Runtime.SetIPAddresses(ips)
+	ipl := policy.NewIPList()
+	ipl.IPs = append(ipl.IPs, "30.30.30.30")
+	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case
 	err := s.Supervise("12345", containerInfo)
@@ -180,19 +188,29 @@ func TestSuperviseACLs(t *testing.T) {
 
 	s := doNewIPTSupervisor(t)
 	containerInfo := policy.NewPUInfo("12345")
-	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
+	ingress := policy.NewIPRuleList()
+	ingress.Rules = append(ingress.Rules, policy.IPRule{
 		Address:  "20.20.0.0/16",
 		Port:     "80",
 		Protocol: "tcp",
-	}}
+	})
 
-	containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
+	// Allow access to container from localhost
+	egress := policy.NewIPRuleList()
+	egress.Rules = append(egress.Rules, policy.IPRule{
 		Address:  "20.20.0.0/16",
 		Port:     "80",
 		Protocol: "tcp",
-	}}
-	containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
-	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
+	})
+
+	containerInfo.Policy.SetIngressACLs(ingress)
+	containerInfo.Policy.SetEgressACLs(egress)
+	ips := policy.NewIPMap()
+	ips.Add("bridge", "30.30.30.30")
+	containerInfo.Runtime.SetIPAddresses(ips)
+	ipl := policy.NewIPList()
+	ipl.IPs = append(ipl.IPs, "30.30.30.30")
+	containerInfo.Policy.SetIPAddresses(ipl)
 
 	err := s.Supervise("12345", containerInfo)
 	if err != nil {

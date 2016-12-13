@@ -103,16 +103,16 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 
 	runtimeInfo := policy.NewPURuntime()
 
-	tags := policy.TagsMap{}
-	tags["image"] = info.Config.Image
-	tags["name"] = info.Name
+	tags := policy.NewTagsMap()
+	tags.Add("image", info.Config.Image)
+	tags.Add("name", info.Name)
 
 	for k, v := range info.Config.Labels {
-		tags[k] = v
+		tags.Add(k, v)
 	}
 
-	ipa := map[string]string{}
-	ipa["bridge"] = info.NetworkSettings.IPAddress
+	ipa := policy.NewIPMap()
+	ipa.Add("bridge", info.NetworkSettings.IPAddress)
 
 	runtimeInfo.SetName(info.Name)
 	runtimeInfo.SetPid(info.State.Pid)

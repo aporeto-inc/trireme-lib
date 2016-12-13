@@ -13,11 +13,11 @@ type RuntimeReader interface {
 	Tag(string) (string, bool)
 
 	// Tags returns the list of the tags.
-	Tags() TagsMap
+	Tags() *TagsMap
 
 	// DefaultIPAddress retutns the default IP address.
 	DefaultIPAddress() (string, bool)
 
 	// IPAddresses returns all the IP addresses.
-	IPAddresses() map[string]string
+	IPAddresses() *IPMap
 }

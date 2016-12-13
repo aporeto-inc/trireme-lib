@@ -151,9 +151,10 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 // default TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
-	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = containerInfo.Policy.ManagementID
-	if containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] == "" {
-		containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
+	if containerInfo.Policy.ManagementID == "" {
+		containerInfo.Policy.AddPolicyTag(enforcer.TransmitterLabel, contextID)
+	} else {
+		containerInfo.Policy.AddPolicyTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
 	}
 }
 

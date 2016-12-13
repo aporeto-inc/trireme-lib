@@ -14,9 +14,9 @@ import (
 
 type supervisorCacheEntry struct {
 	index       int
-	ips         []string
-	ingressACLs []policy.IPRule
-	egressACLs  []policy.IPRule
+	ips         *policy.IPList
+	ingressACLs *policy.IPRuleList
+	egressACLs  *policy.IPRuleList
 }
 
 // iptablesSupervisor is the structure holding all information about a connection filter
@@ -229,8 +229,8 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	cacheEntry := &supervisorCacheEntry{
 		index:       index,
 		ips:         containerInfo.Policy.IPAddresses(),
-		ingressACLs: containerInfo.Policy.IngressACLs,
-		egressACLs:  containerInfo.Policy.EgressACLs,
+		ingressACLs: containerInfo.Policy.IngressACLs(),
+		egressACLs:  containerInfo.Policy.EgressACLs(),
 	}
 
 	// Version the policy so that we can do hitless policy changes
@@ -288,7 +288,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs); err != nil {
+	if err := s.ipu.AddAppACLs(appChain, ipAddress, cacheEntry.ingressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -301,7 +301,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs); err != nil {
+	if err := s.ipu.AddNetACLs(netChain, ipAddress, cacheEntry.egressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -394,7 +394,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs); err != nil {
+	if err := s.ipu.AddAppACLs(appChain, ipAddress, cachedEntry.ingressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -407,7 +407,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs); err != nil {
+	if err := s.ipu.AddNetACLs(netChain, ipAddress, cachedEntry.egressACLs); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{

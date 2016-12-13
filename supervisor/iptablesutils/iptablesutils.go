@@ -32,7 +32,7 @@ type ipTableUtils struct {
 type IptableCommon interface {
 	AppChainPrefix(contextID string, index int) string
 	NetChainPrefix(contextID string, index int) string
-	DefaultCacheIP(ips []string) (string, error)
+	DefaultCacheIP(ips *policy.IPList) (string, error)
 	chainRules(appChain string, netChain string, ip string) [][]string
 	trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string
 	CleanACLs() error
@@ -48,10 +48,10 @@ type IptableProviderUtils interface {
 	DeleteChainRules(appChain, netChain, ip string) error
 	AddPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
 	DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
-	AddAppACLs(chain string, ip string, rules []policy.IPRule) error
-	DeleteAppACLs(chain string, ip string, rules []policy.IPRule) error
-	AddNetACLs(chain, ip string, rules []policy.IPRule) error
-	DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error
+	AddAppACLs(chain string, ip string, rules *policy.IPRuleList) error
+	DeleteAppACLs(chain string, ip string, rules *policy.IPRuleList) error
+	AddNetACLs(chain, ip string, rules *policy.IPRuleList) error
+	DeleteNetACLs(chain string, ip string, rules *policy.IPRuleList) error
 	cleanACLSection(context, section, chainPrefix string)
 	exclusionChainRules(ip string) [][]string
 	AddExclusionChainRules(ip string) error
@@ -68,7 +68,7 @@ type IpsetProviderUtils interface {
 	AddNetSetRule(set string, ip string) error
 	DeleteNetSetRule(set string, ip string) error
 	SetupTrapRules(set string, networkQueues string, applicationQueues string) error
-	CreateACLSets(set string, rules []policy.IPRule) error
+	CreateACLSets(set string, rules *policy.IPRuleList) error
 	DeleteSet(set string) error
 	CleanIPSets() error
 }
@@ -108,11 +108,11 @@ func (r *ipTableUtils) NetChainPrefix(contextID string, index int) string {
 	return netChainPrefix + contextID + "-" + strconv.Itoa(index)
 }
 
-func (r *ipTableUtils) DefaultCacheIP(ips []string) (string, error) {
-	if len(ips) == 0 || ips == nil {
+func (r *ipTableUtils) DefaultCacheIP(ips *policy.IPList) (string, error) {
+	if ips == nil || len(ips.IPs) == 0 {
 		return "", fmt.Errorf("No IPs present")
 	}
-	return ips[0], nil
+	return ips.IPs[0], nil
 }
 
 // ChainRules provides the list of rules that are used to send traffic to
@@ -463,7 +463,7 @@ func (r *ipTableUtils) DeletePacketTrap(appChain string, netChain string, ip str
 
 // AddAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (r *ipTableUtils) AddAppACLs(chain string, ip string, rules []policy.IPRule) error {
+func (r *ipTableUtils) AddAppACLs(chain string, ip string, rules *policy.IPRuleList) error {
 
 	log.WithFields(log.Fields{
 		"package": "iptablesutils",
@@ -471,13 +471,13 @@ func (r *ipTableUtils) AddAppACLs(chain string, ip string, rules []policy.IPRule
 		"chain":   chain,
 	}).Info("Add App ACLs")
 
-	for i := range rules {
+	for i := range rules.Rules {
 
 		if err := r.ipt.Append(
 			appAckPacketIPTableContext, chain,
-			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
-			"-d", rules[i].Address,
-			"--dport", rules[i].Port,
+			"-p", rules.Rules[i].Protocol, "-m", "state", "--state", "NEW",
+			"-d", rules.Rules[i].Address,
+			"--dport", rules.Rules[i].Port,
 			"-j", "ACCEPT",
 		); err != nil {
 			log.WithFields(log.Fields{
@@ -511,7 +511,7 @@ func (r *ipTableUtils) AddAppACLs(chain string, ip string, rules []policy.IPRule
 }
 
 // DeleteAppACLs deletes the rules associated with traffic to external services
-func (r *ipTableUtils) DeleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
+func (r *ipTableUtils) DeleteAppACLs(chain string, ip string, rules *policy.IPRuleList) error {
 
 	log.WithFields(log.Fields{
 		"package": "iptablesutils",
@@ -520,12 +520,12 @@ func (r *ipTableUtils) DeleteAppACLs(chain string, ip string, rules []policy.IPR
 		"chain":   chain,
 	}).Info("Delete App ACLs")
 
-	for i := range rules {
+	for i := range rules.Rules {
 		if err := r.ipt.Delete(
 			appAckPacketIPTableContext, chain,
-			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
-			"-d", rules[i].Address,
-			"--dport", rules[i].Port,
+			"-p", rules.Rules[i].Protocol, "-m", "state", "--state", "NEW",
+			"-d", rules.Rules[i].Address,
+			"--dport", rules.Rules[i].Port,
 			"-j", "ACCEPT",
 		); err != nil {
 			log.WithFields(log.Fields{
@@ -558,7 +558,7 @@ func (r *ipTableUtils) DeleteAppACLs(chain string, ip string, rules []policy.IPR
 
 // AddNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the higest priority since they are direct allows.
-func (r *ipTableUtils) AddNetACLs(chain, ip string, rules []policy.IPRule) error {
+func (r *ipTableUtils) AddNetACLs(chain, ip string, rules *policy.IPRuleList) error {
 
 	log.WithFields(log.Fields{
 		"package": "iptablesutils",
@@ -567,13 +567,13 @@ func (r *ipTableUtils) AddNetACLs(chain, ip string, rules []policy.IPRule) error
 		"chain":   chain,
 	}).Info("Add Net ACLs")
 
-	for i := range rules {
+	for i := range rules.Rules {
 
 		if err := r.ipt.Append(
 			netPacketIPTableContext, chain,
-			"-p", rules[i].Protocol,
-			"-s", rules[i].Address,
-			"--dport", rules[i].Port,
+			"-p", rules.Rules[i].Protocol,
+			"-s", rules.Rules[i].Address,
+			"--dport", rules.Rules[i].Port,
 			"-j", "ACCEPT",
 		); err != nil {
 			log.WithFields(log.Fields{
@@ -608,7 +608,7 @@ func (r *ipTableUtils) AddNetACLs(chain, ip string, rules []policy.IPRule) error
 }
 
 // DeleteNetACLs removes the iptable rules that manage traffic from external services
-func (r *ipTableUtils) DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
+func (r *ipTableUtils) DeleteNetACLs(chain string, ip string, rules *policy.IPRuleList) error {
 
 	log.WithFields(log.Fields{
 		"package": "iptablesutils",
@@ -617,12 +617,12 @@ func (r *ipTableUtils) DeleteNetACLs(chain string, ip string, rules []policy.IPR
 		"chain":   chain,
 	}).Info("Delete Net ACLs")
 
-	for i := range rules {
+	for i := range rules.Rules {
 		if err := r.ipt.Delete(
 			netPacketIPTableContext, chain,
-			"-p", rules[i].Protocol,
-			"-s", rules[i].Address,
-			"--dport", rules[i].Port,
+			"-p", rules.Rules[i].Protocol,
+			"-s", rules.Rules[i].Address,
+			"--dport", rules.Rules[i].Port,
 			"-j", "ACCEPT",
 		); err != nil {
 			log.WithFields(log.Fields{
@@ -974,13 +974,13 @@ func (r *ipTableUtils) SetupTrapRules(set string, networkQueues string, applicat
 	return nil
 }
 
-func (r *ipTableUtils) CreateACLSets(set string, rules []policy.IPRule) error {
+func (r *ipTableUtils) CreateACLSets(set string, rules *policy.IPRuleList) error {
 	appSet, err := r.ips.NewIpset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
 
-	for _, rule := range rules {
+	for _, rule := range rules.Rules {
 		if err := appSet.Add(rule.Address+","+rule.Port, 0); err != nil {
 			return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 		}

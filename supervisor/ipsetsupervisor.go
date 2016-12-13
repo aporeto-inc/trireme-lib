@@ -171,7 +171,7 @@ func (s *ipsetSupervisor) Stop() error {
 	return nil
 }
 
-func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet string, appACLs []policy.IPRule, netACLs []policy.IPRule, ip string) error {
+func (s *ipsetSupervisor) doAddSets(contextID string, appSet string, netSet string, appACLs *policy.IPRuleList, netACLs *policy.IPRuleList, ip string) error {
 
 	if err := s.ipu.CreateACLSets(appSet, appACLs); err != nil {
 		s.Unsupervise(contextID)
@@ -248,8 +248,8 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 	cacheEntry := &supervisorCacheEntry{
 		index:       index,
 		ips:         containerInfo.Policy.IPAddresses(),
-		ingressACLs: containerInfo.Policy.IngressACLs,
-		egressACLs:  containerInfo.Policy.EgressACLs,
+		ingressACLs: containerInfo.Policy.IngressACLs(),
+		egressACLs:  containerInfo.Policy.EgressACLs(),
 	}
 
 	// Version the policy so that we can do hitless policy changes
@@ -262,7 +262,7 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 		return err
 	}
 
-	if err := s.doAddSets(contextID, appSet, netSet, containerInfo.Policy.IngressACLs, containerInfo.Policy.EgressACLs, ipAddress); err != nil {
+	if err := s.doAddSets(contextID, appSet, netSet, cacheEntry.ingressACLs, cacheEntry.egressACLs, ipAddress); err != nil {
 		return err
 	}
 
@@ -313,7 +313,7 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 	oldAppSet := s.ipu.AppChainPrefix(contextID, oldindex)
 	oldNetSet := s.ipu.NetChainPrefix(contextID, oldindex)
 
-	if err := s.doAddSets(contextID, appSet, netSet, containerInfo.Policy.IngressACLs, containerInfo.Policy.EgressACLs, ipAddress); err != nil {
+	if err := s.doAddSets(contextID, appSet, netSet, cachedEntry.ingressACLs, cachedEntry.egressACLs, ipAddress); err != nil {
 		return err
 	}
 
