@@ -84,7 +84,6 @@ func NewTriremeWithDockerMonitor(
 	syncAtStart bool,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
-	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
@@ -122,6 +121,7 @@ func NewTriremeWithDockerMonitor(
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
+
 	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 
 }
@@ -138,7 +138,6 @@ func NewPSKTriremeWithDockerMonitor(
 	key []byte,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
-	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart, dockerMetadataExtractor, remoteEnforcer)
 
@@ -160,11 +159,11 @@ func NewPKITriremeWithDockerMonitor(
 	caCertPEM []byte,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
-	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder, enforcer.PublicKeyAdder) {
 
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 
 	trireme, monitor, excluder := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart, dockerMetadataExtractor, remoteEnforcer)
+
 	return trireme, monitor, excluder, publicKeyAdder
 }

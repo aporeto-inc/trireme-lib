@@ -112,7 +112,7 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 }
 
 //TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractorPath string,remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractorPath string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -139,11 +139,10 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 
 	policyEngine := NewCustomPolicyResolver()
 	var bashExtractor monitor.DockerMetadataExtractor
-	if extractorPath != "" {
-
 
 	var bashExtractor monitor.DockerMetadataExtractor
 	if extractorPath != "" {
+
 		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
 		if err != nil {
 			fmt.Printf("error: ABC, %s", err)
@@ -151,13 +150,14 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 	}
 
 	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM, bashExtractor, remoteEnforcer)
+
 	p.PublicKeyAdd("Server1", certPEM)
 
 	return t, m, e
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK(networks []string, extractorPath string,remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPSK(networks []string, extractorPath string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	policyEngine := NewCustomPolicyResolver()
 	var bashExtractor monitor.DockerMetadataExtractor
@@ -170,5 +170,5 @@ func TriremeWithPSK(networks []string, extractorPath string,remoteEnforcer bool)
 	}
 
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"), bashExtractor,remoteEnforcer)
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"), bashExtractor, remoteEnforcer)
 }

@@ -20,6 +20,7 @@ var caCertFile = flag.String("caCertFile", "ca.crt", "Set the path of certificat
 var externalMetadataFile = flag.String("metadata", "", "An external executable file for the metadata extractor")
 
 func usage() {
+
 	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]   -metadata=[string] -enforcer=[remote|local]\n")
 	flag.PrintDefaults()
 	os.Exit(2)
@@ -54,6 +55,7 @@ func main() {
 
 	if *usePKI {
 		log.Infof("Setting up trireme with PKI")
+
 		t, m, _ = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
 	} else {
 		log.Infof("Setting up trireme with PSK")
