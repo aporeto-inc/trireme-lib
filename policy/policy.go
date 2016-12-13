@@ -9,10 +9,7 @@
 // data.
 package policy
 
-import (
-	"encoding/json"
-	"fmt"
-)
+import "encoding/json"
 
 // IPRule holds ingress IP table rules to external services
 type IPRule struct {
@@ -142,7 +139,6 @@ func (r *PURuntime) UnmarshalJSON(param []byte) error {
 	r.name = a.Name
 	r.iPAddresses = a.IPAddresses
 	r.tags = a.Tags
-	fmt.Printf("Unmarshal: %+v ", r)
 	return nil
 }
 

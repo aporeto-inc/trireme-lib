@@ -3,6 +3,7 @@ package extractor
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 
 	log "github.com/Sirupsen/logrus"
@@ -23,6 +24,10 @@ func NewBashExtractor(filePath string) (monitor.DockerMetadataExtractor, error) 
 	if err != nil {
 		return nil, fmt.Errorf("Exec file was not found at filePath %s: %s", filePath, err)
 	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("Exec file was not found at filePath %s: %s", filePath, err)
+	}
+
 	log.WithFields(log.Fields{
 		"package": "monitor",
 	}).Debug("Initializing New Bash Extractor for External script: ", filePath)
