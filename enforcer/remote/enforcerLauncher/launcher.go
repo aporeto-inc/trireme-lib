@@ -5,6 +5,7 @@ package enforcerLauncher
 import (
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -69,6 +70,8 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 
 }
 func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
+	stack = string(debug.Stack())
+	log.WithFields(log.Fields{"stack": stack}).Info("Stack trace")
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl)
 	if err != nil {
 		return err
