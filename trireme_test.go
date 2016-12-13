@@ -160,6 +160,36 @@ func doTestDeleteNotExist(t *testing.T, trireme Trireme, tresolver TestPolicyRes
 	}
 }
 
+func isPolicyEquivalent(policyA, policyB *policy.PUPolicy) bool {
+
+	if policyA.ManagementID != policyB.ManagementID {
+
+		return false
+	}
+	if policyA.TriremeAction != policyB.TriremeAction {
+		return false
+	}
+	if !reflect.DeepEqual(policyA.IngressACLs(), policyB.IngressACLs()) {
+		return false
+	}
+	if !reflect.DeepEqual(policyA.EgressACLs(), policyB.EgressACLs()) {
+		return false
+	}
+	if !reflect.DeepEqual(policyA.PolicyTags(), policyB.PolicyTags()) {
+		return false
+	}
+	if !reflect.DeepEqual(policyA.IPAddresses(), policyB.IPAddresses()) {
+		return false
+	}
+	if !reflect.DeepEqual(policyA.TransmitterRules(), policyB.TransmitterRules()) {
+		return false
+	}
+	if !reflect.DeepEqual(policyA.ReceiverRules(), policyB.ReceiverRules()) {
+		return false
+	}
+	return true
+}
+
 func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, tsupervisor supervisor.TestSupervisor, tenforcer enforcer.TestPolicyEnforcer, tmonitor monitor.TestMonitor, id string, initialRuntime *policy.PURuntime, updatedPolicy *policy.PUPolicy) {
 	supervisorCount := 0
 	enforcerCount := 0
@@ -174,7 +204,7 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 			t.Errorf("Runtime given to Supervisor is not the same. Received %v, expected %v", puInfo.Runtime, initialRuntime)
 		}
 
-		if !reflect.DeepEqual(puInfo.Policy, updatedPolicy) {
+		if !isPolicyEquivalent(puInfo.Policy, updatedPolicy) {
 			t.Errorf("Policy given to Supervisor is not the same. Received %v, expected %v", puInfo.Policy, updatedPolicy)
 		}
 
@@ -192,7 +222,7 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 			t.Errorf("Runtime given to Supervisor is not the same. Received %v, expected %v", puInfo.Runtime, initialRuntime)
 		}
 
-		if !reflect.DeepEqual(puInfo.Policy, updatedPolicy) {
+		if !isPolicyEquivalent(puInfo.Policy, updatedPolicy) {
 			t.Errorf("Policy given to Supervisor is not the same. Received %v, expected %v", puInfo.Policy, updatedPolicy)
 		}
 
@@ -264,6 +294,9 @@ func TestSimpleUpdate(t *testing.T) {
 	ipl := policy.NewIPList()
 	ipl.IPs = []string{"127.0.0.1"}
 	newPolicy.SetIPAddresses(ipl)
+	tagsMap := policy.NewTagsMap()
+	tagsMap.Add(enforcer.TransmitterLabel, contextID)
+	newPolicy.SetPolicyTags(tagsMap)
 	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
 }
 
