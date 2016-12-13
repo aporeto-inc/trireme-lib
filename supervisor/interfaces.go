@@ -24,6 +24,6 @@ type Excluder interface {
 	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
 	AddExcludedIP(ip string) error
 
-	// RemoveExcludedIP removes the exception for the destion IP given in parameter.
+	// RemoveExcludedIP removes the exception for the destination IP given in parameter.
 	RemoveExcludedIP(ip string) error
 }
