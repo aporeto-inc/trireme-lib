@@ -9,6 +9,8 @@
 // data.
 package policy
 
+import "encoding/json"
+
 // IPRule holds ingress IP table rules to external services
 type IPRule struct {
 	Address  string
@@ -105,6 +107,39 @@ type PURuntime struct {
 	iPAddresses map[string]string
 	// Tags is a map of the metadata of the container
 	tags TagsMap
+}
+
+// PURuntimeJSON is a Json representation of PURuntime
+type PURuntimeJSON struct {
+	// Pid holds the value of the first process of the container
+	Pid int
+	// Name is the name of the container
+	Name string
+	// IPAddress is the IP Address of the container
+	IPAddresses map[string]string
+	// Tags is a map of the metadata of the container
+	Tags TagsMap
+}
+
+// MarshalJSON Marshals this struct.
+func (r *PURuntime) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&PURuntimeJSON{
+		Pid:         r.pid,
+		Name:        r.name,
+		IPAddresses: r.iPAddresses,
+		Tags:        r.tags,
+	})
+}
+
+// UnmarshalJSON Unmarshals this struct.
+func (r *PURuntime) UnmarshalJSON(param []byte) error {
+	a := &PURuntimeJSON{}
+	json.Unmarshal(param, &a)
+	r.pid = a.Pid
+	r.name = a.Name
+	r.iPAddresses = a.IPAddresses
+	r.tags = a.Tags
+	return nil
 }
 
 // Pid returns the PID

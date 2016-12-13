@@ -371,7 +371,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 			"contextID": contextID,
 		}).Debug("Error getting some of the Docker primitives")
 
-		return fmt.Errorf("Error getting some of the Docker primitives")
+		return fmt.Errorf("Error getting some of the Docker primitives: %s", err)
 	}
 
 	ip, ok := runtimeInfo.DefaultIPAddress()

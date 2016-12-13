@@ -70,6 +70,7 @@ func NewTriremeWithDockerMonitor(
 	eventCollector collector.EventCollector,
 	secrets tokens.Secrets,
 	syncAtStart bool,
+	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
@@ -90,7 +91,8 @@ func NewTriremeWithDockerMonitor(
 	}
 
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
-	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
+
+	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
 
 	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 }
@@ -105,9 +107,10 @@ func NewPSKTriremeWithDockerMonitor(
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
+	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
-	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart)
+	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart, dockerMetadataExtractor)
 }
 
 // NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -124,11 +127,12 @@ func NewPKITriremeWithDockerMonitor(
 	keyPEM []byte,
 	certPEM []byte,
 	caCertPEM []byte,
+	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder, enforcer.PublicKeyAdder) {
 
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 
-	trireme, monitor, excluder := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart)
+	trireme, monitor, excluder := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart, dockerMetadataExtractor)
 
 	return trireme, monitor, excluder, publicKeyAdder
 }
