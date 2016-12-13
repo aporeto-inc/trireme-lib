@@ -162,7 +162,7 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 
 	if _, ok := c.data[u]; !ok {
 
-		return nil, fmt.Errorf("Item does not exist.")
+		return nil, fmt.Errorf("Item does not exist")
 	}
 
 	return c.data[u].value, nil

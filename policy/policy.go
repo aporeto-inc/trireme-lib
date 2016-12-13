@@ -9,7 +9,19 @@
 // data.
 package policy
 
+
 import "sync"
+import "encoding/json"
+
+// IPRule holds ingress IP table rules to external services
+type IPRule struct {
+	Address  string
+	Port     string
+	Protocol string
+}
+
+// A TagsMap is a map of Key:Values used as tags.
+type TagsMap map[string]string
 
 // Operator defines the operation between your key and value.
 type Operator string
@@ -441,6 +453,39 @@ func (r *PURuntime) Clone() *PURuntime {
 	np.tags = r.tags.Clone()
 	np.iPAddresses = r.iPAddresses.Clone()
 	return np
+}
+
+// PURuntimeJSON is a Json representation of PURuntime
+type PURuntimeJSON struct {
+	// Pid holds the value of the first process of the container
+	Pid int
+	// Name is the name of the container
+	Name string
+	// IPAddress is the IP Address of the container
+	IPAddresses map[string]string
+	// Tags is a map of the metadata of the container
+	Tags TagsMap
+}
+
+// MarshalJSON Marshals this struct.
+func (r *PURuntime) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&PURuntimeJSON{
+		Pid:         r.pid,
+		Name:        r.name,
+		IPAddresses: r.iPAddresses,
+		Tags:        r.tags,
+	})
+}
+
+// UnmarshalJSON Unmarshals this struct.
+func (r *PURuntime) UnmarshalJSON(param []byte) error {
+	a := &PURuntimeJSON{}
+	json.Unmarshal(param, &a)
+	r.pid = a.Pid
+	r.name = a.Name
+	r.iPAddresses = a.IPAddresses
+	r.tags = a.Tags
+	return nil
 }
 
 // Pid returns the PID

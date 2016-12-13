@@ -197,7 +197,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"runtimeInfo": runtimeInfo,
 			"error":       err.Error(),
 		}).Debug("Error returned when resolving the context")
-		return fmt.Errorf("Policy Error for this context: %s . Container killed. %s", contextID, err)
+		return fmt.Errorf("Policy Error for this context: %s. Container killed. %s", contextID, err)
 	}
 
 	if policyInfo == nil {
@@ -207,7 +207,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"runtimeInfo": runtimeInfo,
 			"error":       err.Error(),
 		}).Debug("Nil policy returned when resolving the context")
-		return fmt.Errorf("Nil policy returned for context: %s. Container killed.", contextID)
+
+		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
 
 	present, err := isPolicyIPValid(policyInfo)
@@ -216,8 +217,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
-		}).Info("No IP given in the policy, not activating")
-
+		}).Warn("No IP given in the policy, not activating")
 		return nil
 	}
 
@@ -412,7 +412,7 @@ func (t *trireme) run() {
 		case <-t.stop:
 			log.WithFields(log.Fields{
 				"package": "trireme",
-			}).Info("Stopping trireme worker.")
+			}).Debug("Stopping trireme worker.")
 			return
 		case req := <-t.requests:
 			log.WithFields(log.Fields{

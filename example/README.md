@@ -93,13 +93,19 @@ certificates.
 ./create_certs.sh
 ```
 
-# Building 
+# Building
 
-If you want to build the binary without a docker container, you must have libnetfilter-queue installed in your system. For example in an Ubuntu distribution:
+If you want to build the binary without a docker container, you must have 'libnetfilter-queue' installed in your system. For example in an Ubuntu distribution:
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y libnetfilter-queue-dev iptables
+```
+
+for Centos:
+```bash
+sudo yum update
+sudo yum install libnetfilter_queue-devel
 ```
 
 Building is just:
@@ -107,6 +113,6 @@ Building is just:
 ```bash
 # Install the required dependencies
 glide install
-# Build 
-go build
+# Build
+make build
 ```

@@ -84,7 +84,7 @@ func (s *ipsetSupervisor) Supervise(contextID string, containerInfo *policy.PUIn
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("Supervise PU")
+	}).Debug("Supervise PU")
 
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		log.WithFields(log.Fields{
@@ -104,7 +104,7 @@ func (s *ipsetSupervisor) Supervise(contextID string, containerInfo *policy.PUIn
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("PU ContextID Already exist in Cache. Updating.")
+	}).Debug("PU ContextID Already exist in Cache. Updating.")
 
 	return s.doUpdatePU(contextID, containerInfo)
 }
@@ -114,7 +114,7 @@ func (s *ipsetSupervisor) Unsupervise(contextID string) error {
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("Unsupervise PU")
+	}).Debug("Unsupervise PU")
 
 	result, err := s.versionTracker.Get(contextID)
 
@@ -226,7 +226,7 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("PU Creation")
+	}).Debug("PU Creation")
 
 	index := 0
 
@@ -277,7 +277,7 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("PU Supervisor Update")
+	}).Debug("PU Supervisor Update")
 
 	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
 
@@ -339,7 +339,7 @@ func (s *ipsetSupervisor) createInitialIPSet() error {
 func (s *ipsetSupervisor) cleanACLs() error {
 	log.WithFields(log.Fields{
 		"package": "supervisor",
-	}).Info("Cleaning all IPTables")
+	}).Debug("Cleaning all IPTables")
 
 	// Clean Application Rules/Chains
 	s.ipu.CleanACLs()
