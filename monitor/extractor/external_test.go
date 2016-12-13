@@ -26,15 +26,21 @@ const testfile = `#!/bin/sh
 echo '{"Pid":16823,"Name":"/stoic_snyder","IPAddresses":{"bridge":"172.17.0.2"},"Tags":{"image":"nginx","name":"/stoic_snyder"}}'
 `
 
-func createFileTest(destination string) {
-	fileHandle, _ := os.Create(destination)
+func createFileTest(destination string) error {
+	fileHandle, err := os.Create(destination)
+	if err != nil {
+		return err
+	}
 	writer := bufio.NewWriter(fileHandle)
 	fmt.Fprintln(writer, testfile)
 	writer.Flush()
+	return nil
 }
 
 func TestReturnedFunc(t *testing.T) {
-	createFileTest("/tmp/test.sh")
+	if err := createFileTest("/tmp/test.sh"); err != nil {
+		t.Skipf("Skip test because no support for writing files to /tmp")
+	}
 	function, err := NewExternalExtractor("/tmp/test.sh")
 	if err != nil {
 		t.Errorf("Didn't expect error but received %s", err)
