@@ -117,7 +117,7 @@ func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 	log.WithFields(log.Fields{
 		"package": "tokens",
 		"host":    host,
-	}).Info("Adding Cert for host")
+	}).Debug("Adding Cert for host")
 
 	p.CertificateCache[host] = cert.PublicKey.(*ecdsa.PublicKey)
 	return nil

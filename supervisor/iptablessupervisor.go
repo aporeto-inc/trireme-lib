@@ -102,7 +102,7 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("Supervise PU")
+	}).Debug("Supervise PU")
 
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		log.WithFields(log.Fields{
@@ -129,7 +129,7 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("Unsupervise the given contextID, clean the iptable rules")
+	}).Debug("Unsupervise the given contextID, clean the iptable rules")
 
 	result, err := s.versionTracker.Get(contextID)
 
@@ -139,7 +139,7 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 			"contextID": contextID,
 		}).Debug("Cannot find policy version")
 
-		return fmt.Errorf("Cannot find policy version!")
+		return fmt.Errorf("Cannot find policy version")
 	}
 
 	cacheEntry := result.(*supervisorCacheEntry)
@@ -178,7 +178,7 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 func (s *iptablesSupervisor) Start() error {
 	log.WithFields(log.Fields{
 		"package": "supervisor",
-	}).Info("Start the supervisor")
+	}).Debug("Start the supervisor")
 
 	if s.ipu.FilterMarkedPackets(s.Mark) != nil {
 		log.WithFields(log.Fields{
@@ -195,7 +195,7 @@ func (s *iptablesSupervisor) Start() error {
 func (s *iptablesSupervisor) Stop() error {
 	log.WithFields(log.Fields{
 		"package": "supervisor",
-	}).Info("Stop the supervisor")
+	}).Debug("Stop the supervisor")
 
 	// Clean any previous ACLs that we have installed
 	s.CleanACL()
@@ -207,7 +207,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("IPTables update for the creation of a pu")
+	}).Debug("IPTables update for the creation of a pu")
 
 	index := 0
 
@@ -327,7 +327,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
 		"contextID": contextID,
-	}).Info("IPTables update for the update of a pu")
+	}).Debug("IPTables update for the update of a pu")
 
 	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
 
@@ -478,7 +478,7 @@ func (s *iptablesSupervisor) CleanACL() {
 
 	log.WithFields(log.Fields{
 		"package": "supervisor",
-	}).Info("Clean all ACL")
+	}).Debug("Clean all ACL")
 
 	// Clean Application Rules/Chains
 	s.ipu.CleanACLs()
