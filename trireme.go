@@ -117,7 +117,7 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 	req := &triremeRequest{
 		contextID:  contextID,
 		reqType:    policyUpdate,
-		policyInfo: newPolicy,
+		policyInfo: newPolicy.Clone(),
 		returnChan: c,
 	}
 
