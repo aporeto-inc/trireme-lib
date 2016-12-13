@@ -314,9 +314,16 @@ func (t *trireme) doHandleDelete(contextID string) error {
 func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
 	// Notify The PolicyResolver that an event occurred:
 	t.resolver.HandlePUEvent(contextID, event)
-
+	log.WithFields(log.Fields{
+		"package":   "trireme",
+		"contextID": contextID}).Info("Received PU Event")
 	switch event {
 	case monitor.EventStart:
+		log.WithFields(log.Fields{
+			"package":   "trireme",
+			"contextID": contextID,
+			"event":     event,
+		}).Info("Received Event")
 		return t.doHandleCreate(contextID)
 	case monitor.EventStop:
 		return t.doHandleDelete(contextID)
