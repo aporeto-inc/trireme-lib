@@ -380,7 +380,8 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.remote); err != nil {
+	if err := s.ipu.AddPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues); err != nil {
+
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{

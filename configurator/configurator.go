@@ -62,9 +62,8 @@ func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enf
 		return nil, err
 	}
 
-	ipu := iptablesutils.NewIptableUtils(ipt)
-
-	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks)
+	ipu := iptablesutils.NewIptableUtils(ipt, false)
+	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks, false)
 
 }
 
@@ -93,20 +92,29 @@ func NewTriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, processor, secrets)
-	IPTsupervisor, err := NewDefaultSupervisor(eventCollector, enforcer, networks)
-	// Make sure that the Supervisor was able to load. Panic if its not there.
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-			"error":   err.Error(),
-		}).Fatal("Failed to load Supervisor")
-	}
 	if remoteEnforcer {
 		//processmonitor := ProcessMon.NewProcessMon()
 		rpcwrapper := rpcWrapper.NewRPCWrapper()
+		ipt, err := provider.NewGoIPTablesProvider()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"package": "configurator",
+				"error":   err.Error(),
+			}).Fatal("Failed to load Iptables")
+
+		}
+
+		ipu := iptablesutils.NewIptableUtils(ipt, false)
 		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
-		IPTsupervisor, _ := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, rpcwrapper)
+
+		IPTsupervisor, err := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks, rpcwrapper)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"package": "configurator",
+				"error":   err.Error(),
+			}).Fatal("Failed to load Supervisor")
+
+		}
 		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
@@ -117,7 +125,14 @@ func NewTriremeWithDockerMonitor(
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets)
 	IPTsupervisor, err := NewDefaultSupervisor(eventCollector, enforcer, networks)
+	// Make sure that the Supervisor was able to load. Panic if its not there.
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "configurator",
+			"error":   err.Error(),
+		}).Fatal("Failed to load Supervisor")
 
+	}
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)

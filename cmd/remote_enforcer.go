@@ -21,6 +21,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -180,8 +181,8 @@ func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Respons
 	}
 
 	payload := req.Payload.(rpcWrapper.InitSupervisorPayload)
-
-	s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector, s.Enforcer, ipt, payload.TargetNetworks, true)
+	ipu := iptablesutils.NewIptableUtils(ipt, true)
+	s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector, s.Enforcer, ipu, payload.TargetNetworks, true)
 	s.Supervisor.Start()
 	resp.Status = err
 	return nil

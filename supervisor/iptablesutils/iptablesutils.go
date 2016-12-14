@@ -12,20 +12,24 @@ import (
 )
 
 const (
-	chainPrefix                = "TRIREME-"
-	appPacketIPTableContext    = "raw"
-	appAckPacketIPTableContext = "mangle"
-	appPacketIPTableSection    = "PREROUTING"
-	appChainPrefix             = chainPrefix + "App-"
-	netPacketIPTableContext    = "mangle"
-	netPacketIPTableSection    = "POSTROUTING"
-	netChainPrefix             = chainPrefix + "Net-"
+	chainPrefix                   = "TRIREME-"
+	appPacketIPTableContext       = "raw"
+	appAckPacketIPTableContext    = "mangle"
+	appPacketIPTableSection       = "PREROUTING"
+	appPacketIPTableSectionRemote = "OUTPUT"
+	appChainPrefix                = chainPrefix + "App-"
+	netPacketIPTableContext       = "mangle"
+	netPacketIPTableSection       = "POSTROUTING"
+	netPacketIPTableSectionRemote = "INPUT"
+	netChainPrefix                = chainPrefix + "Net-"
 )
 
 type ipTableUtils struct {
-	ipt   provider.IptablesProvider
-	ips   provider.IpsetProvider
-	ipset provider.Ipset
+	ipt                     provider.IptablesProvider
+	ips                     provider.IpsetProvider
+	ipset                   provider.Ipset
+	appPacketIPTableSection string
+	netPacketIPTableSection string
 }
 
 //IptableCommon is a utility interface for programming IP Tables and IP S
@@ -86,10 +90,17 @@ type IpsetUtils interface {
 }
 
 // NewIptableUtils returns the IptableUtils implementer
-func NewIptableUtils(p provider.IptablesProvider) IptableUtils {
-	return &ipTableUtils{
-		ipt: p,
+func NewIptableUtils(p provider.IptablesProvider, remote bool) IptableUtils {
+	ipt := new(ipTableUtils)
+	ipt.ipt = p
+	if remote {
+		ipt.appPacketIPTableSection = "OUTPUT"
+		ipt.netPacketIPTableSection = "INPUT"
+	} else {
+		ipt.appPacketIPTableSection = "PREROUTING"
+		ipt.netPacketIPTableSection = "POSTROUTING"
 	}
+	return ipt
 }
 
 // NewIpsetUtils returns the IptableUtils implementer
@@ -122,14 +133,14 @@ func (r *ipTableUtils) chainRules(appChain string, netChain string, ip string) [
 	ChainRules := [][]string{
 		{
 			appPacketIPTableContext,
-			appPacketIPTableSection,
+			r.appPacketIPTableSection,
 			"-s", ip,
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
 		},
 		{
 			appAckPacketIPTableContext,
-			appPacketIPTableSection,
+			r.appPacketIPTableSection,
 			"-s", ip,
 			"-p", "tcp",
 			"-m", "comment", "--comment", "Container specific chain",
@@ -137,7 +148,7 @@ func (r *ipTableUtils) chainRules(appChain string, netChain string, ip string) [
 		},
 		{
 			netPacketIPTableContext,
-			netPacketIPTableSection,
+			r.netPacketIPTableSection,
 			"-d", ip,
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", netChain,
@@ -187,20 +198,20 @@ func (r *ipTableUtils) CleanACLs() error {
 	}).Debug("Cleaning all IPTables")
 
 	// Clean Application Rules/Chains
-	r.cleanACLSection(appPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+	r.cleanACLSection(appPacketIPTableContext, r.appPacketIPTableSection, chainPrefix)
 
 	// Clean Application Rules/Chains
-	r.cleanACLSection(appAckPacketIPTableContext, appPacketIPTableSection, chainPrefix)
+	r.cleanACLSection(appAckPacketIPTableContext, r.appPacketIPTableSection, chainPrefix)
 
 	// Clean Network Rules/Chains
-	r.cleanACLSection(netPacketIPTableContext, netPacketIPTableSection, chainPrefix)
+	r.cleanACLSection(netPacketIPTableContext, r.netPacketIPTableSection, chainPrefix)
 
 	return nil
 }
 
 func (r *ipTableUtils) FilterMarkedPackets(mark int) error {
 	table := appAckPacketIPTableContext
-	chain := appPacketIPTableSection
+	chain := r.appPacketIPTableSection
 	err := r.ipt.Insert(table, chain, 1,
 		"-m", "mark",
 		"--mark", strconv.Itoa(mark),
@@ -700,14 +711,14 @@ func (r *ipTableUtils) exclusionChainRules(ip string) [][]string {
 	ChainRules := [][]string{
 		{
 			appPacketIPTableContext,
-			appPacketIPTableSection,
+			r.appPacketIPTableSection,
 			"-d", ip,
 			"-m", "comment", "--comment", "Trireme excluded IP",
 			"-j", "ACCEPT",
 		},
 		{
 			appAckPacketIPTableContext,
-			appPacketIPTableSection,
+			r.appPacketIPTableSection,
 			"-d", ip,
 			"-p", "tcp",
 			"-m", "comment", "--comment", "Trireme excluded IP",
@@ -715,7 +726,7 @@ func (r *ipTableUtils) exclusionChainRules(ip string) [][]string {
 		},
 		{
 			netPacketIPTableContext,
-			netPacketIPTableSection,
+			r.netPacketIPTableSection,
 			"-s", ip,
 			"-m", "comment", "--comment", "Trireme excluded IP",
 			"-j", "ACCEPT",
@@ -809,7 +820,7 @@ func (r *ipTableUtils) AddAppSetRule(set string, ip string) error {
 	}).Debug("Add App ACLs")
 
 	if err := r.ipt.Insert(
-		appAckPacketIPTableContext, appPacketIPTableSection, 3,
+		appAckPacketIPTableContext, r.appPacketIPTableSection, 3,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", set, "dst",
 		"-s", ip,
@@ -836,7 +847,7 @@ func (r *ipTableUtils) DeleteAppSetRule(set string, ip string) error {
 	}).Debug("Delete App ACLs")
 
 	if err := r.ipt.Delete(
-		appAckPacketIPTableContext, appPacketIPTableSection,
+		appAckPacketIPTableContext, r.appPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", set, "dst",
 		"-s", ip,
@@ -845,7 +856,7 @@ func (r *ipTableUtils) DeleteAppSetRule(set string, ip string) error {
 		log.WithFields(log.Fields{
 			"package":                 "iptablesutils",
 			"netPacketIPTableContext": netPacketIPTableContext,
-			"chain":                   appPacketIPTableSection,
+			"chain":                   r.appPacketIPTableSection,
 			"error":                   err.Error(),
 		}).Debug("Error when removing ingress app acl rule")
 
@@ -864,7 +875,7 @@ func (r *ipTableUtils) AddNetSetRule(set string, ip string) error {
 	}).Debug("Add App ACLs")
 
 	if err := r.ipt.Insert(
-		netPacketIPTableContext, netPacketIPTableSection, 2,
+		netPacketIPTableContext, r.netPacketIPTableSection, 2,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", set, "src",
 		"-d", ip,
@@ -889,7 +900,7 @@ func (r *ipTableUtils) DeleteNetSetRule(set string, ip string) error {
 	}).Debug("Delete App ACLs")
 
 	if err := r.ipt.Delete(
-		netPacketIPTableContext, netPacketIPTableSection,
+		netPacketIPTableContext, r.netPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", set, "src",
 		"-d", ip,
@@ -898,7 +909,7 @@ func (r *ipTableUtils) DeleteNetSetRule(set string, ip string) error {
 		log.WithFields(log.Fields{
 			"package":                 "iptablesutils",
 			"netPacketIPTableContext": netPacketIPTableContext,
-			"chain":                   appPacketIPTableSection,
+			"chain":                   r.appPacketIPTableSection,
 			"error":                   err.Error(),
 		}).Debug("Error when removing ingress app acl rule")
 
@@ -912,7 +923,7 @@ func (r *ipTableUtils) SetupTrapRules(set string, networkQueues string, applicat
 	TrapRules := [][]string{
 		// Application Syn and Syn/Ack in RAW
 		{
-			appPacketIPTableContext, appPacketIPTableSection,
+			appPacketIPTableContext, r.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", applicationQueues,
@@ -920,7 +931,7 @@ func (r *ipTableUtils) SetupTrapRules(set string, networkQueues string, applicat
 
 		// Application Matching Trireme SRC and DST. Established connections.
 		{
-			appAckPacketIPTableContext, appPacketIPTableSection,
+			appAckPacketIPTableContext, r.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
@@ -929,7 +940,7 @@ func (r *ipTableUtils) SetupTrapRules(set string, networkQueues string, applicat
 
 		// Application Matching Trireme SRC and DST. SYN, SYNACK connections.
 		{
-			appAckPacketIPTableContext, appPacketIPTableSection,
+			appAckPacketIPTableContext, r.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
@@ -939,14 +950,14 @@ func (r *ipTableUtils) SetupTrapRules(set string, networkQueues string, applicat
 
 		// Default Drop from Trireme to Network
 		{
-			appAckPacketIPTableContext, appPacketIPTableSection,
+			appAckPacketIPTableContext, r.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
 			"-j", "DROP",
 		},
 
 		// Network Matching Trireme SRC and DST.
 		{
-			netPacketIPTableContext, netPacketIPTableSection,
+			netPacketIPTableContext, r.netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp",
@@ -956,7 +967,7 @@ func (r *ipTableUtils) SetupTrapRules(set string, networkQueues string, applicat
 
 		// Default Drop from Network to Trireme.
 		{
-			netPacketIPTableContext, netPacketIPTableSection,
+			netPacketIPTableContext, r.netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
 			"-j", "DROP",
 		},

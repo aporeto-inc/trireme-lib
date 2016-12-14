@@ -139,8 +139,6 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 
 	policyEngine := NewCustomPolicyResolver()
 	var bashExtractor monitor.DockerMetadataExtractor
-
-	var bashExtractor monitor.DockerMetadataExtractor
 	if extractorPath != "" {
 
 		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)

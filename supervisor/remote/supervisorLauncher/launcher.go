@@ -12,13 +12,13 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/remote/launch"
 	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 )
 
 //RemoteSupervisorHandle exported
 type RemoteSupervisorHandle struct {
 	versionTracker    cache.DataStore
-	ipt               provider.IptablesProvider
+	ipt               iptablesutils.IptableUtils
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
@@ -79,7 +79,7 @@ func (s *RemoteSupervisorHandle) Stop() error {
 }
 
 //NewIPTablesSupervisor exported
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string, rpchdl rpcWrapper.RPCClient) (supervisor.Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider iptablesutils.IptableUtils, targetNetworks []string, rpchdl rpcWrapper.RPCClient) (supervisor.Supervisor, error) {
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
