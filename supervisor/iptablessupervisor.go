@@ -181,7 +181,7 @@ func (s *iptablesSupervisor) Start() error {
 		"package": "supervisor",
 	}).Info("Start the supervisor")
 
-	if filterMarkedPackets(appAckPacketIPTableContext, appPacketIPTableSection, s.Mark, s.ipt) != nil {
+	if filterMarkedPackets(appAckPacketIPTableContext, appPacketIPTableSectionRemote, s.Mark, s.ipt) != nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
 		}).Debug("Cannot filter marked packets. Abort")
