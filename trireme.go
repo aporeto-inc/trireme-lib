@@ -208,10 +208,13 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"error":       err.Error(),
 		}).Debug("Nil policy returned when resolving the context")
 
+<<<<<<< 87be5ead77cc06d769524be086a64831ed29a018
 =======
 			"error":       err,
 		}).Error("Nil policy returned when resolving the context")
 >>>>>>> Merged with mainline
+=======
+>>>>>>> Mergin for build -- Build still fails -- just a WIP checkin
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
 
@@ -337,22 +340,9 @@ func (t *trireme) doHandleDelete(contextID string) error {
 func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
 	// Notify The PolicyResolver that an event occurred:
 	t.resolver.HandlePUEvent(contextID, event)
-	log.WithFields(log.Fields{
-		"package":   "trireme",
-		"contextID": contextID}).Info("Received PU Event")
+
 	switch event {
-	case monitor.EventCreate:
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-			"event":     event,
-		}).Info("Received Create Event")
 	case monitor.EventStart:
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-			"event":     event,
-		}).Info("Received Event")
 		return t.doHandleCreate(contextID)
 	case monitor.EventStop:
 		return t.doHandleDelete(contextID)

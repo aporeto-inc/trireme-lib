@@ -22,6 +22,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -81,6 +82,7 @@ func NewTriremeWithDockerMonitor(
 	syncAtStart bool,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
+	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
@@ -113,9 +115,10 @@ func NewTriremeWithDockerMonitor(
 	ips := provider.NewGoIPsetProvider()
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets)
-	IPTsupervisor, _ := supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipt, networks, false)
+	IPTsupervisor, err := NewDefaultSupervisor(eventCollector, enforcer, networks)
 
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
+
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
 	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 
@@ -133,10 +136,9 @@ func NewPSKTriremeWithDockerMonitor(
 	key []byte,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
+	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
-
 	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart, dockerMetadataExtractor, remoteEnforcer)
-
 }
 
 // NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -155,6 +157,7 @@ func NewPKITriremeWithDockerMonitor(
 	caCertPEM []byte,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
+	dockerMetadataExtractor monitor.DockerMetadataExtractor,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder, enforcer.PublicKeyAdder) {
 
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})

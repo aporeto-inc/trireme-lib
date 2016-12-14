@@ -10,7 +10,6 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 type supervisorCacheEntry struct {
@@ -36,7 +35,7 @@ type iptablesSupervisor struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesProvider provider.IptablesProvider, targetNetworks []string, remote bool) (Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesUtils iptablesutils.IptableUtils, targetNetworks []string, remote bool) (Supervisor, error) {
 
 	if collector == nil {
 		log.WithFields(log.Fields{
@@ -183,7 +182,6 @@ func (s *iptablesSupervisor) Start() error {
 	}).Debug("Start the supervisor")
 
 	if s.ipu.FilterMarkedPackets(s.Mark) != nil {
-
 		log.WithFields(log.Fields{
 			"package": "supervisor",
 		}).Debug("Cannot filter marked packets. Abort")
@@ -382,7 +380,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues); err != nil {
+	if err := s.ipu.AddPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues, s.remote); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -425,6 +423,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 	// Add mapping to new chain
 	if err := s.ipu.AddChainRules(appChain, netChain, ipAddress); err != nil {
+
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -441,6 +440,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 	//Remove mapping from old chain
 	if err := s.ipu.DeleteChainRules(oldAppChain, oldNetChain, ipAddress); err != nil {
+
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
