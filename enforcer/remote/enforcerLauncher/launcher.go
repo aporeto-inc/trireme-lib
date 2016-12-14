@@ -36,6 +36,7 @@ type launcherState struct {
 	validity   time.Duration
 	prochdl    ProcessMon.ProcessManager
 	rpchdl     rpcWrapper.RPCClient
+	initDone   map[string]bool
 }
 
 func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUInfo) error {
@@ -57,6 +58,7 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 
 	request.Payload = payload
 	//gob.Register(rpcWrapper.InitRequestPayload{})
+	s.initDone[contextID] = true
 	err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
 	if err != nil {
 		fmt.Println(err)
@@ -77,7 +79,9 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return err
 	}
 	log.WithFields(log.Fields{"package": "enforcerLauncher", "contexID": contextID, "Lauch Process": err}).Info("Called enforce and launched process")
-	s.InitRemoteEnforcer(contextID, puInfo)
+	if _, ok := s.initDone[contextID]; !ok {
+		s.InitRemoteEnforcer(contextID, puInfo)
+	}
 	request := new(rpcWrapper.Request)
 
 	enfResp := new(rpcWrapper.Response)
@@ -104,10 +108,12 @@ func (s *launcherState) Unenforce(contextID string) error {
 	payload.ContextID = contextID
 	request.Payload = payload
 	s.rpchdl.RemoteCall(contextID, "Server.Unenforce", request, unenfresp)
+	delete(s.initDone, contextID)
 	if s.prochdl.GetExitStatus(contextID) == false {
 		s.prochdl.SetExitStatus(contextID, true)
 	} else {
 		s.prochdl.KillProcess(contextID)
+
 	}
 	return nil
 }
@@ -156,6 +162,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 		validity:   validity,
 		prochdl:    ProcessMon.GetProcessMonHdl(),
 		rpchdl:     rpchdl,
+		initDone:   make(map[string]bool),
 	}
 	log.WithFields(log.Fields{"package": "enforcerLauncher", "method": "NewDataPathEnforcer"}).Info("Called NewDataPathEnforcer")
 	rpcwrapper := rpcWrapper.NewRPCWrapper()
