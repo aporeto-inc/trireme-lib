@@ -183,6 +183,7 @@ func (s *iptablesSupervisor) Start() error {
 	}).Debug("Start the supervisor")
 
 	if s.ipu.FilterMarkedPackets(s.Mark) != nil {
+
 		log.WithFields(log.Fields{
 			"package": "supervisor",
 		}).Debug("Cannot filter marked packets. Abort")

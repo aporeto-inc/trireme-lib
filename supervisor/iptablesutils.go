@@ -12,16 +12,16 @@ import (
 )
 
 const (
-	chainPrefix                = "TRIREME-"
-	appPacketIPTableContext    = "raw"
-	appAckPacketIPTableContext = "mangle"
-	appPacketIPTableSection    = "PREROUTING"
-	//appPacketIPTableSectionRemote = "OUTPUT"
-	appChainPrefix          = chainPrefix + "App-"
-	netPacketIPTableContext = "mangle"
-	netPacketIPTableSection = "POSTROUTING"
-	//netPacketIPTableSectionRemote = "INPUT"
-	netChainPrefix = chainPrefix + "Net-"
+	chainPrefix                   = "TRIREME-"
+	appPacketIPTableContext       = "raw"
+	appAckPacketIPTableContext    = "mangle"
+	appPacketIPTableSection       = "PREROUTING"
+	appPacketIPTableSectionRemote = "OUTPUT"
+	appChainPrefix                = chainPrefix + "App-"
+	netPacketIPTableContext       = "mangle"
+	netPacketIPTableSection       = "POSTROUTING"
+	netPacketIPTableSectionRemote = "INPUT"
+	netChainPrefix                = chainPrefix + "Net-"
 )
 
 func defaultCacheIP(ips []string) (string, error) {
@@ -211,14 +211,14 @@ func remoteChainRules(appChain string, netChain string, ip string) [][]string {
 	chainRules := [][]string{
 		{
 			appPacketIPTableContext,
-			appPacketIPTableSection,
+			appPacketIPTableSectionRemote,
 			"-s", ip,
 			"-m", "comment", "--comment", "Remote Container specific chain",
 			"-j", appChain,
 		},
 		{
 			appAckPacketIPTableContext,
-			appPacketIPTableSection,
+			appPacketIPTableSectionRemote,
 			//"-s", ip,
 			"-p", "tcp",
 			"-m", "comment", "--comment", "Remote Container specific chain",
@@ -226,7 +226,7 @@ func remoteChainRules(appChain string, netChain string, ip string) [][]string {
 		},
 		{
 			netPacketIPTableContext,
-			netPacketIPTableSection,
+			netPacketIPTableSectionRemote,
 			"-d", ip,
 			"-m", "comment", "--comment", "Remote Container specific chain",
 			"-j", netChain,
@@ -312,14 +312,6 @@ func RemotetrapRules(appChain string, netChain string, network string, appQueue 
 			"-d", network,
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
-
-		// Application everything else
-		{
-			appAckPacketIPTableContext, appChain,
-			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
-			"-j", "ACCEPT",
 		},
 
 		// Application everything else
