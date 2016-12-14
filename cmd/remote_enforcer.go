@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"crypto/ecdsa"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"os/user"
@@ -261,7 +262,7 @@ func main() {
 	rpchdl := rpcWrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe
-
+	flag.Parse()
 	userDetails, _ := user.Current()
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"uid":      userDetails.Uid,
