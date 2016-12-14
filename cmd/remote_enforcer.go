@@ -155,6 +155,7 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 		publicKeyAdder := tokens.NewPSKSecrets(payload.PublicPEM)
 		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
 	}
+	s.Enforcer.Start()
 	statsClient := &StatsClient{collector: collector, s: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcWrapper.NewRPCWrapper()}
 	s.connectStatsClient(statsClient)
 
@@ -180,7 +181,7 @@ func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Respons
 	payload := req.Payload.(rpcWrapper.InitSupervisorPayload)
 
 	s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector, s.Enforcer, ipt, payload.TargetNetworks, true)
-
+	s.Supervisor.Start()
 	resp.Status = err
 	return nil
 }
@@ -197,7 +198,7 @@ func (s *Server) Supervise(req rpcWrapper.Request, resp *rpcWrapper.Response) er
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	puInfo.Runtime.SetPid(os.Getpid())
 	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Supervise"}).Info("Called Supervise Start in remote_enforcer")
-	s.Supervisor.Start()
+
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
 	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Supervise", "error": err}).Info("Supervise status remote_enforcer ")
 	resp.Status = err
@@ -239,7 +240,7 @@ func (s *Server) Enforce(req rpcWrapper.Request, resp *rpcWrapper.Response) erro
 		fmt.Println("Failed Runtime")
 	}
 	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce"}).Info("Called enforce in remote enforcer")
-	s.Enforcer.Start()
+
 	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
 	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce", "error": err}).Info("ENFORCE STATUS")
 	resp.Status = err

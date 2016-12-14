@@ -26,15 +26,18 @@ type RemoteSupervisorHandle struct {
 	ExcludedIP        []string
 	prochdl           ProcessMon.ProcessManager
 	rpchdl            rpcWrapper.RPCClient
+	initDone          map[string]bool
 }
 
 //Supervise exported
 func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUInfo) error {
-
-	err := s.InitRemoteSupervisor(contextID, puInfo)
-	if err != nil {
-		return err
+	if _, ok := s.initDone[contextID]; !ok {
+		err := s.InitRemoteSupervisor(contextID, puInfo)
+		if err != nil {
+			return err
+		}
 	}
+
 	req := new(rpcWrapper.Request)
 	response := new(rpcWrapper.Response)
 	payload := new(rpcWrapper.SuperviseRequestPayload)
@@ -53,12 +56,14 @@ func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
 	payload.ContextID = contextID
 	request.Payload = payload
 	s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, unenfresp)
+	delete(s.initDone, contextID)
 	if s.prochdl.GetExitStatus(contextID) == false {
 		//Unsupervise not called yet
 		s.prochdl.SetExitStatus(contextID, true)
 	} else {
 		//We are coming here last
 		s.prochdl.KillProcess(contextID)
+
 	}
 	return nil
 }
@@ -92,6 +97,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
 		prochdl:           ProcessMon.GetProcessMonHdl(),
 		rpchdl:            rpchdl,
+		initDone:          make(map[string]bool),
 	}
 
 	s.ipt = iptablesProvider
@@ -105,7 +111,7 @@ func (s *RemoteSupervisorHandle) InitRemoteSupervisor(contextID string, puInfo *
 	response := new(rpcWrapper.Response)
 	request := new(rpcWrapper.Request)
 	payload := new(rpcWrapper.InitSupervisorPayload)
-
+	s.initDone[contextID] = true
 	payload.NetworkQueues = s.networkQueues
 	payload.ApplicationQueues = s.applicationQueues
 	payload.TargetNetworks = s.targetNetworks
