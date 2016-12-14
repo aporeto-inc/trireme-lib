@@ -90,6 +90,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 		return nil, fmt.Errorf("IP Packet too small")
 	}
 	if p.ipHeaderLen != minIPHdrWords {
+
 		log.WithFields(log.Fields{
 			"package":        "packet",
 			"ipHeaderLength": p.ipHeaderLen,
@@ -100,6 +101,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 		if p.IPTotalLength < uint16(len(p.Buffer)) {
 			p.Buffer = p.Buffer[:p.IPTotalLength]
 		} else {
+
 			log.WithFields(log.Fields{
 				"package":       "packet",
 				"IPTotalLength": p.IPTotalLength,
@@ -359,6 +361,16 @@ func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16,
 // FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
 
+	log.WithFields(log.Fields{
+		"package":          "packet",
+		"flags":            p.TCPFlags,
+		"len":              p.IPTotalLength - p.TCPDataStartBytes(),
+		"bufLen":           len(p.Buffer),
+		"dataLength":       dataLength,
+		"tcpDataLength":    len(p.tcpData),
+		"optionLength":     optionLength,
+		"tcpOptionsLength": len(p.tcpOptions),
+	}).Debug("Fixup TCP Hdr On TCP Data Detach")
 	// Update TCP checksum
 	a := uint32(-p.TCPChecksum) - p.computeTCPChecksumDelta(p.tcpOptions[:optionLength], optionLength, p.tcpData[:dataLength], dataLength)
 	a = a + (a >> 16)
@@ -421,6 +433,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 	// detach TCP data
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
+
 		log.WithFields(log.Fields{
 			"package":      "packet",
 			"error":        err.Error(),
