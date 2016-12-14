@@ -54,19 +54,17 @@ type IPList struct {
 }
 
 // NewIPList returns a new IP list
-func NewIPList() *IPList {
-	return &IPList{
-		IPs: []string{},
+func NewIPList(s []string) *IPList {
+	ipl := &IPList{}
+	for _, v := range s {
+		ipl.IPs = append(ipl.IPs, v)
 	}
+	return ipl
 }
 
 // Clone creates a clone of the list
 func (l *IPList) Clone() *IPList {
-	ipl := NewIPList()
-	for _, v := range l.IPs {
-		ipl.IPs = append(ipl.IPs, v)
-	}
-	return ipl
+	return NewIPList(l.IPs)
 }
 
 // IPAtIndex returns the IP at a given index. Returns true if entry is valid
@@ -90,19 +88,19 @@ type IPRuleList struct {
 }
 
 // NewIPRuleList returns a new IP rule list
-func NewIPRuleList() *IPRuleList {
-	return &IPRuleList{
+func NewIPRuleList(rules []IPRule) *IPRuleList {
+	rl := &IPRuleList{
 		Rules: []IPRule{},
 	}
+	for _, v := range rules {
+		rl.Rules = append(rl.Rules, v)
+	}
+	return rl
 }
 
 // Clone creates a clone of the IP rule list
 func (l *IPRuleList) Clone() *IPRuleList {
-	rl := NewIPRuleList()
-	for _, v := range l.Rules {
-		rl.Rules = append(rl.Rules, v)
-	}
-	return rl
+	return NewIPRuleList(l.Rules)
 }
 
 // An IPMap is a map of Key:Values used for IP Addresses.
@@ -111,17 +109,19 @@ type IPMap struct {
 }
 
 // NewIPMap returns a new instance of IPMap
-func NewIPMap() *IPMap {
-	return &IPMap{IPs: make(map[string]string)}
+func NewIPMap(ips map[string]string) *IPMap {
+	ipm := &IPMap{
+		IPs: make(map[string]string),
+	}
+	for k, v := range ips {
+		ipm.IPs[k] = v
+	}
+	return ipm
 }
 
 // Clone returns a copy of the map
 func (i *IPMap) Clone() *IPMap {
-	im := NewIPMap()
-	for k, v := range i.IPs {
-		im.IPs[k] = v
-	}
-	return im
+	return NewIPMap(i.IPs)
 }
 
 // Add adds a key value pair
@@ -141,17 +141,19 @@ type TagsMap struct {
 }
 
 // NewTagsMap returns a new instance of TagsMap
-func NewTagsMap() *TagsMap {
-	return &TagsMap{Tags: make(map[string]string)}
+func NewTagsMap(tags map[string]string) *TagsMap {
+	tm := &TagsMap{
+		Tags: make(map[string]string),
+	}
+	for k, v := range tags {
+		tm.Tags[k] = v
+	}
+	return tm
 }
 
 // Clone returns a copy of the map
 func (t *TagsMap) Clone() *TagsMap {
-	tm := NewTagsMap()
-	for k, v := range t.Tags {
-		tm.Tags[k] = v
-	}
-	return tm
+	return NewTagsMap(t.Tags)
 }
 
 // Get returns the value of a given key
@@ -173,21 +175,21 @@ type KeyValueOperator struct {
 }
 
 // NewKeyValueOperator returns an empty KeyValueOperator
-func NewKeyValueOperator() *KeyValueOperator {
-	return &KeyValueOperator{
-		Value: make([]string, 0),
+func NewKeyValueOperator(k string, o Operator, kvos []string) *KeyValueOperator {
+	kvo := &KeyValueOperator{
+		Key:      k,
+		Operator: o,
+		Value:    make([]string, 0),
 	}
+	for _, v := range kvos {
+		kvo.Value = append(kvo.Value, v)
+	}
+	return kvo
 }
 
 // Clone returns a copy of the KeyValueOperator
 func (k *KeyValueOperator) Clone() *KeyValueOperator {
-	kvo := NewKeyValueOperator()
-	kvo.Key = k.Key
-	kvo.Operator = k.Operator
-	for _, v := range k.Value {
-		kvo.Value = append(kvo.Value, v)
-	}
-	return kvo
+	return NewKeyValueOperator(k.Key, k.Operator, k.Value)
 }
 
 // TagSelector info describes a tag selector key Operator value
@@ -197,20 +199,20 @@ type TagSelector struct {
 }
 
 // NewTagSelector return a new TagSelector
-func NewTagSelector() *TagSelector {
-	return &TagSelector{
+func NewTagSelector(clauses []KeyValueOperator, a FlowAction) *TagSelector {
+	ts := &TagSelector{
 		Clause: make([]KeyValueOperator, 0),
+		Action: a,
 	}
+	for _, c := range clauses {
+		ts.Clause = append(ts.Clause, *c.Clone())
+	}
+	return ts
 }
 
 // Clone returns a copy of the TagSelector
 func (t *TagSelector) Clone() *TagSelector {
-	ts := NewTagSelector()
-	ts.Action = t.Action
-	for _, c := range t.Clause {
-		ts.Clause = append(ts.Clause, *c.Clone())
-	}
-	return ts
+	return NewTagSelector(t.Clause, t.Action)
 }
 
 // TagSelectorList defines a list of TagSelector
@@ -219,19 +221,19 @@ type TagSelectorList struct {
 }
 
 // NewTagSelectorList return a new TagSelectorList
-func NewTagSelectorList() *TagSelectorList {
-	return &TagSelectorList{
+func NewTagSelectorList(tss []TagSelector) *TagSelectorList {
+	tsl := &TagSelectorList{
 		TagSelectors: make([]TagSelector, 0),
 	}
+	for _, ts := range tss {
+		tsl.TagSelectors = append(tsl.TagSelectors, *ts.Clone())
+	}
+	return tsl
 }
 
 // Clone returns a copy of the TagSelectorList
 func (t *TagSelectorList) Clone() *TagSelectorList {
-	tsl := NewTagSelectorList()
-	for _, ts := range t.TagSelectors {
-		tsl.TagSelectors = append(tsl.TagSelectors, *ts.Clone())
-	}
-	return tsl
+	return NewTagSelectorList(t.TagSelectors)
 }
 
 // PUPolicy captures all policy information related ot the container
@@ -264,15 +266,37 @@ type PUPolicy struct {
 }
 
 // NewPUPolicy generates a new ContainerPolicyInfo
-func NewPUPolicy() *PUPolicy {
+func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags, rxtags *TagSelectorList, ptags *TagsMap, ips *IPList, e interface{}) *PUPolicy {
+
+	if ingress == nil {
+		ingress = NewIPRuleList(nil)
+	}
+	if egress == nil {
+		egress = NewIPRuleList(nil)
+	}
+	if txtags == nil {
+		txtags = NewTagSelectorList(nil)
+	}
+	if rxtags == nil {
+		rxtags = NewTagSelectorList(nil)
+	}
+	if ptags == nil {
+		ptags = NewTagsMap(nil)
+	}
+	if ips == nil {
+		ips = NewIPList(nil)
+	}
 	return &PUPolicy{
 		puPolicyMutex:    &sync.Mutex{},
-		ingressACLs:      NewIPRuleList(),
-		egressACLs:       NewIPRuleList(),
-		transmitterRules: NewTagSelectorList(),
-		receiverRules:    NewTagSelectorList(),
-		policyTags:       NewTagsMap(),
-		policyIPs:        NewIPList(),
+		ManagementID:     id,
+		TriremeAction:    action,
+		ingressACLs:      ingress,
+		egressACLs:       egress,
+		transmitterRules: txtags,
+		receiverRules:    rxtags,
+		policyTags:       ptags,
+		policyIPs:        ips,
+		Extensions:       e,
 	}
 }
 
@@ -281,19 +305,17 @@ func (p *PUPolicy) Clone() *PUPolicy {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	np := NewPUPolicy()
-	np.puPolicyMutex = &sync.Mutex{}
-	np.ManagementID = p.ManagementID
-	np.TriremeAction = p.TriremeAction
-	np.ingressACLs = p.ingressACLs.Clone()
-	np.egressACLs = p.egressACLs.Clone()
-	np.transmitterRules = p.transmitterRules.Clone()
-	np.receiverRules = p.receiverRules.Clone()
-	np.policyTags = p.policyTags.Clone()
-	np.policyIPs = p.policyIPs.Clone()
-
-	// TODO: Make this clonable
-	np.Extensions = p.Extensions
+	np := NewPUPolicy(
+		p.ManagementID,
+		p.TriremeAction,
+		p.ingressACLs.Clone(),
+		p.egressACLs.Clone(),
+		p.transmitterRules.Clone(),
+		p.receiverRules.Clone(),
+		p.policyTags.Clone(),
+		p.policyIPs.Clone(),
+		p.Extensions,
+	)
 	return np
 }
 
@@ -418,17 +440,26 @@ type PURuntime struct {
 	// Name is the name of the container
 	name string
 	// IPAddress is the IP Address of the container
-	iPAddresses *IPMap
+	ips *IPMap
 	// Tags is a map of the metadata of the container
 	tags *TagsMap
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime() *PURuntime {
+func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap) *PURuntime {
+
+	t := tags
+	if t == nil {
+		t = NewTagsMap(nil)
+	}
+	i := ips
+	if i == nil {
+		i = NewIPMap(nil)
+	}
 	return &PURuntime{
 		puRuntimeMutex: &sync.Mutex{},
-		tags:           NewTagsMap(),
-		iPAddresses:    NewIPMap(),
+		tags:           t,
+		ips:            i,
 	}
 }
 
@@ -437,11 +468,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	np := NewPURuntime()
-	np.puRuntimeMutex = &sync.Mutex{}
-	np.tags = r.tags.Clone()
-	np.iPAddresses = r.iPAddresses.Clone()
-	return np
+	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone())
 }
 
 // PURuntimeJSON is a Json representation of PURuntime
@@ -461,7 +488,7 @@ func (r *PURuntime) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&PURuntimeJSON{
 		Pid:         r.pid,
 		Name:        r.name,
-		IPAddresses: r.iPAddresses,
+		IPAddresses: r.ips,
 		Tags:        r.tags,
 	})
 }
@@ -472,7 +499,7 @@ func (r *PURuntime) UnmarshalJSON(param []byte) error {
 	json.Unmarshal(param, &a)
 	r.pid = a.Pid
 	r.name = a.Name
-	r.iPAddresses = a.IPAddresses
+	r.ips = a.IPAddresses
 	r.tags = a.Tags
 	return nil
 }
@@ -502,7 +529,7 @@ func (r *PURuntime) DefaultIPAddress() (string, bool) {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	ip, ok := r.iPAddresses.Get("bridge")
+	ip, ok := r.ips.Get("bridge")
 	return ip, ok
 }
 
@@ -511,7 +538,7 @@ func (r *PURuntime) IPAddresses() *IPMap {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return r.iPAddresses.Clone()
+	return r.ips.Clone()
 }
 
 // SetIPAddresses sets up all the IP addresses for the processing unit
@@ -519,7 +546,7 @@ func (r *PURuntime) SetIPAddresses(ipa *IPMap) {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	r.iPAddresses = ipa.Clone()
+	r.ips = ipa.Clone()
 }
 
 //Tag returns a specific tag for the processing unit
@@ -559,8 +586,8 @@ type PUInfo struct {
 
 // NewPUInfo instantiates a new ContainerPolicy
 func NewPUInfo(contextID string) *PUInfo {
-	policy := NewPUPolicy()
-	runtime := NewPURuntime()
+	policy := NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil)
+	runtime := NewPURuntime("", 0, nil, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)
 }
 
