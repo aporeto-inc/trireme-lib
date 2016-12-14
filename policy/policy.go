@@ -1,240 +1,9 @@
-// Package policy describes a generic interface for retrieving policies.
-// Different implementations are possible for environments such as Kubernetes,
-// Mesos or other custom environments. An implementation has to provide
-// a method for retrieving policy based on the metadata associated with the container
-// and deleting the policy when the container dies. It is up to the implementation
-// to decide how to generate the policy.
-// The package also defines the basic data structure for communicating policy
-// information. The implementations are responsible for providing all the necessary
-// data.
 package policy
 
-import "sync"
-import "encoding/json"
-
-// Operator defines the operation between your key and value.
-type Operator string
-
-const (
-	// Equal is the equal operator
-	Equal = "="
-	// NotEqual is the not equal operator
-	NotEqual = "=!"
-	// KeyExists is the key=* operator
-	KeyExists = "*"
-	// KeyNotExists means that the key doesnt exist in the incoming tags
-	KeyNotExists = "!*"
+import (
+	"encoding/json"
+	"sync"
 )
-
-// FlowAction is the action that can be applied to a flow.
-type FlowAction int
-
-const (
-	// Accept is the accept action
-	Accept = 0x1
-	// Log intstructs the data to log informat
-	Log = 0x2
-	// Encrypt instructs data to be encrypted
-	Encrypt = 0x4
-)
-
-// PUAction defines the action types that applies for a specific PU as a whole.
-type PUAction int
-
-const (
-	// AllowAll allows everything for the specific PU.
-	AllowAll = 0x1
-	// Police filters on the PU based on the PolicyRules.
-	Police = 0x2
-)
-
-// IPList stores a list of IPs
-type IPList struct {
-	IPs []string
-}
-
-// NewIPList returns a new IP list
-func NewIPList(s []string) *IPList {
-	ipl := &IPList{}
-	for _, v := range s {
-		ipl.IPs = append(ipl.IPs, v)
-	}
-	return ipl
-}
-
-// Clone creates a clone of the list
-func (l *IPList) Clone() *IPList {
-	return NewIPList(l.IPs)
-}
-
-// IPAtIndex returns the IP at a given index. Returns true if entry is valid
-func (l *IPList) IPAtIndex(index int) (string, bool) {
-	if len(l.IPs) > index {
-		return l.IPs[index], true
-	}
-	return "", false
-}
-
-// IPRule holds IP rules to external services
-type IPRule struct {
-	Address  string
-	Port     string
-	Protocol string
-}
-
-// IPRuleList is a list of IP rules
-type IPRuleList struct {
-	Rules []IPRule
-}
-
-// NewIPRuleList returns a new IP rule list
-func NewIPRuleList(rules []IPRule) *IPRuleList {
-	rl := &IPRuleList{
-		Rules: []IPRule{},
-	}
-	for _, v := range rules {
-		rl.Rules = append(rl.Rules, v)
-	}
-	return rl
-}
-
-// Clone creates a clone of the IP rule list
-func (l *IPRuleList) Clone() *IPRuleList {
-	return NewIPRuleList(l.Rules)
-}
-
-// An IPMap is a map of Key:Values used for IP Addresses.
-type IPMap struct {
-	IPs map[string]string
-}
-
-// NewIPMap returns a new instance of IPMap
-func NewIPMap(ips map[string]string) *IPMap {
-	ipm := &IPMap{
-		IPs: make(map[string]string),
-	}
-	for k, v := range ips {
-		ipm.IPs[k] = v
-	}
-	return ipm
-}
-
-// Clone returns a copy of the map
-func (i *IPMap) Clone() *IPMap {
-	return NewIPMap(i.IPs)
-}
-
-// Add adds a key value pair
-func (i *IPMap) Add(k, v string) {
-	i.IPs[k] = v
-}
-
-// Get returns the value of a given key
-func (i *IPMap) Get(k string) (string, bool) {
-	v, ok := i.IPs[k]
-	return v, ok
-}
-
-// A TagsMap is a map of Key:Values used as tags.
-type TagsMap struct {
-	Tags map[string]string
-}
-
-// NewTagsMap returns a new instance of TagsMap
-func NewTagsMap(tags map[string]string) *TagsMap {
-	tm := &TagsMap{
-		Tags: make(map[string]string),
-	}
-	for k, v := range tags {
-		tm.Tags[k] = v
-	}
-	return tm
-}
-
-// Clone returns a copy of the map
-func (t *TagsMap) Clone() *TagsMap {
-	return NewTagsMap(t.Tags)
-}
-
-// Get returns the value of a given key
-func (t *TagsMap) Get(k string) (string, bool) {
-	v, ok := t.Tags[k]
-	return v, ok
-}
-
-// Add adds a key value pair
-func (t *TagsMap) Add(k, v string) {
-	t.Tags[k] = v
-}
-
-// KeyValueOperator describes an individual matching rule
-type KeyValueOperator struct {
-	Key      string
-	Value    []string
-	Operator Operator
-}
-
-// NewKeyValueOperator returns an empty KeyValueOperator
-func NewKeyValueOperator(k string, o Operator, kvos []string) *KeyValueOperator {
-	kvo := &KeyValueOperator{
-		Key:      k,
-		Operator: o,
-		Value:    make([]string, 0),
-	}
-	for _, v := range kvos {
-		kvo.Value = append(kvo.Value, v)
-	}
-	return kvo
-}
-
-// Clone returns a copy of the KeyValueOperator
-func (k *KeyValueOperator) Clone() *KeyValueOperator {
-	return NewKeyValueOperator(k.Key, k.Operator, k.Value)
-}
-
-// TagSelector info describes a tag selector key Operator value
-type TagSelector struct {
-	Clause []KeyValueOperator
-	Action FlowAction
-}
-
-// NewTagSelector return a new TagSelector
-func NewTagSelector(clauses []KeyValueOperator, a FlowAction) *TagSelector {
-	ts := &TagSelector{
-		Clause: make([]KeyValueOperator, 0),
-		Action: a,
-	}
-	for _, c := range clauses {
-		ts.Clause = append(ts.Clause, *c.Clone())
-	}
-	return ts
-}
-
-// Clone returns a copy of the TagSelector
-func (t *TagSelector) Clone() *TagSelector {
-	return NewTagSelector(t.Clause, t.Action)
-}
-
-// TagSelectorList defines a list of TagSelector
-type TagSelectorList struct {
-	TagSelectors []TagSelector
-}
-
-// NewTagSelectorList return a new TagSelectorList
-func NewTagSelectorList(tss []TagSelector) *TagSelectorList {
-	tsl := &TagSelectorList{
-		TagSelectors: make([]TagSelector, 0),
-	}
-	for _, ts := range tss {
-		tsl.TagSelectors = append(tsl.TagSelectors, *ts.Clone())
-	}
-	return tsl
-}
-
-// Clone returns a copy of the TagSelectorList
-func (t *TagSelectorList) Clone() *TagSelectorList {
-	return NewTagSelectorList(t.TagSelectors)
-}
 
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
@@ -298,6 +67,12 @@ func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags
 		policyIPs:        ips,
 		Extensions:       e,
 	}
+}
+
+// NewPUPolicyWithDefaults sets up a PU policy with defaults
+func NewPUPolicyWithDefaults() *PUPolicy {
+
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil)
 }
 
 // Clone returns a copy of the policy
@@ -461,6 +236,12 @@ func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap) *PURuntime {
 		tags:           t,
 		ips:            i,
 	}
+}
+
+// NewPURuntimeWithDefaults sets up PURuntime with defaults
+func NewPURuntimeWithDefaults() *PURuntime {
+
+	return NewPURuntime("", 0, nil, nil)
 }
 
 // Clone returns a copy of the policy

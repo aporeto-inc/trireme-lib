@@ -34,19 +34,21 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	containerPolicyInfo := p.createRules(runtimeInfo)
 
 	// Access google as an example of external ACL
-	ingress := policy.NewIPRuleList()
-	ingress.Rules = append(ingress.Rules, policy.IPRule{
-		Address:  "216.0.0.0/8",
-		Port:     "80",
-		Protocol: "TCP",
+	ingress := policy.NewIPRuleList([]policy.IPRule{
+		policy.IPRule{
+			Address:  "216.0.0.0/8",
+			Port:     "80",
+			Protocol: "TCP",
+		},
 	})
 
 	// Allow access to container from localhost
-	egress := policy.NewIPRuleList()
-	egress.Rules = append(egress.Rules, policy.IPRule{
-		Address:  "172.17.0.1/32",
-		Port:     "80",
-		Protocol: "TCP",
+	egress := policy.NewIPRuleList([]policy.IPRule{
+		policy.IPRule{
+			Address:  "172.17.0.1/32",
+			Port:     "80",
+			Protocol: "TCP",
+		},
 	})
 
 	containerPolicyInfo.SetIngressACLs(ingress)
@@ -56,7 +58,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	containerPolicyInfo.SetPolicyTags(runtimeInfo.Tags())
 
 	// Use the bridge IP from Docker.
-	ipl := policy.NewIPList()
+	ipl := policy.NewIPList([]string{})
 	ip, ok := runtimeInfo.DefaultIPAddress()
 	if ok {
 		ipl.IPs = append(ipl.IPs, ip)
@@ -94,7 +96,7 @@ func (p *CustomPolicyResolver) SetPolicyUpdater(pu trireme.PolicyUpdater) error 
 // If any of the labels matches, the packet is accepted.
 func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *policy.PUPolicy {
 
-	containerPolicyInfo := policy.NewPUPolicy()
+	containerPolicyInfo := policy.NewPUPolicyWithDefaults()
 
 	tags := runtimeInfo.Tags()
 	for key, value := range tags.Tags {
@@ -104,11 +106,7 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 			Operator: policy.Equal,
 		}
 
-		clause := []policy.KeyValueOperator{kv}
-
-		selector := policy.NewTagSelector()
-		selector.Clause = clause
-		selector.Action = policy.Accept
+		selector := policy.NewTagSelector([]policy.KeyValueOperator{kv}, policy.Accept)
 
 		containerPolicyInfo.AddReceiverRules(selector)
 	}

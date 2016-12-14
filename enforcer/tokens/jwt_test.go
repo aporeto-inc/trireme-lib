@@ -12,7 +12,10 @@ import (
 )
 
 var (
-	tags = policy.NewTagsMap()
+	tags = policy.NewTagsMap(map[string]string{
+		"label1": "value1",
+		"label2": "value2",
+	})
 
 	lcl           = "09876543210987654321098765432109"
 	rmt           = "12345678901234567890123456789012"
@@ -74,11 +77,6 @@ KxgQd/0pW5FOAaB41cMcw4/XVlphO1oCIQDlGie+WlOMjCzrV0Xz+XqIIi1pIgPT
 IG7Nv+YlTVp5qA==
 -----END CERTIFICATE-----`
 )
-
-func init() {
-	tags.Add("label1", "value1")
-	tags.Add("label2", "value2")
-}
 
 // TestConstructorNewPolicyDB tests the NewPolicyDB constructor
 func TestConstructorNewJWT(t *testing.T) {

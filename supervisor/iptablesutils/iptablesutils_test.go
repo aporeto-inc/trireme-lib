@@ -82,8 +82,7 @@ func TestDefaultCacheIP(t *testing.T) {
 
 		Convey("When I call DefaultCacheIP with ip list", func() {
 
-			ips := policy.NewIPList()
-			ips.IPs = []string{"172.0.0.1", "10.10.10.10"}
+			ips := policy.NewIPList([]string{"172.0.0.1", "10.10.10.10"})
 			ip, err := ipu.DefaultCacheIP(ips)
 
 			Convey("Then I should get the first ip", func() {

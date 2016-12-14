@@ -34,10 +34,8 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 			t.Errorf("Runtime given to Resolver is not the same. Received %v, expected %v", RuntimeReader, runtime)
 		}
 
-		tpolicy := policy.NewPUPolicy()
-		ipaddrs := policy.NewIPList()
-		ipaddrs.IPs = []string{"127.0.0.1"}
-		tpolicy.SetIPAddresses(ipaddrs)
+		ipaddrs := policy.NewIPList([]string{"127.0.0.1"})
+		tpolicy := policy.NewPUPolicy("SomeId", policy.AllowAll, nil, nil, nil, nil, nil, ipaddrs, nil)
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -250,7 +248,7 @@ func TestSimpleCreate(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 }
@@ -260,7 +258,7 @@ func TestSimpleDelete(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestDeleteNotExist(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 }
@@ -270,7 +268,7 @@ func TestCreateDelete(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 	doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
@@ -281,22 +279,18 @@ func TestSimpleUpdate(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
-	ipa := policy.NewIPMap()
-	ipa.Add("bridge", "10.10.10.10")
+	runtime := policy.NewPURuntimeWithDefaults()
+	ipa := policy.NewIPMap(map[string]string{
+		"bridge": "10.10.10.10",
+	})
 	runtime.SetIPAddresses(ipa)
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 
 	// Generate a new Policy ...
-
-	newPolicy := policy.NewPUPolicy()
-	ipl := policy.NewIPList()
-	ipl.IPs = []string{"127.0.0.1"}
-	newPolicy.SetIPAddresses(ipl)
-	tagsMap := policy.NewTagsMap()
-	tagsMap.Add(enforcer.TransmitterLabel, contextID)
-	newPolicy.SetPolicyTags(tagsMap)
+	ipl := policy.NewIPList([]string{"127.0.0.1"})
+	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
+	newPolicy := policy.NewPUPolicy("", policy.AllowAll, nil, nil, nil, nil, tagsMap, ipl, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
 }
 
@@ -305,7 +299,7 @@ func TestCache(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	for i := 0; i < 5; i++ {
 		doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
@@ -335,7 +329,7 @@ func TestStop(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 

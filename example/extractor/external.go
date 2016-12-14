@@ -45,9 +45,7 @@ func main() {
 
 func exampleExternalDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
-	runtimeInfo := policy.NewPURuntime()
-
-	tagsMap := policy.NewTagsMap()
+	tagsMap := policy.NewTagsMap(nil)
 	tagsMap.Tags["image"] = info.Config.Image
 	tagsMap.Tags["name"] = info.Name
 
@@ -55,13 +53,7 @@ func exampleExternalDockerMetadataExtractor(info *types.ContainerJSON) (*policy.
 		tagsMap.Tags[k] = v
 	}
 
-	ipa := policy.NewIPMap()
+	ipa := policy.NewIPMap(nil)
 	ipa.Add("bridge", info.NetworkSettings.IPAddress)
-
-	runtimeInfo.SetName(info.Name)
-	runtimeInfo.SetPid(info.State.Pid)
-	runtimeInfo.SetIPAddresses(ipa)
-	runtimeInfo.SetTags(tagsMap)
-
-	return runtimeInfo, nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, tagsMap, ipa), nil
 }

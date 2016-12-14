@@ -101,25 +101,19 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
-	runtimeInfo := policy.NewPURuntime()
-
-	tags := policy.NewTagsMap()
-	tags.Add("image", info.Config.Image)
-	tags.Add("name", info.Name)
-
+	tags := policy.NewTagsMap(map[string]string{
+		"image": info.Config.Image,
+		"name":  info.Name,
+	})
 	for k, v := range info.Config.Labels {
 		tags.Add(k, v)
 	}
 
-	ipa := policy.NewIPMap()
-	ipa.Add("bridge", info.NetworkSettings.IPAddress)
+	ipa := policy.NewIPMap(map[string]string{
+		"bridge": info.NetworkSettings.IPAddress,
+	})
 
-	runtimeInfo.SetName(info.Name)
-	runtimeInfo.SetPid(info.State.Pid)
-	runtimeInfo.SetIPAddresses(ipa)
-	runtimeInfo.SetTags(tags)
-
-	return runtimeInfo, nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa), nil
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events

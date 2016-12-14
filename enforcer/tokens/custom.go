@@ -114,7 +114,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, cert *x509.Certifica
 	claims.RMT = data[rmtIndex : rmtIndex+sizeOfRandom]
 
 	if !isAck {
-		claims.T = policy.NewTagsMap()
+		claims.T = policy.NewTagsMap(nil)
 		buffer := bytes.NewBuffer(data[minBufferLength:])
 		for {
 			tag, err := buffer.ReadBytes([]byte(" ")[0])
