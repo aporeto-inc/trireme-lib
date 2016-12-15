@@ -108,9 +108,6 @@ func (p *ProcessMon) KillProcess(contextID string) {
 
 }
 func processMonWait(cmd *exec.Cmd, contextID string) {
-	pid := cmd.Process.Pid
-	status := cmd.Wait()
-	childExitStatus <- exitStatus{process: pid, contextID: contextID, exitStatus: status}
 
 }
 
@@ -122,6 +119,10 @@ func collectChildExitStatus() {
 			"pid":        exitStatus.process,
 			"ExitStatus": exitStatus.exitStatus}).Info("Enforcer exited")
 	}
+}
+
+func monitorProcess(cmd exec.Cmd, contextID string) {
+
 }
 
 //LaunchProcess exported
@@ -164,9 +165,26 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 		os.Remove("/var/run/netns/" + contextID)
 		return ErrBinaryNotFound
 	}
-	go processMonWait(cmd, contextID)
-	go io.Copy(os.Stdout, stdout)
-	go io.Copy(os.Stderr, stderr)
+	exited := make(chan int, 2)
+	go func() {
+		pid := cmd.Process.Pid
+		i := 0
+		for i < 2 {
+			<-exited
+			i++
+		}
+		status := cmd.Wait()
+		childExitStatus <- exitStatus{process: pid, contextID: contextID, exitStatus: status}
+	}()
+	//processMonWait(cmd, contextID)
+	go func() {
+		io.Copy(os.Stdout, stdout)
+		exited <- 1
+	}()
+	go func() {
+		io.Copy(os.Stderr, stderr)
+		exited <- 1
+	}()
 	rpchdl.NewRPCClient(contextID, "/tmp/"+strconv.Itoa(refPid)+".sock")
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
 		process: cmd.Process,

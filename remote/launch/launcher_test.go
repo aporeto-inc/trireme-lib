@@ -16,10 +16,12 @@ func TestLaunchProcess(t *testing.T) {
 	p := NewProcessMon()
 	contextID := "12345"
 	refPid := 1
+	dir, _ := os.Getwd()
 
 	err := p.LaunchProcess(contextID, refPid, rpchdl)
 	if err != nil {
-		t.Errorf("TEST:Launch Process Fails to launch a process %v", err)
+		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
+		t.SkipNow()
 	}
 	//Trying to launch in the same context should suceed
 	err = p.LaunchProcess(contextID, refPid, rpchdl)
@@ -38,16 +40,16 @@ func TestLaunchProcess(t *testing.T) {
 		t.Errorf("TEST:Failed when the directory is missing %v", err)
 	}
 	p.KillProcess(contextID)
-	os.Rename("/opt/trireme/enforcer", "/opt/trireme/enforcer.orig")
+	os.Rename("./remote_enforcer", "./remote_enforcer.orig")
 	//if binary  is absent we should return an error
 	err = p.LaunchProcess(contextID, refPid, rpchdl)
 	if err == nil {
 		t.Errorf("TEST:No error returned even when binary is not present")
 	}
 
-	os.Rename("/opt/trireme/enforcer.orig", "/opt/trireme/enforcer")
-	rpchdl.MockNewRPCClient(t, func(contextID string, channel string) {
-		return
+	os.Rename("./remote_enforcer.orig", "./remote_enforcer")
+	rpchdl.MockNewRPCClient(t, func(contextID string, channel string) error {
+		return nil
 	})
 	err = p.LaunchProcess(contextID, refPid, rpchdl)
 	if err != nil {
@@ -105,8 +107,8 @@ func TestSetExitStatus(t *testing.T) {
 		t.Errorf("TEST:Exit status suceeds when process does not exist")
 	}
 	rpchdl := rpcWrapper.NewTestRPCClient()
-	rpchdl.MockNewRPCClient(t, func(contextID string, channel string) {
-		return
+	rpchdl.MockNewRPCClient(t, func(contextID string, channel string) error {
+		return nil
 	})
 	err = p.LaunchProcess(contextID, refPid, rpchdl)
 	err = p.SetExitStatus(contextID, true)

@@ -1,8 +1,8 @@
 hash: 779b82d945462f365111c2afa862aa16f84bd722f4e65ccead6f2d993211dd75
-updated: 2016-12-07T21:09:14.003142155-08:00
+updated: 2016-12-14T16:06:47.286841251-08:00
 imports:
 - name: github.com/aporeto-inc/trireme
-  version: e5d1ef794d9fbe9ed659f0a0902a649b6670f6f0
+  version: 93dd1e6786c05a4bb5d27eb1a26e596b29852a67
   subpackages:
   - cache
   - collector
@@ -11,25 +11,39 @@ imports:
   - enforcer
   - enforcer/lookup
   - enforcer/netfilter
-  - enforcer/packet
-  - enforcer/tokens
-  - example/common
+  - enforcer/remote/enforcerLauncher
+  - enforcer/utils/packet
+  - enforcer/utils/rpc_payloads
+  - enforcer/utils/tokens
   - monitor
+  - monitor/extractor
   - policy
+  - remote/launch
   - supervisor
+  - supervisor/iptablesutils
+  - supervisor/provider
+  - supervisor/remote/supervisorLauncher
+- name: github.com/bvandewalle/go-ipset
+  version: 0ee897a6d8bc6095299e9c03293ece091ef871de
+  subpackages:
+  - ipset
 - name: github.com/coreos/go-iptables
   version: 5463fbac3bcc6b990663941c2e12660d19f6b36d
   subpackages:
   - iptables
+- name: github.com/coreos/go-semver
+  version: 8ab6407b697782a06568d4b7f1db25550ec2e4c6
+  subpackages:
+  - semver
 - name: github.com/dgrijalva/jwt-go
-  version: 9ed569b5d1ac936e6494082958d63a6aa4fff99a
+  version: d2709f9f1f31ebcda9651b03077758c1f3a0018c
 - name: github.com/docker/distribution
-  version: a6bf3dd064f15598166bca2d66a9962a9555139e
+  version: 8234784a1a66bfee4a6d72d0a3cbd453b7f903d7
   subpackages:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: 5afdacb20ecbae338480a0382d62f7aabb6b9e8a
+  version: 4d92237de1b34c8bf99e549db27b83fd087cd765
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -48,7 +62,7 @@ imports:
   - client
   - pkg/tlsconfig
 - name: github.com/docker/go-connections
-  version: 4ccf312bf1d35e5dbda654e57a9be4c3f3cd0366
+  version: 988efe982fdecb46f01d53465878ff1f2ff411ce
   subpackages:
   - nat
   - sockets
@@ -58,15 +72,15 @@ imports:
 - name: github.com/golang/glog
   version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
 - name: github.com/Microsoft/go-winio
-  version: 24a3e3d3fc7451805e09d11e11e95d9a0a4f205e
+  version: ce2922f643c8fd76b46cadc7f404a06282678b34
 - name: github.com/opencontainers/runc
-  version: a6e649f5835b7ebf354a73ff3a80f3223e3cb5de
+  version: c7ed2244f4c1a92ce73c401fcbd8ac6618a3ac53
   subpackages:
   - libcontainer/user
 - name: github.com/pkg/errors
-  version: 248dadf4e9068a0b3e79f02ed0a610d935de5302
+  version: 839d9e913e063e28dfd0e6c7b7512793e0a48be9
 - name: github.com/Sirupsen/logrus
-  version: a437dfd2463eaedbec3dfe443e477d3b0a810b3f
+  version: d26492970760ca5d33129d2d799e34be5c4782eb
 - name: golang.org/x/net
   version: 4876518f9e71663000c348837735820161a42df7
   subpackages:
@@ -76,7 +90,7 @@ imports:
   - ipv4
   - proxy
 - name: golang.org/x/sys
-  version: 30237cf4eefd639b184d1f2cb77a581ea0be8947
+  version: c200b10b5d5e122be351b67af224adc6128af5bf
   subpackages:
   - unix
   - windows
