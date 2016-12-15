@@ -12,9 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 )
 
-const (
-	processName = "./remote_enforcer"
-)
+var processName = "./remote_enforcer"
 
 //ProcessMon exported
 type ProcessMon struct {
@@ -59,6 +57,7 @@ var ErrBinaryNotFound = errors.New("Enforcer Binary not found")
 
 func init() {
 	netnspath = "/var/run/netns/"
+
 	go collectChildExitStatus()
 }
 
@@ -115,10 +114,11 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	p.activeProcesses.Remove(contextID)
 
 }
-func processMonWait(cmd *exec.Cmd, contextID string) {
 
+//private function uses with test
+func setprocessname(name string) {
+	processName = name
 }
-
 func collectChildExitStatus() {
 	for {
 		exitStatus := <-childExitStatus
@@ -127,10 +127,6 @@ func collectChildExitStatus() {
 			"pid":        exitStatus.process,
 			"ExitStatus": exitStatus.exitStatus}).Info("Enforcer exited")
 	}
-}
-
-func monitorProcess(cmd exec.Cmd, contextID string) {
-
 }
 
 //LaunchProcess exported
