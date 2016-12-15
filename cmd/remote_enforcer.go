@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/user"
+	"strconv"
 	"sync"
 	"time"
 
@@ -26,9 +27,10 @@ import (
 )
 
 const (
-	ipcProtocol    = "unix"
-	defaultPath    = "/var/run/default.sock"
-	statsContextID = "UNUSED"
+	ipcProtocol         = "unix"
+	defaultPath         = "/var/run/default.sock"
+	statsContextID      = "UNUSED"
+	defaulttimeInterval = 2
 )
 
 //CollectorImpl exported
@@ -91,14 +93,23 @@ func (s *StatsClient) SendStats() {
 	rpcpayload := new(rpcWrapper.StatsPayload)
 	var request rpcWrapper.Request
 	var response rpcWrapper.Response
+	var statsInterval time.Duration
 	rpcpayload.NumFlows = 0
+	EnvstatsInterval, err := strconv.Atoi(os.Getenv("STATS_INTERVAL"))
+
+	if err == nil && EnvstatsInterval != 0 {
+		statsInterval = time.Duration(EnvstatsInterval) * time.Second
+	} else {
+		statsInterval = defaulttimeInterval * time.Second
+	}
+
 	starttime := time.Now()
 	for {
-
 		s.collector.Lock()
-		if !(s.collector.Flowentries.Len() > 0) {
+		for !(s.collector.Flowentries.Len() > 0) {
 			s.collector.Unlock()
-			//starttime = time.Now()
+			time.Sleep(statsInterval)
+			s.collector.Lock()
 			continue
 		}
 		s.collector.Unlock()
@@ -113,7 +124,7 @@ func (s *StatsClient) SendStats() {
 		} else {
 			//Do nothing since we have added this flow already
 		}
-		if time.Since(starttime) > 2*time.Second {
+		if time.Since(starttime) > statsInterval {
 			//Send out everything we have in the payload
 			request.Payload = rpcpayload
 			err = s.Rpchdl.RemoteCall(statsContextID, "RPCSERVER.GetStats", &request, &response)

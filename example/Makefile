@@ -14,7 +14,7 @@ build:  remote_enforcer_build
 package:
 	mv example docker/trireme-example
 	make -C ../cmd package
-	mv $(GOPATH)/bin/remote_enforcer docker/enforcer
+	mv $(GOPATH)/bin/remote_enforcer docker/remote_enforcer
 
 docker_build: build
 	docker \
