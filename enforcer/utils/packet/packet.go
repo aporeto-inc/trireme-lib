@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/golang/glog"
 )
 
 var (
@@ -170,41 +169,36 @@ func (p *Packet) Print(context uint64) {
 	logPkt := false
 	detailed := false
 
-	if !flag.Parsed() {
-		os.Stderr.Write([]byte("ERROR: packet logging before flag.Parse: "))
-	}
-
-	if glog.V(10) || context == 0 {
+	if (log.GetLevel() == log.DebugLevel || context == 0) || (dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0) || (dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0) {
 		logPkt = true
 		detailed = true
 	} else if dbgContext&debugContext != 0 {
 		logPkt = true
-	} else if dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0 {
-		logPkt = true
-		detailed = true
-	} else if dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0 {
-		logPkt = true
-		detailed = true
 	}
 
 	var buf string
 	print := false
-	if logPkt || glog.V(8) == glog.Verbose(true) {
+
+	if logPkt || log.GetLevel() == log.DebugLevel {
 		if printCount%200 == 0 {
 			buf += fmt.Sprintf("Packet: %5s %5s %25s %15s %5s %15s %5s %6s %20s %20s %6s %20s %20s %2s %5s %5s\n",
 				"IPID", "Dir", "Comment", "SIP", "SP", "DIP", "DP", "Flags", "TCPSeq", "TCPAck", "TCPLen", "ExpAck", "ExpSeq", "DO", "Acsum", "Ccsum")
 		}
 		printCount++
 		offset := 0
+
 		if (p.TCPFlags & TCPSynMask) == TCPSynMask {
 			offset = 1
 		}
+
 		expAck := p.TCPSeq + uint32(p.IPTotalLength-p.TCPDataStartBytes()) + uint32(offset)
 		ccsum := p.computeTCPChecksum()
 		csumValidationStr := ""
+
 		if p.TCPChecksum != ccsum {
 			csumValidationStr = "Bad Checksum"
 		}
+
 		buf += fmt.Sprintf("Packet: %5d %5s %25s %15s %5d %15s %5d %6s %20d %20d %6d %20d %20d %2d %5d %5d %12s\n",
 			p.ipID,
 			flagsToDir(p.context|context),
@@ -218,7 +212,7 @@ func (p *Packet) Print(context uint64) {
 		print = true
 	}
 
-	if detailed || glog.V(9) == glog.Verbose(true) {
+	if detailed || log.GetLevel() == log.DebugLevel {
 		pktBytes := []byte{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 8, 0}
 		pktBytes = append(pktBytes, p.Buffer...)
 		pktBytes = append(pktBytes, p.tcpOptions...)
@@ -228,8 +222,11 @@ func (p *Packet) Print(context uint64) {
 	}
 
 	if print {
-		fmt.Print(buf)
+		log.WithFields(log.Fields{
+			"package": "packet",
+		}).Debug(buf)
 	}
+
 }
 
 //GetBytes returns the bytes in the packet. It consolidates in case of changes as well
