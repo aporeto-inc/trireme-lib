@@ -1,4 +1,4 @@
-package remEnforcer
+package remenforcer
 
 import (
 	"sync"

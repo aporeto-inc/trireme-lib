@@ -9,7 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
 
 var processName = "./remote_enforcer"
@@ -24,7 +24,7 @@ var launcher *ProcessMon
 //ProcessInfo exported
 type processInfo struct {
 	contextID string
-	RPCHdl    rpcWrapper.RPCClient
+	RPCHdl    rpcwrapper.RPCClient
 	process   *os.Process
 	deleted   bool
 }
@@ -102,8 +102,8 @@ func (p *ProcessMon) KillProcess(contextID string) {
 			"msg": "Process already killed"}).Info("Process already killed or never launched")
 		return
 	}
-	req := new(rpcWrapper.Request)
-	resp := new(rpcWrapper.Response)
+	req := new(rpcwrapper.Request)
+	resp := new(rpcwrapper.Response)
 	req.Payload = s.(*processInfo).process.Pid
 	err = s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
 	if err != nil {
@@ -130,7 +130,7 @@ func collectChildExitStatus() {
 }
 
 //LaunchProcess exported
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapper.RPCClient) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient) error {
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
 		return nil
@@ -158,7 +158,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 	cmd := exec.Command(cmdName, cmdArgs...)
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
-	statschannelenv := "STATSCHANNEL_PATH=" + rpcWrapper.StatsChannel
+	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 	err = cmd.Start()
 	if err != nil {

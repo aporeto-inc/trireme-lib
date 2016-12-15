@@ -6,13 +6,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
 
 func TestLaunchProcess(t *testing.T) {
 	//Will use refPid to be 1 (init) guaranteed to be there
 	//Normal case should launch a process
-	rpchdl := rpcWrapper.NewTestRPCClient()
+	rpchdl := rpcwrapper.NewTestRPCClient()
 	p := NewProcessMon()
 	contextID := "12345"
 	refPid := 1
@@ -30,7 +30,7 @@ func TestLaunchProcess(t *testing.T) {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
 	}
 	//Cleanup
-	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcWrapper.Request, resp *rpcWrapper.Response) error {
+	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
 		return errors.New("Null Error")
 	})
 	p.KillProcess(contextID)
@@ -78,7 +78,7 @@ func TestGetExitStatus(t *testing.T) {
 	p := NewProcessMon()
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat")
-	rpchdl := rpcWrapper.NewTestRPCClient()
+	rpchdl := rpcwrapper.NewTestRPCClient()
 	err := p.LaunchProcess(contextID, refPid, rpchdl)
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
@@ -86,7 +86,7 @@ func TestGetExitStatus(t *testing.T) {
 	if p.GetExitStatus(contextID) != false {
 		t.Errorf("TEST:Process delete status not intialized or getexitstatus returned wrong val")
 	}
-	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcWrapper.Request, resp *rpcWrapper.Response) error {
+	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
 		return errors.New("Null Error")
 	})
 	p.KillProcess(contextID)
@@ -113,7 +113,7 @@ func TestSetExitStatus(t *testing.T) {
 	if err == nil {
 		t.Errorf("TEST:Exit status suceeds when process does not exist")
 	}
-	rpchdl := rpcWrapper.NewTestRPCClient()
+	rpchdl := rpcwrapper.NewTestRPCClient()
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string) error {
 		return nil
 	})
@@ -125,7 +125,7 @@ func TestSetExitStatus(t *testing.T) {
 	if p.GetExitStatus(contextID) != true {
 		t.Errorf("TEST:SetExit Status failed")
 	}
-	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcWrapper.Request, resp *rpcWrapper.Response) error {
+	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
 		return errors.New("Null Error")
 	})
 	p.KillProcess(contextID)
@@ -151,12 +151,12 @@ func TestKillProcess(t *testing.T) {
 	p := NewProcessMon()
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat")
-	rpchdl := rpcWrapper.NewTestRPCClient()
+	rpchdl := rpcwrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
 
 	p.LaunchProcess(contextID, refPid, rpchdl)
-	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcWrapper.Request, resp *rpcWrapper.Response) error {
+	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
 		if contextID == passed_contextID {
 			paramvalidate = true
 		}

@@ -1,4 +1,4 @@
-package supervisorLauncher
+package remsupervisor
 
 import (
 	"sync"

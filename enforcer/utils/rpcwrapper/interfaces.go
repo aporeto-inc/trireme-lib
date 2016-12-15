@@ -1,4 +1,4 @@
-package rpcWrapper
+package rpcwrapper
 
 type RPCClient interface {
 	NewRPCClient(contextID string, channel string) error

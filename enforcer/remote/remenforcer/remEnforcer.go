@@ -1,6 +1,6 @@
 //Package enforcerLauncher :: This is the implementation of the RPC client
 //It implementes the interface PolicyEnforcer and forwards these requests to the actual enforcer
-package remEnforcer
+package remenforcer
 
 import (
 	"errors"
@@ -10,7 +10,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/remote/launch"
@@ -34,15 +34,15 @@ type launcherState struct {
 	serverID   string
 	validity   time.Duration
 	prochdl    ProcessMon.ProcessManager
-	rpchdl     rpcWrapper.RPCClient
+	rpchdl     rpcwrapper.RPCClient
 	initDone   map[string]bool
 }
 
 func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUInfo) error {
-	payload := new(rpcWrapper.InitRequestPayload)
-	request := new(rpcWrapper.Request)
+	payload := new(rpcwrapper.InitRequestPayload)
+	request := new(rpcwrapper.Request)
 
-	resp := new(rpcWrapper.Response)
+	resp := new(rpcwrapper.Response)
 
 	payload.MutualAuth = s.MutualAuth
 	payload.Validity = s.validity
@@ -56,7 +56,7 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 	payload.ContextID = contextID
 
 	request.Payload = payload
-	//gob.Register(rpcWrapper.InitRequestPayload{})
+	//gob.Register(rpcwrapper.InitRequestPayload{})
 	s.initDone[contextID] = true
 	err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
 	if err != nil {
@@ -79,10 +79,10 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if _, ok := s.initDone[contextID]; !ok {
 		s.InitRemoteEnforcer(contextID, puInfo)
 	}
-	request := new(rpcWrapper.Request)
+	request := new(rpcwrapper.Request)
 
-	enfResp := new(rpcWrapper.Response)
-	enfReq := new(rpcWrapper.EnforcePayload)
+	enfResp := new(rpcwrapper.Response)
+	enfReq := new(rpcwrapper.EnforcePayload)
 	enfReq.ContextID = contextID
 	enfReq.PuPolicy = puInfo.Policy
 	request.Payload = enfReq
@@ -99,9 +99,9 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 // Unenforce stops enforcing policy for the given IP.
 func (s *launcherState) Unenforce(contextID string) error {
-	request := new(rpcWrapper.Request)
-	payload := new(rpcWrapper.UnEnforcePayload)
-	unenfresp := new(rpcWrapper.Response)
+	request := new(rpcwrapper.Request)
+	payload := new(rpcwrapper.UnEnforcePayload)
+	unenfresp := new(rpcwrapper.Response)
 	payload.ContextID = contextID
 	request.Payload = payload
 	s.rpchdl.RemoteCall(contextID, "Server.Unenforce", request, unenfresp)
@@ -150,7 +150,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 	secrets tokens.Secrets,
 	serverID string,
 	validity time.Duration,
-	rpchdl rpcWrapper.RPCClient,
+	rpchdl rpcwrapper.RPCClient,
 ) enforcer.PolicyEnforcer {
 	launcher := &launcherState{
 		MutualAuth: mutualAuth,
@@ -162,9 +162,9 @@ func NewDatapathEnforcer(mutualAuth bool,
 		initDone:   make(map[string]bool),
 	}
 	log.WithFields(log.Fields{"package": "enforcerLauncher", "method": "NewDataPathEnforcer"}).Info("Called NewDataPathEnforcer")
-	rpcwrapper := rpcWrapper.NewRPCWrapper()
-	rpcserver := &RPCSERVER{rpchdl: rpcwrapper, collector: collector}
-	go rpcwrapper.StartServer("unix", rpcWrapper.StatsChannel, rpcserver)
+	statsserver := rpcwrapper.NewRPCWrapper()
+	rpcserver := &RPCSERVER{rpchdl: statsserver, collector: collector}
+	go statsserver.StartServer("unix", rpcwrapper.StatsChannel, rpcserver)
 	return launcher
 }
 
@@ -172,7 +172,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 func NewDefaultDatapathEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
-	rpchdl *rpcWrapper.RPCWrapper) enforcer.PolicyEnforcer {
+	rpchdl *rpcwrapper.RPCWrapper) enforcer.PolicyEnforcer {
 	mutualAuthorization := false
 	fqConfig := &enforcer.FilterQueue{
 		NetworkQueue:              enforcer.DefaultNetworkQueue,
@@ -197,15 +197,15 @@ func NewDefaultDatapathEnforcer(serverID string,
 
 type RPCSERVER struct {
 	collector collector.EventCollector
-	rpchdl    rpcWrapper.RPCServer
+	rpchdl    rpcwrapper.RPCServer
 }
 
-func (r *RPCSERVER) GetStats(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (r *RPCSERVER) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !r.rpchdl.ProcessMessage(&req) {
 		log.WithFields(log.Fields{"package": "enforcerLauncher"}).Error("Message sender cannot be verified")
 		return errors.New("Message sender cannot be verified")
 	}
-	payload := req.Payload.(rpcWrapper.StatsPayload)
+	payload := req.Payload.(rpcwrapper.StatsPayload)
 	// var flowSlice []enforcer.StatsPayload
 	// flowSlice = payload.Flows
 	for _, flow := range payload.Flows {

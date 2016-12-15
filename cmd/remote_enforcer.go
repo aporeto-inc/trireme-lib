@@ -18,7 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -74,8 +74,8 @@ type Server struct {
 	PublicPEM   []byte
 	PrivatePEM  []byte
 	rpcchannel  string
-	rpchdl      *rpcWrapper.RPCWrapper
-	StatsClient *rpcWrapper.RPCWrapper
+	rpchdl      *rpcwrapper.RPCWrapper
+	StatsClient *rpcwrapper.RPCWrapper
 	Enforcer    enforcer.PolicyEnforcer
 	Collector   collector.EventCollector
 	Supervisor  supervisor.Supervisor
@@ -85,14 +85,14 @@ type StatsClient struct {
 	collector *CollectorImpl
 	s         *Server
 	FlowCache *cache.Cache
-	Rpchdl    *rpcWrapper.RPCWrapper
+	Rpchdl    *rpcwrapper.RPCWrapper
 }
 
 func (s *StatsClient) SendStats() {
 	//We are connected and lets pack and ship
-	rpcpayload := new(rpcWrapper.StatsPayload)
-	var request rpcWrapper.Request
-	var response rpcWrapper.Response
+	rpcpayload := new(rpcwrapper.StatsPayload)
+	var request rpcwrapper.Request
+	var response rpcwrapper.Response
 	var statsInterval time.Duration
 	rpcpayload.NumFlows = 0
 	EnvstatsInterval, err := strconv.Atoi(os.Getenv("STATS_INTERVAL"))
@@ -148,7 +148,7 @@ func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 }
 
 //InitEnforcer exported
-func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	collector := new(CollectorImpl)
 	collector.Flowentries = list.New()
 	s.Collector = collector
@@ -156,7 +156,7 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
-	payload := req.Payload.(rpcWrapper.InitRequestPayload)
+	payload := req.Payload.(rpcwrapper.InitRequestPayload)
 	usePKI := (payload.SecretType == tokens.PKIType)
 	//Need to revisit what is packet processor
 	if usePKI {
@@ -169,7 +169,7 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
 	}
 	s.Enforcer.Start()
-	statsClient := &StatsClient{collector: collector, s: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcWrapper.NewRPCWrapper()}
+	statsClient := &StatsClient{collector: collector, s: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcwrapper.NewRPCWrapper()}
 	s.connectStatsClient(statsClient)
 
 	resp.Status = nil
@@ -177,7 +177,7 @@ func (s *Server) InitEnforcer(req rpcWrapper.Request, resp *rpcWrapper.Response)
 }
 
 //InitSupervisor exported
-func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
@@ -191,7 +191,7 @@ func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Respons
 		//panic("Failed to load Go-Iptables: ")
 	}
 
-	payload := req.Payload.(rpcWrapper.InitSupervisorPayload)
+	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
 	ipu := iptablesutils.NewIptableUtils(ipt, true)
 	s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector, s.Enforcer, ipu, payload.TargetNetworks, true)
 	s.Supervisor.Start()
@@ -200,12 +200,12 @@ func (s *Server) InitSupervisor(req rpcWrapper.Request, resp *rpcWrapper.Respons
 }
 
 //Supervise exported
-func (s *Server) Supervise(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
-	payload := req.Payload.(rpcWrapper.SuperviseRequestPayload)
+	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 	pupolicy := payload.PuPolicy
 	runtime := policy.NewPURuntime()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
@@ -219,33 +219,33 @@ func (s *Server) Supervise(req rpcWrapper.Request, resp *rpcWrapper.Response) er
 }
 
 //Unenforce exported
-func (s *Server) Unenforce(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
-	payload := req.Payload.(rpcWrapper.UnEnforcePayload)
+	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.Enforcer.Unenforce(payload.ContextID)
 
 }
 
 //Unsupervise exported
-func (s *Server) Unsupervise(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
-	payload := req.Payload.(rpcWrapper.UnSupervisePayload)
+	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
 	return s.Supervisor.Unsupervise(payload.ContextID)
 }
 
 //Enforce exported
-func (s *Server) Enforce(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return nil
 	}
-	payload := req.Payload.(rpcWrapper.EnforcePayload)
+	payload := req.Payload.(rpcwrapper.EnforcePayload)
 	pupolicy := payload.PuPolicy
 	runtime := policy.NewPURuntime()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
@@ -262,7 +262,7 @@ func (s *Server) Enforce(req rpcWrapper.Request, resp *rpcWrapper.Response) erro
 }
 
 //EnforcerExit exported
-func (s *Server) EnforcerExit(req rpcWrapper.Request, resp *rpcWrapper.Response) error {
+func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	os.Exit(0)
 	return nil
 }
@@ -271,7 +271,7 @@ func main() {
 	log.SetFormatter(&log.TextFormatter{})
 	namedPipe := os.Getenv("SOCKET_PATH")
 	server := new(Server)
-	rpchdl := rpcWrapper.NewRPCServer()
+	rpchdl := rpcwrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe
 	flag.Parse()

@@ -1,4 +1,4 @@
-package remEnforcer
+package remenforcer
 
 type keyPEM interface {
 	AuthPEM() []byte

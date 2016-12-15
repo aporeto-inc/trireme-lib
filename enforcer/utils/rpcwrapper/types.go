@@ -1,4 +1,4 @@
-package rpcWrapper
+package rpcwrapper
 
 import (
 	"time"
