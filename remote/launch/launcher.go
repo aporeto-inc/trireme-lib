@@ -40,6 +40,7 @@ type exitStatus struct {
 }
 
 var childExitStatus = make(chan exitStatus, 100)
+var netnspath string
 
 // ErrEnforcerAlreadyRunning Exported
 var ErrEnforcerAlreadyRunning = errors.New("Enforcer already running in this context")
@@ -57,7 +58,14 @@ var ErrProcessDoesNotExists = errors.New("Process in that context does not exist
 var ErrBinaryNotFound = errors.New("Enforcer Binary not found")
 
 func init() {
+	netnspath = "/var/run/netns/"
 	go collectChildExitStatus()
+}
+
+//SetnsNetPath -- only planned consumer is unit test
+//Call this function if you expect network namespace links to be created in a separate path
+func (p *ProcessMon) SetnsNetPath(netpath string) {
+	netnspath = netpath
 }
 
 //GetExitStatus exported
@@ -103,7 +111,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 		s.(*processInfo).process.Kill()
 	}
 	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
-	os.Remove("/var/run/netns/" + contextID)
+	os.Remove(netnspath + contextID)
 	p.activeProcesses.Remove(contextID)
 
 }
@@ -131,9 +139,9 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 	if err == nil {
 		return nil
 	}
-	_, staterr := os.Stat("/var/run/netns")
+	_, staterr := os.Stat(netnspath)
 	if staterr != nil {
-		mkerr := os.MkdirAll("/var/run/netns", os.ModeDir)
+		mkerr := os.MkdirAll(netnspath, os.ModeDir)
 		if mkerr != nil {
 			log.WithFields(log.Fields{"package": "ProcessMon",
 				"error": mkerr}).Info("Could not create directory")
@@ -142,7 +150,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 	}
 
 	linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
-		"/var/run/netns/"+contextID)
+		netnspath+contextID)
 	if linkErr != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon", "error": linkErr}).Error(ErrSymLinkFailed)
 		//return linkErr
@@ -162,7 +170,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcWrapp
 			"error": err,
 			"PATH":  cmdName}).Error("Enforcer Binary not present in expected location")
 		//Cleanup resources
-		os.Remove("/var/run/netns/" + contextID)
+		os.Remove(netnspath + contextID)
 		return ErrBinaryNotFound
 	}
 	exited := make(chan int, 2)

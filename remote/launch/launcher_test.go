@@ -17,7 +17,7 @@ func TestLaunchProcess(t *testing.T) {
 	contextID := "12345"
 	refPid := 1
 	dir, _ := os.Getwd()
-
+	p.SetnsNetPath("/tmp/")
 	err := p.LaunchProcess(contextID, refPid, rpchdl)
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
@@ -73,6 +73,7 @@ func TestGetExitStatus(t *testing.T) {
 	refPid := 1
 	//Lets launch process
 	p := NewProcessMon()
+	p.SetnsNetPath("/tmp/")
 	rpchdl := rpcWrapper.NewTestRPCClient()
 	err := p.LaunchProcess(contextID, refPid, rpchdl)
 	if err != nil {
@@ -101,6 +102,7 @@ func TestSetExitStatus(t *testing.T) {
 	refPid := 1
 	//Lets launch process
 	p := NewProcessMon()
+	p.SetnsNetPath("/tmp/")
 	//Error returned when process does not exists
 	err := p.SetExitStatus(contextID, true)
 	if err == nil {
@@ -142,6 +144,7 @@ func TestKillProcess(t *testing.T) {
 
 	//Lets launch process
 	p := NewProcessMon()
+	p.SetnsNetPath("/tmp/")
 	rpchdl := rpcWrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)

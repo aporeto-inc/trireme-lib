@@ -12,6 +12,7 @@ type mockedMethods struct {
 	KillProcessMock   func(string)
 	LaunchProcessMock func(string, int, rpcWrapper.RPCClient) error
 	SetExitStatusMock func(string, bool) error
+	SetnsNetPathMock  func(string)
 }
 
 type TestProcessManager interface {
@@ -20,6 +21,7 @@ type TestProcessManager interface {
 	MockKillProcess(t *testing.T, impl func(string))
 	MockLaunchProcess(t *testing.T, impl func(string, int, rpcWrapper.RPCClient) error)
 	MockSetExitStatus(t *testing.T, impl func(string, bool) error)
+	MockSetnsNetPath(t *testing.T, impl func(string))
 }
 
 type testProcessMon struct {
@@ -29,10 +31,11 @@ type testProcessMon struct {
 }
 
 func NewTestProcessMon() ProcessManager {
-	return &testProcessMon{
+	p := &testProcessMon{
 		lock:  &sync.Mutex{},
 		mocks: map[*testing.T]*mockedMethods{},
 	}
+	return p
 }
 
 func (m *testProcessMon) currentMocks(t *testing.T) *mockedMethods {
@@ -49,7 +52,9 @@ func (m *testProcessMon) currentMocks(t *testing.T) *mockedMethods {
 	m.currentTest = t
 	return mocks
 }
-
+func (m *testProcessMon) MockSetnsNetPath(t *testing.T, impl func(string)) {
+	m.currentMocks(t).SetnsNetPathMock = impl
+}
 func (m *testProcessMon) MockGetExitStatus(t *testing.T, impl func(string) bool) {
 	m.currentMocks(t).GetExitStatusMock = impl
 }
@@ -63,6 +68,13 @@ func (m *testProcessMon) MockSetExitStatus(t *testing.T, impl func(string, bool)
 	m.currentMocks(t).SetExitStatusMock = impl
 }
 
+func (m *testProcessMon) SetnsNetPath(netpath string) {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.SetnsNetPathMock != nil {
+		mock.SetnsNetPathMock(netpath)
+		return
+	}
+	return
+}
 func (m *testProcessMon) GetExitStatus(contextID string) bool {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.GetExitStatusMock != nil {
 		return mock.GetExitStatusMock(contextID)

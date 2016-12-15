@@ -7,4 +7,5 @@ type ProcessManager interface {
 	SetExitStatus(contextID string, status bool) error
 	KillProcess(contextID string)
 	LaunchProcess(contextID string, refPid int, rpchdl rpcWrapper.RPCClient) error
+	SetnsNetPath(netpath string)
 }
