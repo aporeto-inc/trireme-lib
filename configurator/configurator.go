@@ -9,13 +9,15 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
+
 	"github.com/aporeto-inc/trireme/enforcer/remote/enforcerLauncher"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme/remote/enforcerLauncher"
 	"github.com/aporeto-inc/trireme/remote/supervisorLauncher"
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/remote/supervisorLauncher"
 
+	"github.com/aporeto-inc/trireme/enforcer/remote/remEnforcer"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpc_payloads"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -105,8 +107,7 @@ func NewTriremeWithDockerMonitor(
 		}
 
 		ipu := iptablesutils.NewIptableUtils(ipt, false)
-		enforcer := enforcerLauncher.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
-
+		enforcer := remEnforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
 		IPTsupervisor, err := supervisorLauncher.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks, rpcwrapper)
 		if err != nil {
 			log.WithFields(log.Fields{

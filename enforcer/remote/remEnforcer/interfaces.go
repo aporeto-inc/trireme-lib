@@ -1,4 +1,4 @@
-package enforcerLauncher
+package remEnforcer
 
 type keyPEM interface {
 	AuthPEM() []byte

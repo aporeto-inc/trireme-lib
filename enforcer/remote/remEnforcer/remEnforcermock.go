@@ -1,4 +1,4 @@
-package enforcerLauncher
+package remEnforcer
 
 import (
 	"sync"

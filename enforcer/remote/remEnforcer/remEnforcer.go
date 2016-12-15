@@ -1,6 +1,6 @@
 //Package enforcerLauncher :: This is the implementation of the RPC client
 //It implementes the interface PolicyEnforcer and forwards these requests to the actual enforcer
-package enforcerLauncher
+package remEnforcer
 
 import (
 	"errors"

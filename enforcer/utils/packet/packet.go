@@ -415,7 +415,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 	if uint16(len(p.Buffer)) >= (p.TCPDataStartBytes() - optionLength) {
 		p.Buffer = p.Buffer[:p.TCPDataStartBytes()-optionLength]
 	}
-	return
+	return nil
 }
 
 // TCPDataDetach performs the following:
@@ -445,7 +445,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 	// Process IP Header fields
 	p.fixupIPHdrOnTCPDataModify(p.IPTotalLength, p.IPTotalLength-(dataLength+optionLength))
-	return
+	return nil
 }
 
 
@@ -483,7 +483,7 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 	if dataLength != 0 {
 		p.tcpData = append(p.tcpData, data...)
 	}
-	return
+	return nil
 }
 
 // TCPDataAttach modifies the TCP and IP header fields and checksum
@@ -513,7 +513,7 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 	// TCP Header Processing
 	p.FixupTCPHdrOnTCPDataAttach(tcpOptions, tcpData)
 
-	return
+	return nil
 }
 
 // L4FlowHash caclulate a hash string based on the 4-tuple
