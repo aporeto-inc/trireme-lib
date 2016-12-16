@@ -164,15 +164,11 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 	}
 
 	//TODO: Add Check that IP is valid.
-	receiverRules := createRuleDB(puInfo.Policy.ReceiverRules())
-	transmitterRules := createRuleDB(puInfo.Policy.TransmitterRules())
-
 	pu := &PUContext{
-		ID:               contextID,
-		receiverRules:    receiverRules,
-		transmitterRules: transmitterRules,
-		Tags:             puInfo.Policy.PolicyTags(),
+		ID: contextID,
 	}
+
+	d.doUpdatePU(pu, puInfo)
 
 	d.contextTracker.AddOrUpdate(contextID, ip)
 	d.puTracker.AddOrUpdate(ip, pu)

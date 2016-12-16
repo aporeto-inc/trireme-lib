@@ -107,8 +107,9 @@ func TestInvalidTokenContext(t *testing.T) {
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
 
-		ip := policy.NewIPMap(map[string]string{})
-		ip.Add("brige", "164.67.228.152")
+		ip := policy.NewIPMap(map[string]string{
+			"brige": "164.67.228.152",
+		})
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret).(*datapathEnforcer)

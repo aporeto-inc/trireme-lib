@@ -21,13 +21,13 @@ type RuntimeReader interface {
 	// Tag retuns the value of the given tag.
 	Tag(string) (string, bool)
 
-	// Tags returns the list of the tags.
+	// Tags returns a copy of the list of the tags.
 	Tags() *TagsMap
 
 	// DefaultIPAddress retutns the default IP address.
 	DefaultIPAddress() (string, bool)
 
-	// IPAddresses returns all the IP addresses.
+	// IPAddresses returns a copy of all the IP addresses.
 	IPAddresses() *IPMap
 }
 

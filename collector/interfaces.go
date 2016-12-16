@@ -5,7 +5,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-var (
+const (
 	// FlowReject indicates that a flow was rejected
 	FlowReject = "reject"
 	// FlowAccept logs that a flow is accepted
