@@ -69,7 +69,7 @@ func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
 	return nil, err
 }
 
-func getsharedKey() []byte {
+func sharedKey() []byte {
 	var sharedKey = []byte("sharedsecret")
 	return sharedKey
 }
@@ -78,7 +78,7 @@ func getsharedKey() []byte {
 func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
 	var rpcBuf bytes.Buffer
 	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
-	digest := hmac.New(sha256.New, getsharedKey())
+	digest := hmac.New(sha256.New, sharedKey())
 	digest.Write(rpcBuf.Bytes())
 	req.HashAuth = digest.Sum(nil)
 	rpcClient, err := r.GetRPCClient(contextID)
@@ -93,7 +93,7 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 func (r *RPCWrapper) CheckValidity(req *Request) bool {
 	var rpcBuf bytes.Buffer
 	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
-	digest := hmac.New(sha256.New, getsharedKey())
+	digest := hmac.New(sha256.New, sharedKey())
 	digest.Write(rpcBuf.Bytes())
 	return hmac.Equal(req.HashAuth, digest.Sum(nil))
 }

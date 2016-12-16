@@ -31,6 +31,8 @@ const (
 	defaultPath         = "/var/run/default.sock"
 	statsContextID      = "UNUSED"
 	defaulttimeInterval = 2
+	envStatsChannelPath = "STATSCHANNEL_PATH"
+	envSocketPath       = "SOCKET_PATH"
 )
 
 //CollectorImpl exported
@@ -83,7 +85,7 @@ type Server struct {
 
 type StatsClient struct {
 	collector *CollectorImpl
-	s         *Server
+	server    *Server
 	FlowCache *cache.Cache
 	Rpchdl    *rpcwrapper.RPCWrapper
 }
@@ -120,14 +122,11 @@ func (s *StatsClient) SendStats() {
 			//this is new flow add it to our rpc payload
 			rpcpayload.NumFlows = rpcpayload.NumFlows + 1
 			rpcpayload.Flows = append(rpcpayload.Flows, *element.(*collectorentry).entry)
-
-		} else {
-			//Do nothing since we have added this flow already
 		}
 		if time.Since(starttime) > statsInterval {
 			//Send out everything we have in the payload
 			request.Payload = rpcpayload
-			err = s.Rpchdl.RemoteCall(statsContextID, "RPCSERVER.GetStats", &request, &response)
+			err = s.Rpchdl.RemoteCall(statsContextID, "StatsServer.GetStats", &request, &response)
 
 			starttime = time.Now()
 		}
@@ -136,7 +135,7 @@ func (s *StatsClient) SendStats() {
 }
 func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 
-	statschannel := os.Getenv("STATSCHANNEL_PATH")
+	statschannel := os.Getenv(envStatsChannelPath)
 	err := statsClient.Rpchdl.NewRPCClient(statsContextID, statschannel)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer", "error": err}).Error("Stats RPC client cannot connect")
@@ -169,7 +168,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
 	}
 	s.Enforcer.Start()
-	statsClient := &StatsClient{collector: collector, s: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcwrapper.NewRPCWrapper()}
+	statsClient := &StatsClient{collector: collector, server: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcwrapper.NewRPCWrapper()}
 	s.connectStatsClient(statsClient)
 
 	resp.Status = nil
@@ -186,9 +185,10 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 	ipt, err := provider.NewGoIPTablesProvider()
 
 	if err != nil {
-		fmt.Printf("Failed to load Go-Iptables: %s", err)
+		log.WithFields(log.Fields{"package": "remote_enforcer",
+			"Error": err,
+		}).Error("Failed to load Go-Iptables")
 		return err
-		//panic("Failed to load Go-Iptables: ")
 	}
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
@@ -213,7 +213,9 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Supervise"}).Info("Called Supervise Start in remote_enforcer")
 
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
-	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Supervise", "error": err}).Info("Supervise status remote_enforcer ")
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"method": "Supervise",
+		"error":  err}).Info("Supervise status remote_enforcer ")
 	resp.Status = err
 	return err
 }
@@ -226,7 +228,6 @@ func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	}
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.Enforcer.Unenforce(payload.ContextID)
-
 }
 
 //Unsupervise exported
@@ -250,7 +251,7 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	runtime := policy.NewPURuntime()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
-		fmt.Println("Failed Runtime")
+		log.WithFields(log.Fields{"package": "remote_enforcer"}).Info("Failed Runtime")
 	}
 	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce"}).Info("Called enforce in remote enforcer")
 
@@ -269,7 +270,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 func main() {
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
-	namedPipe := os.Getenv("SOCKET_PATH")
+	namedPipe := os.Getenv(envSocketPath)
 	server := &Server{}
 	rpchdl := rpcwrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server

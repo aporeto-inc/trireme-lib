@@ -8,7 +8,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/golang/glog"
 )
 
 // JWTClaims captures all the custom  clains
@@ -146,7 +145,9 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*
 
 	// If error is returned or the token is not valid, reject it
 	if err != nil || !jwttoken.Valid {
-		glog.V(1).Infoln("ParseWithClaim failed: ", err)
+		log.WithFields(log.Fields{"package": "token",
+			"Error": err}).Error("ParseWithClaim failed")
+
 		return nil, nil
 	}
 	return jwtClaims.ConnectionClaims, ackCert

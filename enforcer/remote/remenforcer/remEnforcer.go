@@ -133,7 +133,6 @@ func (s *launcherState) GetFilterQueue() *enforcer.FilterQueue {
 //At this point no container has started so we don't know
 //what namespace to launch the new container
 func (s *launcherState) Start() error {
-	fmt.Println("Called Start")
 	return nil
 }
 
@@ -163,7 +162,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 	}
 	log.WithFields(log.Fields{"package": "enforcerLauncher", "method": "NewDataPathEnforcer"}).Info("Called NewDataPathEnforcer")
 	statsserver := rpcwrapper.NewRPCWrapper()
-	rpcserver := &RPCSERVER{rpchdl: statsserver, collector: collector}
+	rpcserver := &StatsServer{rpchdl: statsserver, collector: collector}
 	go statsserver.StartServer("unix", rpcwrapper.StatsChannel, rpcserver)
 	return launcher
 }
@@ -195,19 +194,17 @@ func NewDefaultDatapathEnforcer(serverID string,
 		rpchdl)
 }
 
-type RPCSERVER struct {
+type StatsServer struct {
 	collector collector.EventCollector
 	rpchdl    rpcwrapper.RPCServer
 }
 
-func (r *RPCSERVER) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !r.rpchdl.ProcessMessage(&req) {
 		log.WithFields(log.Fields{"package": "enforcerLauncher"}).Error("Message sender cannot be verified")
 		return errors.New("Message sender cannot be verified")
 	}
 	payload := req.Payload.(rpcwrapper.StatsPayload)
-	// var flowSlice []enforcer.StatsPayload
-	// flowSlice = payload.Flows
 	for _, flow := range payload.Flows {
 		if r.collector != nil {
 			r.collector.CollectFlowEvent(flow.ContextID,
