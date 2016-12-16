@@ -2,7 +2,7 @@ hash: 779b82d945462f365111c2afa862aa16f84bd722f4e65ccead6f2d993211dd75
 updated: 2016-12-07T21:09:14.003142155-08:00
 imports:
 - name: github.com/aporeto-inc/trireme
-  version: e5d1ef794d9fbe9ed659f0a0902a649b6670f6f0
+  version: e4dc5713f59674807cadbb83078032022302ce84
   subpackages:
   - cache
   - collector
