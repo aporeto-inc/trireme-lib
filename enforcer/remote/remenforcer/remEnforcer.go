@@ -75,7 +75,10 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		return err
 	}
-	log.WithFields(log.Fields{"package": "enforcerLauncher", "contexID": contextID, "Lauch Process": err}).Info("Called enforce and launched process")
+	log.WithFields(log.Fields{"package": "enforcerLauncher",
+		"contexID":      contextID,
+		"Lauch Process": err,
+	}).Info("Called enforce and launched process")
 	if _, ok := s.initDone[contextID]; !ok {
 		s.InitRemoteEnforcer(contextID, puInfo)
 	}
@@ -91,7 +94,8 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcerLauncher",
-			"error":   err}).Fatal("Failed to Enforce remote enforcer")
+			"error":   err,
+		}).Fatal("Failed to Enforce remote enforcer")
 		return ErrEnforceFailed
 	}
 	return nil
@@ -160,7 +164,9 @@ func NewDatapathEnforcer(mutualAuth bool,
 		rpchdl:     rpchdl,
 		initDone:   make(map[string]bool),
 	}
-	log.WithFields(log.Fields{"package": "enforcerLauncher", "method": "NewDataPathEnforcer"}).Info("Called NewDataPathEnforcer")
+	log.WithFields(log.Fields{"package": "enforcerLauncher",
+		"method": "NewDataPathEnforcer",
+	}).Info("Called NewDataPathEnforcer")
 	statsserver := rpcwrapper.NewRPCWrapper()
 	rpcserver := &StatsServer{rpchdl: statsserver, collector: collector}
 	go statsserver.StartServer("unix", rpcwrapper.StatsChannel, rpcserver)

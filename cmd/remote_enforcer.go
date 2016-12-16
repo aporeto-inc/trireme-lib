@@ -57,8 +57,9 @@ func (c *CollectorImpl) CollectFlowEvent(contextID string, tags policy.TagsMap, 
 	}
 
 	c.Lock()
+	defer c.Unlock()
 	c.Flowentries.PushBack(&collectorentry{L4FlowHash: l4FlowHash, entry: payload})
-	c.Unlock()
+
 }
 
 //CollectContainerEvent exported
@@ -138,7 +139,9 @@ func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 	statschannel := os.Getenv(envStatsChannelPath)
 	err := statsClient.Rpchdl.NewRPCClient(statsContextID, statschannel)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer", "error": err}).Error("Stats RPC client cannot connect")
+		log.WithFields(log.Fields{"package": "remote_enforcer",
+			"error": err,
+		}).Error("Stats RPC client cannot connect")
 	}
 	_, err = statsClient.Rpchdl.GetRPCClient(statsContextID)
 
@@ -210,12 +213,15 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	runtime := policy.NewPURuntime()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	puInfo.Runtime.SetPid(os.Getpid())
-	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Supervise"}).Info("Called Supervise Start in remote_enforcer")
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"method": "Supervise",
+	}).Info("Called Supervise Start in remote_enforcer")
 
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"method": "Supervise",
-		"error":  err}).Info("Supervise status remote_enforcer ")
+		"error":  err,
+	}).Info("Supervise status remote_enforcer ")
 	resp.Status = err
 	return err
 }
@@ -253,10 +259,15 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	if puInfo == nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer"}).Info("Failed Runtime")
 	}
-	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce"}).Info("Called enforce in remote enforcer")
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"method": "Enforce",
+	}).Info("Called enforce in remote enforcer")
 
 	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
-	log.WithFields(log.Fields{"package": "remote_enforcer", "method": "Enforce", "error": err}).Info("ENFORCE STATUS")
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"method": "Enforce",
+		"error":  err,
+	}).Info("ENFORCE STATUS")
 	resp.Status = err
 	return err
 

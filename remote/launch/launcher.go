@@ -73,7 +73,8 @@ func (p *ProcessMon) GetExitStatus(contextID string) bool {
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err}).Info("Process already dead")
+			"error": err,
+		}).Info("Process already dead")
 		return true
 	}
 	return (s.(*processInfo)).deleted
@@ -84,7 +85,8 @@ func (p *ProcessMon) SetExitStatus(contextID string, status bool) error {
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err}).Error("Process already dead")
+			"error": err,
+		}).Error("Process already dead")
 		return err
 	}
 	val := s.(*processInfo)
@@ -99,7 +101,8 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
-			"msg": "Process already killed"}).Info("Process already killed or never launched")
+			"msg": "Process already killed",
+		}).Info("Process already killed or never launched")
 		return
 	}
 	req := &rpcwrapper.Request{}
@@ -125,7 +128,8 @@ func collectChildExitStatus() {
 		log.WithFields(log.Fields{"package": "ProcessMon",
 			"ContextID":  exitStatus.contextID,
 			"pid":        exitStatus.process,
-			"ExitStatus": exitStatus.exitStatus}).Info("Enforcer exited")
+			"ExitStatus": exitStatus.exitStatus,
+		}).Info("Enforcer exited")
 	}
 }
 
@@ -140,7 +144,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		mkerr := os.MkdirAll(netnspath, os.ModeDir)
 		if mkerr != nil {
 			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": mkerr}).Info("Could not create directory")
+				"error": mkerr,
+			}).Info("Could not create directory")
 
 		}
 	}
@@ -148,7 +153,9 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
 		netnspath+contextID)
 	if linkErr != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon", "error": linkErr}).Error(ErrSymLinkFailed)
+		log.WithFields(log.Fields{"package": "ProcessMon",
+			"error": linkErr,
+		}).Error(ErrSymLinkFailed)
 		//return linkErr
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
@@ -164,7 +171,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
 			"error": err,
-			"PATH":  cmdName}).Error("Enforcer Binary not present in expected location")
+			"PATH":  cmdName,
+		}).Error("Enforcer Binary not present in expected location")
 		//Cleanup resources
 		os.Remove(netnspath + contextID)
 		return ErrBinaryNotFound
