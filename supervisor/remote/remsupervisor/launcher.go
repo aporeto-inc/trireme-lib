@@ -38,9 +38,9 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 		}
 	}
 
-	req := new(rpcwrapper.Request)
-	response := new(rpcwrapper.Response)
-	payload := new(rpcwrapper.SuperviseRequestPayload)
+	req := &rpcwrapper.Request{}
+	response := &rpcwrapper.Response{}
+	payload := &rpcwrapper.SuperviseRequestPayload{}
 	payload.ContextID = contextID
 	payload.PuPolicy = puInfo.Policy
 	req.Payload = payload
@@ -50,9 +50,9 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 
 // Unsupervise exported stops enforcing policy for the given IP.
 func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
-	request := new(rpcwrapper.Request)
-	payload := new(rpcwrapper.UnSupervisePayload)
-	unenfresp := new(rpcwrapper.Response)
+	request := &rpcwrapper.Request{}
+	payload := &rpcwrapper.UnSupervisePayload{}
+	unenfresp := &rpcwrapper.Response{}
 	payload.ContextID = contextID
 	request.Payload = payload
 	s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, unenfresp)
@@ -108,9 +108,9 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 //InitRemoteSupervisor exported
 func (s *RemoteSupervisorHandle) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo) error {
 
-	response := new(rpcwrapper.Response)
-	request := new(rpcwrapper.Request)
-	payload := new(rpcwrapper.InitSupervisorPayload)
+	response := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{}
+	payload := &rpcwrapper.InitSupervisorPayload{}
 	s.initDone[contextID] = true
 	payload.NetworkQueues = s.networkQueues
 	payload.ApplicationQueues = s.applicationQueues

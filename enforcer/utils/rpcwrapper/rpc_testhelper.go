@@ -11,7 +11,7 @@ import (
 
 func createServer(channel string) {
 	type Server struct{}
-	handler := new(Server)
+	handler := &Server{}
 	protocol := "unix"
 	RegisterTypes()
 	rpc.Register(handler)

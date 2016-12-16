@@ -102,8 +102,8 @@ func (p *ProcessMon) KillProcess(contextID string) {
 			"msg": "Process already killed"}).Info("Process already killed or never launched")
 		return
 	}
-	req := new(rpcwrapper.Request)
-	resp := new(rpcwrapper.Response)
+	req := &rpcwrapper.Request{}
+	resp := &rpcwrapper.Response{}
 	req.Payload = s.(*processInfo).process.Pid
 	err = s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
 	if err != nil {

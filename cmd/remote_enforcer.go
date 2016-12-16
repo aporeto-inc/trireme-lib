@@ -90,7 +90,7 @@ type StatsClient struct {
 
 func (s *StatsClient) SendStats() {
 	//We are connected and lets pack and ship
-	rpcpayload := new(rpcwrapper.StatsPayload)
+	rpcpayload := &rpcwrapper.StatsPayload{}
 	var request rpcwrapper.Request
 	var response rpcwrapper.Response
 	var statsInterval time.Duration
@@ -149,7 +149,7 @@ func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 
 //InitEnforcer exported
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	collector := new(CollectorImpl)
+	collector := &CollectorImpl{}
 	collector.Flowentries = list.New()
 	s.Collector = collector
 	if !s.rpchdl.CheckValidity(&req) {
@@ -270,7 +270,7 @@ func main() {
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
 	namedPipe := os.Getenv("SOCKET_PATH")
-	server := new(Server)
+	server := &Server{}
 	rpchdl := rpcwrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe

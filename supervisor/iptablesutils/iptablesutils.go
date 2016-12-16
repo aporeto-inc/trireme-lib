@@ -91,7 +91,7 @@ type IpsetUtils interface {
 
 // NewIptableUtils returns the IptableUtils implementer
 func NewIptableUtils(p provider.IptablesProvider, remote bool) IptableUtils {
-	ipt := new(ipTableUtils)
+	ipt := &ipTableUtils{}
 	ipt.ipt = p
 	if remote {
 		ipt.appPacketIPTableSection = "OUTPUT"

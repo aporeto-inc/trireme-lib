@@ -39,10 +39,10 @@ type launcherState struct {
 }
 
 func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUInfo) error {
-	payload := new(rpcwrapper.InitRequestPayload)
-	request := new(rpcwrapper.Request)
+	payload := &rpcwrapper.InitRequestPayload{}
+	request := &rpcwrapper.Request{}
 
-	resp := new(rpcwrapper.Response)
+	resp := &rpcwrapper.Response{}
 
 	payload.MutualAuth = s.MutualAuth
 	payload.Validity = s.validity
@@ -79,10 +79,10 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if _, ok := s.initDone[contextID]; !ok {
 		s.InitRemoteEnforcer(contextID, puInfo)
 	}
-	request := new(rpcwrapper.Request)
+	request := &rpcwrapper.Request{}
 
-	enfResp := new(rpcwrapper.Response)
-	enfReq := new(rpcwrapper.EnforcePayload)
+	enfResp := &rpcwrapper.Response{}
+	enfReq := &rpcwrapper.EnforcePayload{}
 	enfReq.ContextID = contextID
 	enfReq.PuPolicy = puInfo.Policy
 	request.Payload = enfReq
@@ -99,9 +99,9 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 // Unenforce stops enforcing policy for the given IP.
 func (s *launcherState) Unenforce(contextID string) error {
-	request := new(rpcwrapper.Request)
-	payload := new(rpcwrapper.UnEnforcePayload)
-	unenfresp := new(rpcwrapper.Response)
+	request := &rpcwrapper.Request{}
+	payload := &rpcwrapper.UnEnforcePayload{}
+	unenfresp := &rpcwrapper.Response{}
 	payload.ContextID = contextID
 	request.Payload = payload
 	s.rpchdl.RemoteCall(contextID, "Server.Unenforce", request, unenfresp)

@@ -27,7 +27,7 @@ type RPCWrapper struct {
 }
 
 func NewRPCWrapper() *RPCWrapper {
-	rpcwrapper := new(RPCWrapper)
+	rpcwrapper := &RPCWrapper{}
 	rpcwrapper.rpcClientMap = cache.NewCache(nil)
 	return rpcwrapper
 }
@@ -98,7 +98,7 @@ func (r *RPCWrapper) CheckValidity(req *Request) bool {
 	return hmac.Equal(req.HashAuth, digest.Sum(nil))
 }
 func NewRPCServer() RPCServer {
-	return new(RPCWrapper)
+	return &RPCWrapper{}
 }
 
 //StartServer exported
