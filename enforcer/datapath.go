@@ -169,9 +169,7 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 	}
 
 	d.doUpdatePU(pu, puInfo)
-
 	d.contextTracker.AddOrUpdate(contextID, ip)
-
 	d.puTracker.AddOrUpdate(ip, pu)
 
 	return nil
@@ -180,27 +178,8 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
 
 	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules())
-
 	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules())
-
 	puContext.Tags = containerInfo.Policy.PolicyTags()
-
-	policy := fmt.Sprintf("\nContext:%v\ntags: %+v\ningress: %+v\negress: %+v\ntx: %+v\nrx: %+v\npt: %+v\nrr: %+v\ntr: %+v\n",
-		puContext.ID,
-		puContext.Tags,
-		containerInfo.Policy.IngressACLs(),
-		containerInfo.Policy.EgressACLs(),
-		containerInfo.Policy.TransmitterRules(),
-		containerInfo.Policy.ReceiverRules(),
-		containerInfo.Policy.PolicyTags(),
-		puContext.receiverRules,
-		puContext.transmitterRules,
-	)
-	log.WithFields(log.Fields{
-		"package": "policy",
-		"policy":  policy,
-	}).Error("Update Datapath Policy")
-
 	return nil
 }
 
