@@ -56,18 +56,19 @@ var ErrProcessDoesNotExists = errors.New("Process in that context does not exist
 var ErrBinaryNotFound = errors.New("Enforcer Binary not found")
 
 func init() {
-	netnspath = "/var/run/netns/"
 
+	netnspath = "/var/run/netns/"
 	go collectChildExitStatus()
 }
 
 //SetnsNetPath -- only planned consumer is unit test
 //Call this function if you expect network namespace links to be created in a separate path
 func (p *ProcessMon) SetnsNetPath(netpath string) {
+
 	netnspath = netpath
 }
 
-//GetExitStatus exported
+//GetExitStatus reports if the process is marked for deletion or deleted
 func (p *ProcessMon) GetExitStatus(contextID string) bool {
 
 	s, err := p.activeProcesses.Get(contextID)
@@ -80,8 +81,9 @@ func (p *ProcessMon) GetExitStatus(contextID string) bool {
 	return (s.(*processInfo)).deleted
 }
 
-//SetExitStatus exported
+//SetExitStatus marks the process for deletion
 func (p *ProcessMon) SetExitStatus(contextID string, status bool) error {
+
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
@@ -95,7 +97,7 @@ func (p *ProcessMon) SetExitStatus(contextID string, status bool) error {
 	return nil
 }
 
-//KillProcess exported
+//KillProcess sends a rpc to the process to exit failing which it will kill the process
 func (p *ProcessMon) KillProcess(contextID string) {
 
 	s, err := p.activeProcesses.Get(contextID)
@@ -120,9 +122,13 @@ func (p *ProcessMon) KillProcess(contextID string) {
 
 //private function uses with test
 func setprocessname(name string) {
+
 	processName = name
 }
+
+//collectChildExitStatus is an async function which collects status for all launched child processes
 func collectChildExitStatus() {
+
 	for {
 		exitStatus := <-childExitStatus
 		log.WithFields(log.Fields{"package": "ProcessMon",
@@ -133,8 +139,9 @@ func collectChildExitStatus() {
 	}
 }
 
-//LaunchProcess exported
+//LaunchProcess prepares the environment for the new process and launches the process
 func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient) error {
+
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
 		return nil
@@ -206,14 +213,18 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	return nil
 }
 
-//NewProcessMon exported
+//NewProcessMon is a method to create a new processmon
 func NewProcessMon() ProcessManager {
+
 	launcher = &ProcessMon{activeProcesses: cache.NewCache(nil)}
 	return launcher
 }
 
-//GetProcessMonHdl exported
+//GetProcessMonHdl will ensure that we return an existing handle if one has been created.
+//or return a new one if there is none
+//This needs locks
 func GetProcessMonHdl() ProcessManager {
+
 	if launcher == nil {
 		return NewProcessMon()
 	}

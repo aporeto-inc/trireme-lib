@@ -11,12 +11,12 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme/remote/supervisorLauncher"
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 
+	"github.com/aporeto-inc/trireme/supervisor/remote"
 	"github.com/aporeto-inc/trireme/supervisor/remote/remsupervisor"
 
-	"github.com/aporeto-inc/trireme/enforcer/remote/remenforcer"
+	"github.com/aporeto-inc/trireme/enforcer/remote"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
@@ -106,8 +106,8 @@ func NewTriremeWithDockerMonitor(
 		}
 
 		ipu := iptablesutils.NewIptableUtils(ipt, false)
-		enforcer := remenforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
-		IPTsupervisor, err := remsupervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks, rpcwrapper)
+		e := remenforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
+		IPTsupervisor, err := remsupervisor.NewIPTablesSupervisor(eventCollector, e, ipu, networks, rpcwrapper)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"package": "configurator",
@@ -115,7 +115,7 @@ func NewTriremeWithDockerMonitor(
 			}).Fatal("Failed to load Supervisor")
 
 		}
-		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
+		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, e)
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 	}

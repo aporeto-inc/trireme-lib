@@ -1,10 +1,9 @@
-//Package enforcerLauncher :: This is the implementation of the RPC client
+//Package remenforcer  :: This is the implementation of the RPC client
 //It implementes the interface PolicyEnforcer and forwards these requests to the actual enforcer
 package remenforcer
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -28,6 +27,7 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 // ErrInitFailed exported
 var ErrInitFailed = errors.New("Failed remote Init")
 
+//launcherstate is the struct used to hold state about active enforcers in the system
 type launcherState struct {
 	MutualAuth bool
 	Secrets    tokens.Secrets
@@ -38,7 +38,9 @@ type launcherState struct {
 	initDone   map[string]bool
 }
 
+//InitRemoteEnforcer method makes a RPC call to the remote enforcer
 func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUInfo) error {
+
 	payload := &rpcwrapper.InitRequestPayload{}
 	request := &rpcwrapper.Request{}
 
@@ -56,21 +58,14 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 	payload.ContextID = contextID
 
 	request.Payload = payload
-	//gob.Register(rpcwrapper.InitRequestPayload{})
 	s.initDone[contextID] = true
 	err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
-	if err != nil {
-		fmt.Println(err)
-	}
-	if resp.Status != nil {
-		fmt.Println(resp.Status)
-		panic("Init Failed")
-	}
-
-	return nil
-
+	return err
 }
+
+//Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
 func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
+
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl)
 	if err != nil {
 		return err
@@ -101,8 +96,9 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	return nil
 }
 
-// Unenforce stops enforcing policy for the given IP.
+// Unenforce stops enforcing policy for the given contexID.
 func (s *launcherState) Unenforce(contextID string) error {
+
 	request := &rpcwrapper.Request{}
 	payload := &rpcwrapper.UnEnforcePayload{}
 	unenfresp := &rpcwrapper.Response{}
@@ -116,11 +112,14 @@ func (s *launcherState) Unenforce(contextID string) error {
 		s.prochdl.KillProcess(contextID)
 
 	}
+	//The interface forces this signature.
+	//But in the remote enforcer case we will never fail
 	return nil
 }
 
 // GetFilterQueue returns the current FilterQueueConfig.
 func (s *launcherState) GetFilterQueue() *enforcer.FilterQueue {
+
 	fqConfig := &enforcer.FilterQueue{
 		NetworkQueue:              enforcer.DefaultNetworkQueue,
 		NetworkQueueSize:          enforcer.DefaultQueueSize,
@@ -137,15 +136,17 @@ func (s *launcherState) GetFilterQueue() *enforcer.FilterQueue {
 //At this point no container has started so we don't know
 //what namespace to launch the new container
 func (s *launcherState) Start() error {
+
 	return nil
 }
 
 // Stop stops the PolicyEnforcer.
 func (s *launcherState) Stop() error {
+
 	return nil
 }
 
-//NewDatapathEnforcer exported
+//NewDatapathEnforcer creates a new enforcer launcher
 func NewDatapathEnforcer(mutualAuth bool,
 	filterQueue *enforcer.FilterQueue,
 	collector collector.EventCollector,
@@ -155,6 +156,7 @@ func NewDatapathEnforcer(mutualAuth bool,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 ) enforcer.PolicyEnforcer {
+
 	launcher := &launcherState{
 		MutualAuth: mutualAuth,
 		Secrets:    secrets,
@@ -167,17 +169,19 @@ func NewDatapathEnforcer(mutualAuth bool,
 	log.WithFields(log.Fields{"package": "enforcerLauncher",
 		"method": "NewDataPathEnforcer",
 	}).Info("Called NewDataPathEnforcer")
-	statsserver := rpcwrapper.NewRPCWrapper()
-	rpcserver := &StatsServer{rpchdl: statsserver, collector: collector}
-	go statsserver.StartServer("unix", rpcwrapper.StatsChannel, rpcserver)
+
+	statsServer := rpcwrapper.NewRPCWrapper()
+	rpcServer := &StatsServer{rpchdl: statsServer, collector: collector}
+	go statsServer.StartServer("unix", rpcwrapper.StatsChannel, rpcServer)
 	return launcher
 }
 
-//NewDefaultDatapathEnforcer exported
+//NewDefaultDatapathEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer
 func NewDefaultDatapathEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
 	rpchdl *rpcwrapper.RPCWrapper) enforcer.PolicyEnforcer {
+
 	mutualAuthorization := false
 	fqConfig := &enforcer.FilterQueue{
 		NetworkQueue:              enforcer.DefaultNetworkQueue,
@@ -200,12 +204,15 @@ func NewDefaultDatapathEnforcer(serverID string,
 		rpchdl)
 }
 
+//StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer
 type StatsServer struct {
 	collector collector.EventCollector
 	rpchdl    rpcwrapper.RPCServer
 }
 
+//GetStats  is the function called from the remoteenforcer when it has new flow events to publish
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
 	if !r.rpchdl.ProcessMessage(&req) {
 		log.WithFields(log.Fields{"package": "enforcerLauncher"}).Error("Message sender cannot be verified")
 		return errors.New("Message sender cannot be verified")

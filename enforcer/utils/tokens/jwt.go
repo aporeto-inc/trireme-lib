@@ -147,7 +147,6 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*
 	if err != nil || !jwttoken.Valid {
 		log.WithFields(log.Fields{"package": "token",
 			"Error": err}).Error("ParseWithClaim failed")
-
 		return nil, nil
 	}
 	return jwtClaims.ConnectionClaims, ackCert
