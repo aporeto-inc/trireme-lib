@@ -1115,10 +1115,6 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Process network TCP packet")
-
 	// Lookup the policy rules for the packet - Return false if they don't exist
 	context, err := d.puTracker.Get(tcpPacket.DestinationAddress.String())
 
@@ -1126,9 +1122,15 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"error":   err.Error(),
-		}).Debug("Failed to retrieve context for this packet")
+		}).Debug("Process network TCP packet: Failed to retrieve context for this packet")
 		return nil, fmt.Errorf("Context not found for container %s %v", tcpPacket.DestinationAddress.String(), d.puTracker)
 	}
+
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+		"ip":      tcpPacket.DestinationAddress.String(),
+		"context": context.(*PUContext).ID,
+	}).Debug("Process network TCP packet")
 
 	// Update connection state in the internal state machine tracker
 	switch tcpPacket.TCPFlags {
