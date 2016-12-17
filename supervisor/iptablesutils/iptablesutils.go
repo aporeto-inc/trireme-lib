@@ -48,8 +48,8 @@ type IptableProviderUtils interface {
 	DeleteChainRules(appChain, netChain, ip string) error
 	AddPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
 	DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
-	AddAppACLs(chain string, ip string, rules []policy.IPRule) error
-	AddNetACLs(chain, ip string, rules []policy.IPRule) error
+	AddAppACLs(chain string, ip string, rules *policy.IPRuleList) error
+	AddNetACLs(chain, ip string, rules *policy.IPRuleList) error
 	cleanACLSection(context, section, chainPrefix string)
 	exclusionChainRules(ip string) [][]string
 	AddExclusionChainRules(ip string) error

@@ -927,6 +927,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	log.WithFields(log.Fields{
 		"package": "enforcer",
 		"claims":  c,
+		"context": context.ID,
 		"rules":   r,
 	}).Debug("Syn packet - no matched tags - reject")
 
