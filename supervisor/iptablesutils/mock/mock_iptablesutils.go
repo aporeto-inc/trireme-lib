@@ -201,16 +201,6 @@ func (_mr *_MockIptableProviderUtilsRecorder) AddAppACLs(arg0, arg1, arg2 interf
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddAppACLs", arg0, arg1, arg2)
 }
 
-func (_m *MockIptableProviderUtils) DeleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
-	ret := _m.ctrl.Call(_m, "DeleteAppACLs", chain, ip, rules)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockIptableProviderUtilsRecorder) DeleteAppACLs(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteAppACLs", arg0, arg1, arg2)
-}
-
 func (_m *MockIptableProviderUtils) AddNetACLs(chain string, ip string, rules []policy.IPRule) error {
 	ret := _m.ctrl.Call(_m, "AddNetACLs", chain, ip, rules)
 	ret0, _ := ret[0].(error)
@@ -219,16 +209,6 @@ func (_m *MockIptableProviderUtils) AddNetACLs(chain string, ip string, rules []
 
 func (_mr *_MockIptableProviderUtilsRecorder) AddNetACLs(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddNetACLs", arg0, arg1, arg2)
-}
-
-func (_m *MockIptableProviderUtils) DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
-	ret := _m.ctrl.Call(_m, "DeleteNetACLs", chain, ip, rules)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockIptableProviderUtilsRecorder) DeleteNetACLs(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteNetACLs", arg0, arg1, arg2)
 }
 
 func (_m *MockIptableProviderUtils) cleanACLSection(context string, section string, chainPrefix string) {
@@ -572,16 +552,6 @@ func (_mr *_MockIptableUtilsRecorder) AddAppACLs(arg0, arg1, arg2 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddAppACLs", arg0, arg1, arg2)
 }
 
-func (_m *MockIptableUtils) DeleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
-	ret := _m.ctrl.Call(_m, "DeleteAppACLs", chain, ip, rules)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockIptableUtilsRecorder) DeleteAppACLs(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteAppACLs", arg0, arg1, arg2)
-}
-
 func (_m *MockIptableUtils) AddNetACLs(chain string, ip string, rules []policy.IPRule) error {
 	ret := _m.ctrl.Call(_m, "AddNetACLs", chain, ip, rules)
 	ret0, _ := ret[0].(error)
@@ -590,16 +560,6 @@ func (_m *MockIptableUtils) AddNetACLs(chain string, ip string, rules []policy.I
 
 func (_mr *_MockIptableUtilsRecorder) AddNetACLs(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddNetACLs", arg0, arg1, arg2)
-}
-
-func (_m *MockIptableUtils) DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
-	ret := _m.ctrl.Call(_m, "DeleteNetACLs", chain, ip, rules)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockIptableUtilsRecorder) DeleteNetACLs(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteNetACLs", arg0, arg1, arg2)
 }
 
 func (_m *MockIptableUtils) cleanACLSection(context string, section string, chainPrefix string) {
