@@ -13,8 +13,8 @@ import (
 )
 
 type supervisorCacheEntry struct {
-	index       int
-	ips         *policy.IPList
+	index int
+	ips   *policy.IPList
 }
 
 // iptablesSupervisor is the structure holding all information about a connection filter
@@ -280,7 +280,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddAppACLs(appChain, ipAddress, cacheEntry.ingressACLs); err != nil {
+	if err := s.ipu.AddAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs()); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -293,7 +293,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddNetACLs(netChain, ipAddress, cacheEntry.egressACLs); err != nil {
+	if err := s.ipu.AddNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs()); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -386,7 +386,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddAppACLs(appChain, ipAddress, cachedEntry.ingressACLs); err != nil {
+	if err := s.ipu.AddAppACLs(appChain, ipAddress, containerInfo.Policy.IngressACLs()); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -399,7 +399,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return err
 	}
 
-	if err := s.ipu.AddNetACLs(netChain, ipAddress, cachedEntry.egressACLs); err != nil {
+	if err := s.ipu.AddNetACLs(netChain, ipAddress, containerInfo.Policy.EgressACLs()); err != nil {
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{

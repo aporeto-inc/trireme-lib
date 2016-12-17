@@ -260,7 +260,7 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 		return err
 	}
 
-	if err := s.doAddSets(contextID, appSet, netSet, cacheEntry.ingressACLs, cacheEntry.egressACLs, ipAddress); err != nil {
+	if err := s.doAddSets(contextID, appSet, netSet, containerInfo.Policy.IngressACLs(), containerInfo.Policy.EgressACLs(), ipAddress); err != nil {
 		return err
 	}
 
@@ -311,7 +311,7 @@ func (s *ipsetSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUI
 	oldAppSet := s.ipu.AppChainPrefix(contextID, oldindex)
 	oldNetSet := s.ipu.NetChainPrefix(contextID, oldindex)
 
-	if err := s.doAddSets(contextID, appSet, netSet, cachedEntry.ingressACLs, cachedEntry.egressACLs, ipAddress); err != nil {
+	if err := s.doAddSets(contextID, appSet, netSet, containerInfo.Policy.IngressACLs(), containerInfo.Policy.EgressACLs(), ipAddress); err != nil {
 		return err
 	}
 
