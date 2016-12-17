@@ -13,10 +13,8 @@ import (
 )
 
 type supervisorCacheEntry struct {
-	index       int
-	ips         []string
-	ingressACLs []policy.IPRule
-	egressACLs  []policy.IPRule
+	index int
+	ips   []string
 }
 
 // iptablesSupervisor is the structure holding all information about a connection filter
@@ -161,10 +159,6 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 
 	s.ipu.DeletePacketTrap(appChain, netChain, ip, s.targetNetworks, s.applicationQueues, s.networkQueues)
 
-	s.ipu.DeleteAppACLs(appChain, ip, cacheEntry.ingressACLs)
-
-	s.ipu.DeleteNetACLs(netChain, ip, cacheEntry.egressACLs)
-
 	s.ipu.DeleteChainRules(appChain, netChain, ip)
 
 	s.ipu.DeleteAllContainerChains(appChain, netChain)
@@ -227,10 +221,8 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	}
 
 	cacheEntry := &supervisorCacheEntry{
-		index:       index,
-		ips:         containerInfo.Policy.IPAddresses(),
-		ingressACLs: containerInfo.Policy.IngressACLs,
-		egressACLs:  containerInfo.Policy.EgressACLs,
+		index: index,
+		ips:   containerInfo.Policy.IPAddresses(),
 	}
 
 	// Version the policy so that we can do hitless policy changes
