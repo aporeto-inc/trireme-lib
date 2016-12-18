@@ -181,16 +181,6 @@ func (_mr *_MockIptableProviderUtilsRecorder) AddPacketTrap(arg0, arg1, arg2, ar
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddPacketTrap", arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
-func (_m *MockIptableProviderUtils) DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error {
-	ret := _m.ctrl.Call(_m, "DeletePacketTrap", appChain, netChain, ip, targetNetworks, appQueue, netQueue)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockIptableProviderUtilsRecorder) DeletePacketTrap(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeletePacketTrap", arg0, arg1, arg2, arg3, arg4, arg5)
-}
-
 func (_m *MockIptableProviderUtils) AddAppACLs(chain string, ip string, rules []policy.IPRule) error {
 	ret := _m.ctrl.Call(_m, "AddAppACLs", chain, ip, rules)
 	ret0, _ := ret[0].(error)
@@ -530,16 +520,6 @@ func (_m *MockIptableUtils) AddPacketTrap(appChain string, netChain string, ip s
 
 func (_mr *_MockIptableUtilsRecorder) AddPacketTrap(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddPacketTrap", arg0, arg1, arg2, arg3, arg4, arg5)
-}
-
-func (_m *MockIptableUtils) DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error {
-	ret := _m.ctrl.Call(_m, "DeletePacketTrap", appChain, netChain, ip, targetNetworks, appQueue, netQueue)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockIptableUtilsRecorder) DeletePacketTrap(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeletePacketTrap", arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 func (_m *MockIptableUtils) AddAppACLs(chain string, ip string, rules []policy.IPRule) error {
