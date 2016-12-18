@@ -117,7 +117,7 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 	req := &triremeRequest{
 		contextID:  contextID,
 		reqType:    policyUpdate,
-		policyInfo: newPolicy,
+		policyInfo: newPolicy.Clone(),
 		returnChan: c,
 	}
 
@@ -151,9 +151,10 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 // default TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
-	containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = containerInfo.Policy.ManagementID
-	if containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] == "" {
-		containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] = contextID
+	if containerInfo.Policy.ManagementID == "" {
+		containerInfo.Policy.AddPolicyTag(enforcer.TransmitterLabel, contextID)
+	} else {
+		containerInfo.Policy.AddPolicyTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
 	}
 }
 
@@ -209,6 +210,9 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
+
+	// Create a copy as we are going to modify it locally
+	policyInfo = policyInfo.Clone()
 
 	present, err := isPolicyIPValid(policyInfo)
 

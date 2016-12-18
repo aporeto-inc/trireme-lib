@@ -92,21 +92,21 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 }
 
 //Search searches for a set of tags in the database to find a policy match
-func (m *PolicyDB) Search(tags policy.TagsMap) (int, interface{}) {
+func (m *PolicyDB) Search(tags *policy.TagsMap) (int, interface{}) {
 
 	count := make([]int, m.numberOfPolicies+1)
 
 	skip := make([]bool, m.numberOfPolicies+1)
 
 	// Disable all policies that fail the not key exists
-	for k := range tags {
+	for k := range tags.Tags {
 		for _, policy := range m.notStarTable[k] {
 			skip[policy.index] = true
 		}
 	}
 
 	// Go through the list of tags
-	for k, v := range tags {
+	for k, v := range tags.Tags {
 
 		// Search for matches of k=*
 		if index, action := searchInMapTabe(m.starTable[k], count, skip); index >= 0 {

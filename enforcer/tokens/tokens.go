@@ -1,8 +1,10 @@
 package tokens
 
+import "github.com/aporeto-inc/trireme/policy"
+
 // ConnectionClaims captures all the claim information
 type ConnectionClaims struct {
-	T   map[string]string
+	T   *policy.TagsMap
 	LCL []byte
 	RMT []byte
 	EK  []byte

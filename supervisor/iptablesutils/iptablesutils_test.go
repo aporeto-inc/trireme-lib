@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/mock/gomock"
+	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider/mock"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -14,11 +15,11 @@ func TestAppChainPrefix(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mock_ipt := mockprovider.NewMockIptablesProvider(ctrl)
+	mockIpt := mockprovider.NewMockIptablesProvider(ctrl)
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mock_ipt)
+		ipu := NewIptableUtils(mockIpt)
 
 		Convey("When I call AppChainPrefix", func() {
 
@@ -38,11 +39,11 @@ func TestNetChainPrefix(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mock_ipt := mockprovider.NewMockIptablesProvider(ctrl)
+	mockIpt := mockprovider.NewMockIptablesProvider(ctrl)
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mock_ipt)
+		ipu := NewIptableUtils(mockIpt)
 
 		Convey("When I call NetChainPrefix", func() {
 
@@ -62,11 +63,11 @@ func TestDefaultCacheIP(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mock_ipt := mockprovider.NewMockIptablesProvider(ctrl)
+	mockIpt := mockprovider.NewMockIptablesProvider(ctrl)
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mock_ipt)
+		ipu := NewIptableUtils(mockIpt)
 
 		Convey("When I call DefaultCacheIP with empty ip list", func() {
 
@@ -81,12 +82,12 @@ func TestDefaultCacheIP(t *testing.T) {
 
 		Convey("When I call DefaultCacheIP with ip list", func() {
 
-			ips := []string{"172.0.0.1", "10.10.10.10"}
+			ips := policy.NewIPList([]string{"172.0.0.1", "10.10.10.10"})
 			ip, err := ipu.DefaultCacheIP(ips)
 
 			Convey("Then I should get the first ip", func() {
 
-				So(ip, ShouldEqual, ips[0])
+				So(ip, ShouldEqual, ips.IPs[0])
 				So(err, ShouldBeNil)
 			})
 		})
@@ -97,16 +98,16 @@ func TestFilterMarkedPacketsError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mock_ipt := mockprovider.NewMockIptablesProvider(ctrl)
+	mockIpt := mockprovider.NewMockIptablesProvider(ctrl)
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mock_ipt)
+		ipu := NewIptableUtils(mockIpt)
 
 		Convey("When I call FilterMarkedPackets to induce an error", func() {
 
 			mark := 10
-			mock_ipt.EXPECT().Insert(appAckPacketIPTableContext, appPacketIPTableSection, 1,
+			mockIpt.EXPECT().Insert(appAckPacketIPTableContext, appPacketIPTableSection, 1,
 				"-m", "mark",
 				"--mark", strconv.Itoa(mark),
 				"-j", "ACCEPT").Return(fmt.Errorf("Some Error"))

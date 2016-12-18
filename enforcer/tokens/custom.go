@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme/crypto"
+	"github.com/aporeto-inc/trireme/policy"
 )
 
 // CustomTokenSignMethod describes the sign methods for the custome tokens
@@ -77,7 +78,7 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 
 	// If not an ACK packet copy the tags
 	if !isAck {
-		for k, v := range claims.T {
+		for k, v := range claims.T.Tags {
 			tag := []byte(k + "=" + v + " ")
 			buffer = append(buffer, tag...)
 		}
@@ -113,7 +114,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, cert *x509.Certifica
 	claims.RMT = data[rmtIndex : rmtIndex+sizeOfRandom]
 
 	if !isAck {
-		claims.T = map[string]string{}
+		claims.T = policy.NewTagsMap(nil)
 		buffer := bytes.NewBuffer(data[minBufferLength:])
 		for {
 			tag, err := buffer.ReadBytes([]byte(" ")[0])
@@ -124,7 +125,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, cert *x509.Certifica
 					continue
 				}
 
-				claims.T[values[0]] = values[1]
+				claims.T.Add(values[0], values[1])
 				continue
 			}
 
