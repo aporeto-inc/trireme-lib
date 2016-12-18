@@ -204,17 +204,9 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"package":     "trireme",
 			"contextID":   contextID,
 			"runtimeInfo": runtimeInfo,
-<<<<<<< f904b9eb16171cdcc03b2c73dccb39ee8933dbfc
 			"error":       err.Error(),
 		}).Debug("Nil policy returned when resolving the context")
 
-<<<<<<< 87be5ead77cc06d769524be086a64831ed29a018
-=======
-			"error":       err,
-		}).Error("Nil policy returned when resolving the context")
->>>>>>> Merged with mainline
-=======
->>>>>>> Mergin for build -- Build still fails -- just a WIP checkin
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
 
@@ -246,23 +238,12 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	if err != nil {
 		//t.supervisor.Unsupervise(contextID)
-<<<<<<< f904b9eb16171cdcc03b2c73dccb39ee8933dbfc
-
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
 			"error":     err.Error(),
 		}).Debug("Not able to setup supervisor")
-=======
 
-		log.WithFields(log.Fields{
-			"package":       "trireme",
-			"contextID":     contextID,
-			"error":         err,
-			"containerInfo": containerInfo,
-		}).Error("Not able to setup enforcer")
-
->>>>>>> Merged with mainline
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 
@@ -271,20 +252,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	if err != nil {
 		t.enforcer.Unenforce(contextID)
 		log.WithFields(log.Fields{
-<<<<<<< f904b9eb16171cdcc03b2c73dccb39ee8933dbfc
 			"package":   "trireme",
 			"contextID": contextID,
 			"error":     err.Error(),
 		}).Debug("Not able to setup enforcer")
-=======
-			"package":       "trireme",
-			"contextID":     contextID,
-			"error":         err,
-			"containerInfo": containerInfo,
-			"runtimeInfo":   runtimeInfo,
-		}).Error("Not able to setup supervisor")
->>>>>>> Merged with mainline
-
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
@@ -392,18 +363,9 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	if err != nil {
 
 		log.WithFields(log.Fields{
-<<<<<<< f904b9eb16171cdcc03b2c73dccb39ee8933dbfc
 			"package":   "trireme",
 			"contextID": contextID,
 			"error":     err.Error(),
-=======
-			"package":       "trireme",
-			"contextID":     contextID,
-			"policy":        newPolicy,
-			"runtimeInfo":   runtimeInfo,
-			"containerInfo": containerInfo,
-			"error":         err,
->>>>>>> Merged with mainline
 		}).Error("Policy Update failed for Enforcer")
 		return fmt.Errorf("Policy Update failed for Enforcer %s", err)
 	}

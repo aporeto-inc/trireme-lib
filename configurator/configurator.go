@@ -14,16 +14,12 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 
 	"github.com/aporeto-inc/trireme/supervisor/remote"
-	"github.com/aporeto-inc/trireme/supervisor/remote/remsupervisor"
 
 	"github.com/aporeto-inc/trireme/enforcer/remote"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
 
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -119,9 +115,6 @@ func NewTriremeWithDockerMonitor(
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
 		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
 	}
-
-	// Make sure that the iptables command is accessible. Panic if its not there.
-	ips := provider.NewGoIPsetProvider()
 
 	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets)
 	IPTsupervisor, err := NewDefaultSupervisor(eventCollector, enforcer, networks)

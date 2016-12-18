@@ -24,12 +24,10 @@ type ipsetSupervisor struct {
 	networkQueues     string
 	applicationQueues string
 	targetNetworks    []string
-	remote            bool
 }
 
 // NewIPSetSupervisor returns a new implementation of the Supervisor based on IPSets.
 func NewIPSetSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, ipsetUtils iptablesutils.IpsetUtils, targetNetworks []string) (Supervisor, error) {
-
 	if collector == nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -248,10 +246,8 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 	}
 
 	cacheEntry := &supervisorCacheEntry{
-		index:       index,
-		ips:         containerInfo.Policy.IPAddresses(),
-		ingressACLs: containerInfo.Policy.IngressACLs,
-		egressACLs:  containerInfo.Policy.EgressACLs,
+		index: index,
+		ips:   containerInfo.Policy.IPAddresses(),
 	}
 
 	// Version the policy so that we can do hitless policy changes
@@ -342,6 +338,7 @@ func (s *ipsetSupervisor) cleanACLs() error {
 	log.WithFields(log.Fields{
 		"package": "supervisor",
 	}).Debug("Cleaning all IPTables")
+
 	// Clean Application Rules/Chains
 	s.ipu.CleanACLs()
 
