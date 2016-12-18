@@ -5,7 +5,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-var (
+const (
 	// FlowReject indicates that a flow was rejected
 	FlowReject = "reject"
 	// FlowAccept logs that a flow is accepted
@@ -44,8 +44,8 @@ var (
 type EventCollector interface {
 
 	// CollectFlowEvent collects flow events.
-	CollectFlowEvent(contextID string, tags policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet)
+	CollectFlowEvent(contextID string, tags *policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet)
 
 	// CollectContainerEvent collects container events.
-	CollectContainerEvent(contextID string, ip string, tags policy.TagsMap, event string)
+	CollectContainerEvent(contextID string, ip string, tags *policy.TagsMap, event string)
 }

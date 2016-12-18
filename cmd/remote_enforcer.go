@@ -48,7 +48,7 @@ type collectorentry struct {
 }
 
 //CollectFlowEvent expoted
-func (c *CollectorImpl) CollectFlowEvent(contextID string, tags policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet) {
+func (c *CollectorImpl) CollectFlowEvent(contextID string, tags *policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet) {
 
 	l4FlowHash := tcpPacket.L4FlowHash()
 	payload := &enforcer.StatsPayload{ContextID: contextID,
@@ -70,7 +70,7 @@ func (c *CollectorImpl) CollectFlowEvent(contextID string, tags policy.TagsMap, 
 
 //CollectContainerEvent exported
 //This event should not be expected here in the enforcer process inside a particular container context
-func (c *CollectorImpl) CollectContainerEvent(contextID string, ip string, tags policy.TagsMap, event string) {
+func (c *CollectorImpl) CollectContainerEvent(contextID string, ip string, tags *policy.TagsMap, event string) {
 	log.WithFields(log.Fields{"package": "remoteEnforcer",
 		"Msg": "Unexpected call to CollectContainer Event",
 	}).Error("Received a container event in Remote Enforcer ")
@@ -236,7 +236,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	}
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 	pupolicy := payload.PuPolicy
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	puInfo.Runtime.SetPid(os.Getpid())
 	log.WithFields(log.Fields{"package": "remote_enforcer",
@@ -285,7 +285,7 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	}
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 	pupolicy := payload.PuPolicy
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer"}).Info("Failed Runtime")

@@ -107,8 +107,9 @@ func TestInvalidTokenContext(t *testing.T) {
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
 
-		ip := make(map[string]string)
-		ip["bridge"] = "164.67.228.152"
+		ip := policy.NewIPMap(map[string]string{
+			"brige": "164.67.228.152",
+		})
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret).(*datapathEnforcer)
@@ -153,21 +154,22 @@ func TestPacketHandling(t *testing.T) {
 
 			// Create ProcessingUnit 1
 			puInfo1 := policy.NewPUInfo("SomeProcessingUnitId1")
-			ip1 := make(map[string]string)
-			ip1["bridge"] = "164.67.228.152"
+			ip1 := policy.NewIPMap(map[string]string{})
+			ip1.Add("bridge", "164.67.228.152")
 			puInfo1.Runtime.SetIPAddresses(ip1)
-			puInfo1.Policy.PolicyIPs = []string{"164.67.228.152"}
-			puInfo1.Policy.PolicyTags[TransmitterLabel] = "value"
-			puInfo1.Policy.ReceiverRules = append(puInfo1.Policy.ReceiverRules, tagSelector)
+			ipl1 := policy.NewIPList([]string{"164.67.228.152"})
+			puInfo1.Policy.SetIPAddresses(ipl1)
+			puInfo1.Policy.AddPolicyTag(TransmitterLabel, "value")
+			puInfo1.Policy.AddReceiverRules(&tagSelector)
 
 			// Create processing unit 2
 			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2")
-			ip2 := make(map[string]string)
-			ip2["bridge"] = "10.1.10.76"
+			ip2 := policy.NewIPMap(map[string]string{"bridge": "10.1.10.76"})
 			puInfo2.Runtime.SetIPAddresses(ip2)
-			puInfo2.Policy.PolicyIPs = []string{"10.1.10.76"}
-			puInfo2.Policy.PolicyTags[TransmitterLabel] = "value"
-			puInfo1.Policy.ReceiverRules = append(puInfo1.Policy.ReceiverRules, tagSelector)
+			ipl2 := policy.NewIPList([]string{"10.1.10.76"})
+			puInfo2.Policy.SetIPAddresses(ipl2)
+			puInfo2.Policy.AddPolicyTag(TransmitterLabel, "value")
+			puInfo2.Policy.AddReceiverRules(&tagSelector)
 
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
@@ -187,12 +189,12 @@ func TestPacketHandling(t *testing.T) {
 					copy(start, p)
 
 					oldPacket, err := packet.New(0, start)
-					if oldPacket != nil {
+					if err == nil && oldPacket != nil {
 						oldPacket.UpdateIPChecksum()
 						oldPacket.UpdateTCPChecksum()
 					}
 					tcpPacket, err := packet.New(0, input)
-					if tcpPacket != nil {
+					if err == nil && tcpPacket != nil {
 						tcpPacket.UpdateIPChecksum()
 						tcpPacket.UpdateTCPChecksum()
 					}
@@ -275,8 +277,10 @@ func TestCacheState(t *testing.T) {
 		t.Errorf("Expected failure, no contextID in cache")
 	}
 
-	puInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "127.0.0.1"})
-	puInfo.Policy.PolicyIPs = []string{"127.0.0.1"}
+	ip := policy.NewIPMap(map[string]string{"bridge": "127.0.0.1"})
+	puInfo.Runtime.SetIPAddresses(ip)
+	ipl := policy.NewIPList([]string{"127.0.0.1"})
+	puInfo.Policy.SetIPAddresses(ipl)
 
 	// Should  not fail:  IP is valid
 	err = enforcer.Enforce(contextID, puInfo)

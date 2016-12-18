@@ -67,7 +67,7 @@ type FilterQueue struct {
 // PUContext holds data indexed by the docker ID
 type PUContext struct {
 	ID               string
-	Tags             policy.TagsMap
+	Tags             *policy.TagsMap
 	transmitterRules *lookup.PolicyDB
 	receiverRules    *lookup.PolicyDB
 	Extension        interface{}
@@ -75,7 +75,7 @@ type PUContext struct {
 
 type StatsPayload struct {
 	ContextID string
-	Tags      policy.TagsMap
+	Tags      *policy.TagsMap
 	Action    string
 	Mode      string
 	Source    string

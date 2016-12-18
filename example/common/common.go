@@ -34,37 +34,44 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	containerPolicyInfo := p.createRules(runtimeInfo)
 
 	// Access google as an example of external ACL
-	ingress := policy.IPRule{
-		Address:  "216.0.0.0/8",
-		Port:     "80",
-		Protocol: "TCP",
-	}
+	ingress := policy.NewIPRuleList([]policy.IPRule{
+		policy.IPRule{
+			Address:  "216.0.0.0/8",
+			Port:     "80",
+			Protocol: "TCP",
+		},
+	})
 
 	// Allow access to container from localhost
-	egress := policy.IPRule{
-		Address:  "172.17.0.1/32",
-		Port:     "80",
-		Protocol: "TCP",
-	}
+	egress := policy.NewIPRuleList([]policy.IPRule{
+		policy.IPRule{
+			Address:  "172.17.0.1/32",
+			Port:     "80",
+			Protocol: "TCP",
+		},
+	})
 
-	containerPolicyInfo.IngressACLs = []policy.IPRule{ingress}
-	containerPolicyInfo.EgressACLs = []policy.IPRule{egress}
+	containerPolicyInfo.SetIngressACLs(ingress)
+	containerPolicyInfo.SetEgressACLs(egress)
 
 	// Use all the labels from Docker
-	containerPolicyInfo.PolicyTags = runtimeInfo.Tags()
+	containerPolicyInfo.SetPolicyTags(runtimeInfo.Tags())
 
 	// Use the bridge IP from Docker.
+	ipl := policy.NewIPList([]string{})
 	ip, ok := runtimeInfo.DefaultIPAddress()
 	if ok {
-		containerPolicyInfo.PolicyIPs = []string{ip}
+		ipl.IPs = append(ipl.IPs, ip)
+		containerPolicyInfo.SetIPAddresses(ipl)
 	} else {
-		containerPolicyInfo.PolicyIPs = []string{}
+		containerPolicyInfo.SetIPAddresses(ipl)
 	}
 
 	// Police the container
 	containerPolicyInfo.TriremeAction = policy.Police
 
-	for i, selector := range containerPolicyInfo.ReceiverRules {
+	rules := containerPolicyInfo.ReceiverRules()
+	for i, selector := range rules.TagSelectors {
 		for _, clause := range selector.Clause {
 			log.Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
 		}
@@ -89,23 +96,19 @@ func (p *CustomPolicyResolver) SetPolicyUpdater(pu trireme.PolicyUpdater) error 
 // If any of the labels matches, the packet is accepted.
 func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *policy.PUPolicy {
 
-	containerPolicyInfo := policy.NewPUPolicy()
+	containerPolicyInfo := policy.NewPUPolicyWithDefaults()
 
-	for key, value := range runtimeInfo.Tags() {
+	tags := runtimeInfo.Tags()
+	for key, value := range tags.Tags {
 		kv := policy.KeyValueOperator{
 			Key:      key,
 			Value:    []string{value},
 			Operator: policy.Equal,
 		}
 
-		clause := []policy.KeyValueOperator{kv}
+		selector := policy.NewTagSelector([]policy.KeyValueOperator{kv}, policy.Accept)
 
-		selector := policy.TagSelector{
-			Clause: clause,
-			Action: policy.Accept,
-		}
-
-		containerPolicyInfo.ReceiverRules = append(containerPolicyInfo.ReceiverRules, selector)
+		containerPolicyInfo.AddReceiverRules(selector)
 	}
 	return containerPolicyInfo
 
