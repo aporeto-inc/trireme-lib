@@ -51,9 +51,7 @@ type IptableProviderUtils interface {
 	AddPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
 	DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
 	AddAppACLs(chain string, ip string, rules []policy.IPRule) error
-	DeleteAppACLs(chain string, ip string, rules []policy.IPRule) error
 	AddNetACLs(chain, ip string, rules []policy.IPRule) error
-	DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error
 	cleanACLSection(context, section, chainPrefix string)
 	exclusionChainRules(ip string) [][]string
 	AddExclusionChainRules(ip string) error
@@ -519,52 +517,6 @@ func (r *ipTableUtils) AddAppACLs(chain string, ip string, rules []policy.IPRule
 	return nil
 }
 
-// DeleteAppACLs deletes the rules associated with traffic to external services
-func (r *ipTableUtils) DeleteAppACLs(chain string, ip string, rules []policy.IPRule) error {
-
-	log.WithFields(log.Fields{
-		"package": "iptablesutils",
-		"ip":      ip,
-		"rules":   rules,
-		"chain":   chain,
-	}).Debug("Delete App ACLs")
-
-	for i := range rules {
-		if err := r.ipt.Delete(
-			appAckPacketIPTableContext, chain,
-			"-p", rules[i].Protocol, "-m", "state", "--state", "NEW",
-			"-d", rules[i].Address,
-			"--dport", rules[i].Port,
-			"-j", "ACCEPT",
-		); err != nil {
-			log.WithFields(log.Fields{
-				"package":                 "iptablesutils",
-				"netPacketIPTableContext": netPacketIPTableContext,
-				"chain":                   chain,
-				"error":                   err.Error(),
-			}).Debug("Error when removing ingress app acl rule")
-
-			// TODO: how do we deal with errors ?
-		}
-	}
-
-	if err := r.ipt.Delete(
-		appAckPacketIPTableContext, chain,
-		"-d", "0.0.0.0/0",
-		"-p", "tcp", "-m", "state", "--state", "NEW",
-		"-j", "DROP",
-	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                 "iptablesutils",
-			"netPacketIPTableContext": netPacketIPTableContext,
-			"chain":                   chain,
-			"error":                   err.Error(),
-		}).Debug("Error when removing default ingress app acl default rule")
-	}
-
-	return nil
-}
-
 // AddNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the higest priority since they are direct allows.
 func (r *ipTableUtils) AddNetACLs(chain, ip string, rules []policy.IPRule) error {
@@ -611,52 +563,6 @@ func (r *ipTableUtils) AddNetACLs(chain, ip string, rules []policy.IPRule) error
 		}).Debug("Error when adding default net acl rule")
 
 		return err
-	}
-
-	return nil
-}
-
-// DeleteNetACLs removes the iptable rules that manage traffic from external services
-func (r *ipTableUtils) DeleteNetACLs(chain string, ip string, rules []policy.IPRule) error {
-
-	log.WithFields(log.Fields{
-		"package": "iptablesutils",
-		"ip":      ip,
-		"rules":   rules,
-		"chain":   chain,
-	}).Debug("Delete Net ACLs")
-
-	for i := range rules {
-		if err := r.ipt.Delete(
-			netPacketIPTableContext, chain,
-			"-p", rules[i].Protocol,
-			"-s", rules[i].Address,
-			"--dport", rules[i].Port,
-			"-j", "ACCEPT",
-		); err != nil {
-			log.WithFields(log.Fields{
-				"package":                 "iptablesutils",
-				"netPacketIPTableContext": netPacketIPTableContext,
-				"chain":                   chain,
-				"error":                   err.Error(),
-			}).Debug("Error when removing the egress net ACL rule")
-
-			// TODO: how do we deal with the errors here
-		}
-	}
-
-	if err := r.ipt.Delete(
-		netPacketIPTableContext, chain,
-		"-s", "0.0.0.0/0",
-		"-p", "tcp", "-m", "state", "--state", "NEW",
-		"-j", "DROP",
-	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                 "iptablesutils",
-			"netPacketIPTableContext": netPacketIPTableContext,
-			"chain":                   chain,
-			"error":                   err.Error(),
-		}).Debug("Error when removing the net ACL rule")
 	}
 
 	return nil
