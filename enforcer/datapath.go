@@ -177,9 +177,27 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 
 func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
 
+	rx := fmt.Sprintf("%+v", puContext.receiverRules)
+	tx := fmt.Sprintf("%+v", puContext.transmitterRules)
+	log.WithFields(log.Fields{
+		"package":   "enforcer",
+		"contextID": puContext.ID,
+		"rxRules":   rx,
+		"txRules":   tx,
+	}).Debug("doUpdatePU Pre")
+
 	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules())
 	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules())
 	puContext.Tags = containerInfo.Policy.PolicyTags()
+
+	rx = fmt.Sprintf("%+v", puContext.receiverRules)
+	tx = fmt.Sprintf("%+v", puContext.transmitterRules)
+	log.WithFields(log.Fields{
+		"package":   "enforcer",
+		"contextID": puContext.ID,
+		"rxRules":   rx,
+		"txRules":   tx,
+	}).Debug("doUpdatePU Post")
 	return nil
 }
 

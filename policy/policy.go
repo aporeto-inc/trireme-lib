@@ -134,6 +134,14 @@ func (p *PUPolicy) ReceiverRules() *TagSelectorList {
 	return p.receiverRules.Clone()
 }
 
+// SetReceiverRules sets up receiver rules
+func (p *PUPolicy) SetReceiverRules(t *TagSelectorList) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.receiverRules = t.Clone()
+}
+
 // AddReceiverRules adds a receiver rule
 func (p *PUPolicy) AddReceiverRules(t *TagSelector) {
 	p.puPolicyMutex.Lock()
@@ -148,6 +156,14 @@ func (p *PUPolicy) TransmitterRules() *TagSelectorList {
 	defer p.puPolicyMutex.Unlock()
 
 	return p.transmitterRules.Clone()
+}
+
+// SetTransmitterRules sets up receiver rules
+func (p *PUPolicy) SetTransmitterRules(t *TagSelectorList) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.transmitterRules = t.Clone()
 }
 
 // AddTransmitterRules adds a transmitter rule
