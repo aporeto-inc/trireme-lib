@@ -34,8 +34,8 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 			t.Errorf("Runtime given to Resolver is not the same. Received %v, expected %v", RuntimeReader, runtime)
 		}
 
-		tpolicy := policy.NewPUPolicy()
-		tpolicy.PolicyIPs = []string{"127.0.0.1"}
+		ipaddrs := policy.NewIPList([]string{"127.0.0.1"})
+		tpolicy := policy.NewPUPolicy("SomeId", policy.AllowAll, nil, nil, nil, nil, nil, ipaddrs, nil)
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -218,7 +218,7 @@ func TestSimpleCreate(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 }
@@ -228,7 +228,7 @@ func TestSimpleDelete(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestDeleteNotExist(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 }
@@ -238,7 +238,7 @@ func TestCreateDelete(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 	doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
@@ -249,16 +249,18 @@ func TestSimpleUpdate(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
-	ipa := map[string]string{"bridge": "10.10.10.10"}
+	runtime := policy.NewPURuntimeWithDefaults()
+	ipa := policy.NewIPMap(map[string]string{
+		"bridge": "10.10.10.10",
+	})
 	runtime.SetIPAddresses(ipa)
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 
 	// Generate a new Policy ...
-
-	newPolicy := policy.NewPUPolicy()
-	newPolicy.PolicyIPs = []string{"127.0.0.1"}
+	ipl := policy.NewIPList([]string{"127.0.0.1"})
+	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
+	newPolicy := policy.NewPUPolicy("", policy.AllowAll, nil, nil, nil, nil, tagsMap, ipl, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
 }
 
@@ -267,7 +269,7 @@ func TestCache(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	for i := 0; i < 5; i++ {
 		doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
@@ -297,7 +299,7 @@ func TestStop(t *testing.T) {
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
 	trireme.Start()
 	contextID := "123123"
-	runtime := policy.NewPURuntime()
+	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 
@@ -315,8 +317,12 @@ func TestTransmitterLabel(t *testing.T) {
 	containerInfo := policy.NewPUInfo(contextID)
 	containerInfo.Policy.ManagementID = mgmtID
 	addTransmitterLabel(contextID, containerInfo)
-	if containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] != mgmtID {
-		t.Errorf("Expecting Transmitter label to be set to MgmtID: %s , but was set to: %s", mgmtID, containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel])
+	label, ok := containerInfo.Policy.PolicyTags().Get(enforcer.TransmitterLabel)
+	if !ok {
+		t.Errorf("Expecting Transmitter label to be set but it is missing")
+	}
+	if label != mgmtID {
+		t.Errorf("Expecting Transmitter label to be set to MgmtID: %s , but was set to: %s", mgmtID, label)
 	}
 
 	// If management ID is not set, use contextID as the TransmitterLabel
@@ -324,8 +330,12 @@ func TestTransmitterLabel(t *testing.T) {
 	contextID = "Context"
 	containerInfo = policy.NewPUInfo(contextID)
 	addTransmitterLabel(contextID, containerInfo)
-	if containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel] != contextID {
-		t.Errorf("Expecting Transmitter label to be set to ContextID: %s , but was set to: %s", contextID, containerInfo.Policy.PolicyTags[enforcer.TransmitterLabel])
+	label, ok = containerInfo.Policy.PolicyTags().Get(enforcer.TransmitterLabel)
+	if !ok {
+		t.Errorf("Expecting Transmitter label to be set but it is missing")
+	}
+	if label != contextID {
+		t.Errorf("Expecting Transmitter label to be set to ContextID: %s , but was set to: %s", contextID, label)
 	}
 
 }
