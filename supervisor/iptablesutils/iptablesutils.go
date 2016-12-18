@@ -279,7 +279,7 @@ func (r *ipTableUtils) deleteChain(context, chain string) error {
 			"error":   err.Error(),
 		}).Debug("Failed to clear the container specific chain")
 
-		return err
+		// We ignore failures in delete - try to clean up as much as possible
 	}
 
 	if err := r.ipt.DeleteChain(context, chain); err != nil {
@@ -289,7 +289,7 @@ func (r *ipTableUtils) deleteChain(context, chain string) error {
 			"error":   err.Error(),
 		}).Debug("Failed to delete the container specific chain")
 
-		return err
+		// We ignore failures in delete - try to clean up as much as possible
 	}
 
 	return nil
@@ -389,7 +389,7 @@ func (r *ipTableUtils) DeleteChainRules(appChain, netChain, ip string) error {
 				"error":    err.Error(),
 			}).Debug("Failed to delete the rule that redirects to container chain for chain rules")
 
-			return err
+			// We ignore errors in deletes so that we clean up as much as we can
 		}
 	}
 
