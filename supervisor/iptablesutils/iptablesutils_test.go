@@ -21,7 +21,6 @@ func TestAppChainPrefix(t *testing.T) {
 
 		ipu := NewIptableUtils(mock_ipt, false)
 
-
 		Convey("When I call AppChainPrefix", func() {
 
 			context := "somecontext"
@@ -70,7 +69,6 @@ func TestDefaultCacheIP(t *testing.T) {
 
 		ipu := NewIptableUtils(mock_ipt, false)
 
-
 		Convey("When I call DefaultCacheIP with empty ip list", func() {
 
 			ip, err := ipu.DefaultCacheIP(nil)
@@ -104,11 +102,7 @@ func TestFilterMarkedPacketsError(t *testing.T) {
 
 	Convey("Given I create an iptables utility", t, func() {
 
-<<<<<<< HEAD
 		ipu := NewIptableUtils(mock_ipt, false)
-=======
-		ipu := NewIptableUtils(mockIpt)
->>>>>>> master
 
 		Convey("When I call FilterMarkedPackets to induce an error", func() {
 
