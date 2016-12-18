@@ -77,6 +77,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) []byte {
 
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())
+
 	if err != nil {
 		return []byte{}
 	}
@@ -145,9 +146,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*
 
 	// If error is returned or the token is not valid, reject it
 	if err != nil || !jwttoken.Valid {
-		log.WithFields(log.Fields{"package": "token",
-			"Error": err}).Error("ParseWithClaim failed")
+		log.WithFields(log.Fields{
+			"package": "tokens",
+			"error":   err,
+		}).Error("ParseWithClaim failed")
+
 		return nil, nil
 	}
+
 	return jwtClaims.ConnectionClaims, ackCert
 }

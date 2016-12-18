@@ -57,13 +57,16 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 	// If we have a cache of certificates, just look there
 	if p.CertificateCache != nil {
 		cert, ok := p.CertificateCache[server]
+
 		if !ok {
 			log.WithFields(log.Fields{
 				"package": "netfilter",
 				"server":  server,
 			}).Debug("No certificate in cache for server")
+
 			return nil, fmt.Errorf("No certificate in cache for server %s", server)
 		}
+
 		return cert, nil
 	}
 
@@ -83,9 +86,11 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 // VerifyPublicKey verifies if the inband public key is correct.
 func (p *PKISecrets) VerifyPublicKey(pkey []byte) (interface{}, error) {
 	decodedCert, err := crypto.LoadAndVerifyCertificate(pkey, p.certPool)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return decodedCert, nil
 }
 
@@ -109,6 +114,7 @@ func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 	if err != nil {
 		return fmt.Errorf("Error loading new Cert: %s", err)
 	}
+
 	log.WithFields(log.Fields{
 		"package": "tokens",
 		"host":    host,

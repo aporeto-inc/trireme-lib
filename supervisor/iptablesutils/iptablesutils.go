@@ -12,16 +12,14 @@ import (
 )
 
 const (
-	chainPrefix                   = "TRIREME-"
-	appPacketIPTableContext       = "raw"
-	appAckPacketIPTableContext    = "mangle"
-	appPacketIPTableSection       = "PREROUTING"
-	appPacketIPTableSectionRemote = "OUTPUT"
-	appChainPrefix                = chainPrefix + "App-"
-	netPacketIPTableContext       = "mangle"
-	netPacketIPTableSection       = "POSTROUTING"
-	netPacketIPTableSectionRemote = "INPUT"
-	netChainPrefix                = chainPrefix + "Net-"
+	chainPrefix                = "TRIREME-"
+	appPacketIPTableContext    = "raw"
+	appAckPacketIPTableContext = "mangle"
+	appPacketIPTableSection    = "PREROUTING"
+	appChainPrefix             = chainPrefix + "App-"
+	netPacketIPTableContext    = "mangle"
+	netPacketIPTableSection    = "POSTROUTING"
+	netChainPrefix             = chainPrefix + "Net-"
 )
 
 type ipTableUtils struct {
