@@ -265,14 +265,8 @@ func TestCacheState(t *testing.T) {
 
 	puInfo := policy.NewPUInfo(contextID)
 
-	// Should fail: No IP
-	err := enforcer.Enforce(contextID, puInfo)
-	if err == nil {
-		t.Errorf("Expected failure, no IP but passed")
-	}
-
 	// Should fail: Not in cache
-	err = enforcer.Unenforce(contextID)
+	err := enforcer.Unenforce(contextID)
 	if err == nil {
 		t.Errorf("Expected failure, no contextID in cache")
 	}
