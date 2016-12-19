@@ -154,14 +154,7 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 
 func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 
-	ip, ok := puInfo.Policy.DefaultIPAddress()
-	if !ok {
-		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"contextID": contextID,
-		}).Debug("No Default IP for PU, not enforcing.")
-		return fmt.Errorf("No Default IP for PU, not enforcing.")
-	}
+	ip := puInfo.Policy.DefaultIPAddress()
 
 	//TODO: Add Check that IP is valid.
 	pu := &PUContext{
@@ -179,7 +172,8 @@ func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *polic
 
 	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules())
 	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules())
-	puContext.Tags = containerInfo.Policy.PolicyTags()
+	puContext.Identity = containerInfo.Policy.Identity()
+	puContext.Annotations = containerInfo.Policy.Annotations()
 	return nil
 }
 
@@ -549,7 +543,7 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 	}
 
 	if !ackToken {
-		claims.T = context.Tags
+		claims.T = context.Identity
 	}
 
 	return d.tokenEngine.CreateAndSign(ackToken, claims)
@@ -839,7 +833,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 			"error":   err.Error(),
 		}).Debug("Syn packet dropped because of invalid token")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidToken, "", tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidToken, "", tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
 
@@ -852,7 +846,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 			"error":   err.Error(),
 		}).Debug("TCP Authentication Option not found")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
 
@@ -869,7 +863,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 			"error":   err.Error(),
 		}).Debug("Syn packet dropped because of invalid format")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 	}
 
@@ -898,7 +892,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		return action, nil
 	}
 
-	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
 
 	// Reject all other connections
 	c := fmt.Sprintf("%+v", claims.T)
@@ -929,8 +923,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 			"package": "enforcer",
 		}).Debug("SynAck packet dropped because of missing token.")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.MissingToken, "", tcpPacket)
-		return nil, fmt.Errorf("SynAck packet dropped because of missing token.")
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.MissingToken, "", tcpPacket)
+		return nil, fmt.Errorf("SynAck packet dropped because of missing token")
 	}
 
 	// Validate the certificate and parse the token
@@ -940,7 +934,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 			"package": "enforcer",
 		}).Debug("Synack  packet dropped because of bad claims")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.MissingToken, "", tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.MissingToken, "", tcpPacket)
 		return nil, fmt.Errorf("Synack  packet dropped because of bad claims %v", claims)
 	}
 
@@ -974,7 +968,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 			"package": "enforcer",
 		}).Debug("Synack, TCP Authentication Option not found")
 
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
 	}
 
@@ -987,7 +981,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 		}).Debug("SynAck packet dropped because of invalid format")
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
 
@@ -1007,7 +1001,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		"package": "enforcer",
 	}).Error("Dropping packet SYNACK at the network")
 
-	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.PolicyDrop, remoteContextID, tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, remoteContextID, tcpPacket)
 	return nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
@@ -1036,7 +1030,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 				"package": "enforcer",
 			}).Error("TCP Authentication Option not found")
 
-			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
+			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
@@ -1045,7 +1039,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 				"package": "enforcer",
 			}).Error("Ack packet dropped because singature validation failed")
 
-			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
+			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because singature validation failed %v", err)
 		}
 
@@ -1058,7 +1052,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			log.WithFields(log.Fields{
 				"package": "enforcer",
 			}).Error("Ack packet dropped because of invalid format")
-			d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
+			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because of invalid format %v", err)
 		}
 
@@ -1074,7 +1068,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		d.networkConnectionTracker.Remove(hash)
 
 		// We accept the packet as a new flow
-		d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowAccept, "NA", connection.(*Connection).RemoteContextID, tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowAccept, "NA", connection.(*Connection).RemoteContextID, tcpPacket)
 
 		// Accept the packet
 		return nil, nil
@@ -1089,7 +1083,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	}
 
 	// Everything else is dropped
-	d.collector.CollectFlowEvent(context.ID, context.Tags, collector.FlowReject, collector.InvalidState, "", tcpPacket)
+	d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidState, "", tcpPacket)
 	return nil, fmt.Errorf("Ack packet dropped - no matching rules")
 }
 

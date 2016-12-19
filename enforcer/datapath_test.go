@@ -157,18 +157,18 @@ func TestPacketHandling(t *testing.T) {
 			ip1 := policy.NewIPMap(map[string]string{})
 			ip1.Add("bridge", "164.67.228.152")
 			puInfo1.Runtime.SetIPAddresses(ip1)
-			ipl1 := policy.NewIPList([]string{"164.67.228.152"})
+			ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "164.67.228.152"})
 			puInfo1.Policy.SetIPAddresses(ipl1)
-			puInfo1.Policy.AddPolicyTag(TransmitterLabel, "value")
+			puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
 			puInfo1.Policy.AddReceiverRules(&tagSelector)
 
 			// Create processing unit 2
 			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2")
 			ip2 := policy.NewIPMap(map[string]string{"bridge": "10.1.10.76"})
 			puInfo2.Runtime.SetIPAddresses(ip2)
-			ipl2 := policy.NewIPList([]string{"10.1.10.76"})
+			ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "10.1.10.76"})
 			puInfo2.Policy.SetIPAddresses(ipl2)
-			puInfo2.Policy.AddPolicyTag(TransmitterLabel, "value")
+			puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
 			puInfo2.Policy.AddReceiverRules(&tagSelector)
 
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
@@ -279,7 +279,7 @@ func TestCacheState(t *testing.T) {
 
 	ip := policy.NewIPMap(map[string]string{"bridge": "127.0.0.1"})
 	puInfo.Runtime.SetIPAddresses(ip)
-	ipl := policy.NewIPList([]string{"127.0.0.1"})
+	ipl := policy.NewIPMap(map[string]string{"bridge": "127.0.0.1"})
 	puInfo.Policy.SetIPAddresses(ipl)
 
 	// Should  not fail:  IP is valid

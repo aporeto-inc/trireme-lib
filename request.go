@@ -15,5 +15,6 @@ type triremeRequest struct {
 	reqType    int
 	eventType  monitor.Event
 	policyInfo *policy.PUPolicy
+	puIPs      *policy.IPMap
 	returnChan chan error
 }

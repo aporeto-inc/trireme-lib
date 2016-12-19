@@ -14,20 +14,22 @@ type PUPolicy struct {
 	ManagementID string
 	//TriremeAction defines what level of policy should be applied to that container.
 	TriremeAction PUAction
-	// IngressACLs is the list of ACLs to be applied when the container talks
+	// ingressACLs is the list of ACLs to be applied when the container talks
 	// to IP Addresses outside the data center
 	ingressACLs *IPRuleList
-	// EgressACLs is the list of ACLs to be applied from IP Addresses outside
+	// egressACLs is the list of ACLs to be applied from IP Addresses outside
 	// the data center
 	egressACLs *IPRuleList
-	// PolicyTags are the tags that will be sent on the wire and used for policing.
-	policyTags *TagsMap
-	// PolicyIPs are the endpoint PU IP that we want to apply Trireme to. By default this would represent the same set of IPs as the Runtime would give you.
-	policyIPs *IPList
-	// TransmitterRules is the set of rules that implement the label matching at the Transmitter
+	// identity is the set of key value pairs that must be send over the wire.
+	identity *TagsMap
+	// annotations are key/value pairs  that should be used for accounting reasons
+	annotations *TagsMap
+	// transmitterRules is the set of rules that implement the label matching at the Transmitter
 	transmitterRules *TagSelectorList
-	// ReceiverRules is the set of rules that implement matching at the Receiver
+	// teceiverRules is the set of rules that implement matching at the Receiver
 	receiverRules *TagSelectorList
+	// ips is the set of IP addresses and namespaces that the policy must be applied to
+	ips *IPMap
 	// Extensions is an interface to a data structure that allows the policy supervisor
 	// to pass additional instructions to a plugin. Plugin and policy must be
 	// coordinated to implement the interface
@@ -35,7 +37,7 @@ type PUPolicy struct {
 }
 
 // NewPUPolicy generates a new ContainerPolicyInfo
-func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags, rxtags *TagSelectorList, ptags *TagsMap, ips *IPList, e interface{}) *PUPolicy {
+func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags, rxtags *TagSelectorList, identity, annotations *TagsMap, ips *IPMap, e interface{}) *PUPolicy {
 
 	if ingress == nil {
 		ingress = NewIPRuleList(nil)
@@ -49,11 +51,14 @@ func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags
 	if rxtags == nil {
 		rxtags = NewTagSelectorList(nil)
 	}
-	if ptags == nil {
-		ptags = NewTagsMap(nil)
+	if identity == nil {
+		identity = NewTagsMap(nil)
+	}
+	if annotations == nil {
+		annotations = NewTagsMap(nil)
 	}
 	if ips == nil {
-		ips = NewIPList(nil)
+		ips = NewIPMap(nil)
 	}
 	return &PUPolicy{
 		puPolicyMutex:    &sync.Mutex{},
@@ -63,8 +68,9 @@ func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags
 		egressACLs:       egress,
 		transmitterRules: txtags,
 		receiverRules:    rxtags,
-		policyTags:       ptags,
-		policyIPs:        ips,
+		identity:         identity,
+		annotations:      annotations,
+		ips:              ips,
 		Extensions:       e,
 	}
 }
@@ -72,7 +78,7 @@ func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
 
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil)
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil)
 }
 
 // Clone returns a copy of the policy
@@ -87,8 +93,9 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.egressACLs.Clone(),
 		p.transmitterRules.Clone(),
 		p.receiverRules.Clone(),
-		p.policyTags.Clone(),
-		p.policyIPs.Clone(),
+		p.identity.Clone(),
+		p.annotations.Clone(),
+		p.ips.Clone(),
 		p.Extensions,
 	)
 	return np
@@ -174,52 +181,71 @@ func (p *PUPolicy) AddTransmitterRules(t *TagSelector) {
 	p.transmitterRules.TagSelectors = append(p.transmitterRules.TagSelectors, *t.Clone())
 }
 
-// PolicyTags returns a copy of PolicyTag(s)
-func (p *PUPolicy) PolicyTags() *TagsMap {
+// Identity returns a copy of the Identity
+func (p *PUPolicy) Identity() *TagsMap {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	return p.policyTags.Clone()
+	return p.identity.Clone()
 }
 
-// SetPolicyTags sets up policy tags
-func (p *PUPolicy) SetPolicyTags(t *TagsMap) {
+// Annotations returns a copy of the annotations
+func (p *PUPolicy) Annotations() *TagsMap {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	p.policyTags = t.Clone()
+	return p.annotations.Clone()
 }
 
-// AddPolicyTag adds a policy tag
-func (p *PUPolicy) AddPolicyTag(k, v string) {
+// SetIdentity  sets up policy tags
+func (p *PUPolicy) SetIdentity(t *TagsMap) {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	p.policyTags.Tags[k] = v
+	p.identity = t.Clone()
+}
+
+// SetAnnotations  sets up annotations
+func (p *PUPolicy) SetAnnotations(t *TagsMap) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.annotations = t.Clone()
+}
+
+// AddIdentityTag adds a policy tag
+func (p *PUPolicy) AddIdentityTag(k, v string) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.identity.Tags[k] = v
 }
 
 // IPAddresses returns all the IP addresses for the processing unit
-func (p *PUPolicy) IPAddresses() *IPList {
+func (p *PUPolicy) IPAddresses() *IPMap {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	return p.policyIPs.Clone()
+	return p.ips.Clone()
 }
 
 // SetIPAddresses sets the IP addresses for the processing unit
-func (p *PUPolicy) SetIPAddresses(l *IPList) {
+func (p *PUPolicy) SetIPAddresses(l *IPMap) {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	p.policyIPs = l.Clone()
+	p.ips = l.Clone()
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit
-func (p *PUPolicy) DefaultIPAddress() (string, bool) {
+func (p *PUPolicy) DefaultIPAddress() string {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	return p.policyIPs.IPAtIndex(0)
+	if ip, ok := p.ips.IPs[DefaultNamespace]; ok {
+		return ip
+	}
+	return "0.0.0.0/0"
 }
 
 // PURuntime holds all data related to the status of the container run time
@@ -383,7 +409,7 @@ type PUInfo struct {
 
 // NewPUInfo instantiates a new ContainerPolicy
 func NewPUInfo(contextID string) *PUInfo {
-	policy := NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil)
+	policy := NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil)
 	runtime := NewPURuntime("", 0, nil, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)
 }

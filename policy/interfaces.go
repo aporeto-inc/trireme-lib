@@ -62,19 +62,13 @@ type InfoInteractor interface {
 	AddTransmitterRules(t *TagSelector)
 
 	// PolicyTags returns a copy of PolicyTag(s)
-	PolicyTags() *TagsMap
+	Indentity() *TagsMap
 
 	// SetPolicyTags sets up policy tags
-	SetPolicyTags(t *TagsMap)
+	SetIdentity(t *TagsMap)
 
 	// AddPolicyTag adds a policy tag
 	AddPolicyTag(k, v string)
-
-	// IPAddresses returns all the IP addresses for the processing unit
-	IPAddresses() *IPList
-
-	// SetIPAddresses sets the IP addresses for the processing unit
-	SetIPAddresses(l *IPList)
 
 	// DefaultIPAddress returns the default IP address for the processing unit
 	DefaultIPAddress() (string, bool)

@@ -32,7 +32,7 @@ type ipTableUtils struct {
 type IptableCommon interface {
 	AppChainPrefix(contextID string, index int) string
 	NetChainPrefix(contextID string, index int) string
-	DefaultCacheIP(ips *policy.IPList) (string, error)
+	DefaultCacheIP(ips *policy.IPMap) (string, error)
 	chainRules(appChain string, netChain string, ip string) [][]string
 	trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string
 	CleanACLs() error
@@ -105,11 +105,11 @@ func (r *ipTableUtils) NetChainPrefix(contextID string, index int) string {
 	return netChainPrefix + contextID + "-" + strconv.Itoa(index)
 }
 
-func (r *ipTableUtils) DefaultCacheIP(ips *policy.IPList) (string, error) {
-	if ips == nil || len(ips.IPs) == 0 {
-		return "", fmt.Errorf("No IPs present")
+func (r *ipTableUtils) DefaultCacheIP(ips *policy.IPMap) (string, error) {
+	if ip, ok := ips.IPs[policy.DefaultNamespace]; ok {
+		return ip, nil
 	}
-	return ips.IPs[0], nil
+	return "0.0.0.0/0", nil
 }
 
 // ChainRules provides the list of rules that are used to send traffic to

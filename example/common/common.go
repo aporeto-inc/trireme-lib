@@ -31,7 +31,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	log.Infof("Getting Policy for ContainerID %s , name: %s ", context, runtimeInfo.Name())
 
-	containerPolicyInfo := p.createRules(runtimeInfo)
+	tagSelectors := p.createRules(runtimeInfo)
 
 	// Access google as an example of external ACL
 	ingress := policy.NewIPRuleList([]policy.IPRule{
@@ -51,31 +51,17 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 		},
 	})
 
-	containerPolicyInfo.SetIngressACLs(ingress)
-	containerPolicyInfo.SetEgressACLs(egress)
-
-	// Use all the labels from Docker
-	containerPolicyInfo.SetPolicyTags(runtimeInfo.Tags())
-
 	// Use the bridge IP from Docker.
 	ipl := policy.NewIPList([]string{})
-	ip, ok := runtimeInfo.DefaultIPAddress()
-	if ok {
+	if ip, ok := runtimeInfo.DefaultIPAddress(); ok {
 		ipl.IPs = append(ipl.IPs, ip)
-		containerPolicyInfo.SetIPAddresses(ipl)
-	} else {
-		containerPolicyInfo.SetIPAddresses(ipl)
 	}
 
-	// Police the container
-	containerPolicyInfo.TriremeAction = policy.Police
+	identity := runtimeInfo.Tags()
 
-	rules := containerPolicyInfo.ReceiverRules()
-	for i, selector := range rules.TagSelectors {
-		for _, clause := range selector.Clause {
-			log.Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
-		}
-	}
+	annotations := runtimeInfo.Tags()
+
+	containerPolicyInfo := policy.NewPUPolicy(context, policy.Police, ingress, egress, nil, tagSelectors, identity, annotations, ipl, nil)
 
 	return containerPolicyInfo, nil
 }
@@ -94,9 +80,11 @@ func (p *CustomPolicyResolver) SetPolicyUpdater(pu trireme.PolicyUpdater) error 
 // CreateRuleDB creates a simple Rule DB that accepts packets from
 // containers with the same labels as the instantiated container.
 // If any of the labels matches, the packet is accepted.
-func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *policy.PUPolicy {
+func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *policy.TagSelectorList {
 
-	containerPolicyInfo := policy.NewPUPolicyWithDefaults()
+	selectorList := &policy.TagSelectorList{
+		TagSelectors: []policy.TagSelector{},
+	}
 
 	tags := runtimeInfo.Tags()
 	for key, value := range tags.Tags {
@@ -106,11 +94,17 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 			Operator: policy.Equal,
 		}
 
-		selector := policy.NewTagSelector([]policy.KeyValueOperator{kv}, policy.Accept)
+		tagSelector := policy.NewTagSelector([]policy.KeyValueOperator{kv}, policy.Accept)
+		selectorList.TagSelectors = append(selectorList.TagSelectors, *tagSelector)
 
-		containerPolicyInfo.AddReceiverRules(selector)
 	}
-	return containerPolicyInfo
+
+	for i, selector := range selectorList.TagSelectors {
+		for _, clause := range selector.Clause {
+			log.Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
+		}
+	}
+	return selectorList
 
 }
 
