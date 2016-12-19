@@ -157,8 +157,6 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	s.ipu.DeletePacketTrap(appChain, netChain, ip, s.targetNetworks, s.applicationQueues, s.networkQueues)
-
 	s.ipu.DeleteChainRules(appChain, netChain, ip)
 
 	s.ipu.DeleteAllContainerChains(appChain, netChain)

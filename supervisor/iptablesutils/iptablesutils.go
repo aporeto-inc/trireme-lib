@@ -47,7 +47,6 @@ type IptableProviderUtils interface {
 	AddChainRules(appChain string, netChain string, ip string) error
 	DeleteChainRules(appChain, netChain, ip string) error
 	AddPacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
-	DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error
 	AddAppACLs(chain string, ip string, rules *policy.IPRuleList) error
 	AddNetACLs(chain, ip string, rules *policy.IPRuleList) error
 	cleanACLSection(context, section, chainPrefix string)
@@ -280,7 +279,7 @@ func (r *ipTableUtils) deleteChain(context, chain string) error {
 			"error":   err.Error(),
 		}).Debug("Failed to clear the container specific chain")
 
-		return err
+		// TODO: We ignore failures in delete - try to clean up as much as possible
 	}
 
 	if err := r.ipt.DeleteChain(context, chain); err != nil {
@@ -290,7 +289,7 @@ func (r *ipTableUtils) deleteChain(context, chain string) error {
 			"error":   err.Error(),
 		}).Debug("Failed to delete the container specific chain")
 
-		return err
+		// TODO: We ignore failures in delete - try to clean up as much as possible
 	}
 
 	return nil
@@ -390,7 +389,7 @@ func (r *ipTableUtils) DeleteChainRules(appChain, netChain, ip string) error {
 				"error":    err.Error(),
 			}).Debug("Failed to delete the rule that redirects to container chain for chain rules")
 
-			return err
+			// TODO: We ignore errors in deletes so that we clean up as much as we can
 		}
 	}
 
@@ -420,37 +419,6 @@ func (r *ipTableUtils) AddPacketTrap(appChain string, netChain string, ip string
 					"ip":       ip,
 					"error":    err.Error(),
 				}).Debug("Failed to add the rule that redirects to container chain for packet trap")
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-// DeletePacketTrap deletes the iptables rules that trap control  packets to user space
-func (r *ipTableUtils) DeletePacketTrap(appChain string, netChain string, ip string, targetNetworks []string, appQueue string, netQueue string) error {
-
-	log.WithFields(log.Fields{
-		"package":  "iptablesutils",
-		"appChain": appChain,
-		"netChain": netChain,
-		"ip":       ip,
-	}).Debug("Delete Packet trap")
-
-	for _, network := range targetNetworks {
-
-		TrapRules := r.trapRules(appChain, netChain, network, appQueue, netQueue)
-		for _, tr := range TrapRules {
-
-			if err := r.ipt.Delete(tr[0], tr[1], tr[2:]...); err != nil {
-				log.WithFields(log.Fields{
-					"package":  "iptablesutils",
-					"appChain": appChain,
-					"netChain": netChain,
-					"ip":       ip,
-					"error":    err.Error(),
-				}).Debug("Failed to delete the rule that redirects to container chain for packet trap")
 				return err
 			}
 		}
