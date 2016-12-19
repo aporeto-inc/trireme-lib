@@ -92,17 +92,6 @@ func TestIPTablesSuperviseErrorEmptyContainerInfo(t *testing.T) {
 	}
 }
 
-func TestIPTablesSuperviseErrorNoIPParams(t *testing.T) {
-	s := doNewIPTSupervisor(t)
-
-	containerInfo := policy.NewPUInfo("1234567")
-	// Test no IP parameters. Create case
-	err := s.Supervise("1234567", containerInfo)
-	if err == nil {
-		t.Errorf("No Error even though IP not part of Policy")
-	}
-}
-
 func TestIPTablesSuperviseCreateAndUpdate(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 

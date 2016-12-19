@@ -73,10 +73,10 @@ func TestDefaultCacheIP(t *testing.T) {
 
 			ip, err := ipu.DefaultCacheIP(nil)
 
-			Convey("Then I should get an error", func() {
+			Convey("Then I should get 0.0.0.0/", func() {
 
-				So(ip, ShouldEqual, "")
-				So(err, ShouldNotBeNil)
+				So(ip, ShouldResemble, "0.0.0.0/0")
+				So(err, ShouldBeNil)
 			})
 		})
 
