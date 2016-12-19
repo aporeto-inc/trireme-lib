@@ -30,7 +30,7 @@ const (
 	ipcProtocol         = "unix"
 	defaultPath         = "/var/run/default.sock"
 	statsContextID      = "UNUSED"
-	defaultTimeInterval = 2
+	defaultTimeInterval = 1
 	envStatsChannelPath = "STATSCHANNEL_PATH"
 	envSocketPath       = "SOCKET_PATH"
 )
@@ -236,21 +236,19 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		return resp.Status
 	}
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
-	if s.pupolicy == nil {
-		s.pupolicy = policy.NewPUPolicy(payload.ManagementID,
-			payload.TriremeAction,
-			payload.IngressACLs,
-			payload.EgressACLs,
-			payload.TransmitterRules,
-			payload.ReceiverRules,
-			payload.Identity,
-			payload.Annotations,
-			payload.PolicyIPs,
-			nil)
-	}
+	pupolicy := policy.NewPUPolicy(payload.ManagementID,
+		payload.TriremeAction,
+		payload.IngressACLs,
+		payload.EgressACLs,
+		payload.TransmitterRules,
+		payload.ReceiverRules,
+		payload.Identity,
+		payload.Annotations,
+		payload.PolicyIPs,
+		nil)
 
 	runtime := policy.NewPURuntimeWithDefaults()
-	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, s.pupolicy, runtime)
+	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	puInfo.Runtime.SetPid(os.Getpid())
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"method": "Supervise",
@@ -297,20 +295,20 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		return resp.Status
 	}
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
-	if s.pupolicy == nil {
-		s.pupolicy = policy.NewPUPolicy(payload.ManagementID,
-			payload.TriremeAction,
-			payload.IngressACLs,
-			payload.EgressACLs,
-			payload.TransmitterRules,
-			payload.ReceiverRules,
-			payload.Identity,
-			payload.Annotations,
-			payload.PolicyIPs,
-			nil)
-	}
+
+	pupolicy := policy.NewPUPolicy(payload.ManagementID,
+		payload.TriremeAction,
+		payload.IngressACLs,
+		payload.EgressACLs,
+		payload.TransmitterRules,
+		payload.ReceiverRules,
+		payload.Identity,
+		payload.Annotations,
+		payload.PolicyIPs,
+		nil)
+
 	runtime := policy.NewPURuntimeWithDefaults()
-	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, s.pupolicy, runtime)
+	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer"}).Info("Failed Runtime")
 	}

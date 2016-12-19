@@ -172,7 +172,6 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 }
 
 func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
-
 	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules())
 	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules())
 	puContext.Identity = containerInfo.Policy.Identity()
