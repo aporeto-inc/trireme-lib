@@ -43,33 +43,6 @@ const (
 	Police = 0x2
 )
 
-// // IPList stores a list of IPs
-// type IPList struct {
-// 	IPs []string
-// }
-//
-// // NewIPList returns a new IP list
-// func NewIPList(s []string) *IPList {
-// 	ipl := &IPList{}
-// 	for _, v := range s {
-// 		ipl.IPs = append(ipl.IPs, v)
-// 	}
-// 	return ipl
-// }
-//
-// // Clone creates a clone of the list
-// func (l *IPList) Clone() *IPList {
-// 	return NewIPList(l.IPs)
-// }
-//
-// // IPAtIndex returns the IP at a given index. Returns true if entry is valid
-// func (l *IPList) IPAtIndex(index int) (string, bool) {
-// 	if len(l.IPs) > index {
-// 		return l.IPs[index], true
-// 	}
-// 	return "", false
-// }
-
 // IPRule holds IP rules to external services
 type IPRule struct {
 	Address  string

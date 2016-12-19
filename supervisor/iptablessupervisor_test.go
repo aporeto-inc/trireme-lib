@@ -107,9 +107,9 @@ func TestIPTablesSuperviseCreateAndUpdate(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 
 	containerInfo := policy.NewPUInfo("12345")
-	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
+	ips := policy.NewIPMap(map[string]string{"policy.DefaultNamespace": "30.30.30.30"})
 	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
+	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case
@@ -139,9 +139,9 @@ func TestIPTablesUnsuperviseExistingContainer(t *testing.T) {
 	s := doNewIPTSupervisor(t)
 
 	containerInfo := policy.NewPUInfo("12345")
-	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
+	ips := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
+	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case
@@ -183,7 +183,6 @@ func TestIPTablesStop(t *testing.T) {
 func TestSuperviseACLs(t *testing.T) {
 
 	s := doNewIPTSupervisor(t)
-	containerInfo := policy.NewPUInfo("12345")
 	ingress := policy.NewIPRuleList([]policy.IPRule{
 		policy.IPRule{
 			Address:  "20.20.0.0/16",
@@ -201,12 +200,12 @@ func TestSuperviseACLs(t *testing.T) {
 		},
 	})
 
-	containerInfo.Policy.SetIngressACLs(ingress)
-	containerInfo.Policy.SetEgressACLs(egress)
-	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
-	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
-	containerInfo.Policy.SetIPAddresses(ipl)
+	ips := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
+
+	containerInfo := &policy.PUInfo{}
+	containerInfo.ContextID = "12345"
+	containerInfo.Runtime = policy.NewPURuntimeWithDefaults()
+	containerInfo.Policy = policy.NewPUPolicy("12345", policy.Police, ingress, egress, nil, nil, nil, nil, ips, nil)
 
 	err := s.Supervise("12345", containerInfo)
 	if err != nil {
@@ -241,7 +240,7 @@ func TestAddContainerChain(t *testing.T) {
 			Port:     "80",
 			Protocol: "tcp",
 		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 
 		//Setup expectations
@@ -293,7 +292,7 @@ func TestAddChainRules(t *testing.T) {
 			Port:     "80",
 			Protocol: "tcp",
 		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 		m := s.ipt.(provider.TestIptablesProvider)
 
@@ -349,7 +348,7 @@ func TestAddPacketTrap(t *testing.T) {
 			Port:     "80",
 			Protocol: "tcp",
 		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 		m := s.ipt.(provider.TestIptablesProvider)
 		const (
@@ -404,7 +403,7 @@ func TestAddAppACLs(t *testing.T) {
 			Port:     "80",
 			Protocol: "tcp",
 		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 		m := s.ipt.(provider.TestIptablesProvider)
 		//25 is derived from the addchainrules+AddPacketTrap calling append
@@ -473,7 +472,7 @@ func TestAddNetACLs(t *testing.T) {
 			Port:     "80",
 			Protocol: "tcp",
 		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 		m := s.ipt.(provider.TestIptablesProvider)
 		//25 is derived from the addchainrules+AddPacketTrap calling append
@@ -544,7 +543,7 @@ func TestDeleteChainRules(t *testing.T) {
 			Port:     "80",
 			Protocol: "tcp",
 		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{"bridge": "30.30.30.30"})
+		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
 		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
 		m := s.ipt.(provider.TestIptablesProvider)
 		//25 is derived from the addchainrules+AddPacketTrap calling append
