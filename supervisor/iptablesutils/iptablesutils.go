@@ -115,8 +115,10 @@ func (r *ipTableUtils) NetChainPrefix(contextID string, index int) string {
 }
 
 func (r *ipTableUtils) DefaultCacheIP(ips *policy.IPMap) (string, error) {
-	if ip, ok := ips.IPs[policy.DefaultNamespace]; ok {
-		return ip, nil
+	if ips != nil {
+		if ip, ok := ips.IPs[policy.DefaultNamespace]; ok {
+			return ip, nil
+		}
 	}
 	return "0.0.0.0/0", nil
 }

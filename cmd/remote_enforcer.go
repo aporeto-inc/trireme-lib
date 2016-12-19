@@ -243,7 +243,8 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 			payload.EgressACLs,
 			payload.TransmitterRules,
 			payload.ReceiverRules,
-			payload.PolicyTags,
+			payload.Identity,
+			payload.Annotations,
 			payload.PolicyIPs,
 			nil)
 	}
@@ -303,7 +304,8 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 			payload.EgressACLs,
 			payload.TransmitterRules,
 			payload.ReceiverRules,
-			payload.PolicyTags,
+			payload.Identity,
+			payload.Annotations,
 			payload.PolicyIPs,
 			nil)
 	}

@@ -51,8 +51,9 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 	payload.TriremeAction = puInfo.Policy.TriremeAction
 	payload.IngressACLs = puInfo.Policy.IngressACLs()
 	payload.EgressACLs = puInfo.Policy.EgressACLs()
-	payload.PolicyTags = puInfo.Policy.PolicyTags()
 	payload.PolicyIPs = puInfo.Policy.IPAddresses()
+	payload.Annotations = puInfo.Policy.Annotations()
+	payload.Identity = puInfo.Policy.Identity()
 	payload.ReceiverRules = puInfo.Policy.ReceiverRules()
 	payload.TransmitterRules = puInfo.Policy.TransmitterRules()
 	payload.PuPolicy = puInfo.Policy

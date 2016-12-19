@@ -234,7 +234,10 @@ func (s *ipsetSupervisor) doCreatePU(contextID string, containerInfo *policy.PUI
 	netSet := s.ipu.NetChainPrefix(contextID, index)
 
 	// Currently processing only containers with one IP address
-	ipAddress := containerInfo.Policy.DefaultIPAddress()
+	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
+	if !ok {
+		return fmt.Errorf("No ip address found")
+	}
 
 	cacheEntry := &supervisorCacheEntry{
 		index: index,

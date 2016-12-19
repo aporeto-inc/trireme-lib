@@ -89,8 +89,9 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	enfReq.TriremeAction = puInfo.Policy.TriremeAction
 	enfReq.IngressACLs = puInfo.Policy.IngressACLs()
 	enfReq.EgressACLs = puInfo.Policy.EgressACLs()
-	enfReq.PolicyTags = puInfo.Policy.PolicyTags()
 	enfReq.PolicyIPs = puInfo.Policy.IPAddresses()
+	enfReq.Annotations = puInfo.Policy.Annotations()
+	enfReq.Identity = puInfo.Policy.Identity()
 	enfReq.ReceiverRules = puInfo.Policy.ReceiverRules()
 	enfReq.TransmitterRules = puInfo.Policy.TransmitterRules()
 	request.Payload = enfReq

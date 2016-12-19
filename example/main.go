@@ -55,10 +55,11 @@ func main() {
 
 	if *usePKI {
 		log.Infof("Setting up trireme with PKI")
-		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.0.0.0/24"}, *externalMetadataFile, remoteEnforcer)
+		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
 	} else {
 		log.Infof("Setting up trireme with PSK")
-		t, m, _ = common.TriremeWithPSK([]string{"172.0.0.0/24"}, *externalMetadataFile, remoteEnforcer)
+		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
+
 	}
 
 	if t == nil {

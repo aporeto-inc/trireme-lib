@@ -92,7 +92,7 @@ func TestIPSetSupervise(t *testing.T) {
 	}
 
 	containerInfo = policy.NewPUInfo("1234567")
-	// Test no IP parameters. Create case
+	// Test no IP parameters. Create case.
 	err = s.Supervise("1234567", containerInfo)
 	if err == nil {
 		t.Errorf("No Error even though IP not part of Policy")

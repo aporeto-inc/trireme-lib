@@ -63,8 +63,9 @@ type EnforcePayload struct {
 	TriremeAction    policy.PUAction
 	IngressACLs      *policy.IPRuleList
 	EgressACLs       *policy.IPRuleList
-	PolicyTags       *policy.TagsMap
-	PolicyIPs        *policy.IPList
+	Identity         *policy.TagsMap
+	Annotations      *policy.TagsMap
+	PolicyIPs        *policy.IPMap
 	ReceiverRules    *policy.TagSelectorList
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
@@ -77,8 +78,9 @@ type SuperviseRequestPayload struct {
 	TriremeAction    policy.PUAction
 	IngressACLs      *policy.IPRuleList
 	EgressACLs       *policy.IPRuleList
-	PolicyTags       *policy.TagsMap
-	PolicyIPs        *policy.IPList
+	PolicyIPs        *policy.IPMap
+	Identity         *policy.TagsMap
+	Annotations      *policy.TagsMap
 	ReceiverRules    *policy.TagSelectorList
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy

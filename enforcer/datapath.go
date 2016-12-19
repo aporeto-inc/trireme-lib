@@ -154,7 +154,10 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 
 func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 
-	ip := puInfo.Policy.DefaultIPAddress()
+	ip, ok := puInfo.Policy.DefaultIPAddress()
+	if !ok {
+		return fmt.Errorf("No IP address found")
+	}
 
 	//TODO: Add Check that IP is valid.
 	pu := &PUContext{
