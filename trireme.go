@@ -152,20 +152,10 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
 	if containerInfo.Policy.ManagementID == "" {
-		containerInfo.Policy.AddPolicyTag(enforcer.TransmitterLabel, contextID)
+		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
 	} else {
-		containerInfo.Policy.AddPolicyTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
+		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
 	}
-}
-
-// isPolicyIPValid validates the user IP on which to apply the policy.
-// if IP is present and valid, then return true
-// if IP is nil then return false.
-// if IP is invalid, return false and an error.
-func isPolicyIPValid(pUPolicy *policy.PUPolicy) (bool, error) {
-	_, ok := pUPolicy.DefaultIPAddress()
-	// TODO: Validate IP validity
-	return ok, nil
 }
 
 func (t *trireme) doHandleCreate(contextID string) error {
@@ -213,26 +203,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	// Create a copy as we are going to modify it locally
 	policyInfo = policyInfo.Clone()
-
-	present, err := isPolicyIPValid(policyInfo)
-
-	if !present {
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-		}).Warn("No IP given in the policy, not activating")
-		return nil
-	}
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Invalid IP given in the policy")
-
-		return fmt.Errorf("Invalid IP given in Policy %s", contextID)
-	}
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 
@@ -331,21 +301,6 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		"package":   "trireme",
 		"contextID": contextID,
 	}).Debug("Start to update a policy")
-
-	present, err := isPolicyIPValid(newPolicy)
-
-	if !present {
-		return nil
-	}
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Invalid IP given in the policy")
-		return fmt.Errorf("Invalid IP given in Policy %s", contextID)
-	}
 
 	runtimeInfo, err := t.PURuntime(contextID)
 

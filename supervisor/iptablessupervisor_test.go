@@ -109,7 +109,7 @@ func TestIPTablesSuperviseCreateAndUpdate(t *testing.T) {
 	containerInfo := policy.NewPUInfo("12345")
 	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPList([]string{"30.30.30.30"})
+	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case
@@ -141,7 +141,7 @@ func TestIPTablesUnsuperviseExistingContainer(t *testing.T) {
 	containerInfo := policy.NewPUInfo("12345")
 	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPList([]string{"30.30.30.30"})
+	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case
@@ -205,7 +205,7 @@ func TestSuperviseACLs(t *testing.T) {
 	containerInfo.Policy.SetEgressACLs(egress)
 	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPList([]string{"30.30.30.30"})
+	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.SetIPAddresses(ipl)
 
 	err := s.Supervise("12345", containerInfo)

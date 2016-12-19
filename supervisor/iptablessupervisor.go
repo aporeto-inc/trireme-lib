@@ -14,7 +14,7 @@ import (
 
 type supervisorCacheEntry struct {
 	index int
-	ips   *policy.IPList
+	ips   *policy.IPMap
 }
 
 // iptablesSupervisor is the structure holding all information about a connection filter
@@ -158,8 +158,6 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("Container IP address not found in cache: %s", err)
 	}
 
-	s.ipu.DeletePacketTrap(appChain, netChain, ip, s.targetNetworks, s.applicationQueues, s.networkQueues)
-
 	s.ipu.DeleteChainRules(appChain, netChain, ip)
 
 	s.ipu.DeleteAllContainerChains(appChain, netChain)
@@ -210,16 +208,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	netChain := s.ipu.NetChainPrefix(contextID, index)
 
 	// Currently processing only containers with one IP address
-	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
-
-	if !ok {
-		log.WithFields(log.Fields{
-			"package":   "supervisor",
-			"contextID": contextID,
-		}).Debug("PU IP address not found when creating a PU")
-
-		return fmt.Errorf("PU IP address not found")
-	}
+	ipAddress := containerInfo.Policy.DefaultIPAddress()
 
 	cacheEntry := &supervisorCacheEntry{
 		index: index,
