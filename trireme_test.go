@@ -34,8 +34,8 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 			t.Errorf("Runtime given to Resolver is not the same. Received %v, expected %v", RuntimeReader, runtime)
 		}
 
-		ipaddrs := policy.NewIPList([]string{"127.0.0.1"})
-		tpolicy := policy.NewPUPolicy("SomeId", policy.AllowAll, nil, nil, nil, nil, nil, ipaddrs, nil)
+		ipaddrs := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
+		tpolicy := policy.NewPUPolicy("SomeId", policy.AllowAll, nil, nil, nil, nil, nil, nil, ipaddrs, nil)
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -258,9 +258,9 @@ func TestSimpleUpdate(t *testing.T) {
 	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
 
 	// Generate a new Policy ...
-	ipl := policy.NewIPList([]string{"127.0.0.1"})
+	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
 	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
-	newPolicy := policy.NewPUPolicy("", policy.AllowAll, nil, nil, nil, nil, tagsMap, ipl, nil)
+	newPolicy := policy.NewPUPolicy("", policy.AllowAll, nil, nil, nil, nil, tagsMap, nil, ipl, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
 }
 
@@ -317,7 +317,7 @@ func TestTransmitterLabel(t *testing.T) {
 	containerInfo := policy.NewPUInfo(contextID)
 	containerInfo.Policy.ManagementID = mgmtID
 	addTransmitterLabel(contextID, containerInfo)
-	label, ok := containerInfo.Policy.PolicyTags().Get(enforcer.TransmitterLabel)
+	label, ok := containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
 	if !ok {
 		t.Errorf("Expecting Transmitter label to be set but it is missing")
 	}
@@ -330,7 +330,7 @@ func TestTransmitterLabel(t *testing.T) {
 	contextID = "Context"
 	containerInfo = policy.NewPUInfo(contextID)
 	addTransmitterLabel(contextID, containerInfo)
-	label, ok = containerInfo.Policy.PolicyTags().Get(enforcer.TransmitterLabel)
+	label, ok = containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
 	if !ok {
 		t.Errorf("Expecting Transmitter label to be set but it is missing")
 	}

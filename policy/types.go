@@ -28,6 +28,11 @@ const (
 	Encrypt = 0x4
 )
 
+const (
+	// DefaultNamespace is the default namespace for applying policy
+	DefaultNamespace = "bridge"
+)
+
 // PUAction defines the action types that applies for a specific PU as a whole.
 type PUAction int
 
@@ -37,33 +42,6 @@ const (
 	// Police filters on the PU based on the PolicyRules.
 	Police = 0x2
 )
-
-// IPList stores a list of IPs
-type IPList struct {
-	IPs []string
-}
-
-// NewIPList returns a new IP list
-func NewIPList(s []string) *IPList {
-	ipl := &IPList{}
-	for _, v := range s {
-		ipl.IPs = append(ipl.IPs, v)
-	}
-	return ipl
-}
-
-// Clone creates a clone of the list
-func (l *IPList) Clone() *IPList {
-	return NewIPList(l.IPs)
-}
-
-// IPAtIndex returns the IP at a given index. Returns true if entry is valid
-func (l *IPList) IPAtIndex(index int) (string, bool) {
-	if len(l.IPs) > index {
-		return l.IPs[index], true
-	}
-	return "", false
-}
 
 // IPRule holds IP rules to external services
 type IPRule struct {
@@ -101,7 +79,7 @@ type IPMap struct {
 // NewIPMap returns a new instance of IPMap
 func NewIPMap(ips map[string]string) *IPMap {
 	ipm := &IPMap{
-		IPs: make(map[string]string),
+		IPs: map[string]string{},
 	}
 	for k, v := range ips {
 		ipm.IPs[k] = v
@@ -133,10 +111,12 @@ type TagsMap struct {
 // NewTagsMap returns a new instance of TagsMap
 func NewTagsMap(tags map[string]string) *TagsMap {
 	tm := &TagsMap{
-		Tags: make(map[string]string),
+		Tags: map[string]string{},
 	}
-	for k, v := range tags {
-		tm.Tags[k] = v
+	if tags != nil {
+		for k, v := range tags {
+			tm.Tags[k] = v
+		}
 	}
 	return tm
 }
@@ -169,7 +149,7 @@ func NewKeyValueOperator(k string, o Operator, kvos []string) *KeyValueOperator 
 	kvo := &KeyValueOperator{
 		Key:      k,
 		Operator: o,
-		Value:    make([]string, 0),
+		Value:    []string{},
 	}
 	for _, v := range kvos {
 		kvo.Value = append(kvo.Value, v)
@@ -191,7 +171,7 @@ type TagSelector struct {
 // NewTagSelector return a new TagSelector
 func NewTagSelector(clauses []KeyValueOperator, a FlowAction) *TagSelector {
 	ts := &TagSelector{
-		Clause: make([]KeyValueOperator, 0),
+		Clause: []KeyValueOperator{},
 		Action: a,
 	}
 	for _, c := range clauses {
@@ -213,7 +193,7 @@ type TagSelectorList struct {
 // NewTagSelectorList return a new TagSelectorList
 func NewTagSelectorList(tss []TagSelector) *TagSelectorList {
 	tsl := &TagSelectorList{
-		TagSelectors: make([]TagSelector, 0),
+		TagSelectors: []TagSelector{},
 	}
 	for _, ts := range tss {
 		tsl.TagSelectors = append(tsl.TagSelectors, *ts.Clone())

@@ -76,7 +76,7 @@ func TestIPSetSupervise(t *testing.T) {
 	containerInfo := policy.NewPUInfo("12345")
 	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPList([]string{"30.30.30.30"})
+	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case
@@ -92,7 +92,7 @@ func TestIPSetSupervise(t *testing.T) {
 	}
 
 	containerInfo = policy.NewPUInfo("1234567")
-	// Test no IP parameters. Create case
+	// Test no IP parameters. Create case.
 	err = s.Supervise("1234567", containerInfo)
 	if err == nil {
 		t.Errorf("No Error even though IP not part of Policy")
@@ -111,7 +111,7 @@ func TestIPSetUnsupervise(t *testing.T) {
 	containerInfo := policy.NewPUInfo("12345")
 	ips := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPList([]string{"30.30.30.30"})
+	ipl := policy.NewIPMap(map[string]string{"bridge": "30.30.30.30"})
 	containerInfo.Policy.SetIPAddresses(ipl)
 
 	// Test expected parameters. Create case

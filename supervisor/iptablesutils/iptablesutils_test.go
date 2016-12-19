@@ -73,21 +73,24 @@ func TestDefaultCacheIP(t *testing.T) {
 
 			ip, err := ipu.DefaultCacheIP(nil)
 
-			Convey("Then I should get an error", func() {
+			Convey("Then I should get 0.0.0.0/", func() {
 
-				So(ip, ShouldEqual, "")
-				So(err, ShouldNotBeNil)
+				So(ip, ShouldResemble, "0.0.0.0/0")
+				So(err, ShouldBeNil)
 			})
 		})
 
 		Convey("When I call DefaultCacheIP with ip list", func() {
 
-			ips := policy.NewIPList([]string{"172.0.0.1", "10.10.10.10"})
+			ips := policy.NewIPMap(map[string]string{
+				policy.DefaultNamespace: "172.0.0.1",
+				"otherspace":            "10.10.10.10",
+			})
 			ip, err := ipu.DefaultCacheIP(ips)
 
 			Convey("Then I should get the first ip", func() {
 
-				So(ip, ShouldEqual, ips.IPs[0])
+				So(ip, ShouldEqual, ips.IPs[policy.DefaultNamespace])
 				So(err, ShouldBeNil)
 			})
 		})

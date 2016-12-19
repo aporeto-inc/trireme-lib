@@ -14,7 +14,7 @@ import (
 
 type supervisorCacheEntry struct {
 	index int
-	ips   *policy.IPList
+	ips   *policy.IPMap
 }
 
 // iptablesSupervisor is the structure holding all information about a connection filter
@@ -208,14 +208,8 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
-
 	if !ok {
-		log.WithFields(log.Fields{
-			"package":   "supervisor",
-			"contextID": contextID,
-		}).Debug("PU IP address not found when creating a PU")
-
-		return fmt.Errorf("PU IP address not found")
+		return fmt.Errorf("No ip address found ")
 	}
 
 	cacheEntry := &supervisorCacheEntry{

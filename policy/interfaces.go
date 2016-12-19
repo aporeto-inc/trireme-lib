@@ -40,41 +40,20 @@ type InfoInteractor interface {
 	// IngressACLs returns a copy of IPRuleList
 	IngressACLs() *IPRuleList
 
-	// SetIngressACLs adds ingress rules
-	SetIngressACLs(r *IPRuleList)
-
 	// EgressACLs returns a copy of IPRuleList
 	EgressACLs() *IPRuleList
-
-	// SetEgressACLs adds ingress rules
-	SetEgressACLs(r *IPRuleList)
 
 	// ReceiverRules returns a copy of TagSelectorList
 	ReceiverRules() *TagSelectorList
 
-	// AddReceiverRules adds a receiver rule
-	AddReceiverRules(t *TagSelector)
-
 	// TransmitterRules returns a copy of TagSelectorList
 	TransmitterRules() *TagSelectorList
 
-	// AddTransmitterRules adds a transmitter rule
-	AddTransmitterRules(t *TagSelector)
+	// Identity  returns a copy of the identity
+	Indentity() *TagsMap
 
-	// PolicyTags returns a copy of PolicyTag(s)
-	PolicyTags() *TagsMap
-
-	// SetPolicyTags sets up policy tags
-	SetPolicyTags(t *TagsMap)
-
-	// AddPolicyTag adds a policy tag
-	AddPolicyTag(k, v string)
-
-	// IPAddresses returns all the IP addresses for the processing unit
-	IPAddresses() *IPList
-
-	// SetIPAddresses sets the IP addresses for the processing unit
-	SetIPAddresses(l *IPList)
+	// Annotations returns a copy of the Annotations
+	Annotations() *TagsMap
 
 	// DefaultIPAddress returns the default IP address for the processing unit
 	DefaultIPAddress() (string, bool)
