@@ -190,14 +190,14 @@ func (p *PUPolicy) SetIPAddresses(l *IPMap) {
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit
-func (p *PUPolicy) DefaultIPAddress() string {
+func (p *PUPolicy) DefaultIPAddress() (string, bool) {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
 	if ip, ok := p.ips.IPs[DefaultNamespace]; ok {
-		return ip
+		return ip, true
 	}
-	return "0.0.0.0/0"
+	return "0.0.0.0/0", false
 }
 
 // PURuntime holds all data related to the status of the container run time
