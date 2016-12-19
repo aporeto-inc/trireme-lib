@@ -87,6 +87,7 @@ type Server struct {
 	CAPEM       []byte
 	PublicPEM   []byte
 	PrivatePEM  []byte
+	pupolicy    *policy.PUPolicy
 	rpcchannel  string
 	rpchdl      *rpcwrapper.RPCWrapper
 	StatsClient *rpcwrapper.RPCWrapper
@@ -235,9 +236,20 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		return resp.Status
 	}
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
-	pupolicy := payload.PuPolicy
+	if s.pupolicy == nil {
+		s.pupolicy = policy.NewPUPolicy(payload.ManagementID,
+			payload.TriremeAction,
+			payload.IngressACLs,
+			payload.EgressACLs,
+			payload.TransmitterRules,
+			payload.ReceiverRules,
+			payload.PolicyTags,
+			payload.PolicyIPs,
+			nil)
+	}
+
 	runtime := policy.NewPURuntimeWithDefaults()
-	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
+	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, s.pupolicy, runtime)
 	puInfo.Runtime.SetPid(os.Getpid())
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"method": "Supervise",
@@ -284,9 +296,19 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		return resp.Status
 	}
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
-	pupolicy := payload.PuPolicy
+	if s.pupolicy == nil {
+		s.pupolicy = policy.NewPUPolicy(payload.ManagementID,
+			payload.TriremeAction,
+			payload.IngressACLs,
+			payload.EgressACLs,
+			payload.TransmitterRules,
+			payload.ReceiverRules,
+			payload.PolicyTags,
+			payload.PolicyIPs,
+			nil)
+	}
 	runtime := policy.NewPURuntimeWithDefaults()
-	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
+	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, s.pupolicy, runtime)
 	if puInfo == nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer"}).Info("Failed Runtime")
 	}
@@ -315,7 +337,7 @@ func main() {
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
 	namedPipe := os.Getenv(envSocketPath)
-	server := &Server{}
+	server := &Server{pupolicy: nil}
 	rpchdl := rpcwrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe

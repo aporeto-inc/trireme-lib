@@ -84,7 +84,15 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	enfResp := &rpcwrapper.Response{}
 	enfReq := &rpcwrapper.EnforcePayload{}
 	enfReq.ContextID = contextID
-	enfReq.PuPolicy = puInfo.Policy
+	//enfReq.PuPolicy = puInfo.Policy
+	enfReq.ManagementID = puInfo.Policy.ManagementID
+	enfReq.TriremeAction = puInfo.Policy.TriremeAction
+	enfReq.IngressACLs = puInfo.Policy.IngressACLs()
+	enfReq.EgressACLs = puInfo.Policy.EgressACLs()
+	enfReq.PolicyTags = puInfo.Policy.PolicyTags()
+	enfReq.PolicyIPs = puInfo.Policy.IPAddresses()
+	enfReq.ReceiverRules = puInfo.Policy.ReceiverRules()
+	enfReq.TransmitterRules = puInfo.Policy.TransmitterRules()
 	request.Payload = enfReq
 
 	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, enfResp)

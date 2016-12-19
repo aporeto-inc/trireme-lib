@@ -47,6 +47,14 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 	response := &rpcwrapper.Response{}
 	payload := &rpcwrapper.SuperviseRequestPayload{}
 	payload.ContextID = contextID
+	payload.ManagementID = puInfo.Policy.ManagementID
+	payload.TriremeAction = puInfo.Policy.TriremeAction
+	payload.IngressACLs = puInfo.Policy.IngressACLs()
+	payload.EgressACLs = puInfo.Policy.EgressACLs()
+	payload.PolicyTags = puInfo.Policy.PolicyTags()
+	payload.PolicyIPs = puInfo.Policy.IPAddresses()
+	payload.ReceiverRules = puInfo.Policy.ReceiverRules()
+	payload.TransmitterRules = puInfo.Policy.TransmitterRules()
 	payload.PuPolicy = puInfo.Policy
 	req.Payload = payload
 	return s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, response)

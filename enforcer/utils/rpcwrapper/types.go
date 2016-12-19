@@ -58,14 +58,30 @@ type InitSupervisorPayload struct {
 
 // EnforcePayload exported
 type EnforcePayload struct {
-	ContextID string
-	PuPolicy  *policy.PUPolicy
+	ContextID        string
+	ManagementID     string
+	TriremeAction    policy.PUAction
+	IngressACLs      *policy.IPRuleList
+	EgressACLs       *policy.IPRuleList
+	PolicyTags       *policy.TagsMap
+	PolicyIPs        *policy.IPList
+	ReceiverRules    *policy.TagSelectorList
+	TransmitterRules *policy.TagSelectorList
+	PuPolicy         *policy.PUPolicy
 }
 
 //SuperviseRequestPayload exported
 type SuperviseRequestPayload struct {
-	ContextID string
-	PuPolicy  *policy.PUPolicy
+	ContextID        string
+	ManagementID     string
+	TriremeAction    policy.PUAction
+	IngressACLs      *policy.IPRuleList
+	EgressACLs       *policy.IPRuleList
+	PolicyTags       *policy.TagsMap
+	PolicyIPs        *policy.IPList
+	ReceiverRules    *policy.TagSelectorList
+	TransmitterRules *policy.TagSelectorList
+	PuPolicy         *policy.PUPolicy
 }
 
 //UnEnforcePayload exported

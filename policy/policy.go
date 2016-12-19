@@ -251,6 +251,7 @@ func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap) *PURuntime {
 		puRuntimeMutex: &sync.Mutex{},
 		tags:           t,
 		ips:            i,
+		pid:            pid,
 	}
 }
 
