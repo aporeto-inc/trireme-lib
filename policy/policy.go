@@ -109,14 +109,6 @@ func (p *PUPolicy) IngressACLs() *IPRuleList {
 	return p.ingressACLs.Clone()
 }
 
-// SetIngressACLs adds ingress rules
-func (p *PUPolicy) SetIngressACLs(r *IPRuleList) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
-
-	p.ingressACLs = r.Clone()
-}
-
 // EgressACLs returns a copy of IPRuleList
 func (p *PUPolicy) EgressACLs() *IPRuleList {
 	p.puPolicyMutex.Lock()
@@ -125,28 +117,12 @@ func (p *PUPolicy) EgressACLs() *IPRuleList {
 	return p.egressACLs.Clone()
 }
 
-// SetEgressACLs adds ingress rules
-func (p *PUPolicy) SetEgressACLs(r *IPRuleList) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
-
-	p.egressACLs = r.Clone()
-}
-
 // ReceiverRules returns a copy of TagSelectorList
 func (p *PUPolicy) ReceiverRules() *TagSelectorList {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
 	return p.receiverRules.Clone()
-}
-
-// SetReceiverRules sets up receiver rules
-func (p *PUPolicy) SetReceiverRules(t *TagSelectorList) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
-
-	p.receiverRules = t.Clone()
 }
 
 // AddReceiverRules adds a receiver rule
@@ -163,14 +139,6 @@ func (p *PUPolicy) TransmitterRules() *TagSelectorList {
 	defer p.puPolicyMutex.Unlock()
 
 	return p.transmitterRules.Clone()
-}
-
-// SetTransmitterRules sets up receiver rules
-func (p *PUPolicy) SetTransmitterRules(t *TagSelectorList) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
-
-	p.transmitterRules = t.Clone()
 }
 
 // AddTransmitterRules adds a transmitter rule
@@ -195,22 +163,6 @@ func (p *PUPolicy) Annotations() *TagsMap {
 	defer p.puPolicyMutex.Unlock()
 
 	return p.annotations.Clone()
-}
-
-// SetIdentity  sets up policy tags
-func (p *PUPolicy) SetIdentity(t *TagsMap) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
-
-	p.identity = t.Clone()
-}
-
-// SetAnnotations  sets up annotations
-func (p *PUPolicy) SetAnnotations(t *TagsMap) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
-
-	p.annotations = t.Clone()
 }
 
 // AddIdentityTag adds a policy tag
@@ -387,14 +339,6 @@ func (r *PURuntime) Tags() *TagsMap {
 	defer r.puRuntimeMutex.Unlock()
 
 	return r.tags.Clone()
-}
-
-//SetTags sets tags for the processing unit
-func (r *PURuntime) SetTags(tags *TagsMap) {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
-
-	r.tags = tags.Clone()
 }
 
 // PUInfo  captures all policy information related to a connection

@@ -52,9 +52,9 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 	})
 
 	// Use the bridge IP from Docker.
-	ipl := policy.NewIPList([]string{})
+	ipl := policy.NewIPMap(map[string]string{})
 	if ip, ok := runtimeInfo.DefaultIPAddress(); ok {
-		ipl.IPs = append(ipl.IPs, ip)
+		ipl.IPs[policy.DefaultNamespace] = ip
 	}
 
 	identity := runtimeInfo.Tags()
