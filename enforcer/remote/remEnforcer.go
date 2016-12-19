@@ -65,7 +65,9 @@ func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUIn
 
 //Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
 func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
+	log.WithFields(log.Fields{"package": "enforcerLauncher",
+		"pid": puInfo.Runtime.Pid(),
+	}).Info("PID of container")
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl)
 	if err != nil {
 		return err
