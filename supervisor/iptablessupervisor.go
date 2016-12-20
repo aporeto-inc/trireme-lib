@@ -25,15 +25,15 @@ type iptablesSupervisor struct {
 	networkQueues     string
 	applicationQueues string
 	targetNetworks    []string
-
-	Mark int
+	Mark              int
+	remote            bool
 }
 
 // NewIPTablesSupervisor will create a new connection supervisor that uses IPTables
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesUtils iptablesutils.IptableUtils, targetNetworks []string) (Supervisor, error) {
+func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, iptablesUtils iptablesutils.IptableUtils, targetNetworks []string, remote bool) (Supervisor, error) {
 
 	if collector == nil {
 		log.WithFields(log.Fields{
@@ -85,6 +85,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance 
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
 		Mark:              enforcer.DefaultMarkValue,
+		remote:            remote,
 	}
 
 	// Clean any previous ACLs that we have installed
@@ -364,6 +365,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	}
 
 	if err := s.ipu.AddPacketTrap(appChain, netChain, ipAddress, s.targetNetworks, s.applicationQueues, s.networkQueues); err != nil {
+
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{
@@ -422,6 +424,7 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 
 	//Remove mapping from old chain
 	if err := s.ipu.DeleteChainRules(oldAppChain, oldNetChain, ipAddress); err != nil {
+
 		s.Unsupervise(contextID)
 
 		log.WithFields(log.Fields{

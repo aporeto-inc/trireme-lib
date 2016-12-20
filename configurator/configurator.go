@@ -9,10 +9,17 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/tokens"
+
+	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
+
+	"github.com/aporeto-inc/trireme/supervisor/remote"
+
+	"github.com/aporeto-inc/trireme/enforcer/remote"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
+
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -40,6 +47,7 @@ func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforc
 	}
 
 	return supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipu, networks)
+
 }
 
 // NewIPTablesSupervisor is the current old supervisor implementation.
@@ -51,9 +59,9 @@ func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enf
 		return nil, err
 	}
 
-	ipu := iptablesutils.NewIptableUtils(ipt)
+	ipu := iptablesutils.NewIptableUtils(ipt, false)
+	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks, false)
 
-	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks)
 }
 
 // NewDefaultSupervisor returns the IPTables supervisor
@@ -71,6 +79,7 @@ func NewTriremeWithDockerMonitor(
 	secrets tokens.Secrets,
 	syncAtStart bool,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
+	remoteEnforcer bool,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	if eventCollector == nil {
@@ -80,7 +89,34 @@ func NewTriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, processor, secrets)
+	if remoteEnforcer {
+		//processmonitor := ProcessMon.NewProcessMon()
+		rpcwrapper := rpcwrapper.NewRPCWrapper()
+		ipt, err := provider.NewGoIPTablesProvider()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"package": "configurator",
+				"error":   err.Error(),
+			}).Fatal("Failed to load Iptables")
+
+		}
+
+		ipu := iptablesutils.NewIptableUtils(ipt, false)
+		e := remenforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
+		IPTsupervisor, err := remsupervisor.NewIPTablesSupervisor(eventCollector, e, ipu, networks, rpcwrapper)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"package": "configurator",
+				"error":   err.Error(),
+			}).Fatal("Failed to load Supervisor")
+
+		}
+		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, e)
+		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
+		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
+	}
+
+	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets)
 	IPTsupervisor, err := NewDefaultSupervisor(eventCollector, enforcer, networks)
 	// Make sure that the Supervisor was able to load. Panic if its not there.
 	if err != nil {
@@ -88,13 +124,14 @@ func NewTriremeWithDockerMonitor(
 			"package": "configurator",
 			"error":   err.Error(),
 		}).Fatal("Failed to load Supervisor")
-	}
 
+	}
 	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
 
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
 
 	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
+
 }
 
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -108,9 +145,10 @@ func NewPSKTriremeWithDockerMonitor(
 	syncAtStart bool,
 	key []byte,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
+	remoteEnforcer bool,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart, dockerMetadataExtractor, remoteEnforcer)
 
-	return NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, tokens.NewPSKSecrets(key), syncAtStart, dockerMetadataExtractor)
 }
 
 // NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -128,11 +166,12 @@ func NewPKITriremeWithDockerMonitor(
 	certPEM []byte,
 	caCertPEM []byte,
 	dockerMetadataExtractor monitor.DockerMetadataExtractor,
+	remoteEnforcer bool,
 ) (trireme.Trireme, monitor.Monitor, supervisor.Excluder, enforcer.PublicKeyAdder) {
 
 	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 
-	trireme, monitor, excluder := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart, dockerMetadataExtractor)
+	trireme, monitor, excluder := NewTriremeWithDockerMonitor(serverID, networks, resolver, processor, eventCollector, publicKeyAdder, syncAtStart, dockerMetadataExtractor, remoteEnforcer)
 
 	return trireme, monitor, excluder, publicKeyAdder
 }

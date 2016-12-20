@@ -53,6 +53,7 @@ func (p *PKISecrets) EncodingKey() interface{} {
 
 // DecodingKey returns the public key
 func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert interface{}) (interface{}, error) {
+
 	// If we have a cache of certificates, just look there
 	if p.CertificateCache != nil {
 		cert, ok := p.CertificateCache[server]
@@ -108,8 +109,8 @@ func (p *PKISecrets) AckSize() uint32 {
 // If valid, the corresponding key is added in the PublicKeyCache.
 // If Invalid, an error is returned.
 func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
-	cert, err := crypto.LoadAndVerifyCertificate(newCert, p.certPool)
 
+	cert, err := crypto.LoadAndVerifyCertificate(newCert, p.certPool)
 	if err != nil {
 		return fmt.Errorf("Error loading new Cert: %s", err)
 	}
@@ -121,4 +122,16 @@ func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 
 	p.CertificateCache[host] = cert.PublicKey.(*ecdsa.PublicKey)
 	return nil
+}
+
+func (p *PKISecrets) AuthPEM() []byte {
+	return p.AuthorityPEM
+}
+
+func (p *PKISecrets) TransmittedPEM() []byte {
+	return p.PublicKeyPEM
+}
+
+func (p *PKISecrets) EncodingPEM() []byte {
+	return p.PrivateKeyPEM
 }

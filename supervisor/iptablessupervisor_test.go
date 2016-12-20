@@ -30,10 +30,10 @@ func doNewIPTSupervisor(t *testing.T) *iptablesSupervisor {
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
 	ipt := provider.NewTestIptablesProvider()
-	ipu := iptablesutils.NewIptableUtils(ipt)
+	ipu := iptablesutils.NewIptableUtils(ipt, false)
 	networks := []string{"0.0.0.0/0"}
 
-	s, err := NewIPTablesSupervisor(c, pe, ipu, networks)
+	s, err := NewIPTablesSupervisor(c, pe, ipu, networks, false)
 	if err != nil {
 		t.Errorf("NewIPTables should not fail. Error received: %s", err)
 		t.SkipNow()
@@ -49,34 +49,34 @@ func TestNewIPTablesSupervisor(t *testing.T) {
 	c := &collector.DefaultCollector{}
 	pe := mockenforcerDefaultFQConfig(t)
 	ipt := provider.NewTestIptablesProvider()
-	ipu := iptablesutils.NewIptableUtils(ipt)
+	ipu := iptablesutils.NewIptableUtils(ipt, false)
 	networks := []string{"0.0.0.0/0"}
 
 	// Test with normal parameters
-	_, err := NewIPTablesSupervisor(c, pe, ipu, networks)
+	_, err := NewIPTablesSupervisor(c, pe, ipu, networks, false)
 	if err != nil {
 		t.Errorf("NewIPTables should not fail. Error received: %s", err)
 	}
 	// Test with Empty Collector
-	_, err = NewIPTablesSupervisor(nil, pe, ipu, networks)
+	_, err = NewIPTablesSupervisor(nil, pe, ipu, networks, false)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty Collector. No Error received.")
 	}
 
 	// Test with Empty Enforcer
-	_, err = NewIPTablesSupervisor(c, nil, ipu, networks)
+	_, err = NewIPTablesSupervisor(c, nil, ipu, networks, false)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty Enforcer. No Error received.")
 	}
 
 	// Test with Empty Utils
-	_, err = NewIPTablesSupervisor(c, pe, nil, networks)
+	_, err = NewIPTablesSupervisor(c, pe, nil, networks, false)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty IPTables Utils. No Error received.")
 	}
 
 	// Test with Empty Networks
-	_, err = NewIPTablesSupervisor(c, pe, ipu, nil)
+	_, err = NewIPTablesSupervisor(c, pe, ipu, nil, false)
 	if err == nil {
 		t.Errorf("NewIPTables should fail because of empty TriremeNetworks. No Error received.")
 	}

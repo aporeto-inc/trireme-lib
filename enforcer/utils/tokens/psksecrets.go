@@ -39,3 +39,15 @@ func (p *PSKSecrets) VerifyPublicKey(pkey []byte) (interface{}, error) {
 func (p *PSKSecrets) AckSize() uint32 {
 	return uint32(332)
 }
+
+func (p *PSKSecrets) AuthPEM() []byte {
+	return p.SharedKey
+}
+
+func (p *PSKSecrets) TransmittedPEM() []byte {
+	return p.SharedKey
+}
+
+func (p *PSKSecrets) EncodingPEM() []byte {
+	return p.SharedKey
+}

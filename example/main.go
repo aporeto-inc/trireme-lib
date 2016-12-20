@@ -20,7 +20,8 @@ var caCertFile = flag.String("caCertFile", "ca.crt", "Set the path of certificat
 var externalMetadataFile = flag.String("metadata", "", "An external executable file for the metadata extractor")
 
 func usage() {
-	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string] -metadata=[string]\n")
+
+	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]   -metadata=[string] -enforcer=[remote|local]\n")
 	flag.PrintDefaults()
 	os.Exit(2)
 }
@@ -33,20 +34,32 @@ func main() {
 
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
+	var remote string
 
 	flag.Usage = usage
+
+	flag.StringVar(&remote, "enforcer", "local", "Launch enforcer process in the network namespace of container")
 
 	flag.Parse()
 
 	var t trireme.Trireme
 	var m monitor.Monitor
+	//var e supervisor.Excluder
+	var remoteEnforcer bool
+
+	if remote == "local" {
+		remoteEnforcer = false
+	} else {
+		remoteEnforcer = true
+	}
 
 	if *usePKI {
 		log.Infof("Setting up trireme with PKI")
-		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24"}, *externalMetadataFile)
+		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
 	} else {
 		log.Infof("Setting up trireme with PSK")
-		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24"}, *externalMetadataFile)
+		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
+
 	}
 
 	if t == nil {

@@ -2,6 +2,7 @@ package enforcer
 
 import (
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
+	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -71,4 +72,13 @@ type PUContext struct {
 	transmitterRules *lookup.PolicyDB
 	receiverRules    *lookup.PolicyDB
 	Extension        interface{}
+}
+
+type StatsPayload struct {
+	ContextID string
+	Tags      *policy.TagsMap
+	Action    string
+	Mode      string
+	Source    string
+	Packet    *packet.Packet
 }

@@ -19,7 +19,7 @@ func TestAppChainPrefix(t *testing.T) {
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mockIpt)
+		ipu := NewIptableUtils(mockIpt, false)
 
 		Convey("When I call AppChainPrefix", func() {
 
@@ -43,7 +43,7 @@ func TestNetChainPrefix(t *testing.T) {
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mockIpt)
+		ipu := NewIptableUtils(mockIpt, false)
 
 		Convey("When I call NetChainPrefix", func() {
 
@@ -67,7 +67,7 @@ func TestDefaultCacheIP(t *testing.T) {
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mockIpt)
+		ipu := NewIptableUtils(mockIpt, false)
 
 		Convey("When I call DefaultCacheIP with empty ip list", func() {
 
@@ -105,7 +105,7 @@ func TestFilterMarkedPacketsError(t *testing.T) {
 
 	Convey("Given I create an iptables utility", t, func() {
 
-		ipu := NewIptableUtils(mockIpt)
+		ipu := NewIptableUtils(mockIpt, false)
 
 		Convey("When I call FilterMarkedPackets to induce an error", func() {
 
