@@ -1,6 +1,7 @@
-//Package remenforcer  :: This is the implementation of the RPC client
-//It implementes the interface PolicyEnforcer and forwards these requests to the actual enforcer
-package remenforcer
+// Package enforcerproxy :: This is the implementation of the RPC client
+// It implementes the interface of Trireme Enforcer and forwards these
+// requests to the actual remote enforcer instead of implementing locally
+package enforcerproxy
 
 import (
 	"errors"
@@ -16,6 +17,14 @@ import (
 	"github.com/aporeto-inc/trireme/remote/launch"
 )
 
+//keyPEM is a private interface required by the enforcerlauncher to expose method not exposed by the
+//PolicyEnforcer interface
+type keyPEM interface {
+	AuthPEM() []byte
+	TransmittedPEM() []byte
+	EncodingPEM() []byte
+}
+
 //ErrFailedtoLaunch exported
 var ErrFailedtoLaunch = errors.New("Failed to Launch")
 
@@ -28,8 +37,8 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 // ErrInitFailed exported
 var ErrInitFailed = errors.New("Failed remote Init")
 
-//launcherstate is the struct used to hold state about active enforcers in the system
-type launcherState struct {
+//proxyInfo is the struct used to hold state about active enforcers in the system
+type proxyInfo struct {
 	MutualAuth  bool
 	Secrets     tokens.Secrets
 	serverID    string
@@ -41,7 +50,7 @@ type launcherState struct {
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
-func (s *launcherState) InitRemoteEnforcer(contextID string) error {
+func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
 	request := &rpcwrapper.Request{
@@ -59,7 +68,7 @@ func (s *launcherState) InitRemoteEnforcer(contextID string) error {
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
 		log.WithFields(log.Fields{
-			"package": "enforcerLauncher",
+			"package": "enforcerproxy",
 		}).Debug("Failed to initialize enforcer")
 		return fmt.Errorf("Failed ot initialize remote enforcer")
 	}
@@ -70,10 +79,10 @@ func (s *launcherState) InitRemoteEnforcer(contextID string) error {
 }
 
 //Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
-func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
+func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	log.WithFields(log.Fields{
-		"package": "enforcerLauncher",
+		"package": "enforcerproxy",
 		"pid":     puInfo.Runtime.Pid(),
 	}).Info("PID of container")
 
@@ -82,7 +91,7 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return err
 	}
 
-	log.WithFields(log.Fields{"package": "enforcerLauncher",
+	log.WithFields(log.Fields{"package": "enforcerproxy",
 		"contexID":      contextID,
 		"Lauch Process": err,
 	}).Info("Called enforce and launched process")
@@ -122,7 +131,7 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 }
 
 // Unenforce stops enforcing policy for the given contexID.
-func (s *launcherState) Unenforce(contextID string) error {
+func (s *proxyInfo) Unenforce(contextID string) error {
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.UnEnforcePayload{
@@ -151,7 +160,7 @@ func (s *launcherState) Unenforce(contextID string) error {
 }
 
 // GetFilterQueue returns the current FilterQueueConfig.
-func (s *launcherState) GetFilterQueue() *enforcer.FilterQueue {
+func (s *proxyInfo) GetFilterQueue() *enforcer.FilterQueue {
 
 	fqConfig := &enforcer.FilterQueue{
 		NetworkQueue:              enforcer.DefaultNetworkQueue,
@@ -166,16 +175,16 @@ func (s *launcherState) GetFilterQueue() *enforcer.FilterQueue {
 }
 
 // Start starts the the remote enforcer proxy.
-func (s *launcherState) Start() error {
+func (s *proxyInfo) Start() error {
 	return nil
 }
 
 // Stop stops the remote enforcer.
-func (s *launcherState) Stop() error {
+func (s *proxyInfo) Stop() error {
 	return nil
 }
 
-//NewProxyEnforcer creates a new enforcer launcher
+//NewProxyEnforcer creates a new proxy to remote enforcers
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *enforcer.FilterQueue,
 	collector collector.EventCollector,
@@ -186,7 +195,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	rpchdl rpcwrapper.RPCClient,
 ) enforcer.PolicyEnforcer {
 
-	launcher := &launcherState{
+	proxydata := &proxyInfo{
 		MutualAuth:  mutualAuth,
 		Secrets:     secrets,
 		serverID:    serverID,
@@ -207,7 +216,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	// Start hte server for statistics collection
 	go statsServer.StartServer("unix", rpcwrapper.StatsChannel, rpcServer)
 
-	return launcher
+	return proxydata
 }
 
 // NewDefaultProxyEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer
@@ -248,7 +257,7 @@ type StatsServer struct {
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !r.rpchdl.ProcessMessage(&req) {
-		log.WithFields(log.Fields{"package": "enforcerLauncher"}).Error("Message sender cannot be verified")
+		log.WithFields(log.Fields{"package": "enforcerproxy"}).Error("Message sender cannot be verified")
 		return errors.New("Message sender cannot be verified")
 	}
 	payload := req.Payload.(rpcwrapper.StatsPayload)

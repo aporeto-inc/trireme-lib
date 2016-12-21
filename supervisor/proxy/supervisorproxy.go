@@ -1,6 +1,6 @@
-// remsupervisor package implements the supervisor interface and forwards the requests on this interface
-// to the remote enforcer
-package remsupervisor
+// Package supervisorproxy package implements the supervisor interface and forwards the requests on this interface
+// to a remote supervisor over an rpc call.
+package supervisorproxy
 
 import (
 	"fmt"
@@ -19,10 +19,10 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 )
 
-//RemoteSupervisorHandle is a struct used to store state for the remote launcher.
+//ProxyInfo is a struct used to store state for the remote launcher.
 //it mirrors what is stored by the supervisor and also information to talk with the
 // remote enforcer
-type RemoteSupervisorHandle struct {
+type ProxyInfo struct {
 	versionTracker    cache.DataStore
 	ipt               iptablesutils.IptableUtils
 	collector         collector.EventCollector
@@ -36,7 +36,7 @@ type RemoteSupervisorHandle struct {
 }
 
 //Supervise Calls Supervise on the remote supervisor
-func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUInfo) error {
+func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
 	if _, ok := s.initDone[contextID]; !ok {
 		err := s.InitRemoteSupervisor(contextID, puInfo)
@@ -75,7 +75,7 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 }
 
 // Unsupervise exported stops enforcing policy for the given IP.
-func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
+func (s *ProxyInfo) Unsupervise(contextID string) error {
 
 	delete(s.initDone, contextID)
 
@@ -106,13 +106,13 @@ func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
 
 //Start This method does nothing and is implemented for completeness
 // THe work done is done in the InitRemoteSupervisor method in the remote enforcer
-func (s *RemoteSupervisorHandle) Start() error {
+func (s *ProxyInfo) Start() error {
 
 	return nil
 }
 
 //Stop This method does nothing
-func (s *RemoteSupervisorHandle) Stop() error {
+func (s *ProxyInfo) Stop() error {
 
 	return nil
 }
@@ -129,7 +129,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 	if targetNetworks == nil {
 		return nil, fmt.Errorf("TargetNetworks cannot be nil")
 	}
-	s := &RemoteSupervisorHandle{
+	s := &ProxyInfo{
 		versionTracker:    cache.NewCache(nil),
 		targetNetworks:    targetNetworks,
 		collector:         collector,
@@ -146,7 +146,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 }
 
 //InitRemoteSupervisor calls initsupervisor method on the remote
-func (s *RemoteSupervisorHandle) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo) error {
+func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo) error {
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitSupervisorPayload{
@@ -170,14 +170,14 @@ func (s *RemoteSupervisorHandle) InitRemoteSupervisor(contextID string, puInfo *
 }
 
 //AddExcludedIP call addexcluded ip on the remote supervisor
-func (s *RemoteSupervisorHandle) AddExcludedIP(ip string) error {
+func (s *ProxyInfo) AddExcludedIP(ip string) error {
 
 	//This is unimplemented right now
 	return nil
 }
 
 // RemoveExcludedIP removes the exception for the destion IP given in parameter.
-func (s *RemoteSupervisorHandle) RemoveExcludedIP(ip string) error {
+func (s *ProxyInfo) RemoveExcludedIP(ip string) error {
 
 	//This is unimplemented right now
 	return nil

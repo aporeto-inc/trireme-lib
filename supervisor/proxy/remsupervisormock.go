@@ -1,4 +1,4 @@
-package remsupervisor
+package supervisorproxy
 
 import (
 	"sync"
@@ -15,6 +15,7 @@ type mockedMethods struct {
 	StopMock        func() error
 }
 
+// TestSupervisorLauncher is a mock
 type TestSupervisorLauncher interface {
 	supervisor.Supervisor
 }
@@ -25,6 +26,7 @@ type testSupervisorLauncher struct {
 	currentTest *testing.T
 }
 
+// NewTestSupervisorLauncher creates a mock supervisor
 func NewTestSupervisorLauncher() supervisor.Supervisor {
 	return &testSupervisorLauncher{
 		lock:  &sync.Mutex{},
