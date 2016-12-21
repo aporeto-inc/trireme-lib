@@ -16,7 +16,6 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/remote/launch"
 	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.
@@ -24,7 +23,6 @@ import (
 // remote enforcer
 type ProxyInfo struct {
 	versionTracker    cache.DataStore
-	ipt               iptablesutils.IptableUtils
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
@@ -117,8 +115,8 @@ func (s *ProxyInfo) Stop() error {
 	return nil
 }
 
-//NewIPTablesSupervisor creates a new IptablesSupervisor launcher
-func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, iptablesProvider iptablesutils.IptableUtils, targetNetworks []string, rpchdl rpcwrapper.RPCClient) (supervisor.Supervisor, error) {
+// NewProxySupervisor creates a new IptablesSupervisor launcher
+func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string, rpchdl rpcwrapper.RPCClient) (supervisor.Supervisor, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -140,7 +138,6 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 		initDone:          make(map[string]bool),
 	}
 
-	s.ipt = iptablesProvider
 	return s, nil
 
 }

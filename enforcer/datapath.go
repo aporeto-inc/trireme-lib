@@ -4,6 +4,7 @@ package enforcer
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -44,6 +45,10 @@ type datapathEnforcer struct {
 
 	// ack size
 	ackSize uint32
+
+	// remote indicates that this is a remote enforcer and it only processes one unit
+	// As a result the enforcer will ignore IP addresses
+	remote bool
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -57,6 +62,7 @@ func NewDatapathEnforcer(
 	secrets tokens.Secrets,
 	serverID string,
 	validity time.Duration,
+	remote bool,
 ) PolicyEnforcer {
 
 	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
@@ -81,6 +87,7 @@ func NewDatapathEnforcer(
 		net:                      &PacketStats{},
 		app:                      &PacketStats{},
 		ackSize:                  secrets.AckSize(),
+		remote:                   remote,
 	}
 
 	if d.tokenEngine == nil {
@@ -97,6 +104,7 @@ func NewDefaultDatapathEnforcer(
 	collector collector.EventCollector,
 	service PacketProcessor,
 	secrets tokens.Secrets,
+	remote bool,
 ) PolicyEnforcer {
 
 	if collector == nil {
@@ -127,6 +135,7 @@ func NewDefaultDatapathEnforcer(
 		secrets,
 		serverID,
 		validity,
+		remote,
 	)
 }
 
@@ -154,12 +163,17 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 
 func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 
-	ip, ok := puInfo.Policy.DefaultIPAddress()
-	if !ok {
-		return fmt.Errorf("No IP address found")
+	ip := DefaultNetwork
+	if !d.remote {
+		if _, ok := puInfo.Policy.DefaultIPAddress(); !ok {
+			return fmt.Errorf("No IP address found")
+		}
+		ip, _ = puInfo.Policy.DefaultIPAddress()
+		if net.ParseIP(ip) == nil {
+			return fmt.Errorf("Invalid up address %s\n", ip)
+		}
 	}
 
-	//TODO: Add Check that IP is valid.
 	pu := &PUContext{
 		ID: contextID,
 	}
@@ -590,6 +604,15 @@ func (d *datapathEnforcer) parsePacketToken(connection *Connection, data []byte)
 	return claims, nil
 }
 
+// contextFromIP returns the context from the default IP if remote. otherwise
+// it returns the context from the passed IP
+func (d *datapathEnforcer) contextFromIP(ip string) (interface{}, error) {
+	if d.remote {
+		return d.puTracker.Get(DefaultNetwork)
+	}
+	return d.puTracker.Get(ip)
+}
+
 func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	log.WithFields(log.Fields{
@@ -599,7 +622,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	var connection *Connection
 
 	// Find the container context
-	context, cerr := d.puTracker.Get(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -650,7 +673,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	}).Debug("process application syn ack packet")
 
 	// Find the container context
-	context, cerr := d.puTracker.Get(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -706,7 +729,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	}).Debug("process application ack packet")
 
 	// Find the container context
-	context, cerr := d.puTracker.Get(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -1092,7 +1115,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Lookup the policy rules for the packet - Return false if they don't exist
-	context, err := d.puTracker.Get(tcpPacket.DestinationAddress.String())
+	context, err := d.contextFromIP(tcpPacket.DestinationAddress.String())
 
 	if err != nil {
 		log.WithFields(log.Fields{

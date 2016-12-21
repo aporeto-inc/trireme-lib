@@ -199,7 +199,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			nil, // TODO - PASS SERVICE ARGUMENTS
 			secrets,
 			payload.ServerID,
-			payload.Validity)
+			payload.Validity,
+			true)
 	} else {
 		//PSK params
 		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
@@ -210,7 +211,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			nil, // TODO - PASS SERVICE ARGUMENTS
 			secrets,
 			payload.ServerID,
-			payload.Validity)
+			payload.Validity,
+			true)
 	}
 
 	s.Enforcer.Start()

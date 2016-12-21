@@ -30,6 +30,11 @@ const (
 	AckProcessed
 )
 
+const (
+	// DefaultNetwork is the default IP address used when we don't care about IP addresses
+	DefaultNetwork = "0.0.0.0/0"
+)
+
 var (
 	// TransmitterLabel is the name of the label used to identify the Transmitter Context
 	TransmitterLabel = "AporetoContextID"
@@ -74,6 +79,7 @@ type PUContext struct {
 	Extension        interface{}
 }
 
+// StatsPayload holds the payload for statistics
 type StatsPayload struct {
 	ContextID string
 	Tags      *policy.TagsMap

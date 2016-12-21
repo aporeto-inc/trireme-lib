@@ -91,18 +91,9 @@ func NewTriremeWithDockerMonitor(
 	if remoteEnforcer {
 		//processmonitor := ProcessMon.NewProcessMon()
 		rpcwrapper := rpcwrapper.NewRPCWrapper()
-		ipt, err := provider.NewGoIPTablesProvider()
-		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "configurator",
-				"error":   err.Error(),
-			}).Fatal("Failed to load Iptables")
 
-		}
-
-		ipu := iptablesutils.NewIptableUtils(ipt, false)
-		e := enforcerproxy.NewDefaultProxyEnforcer(serverID, eventCollector, secrets, rpcwrapper)
-		IPTsupervisor, err := supervisorproxy.NewIPTablesSupervisor(eventCollector, e, ipu, networks, rpcwrapper)
+		proxyEnforce := enforcerproxy.NewDefaultProxyEnforcer(serverID, eventCollector, secrets, rpcwrapper)
+		proxySupervise, err := supervisorproxy.NewProxySupervisor(eventCollector, proxyEnforce, networks, rpcwrapper)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"package": "configurator",
@@ -110,14 +101,13 @@ func NewTriremeWithDockerMonitor(
 			}).Fatal("Failed to load Supervisor")
 
 		}
-		trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, e)
+		trireme := trireme.NewTrireme(serverID, resolver, proxySupervise, proxyEnforce)
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
-		return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
+		return trireme, monitor, proxySupervise.(supervisor.Excluder)
 	}
 
-	enforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets)
-	IPTsupervisor, err := NewDefaultSupervisor(eventCollector, enforcer, networks)
-	// Make sure that the Supervisor was able to load. Panic if its not there.
+	localEnforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets, remoteEnforcer)
+	localSupervisor, err := NewDefaultSupervisor(eventCollector, localEnforcer, networks)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
@@ -125,11 +115,11 @@ func NewTriremeWithDockerMonitor(
 		}).Fatal("Failed to load Supervisor")
 
 	}
-	trireme := trireme.NewTrireme(serverID, resolver, IPTsupervisor, enforcer)
+	trireme := trireme.NewTrireme(serverID, resolver, localSupervisor, localEnforcer)
 
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
 
-	return trireme, monitor, IPTsupervisor.(supervisor.Excluder)
+	return trireme, monitor, localSupervisor.(supervisor.Excluder)
 
 }
 
