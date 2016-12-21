@@ -2,6 +2,7 @@ package monitor
 
 // EventInfo contains all the RPC info for a specific event
 type EventInfo struct {
+	PUID      string
 	EventType Event
 	EventName string
 	PID       string
