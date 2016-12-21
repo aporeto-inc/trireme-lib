@@ -4,6 +4,7 @@ package remenforcer
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -56,9 +57,16 @@ func (s *launcherState) InitRemoteEnforcer(contextID string) error {
 		},
 	}
 
+	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcerLauncher",
+		}).Debug("Failed to initialize enforcer")
+		return fmt.Errorf("Failed ot initialize remote enforcer")
+	}
+
 	s.initDone[contextID] = true
 
-	return s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
+	return nil
 }
 
 //Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
@@ -80,7 +88,10 @@ func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}).Info("Called enforce and launched process")
 
 	if _, ok := s.initDone[contextID]; !ok {
-		s.InitRemoteEnforcer(contextID)
+		if err = s.InitRemoteEnforcer(contextID); err != nil {
+			return err
+		}
+
 	}
 
 	request := &rpcwrapper.Request{
