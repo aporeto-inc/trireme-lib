@@ -102,7 +102,7 @@ func NewTriremeWithDockerMonitor(
 
 		}
 		trireme := trireme.NewTrireme(serverID, resolver, proxySupervise, proxyEnforce)
-		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, nil, eventCollector, syncAtStart)
+		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
 		return trireme, monitor, proxySupervise.(supervisor.Excluder)
 	}
 
