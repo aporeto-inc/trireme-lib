@@ -2,10 +2,12 @@ package monitor
 
 // EventInfo contains all the RPC info for a specific event
 type EventInfo struct {
-	PUID      string
 	EventType Event
-	EventName string
+	PUID      string
+	Name      string
+	Tags      map[string]string
 	PID       string
+	IPs       map[string]string
 }
 
 // RPCResponse encapsulate the error response if any
