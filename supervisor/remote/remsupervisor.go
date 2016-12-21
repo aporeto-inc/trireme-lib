@@ -1,10 +1,12 @@
-//remsupervisor package implements the supervisor interface and forwards the requests on this interface
+// remsupervisor package implements the supervisor interface and forwards the requests on this interface
 // to the remote enforcer
 package remsupervisor
 
 import (
 	"fmt"
 	"strconv"
+
+	log "github.com/Sirupsen/logrus"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
@@ -43,43 +45,62 @@ func (s *RemoteSupervisorHandle) Supervise(contextID string, puInfo *policy.PUIn
 		}
 	}
 
-	req := &rpcwrapper.Request{}
-	response := &rpcwrapper.Response{}
-	payload := &rpcwrapper.SuperviseRequestPayload{}
-	payload.ContextID = contextID
-	payload.ManagementID = puInfo.Policy.ManagementID
-	payload.TriremeAction = puInfo.Policy.TriremeAction
-	payload.IngressACLs = puInfo.Policy.IngressACLs()
-	payload.EgressACLs = puInfo.Policy.EgressACLs()
-	payload.PolicyIPs = puInfo.Policy.IPAddresses()
-	payload.Annotations = puInfo.Policy.Annotations()
-	payload.Identity = puInfo.Policy.Identity()
-	payload.ReceiverRules = puInfo.Policy.ReceiverRules()
-	payload.TransmitterRules = puInfo.Policy.TransmitterRules()
-	payload.PuPolicy = puInfo.Policy
-	req.Payload = payload
-	return s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, response)
+	req := &rpcwrapper.Request{
+		Payload: &rpcwrapper.SuperviseRequestPayload{
+			ContextID:        contextID,
+			ManagementID:     puInfo.Policy.ManagementID,
+			TriremeAction:    puInfo.Policy.TriremeAction,
+			IngressACLs:      puInfo.Policy.IngressACLs(),
+			EgressACLs:       puInfo.Policy.EgressACLs(),
+			PolicyIPs:        puInfo.Policy.IPAddresses(),
+			Annotations:      puInfo.Policy.Annotations(),
+			Identity:         puInfo.Policy.Identity(),
+			ReceiverRules:    puInfo.Policy.ReceiverRules(),
+			TransmitterRules: puInfo.Policy.TransmitterRules(),
+			PuPolicy:         puInfo.Policy,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, &rpcwrapper.Response{}); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "remsupervisor",
+			"contextID": contextID,
+		}).Debug("Failed to initialize remote supervisor")
+		delete(s.initDone, contextID)
+		return err
+	}
+
+	return nil
 
 }
 
 // Unsupervise exported stops enforcing policy for the given IP.
 func (s *RemoteSupervisorHandle) Unsupervise(contextID string) error {
 
-	request := &rpcwrapper.Request{}
-	payload := &rpcwrapper.UnSupervisePayload{}
-	unenfresp := &rpcwrapper.Response{}
-	payload.ContextID = contextID
-	request.Payload = payload
-	s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, unenfresp)
 	delete(s.initDone, contextID)
+
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.UnSupervisePayload{
+			ContextID: contextID,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, &rpcwrapper.Response{}); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "remsupervisor",
+			"contextID": contextID,
+		}).Debug("Failed to initialize remote supervisor")
+		delete(s.initDone, contextID)
+	}
+
 	if s.prochdl.GetExitStatus(contextID) == false {
 		//Unsupervise not called yet
 		s.prochdl.SetExitStatus(contextID, true)
 	} else {
 		//We are coming here last
 		s.prochdl.KillProcess(contextID)
-
 	}
+
 	return nil
 }
 
@@ -124,18 +145,27 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcer enforcer
 
 }
 
-//InitRemoteSupervisor calls initsupervisor method on the remoteneforcer
+//InitRemoteSupervisor calls initsupervisor method on the remote
 func (s *RemoteSupervisorHandle) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo) error {
 
-	response := &rpcwrapper.Response{}
-	request := &rpcwrapper.Request{}
-	payload := &rpcwrapper.InitSupervisorPayload{}
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.InitSupervisorPayload{
+			CaptureMethod:  rpcwrapper.IPTables,
+			TargetNetworks: s.targetNetworks,
+		},
+	}
+
+	if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "remsupervisor",
+			"contextID": contextID,
+		}).Debug("Failed to initialize remote supervisor")
+		return err
+	}
+
 	s.initDone[contextID] = true
-	payload.NetworkQueues = s.networkQueues
-	payload.ApplicationQueues = s.applicationQueues
-	payload.TargetNetworks = s.targetNetworks
-	request.Payload = payload
-	return s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, response)
+
+	return nil
 
 }
 

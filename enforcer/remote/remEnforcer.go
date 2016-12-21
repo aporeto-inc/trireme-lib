@@ -29,102 +29,113 @@ var ErrInitFailed = errors.New("Failed remote Init")
 
 //launcherstate is the struct used to hold state about active enforcers in the system
 type launcherState struct {
-	MutualAuth bool
-	Secrets    tokens.Secrets
-	serverID   string
-	validity   time.Duration
-	prochdl    ProcessMon.ProcessManager
-	rpchdl     rpcwrapper.RPCClient
-	initDone   map[string]bool
+	MutualAuth  bool
+	Secrets     tokens.Secrets
+	serverID    string
+	validity    time.Duration
+	prochdl     ProcessMon.ProcessManager
+	rpchdl      rpcwrapper.RPCClient
+	initDone    map[string]bool
+	filterQueue *enforcer.FilterQueue
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
-func (s *launcherState) InitRemoteEnforcer(contextID string, puInfo *policy.PUInfo) error {
-
-	payload := &rpcwrapper.InitRequestPayload{}
-	request := &rpcwrapper.Request{}
+func (s *launcherState) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.InitRequestPayload{
+			FqConfig:   s.filterQueue,
+			MutualAuth: s.MutualAuth,
+			Validity:   s.validity,
+			SecretType: s.Secrets.Type(),
+			ServerID:   s.serverID,
+			CAPEM:      s.Secrets.(keyPEM).AuthPEM(),
+			PublicPEM:  s.Secrets.(keyPEM).TransmittedPEM(),
+			PrivatePEM: s.Secrets.(keyPEM).EncodingPEM(),
+		},
+	}
 
-	payload.MutualAuth = s.MutualAuth
-	payload.Validity = s.validity
-	pem := s.Secrets.(keyPEM)
-	payload.SecretType = s.Secrets.Type()
-
-	payload.PublicPEM = pem.TransmittedPEM()
-	payload.PrivatePEM = pem.EncodingPEM()
-	payload.CAPEM = pem.AuthPEM()
-
-	payload.ContextID = contextID
-
-	request.Payload = payload
 	s.initDone[contextID] = true
-	err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
-	return err
+
+	return s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp)
 }
 
 //Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
 func (s *launcherState) Enforce(contextID string, puInfo *policy.PUInfo) error {
-	log.WithFields(log.Fields{"package": "enforcerLauncher",
-		"pid": puInfo.Runtime.Pid(),
+
+	log.WithFields(log.Fields{
+		"package": "enforcerLauncher",
+		"pid":     puInfo.Runtime.Pid(),
 	}).Info("PID of container")
+
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl)
 	if err != nil {
 		return err
 	}
+
 	log.WithFields(log.Fields{"package": "enforcerLauncher",
 		"contexID":      contextID,
 		"Lauch Process": err,
 	}).Info("Called enforce and launched process")
+
 	if _, ok := s.initDone[contextID]; !ok {
-		s.InitRemoteEnforcer(contextID, puInfo)
+		s.InitRemoteEnforcer(contextID)
 	}
-	request := &rpcwrapper.Request{}
 
-	enfResp := &rpcwrapper.Response{}
-	enfReq := &rpcwrapper.EnforcePayload{}
-	enfReq.ContextID = contextID
-	//enfReq.PuPolicy = puInfo.Policy
-	enfReq.ManagementID = puInfo.Policy.ManagementID
-	enfReq.TriremeAction = puInfo.Policy.TriremeAction
-	enfReq.IngressACLs = puInfo.Policy.IngressACLs()
-	enfReq.EgressACLs = puInfo.Policy.EgressACLs()
-	enfReq.PolicyIPs = puInfo.Policy.IPAddresses()
-	enfReq.Annotations = puInfo.Policy.Annotations()
-	enfReq.Identity = puInfo.Policy.Identity()
-	enfReq.ReceiverRules = puInfo.Policy.ReceiverRules()
-	enfReq.TransmitterRules = puInfo.Policy.TransmitterRules()
-	request.Payload = enfReq
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.EnforcePayload{
+			ContextID:        contextID,
+			ManagementID:     puInfo.Policy.ManagementID,
+			TriremeAction:    puInfo.Policy.TriremeAction,
+			IngressACLs:      puInfo.Policy.IngressACLs(),
+			EgressACLs:       puInfo.Policy.EgressACLs(),
+			PolicyIPs:        puInfo.Policy.IPAddresses(),
+			Annotations:      puInfo.Policy.Annotations(),
+			Identity:         puInfo.Policy.Identity(),
+			ReceiverRules:    puInfo.Policy.ReceiverRules(),
+			TransmitterRules: puInfo.Policy.TransmitterRules(),
+		},
+	}
 
-	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, enfResp)
+	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package": "enforcerLauncher",
+			"package": "remenforcer",
 			"error":   err,
 		}).Fatal("Failed to Enforce remote enforcer")
 		return ErrEnforceFailed
 	}
+
 	return nil
 }
 
 // Unenforce stops enforcing policy for the given contexID.
 func (s *launcherState) Unenforce(contextID string) error {
 
-	request := &rpcwrapper.Request{}
-	payload := &rpcwrapper.UnEnforcePayload{}
-	unenfresp := &rpcwrapper.Response{}
-	payload.ContextID = contextID
-	request.Payload = payload
-	s.rpchdl.RemoteCall(contextID, "Server.Unenforce", request, unenfresp)
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.UnEnforcePayload{
+			ContextID: contextID,
+		},
+	}
+
+	err := s.rpchdl.RemoteCall(contextID, "Server.Unenforce", request, &rpcwrapper.Response{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "remenforcer",
+			"error":   err,
+		}).Fatal("Failed to Enforce remote enforcer")
+		return ErrEnforceFailed
+	}
+
 	delete(s.initDone, contextID)
+
 	if s.prochdl.GetExitStatus(contextID) == false {
 		s.prochdl.SetExitStatus(contextID, true)
 	} else {
 		s.prochdl.KillProcess(contextID)
-
 	}
-	//The interface forces this signature.
-	//But in the remote enforcer case we will never fail
+
 	return nil
 }
 
@@ -138,27 +149,23 @@ func (s *launcherState) GetFilterQueue() *enforcer.FilterQueue {
 		ApplicationQueue:          enforcer.DefaultApplicationQueue,
 		ApplicationQueueSize:      enforcer.DefaultQueueSize,
 		NumberOfApplicationQueues: enforcer.DefaultNumberOfQueues,
+		MarkValue:                 enforcer.DefaultMarkValue,
 	}
 	return fqConfig
 }
 
-// Start starts the PolicyEnforcer.
-//This method on the client does not do anything.
-//At this point no container has started so we don't know
-//what namespace to launch the new container
+// Start starts the the remote enforcer proxy.
 func (s *launcherState) Start() error {
-
 	return nil
 }
 
-// Stop stops the PolicyEnforcer.
+// Stop stops the remote enforcer.
 func (s *launcherState) Stop() error {
-
 	return nil
 }
 
-//NewDatapathEnforcer creates a new enforcer launcher
-func NewDatapathEnforcer(mutualAuth bool,
+//NewProxyEnforcer creates a new enforcer launcher
+func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *enforcer.FilterQueue,
 	collector collector.EventCollector,
 	service enforcer.PacketProcessor,
@@ -169,26 +176,31 @@ func NewDatapathEnforcer(mutualAuth bool,
 ) enforcer.PolicyEnforcer {
 
 	launcher := &launcherState{
-		MutualAuth: mutualAuth,
-		Secrets:    secrets,
-		serverID:   serverID,
-		validity:   validity,
-		prochdl:    ProcessMon.GetProcessMonHdl(),
-		rpchdl:     rpchdl,
-		initDone:   make(map[string]bool),
+		MutualAuth:  mutualAuth,
+		Secrets:     secrets,
+		serverID:    serverID,
+		validity:    validity,
+		prochdl:     ProcessMon.GetProcessMonHdl(),
+		rpchdl:      rpchdl,
+		initDone:    make(map[string]bool),
+		filterQueue: filterQueue,
 	}
-	log.WithFields(log.Fields{"package": "enforcerLauncher",
-		"method": "NewDataPathEnforcer",
+	log.WithFields(log.Fields{
+		"package": "remenforcer",
+		"method":  "NewDataPathEnforcer",
 	}).Info("Called NewDataPathEnforcer")
 
 	statsServer := rpcwrapper.NewRPCWrapper()
 	rpcServer := &StatsServer{rpchdl: statsServer, collector: collector}
+
+	// Start hte server for statistics collection
 	go statsServer.StartServer("unix", rpcwrapper.StatsChannel, rpcServer)
+
 	return launcher
 }
 
-//NewDefaultDatapathEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer
-func NewDefaultDatapathEnforcer(serverID string,
+// NewDefaultProxyEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer
+func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
 	rpchdl *rpcwrapper.RPCWrapper) enforcer.PolicyEnforcer {
@@ -204,7 +216,7 @@ func NewDefaultDatapathEnforcer(serverID string,
 	}
 
 	validity := time.Hour * 8760
-	return NewDatapathEnforcer(
+	return NewProxyEnforcer(
 		mutualAuthorization,
 		fqConfig,
 		collector,

@@ -169,62 +169,107 @@ func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 	return err
 }
 
-//InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the enforcer
+// InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
+// remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	collector := &CollectorImpl{cond: &sync.Cond{L: &sync.Mutex{}}}
-	collector.FlowEntries = list.New()
-	s.Collector = collector
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return resp.Status
 	}
+
+	collectorInstance := &CollectorImpl{
+		cond: &sync.Cond{
+			L: &sync.Mutex{},
+		},
+		FlowEntries: list.New(),
+	}
+
+	s.Collector = collectorInstance
+
 	payload := req.Payload.(rpcwrapper.InitRequestPayload)
-	usePKI := (payload.SecretType == tokens.PKIType)
-	//Need to revisit what is packet processor
-	if usePKI {
+
+	if payload.SecretType == tokens.PKIType {
 		//PKI params
-		publicKeyAdder := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
-		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
+		secrets := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
+		s.Enforcer = enforcer.NewDatapathEnforcer(
+			payload.MutualAuth,
+			payload.FqConfig,
+			collectorInstance,
+			nil, // TODO - PASS SERVICE ARGUMENTS
+			secrets,
+			payload.ServerID,
+			payload.Validity)
 	} else {
 		//PSK params
-		publicKeyAdder := tokens.NewPSKSecrets(payload.PublicPEM)
-		s.Enforcer = enforcer.NewDefaultDatapathEnforcer(payload.ContextID, collector, nil, publicKeyAdder)
+		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
+		s.Enforcer = enforcer.NewDatapathEnforcer(
+			payload.MutualAuth,
+			payload.FqConfig,
+			collectorInstance,
+			nil, // TODO - PASS SERVICE ARGUMENTS
+			secrets,
+			payload.ServerID,
+			payload.Validity)
 	}
+
 	s.Enforcer.Start()
-	statsClient := &StatsClient{collector: collector, server: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcwrapper.NewRPCWrapper()}
+
+	statsClient := &StatsClient{collector: collectorInstance, server: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcwrapper.NewRPCWrapper()}
+
 	s.connectStatsClient(statsClient)
 
 	resp.Status = nil
+
 	return resp.Status
 }
 
-//InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
+// InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
 func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = errors.New("Message Auth Failed")
 		return resp.Status
 	}
-	ipt, err := provider.NewGoIPTablesProvider()
-
-	if err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"Error": err.Error(),
-		}).Error("Failed to load Go-Iptables")
-		return err
-	}
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
-	ipu := iptablesutils.NewIptableUtils(ipt, true)
-	s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector,
-		s.Enforcer,
-		ipu,
-		payload.TargetNetworks,
-		true,
-	)
+	switch payload.CaptureMethod {
+	case rpcwrapper.IPSets:
+		//TO DO
+		return fmt.Errorf("IPSets not supported yet")
+	default:
+		ipt, err := provider.NewGoIPTablesProvider()
+		if err != nil {
+			log.WithFields(log.Fields{
+				"package": "remote_enforcer",
+				"Error":   err.Error(),
+			}).Error("Failed to load Go-Iptables")
+			resp.Status = err
+			return resp.Status
+		}
+
+		ipu := iptablesutils.NewIptableUtils(ipt, true)
+
+		s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector,
+			s.Enforcer,
+			ipu,
+			payload.TargetNetworks,
+			true,
+		)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"package": "remote_enforcer",
+				"Error":   err.Error(),
+			}).Error("Failed to instantiate the iptables supervisor")
+			resp.Status = err
+			return resp.Status
+		}
+
+	}
+
 	s.Supervisor.Start()
-	resp.Status = err
+
+	resp.Status = nil
 	return resp.Status
 }
 
@@ -235,6 +280,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		resp.Status = errors.New("Message Auth Failed")
 		return resp.Status
 	}
+
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 	pupolicy := policy.NewPUPolicy(payload.ManagementID,
 		payload.TriremeAction,
@@ -248,10 +294,15 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		nil)
 
 	runtime := policy.NewPURuntimeWithDefaults()
+
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
-	puInfo.Runtime.SetPid(os.Getpid())
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"method": "Supervise",
+
+	// TODO - Set PID to 1
+	puInfo.Runtime.SetPid(1)
+
+	log.WithFields(log.Fields{
+		"package": "remote_enforcer",
+		"method":  "Supervise",
 	}).Info("Called Supervise Start in remote_enforcer")
 
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
@@ -310,11 +361,11 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer"}).Info("Failed Runtime")
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+		}).Info("Failed Runtime")
+		return fmt.Errorf("Unable to instantiate puInfo")
 	}
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"method": "Enforce",
-	}).Info("Called enforce in remote enforcer")
 
 	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
 	log.WithFields(log.Fields{"package": "remote_enforcer",

@@ -102,7 +102,7 @@ func NewTriremeWithDockerMonitor(
 		}
 
 		ipu := iptablesutils.NewIptableUtils(ipt, false)
-		e := remenforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, secrets, rpcwrapper)
+		e := remenforcer.NewDefaultProxyEnforcer(serverID, eventCollector, secrets, rpcwrapper)
 		IPTsupervisor, err := remsupervisor.NewIPTablesSupervisor(eventCollector, e, ipu, networks, rpcwrapper)
 		if err != nil {
 			log.WithFields(log.Fields{

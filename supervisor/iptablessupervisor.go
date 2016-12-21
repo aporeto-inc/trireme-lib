@@ -84,7 +84,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance 
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
-		Mark:              enforcer.DefaultMarkValue,
+		Mark:              filterQueue.MarkValue,
 		remote:            remote,
 	}
 
