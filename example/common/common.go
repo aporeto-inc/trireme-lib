@@ -2,7 +2,6 @@ package common
 
 import (
 	"encoding/pem"
-	"fmt"
 	"io/ioutil"
 
 	"github.com/aporeto-inc/trireme"
@@ -138,11 +137,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 
 	var bashExtractor monitor.DockerMetadataExtractor
 	if extractorPath != "" {
-
-		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
-		if err != nil {
-			fmt.Printf("error: ABC, %s", err)
-		}
+		bashExtractor = LoadMetadataExtractor(extractorPath)
 	}
 
 	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM, bashExtractor, remoteEnforcer)
@@ -158,13 +153,18 @@ func TriremeWithPSK(networks []string, extractorPath string, remoteEnforcer bool
 	policyEngine := NewCustomPolicyResolver()
 	var bashExtractor monitor.DockerMetadataExtractor
 	if extractorPath != "" {
-		var err error
-		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
-		if err != nil {
-			fmt.Printf("error: ABC, %s", err)
-		}
+		bashExtractor = LoadMetadataExtractor(extractorPath)
 	}
 
 	// Use this if you want a pre-shared key implementation
 	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"), bashExtractor, remoteEnforcer)
+}
+
+// LoadMetadataExtractor returns a pointer to a func extractor or dies if it fails to load.
+func LoadMetadataExtractor(extractorPath string) monitor.DockerMetadataExtractor {
+	bashExtractor, err := extractor.NewExternalExtractor(extractorPath)
+	if err != nil {
+		log.Fatalf("Error while loading MetadataExtractor: , %s", err)
+	}
+	return bashExtractor
 }
