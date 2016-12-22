@@ -71,12 +71,14 @@ type FilterQueue struct {
 
 // PUContext holds data indexed by the docker ID
 type PUContext struct {
-	ID               string
-	Identity         *policy.TagsMap
-	Annotations      *policy.TagsMap
-	transmitterRules *lookup.PolicyDB
-	receiverRules    *lookup.PolicyDB
-	Extension        interface{}
+	ID             string
+	Identity       *policy.TagsMap
+	Annotations    *policy.TagsMap
+	acceptTxtRules *lookup.PolicyDB
+	rejectTxtRules *lookup.PolicyDB
+	acceptRcvRules *lookup.PolicyDB
+	rejectRcvRules *lookup.PolicyDB
+	Extension      interface{}
 }
 
 // StatsPayload holds the payload for statistics

@@ -97,6 +97,16 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 
 	}
 
+	// Add a default deny policy that rejects always from "namespace=bad"
+	kv := policy.KeyValueOperator{
+		Key:      "namespace",
+		Value:    []string{"bad"},
+		Operator: policy.Equal,
+	}
+
+	tagSelector := policy.NewTagSelector([]policy.KeyValueOperator{kv}, policy.Reject)
+	selectorList.TagSelectors = append(selectorList.TagSelectors, *tagSelector)
+
 	for i, selector := range selectorList.TagSelectors {
 		for _, clause := range selector.Clause {
 			log.Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
