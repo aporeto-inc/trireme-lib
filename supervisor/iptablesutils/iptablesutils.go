@@ -450,20 +450,41 @@ func (r *ipTableUtils) AddAppACLs(chain string, ip string, rules *policy.IPRuleL
 
 	for i := range rules.Rules {
 
-		if err := r.ipt.Append(
-			appAckPacketIPTableContext, chain,
-			"-p", rules.Rules[i].Protocol, "-m", "state", "--state", "NEW",
-			"-d", rules.Rules[i].Address,
-			"--dport", rules.Rules[i].Port,
-			"-j", "ACCEPT",
-		); err != nil {
-			log.WithFields(log.Fields{
-				"package":                 "iptablesutils",
-				"netPacketIPTableContext": netPacketIPTableContext,
-				"chain":                   chain,
-				"error":                   err.Error(),
-			}).Debug("Error when adding app acl rule")
-			return err
+		switch rules.Rules[i].Action {
+		case policy.Accept:
+			if err := r.ipt.Append(
+				appAckPacketIPTableContext, chain,
+				"-p", rules.Rules[i].Protocol, "-m", "state", "--state", "NEW",
+				"-d", rules.Rules[i].Address,
+				"--dport", rules.Rules[i].Port,
+				"-j", "ACCEPT",
+			); err != nil {
+				log.WithFields(log.Fields{
+					"package":                 "iptablesutils",
+					"netPacketIPTableContext": netPacketIPTableContext,
+					"chain":                   chain,
+					"error":                   err.Error(),
+				}).Debug("Error when adding app acl rule")
+				return err
+			}
+		case policy.Reject:
+			if err := r.ipt.Insert(
+				appAckPacketIPTableContext, chain, 1,
+				"-p", rules.Rules[i].Protocol, "-m", "state", "--state", "NEW",
+				"-d", rules.Rules[i].Address,
+				"--dport", rules.Rules[i].Port,
+				"-j", "DROP",
+			); err != nil {
+				log.WithFields(log.Fields{
+					"package":                 "iptablesutils",
+					"netPacketIPTableContext": netPacketIPTableContext,
+					"chain":                   chain,
+					"error":                   err.Error(),
+				}).Debug("Error when adding app acl rule")
+				return err
+			}
+		default:
+			continue
 		}
 
 	}
@@ -500,23 +521,44 @@ func (r *ipTableUtils) AddNetACLs(chain, ip string, rules *policy.IPRuleList) er
 
 	for i := range rules.Rules {
 
-		if err := r.ipt.Append(
-			netPacketIPTableContext, chain,
-			"-p", rules.Rules[i].Protocol,
-			"-s", rules.Rules[i].Address,
-			"--dport", rules.Rules[i].Port,
-			"-j", "ACCEPT",
-		); err != nil {
-			log.WithFields(log.Fields{
-				"package":                 "iptablesutils",
-				"netPacketIPTableContext": netPacketIPTableContext,
-				"chain":                   chain,
-				"error":                   err.Error(),
-			}).Debug("Error when adding a net acl rule")
+		switch rules.Rules[i].Action {
+		case policy.Accept:
+			if err := r.ipt.Append(
+				netPacketIPTableContext, chain,
+				"-p", rules.Rules[i].Protocol,
+				"-s", rules.Rules[i].Address,
+				"--dport", rules.Rules[i].Port,
+				"-j", "ACCEPT",
+			); err != nil {
+				log.WithFields(log.Fields{
+					"package":                 "iptablesutils",
+					"netPacketIPTableContext": netPacketIPTableContext,
+					"chain":                   chain,
+					"error":                   err.Error(),
+				}).Debug("Error when adding a net acl rule")
 
-			return err
+				return err
+			}
+		case policy.Reject:
+			if err := r.ipt.Insert(
+				netPacketIPTableContext, chain, 1,
+				"-p", rules.Rules[i].Protocol,
+				"-s", rules.Rules[i].Address,
+				"--dport", rules.Rules[i].Port,
+				"-j", "DROP",
+			); err != nil {
+				log.WithFields(log.Fields{
+					"package":                 "iptablesutils",
+					"netPacketIPTableContext": netPacketIPTableContext,
+					"chain":                   chain,
+					"error":                   err.Error(),
+				}).Debug("Error when adding a net acl rule")
+
+				return err
+			}
+		default:
+			continue
 		}
-
 	}
 
 	if err := r.ipt.Append(

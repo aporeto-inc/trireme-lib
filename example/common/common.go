@@ -31,12 +31,21 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	tagSelectors := p.createRules(runtimeInfo)
 
-	// Access google as an example of external ACL
+	// Allow https access to github, but drop http access
 	ingress := policy.NewIPRuleList([]policy.IPRule{
+
 		policy.IPRule{
-			Address:  "216.0.0.0/8",
+			Address:  "192.30.253.0/24",
 			Port:     "80",
 			Protocol: "TCP",
+			Action:   policy.Reject,
+		},
+
+		policy.IPRule{
+			Address:  "192.30.253.0/24",
+			Port:     "443",
+			Protocol: "TCP",
+			Action:   policy.Accept,
 		},
 	})
 
@@ -46,6 +55,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 			Address:  "172.17.0.1/32",
 			Port:     "80",
 			Protocol: "TCP",
+			Action:   policy.Accept,
 		},
 	})
 
