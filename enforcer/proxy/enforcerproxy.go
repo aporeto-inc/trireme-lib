@@ -233,6 +233,7 @@ func NewDefaultProxyEnforcer(serverID string,
 		ApplicationQueue:          enforcer.DefaultApplicationQueue,
 		ApplicationQueueSize:      enforcer.DefaultQueueSize,
 		NumberOfApplicationQueues: enforcer.DefaultNumberOfQueues,
+		MarkValue:                 enforcer.DefaultMarkValue,
 	}
 
 	validity := time.Hour * 8760
