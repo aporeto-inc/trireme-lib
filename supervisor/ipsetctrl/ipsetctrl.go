@@ -75,16 +75,16 @@ func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 }
 
 // chainPrefix returns the chain name for the specific PU
-func (i *Instance) chainName(contextID string, version int) (app, net string) {
-	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
-	net = netChainPrefix + contextID + "-" + strconv.Itoa(version)
+func (i *Instance) setPrefix(contextID string) (app, net string) {
+	app = appChainPrefix + contextID + "-"
+	net = netChainPrefix + contextID + "-"
 	return app, net
 }
 
 // ConfigureRules implmenets the ConfigureRules interface
 func (i *Instance) ConfigureRules(version int, contextID string, policyrules *policy.PUPolicy) error {
 
-	appSet, netSet := i.chainName(contextID, version)
+	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
@@ -92,7 +92,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 		return fmt.Errorf("No ip address found")
 	}
 
-	if err := i.addAllRules(contextID, appSet, netSet, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
+	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
 		return err
 	}
 
@@ -102,7 +102,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 // DeleteRules implements the DeleteRules interface
 func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap) error {
 
-	appSet, netSet := i.chainName(contextID, version)
+	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(ipAddresses.IPs)
@@ -110,13 +110,15 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 		return fmt.Errorf("No ip address found")
 	}
 
-	i.deleteAppSetRule(appSet, ipAddress)
+	i.delContainerFromSet(ipAddress)
 
-	i.deleteNetSetRule(netSet, ipAddress)
+	i.deleteAppSetRules(strconv.Itoa(version), appSetPrefix, ipAddress)
+	i.deleteNetSetRules(strconv.Itoa(version), netSetPrefix, ipAddress)
 
-	i.deleteSet(appSet)
-
-	i.deleteSet(netSet)
+	i.deleteSet(appSetPrefix + allowPrefix + strconv.Itoa(version))
+	i.deleteSet(appSetPrefix + rejectPrefix + strconv.Itoa(version))
+	i.deleteSet(netSetPrefix + allowPrefix + strconv.Itoa(version))
+	i.deleteSet(netSetPrefix + rejectPrefix + strconv.Itoa(version))
 
 	return nil
 
@@ -125,8 +127,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 // UpdateRules implements the update part of the interface
 func (i *Instance) UpdateRules(version int, contextID string, policyrules *policy.PUPolicy) error {
 
-	appSet, netSet := i.chainName(contextID, version)
-	oldAppSet, oldNetSet := i.chainName(contextID, version-1)
+	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
@@ -134,43 +135,47 @@ func (i *Instance) UpdateRules(version int, contextID string, policyrules *polic
 		return fmt.Errorf("No ip address found")
 	}
 
-	if err := i.addAllRules(contextID, appSet, netSet, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
+	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
 		return err
 	}
 
 	i.delContainerFromSet(ipAddress)
 
-	i.deleteAppSetRule(oldAppSet, ipAddress)
+	previousVersion := strconv.Itoa(version - 1)
 
-	i.deleteNetSetRule(oldNetSet, ipAddress)
+	i.deleteAppSetRules(previousVersion, appSetPrefix, ipAddress)
+	i.deleteNetSetRules(previousVersion, netSetPrefix, ipAddress)
 
-	i.deleteSet(oldAppSet)
-
-	i.deleteSet(oldNetSet)
+	i.deleteSet(appSetPrefix + allowPrefix + previousVersion)
+	i.deleteSet(appSetPrefix + rejectPrefix + previousVersion)
+	i.deleteSet(netSetPrefix + allowPrefix + previousVersion)
+	i.deleteSet(netSetPrefix + rejectPrefix + previousVersion)
 
 	return nil
 
 }
 
-func (i *Instance) addAllRules(contextID string, appSet string, netSet string, appACLs *policy.IPRuleList, netACLs *policy.IPRuleList, ip string) error {
+func (i *Instance) addAllRules(version int, appSetPrefix, netSetPrefix string, appACLs *policy.IPRuleList, netACLs *policy.IPRuleList, ip string) error {
+
+	versionstring := strconv.Itoa(version)
 
 	if err := i.addContainerToSet(ip); err != nil {
 		return err
 	}
 
-	if err := i.createACLSets(appSet, appACLs); err != nil {
+	if err := i.createACLSets(versionstring, appSetPrefix, appACLs); err != nil {
 		return err
 	}
 
-	if err := i.createACLSets(netSet, netACLs); err != nil {
+	if err := i.createACLSets(versionstring, netSetPrefix, netACLs); err != nil {
 		return err
 	}
 
-	if err := i.addAppSetRule(appSet, ip); err != nil {
+	if err := i.addAppSetRules(versionstring, appSetPrefix, ip); err != nil {
 		return err
 	}
 
-	if err := i.addNetSetRule(netSet, ip); err != nil {
+	if err := i.addNetSetRules(versionstring, netSetPrefix, ip); err != nil {
 		return err
 	}
 	return nil

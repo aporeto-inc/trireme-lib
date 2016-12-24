@@ -11,30 +11,64 @@ import (
 const (
 	appChainPrefix = "TRIREME-App-"
 	netChainPrefix = "TRIREME-Net-"
+	allowPrefix    = "A-"
+	rejectPrefix   = "R-"
 )
 
 // createACLSets creates the sets for a given PU
-func (i *Instance) createACLSets(set string, rules *policy.IPRuleList) error {
-	appSet, err := i.ips.NewIpset(set, "hash:net,port", &ipset.Params{})
+func (i *Instance) createACLSets(version string, set string, rules *policy.IPRuleList) error {
+
+	allowSet, err := i.ips.NewIpset(set+allowPrefix+version, "hash:net,port", &ipset.Params{})
+	if err != nil {
+		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+	}
+
+	rejectSet, err := i.ips.NewIpset(set+rejectPrefix+version, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
 
 	for _, rule := range rules.Rules {
-		if err := appSet.Add(rule.Address+","+rule.Port, 0); err != nil {
+		var err error
+		switch rule.Action {
+		case policy.Accept:
+			err = allowSet.Add(rule.Address+","+rule.Port, 0)
+		case policy.Reject:
+			err = rejectSet.Add(rule.Address+","+rule.Port, 0)
+		default:
+			continue
+		}
+		if err != nil {
 			return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 		}
 	}
+
 	return nil
 }
 
 // AddAppSetRule adds an ACL rule to the Set
-func (i *Instance) addAppSetRule(set string, ip string) error {
+func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 
 	if err := i.ipt.Insert(
 		i.appAckPacketIPTableContext, i.appPacketIPTableSection, 3,
 		"-m", "state", "--state", "NEW",
-		"-m", "set", "--match-set", set, "dst",
+		"-m", "set", "--match-set", setPrefix+rejectPrefix+version, "dst",
+		"-s", ip,
+		"-j", "DROP",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                      "iptablesutils",
+			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
+			"error": err.Error(),
+		}).Debug("Error when adding app acl rule")
+		return err
+
+	}
+
+	if err := i.ipt.Insert(
+		i.appAckPacketIPTableContext, i.appPacketIPTableSection, 3,
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", setPrefix+allowPrefix+version, "dst",
 		"-s", ip,
 		"-j", "ACCEPT",
 	); err != nil {
@@ -46,16 +80,32 @@ func (i *Instance) addAppSetRule(set string, ip string) error {
 		return err
 
 	}
+
 	return nil
 }
 
 // addNetSetRule
-func (i *Instance) addNetSetRule(set string, ip string) error {
+func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 
 	if err := i.ipt.Insert(
 		i.netPacketIPTableContext, i.netPacketIPTableSection, 2,
 		"-m", "state", "--state", "NEW",
-		"-m", "set", "--match-set", set, "src",
+		"-m", "set", "--match-set", setPrefix+rejectPrefix+version, "src",
+		"-d", ip,
+		"-j", "DROP",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                   "iptablesutils",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"error":                     err.Error(),
+		}).Debug("Error when adding app acl rule")
+		return err
+	}
+
+	if err := i.ipt.Insert(
+		i.netPacketIPTableContext, i.netPacketIPTableSection, 2,
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", setPrefix+allowPrefix+version, "src",
 		"-d", ip,
 		"-j", "ACCEPT",
 	); err != nil {
@@ -70,12 +120,28 @@ func (i *Instance) addNetSetRule(set string, ip string) error {
 }
 
 // deleteAppSetRule
-func (i *Instance) deleteAppSetRule(set string, ip string) error {
+func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 
 	if err := i.ipt.Delete(
 		i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
-		"-m", "set", "--match-set", set, "dst",
+		"-m", "set", "--match-set", setPrefix+rejectPrefix+version, "dst",
+		"-s", ip,
+		"-j", "DROP",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                      "iptablesutils",
+			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
+			"error": err.Error(),
+		}).Debug("Error when adding app acl rule")
+		return err
+
+	}
+
+	if err := i.ipt.Delete(
+		i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", setPrefix+allowPrefix+version, "dst",
 		"-s", ip,
 		"-j", "ACCEPT",
 	); err != nil {
@@ -91,12 +157,26 @@ func (i *Instance) deleteAppSetRule(set string, ip string) error {
 }
 
 // deleteNetSetRule
-func (i *Instance) deleteNetSetRule(set string, ip string) error {
-
+func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 	if err := i.ipt.Delete(
 		i.netPacketIPTableContext, i.netPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
-		"-m", "set", "--match-set", set, "src",
+		"-m", "set", "--match-set", setPrefix+rejectPrefix+version, "src",
+		"-d", ip,
+		"-j", "DROP",
+	); err != nil {
+		log.WithFields(log.Fields{
+			"package":                   "iptablesutils",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"chain":                     i.appPacketIPTableSection,
+			"error":                     err.Error(),
+		}).Debug("Error when removing ingress app acl rule")
+
+	}
+	if err := i.ipt.Delete(
+		i.netPacketIPTableContext, i.netPacketIPTableSection,
+		"-m", "state", "--state", "NEW",
+		"-m", "set", "--match-set", setPrefix+allowPrefix+version, "src",
 		"-d", ip,
 		"-j", "ACCEPT",
 	); err != nil {
@@ -145,7 +225,7 @@ func (i *Instance) setupIpset(target, container string) error {
 
 	i.targetSet = ips
 
-	containerSet, err := i.ips.NewIpset(container, "hash:ip", &ipset.Params{})
+	cSet, err := i.ips.NewIpset(container, "hash:ip", &ipset.Params{})
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -154,7 +234,7 @@ func (i *Instance) setupIpset(target, container string) error {
 		return fmt.Errorf("Failed to create container set")
 	}
 
-	i.containerSet = containerSet
+	i.containerSet = cSet
 
 	return nil
 }
