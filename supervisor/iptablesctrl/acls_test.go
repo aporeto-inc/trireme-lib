@@ -10,6 +10,15 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
+func matchSpec(term string, rulespec []string) error {
+	for _, rule := range rulespec {
+		if rule == term {
+			return nil
+		}
+	}
+	return fmt.Errorf("Error: Rule not found %s\n", term)
+}
+
 func TestAddContainerChain(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
@@ -185,15 +194,6 @@ func TestAddPacketTrap(t *testing.T) {
 		})
 
 	})
-}
-
-func matchSpec(term string, rulespec []string) error {
-	for _, rule := range rulespec {
-		if rule == term {
-			return nil
-		}
-	}
-	return fmt.Errorf("Error: Rule not found %s\n", term)
 }
 
 func TestAddAppACLs(t *testing.T) {

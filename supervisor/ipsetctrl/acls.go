@@ -20,12 +20,12 @@ func (i *Instance) createACLSets(version string, set string, rules *policy.IPRul
 
 	allowSet, err := i.ips.NewIpset(set+allowPrefix+version, "hash:net,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err.Error())
 	}
 
 	rejectSet, err := i.ips.NewIpset(set+rejectPrefix+version, "hash:net,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err.Error())
 	}
 
 	for _, rule := range rules.Rules {
@@ -39,7 +39,7 @@ func (i *Instance) createACLSets(version string, set string, rules *policy.IPRul
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
+			return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err.Error())
 		}
 	}
 
@@ -134,8 +134,6 @@ func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
 			"error": err.Error(),
 		}).Debug("Error when adding app acl rule")
-		return err
-
 	}
 
 	if err := i.ipt.Delete(
@@ -240,6 +238,11 @@ func (i *Instance) setupIpset(target, container string) error {
 }
 
 func (i *Instance) addContainerToSet(ip string) error {
+
+	if i.containerSet == nil {
+		return fmt.Errorf("Container set is nil. Invalid operation")
+	}
+
 	if err := i.containerSet.Add(ip, 0); err != nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -251,6 +254,11 @@ func (i *Instance) addContainerToSet(ip string) error {
 }
 
 func (i *Instance) delContainerFromSet(ip string) error {
+
+	if i.containerSet == nil {
+		return fmt.Errorf("Container set is nil. Invalid operation")
+	}
+
 	if err := i.containerSet.Del(ip); err != nil {
 		log.WithFields(log.Fields{
 			"package": "supervisor",
@@ -264,12 +272,19 @@ func (i *Instance) delContainerFromSet(ip string) error {
 // addIpsetOption
 func (i *Instance) addIpsetOption(ip string) error {
 
+	if i.targetSet == nil {
+		return fmt.Errorf("Target set is nil. Cannot add option")
+	}
+
 	return i.targetSet.AddOption(ip, "nomatch", 0)
 }
 
 // deleteIpsetOption
 func (i *Instance) deleteIpsetOption(ip string) error {
 
+	if i.targetSet == nil {
+		return fmt.Errorf("Target set is nil. Cannot remove option")
+	}
 	return i.targetSet.Del(ip)
 }
 
@@ -332,6 +347,7 @@ func (i *Instance) setupTrapRules(set string) error {
 		},
 	}
 
+	fmt.Println("Going into the loop")
 	for _, tr := range rules {
 		if err := i.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
 			log.WithFields(log.Fields{
@@ -341,6 +357,7 @@ func (i *Instance) setupTrapRules(set string) error {
 			return err
 		}
 	}
+
 	return nil
 }
 

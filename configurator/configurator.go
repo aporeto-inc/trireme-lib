@@ -85,8 +85,8 @@ func NewTriremeWithDockerMonitor(
 	}
 
 	localEnforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets, remoteEnforcer)
-	localSupervisor, err := NewDefaultSupervisor(eventCollector, localEnforcer, networks)
-	// localSupervisor, err := NewIPSetSupervisor(eventCollector, localEnforcer, networks)
+	// localSupervisor, err := NewDefaultSupervisor(eventCollector, localEnforcer, networks)
+	localSupervisor, err := NewIPSetSupervisor(eventCollector, localEnforcer, networks)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",

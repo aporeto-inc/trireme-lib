@@ -86,6 +86,10 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
+	if policyrules == nil {
+		return fmt.Errorf("No policy rules provided -nil ")
+	}
+
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
 	if !ok {
@@ -138,8 +142,6 @@ func (i *Instance) UpdateRules(version int, contextID string, policyrules *polic
 	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
 		return err
 	}
-
-	i.delContainerFromSet(ipAddress)
 
 	previousVersion := strconv.Itoa(version - 1)
 
