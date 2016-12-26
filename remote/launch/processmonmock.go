@@ -10,7 +10,7 @@ import (
 type mockedMethods struct {
 	GetExitStatusMock func(string) bool
 	KillProcessMock   func(string)
-	LaunchProcessMock func(string, string, rpcwrapper.RPCClient) error
+	LaunchProcessMock func(string, int, rpcwrapper.RPCClient) error
 	SetExitStatusMock func(string, bool) error
 	SetnsNetPathMock  func(string)
 }
@@ -95,9 +95,9 @@ func (m *testProcessMon) KillProcess(contextID string) {
 		return
 	}
 }
-func (m *testProcessMon) LaunchProcess(contextID string, namespace string, rpchdl rpcwrapper.RPCClient) error {
+func (m *testProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.LaunchProcessMock != nil {
-		return mock.LaunchProcessMock(contextID, namespace, rpchdl)
+		return mock.LaunchProcessMock(contextID, refPid, rpchdl)
 
 	}
 	return nil

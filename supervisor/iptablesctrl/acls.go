@@ -1,6 +1,7 @@
 package iptablesctrl
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -144,25 +145,52 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 	return nil
 }
 
+func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) error {
+	for _, cr := range rulelist {
+		switch methodType {
+		case "Append":
+			if err := i.ipt.Append(cr[0], cr[1], cr[2:]...); err != nil {
+				log.WithFields(log.Fields{
+					"package": "iptablesctrl",
+					"method":  "Append",
+					"table":   cr[0],
+					"chain":   cr[1],
+					"error":   err.Error(),
+				}).Debug("Failed to append rule")
+				return err
+			}
+		case "Insert":
+			if err := i.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
+				log.WithFields(log.Fields{
+					"package": "iptablesctrl",
+					"method":  "Insert",
+					"table":   cr[0],
+					"chain":   cr[1],
+				}).Debug("Failed insert rule")
+				return err
+			}
+		case "Delete":
+			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
+				log.WithFields(log.Fields{
+					"package": "iptablesctrl",
+					"method":  "Insert",
+					"table":   cr[0],
+					"chain":   cr[1],
+				}).Debug("Failed to delete rule")
+				return err
+			}
+		default:
+			return fmt.Errorf("Invalid method type")
+		}
+	}
+	return nil
+}
+
 // addChainrules implements all the iptable rules that redirect traffic to a chain
 func (i *Instance) addChainRules(appChain string, netChain string, ip string) error {
 
-	rules := i.chainRules(appChain, netChain, ip)
-	for _, cr := range rules {
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Append")
 
-		if err := i.ipt.Append(cr[0], cr[1], cr[2:]...); err != nil {
-			log.WithFields(log.Fields{
-				"package":  "iptablesutils",
-				"appChain": appChain,
-				"netChain": netChain,
-				"ip":       ip,
-				"error":    err.Error(),
-			}).Debug("Failed to add the rule that redirects to container chain for chain rules")
-			return err
-		}
-	}
-
-	return nil
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
@@ -170,21 +198,12 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, ip string) er
 
 	for _, network := range i.targetNetworks {
 
-		rules := i.trapRules(appChain, netChain, network, i.applicationQueues, i.networkQueues)
-		for _, tr := range rules {
-
-			if err := i.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
-				log.WithFields(log.Fields{
-					"package":  "iptablesutils",
-					"appChain": appChain,
-					"netChain": netChain,
-					"ip":       ip,
-					"error":    err.Error(),
-				}).Debug("Failed to add the rule that redirects to container chain for packet trap")
-				return err
-			}
+		err := i.processRulesFromList(i.trapRules(appChain, netChain, network, i.applicationQueues, i.networkQueues), "Append")
+		if err != nil {
+			return err
 		}
 	}
+
 	return nil
 }
 
@@ -318,23 +337,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 // deleteChainRules deletes the rules that send traffic to our chain
 func (i *Instance) deleteChainRules(appChain, netChain, ip string) error {
 
-	rules := i.chainRules(appChain, netChain, ip)
-	for _, cr := range rules {
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")
 
-		if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-			log.WithFields(log.Fields{
-				"package":  "iptablesutils",
-				"appChain": appChain,
-				"netChain": netChain,
-				"ip":       ip,
-				"error":    err.Error(),
-			}).Debug("Failed to delete the rule that redirects to container chain for chain rules")
-
-			// TODO: We ignore errors in deletes so that we clean up as much as we can
-		}
-	}
-
-	return nil
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
@@ -411,18 +415,18 @@ func (i *Instance) acceptMarkedPackets() error {
 			"package": "iptablesutils",
 			"table":   table,
 			"chain":   chain,
-		}).Error("Failed to install default mark chain.")
+		}).Debug("Failed to install default mark chain.")
 	}
 	return err
 }
 
 func (i *Instance) removeMarkRule() error {
 
-	return i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+	i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "mark",
 		"--mark", strconv.Itoa(i.mark),
 		"-j", "ACCEPT")
-
+	return nil
 }
 
 func (i *Instance) cleanACLs() error {
@@ -454,7 +458,6 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 			"section": section,
 			"error":   err.Error(),
 		}).Debug("Can not clear the section in iptables.")
-		return
 	}
 
 	rules, err := i.ipt.ListChains(context)
@@ -466,7 +469,6 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 			"section": section,
 			"error":   err.Error(),
 		}).Debug("No chain rules found in iptables")
-		return
 	}
 
 	for _, rule := range rules {
@@ -481,34 +483,13 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 // addExclusionChainRules adds exclusion chain rules
 func (i *Instance) addExclusionChainRules(ip string) error {
 
-	rules := i.exclusionChainRules(ip)
-	for _, cr := range rules {
-		if err := i.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
+	return i.processRulesFromList(i.exclusionChainRules(ip), "Insert")
 
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Failed to create rule that redirects to container chain")
-			return err
-		}
-	}
-	return nil
 }
 
 // deleteExclusionChainRules removes exclusion chain rules
 func (i *Instance) deleteExclusionChainRules(ip string) error {
 
-	rules := i.exclusionChainRules(ip)
-	for _, cr := range rules {
+	return i.processRulesFromList(i.exclusionChainRules(ip), "Delete")
 
-		if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Failed to delete rule that redirects to container chain")
-			return err
-		}
-	}
-	return nil
 }

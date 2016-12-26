@@ -1,786 +1,484 @@
 package iptablesctrl
 
 import (
-	"reflect"
+	"fmt"
 	"testing"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
-func mockenforcerDefaultFQConfig(t *testing.T) enforcer.PolicyEnforcer {
-	pe := enforcer.NewTestPolicyEnforcer()
-	pe.MockGetFilterQueue(t, func() *enforcer.FilterQueue {
-		return &enforcer.FilterQueue{
-			NetworkQueue:              enforcer.DefaultNetworkQueue,
-			NetworkQueueSize:          enforcer.DefaultQueueSize,
-			NumberOfNetworkQueues:     enforcer.DefaultNumberOfQueues,
-			ApplicationQueue:          enforcer.DefaultApplicationQueue,
-			ApplicationQueueSize:      enforcer.DefaultQueueSize,
-			NumberOfApplicationQueues: enforcer.DefaultNumberOfQueues,
-		}
+func TestNewInstance(t *testing.T) {
+
+	Convey("When I create a new iptables instance", t, func() {
+		networkQueues := "0:1"
+		applicationQueues := "2:3"
+		targetNetworks := []string{"172.17.0.0/24"}
+		mark := 0x1000
+
+		Convey("If I create a local implemenetation and iptables exists", func() {
+			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, false)
+			Convey("It should succeed", func() {
+				So(i, ShouldNotBeNil)
+				So(err, ShouldBeNil)
+				So(i.appPacketIPTableSection, ShouldResemble, "PREROUTING")
+				So(i.netPacketIPTableSection, ShouldResemble, "POSTROUTING")
+				So(i.mark, ShouldEqual, mark)
+				So(i.networkQueues, ShouldResemble, networkQueues)
+				So(i.applicationQueues, ShouldResemble, applicationQueues)
+			})
+		})
+
+		Convey("If I create a remote implemenetation and iptables exists", func() {
+			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, true)
+			Convey("It should succeed", func() {
+				So(i, ShouldNotBeNil)
+				So(err, ShouldBeNil)
+				So(i.appPacketIPTableSection, ShouldResemble, "OUTPUT")
+				So(i.netPacketIPTableSection, ShouldResemble, "INPUT")
+				So(i.mark, ShouldEqual, mark)
+				So(i.networkQueues, ShouldResemble, networkQueues)
+				So(i.applicationQueues, ShouldResemble, applicationQueues)
+			})
+		})
 	})
-	return pe
 }
 
-func doNewIPTSupervisor(t *testing.T) *iptablesSupervisor {
-	c := &collector.DefaultCollector{}
-	pe := mockenforcerDefaultFQConfig(t)
-	ipt := provider.NewTestIptablesProvider()
-	ipu := iptablesutils.NewIptableUtils(ipt, false)
-	networks := []string{"0.0.0.0/0"}
-
-	s, err := NewIPTablesSupervisor(c, pe, ipu, networks, false)
-	if err != nil {
-		t.Errorf("NewIPTables should not fail. Error received: %s", err)
-		t.SkipNow()
-	}
-	if !reflect.DeepEqual(s.(*iptablesSupervisor).targetNetworks, networks) {
-		t.Errorf("Networks after create not equal")
-	}
-	return s.(*iptablesSupervisor)
-}
-
-func TestNewIPTablesSupervisor(t *testing.T) {
-
-	c := &collector.DefaultCollector{}
-	pe := mockenforcerDefaultFQConfig(t)
-	ipt := provider.NewTestIptablesProvider()
-	ipu := iptablesutils.NewIptableUtils(ipt, false)
-	networks := []string{"0.0.0.0/0"}
-
-	// Test with normal parameters
-	_, err := NewIPTablesSupervisor(c, pe, ipu, networks, false)
-	if err != nil {
-		t.Errorf("NewIPTables should not fail. Error received: %s", err)
-	}
-	// Test with Empty Collector
-	_, err = NewIPTablesSupervisor(nil, pe, ipu, networks, false)
-	if err == nil {
-		t.Errorf("NewIPTables should fail because of empty Collector. No Error received.")
-	}
-
-	// Test with Empty Enforcer
-	_, err = NewIPTablesSupervisor(c, nil, ipu, networks, false)
-	if err == nil {
-		t.Errorf("NewIPTables should fail because of empty Enforcer. No Error received.")
-	}
-
-	// Test with Empty Utils
-	_, err = NewIPTablesSupervisor(c, pe, nil, networks, false)
-	if err == nil {
-		t.Errorf("NewIPTables should fail because of empty IPTables Utils. No Error received.")
-	}
-
-	// Test with Empty Networks
-	_, err = NewIPTablesSupervisor(c, pe, ipu, nil, false)
-	if err == nil {
-		t.Errorf("NewIPTables should fail because of empty TriremeNetworks. No Error received.")
-	}
-}
-
-func TestIPTablesSuperviseErrorEmptyContainerInfo(t *testing.T) {
-	s := doNewIPTSupervisor(t)
-
-	// Test empty ContainerInfo
-	err := s.Supervise("123", nil)
-	if err == nil {
-		t.Errorf("Empty containerInfo should result in Error")
-	}
-}
-
-func TestIPTablesSuperviseCreateAndUpdate(t *testing.T) {
-	s := doNewIPTSupervisor(t)
-
-	containerInfo := policy.NewPUInfo("12345")
-	ips := policy.NewIPMap(map[string]string{"policy.DefaultNamespace": "30.30.30.30"})
-	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-	containerInfo.Policy.SetIPAddresses(ipl)
-
-	// Test expected parameters. Create case
-	err := s.Supervise("12345", containerInfo)
-	if err != nil {
-		t.Errorf("Got error on create %s", err)
-	}
-
-	// Test expected parameters. Update case
-	err = s.Supervise("12345", containerInfo)
-	if err != nil {
-		t.Errorf("Got error on Update %s", err)
-	}
-}
-
-func TestIPTablesUnsuperviseErrorNonExistingContainer(t *testing.T) {
-	s := doNewIPTSupervisor(t)
-
-	// Test Unsupervise for nonexistingContainer. Should return an error
-	err := s.Unsupervise("123")
-	if err == nil {
-		t.Errorf("Empty containerInfo should result in Error")
-	}
-}
-
-func TestIPTablesUnsuperviseExistingContainer(t *testing.T) {
-	s := doNewIPTSupervisor(t)
-
-	containerInfo := policy.NewPUInfo("12345")
-	ips := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-	containerInfo.Runtime.SetIPAddresses(ips)
-	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-	containerInfo.Policy.SetIPAddresses(ipl)
-
-	// Test expected parameters. Create case
-	err := s.Supervise("12345", containerInfo)
-	if err != nil {
-		t.Errorf("Got error on create %s", err)
-	}
-
-	// Test Unsupervise for existingContainer. Should not return an error
-	err = s.Unsupervise("12345")
-	if err != nil {
-		t.Errorf("Unsupervise of existing container should not result in error: %s", err)
-	}
-
-	// Test Unsupervise for nonexistingContainer. Should return an error
-	err = s.Unsupervise("12345")
-	if err == nil {
-		t.Errorf("Unsupervise of existing container should  result in an error")
-	}
-}
-
-func TestIPTablesStart(t *testing.T) {
-	s := doNewIPTSupervisor(t)
-	err := s.Start()
-	if err != nil {
-		t.Errorf("Start should not return an errir: %s", err)
-	}
-}
-
-func TestIPTablesStop(t *testing.T) {
-	s := doNewIPTSupervisor(t)
-	s.Start()
-	err := s.Stop()
-	if err != nil {
-		t.Errorf("Stop should not return an errir: %s", err)
-	}
-}
-
-func TestSuperviseACLs(t *testing.T) {
-
-	s := doNewIPTSupervisor(t)
-	ingress := policy.NewIPRuleList([]policy.IPRule{
-		policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-			Action:   policy.Accept,
-		},
-		policy.IPRule{
-			Address:  "30.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-			Action:   policy.Reject,
-		},
+func TestChainName(t *testing.T) {
+	Convey("When I test the creation of the name of the chain", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		Convey("With a contextID of Context and version of 1", func() {
+			app, net := i.chainName("Context", 1)
+			Convey("I should get the right names", func() {
+				So(app, ShouldResemble, "TRIREME-App-Context-1")
+				So(net, ShouldResemble, "TRIREME-Net-Context-1")
+			})
+		})
 	})
+}
 
-	// Allow access to container from localhost
-	egress := policy.NewIPRuleList([]policy.IPRule{
-		policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-			Action:   policy.Accept,
-		},
-		policy.IPRule{
-			Address:  "30.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-			Action:   policy.Reject,
-		},
+func TestDefaultIP(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		Convey("When I get the default IP address of a list that has the default namespace", func() {
+			addresslist := map[string]string{
+				policy.DefaultNamespace: "10.1.1.1",
+			}
+			address, status := i.defaultIP(addresslist)
+
+			Convey("I should get the right IP", func() {
+				So(address, ShouldResemble, "10.1.1.1")
+				So(status, ShouldBeTrue)
+			})
+		})
+
+		Convey("When I provide list with no matching default", func() {
+			addresslist := map[string]string{}
+			address, status := i.defaultIP(addresslist)
+
+			Convey("I should get back the default IP and false status", func() {
+				So(address, ShouldResemble, "0.0.0.0/0")
+				So(status, ShouldBeFalse)
+			})
+		})
 	})
-
-	ips := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-
-	containerInfo := &policy.PUInfo{}
-	containerInfo.ContextID = "12345"
-	containerInfo.Runtime = policy.NewPURuntimeWithDefaults()
-	containerInfo.Policy = policy.NewPUPolicy("12345", policy.Police, ingress, egress, nil, nil, nil, nil, ips, nil)
-
-	err := s.Supervise("12345", containerInfo)
-	if err != nil {
-		t.Errorf("Got error %s", err)
-	}
-
-	err = s.Supervise("12345", containerInfo)
-	if err != nil {
-		t.Errorf("Got error %s", err)
-	}
-
-	err = s.Unsupervise("12345")
-	if err != nil {
-		t.Errorf("Got error %s", err)
-	}
 }
 
-// //Call Supervise and we will mock AddContainer Chain here  by changing the mock defintions of newChain
-// //The function should cleanup on all errors
-// func TestAddContainerChain(t *testing.T) {
-//
-// 	s := doNewIPTSupervisor(t)
-//
-// 	ingress := policy.NewIPRuleList([]policy.IPRule{
-// 		policy.IPRule{
-// 			Address:  "20.20.0.0/16",
-// 			Port:     "80",
-// 			Protocol: "tcp",
-// 			Action:   policy.Accept,
-// 		},
-// 	})
-//
-// 	// Allow access to container from localhost
-// 	egress := policy.NewIPRuleList([]policy.IPRule{
-// 		policy.IPRule{
-// 			Address:  "20.20.0.0/16",
-// 			Port:     "80",
-// 			Protocol: "tcp",
-// 			Action:   policy.Accept,
-// 		},
-// 	})
-//
-// 	ips := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-//
-// 	containerInfo := &policy.PUInfo{}
-// 	containerInfo.ContextID = "12345"
-// 	containerInfo.Runtime = policy.NewPURuntimeWithDefaults()
-// 	containerInfo.Policy = policy.NewPUPolicy("12345", policy.Police, ingress, egress, nil, nil, nil, nil, ips, nil)
-// 	// containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-//
-// 	//Setup expectations
-// 	err := s.Supervise("12345", containerInfo)
-// 	if err == nil {
-// 		t.Errorf("ignored Error from add ContainerChain raw::  %s", err)
-// 		t.SkipNow()
-// 	}
-//
-// 	// Setup expectations
-// 	err = s.Supervise("12345", containerInfo)
-// 	if err == nil {
-// 		t.Errorf("ignored Error from add app specific ContainerChain")
-// 		t.SkipNow()
-// 	}
-//
-// 	// Setup expectations
-// 	err = s.Supervise("12345", containerInfo)
-// 	if err == nil {
-// 		t.Errorf("ignored Error from add net specific ContainerChain")
-// 		t.SkipNow()
-// 	}
-//
-// 	// Setup expectations
-// 	err = s.Supervise("12345", containerInfo)
-// 	if err != nil {
-// 		t.Errorf("Supervise failed %s", err)
-// 		t.SkipNow()
-// 	}
-//
-// 	// Setup expectations
-// 	s.Unsupervise("12345")
-//
-// }
-//
-// // func TestAddChainRules(t *testing.T) {
-// //
-// // 	s := doNewIPTSupervisor(t)
-// // 	containerInfo := policy.NewPUInfo("12345")
-// // 	containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
-// // 		Address:  "20.20.0.0/16",
-// // 		Port:     "80",
-// // 		Protocol: "tcp",
-// // 	}}
-// //
-// // 	containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
-// // 		Address:  "20.20.0.0/16",
-// // 		Port:     "80",
-// // 		Protocol: "tcp",
-// // 	}}
-// // 	containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-// // 	containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-// // 	m := s.ipt.(provider.TestIptablesProvider)
-// //
-// // 	const (
-// // 		testPoint = iota
-// // 		testPoint1
-// // 		testPoint2
-// // 		testPoint3
-// // 		testPoint4
-// // 	)
-// // 	testPoints := testPoint1
-// // 	targetPoint := testPoint1
-// // 	//Check if there are now rules anymore
-// // 	m.MockAppend(t, func(table, chain string, rulespec ...string) error {
-// //
-// // 		if testPoints == targetPoint {
-// // 			return errors.New("Failed to append")
-// // 		}
-// // 		testPoints++
-// // 		return nil
-// //
-// // 	})
-// // 	err := s.Supervise("12345", containerInfo)
-// // 	if err == nil {
-// // 		t.Errorf("ignored Error from Append")
-// // 		t.SkipNow()
-// // 	}
-// //
-// // 	//Sucess Case
-// // 	testPoints = testPoint1
-// // 	targetPoint = 0
-// // 	err = s.Supervise("12345", containerInfo)
-// // 	if err != nil {
-// // 		t.Errorf("Supervise failed %s", err)
-// // 		t.SkipNow()
-// // 	}
-// // 	s.Unsupervise("12345")
-// //
-// // }
-//
-// func TestAddPacketTrap(t *testing.T) {
-// 	/*
-// 		s := doNewIPTSupervisor(t)
-// 		containerInfo := policy.NewPUInfo("12345")
-// 		containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
-// 			Address:  "20.20.0.0/16",
-// 			Port:     "80",
-// 			Protocol: "tcp",
-// 		}}
-//
-// 		containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
-// 			Address:  "20.20.0.0/16",
-// 			Port:     "80",
-// 			Protocol: "tcp",
-// 		}}
-// 		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-// 		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-// 		m := s.ipt.(provider.TestIptablesProvider)
-// 		const (
-// 			testPoint  = 0
-// 			testPoint1 = 3
-// 			testPoint2
-// 			testPoint3
-// 			testPoint4
-// 		)
-// 		testPoints := testPoint
-// 		targetPoint := testPoint1
-// 		//Check if there are now rules anymore
-// 		m.MockAppend(t, func(table, chain string, rulespec ...string) error {
-// 			if testPoints == targetPoint {
-// 				return errors.New("Failed to append")
-// 			}
-// 			testPoints++
-// 			return nil
-//
-// 		})
-// 		err := s.Supervise("12345", containerInfo)
-// 		if err == nil {
-// 			t.Errorf("ignored Error from Append")
-// 			//debug.PrintStack()
-// 			t.SkipNow()
-// 		}
-//
-// 		//Sucess Case
-// 		testPoints = testPoint1
-// 		targetPoint = testPoint
-// 		err = s.Supervise("12345", containerInfo)
-// 		if err != nil {
-// 			t.Errorf("Supervise failed %s", err)
-// 			t.SkipNow()
-// 		}
-// 		s.Unsupervise("12345")
-// 	*/
-// }
+func TestConfigureRules(t *testing.T) {
+	Convey("Given an iptables controllers", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
 
-func TestAddAppACLs(t *testing.T) {
-	/*
-		s := doNewIPTSupervisor(t)
-		containerInfo := policy.NewPUInfo("12345")
-		containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
+		rules := policy.NewIPRuleList([]policy.IPRule{
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "80",
+				Protocol: "TCP",
+				Action:   policy.Reject,
+			},
 
-		containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-		m := s.ipt.(provider.TestIptablesProvider)
-		//25 is derived from the addchainrules+AddPacketTrap calling append
-		//We don't want append to fail in addchainrules
-		const (
-			testPoint  = 25
-			testPoint0 = 0
-			testPoint1 = 7
-			testPoint2 = 15
-			testPoint3
-			testPoint4
-		)
-		testPoints := testPoint0
-		targetPoint := testPoint1
-		//Check if there are now rules anymore
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "443",
+				Protocol: "TCP",
+				Action:   policy.Accept,
+			},
+		})
 
-		m.MockAppend(t, func(table, chain string, rulespec ...string) error {
-			if testPoints == targetPoint {
-				testPoints++
-				return errors.New("Failed to append")
-			}
-			testPoints++
-			return nil
+		Convey("With a set of policy rules and valid IP", func() {
+
+			ipl := policy.NewIPMap(map[string]string{})
+			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil, ipl, nil)
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.ConfigureRules(1, "Context", policyrules)
+			Convey("It should succeed", func() {
+				So(err, ShouldBeNil)
+			})
 
 		})
-		err := s.Supervise("12345", containerInfo)
-		if err == nil {
-			t.Errorf("ignored Error from Append")
-			//debug.PrintStack()
-			t.SkipNow()
-		}
 
-		//Second if condition
-		testPoints = testPoint1
-		targetPoint = testPoint3
-		err = s.Supervise("12345", containerInfo)
-		if err == nil {
-			t.Errorf("ignored Error from Append")
-			//debug.PrintStack()
-			t.SkipNow()
-		}
-		//Success Case
-		testPoints = testPoint1
-		targetPoint = testPoint0
-		err = s.Supervise("12345", containerInfo)
-		if err != nil {
-			t.Errorf("Supervise failed %s", err)
-			t.SkipNow()
-		}
-		s.Unsupervise("12345")
-	*/
+		Convey("With a set of policy rules and invalid IP", func() {
+			ipl := policy.NewIPMap(map[string]string{})
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil, ipl, nil)
+			err := i.ConfigureRules(1, "Context", policyrules)
+			Convey("I should receive an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("With a set of policy rules and valid IP, where add container chain fails", func() {
+
+			ipl := policy.NewIPMap(map[string]string{})
+			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil, ipl, nil)
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return fmt.Errorf("Failed to add container chain")
+			})
+			err := i.ConfigureRules(1, "Context", policyrules)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+
+		})
+
+		Convey("With a set of policy rules and valid IP, where add ACLs fails", func() {
+
+			ipl := policy.NewIPMap(map[string]string{})
+			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil, ipl, nil)
+
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return fmt.Errorf("Failed to add container chain")
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.ConfigureRules(1, "Context", policyrules)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
 }
 
-func TestAddNetACLs(t *testing.T) {
-	/*
-		s := doNewIPTSupervisor(t)
-		containerInfo := policy.NewPUInfo("12345")
-		containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
+func TestDeleteRules(t *testing.T) {
+	Convey("Given an iptables controllers", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
 
-		containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-		m := s.ipt.(provider.TestIptablesProvider)
-		//25 is derived from the addchainrules+AddPacketTrap calling append
-		//We don't want append to fail in addchainrules
-		const (
-			testPoint  = 0
-			testPoint0 = 0
-			testPoint1 = 8
-			testPoint2 = 9
-			testPoint3
-			testPoint4
-		)
-		testPoints := testPoint0
-		targetPoint := testPoint1
-		//Check if there are now rules anymore
-
-		m.MockAppend(t, func(table, chain string, rulespec ...string) error {
-
-			if testPoints == targetPoint {
-				testPoints++
-				return errors.New("Failed to append")
-			}
-			testPoints++
-			return nil
-
+		Convey("If I try to delete with nil IP addreses", func() {
+			err := i.DeleteRules(1, "context", nil)
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
 		})
-		err := s.Supervise("12345", containerInfo)
-		if err == nil {
-			t.Errorf("ignored Error from Append expected:%v actual:%v", targetPoint, testPoints)
-			//debug.PrintStack()
-			t.SkipNow()
-		}
 
-		//Second Append for default rule
-		testPoints = testPoint0
-		targetPoint = testPoint2
-		err = s.Supervise("12345", containerInfo)
-		if err == nil {
-			t.Errorf("ignored Error from Append expected:%v actual:%v", targetPoint, testPoints)
-			//debug.PrintStack()
-			t.SkipNow()
-		}
-		//Sucess Case
-		testPoints = testPoint1
-		targetPoint = testPoint0
-		err = s.Supervise("12345", containerInfo)
-		if err != nil {
-			t.Errorf("Error in Supervise expected:%v actual:%v", targetPoint, testPoints)
-			//debug.PrintStack()
-			t.SkipNow()
-		}
-		s.Unsupervise("12345")
-	*/
+		Convey("I try to delete with no default IP address ", func() {
+			err := i.DeleteRules(1, "context", &policy.IPMap{
+				IPs: map[string]string{},
+			})
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("I try to delete with a valid default IP address ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockClearChain(t, func(table string, chain string) error {
+				return nil
+			})
+			iptables.MockDeleteChain(t, func(table string, chain string) error {
+				return nil
+			})
+			err := i.DeleteRules(1, "context", &policy.IPMap{
+				IPs: map[string]string{
+					policy.DefaultNamespace: "172.17.0.2",
+				},
+			})
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
 }
 
-func TestDeleteChainRules(t *testing.T) {
-	/*
-		s := doNewIPTSupervisor(t)
-		containerInfo := policy.NewPUInfo("12345")
-		containerInfo.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
+func TestUpdateRules(t *testing.T) {
+	Convey("Given an iptables controllers", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
 
-		containerInfo.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "20.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
-		containerInfo.Runtime.SetIPAddresses(map[string]string{policy.DefaultNamespace: "30.30.30.30"})
-		containerInfo.Policy.PolicyIPs = []string{"30.30.30.30"}
-		m := s.ipt.(provider.TestIptablesProvider)
-		//25 is derived from the addchainrules+AddPacketTrap calling append
-		//We don't want append to fail in addchainrules
-		const (
-			testPoint  = 0
-			testPoint0 = 0
-			testPoint1 = 1
-			testPoint2
-			testPoint3
-			testPoint4
-		)
+		rules := policy.NewIPRuleList([]policy.IPRule{
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "80",
+				Protocol: "TCP",
+				Action:   policy.Reject,
+			},
 
-		err := s.Supervise("12345", containerInfo)
-		//Call Supervise again with the same context id
-		//Will force a doUpDatePU
-		containerInfo1 := policy.NewPUInfo("12345")
-		containerInfo1.Policy.IngressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "10.10.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
-
-		containerInfo1.Policy.EgressACLs = []policy.IPRule{policy.IPRule{
-			Address:  "10.20.0.0/16",
-			Port:     "80",
-			Protocol: "tcp",
-		}}
-		containerInfo1.Runtime.SetIPAddresses(map[string]string{"bridge": "15.30.30.30"})
-		containerInfo1.Policy.PolicyIPs = []string{"15.30.30.30"}
-		testPoints := testPoint0
-		targetPoint := testPoint1
-		m.MockDelete(t, func(table, chain string, rulespec ...string) error {
-			if testPoints == targetPoint {
-				testPoints++
-				return errors.New("Failed to append")
-			}
-			testPoints++
-			return nil
-
+			policy.IPRule{
+				Address:  "192.30.253.0/24",
+				Port:     "443",
+				Protocol: "TCP",
+				Action:   policy.Accept,
+			},
 		})
 
-		err = s.Supervise("12345", containerInfo1)
-		if err == nil {
-			t.Errorf("ignored delete error")
-		}
+		Convey("If I try to update with nil IP addreses", func() {
+			err := i.UpdateRules(1, "context", nil)
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
 
-		//Sucess case now
-		testPoints = testPoint1
-		targetPoint = testPoint0
-		err = s.Supervise("12345", containerInfo)
-		if err != nil {
-			t.Errorf("Error during Supervise")
-		}
-		//Trigger and doUpdatePU
-		err = s.Supervise("12345", containerInfo1)
-		if err != nil {
-			t.Errorf("Update of container failed")
-		}
-	*/
+		Convey("If I try to update with no default IP address ", func() {
+			ipl := policy.NewIPMap(map[string]string{})
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil, ipl, nil)
+
+			err := i.UpdateRules(1, "context", policyrules)
+
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("I try to update with a valid default IP address ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("TRIREME-App-Context-0", rulespec) == nil || matchSpec("TRIREME-Net-Context-0", rulespec) == nil {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+			iptables.MockClearChain(t, func(table string, chain string) error {
+				if chain == "TRIREME-App-Context-0" || chain == "TRIREME-Net-Context-0" {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+			iptables.MockDeleteChain(t, func(table string, chain string) error {
+				if chain == "TRIREME-App-Context-0" || chain == "TRIREME-Net-Context-0" {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if chain == "TRIREME-App-Context-1" || chain == "TRIREME-Net-Context-1" {
+					return nil
+				}
+				if matchSpec("TRIREME-App-Context-1", rulespec) == nil || matchSpec("TRIREME-Net-Context-1", rulespec) == nil {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if chain == "TRIREME-App-Context-1" || chain == "TRIREME-Net-Context-1" {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+			iptables.MockNewChain(t, func(table string, chain string) error {
+				if chain == "TRIREME-App-Context-1" || chain == "TRIREME-Net-Context-1" {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+
+			ipl := policy.NewIPMap(map[string]string{})
+			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			policyrules := policy.NewPUPolicy("Context",
+				policy.Police,
+				rules,
+				rules,
+				nil,
+				nil,
+				nil,
+				nil, ipl, nil)
+
+			err := i.UpdateRules(1, "Context", policyrules)
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
 }
 
-func TestExcludedIP(t *testing.T) {
-	/*
-		supervisor := doNewIPTSupervisor(t)
-		ipt := supervisor.ipt.(provider.TestIptablesProvider)
+func TestStart(t *testing.T) {
+	Convey("Given an iptables controllers,", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
 
-		// Testing normal Workflow:Add and Remove 10.0.0.1/32
-
-		excludedIP := "10.0.0.1/32"
-		indexInsert := 0
-		ipt.MockInsert(t, func(table, chain string, pos int, rulespec ...string) error {
-			fmt.Println(table)
-			switch indexInsert {
-			case 0:
-				// First Iteration
-				expectedTable := "raw"
-				expectedChain := "PREROUTING"
-				expectedPos := 1
-				expectedRuleSpec := []string{"-d", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
-				if table != expectedTable {
-					t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
-				}
-				if chain != expectedChain {
-					t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
-
-				}
-				if pos != expectedPos {
-					t.Errorf("Was expecting Position to be %d , got %d", expectedPos, pos)
-				}
-				if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
-					t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
-				}
-
-			case 1:
-				// First Iteration
-				expectedTable := "mangle"
-				expectedChain := "PREROUTING"
-				expectedPos := 1
-				expectedRuleSpec := []string{"-d", excludedIP, "-p", "tcp", "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
-				if table != expectedTable {
-					t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
-				}
-				if chain != expectedChain {
-					t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
-
-				}
-				if pos != expectedPos {
-					t.Errorf("Was expecting Position to be %d , got %d", expectedPos, pos)
-				}
-				if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
-					t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
-				}
-
-			case 2:
-				// First Iteration
-				expectedTable := "mangle"
-				expectedChain := "POSTROUTING"
-				expectedPos := 1
-				expectedRuleSpec := []string{"-s", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
-				if table != expectedTable {
-					t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
-				}
-				if chain != expectedChain {
-					t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
-
-				}
-				if pos != expectedPos {
-					t.Errorf("Was expecting Position to be %d , got %d", expectedPos, pos)
-				}
-				if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
-					t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
-				}
-
-			}
-			indexInsert++
-			return nil
-		})
-		indexDelete := 0
-
-		ipt.MockDelete(t, func(table, chain string, rulespec ...string) error {
-			fmt.Println(table)
-			switch indexDelete {
-			case 0:
-				// First Iteration
-				expectedTable := "raw"
-				expectedChain := "PREROUTING"
-				expectedRuleSpec := []string{"-d", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
-				if table != expectedTable {
-					t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
-				}
-				if chain != expectedChain {
-					t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
-
-				}
-				if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
-					t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
-				}
-
-			case 1:
-				// First Iteration
-				expectedTable := "mangle"
-				expectedChain := "PREROUTING"
-				expectedRuleSpec := []string{"-d", excludedIP, "-p", "tcp", "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
-				if table != expectedTable {
-					t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
-				}
-				if chain != expectedChain {
-					t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
-
-				}
-				if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
-					t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
-				}
-
-			case 2:
-				// First Iteration
-				expectedTable := "mangle"
-				expectedChain := "POSTROUTING"
-				expectedRuleSpec := []string{"-s", excludedIP, "-m", "comment", "--comment", "Trireme excluded IP", "-j", "ACCEPT"}
-				if table != expectedTable {
-					t.Errorf("Was expecting Table to be %s , got %s", expectedTable, table)
-				}
-				if chain != expectedChain {
-					t.Errorf("Was expecting Chain to be %s , got %s", expectedChain, chain)
-
-				}
-				if !reflect.DeepEqual(rulespec, expectedRuleSpec) {
-					t.Errorf("Was expecting Rulespec to be %+v , got %+v", expectedRuleSpec, rulespec)
-				}
-			}
-			indexDelete++
-			return nil
+		Convey("When I start the controller and I can insert the right rules", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockClearChain(t, func(table string, chain string) error {
+				return nil
+			})
+			iptables.MockListChains(t, func(table string) ([]string, error) {
+				return []string{}, nil
+			})
+			err := i.Start()
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
 		})
 
-		err := supervisor.AddExcludedIP(excludedIP)
-		if err != nil {
-			t.Errorf("Was expecting nil error return, got %s", err)
-		}
-		err = supervisor.RemoveExcludedIP(excludedIP)
-		if err != nil {
-			t.Errorf("Was expecting nil error return, got %s", err)
-		}
-
-		// ErrorReturn Tests:
-		excludedIP = "20.0.0.1/32"
-		ipt.MockInsert(t, func(table, chain string, pos int, rulespec ...string) error {
-			return fmt.Errorf("IPTable Error ")
+		Convey("When I start the controller and I fail to insert the mark rule", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return fmt.Errorf("Error")
+			})
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			iptables.MockClearChain(t, func(table string, chain string) error {
+				return nil
+			})
+			iptables.MockListChains(t, func(table string) ([]string, error) {
+				return []string{}, nil
+			})
+			err := i.Start()
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
 		})
-		ipt.MockDelete(t, func(table, chain string, rulespec ...string) error {
-			return fmt.Errorf("IPTable Error ")
+	})
+}
+
+func TestStop(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I stop the controller, I should get no error ", func() {
+			err := i.Stop()
+			So(err, ShouldBeNil)
+		})
+	})
+}
+
+func TestAddExcludedIP(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add an excluded IP 10.1.1.0", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if matchSpec("10.1.1.0", rulespec) == nil {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+
+			err := i.AddExcludedIP("10.1.1.0")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
 		})
 
-		// Testing Error on Adding
-		err = supervisor.AddExcludedIP(excludedIP)
-		if err == nil {
-			t.Errorf("Was expecting error return, got nil")
-		}
+		Convey("When I add an excluded IP 10.1.1.0 and it fails ", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return fmt.Errorf("Error")
+			})
 
-		// Testing error on Removing
-		err = supervisor.RemoveExcludedIP(excludedIP)
-		if err == nil {
-			t.Errorf("Was expecting error return, got nil")
-		}
-	*/
+			err := i.AddExcludedIP("10.1.1.0")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
+}
+
+func TestRemoveExcludedIP(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I remove an excluded IP 10.1.1.0", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("10.1.1.0", rulespec) == nil {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+
+			err := i.RemoveExcludedIP("10.1.1.0")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I remove an excluded IP 10.1.1.0 and it fails ", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return fmt.Errorf("Error")
+			})
+
+			err := i.RemoveExcludedIP("10.1.1.0")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
 }

@@ -81,7 +81,7 @@ func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 func (i *Instance) ConfigureRules(version int, contextID string, policyrules *policy.PUPolicy) error {
 
 	appChain, netChain := i.chainName(contextID, version)
-	policyrules.DefaultIPAddress()
+	// policyrules.DefaultIPAddress()
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
@@ -117,6 +117,10 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap) error {
 
 	// Supporting only one ip
+	if ipAddresses == nil {
+		return fmt.Errorf("Provided map of IP addresses is nil")
+	}
+
 	ipAddress, ok := i.defaultIP(ipAddresses.IPs)
 	if !ok {
 		return fmt.Errorf("No ip address found ")
@@ -133,6 +137,10 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 
 // UpdateRules implements the update part of the interface
 func (i *Instance) UpdateRules(version int, contextID string, policyrules *policy.PUPolicy) error {
+
+	if policyrules == nil {
+		return fmt.Errorf("Policy rules cannot be nil")
+	}
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
