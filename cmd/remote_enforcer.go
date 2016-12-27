@@ -22,8 +22,6 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 const (
@@ -240,23 +238,12 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		//TO DO
 		return fmt.Errorf("IPSets not supported yet")
 	default:
-		ipt, err := provider.NewGoIPTablesProvider()
-		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "remote_enforcer",
-				"Error":   err.Error(),
-			}).Error("Failed to load Go-Iptables")
-			resp.Status = err
-			return resp.Status
-		}
-
-		ipu := iptablesutils.NewIptableUtils(ipt, true)
-
-		s.Supervisor, err = supervisor.NewIPTablesSupervisor(s.Collector,
+		var err error
+		s.Supervisor, err = supervisor.NewSupervisor(s.Collector,
 			s.Enforcer,
-			ipu,
 			payload.TargetNetworks,
-			true,
+			supervisor.RemoteContainer,
+			supervisor.IPTables,
 		)
 		if err != nil {
 			log.WithFields(log.Fields{

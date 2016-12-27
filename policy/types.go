@@ -21,13 +21,13 @@ type FlowAction int
 
 const (
 	// Accept is the accept action
-	Accept = 0x1
+	Accept FlowAction = 0x1
 	// Reject is the reject  action
-	Reject = 0x2
+	Reject FlowAction = 0x2
 	// Log intstructs the data to log informat
-	Log = 0x4
+	Log FlowAction = 0x4
 	// Encrypt instructs data to be encrypted
-	Encrypt = 0x8
+	Encrypt FlowAction = 0x8
 )
 
 const (

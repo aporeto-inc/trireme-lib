@@ -18,8 +18,33 @@ type Supervisor interface {
 	Stop() error
 }
 
-// An Excluder can add/remove specific IPs that are not part of Trireme.
+// Excluder is an interface to remove specific IPs from the Trireme implementation
 type Excluder interface {
+
+	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
+	AddExcludedIP(ip string) error
+
+	// RemoveExcludedIP removes the exception for the destination IP given in parameter.
+	RemoveExcludedIP(ip string) error
+}
+
+// Implementor is the interface of the implementation based on iptables, ipsets, remote etc
+type Implementor interface {
+
+	// ConfigureRules
+	ConfigureRules(version int, contextID string, policyrules *policy.PUPolicy) error
+
+	// UpdateRules
+	UpdateRules(version int, contextID string, policyrules *policy.PUPolicy) error
+
+	// DeleteRules
+	DeleteRules(version int, context string, ipAddresses *policy.IPMap) error
+
+	// Start initializes any defaults
+	Start() error
+
+	// Stop cleans up state
+	Stop() error
 
 	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
 	AddExcludedIP(ip string) error

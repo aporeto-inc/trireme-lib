@@ -11,15 +11,12 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme/supervisor/iptablesutils"
 
 	"github.com/aporeto-inc/trireme/enforcer/proxy"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/supervisor"
 	"github.com/aporeto-inc/trireme/supervisor/proxy"
-
-	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 const (
@@ -32,34 +29,15 @@ const (
 
 // NewIPSetSupervisor is the Supervisor based on IPSets.
 func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
-	// Make sure that the iptables command is accessible. Panic if its not there.
-	ipt, err := provider.NewGoIPTablesProvider()
-	if err != nil {
-		return nil, err
-	}
 
-	ips := provider.NewGoIPsetProvider()
-
-	ipu, err := iptablesutils.NewIpsetUtils(ipt, ips)
-	if err != nil {
-		return nil, err
-	}
-
-	return supervisor.NewIPSetSupervisor(eventCollector, enforcer, ipu, networks)
+	return supervisor.NewSupervisor(eventCollector, enforcer, networks, supervisor.LocalContainer, supervisor.IPSets)
 
 }
 
 // NewIPTablesSupervisor is the current old supervisor implementation.
 func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
 
-	// Make sure that the iptables command is accessible. Panic if its not there.
-	ipt, err := provider.NewGoIPTablesProvider()
-	if err != nil {
-		return nil, err
-	}
-
-	ipu := iptablesutils.NewIptableUtils(ipt, false)
-	return supervisor.NewIPTablesSupervisor(eventCollector, enforcer, ipu, networks, false)
+	return supervisor.NewSupervisor(eventCollector, enforcer, networks, supervisor.LocalContainer, supervisor.IPTables)
 
 }
 
@@ -108,6 +86,10 @@ func NewTriremeWithDockerMonitor(
 
 	localEnforcer := enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets, remoteEnforcer)
 	localSupervisor, err := NewDefaultSupervisor(eventCollector, localEnforcer, networks)
+
+	// TODO: Supervisor can be automatically iptables or ipsets. If you want to start
+	// an ipsets based supervisor replace the line above with the below
+	// localSupervisor, err := NewIPSetSupervisor(eventCollector, localEnforcer, networks)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
