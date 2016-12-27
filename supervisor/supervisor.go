@@ -36,13 +36,13 @@ const (
 	LocalServer
 )
 
-type supervisorCacheEntry struct {
-	index int
-	ips   *policy.IPMap
+type cacheData struct {
+	version int
+	ips     *policy.IPMap
 }
 
-// iptablesSupervisor is the structure holding all information about a connection filter
-type iptablesSupervisor struct {
+// Config is the structure holding all information about the supervisor
+type Config struct {
 	implType ImplementationType
 	mode     ModeType
 
@@ -62,7 +62,7 @@ type iptablesSupervisor struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, targetNetworks []string, mode ModeType, implementation ImplementationType) (Supervisor, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, targetNetworks []string, mode ModeType, implementation ImplementationType) (*Config, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -82,7 +82,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, fmt.Errorf("Enforcer FilterQueues cannot be nil")
 	}
 
-	s := &iptablesSupervisor{
+	s := &Config{
 		mode:              mode,
 		impl:              nil,
 		versionTracker:    cache.NewCache(nil),
@@ -114,7 +114,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 
 // Supervise creates a mapping between an IP address and the corresponding labels.
 // it invokes the various handlers that process the parameter policy.
-func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.PUInfo) error {
+func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		return fmt.Errorf("Runtime, Policy and ContainerInfo should not be nil")
@@ -134,7 +134,7 @@ func (s *iptablesSupervisor) Supervise(contextID string, containerInfo *policy.P
 // Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
-func (s *iptablesSupervisor) Unsupervise(contextID string) error {
+func (s *Config) Unsupervise(contextID string) error {
 
 	version, err := s.versionTracker.Get(contextID)
 
@@ -142,9 +142,9 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 		return fmt.Errorf("Cannot find policy version")
 	}
 
-	cacheEntry := version.(*supervisorCacheEntry)
+	cacheEntry := version.(*cacheData)
 
-	s.impl.DeleteRules(cacheEntry.index, contextID, cacheEntry.ips)
+	s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips)
 
 	s.versionTracker.Remove(contextID)
 
@@ -152,7 +152,7 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 }
 
 // Start starts the supervisor
-func (s *iptablesSupervisor) Start() error {
+func (s *Config) Start() error {
 	log.WithFields(log.Fields{
 		"package": "supervisor",
 	}).Debug("Start the supervisor")
@@ -165,14 +165,14 @@ func (s *iptablesSupervisor) Start() error {
 }
 
 // Stop stops the supervisor
-func (s *iptablesSupervisor) Stop() error {
+func (s *Config) Stop() error {
 
 	s.impl.Stop()
 
 	return nil
 }
 
-func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.PUInfo) error {
+func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) error {
 
 	log.WithFields(log.Fields{
 		"package":   "supervisor",
@@ -181,9 +181,9 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 	version := 0
 
-	cacheEntry := &supervisorCacheEntry{
-		index: version,
-		ips:   containerInfo.Policy.IPAddresses(),
+	cacheEntry := &cacheData{
+		version: version,
+		ips:     containerInfo.Policy.IPAddresses(),
 	}
 
 	// Version the policy so that we can do hitless policy changes
@@ -205,7 +205,7 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 
 // UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
-func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.PUInfo) error {
+func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) error {
 
 	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
 
@@ -213,9 +213,9 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 		return fmt.Errorf("Error finding PU in cache %s", err)
 	}
 
-	cachedEntry := cacheEntry.(*supervisorCacheEntry)
+	cachedEntry := cacheEntry.(*cacheData)
 
-	if err := s.impl.UpdateRules(cachedEntry.index, contextID, containerInfo.Policy); err != nil {
+	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo.Policy); err != nil {
 		s.Unsupervise(contextID)
 		return fmt.Errorf("Error in updating PU implementation. PU has been terminated")
 	}
@@ -227,21 +227,19 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 }
 
 // AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-func (s *iptablesSupervisor) AddExcludedIP(ip string) error {
+func (s *Config) AddExcludedIP(ip string) error {
 
-	// return s.ipu.AddExclusionChainRules(ip)
-	return nil
+	return s.impl.AddExcludedIP(ip)
 }
 
 // RemoveExcludedIP removes the exception for the destion IP given in parameter.
-func (s *iptablesSupervisor) RemoveExcludedIP(ip string) error {
+func (s *Config) RemoveExcludedIP(ip string) error {
 
-	// return s.ipu.DeleteExclusionChainRules(ip)
-	return nil
+	return s.impl.AddExcludedIP(ip)
 }
 
 func add(a, b interface{}) interface{} {
-	entry := a.(*supervisorCacheEntry)
-	entry.index += b.(int)
+	entry := a.(*cacheData)
+	entry.version += b.(int)
 	return entry
 }
