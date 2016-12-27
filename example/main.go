@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/extractor"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -18,6 +19,7 @@ var certFile = flag.String("certFile", "cert.pem", "Set the path of certificate.
 var keyFile = flag.String("keyFile", "key.pem", "Set the path of key certificate key to use.")
 var caCertFile = flag.String("caCertFile", "ca.crt", "Set the path of certificate authority to use.")
 var externalMetadataFile = flag.String("metadata", "", "An external executable file for the metadata extractor")
+var swarm = flag.String("swarm", "", "Support the Swarm Mode extractor")
 
 func usage() {
 
@@ -53,12 +55,29 @@ func main() {
 		remoteEnforcer = true
 	}
 
+	var customExtractor monitor.DockerMetadataExtractor
+	if *externalMetadataFile != "" {
+		var err error
+		customExtractor, err = extractor.NewExternalExtractor(*externalMetadataFile)
+		if err != nil {
+			fmt.Printf("error: ABC, %s", err)
+		}
+	}
+
+	if *swarm == "true" {
+		log.WithFields(log.Fields{
+			"Package":   "main",
+			"Extractor": "Swarm",
+		}).Debug("Using Docker Swarm extractor")
+		customExtractor = common.SwarmExtractor
+	}
+
 	if *usePKI {
 		log.Infof("Setting up trireme with PKI")
-		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
+		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
 	} else {
 		log.Infof("Setting up trireme with PSK")
-		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24"}, *externalMetadataFile, remoteEnforcer)
+		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
 
 	}
 

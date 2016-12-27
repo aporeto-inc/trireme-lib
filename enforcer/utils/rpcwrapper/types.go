@@ -18,6 +18,16 @@ var gobTypes = []interface{}{
 	UnSupervisePayload{},
 }
 
+// CaptureType identifies the type of iptables implementation that should be used
+type CaptureType int
+
+const (
+	// IPTables forces an IPTables implementation
+	IPTables CaptureType = iota
+	// IPSets forces an IPSet implementation
+	IPSets
+)
+
 //Request exported
 type Request struct {
 	MethodIdentifier int
@@ -39,11 +49,11 @@ type Response struct {
 
 //InitRequestPayload exported
 type InitRequestPayload struct {
-	FqConfig   enforcer.FilterQueue
+	FqConfig   *enforcer.FilterQueue
 	MutualAuth bool
 	Validity   time.Duration
 	SecretType tokens.SecretsType
-	ContextID  string
+	ServerID   string
 	CAPEM      []byte
 	PublicPEM  []byte
 	PrivatePEM []byte
@@ -51,9 +61,8 @@ type InitRequestPayload struct {
 
 //InitSupervisorPayload exported
 type InitSupervisorPayload struct {
-	NetworkQueues     string
-	ApplicationQueues string
-	TargetNetworks    []string
+	CaptureMethod  CaptureType
+	TargetNetworks []string
 }
 
 // EnforcePayload exported

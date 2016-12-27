@@ -84,7 +84,7 @@ func NewIPTablesSupervisor(collector collector.EventCollector, enforcerInstance 
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
-		Mark:              enforcer.DefaultMarkValue,
+		Mark:              filterQueue.MarkValue,
 		remote:            remote,
 	}
 
@@ -147,7 +147,12 @@ func (s *iptablesSupervisor) Unsupervise(contextID string) error {
 	netChain := s.ipu.NetChainPrefix(contextID, cacheEntry.index)
 
 	// Currently processing only containers with one IP address
-	ip, err := s.ipu.DefaultCacheIP(cacheEntry.ips)
+	ip := enforcer.DefaultNetwork
+	if !s.remote {
+		if ip, err = s.ipu.DefaultCacheIP(cacheEntry.ips); err != nil {
+			return fmt.Errorf("No ip address found ")
+		}
+	}
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -208,9 +213,12 @@ func (s *iptablesSupervisor) doCreatePU(contextID string, containerInfo *policy.
 	netChain := s.ipu.NetChainPrefix(contextID, index)
 
 	// Currently processing only containers with one IP address
-	ipAddress, ok := containerInfo.Policy.DefaultIPAddress()
-	if !ok {
-		return fmt.Errorf("No ip address found ")
+	ipAddress := enforcer.DefaultNetwork
+	if !s.remote {
+		if _, ok := containerInfo.Policy.DefaultIPAddress(); !ok {
+			return fmt.Errorf("No ip address found ")
+		}
+		ipAddress, _ = containerInfo.Policy.DefaultIPAddress()
 	}
 
 	cacheEntry := &supervisorCacheEntry{
@@ -331,7 +339,12 @@ func (s *iptablesSupervisor) doUpdatePU(contextID string, containerInfo *policy.
 	oldindex := newindex - 1
 
 	// Currently processing only containers with one IP address
-	ipAddress, err := s.ipu.DefaultCacheIP(cachedEntry.ips)
+	ipAddress := enforcer.DefaultNetwork
+	if !s.remote {
+		if ipAddress, err = s.ipu.DefaultCacheIP(cachedEntry.ips); err != nil {
+			return fmt.Errorf("No ip address found ")
+		}
+	}
 
 	if err != nil {
 		log.WithFields(log.Fields{

@@ -1,4 +1,4 @@
-package remenforcer
+package enforcerproxy
 
 import (
 	"sync"
@@ -16,6 +16,7 @@ type mockedMethods struct {
 	StopMock           func() error
 }
 
+// TestEnforcerLauncher is a mock
 type TestEnforcerLauncher interface {
 	enforcer.PolicyEnforcer
 	MockEnforce(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
@@ -31,6 +32,7 @@ type testEnforcerLauncher struct {
 	currentTest *testing.T
 }
 
+// NewTestEnforcerLauncher mocks an enforcer
 func NewTestEnforcerLauncher() enforcer.PolicyEnforcer {
 	return &testEnforcerLauncher{
 		lock:  &sync.Mutex{},

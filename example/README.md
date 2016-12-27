@@ -47,6 +47,41 @@ curl http://<nginx-IP>
 ```
 fails.
 
+## Trying it with Docker Swarm
+
+Trireme also has support for Docker Swarm including any overlay networks. This functionality is
+based on a remote execution capability where Trireme will intercept traffic before any
+of the libnetwork plugins even see the packets. This allows Trireme to support any of the
+network plugins.
+
+In order to try it:
+
+```bash
+docker run \
+  --name "Trireme" \
+  --privileged \
+  --net host \
+  -t \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+aporeto/trireme-example --enforcer=remote --swarm=true
+```
+
+This activates Trireme with the remove enforcer capabilities and a Swarm specific
+metadata extractor that will interpret metadata from Docker Swarm.
+
+In your swarm cluster you can create an overlay network
+```bash
+docker network create --driver overlay mynet
+```
+
+Then you can create a two services:
+```bash
+docker service create  --network mynet --name web1 -l app=web nginx
+docker service create --network mynet --name client -l app=web tester
+```
+
+Assuming that your tester container includes some curl capability, you can immediately
+see that the tester can access the nginx server.
 
 # Understanding the simple example.
 

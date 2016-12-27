@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
@@ -8,9 +9,10 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/extractor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/docker/docker/api/types"
+	dockerClient "github.com/docker/docker/client"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -109,7 +111,7 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 }
 
 //TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractorPath string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractor *monitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -136,16 +138,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 
 	policyEngine := NewCustomPolicyResolver()
 
-	var bashExtractor monitor.DockerMetadataExtractor
-	if extractorPath != "" {
-
-		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
-		if err != nil {
-			fmt.Printf("error: ABC, %s", err)
-		}
-	}
-
-	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM, bashExtractor, remoteEnforcer)
+	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer)
 
 	p.PublicKeyAdd("Server1", certPEM)
 
@@ -153,18 +146,61 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK(networks []string, extractorPath string, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPSK(networks []string, extractor *monitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	policyEngine := NewCustomPolicyResolver()
-	var bashExtractor monitor.DockerMetadataExtractor
-	if extractorPath != "" {
-		var err error
-		bashExtractor, err = extractor.NewExternalExtractor(extractorPath)
-		if err != nil {
-			fmt.Printf("error: ABC, %s", err)
-		}
-	}
 
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"), bashExtractor, remoteEnforcer)
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, nil, nil, false, []byte("THIS IS A BAD PASSWORD"), *extractor, remoteEnforcer)
+}
+
+// SwarmExtractor is an example metadata extractor for swarm that uses the service
+// labels for policy decisions
+func SwarmExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
+
+	// Create a docker client
+	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
+	cli, err := dockerClient.NewClient("unix:///var/run/docker.sock", "v1.23", nil, defaultHeaders)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"Package": "main",
+			"error":   err.Error(),
+		}).Debug("Failed to open docker connection")
+
+		return nil, fmt.Errorf("Error creating Docker Client %s", err)
+	}
+
+	// Get the labels from Docker. If it is a swarm service, get the labels from
+	// the service definition instead.
+	dockerLabels := info.Config.Labels
+	if _, ok := info.Config.Labels["com.docker.swarm.service.id"]; ok {
+
+		serviceID := info.Config.Labels["com.docker.swarm.service.id"]
+
+		service, _, err := cli.ServiceInspectWithRaw(context.Background(), serviceID)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"Package": "main",
+				"error":   err.Error(),
+			}).Debug("Failed get swarm labels")
+			return nil, fmt.Errorf("Error creating Docker Client %s", err)
+		}
+
+		dockerLabels = service.Spec.Labels
+	}
+
+	// Create the tags based on the docker labels
+	tags := policy.NewTagsMap(map[string]string{
+		"image": info.Config.Image,
+		"name":  info.Name,
+	})
+	for k, v := range dockerLabels {
+		tags.Add(k, v)
+	}
+
+	ipa := policy.NewIPMap(map[string]string{
+		"bridge": info.NetworkSettings.IPAddress,
+	})
+
+	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa), nil
 }
