@@ -177,6 +177,13 @@ func TestSuperviseACLs(t *testing.T) {
 			Address:  "20.20.0.0/16",
 			Port:     "80",
 			Protocol: "tcp",
+			Action:   policy.Accept,
+		},
+		policy.IPRule{
+			Address:  "30.20.0.0/16",
+			Port:     "80",
+			Protocol: "tcp",
+			Action:   policy.Reject,
 		},
 	})
 
@@ -186,6 +193,13 @@ func TestSuperviseACLs(t *testing.T) {
 			Address:  "20.20.0.0/16",
 			Port:     "80",
 			Protocol: "tcp",
+			Action:   policy.Accept,
+		},
+		policy.IPRule{
+			Address:  "30.20.0.0/16",
+			Port:     "80",
+			Protocol: "tcp",
+			Action:   policy.Reject,
 		},
 	})
 

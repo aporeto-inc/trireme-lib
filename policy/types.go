@@ -22,10 +22,12 @@ type FlowAction int
 const (
 	// Accept is the accept action
 	Accept = 0x1
+	// Reject is the reject  action
+	Reject = 0x2
 	// Log intstructs the data to log informat
-	Log = 0x2
+	Log = 0x4
 	// Encrypt instructs data to be encrypted
-	Encrypt = 0x4
+	Encrypt = 0x8
 )
 
 const (
@@ -48,6 +50,7 @@ type IPRule struct {
 	Address  string
 	Port     string
 	Protocol string
+	Action   FlowAction
 }
 
 // IPRuleList is a list of IP rules

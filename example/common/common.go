@@ -35,12 +35,21 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	tagSelectors := p.createRules(runtimeInfo)
 
-	// Access google as an example of external ACL
+	// Allow https access to github, but drop http access
 	ingress := policy.NewIPRuleList([]policy.IPRule{
+
 		policy.IPRule{
-			Address:  "216.0.0.0/8",
+			Address:  "192.30.253.0/24",
 			Port:     "80",
 			Protocol: "TCP",
+			Action:   policy.Reject,
+		},
+
+		policy.IPRule{
+			Address:  "192.30.253.0/24",
+			Port:     "443",
+			Protocol: "TCP",
+			Action:   policy.Accept,
 		},
 	})
 
@@ -50,6 +59,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 			Address:  "172.17.0.1/32",
 			Port:     "80",
 			Protocol: "TCP",
+			Action:   policy.Accept,
 		},
 	})
 
@@ -100,6 +110,16 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 		selectorList.TagSelectors = append(selectorList.TagSelectors, *tagSelector)
 
 	}
+
+	// Add a default deny policy that rejects always from "namespace=bad"
+	kv := policy.KeyValueOperator{
+		Key:      "namespace",
+		Value:    []string{"bad"},
+		Operator: policy.Equal,
+	}
+
+	tagSelector := policy.NewTagSelector([]policy.KeyValueOperator{kv}, policy.Reject)
+	selectorList.TagSelectors = append(selectorList.TagSelectors, *tagSelector)
 
 	for i, selector := range selectorList.TagSelectors {
 		for _, clause := range selector.Clause {

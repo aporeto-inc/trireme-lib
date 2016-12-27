@@ -186,8 +186,8 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 }
 
 func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
-	puContext.receiverRules = createRuleDB(containerInfo.Policy.ReceiverRules())
-	puContext.transmitterRules = createRuleDB(containerInfo.Policy.TransmitterRules())
+	puContext.acceptRcvRules, puContext.rejectRcvRules = createRuleDB(containerInfo.Policy.ReceiverRules())
+	puContext.acceptTxtRules, puContext.rejectTxtRules = createRuleDB(containerInfo.Policy.TransmitterRules())
 	puContext.Identity = containerInfo.Policy.Identity()
 	puContext.Annotations = containerInfo.Policy.Annotations()
 	return nil
@@ -315,14 +315,24 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 	}
 }
 
-func createRuleDB(policyRules *policy.TagSelectorList) *lookup.PolicyDB {
+func createRuleDB(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
 
-	rules := lookup.NewPolicyDB()
+	acceptRules := lookup.NewPolicyDB()
+	rejectRules := lookup.NewPolicyDB()
+
 	for _, rule := range policyRules.TagSelectors {
-		rules.AddPolicy(rule)
+
+		switch rule.Action {
+		case policy.Accept:
+			acceptRules.AddPolicy(rule)
+		case policy.Reject:
+			rejectRules.AddPolicy(rule)
+		default:
+			continue
+		}
 	}
 
-	return rules
+	return acceptRules, rejectRules
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
@@ -899,8 +909,24 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	claims.T.Add(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
+	// Validate against reject rules first - We always process reject with higher priority
+	if index, _ := context.rejectRcvRules.Search(claims.T); index >= 0 {
+
+		// Reject the connection
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"claims":  fmt.Sprintf("%+v", claims.T),
+			"context": context.ID,
+			"rules":   fmt.Sprintf("%+v", context.rejectRcvRules),
+		}).Debug("Syn packet - no matched tags - reject")
+
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
+
+		return nil, fmt.Errorf("Connection rejected because of policy %+v", claims.T)
+	}
+
 	// Search the policy rules for a matching rule.
-	if index, action := context.receiverRules.Search(claims.T); index >= 0 {
+	if index, action := context.acceptRcvRules.Search(claims.T); index >= 0 {
 
 		hash := tcpPacket.L4FlowHash()
 
@@ -920,13 +946,10 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
 
 	// Reject all other connections
-	c := fmt.Sprintf("%+v", claims.T)
-	r := fmt.Sprintf("%+v", context.receiverRules)
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-		"claims":  c,
+		"claims":  fmt.Sprintf("%+v", claims.T),
 		"context": context.ID,
-		"rules":   r,
 	}).Debug("Syn packet - no matched tags - reject")
 
 	return nil, fmt.Errorf("No matched tags - reject %+v", claims.T)
@@ -1017,7 +1040,16 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
 
-	if index, action := context.transmitterRules.Search(claims.T); !d.mutualAuthorization || index >= 0 {
+	// First validate that there are no reject rules
+	if index, _ := context.rejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Error("Dropping because of txt rules instruction")
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, remoteContextID, tcpPacket)
+		return nil, fmt.Errorf("Dropping because of reject rule on transmitter")
+	}
+
+	if index, action := context.acceptTxtRules.Search(claims.T); !d.mutualAuthorization || index >= 0 {
 		connection.(*Connection).State = SynAckReceived
 		return action, nil
 	}
