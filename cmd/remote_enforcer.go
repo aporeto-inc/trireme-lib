@@ -286,7 +286,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 
-	// TODO - Set PID to 1
+	// TODO - Set PID to 1 - needed only for statistics
 	puInfo.Runtime.SetPid(1)
 
 	log.WithFields(log.Fields{
