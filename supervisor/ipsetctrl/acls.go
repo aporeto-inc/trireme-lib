@@ -57,7 +57,7 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                      "iptablesutils",
+			"package":                      "ipsetctrl",
 			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
 			"error": err.Error(),
 		}).Debug("Error when adding app acl rule")
@@ -73,7 +73,7 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                      "iptablesutils",
+			"package":                      "ipsetctrl",
 			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
 			"error": err.Error(),
 		}).Debug("Error when adding app acl rule")
@@ -95,7 +95,7 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "ipsetctrl",
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
 			"error":                     err.Error(),
 		}).Debug("Error when adding app acl rule")
@@ -110,7 +110,7 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "ipsetctrl",
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
 			"error":                     err.Error(),
 		}).Debug("Error when adding app acl rule")
@@ -130,7 +130,7 @@ func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                      "iptablesutils",
+			"package":                      "ipsetctrl",
 			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
 			"error": err.Error(),
 		}).Debug("Error when adding app acl rule")
@@ -144,7 +144,7 @@ func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "ipsetctrl",
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
 			"chain":                     i.appPacketIPTableSection,
 			"error":                     err.Error(),
@@ -164,7 +164,7 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "ipsetctrl",
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
 			"chain":                     i.appPacketIPTableSection,
 			"error":                     err.Error(),
@@ -179,7 +179,7 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "ipsetctrl",
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
 			"chain":                     i.appPacketIPTableSection,
 			"error":                     err.Error(),

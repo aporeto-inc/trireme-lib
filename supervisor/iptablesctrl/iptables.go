@@ -190,7 +190,7 @@ func (i *Instance) UpdateRules(version int, contextID string, policyrules *polic
 // Start starts the iptables controller
 func (i *Instance) Start() error {
 	log.WithFields(log.Fields{
-		"package": "supervisor",
+		"package": "iptablesctrl",
 	}).Debug("Start the supervisor")
 
 	// Clean any previous ACLs
@@ -210,7 +210,7 @@ func (i *Instance) Start() error {
 // Stop stops the supervisor
 func (i *Instance) Stop() error {
 	log.WithFields(log.Fields{
-		"package": "supervisor",
+		"package": "iptablesctrl",
 	}).Debug("Stop the supervisor")
 
 	// Clean any previous ACLs that we have installed

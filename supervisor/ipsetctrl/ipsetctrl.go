@@ -202,7 +202,7 @@ func (i *Instance) Stop() error {
 
 func (i *Instance) cleanACLs() error {
 	log.WithFields(log.Fields{
-		"package": "supervisor",
+		"package": "ipsetctrl",
 	}).Debug("Cleaning all IPTables")
 
 	// Clean Application Rules/Chains

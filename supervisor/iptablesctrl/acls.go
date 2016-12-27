@@ -109,7 +109,7 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
 	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "iptablesctrl",
 			"appChain":                  appChain,
 			"netChain":                  netChain,
 			"i.appPacketIPTableContext": i.appPacketIPTableContext,
@@ -120,7 +120,7 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":                      "iptablesutils",
+			"package":                      "iptablesctrl",
 			"appChain":                     appChain,
 			"netChain":                     netChain,
 			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
@@ -132,7 +132,7 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
 	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "iptablesctrl",
 			"appChain":                  appChain,
 			"netChain":                  netChain,
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
@@ -223,7 +223,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 				"-j", "ACCEPT",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package":                   "iptablesutils",
+					"package":                   "iptablesctrl",
 					"i.netPacketIPTableContext": i.netPacketIPTableContext,
 					"chain":                     chain,
 					"error":                     err.Error(),
@@ -239,7 +239,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 				"-j", "DROP",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package":                   "iptablesutils",
+					"package":                   "iptablesctrl",
 					"i.netPacketIPTableContext": i.netPacketIPTableContext,
 					"chain":                     chain,
 					"error":                     err.Error(),
@@ -258,7 +258,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 		"-j", "DROP"); err != nil {
 
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "iptablesctrl",
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
 			"chain":                     chain,
 			"error":                     err.Error(),
@@ -285,7 +285,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 				"-j", "ACCEPT",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package":                   "iptablesutils",
+					"package":                   "iptablesctrl",
 					"i.netPacketIPTableContext": i.netPacketIPTableContext,
 					"chain":                     chain,
 					"error":                     err.Error(),
@@ -302,7 +302,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 				"-j", "DROP",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package":                   "iptablesutils",
+					"package":                   "iptablesctrl",
 					"i.netPacketIPTableContext": i.netPacketIPTableContext,
 					"chain":                     chain,
 					"error":                     err.Error(),
@@ -322,7 +322,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "iptablesctrl",
 			"i.netPacketIPTableContext": i.netPacketIPTableContext,
 			"chain":                     chain,
 			"error":                     err.Error(),
@@ -346,7 +346,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.ClearChain(i.appPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesutils",
+			"package": "iptablesctrl",
 			"chain":   appChain,
 			"error":   err.Error(),
 		}).Debug("Failed to clear the container specific chain")
@@ -354,7 +354,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.DeleteChain(i.appPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "iptablesctrl",
 			"appChain":                  appChain,
 			"netChain":                  netChain,
 			"error":                     err.Error(),
@@ -366,7 +366,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesutils",
+			"package": "iptablesctrl",
 			"chain":   appChain,
 			"error":   err.Error(),
 		}).Debug("Failed to clear the container specific chain")
@@ -374,7 +374,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.DeleteChain(i.appAckPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":  "iptablesutils",
+			"package":  "iptablesctrl",
 			"appChain": appChain,
 			"netChain": netChain,
 			"error":    err.Error(),
@@ -384,7 +384,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.ClearChain(i.netPacketIPTableContext, netChain); err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesutils",
+			"package": "iptablesctrl",
 			"chain":   netChain,
 			"error":   err.Error(),
 		}).Debug("Failed to clear the container specific chain")
@@ -392,7 +392,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.DeleteChain(i.netPacketIPTableContext, netChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesutils",
+			"package":                   "iptablesctrl",
 			"appChain":                  appChain,
 			"netChain":                  netChain,
 			"error":                     err.Error(),
@@ -412,7 +412,7 @@ func (i *Instance) acceptMarkedPackets() error {
 		"-j", "ACCEPT")
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesutils",
+			"package": "iptablesctrl",
 			"table":   table,
 			"chain":   chain,
 		}).Debug("Failed to install default mark chain.")
@@ -431,7 +431,7 @@ func (i *Instance) removeMarkRule() error {
 
 func (i *Instance) cleanACLs() error {
 	log.WithFields(log.Fields{
-		"package": "iptablesutils",
+		"package": "iptablesctrl",
 	}).Debug("Cleaning all IPTables")
 
 	// Clean the mark rule
@@ -453,7 +453,7 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 
 	if err := i.ipt.ClearChain(context, section); err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesutils",
+			"package": "iptablesctrl",
 			"context": context,
 			"section": section,
 			"error":   err.Error(),
@@ -464,7 +464,7 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 
 	if err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesutils",
+			"package": "iptablesctrl",
 			"context": context,
 			"section": section,
 			"error":   err.Error(),
