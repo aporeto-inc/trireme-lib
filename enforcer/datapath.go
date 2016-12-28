@@ -322,14 +322,14 @@ func createRuleDB(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *looku
 
 	for _, rule := range policyRules.TagSelectors {
 
-		switch rule.Action {
-		case policy.Accept:
+		if rule.Action&policy.Accept != 0 {
 			acceptRules.AddPolicy(rule)
-		case policy.Reject:
+		} else if rule.Action&policy.Reject != 0 {
 			rejectRules.AddPolicy(rule)
-		default:
+		} else {
 			continue
 		}
+
 	}
 
 	return acceptRules, rejectRules
@@ -911,7 +911,6 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 	// Validate against reject rules first - We always process reject with higher priority
 	if index, _ := context.rejectRcvRules.Search(claims.T); index >= 0 {
-
 		// Reject the connection
 		log.WithFields(log.Fields{
 			"package": "enforcer",
