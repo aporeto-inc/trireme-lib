@@ -1,6 +1,8 @@
 package lookup
 
 import (
+	"sort"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/policy"
 )
@@ -17,9 +19,10 @@ type ForwardingPolicy struct {
 type PolicyDB struct {
 	// rules    []policy
 	numberOfPolicies int
+	equalPrefixes    map[string][]int
 	equalMapTable    map[string]map[string][]*ForwardingPolicy
+	notEqualPrefixes map[string][]int
 	notEqualMapTable map[string]map[string][]*ForwardingPolicy
-	starTable        map[string][]*ForwardingPolicy
 	notStarTable     map[string][]*ForwardingPolicy
 }
 
@@ -29,12 +32,36 @@ func NewPolicyDB() (m *PolicyDB) {
 	m = &PolicyDB{
 		numberOfPolicies: 0,
 		equalMapTable:    map[string]map[string][]*ForwardingPolicy{},
+		equalPrefixes:    map[string][]int{},
 		notEqualMapTable: map[string]map[string][]*ForwardingPolicy{},
-		starTable:        map[string][]*ForwardingPolicy{},
+		notEqualPrefixes: map[string][]int{},
 		notStarTable:     map[string][]*ForwardingPolicy{},
 	}
 
 	return m
+}
+
+func sortedInsert(array []int, value int) []int {
+	l := len(array)
+	if l == 0 {
+		return append(array, value)
+	}
+
+	i := sort.Search(l, func(i int) bool {
+		return array[i] <= value
+	})
+
+	if i == 0 { // new value is the largest
+		return append([]int{value}, array...)
+	}
+
+	if i == l-1 { // new value is the smallest
+		return append(array, value)
+	}
+
+	inserted := append(array[0:i], value)
+
+	return append(inserted, array[i:]...)
 }
 
 //AddPolicy adds a policy to the database
@@ -54,18 +81,28 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 		switch keyValueOp.Operator {
 
 		case policy.KeyExists:
-			m.starTable[keyValueOp.Key] = append(m.starTable[keyValueOp.Key], &e)
+			m.equalPrefixes[keyValueOp.Key] = sortedInsert(m.equalPrefixes[keyValueOp.Key], 0)
+			if _, ok := m.equalMapTable[keyValueOp.Key]; !ok {
+				m.equalMapTable[keyValueOp.Key] = map[string][]*ForwardingPolicy{}
+			}
+			m.equalMapTable[keyValueOp.Key][""] = append(m.equalMapTable[keyValueOp.Key][""], &e)
 			e.count++
 
 		case policy.KeyNotExists:
 			m.notStarTable[keyValueOp.Key] = append(m.notStarTable[keyValueOp.Key], &e)
+			m.notEqualPrefixes[keyValueOp.Key] = append(m.notEqualPrefixes[keyValueOp.Key], 0)
 
 		case policy.Equal:
 			if _, ok := m.equalMapTable[keyValueOp.Key]; !ok {
 				m.equalMapTable[keyValueOp.Key] = map[string][]*ForwardingPolicy{}
 			}
 			for _, v := range keyValueOp.Value {
-				m.equalMapTable[keyValueOp.Key][v] = append(m.equalMapTable[keyValueOp.Key][v], &e)
+				if v[len(v)-1] == byte("*"[0]) {
+					m.equalPrefixes[keyValueOp.Key] = sortedInsert(m.equalPrefixes[keyValueOp.Key], len(v)-1)
+					m.equalMapTable[keyValueOp.Key][v[:len(v)-1]] = append(m.equalMapTable[keyValueOp.Key][v[:len(v)-1]], &e)
+				} else {
+					m.equalMapTable[keyValueOp.Key][v] = append(m.equalMapTable[keyValueOp.Key][v], &e)
+				}
 			}
 			e.count++
 
@@ -108,14 +145,18 @@ func (m *PolicyDB) Search(tags *policy.TagsMap) (int, interface{}) {
 	// Go through the list of tags
 	for k, v := range tags.Tags {
 
-		// Search for matches of k=*
-		if index, action := searchInMapTabe(m.starTable[k], count, skip); index >= 0 {
-			return index, action
-		}
-
 		// Search for matches of k=v
 		if index, action := searchInMapTabe(m.equalMapTable[k][v], count, skip); index >= 0 {
 			return index, action
+		}
+
+		// Search for matches in prefixes
+		for _, i := range m.equalPrefixes[k] {
+			if i <= len(v) {
+				if index, action := searchInMapTabe(m.equalMapTable[k][v[:i]], count, skip); index >= 0 {
+					return index, action
+				}
+			}
 		}
 
 		// Parse all of the policies that have a key that matches the incoming tag key

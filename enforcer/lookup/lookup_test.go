@@ -1,6 +1,7 @@
 package lookup
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/aporeto-inc/trireme/policy"
@@ -82,6 +83,28 @@ var (
 		Clause: []policy.KeyValueOperator{envKeyNotExists, appEqWeb},
 		Action: policy.Accept,
 	}
+
+	domainParent = policy.KeyValueOperator{
+		Key:      "domain",
+		Value:    []string{"com.example.*", "com.*", "com.longexample.*", "com.ex.*"},
+		Operator: policy.Equal,
+	}
+
+	domainFull = policy.KeyValueOperator{
+		Key:      "domain",
+		Value:    []string{"com.example.web"},
+		Operator: policy.Equal,
+	}
+
+	policyDomainParent = policy.TagSelector{
+		Clause: []policy.KeyValueOperator{domainParent},
+		Action: policy.Accept,
+	}
+
+	policyDomainFull = policy.TagSelector{
+		Clause: []policy.KeyValueOperator{domainFull},
+		Action: policy.Accept,
+	}
 )
 
 // TestConstructorNewPolicyDB tests the NewPolicyDB constructor
@@ -110,6 +133,7 @@ func TestFuncAddPolicy(t *testing.T) {
 			for _, c := range appEqWebAndenvEqDemo.Clause {
 				So(policyDB.equalMapTable[c.Key][c.Value[0]], ShouldNotEqual, nil)
 				So(policyDB.equalMapTable[c.Key][c.Value[0]][0].index, ShouldEqual, index)
+				So(policyDB.equalPrefixes[c.Key], ShouldNotContain, c.Key)
 			}
 		})
 
@@ -121,16 +145,43 @@ func TestFuncAddPolicy(t *testing.T) {
 			for _, c := range policylangNotJava.Clause {
 				So(policyDB.notEqualMapTable[c.Key][c.Value[0]], ShouldNotEqual, nil)
 				So(policyDB.notEqualMapTable[c.Key][c.Value[0]][0].index, ShouldEqual, index)
+				So(policyDB.equalPrefixes, ShouldNotContainKey, c.Key)
 			}
 		})
 
-		Convey("When I add a policy with the KeyExists operator, it should be added to the KeyExists db", func() {
+		Convey("When I add a policy with the KeyExists operator, it should be added as a prefix of 0", func() {
 			index := policyDB.AddPolicy(dcTagExists)
 
+			key := dcTagExists.Clause[0].Key
 			So(policyDB.numberOfPolicies, ShouldEqual, 1)
 			So(index, ShouldEqual, 1)
-			So(policyDB.starTable[dcTagExists.Clause[0].Key], ShouldNotEqual, nil)
-			So(policyDB.starTable[dcTagExists.Clause[0].Key][0].index, ShouldEqual, index)
+			So(policyDB.equalPrefixes, ShouldContainKey, key)
+			So(policyDB.equalPrefixes[key], ShouldContain, 0)
+			So(policyDB.equalMapTable[key], ShouldHaveLength, 1)
+			So(policyDB.equalMapTable[key], ShouldContainKey, "")
+			So(policyDB.equalPrefixes[key], ShouldHaveLength, 1)
+		})
+
+		Convey("When I add a policy with prefixes, it should be associated with the right prefixes", func() {
+			index := policyDB.AddPolicy(policyDomainParent)
+
+			key := policyDomainParent.Clause[0].Key
+			value0 := policyDomainParent.Clause[0].Value[0]
+			value1 := policyDomainParent.Clause[0].Value[1]
+			value2 := policyDomainParent.Clause[0].Value[2]
+			value3 := policyDomainParent.Clause[0].Value[3]
+			So(policyDB.numberOfPolicies, ShouldEqual, 1)
+			So(index, ShouldEqual, 1)
+			So(policyDB.equalMapTable[key], ShouldHaveLength, 4)
+			So(policyDB.equalMapTable[key], ShouldContainKey, value0[:len(value0)-1])
+			So(policyDB.equalMapTable[key], ShouldContainKey, value1[:len(value1)-1])
+			So(policyDB.equalMapTable[key], ShouldContainKey, value2[:len(value2)-1])
+			So(policyDB.equalMapTable[key], ShouldContainKey, value3[:len(value3)-1])
+			So(policyDB.equalPrefixes[key], ShouldHaveLength, 4)
+			So(policyDB.equalPrefixes[key], ShouldContain, len(value0)-1)
+			So(policyDB.equalPrefixes[key], ShouldContain, len(value1)-1)
+			So(policyDB.equalPrefixes[key], ShouldContain, len(value2)-1)
+			So(policyDB.equalPrefixes[key], ShouldContain, len(value3)-1)
 		})
 
 	})
@@ -144,6 +195,8 @@ func TestFuncSearch(t *testing.T) {
 	// policy4: app=web and env IN (demo, qa)
 	// policy5: app=web and env NotIN (demo, qa)
 	// policy6: app=web not env=*
+	// policy7: domain IN ("com.*", "com.example.*")
+	// policy8: domain=com.example.web
 
 	Convey("Given an empty policyDB", t, func() {
 		policyDB := NewPolicyDB()
@@ -154,6 +207,10 @@ func TestFuncSearch(t *testing.T) {
 			index4 := policyDB.AddPolicy(appEqWebAndEnvEqDemoOrQa)
 			index5 := policyDB.AddPolicy(appEqWebAndenvNotDemoOrQA)
 			index6 := policyDB.AddPolicy(envKeyNotExistsAndAppEqWeb)
+			index7 := policyDB.AddPolicy(policyDomainParent)
+			index8 := policyDB.AddPolicy(policyDomainFull)
+
+			fmt.Println(policyDB.equalPrefixes)
 
 			So(index1, ShouldEqual, 1)
 			So(index2, ShouldEqual, 2)
@@ -239,6 +296,33 @@ func TestFuncSearch(t *testing.T) {
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index6)
 				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+			})
+
+			Convey("Given that I search for a value that matches a prefix", func() {
+				tags := policy.NewTagsMap(map[string]string{
+					"domain": "com.example.db",
+				})
+				index, action := policyDB.Search(tags)
+				So(index, ShouldEqual, index7)
+				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+			})
+
+			Convey("Given that I search for a value that matches a complete value ", func() {
+				tags := policy.NewTagsMap(map[string]string{
+					"domain": "com.example.web",
+				})
+				index, action := policyDB.Search(tags)
+				So(index, ShouldEqual, index8)
+				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+			})
+
+			Convey("Given that I search for a value that matches some of the prefix, it should return err  ", func() {
+				tags := policy.NewTagsMap(map[string]string{
+					"domain": "co",
+				})
+				index, action := policyDB.Search(tags)
+				So(index, ShouldEqual, -1)
+				So(action, ShouldBeNil)
 			})
 
 		})
