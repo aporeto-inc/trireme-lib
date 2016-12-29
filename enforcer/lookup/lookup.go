@@ -15,13 +15,16 @@ type ForwardingPolicy struct {
 	actions interface{}
 }
 
+// intList is a list of integeres
+type intList []int
+
 //PolicyDB is the structure of a policy
 type PolicyDB struct {
 	// rules    []policy
 	numberOfPolicies int
-	equalPrefixes    map[string][]int
+	equalPrefixes    map[string]intList
 	equalMapTable    map[string]map[string][]*ForwardingPolicy
-	notEqualPrefixes map[string][]int
+	notEqualPrefixes map[string]intList
 	notEqualMapTable map[string]map[string][]*ForwardingPolicy
 	notStarTable     map[string][]*ForwardingPolicy
 }
@@ -32,19 +35,20 @@ func NewPolicyDB() (m *PolicyDB) {
 	m = &PolicyDB{
 		numberOfPolicies: 0,
 		equalMapTable:    map[string]map[string][]*ForwardingPolicy{},
-		equalPrefixes:    map[string][]int{},
+		equalPrefixes:    map[string]intList{},
 		notEqualMapTable: map[string]map[string][]*ForwardingPolicy{},
-		notEqualPrefixes: map[string][]int{},
+		notEqualPrefixes: map[string]intList{},
 		notStarTable:     map[string][]*ForwardingPolicy{},
 	}
 
 	return m
 }
 
-func sortedInsert(array []int, value int) []int {
+func (array intList) sortedInsert(value int) intList {
 	l := len(array)
 	if l == 0 {
-		return append(array, value)
+		array = append(array, value)
+		return array
 	}
 
 	i := sort.Search(l, func(i int) bool {
@@ -52,16 +56,19 @@ func sortedInsert(array []int, value int) []int {
 	})
 
 	if i == 0 { // new value is the largest
-		return append([]int{value}, array...)
+		array = append([]int{value}, array...)
+		return array
 	}
 
 	if i == l-1 { // new value is the smallest
-		return append(array, value)
+		array = append(array, value)
+		return array
 	}
 
 	inserted := append(array[0:i], value)
 
 	return append(inserted, array[i:]...)
+
 }
 
 //AddPolicy adds a policy to the database
@@ -81,7 +88,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 		switch keyValueOp.Operator {
 
 		case policy.KeyExists:
-			m.equalPrefixes[keyValueOp.Key] = sortedInsert(m.equalPrefixes[keyValueOp.Key], 0)
+			m.equalPrefixes[keyValueOp.Key] = m.equalPrefixes[keyValueOp.Key].sortedInsert(0)
 			if _, ok := m.equalMapTable[keyValueOp.Key]; !ok {
 				m.equalMapTable[keyValueOp.Key] = map[string][]*ForwardingPolicy{}
 			}
@@ -98,7 +105,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 			}
 			for _, v := range keyValueOp.Value {
 				if v[len(v)-1] == byte("*"[0]) {
-					m.equalPrefixes[keyValueOp.Key] = sortedInsert(m.equalPrefixes[keyValueOp.Key], len(v)-1)
+					m.equalPrefixes[keyValueOp.Key] = m.equalPrefixes[keyValueOp.Key].sortedInsert(len(v) - 1)
 					m.equalMapTable[keyValueOp.Key][v[:len(v)-1]] = append(m.equalMapTable[keyValueOp.Key][v[:len(v)-1]], &e)
 				} else {
 					m.equalMapTable[keyValueOp.Key][v] = append(m.equalMapTable[keyValueOp.Key][v], &e)

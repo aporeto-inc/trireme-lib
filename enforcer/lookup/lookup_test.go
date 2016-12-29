@@ -1,7 +1,6 @@
 package lookup
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/aporeto-inc/trireme/policy"
@@ -209,8 +208,6 @@ func TestFuncSearch(t *testing.T) {
 			index6 := policyDB.AddPolicy(envKeyNotExistsAndAppEqWeb)
 			index7 := policyDB.AddPolicy(policyDomainParent)
 			index8 := policyDB.AddPolicy(policyDomainFull)
-
-			fmt.Println(policyDB.equalPrefixes)
 
 			So(index1, ShouldEqual, 1)
 			So(index2, ShouldEqual, 2)
