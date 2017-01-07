@@ -24,7 +24,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPNetPacket(p) {
-			d.net.ServicePreDropPackets++
+			d.netTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
 
 			log.WithFields(log.Fields{
@@ -39,7 +39,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, err := d.processNetworkTCPPacket(p)
 	if err != nil {
-		d.net.AuthDropPackets++
+		d.netTCP.AuthDropPackets++
 		p.Print(packet.PacketFailureAuth)
 
 		log.WithFields(log.Fields{
@@ -54,7 +54,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPNetPacket(p, action) {
-			d.net.ServicePostDropPackets++
+			d.netTCP.ServicePostDropPackets++
 			p.Print(packet.PacketFailureService)
 
 			log.WithFields(log.Fields{
@@ -65,7 +65,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 	}
 
 	// Accept the packet
-	d.net.OutgoingPackets++
+	d.netTCP.OutgoingPackets++
 	p.Print(packet.PacketStageOutgoing)
 	return nil
 }
@@ -80,7 +80,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPAppPacket(p) {
-			d.app.ServicePreDropPackets++
+			d.appTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
 
 			log.WithFields(log.Fields{
@@ -95,7 +95,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, err := d.processApplicationTCPPacket(p)
 	if err != nil {
-		d.app.AuthDropPackets++
+		d.appTCP.AuthDropPackets++
 		p.Print(packet.PacketFailureAuth)
 
 		log.WithFields(log.Fields{
@@ -110,7 +110,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPAppPacket(p, action) {
-			d.app.ServicePostDropPackets++
+			d.appTCP.ServicePostDropPackets++
 			p.Print(packet.PacketFailureService)
 
 			log.WithFields(log.Fields{
@@ -121,7 +121,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	}
 
 	// Accept the packet
-	d.app.OutgoingPackets++
+	d.appTCP.OutgoingPackets++
 	p.Print(packet.PacketStageOutgoing)
 	return nil
 }

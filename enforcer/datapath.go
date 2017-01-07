@@ -38,8 +38,8 @@ type datapathEnforcer struct {
 	contextConnectionTracker cache.DataStore
 
 	// stats
-	net *PacketStats
-	app *PacketStats
+	netTCP *PacketStats
+	appTCP *PacketStats
 
 	// ack size
 	ackSize uint32
@@ -82,8 +82,8 @@ func NewDatapathEnforcer(
 		service:                  service,
 		collector:                collector,
 		tokenEngine:              tokenEngine,
-		net:                      &PacketStats{},
-		app:                      &PacketStats{},
+		netTCP:                   &PacketStats{},
+		appTCP:                   &PacketStats{},
 		ackSize:                  secrets.AckSize(),
 		remote:                   remote,
 	}
