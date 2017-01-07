@@ -59,6 +59,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 
 	// IP Header Processing
 	p.ipHeaderLen = bytes[ipHdrLenPos] & ipHdrLenMask
+	p.IPProto = bytes[ipProtoPos]
 	p.IPTotalLength = binary.BigEndian.Uint16(bytes[ipLengthPos : ipLengthPos+2])
 	p.ipID = binary.BigEndian.Uint16(bytes[ipIDPos : ipIDPos+2])
 	p.ipChecksum = binary.BigEndian.Uint16(bytes[ipChecksumPos : ipChecksumPos+2])
@@ -98,7 +99,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 	}
 
 	// TCP Header Processing
-	p.tcpBeginPos = minIPHdrSize
+	p.l4BeginPos = minIPHdrSize
 	p.TCPChecksum = binary.BigEndian.Uint16(bytes[TCPChecksumPos : TCPChecksumPos+2])
 	p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
 	p.DestinationPort = binary.BigEndian.Uint16(bytes[tcpDestPortPos : tcpDestPortPos+2])
@@ -141,7 +142,7 @@ func (p *Packet) DropDetachedBytes() {
 
 // TCPDataStartBytes provides the tcp data start offset in bytes
 func (p *Packet) TCPDataStartBytes() uint16 {
-	return p.tcpBeginPos + uint16(p.tcpDataOffset)*4
+	return p.l4BeginPos + uint16(p.tcpDataOffset)*4
 }
 
 // Print is a print helper function

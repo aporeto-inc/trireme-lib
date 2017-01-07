@@ -93,7 +93,7 @@ func (p *Packet) computeIPChecksum() uint16 {
 func (p *Packet) computeTCPChecksum() uint16 {
 
 	var pseudoHeaderLen uint16 = 12
-	tcpSize := uint16(len(p.Buffer)) - p.tcpBeginPos
+	tcpSize := uint16(len(p.Buffer)) - p.l4BeginPos
 	bufLen := pseudoHeaderLen + tcpSize
 	buf := make([]byte, bufLen)
 
@@ -115,7 +115,7 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.tcpData)+len(p.tcpOptions)))
 
 	// bytes 12+: The TCP buffer (real header + payload)
-	copy(buf[12:], p.Buffer[p.tcpBeginPos:])
+	copy(buf[12:], p.Buffer[p.l4BeginPos:])
 
 	// Set current checksum to zero (in buf, not changing packet)
 	buf[pseudoHeaderLen+16] = 0
