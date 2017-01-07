@@ -38,6 +38,8 @@ type datapathEnforcer struct {
 	contextConnectionTracker cache.DataStore
 
 	// stats
+	net    *InterfaceStats
+	app    *InterfaceStats
 	netTCP *PacketStats
 	appTCP *PacketStats
 
@@ -82,6 +84,8 @@ func NewDatapathEnforcer(
 		service:                  service,
 		collector:                collector,
 		tokenEngine:              tokenEngine,
+		net:                      &InterfaceStats{},
+		app:                      &InterfaceStats{},
 		netTCP:                   &PacketStats{},
 		appTCP:                   &PacketStats{},
 		ackSize:                  secrets.AckSize(),
@@ -350,6 +354,7 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processNetworkTCPPackets(netPacket)
 	} else {
+		d.net.ProtocolDropPackets++
 		err = fmt.Errorf("Invalid IP Protocol %d", netPacket.IPProto)
 	}
 
@@ -403,6 +408,7 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processApplicationTCPPackets(appPacket)
 	} else {
+		d.app.ProtocolDropPackets++
 		err = fmt.Errorf("Invalid IP Protocol %d", appPacket.IPProto)
 	}
 

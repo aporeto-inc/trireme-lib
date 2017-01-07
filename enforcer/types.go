@@ -40,12 +40,18 @@ var (
 	TransmitterLabel = "AporetoContextID"
 )
 
+// InterfaceStats for interface
+type InterfaceStats struct {
+	IncomingPackets     uint32
+	OutgoingPackets     uint32
+	ProtocolDropPackets uint32
+	CreateDropPackets   uint32
+}
+
 // PacketStats for interface
 type PacketStats struct {
-	IncomingPackets uint32
-	OutgoingPackets uint32
-
-	CreateDropPackets      uint32
+	IncomingPackets        uint32
+	OutgoingPackets        uint32
 	AuthDropPackets        uint32
 	ServicePreDropPackets  uint32
 	ServicePostDropPackets uint32

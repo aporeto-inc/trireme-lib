@@ -19,6 +19,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 		"package": "enforcer",
 	}).Debug("process network packets")
 
+	d.netTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
@@ -76,6 +77,9 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
 	}).Debug("process application packets")
+
+	d.appTCP.IncomingPackets++
+	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
 		// PreProcessServiceInterface
