@@ -21,24 +21,24 @@ type intList []int
 //PolicyDB is the structure of a policy
 type PolicyDB struct {
 	// rules    []policy
-	numberOfPolicies int
-	equalPrefixes    map[string]intList
-	equalMapTable    map[string]map[string][]*ForwardingPolicy
-	notEqualPrefixes map[string]intList
-	notEqualMapTable map[string]map[string][]*ForwardingPolicy
-	notStarTable     map[string][]*ForwardingPolicy
+	numberOfPolicies       int
+	equalPrefixes          map[string]intList
+	equalMapTable          map[string]map[string][]*ForwardingPolicy
+	notEqualMapTable       map[string]map[string][]*ForwardingPolicy
+	notStarTable           map[string][]*ForwardingPolicy
+	defaultNotExistsPolicy *ForwardingPolicy
 }
 
 //NewPolicyDB creates a new PolicyDB for efficient search of policies
 func NewPolicyDB() (m *PolicyDB) {
 
 	m = &PolicyDB{
-		numberOfPolicies: 0,
-		equalMapTable:    map[string]map[string][]*ForwardingPolicy{},
-		equalPrefixes:    map[string]intList{},
-		notEqualMapTable: map[string]map[string][]*ForwardingPolicy{},
-		notEqualPrefixes: map[string]intList{},
-		notStarTable:     map[string][]*ForwardingPolicy{},
+		numberOfPolicies:       0,
+		equalMapTable:          map[string]map[string][]*ForwardingPolicy{},
+		equalPrefixes:          map[string]intList{},
+		notEqualMapTable:       map[string]map[string][]*ForwardingPolicy{},
+		notStarTable:           map[string][]*ForwardingPolicy{},
+		defaultNotExistsPolicy: nil,
 	}
 
 	return m
@@ -97,7 +97,9 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 
 		case policy.KeyNotExists:
 			m.notStarTable[keyValueOp.Key] = append(m.notStarTable[keyValueOp.Key], &e)
-			m.notEqualPrefixes[keyValueOp.Key] = append(m.notEqualPrefixes[keyValueOp.Key], 0)
+			if len(selector.Clause) == 1 {
+				m.defaultNotExistsPolicy = &e
+			}
 
 		case policy.Equal:
 			if _, ok := m.equalMapTable[keyValueOp.Key]; !ok {
@@ -178,6 +180,11 @@ func (m *PolicyDB) Search(tags *policy.TagsMap) (int, interface{}) {
 			}
 		}
 	}
+
+	if m.defaultNotExistsPolicy != nil && !skip[m.defaultNotExistsPolicy.index] {
+		return m.defaultNotExistsPolicy.index, m.defaultNotExistsPolicy.actions
+	}
+
 	return -1, nil
 }
 

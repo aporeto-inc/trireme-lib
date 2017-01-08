@@ -104,6 +104,11 @@ var (
 		Clause: []policy.KeyValueOperator{domainFull},
 		Action: policy.Accept,
 	}
+
+	policyEnvDoesNotExist = policy.TagSelector{
+		Clause: []policy.KeyValueOperator{envKeyNotExists},
+		Action: policy.Accept,
+	}
 )
 
 // TestConstructorNewPolicyDB tests the NewPolicyDB constructor
@@ -196,6 +201,7 @@ func TestFuncSearch(t *testing.T) {
 	// policy6: app=web not env=*
 	// policy7: domain IN ("com.*", "com.example.*")
 	// policy8: domain=com.example.web
+	// policy9: env doesn't exist
 
 	Convey("Given an empty policyDB", t, func() {
 		policyDB := NewPolicyDB()
@@ -208,6 +214,7 @@ func TestFuncSearch(t *testing.T) {
 			index6 := policyDB.AddPolicy(envKeyNotExistsAndAppEqWeb)
 			index7 := policyDB.AddPolicy(policyDomainParent)
 			index8 := policyDB.AddPolicy(policyDomainFull)
+			index9 := policyDB.AddPolicy(policyEnvDoesNotExist)
 
 			So(index1, ShouldEqual, 1)
 			So(index2, ShouldEqual, 2)
@@ -215,6 +222,7 @@ func TestFuncSearch(t *testing.T) {
 			So(index4, ShouldEqual, 4)
 			So(index5, ShouldEqual, 5)
 			So(index6, ShouldEqual, 6)
+			So(index9, ShouldEqual, 9)
 
 			Convey("Given that I search for a single matching that matches the equal rules, it should return the correct index,", func() {
 				tags := policy.NewTagsMap(map[string]string{
@@ -280,6 +288,7 @@ func TestFuncSearch(t *testing.T) {
 			Convey("Given that I search for rules that do not match, it should return an error ", func() {
 				tags := policy.NewTagsMap(map[string]string{
 					"tag": "none",
+					"env": "node",
 				})
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, -1)
@@ -316,10 +325,20 @@ func TestFuncSearch(t *testing.T) {
 			Convey("Given that I search for a value that matches some of the prefix, it should return err  ", func() {
 				tags := policy.NewTagsMap(map[string]string{
 					"domain": "co",
+					"env":    "node",
 				})
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, -1)
 				So(action, ShouldBeNil)
+			})
+
+			Convey("Given that I search for a value matches only the env not exists policy ", func() {
+				tags := policy.NewTagsMap(map[string]string{
+					"sometag": "nomatch",
+				})
+				index, action := policyDB.Search(tags)
+				So(index, ShouldEqual, index9)
+				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
 			})
 
 		})
