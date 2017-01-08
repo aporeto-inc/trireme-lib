@@ -46,9 +46,6 @@ type Implementor interface {
 	// Stop cleans up state
 	Stop() error
 
-	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-	AddExcludedIP(ip string) error
-
-	// RemoveExcludedIP removes the exception for the destination IP given in parameter.
-	RemoveExcludedIP(ip string) error
+	// Excluder supports the IP Exclusion calls.
+	Excluder
 }
