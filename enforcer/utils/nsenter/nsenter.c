@@ -18,11 +18,7 @@ void nsexec(void){
   fd = open(path,O_RDONLY);
   int retval = setns(fd,0);
   if(retval < 0){
-    printf("\n\n######\n###########\nFAILED to switch namespace %s container pid %s\n#############\n############  \n\n",strerror(errno),str);
     setenv("NSENTER_ERROR_STATE",strerror(errno),1);
-    exit(errno);
-  }else{
-    setenv("NSENTER_ERROR_STATE"," ",1);
   }
   free(path);
   
