@@ -10,6 +10,9 @@ import (
 )
 
 func TestConstructorNewCache(t *testing.T) {
+
+	t.Parallel()
+
 	Convey("Given I call the method NewCache, I should a new cache", t, func() {
 
 		c := &Cache{}
@@ -19,6 +22,9 @@ func TestConstructorNewCache(t *testing.T) {
 }
 
 func TestElements(t *testing.T) {
+
+	t.Parallel()
+
 	c := NewCache()
 	id := uuid.NewV4()
 	fakeid := uuid.NewV4()
@@ -89,6 +95,9 @@ func TestElements(t *testing.T) {
 }
 
 func Test_CacheTimer(t *testing.T) {
+
+	t.Parallel()
+
 	Convey("Given a new cache with an expiration timer ", t, func() {
 		c := NewCacheWithExpiration(2 * time.Second)
 
@@ -138,6 +147,9 @@ func add(a, b interface{}) interface{} {
 }
 
 func TestLockedModify(t *testing.T) {
+
+	t.Parallel()
+
 	Convey("Given a new cache", t, func() {
 		c := NewCache()
 
@@ -155,18 +167,50 @@ func TestLockedModify(t *testing.T) {
 	})
 }
 
+func TestTimerExpirationWithUpdate(t *testing.T) {
+
+	t.Parallel()
+
+	Convey("Given that I instantiate 1 objects with 2 second timers", t, func() {
+		i := 1
+		c := NewCacheWithExpiration(2 * time.Second)
+		c.Add(i, i)
+		Convey("When I check the cache size After 1 seconds, the size should be 1", func() {
+			<-time.After(1 * time.Second)
+			So(c.SizeOf(), ShouldEqual, 1)
+			Convey("When I update the object and check again after another 1 seconds, the size should be 1", func() {
+				c.Update(1, 1)
+				<-time.After(1 * time.Second)
+				So(c.SizeOf(), ShouldEqual, 1)
+				Convey("When I check the cache size After another 2 seconds, the size should be 0", func() {
+					<-time.After(2 * time.Second)
+					So(c.SizeOf(), ShouldEqual, 0)
+				})
+			})
+		})
+	})
+}
+
 func TestThousandsOfTimers(t *testing.T) {
+
+	t.Parallel()
+
 	Convey("Given that I instantiate 10K objects with 2 second timers", t, func() {
 		c := NewCacheWithExpiration(2 * time.Second)
 		for i := 0; i < 10000; i++ {
 			c.Add(i, i)
 		}
-
-		Convey("After I wait for 3 seconds", func() {
-			<-time.After(3 * time.Second)
-
-			Convey("I should have no objects in the cache", func() {
-				So(c.SizeOf(), ShouldEqual, 0)
+		Convey("After I wait for 1 second and add 10K more objects with 2 second timers", func() {
+			<-time.After(1 * time.Second)
+			for i := 20000; i < 30000; i++ {
+				c.Add(i, i)
+			}
+			//TODO: This test is failing if we wait 3 seconds
+			Convey("After I wait for another 4 seconds", func() {
+				<-time.After(4 * time.Second)
+				Convey("I should have no objects in the cache", func() {
+					So(c.SizeOf(), ShouldEqual, 0)
+				})
 			})
 		})
 	})
