@@ -19,7 +19,10 @@ const (
 	ipLengthPos = 2
 
 	// ipIDPos is location of IP Identifier
-	ipIDPos = 4
+	IPIDPos = 4
+
+	// ipProtoPos is the location of the IP Protocol
+	ipProtoPos = 9
 
 	// ipChecksumPos is location of IP checksum
 	ipChecksumPos = 10
@@ -29,6 +32,15 @@ const (
 
 	// ipDestAddrPos is location of destination IP address
 	ipDestAddrPos = 16
+)
+
+// IP Protocol numbers
+const (
+	// IPProtocolTCP defines the constant for UDP protocol number
+	IPProtocolTCP = 6
+
+	// IPProtocolUDP defines the constant for UDP protocol number
+	IPProtocolUDP = 17
 )
 
 // IP Header masks

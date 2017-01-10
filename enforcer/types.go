@@ -6,28 +6,28 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-// FlowState identifies the constants of the state of a connectioncon
-type FlowState int
+// TCPFlowState identifies the constants of the state of a TCP connectioncon
+type TCPFlowState int
 
 const (
 
-	// SynSend is the state where the Syn packets has been send, but no response has been received
-	SynSend FlowState = iota
+	// TCPSynSend is the state where the Syn packets has been send, but no response has been received
+	TCPSynSend TCPFlowState = iota
 
-	//SynReceived indicates that the syn packet has been received
-	SynReceived
+	// TCPSynReceived indicates that the syn packet has been received
+	TCPSynReceived
 
-	//SynAckSend indicates that the SynAck packet has been send
-	SynAckSend
+	// TCPSynAckSend indicates that the SynAck packet has been send
+	TCPSynAckSend
 
-	// SynAckReceived is the state where the SynAck has been received
-	SynAckReceived
+	// TCPSynAckReceived is the state where the SynAck has been received
+	TCPSynAckReceived
 
-	// AckSend indicates that the ack packets has been send
-	AckSend
+	// TCPAckSend indicates that the ack packets has been send
+	TCPAckSend
 
-	// AckProcessed is the state that the negotiation has been completed
-	AckProcessed
+	// TCPAckProcessed is the state that the negotiation has been completed
+	TCPAckProcessed
 )
 
 const (
@@ -40,12 +40,18 @@ var (
 	TransmitterLabel = "AporetoContextID"
 )
 
+// InterfaceStats for interface
+type InterfaceStats struct {
+	IncomingPackets     uint32
+	OutgoingPackets     uint32
+	ProtocolDropPackets uint32
+	CreateDropPackets   uint32
+}
+
 // PacketStats for interface
 type PacketStats struct {
-	IncomingPackets uint32
-	OutgoingPackets uint32
-
-	CreateDropPackets      uint32
+	IncomingPackets        uint32
+	OutgoingPackets        uint32
 	AuthDropPackets        uint32
 	ServicePreDropPackets  uint32
 	ServicePostDropPackets uint32

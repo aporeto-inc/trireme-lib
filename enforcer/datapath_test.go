@@ -61,8 +61,8 @@ func TestInvalidContext(t *testing.T) {
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
 
-			err1 := enforcer.processApplicationPackets(tcpPacket)
-			err2 := enforcer.processNetworkPackets(tcpPacket)
+			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
+			err2 := enforcer.processNetworkTCPPackets(tcpPacket)
 
 			Convey("Then I should see an error for non existing context", func() {
 
@@ -87,8 +87,8 @@ func TestInvalidIPContext(t *testing.T) {
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
 
-			err1 := enforcer.processApplicationPackets(tcpPacket)
-			err2 := enforcer.processNetworkPackets(tcpPacket)
+			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
+			err2 := enforcer.processNetworkTCPPackets(tcpPacket)
 
 			Convey("Then I should see an error for missing IP", func() {
 
@@ -118,8 +118,8 @@ func TestInvalidTokenContext(t *testing.T) {
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing token)", func() {
 
-			err1 := enforcer.processApplicationPackets(tcpPacket)
-			err2 := enforcer.processNetworkPackets(tcpPacket)
+			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
+			err2 := enforcer.processNetworkTCPPackets(tcpPacket)
 
 			Convey("Then I should see an error for missing IP", func() {
 
@@ -212,7 +212,7 @@ func TestPacketHandling(t *testing.T) {
 						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 						t.Error("Invalid Test Packet")
 					}
-					err = enforcer.processApplicationPackets(tcpPacket)
+					err = enforcer.processApplicationTCPPackets(tcpPacket)
 					So(err, ShouldBeNil)
 
 					if debug {
@@ -226,7 +226,7 @@ func TestPacketHandling(t *testing.T) {
 					outPacket, errp := packet.New(0, output)
 					So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 					So(errp, ShouldBeNil)
-					err = enforcer.processNetworkPackets(outPacket)
+					err = enforcer.processNetworkTCPPackets(outPacket)
 					So(err, ShouldBeNil)
 
 					if debug {

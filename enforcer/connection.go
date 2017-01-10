@@ -2,9 +2,8 @@ package enforcer
 
 import "github.com/aporeto-inc/trireme/crypto"
 
-// Connection keeps information about a connection
-type Connection struct {
-	State           FlowState
+// AuthInfo keeps authentication information about a connection
+type AuthInfo struct {
 	LocalContext    []byte
 	RemoteContext   []byte
 	LocalContextID  string
@@ -14,24 +13,25 @@ type Connection struct {
 	RemotePort      string
 }
 
-// NewConnection creates the state information for a new connection
-func NewConnection() *Connection {
+// TCPConnection is information regarding TCP Connection
+type TCPConnection struct {
+	State TCPFlowState
+	Auth  AuthInfo
+}
 
-	var err error
+// NewTCPConnection returns a TCPConnection information struct
+func NewTCPConnection() *TCPConnection {
 
-	c := &Connection{
-		State:           SynSend,
-		RemotePublicKey: nil,
+	c := &TCPConnection{
+		State: TCPSynSend,
 	}
-
-	nonse, err := crypto.GenerateRandomBytes(32)
-
-	if err != nil {
-		return nil
-	}
-
-	c.LocalContext = nonse
-	c.RemoteContext = nil
-
+	initConnection(&c.Auth)
 	return c
+}
+
+// initConnection creates the state information for a new connection
+func initConnection(s *AuthInfo) {
+
+	nonse, _ := crypto.GenerateRandomBytes(32)
+	s.LocalContext = nonse
 }
