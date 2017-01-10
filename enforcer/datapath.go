@@ -74,8 +74,8 @@ func NewDatapathEnforcer(
 	}
 
 	d := &datapathEnforcer{
-		contextTracker:           cache.NewCache(nil),
-		puTracker:                cache.NewCache(nil),
+		contextTracker:           cache.NewCache(),
+		puTracker:                cache.NewCache(),
 		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),

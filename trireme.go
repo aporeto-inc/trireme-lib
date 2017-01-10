@@ -28,7 +28,7 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.
 
 	trireme := &trireme{
 		serverID:   serverID,
-		cache:      cache.NewCache(nil),
+		cache:      cache.NewCache(),
 		supervisor: supervisor,
 		enforcer:   enforcer,
 		resolver:   resolver,

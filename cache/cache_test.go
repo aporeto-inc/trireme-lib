@@ -9,21 +9,17 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func customRefresh(val interface{}) interface{} {
-	return val
-}
-
 func TestConstructorNewCache(t *testing.T) {
 	Convey("Given I call the method NewCache, I should a new cache", t, func() {
 
 		c := &Cache{}
 
-		So(NewCache(customRefresh), ShouldHaveSameTypeAs, c)
+		So(NewCache(), ShouldHaveSameTypeAs, c)
 	})
 }
 
 func TestElements(t *testing.T) {
-	c := NewCache(nil)
+	c := NewCache()
 	id := uuid.NewV4()
 	fakeid := uuid.NewV4()
 	newid := uuid.NewV4()
@@ -89,14 +85,6 @@ func TestElements(t *testing.T) {
 			err := c.Remove(id)
 			So(err, ShouldNotEqual, nil)
 		})
-
-		Convey("Given that I want do a default refresh, update all entries", func() {
-			c.Refresh(0)
-			newvalue, err := c.Get(newid)
-			So(newvalue, ShouldEqual, secondValue)
-			So(err, ShouldEqual, nil)
-		})
-
 	})
 }
 
@@ -151,7 +139,7 @@ func add(a, b interface{}) interface{} {
 
 func TestLockedModify(t *testing.T) {
 	Convey("Given a new cache", t, func() {
-		c := NewCache(nil)
+		c := NewCache()
 
 		Convey("Given an element that is an integer", func() {
 			c.Add("key", 1)

@@ -8,21 +8,18 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-//DataStore is the interface to a datastore that will evolve to hold basic
-//values and also auto-refresh the cache. The DataStore is indexed by
-// UUID values only
+// DataStore is the interface to a datastore.
 type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
 	AddOrUpdate(u interface{}, value interface{}) (err error)
 	Get(u interface{}) (i interface{}, err error)
 	Remove(u interface{}) (err error)
-	Refresh(d time.Duration)
 	DumpStore()
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 }
 
-//Cleanable is an interface that could be implemented by elements being
-//inserted in cache with expiration
+// Cleanable is an interface that could be implemented by elements being
+// inserted in cache with expiration
 type Cleanable interface {
 	Cleanup()
 }
@@ -31,7 +28,6 @@ type Cleanable interface {
 // provides a sync mechanism and allows multiple clients at the same time.
 type Cache struct {
 	data     map[interface{}]entry
-	refresh  func(val interface{}) interface{}
 	lifetime time.Duration
 	sync.RWMutex
 }
@@ -44,23 +40,12 @@ type entry struct {
 	timer     *time.Timer
 }
 
-// defaultRefresh is the default refresh function that doesn't do much
-// Users of the package can provide their refresh function.
-func defaultRefresh(val interface{}) interface{} {
-	return val
-}
-
 // NewCache creates a new data cache
-func NewCache(refresh func(val interface{}) interface{}) *Cache {
+func NewCache() *Cache {
+
 	c := &Cache{
 		data:     make(map[interface{}]entry),
 		lifetime: -1,
-	}
-
-	if refresh != nil {
-		c.refresh = refresh
-	} else {
-		c.refresh = defaultRefresh
 	}
 
 	return c
@@ -72,7 +57,6 @@ func NewCacheWithExpiration(lifetime time.Duration) *Cache {
 	return &Cache{
 		data:     make(map[interface{}]entry),
 		lifetime: lifetime,
-		refresh:  defaultRefresh,
 	}
 
 }
@@ -165,6 +149,7 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) (err error) {
 
 // Get retrieves the entry from the cache
 func (c *Cache) Get(u interface{}) (i interface{}, err error) {
+
 	c.Lock()
 	defer c.Unlock()
 
@@ -178,6 +163,7 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 
 // Remove removes the entry from the cache and returns error if not there
 func (c *Cache) Remove(u interface{}) (err error) {
+
 	c.Lock()
 	defer c.Unlock()
 
@@ -199,24 +185,13 @@ func (c *Cache) Remove(u interface{}) (err error) {
 	return nil
 }
 
-// Refresh : will parse the cache for expired entries and validate them
-// We will be passhing a validation function as argument here
-func (c *Cache) Refresh(d time.Duration) {
-	for u := range c.data {
-		if time.Since(c.data[u].timestamp) > d {
-			// TBD -- Placeholder and lets move one
-			newValue := c.refresh(c.data[u].value)
-			c.AddOrUpdate(u, newValue)
-
-		}
-	}
-}
-
 // SizeOf returns the number of elements in the cache
 func (c *Cache) SizeOf() int {
 
-	return len(c.data)
+	c.Lock()
+	defer c.Unlock()
 
+	return len(c.data)
 }
 
 // LockedModify  locks the data store

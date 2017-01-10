@@ -29,7 +29,7 @@ type processInfo struct {
 	deleted   bool
 }
 
-//var activeProcesses = cache.NewCache(nil)
+//var activeProcesses = cache.NewCache()
 
 type exitStatus struct {
 	process    int
@@ -216,7 +216,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 //NewProcessMon is a method to create a new processmon
 func NewProcessMon() ProcessManager {
 
-	launcher = &ProcessMon{activeProcesses: cache.NewCache(nil)}
+	launcher = &ProcessMon{activeProcesses: cache.NewCache()}
 	return launcher
 }
 

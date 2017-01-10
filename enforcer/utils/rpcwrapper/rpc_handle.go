@@ -31,7 +31,7 @@ type RPCWrapper struct {
 func NewRPCWrapper() *RPCWrapper {
 
 	rpcwrapper := &RPCWrapper{}
-	rpcwrapper.rpcClientMap = cache.NewCache(nil)
+	rpcwrapper.rpcClientMap = cache.NewCache()
 	return rpcwrapper
 }
 

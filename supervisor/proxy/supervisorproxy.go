@@ -128,7 +128,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 		return nil, fmt.Errorf("TargetNetworks cannot be nil")
 	}
 	s := &ProxyInfo{
-		versionTracker:    cache.NewCache(nil),
+		versionTracker:    cache.NewCache(),
 		targetNetworks:    targetNetworks,
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
