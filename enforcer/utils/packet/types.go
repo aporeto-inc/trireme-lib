@@ -111,23 +111,25 @@ type Packet struct {
 
 	// IP Header fields
 	ipHeaderLen        uint8
+	IPProto            uint8
 	IPTotalLength      uint16
 	ipID               uint16
 	ipChecksum         uint16
 	SourceAddress      net.IP
 	DestinationAddress net.IP
 
-	// TCP Header Fields
+	// L4 Header Fields
 	SourcePort      uint16
 	DestinationPort uint16
-	TCPSeq          uint32
-	TCPAck          uint32
-	tcpDataOffset   uint8
-	TCPFlags        uint8
-	TCPChecksum     uint16
+	// L4 Header Begin Position
+	l4BeginPos uint16
 
-	// TCP Computations
-	tcpBeginPos uint16
+	// TCP Specific fields
+	TCPSeq        uint32
+	TCPAck        uint32
+	tcpDataOffset uint8
+	TCPFlags      uint8
+	TCPChecksum   uint16
 
 	// Service Metadata
 	SvcMetadata interface{}
