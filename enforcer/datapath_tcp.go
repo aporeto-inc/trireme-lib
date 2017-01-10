@@ -142,7 +142,7 @@ func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte) []byte {
 	return options
 }
 
-func (d *datapathEnforcer) parseAckToken(connection *Connection, data []byte) (*tokens.ConnectionClaims, error) {
+func (d *datapathEnforcer) parseAckToken(connection *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
 	claims, _ := d.tokenEngine.Decode(true, data, connection.RemotePublicKey)
@@ -166,7 +166,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 		"package": "enforcer",
 	}).Debug("process application syn packet")
 
-	var connection *Connection
+	var connection *TCPConnection
 
 	// Find the container context
 	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
@@ -181,15 +181,15 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 
 	existing, err := d.appConnectionTracker.Get(tcpPacket.L4FlowHash())
 	if err == nil {
-		connection = existing.(*Connection)
+		connection = existing.(*TCPConnection)
 	} else {
-		connection = NewConnection()
-		connection.RemoteIP = tcpPacket.DestinationAddress.String()
-		connection.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
+		connection = NewTCPConnection()
+		connection.Auth.RemoteIP = tcpPacket.DestinationAddress.String()
+		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
 		log.WithFields(log.Fields{
 			"package":    "enforcer",
-			"remoteip":   connection.RemoteIP,
-			"remoteport": connection.RemotePort,
+			"remoteip":   connection.Auth.RemoteIP,
+			"remoteport": connection.Auth.RemotePort,
 		}).Debug("Connection not found, creating new connection")
 	}
 
@@ -197,12 +197,12 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// Create a token
-	tcpData := d.createPacketToken(false, context.(*PUContext), connection)
+	tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
 
 	// Track the connection
-	connection.State = SynSend
+	connection.State = TCPSynSend
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
-	d.contextConnectionTracker.AddOrUpdate(string(connection.LocalContext), connection)
+	d.contextConnectionTracker.AddOrUpdate(string(connection.Auth.LocalContext), connection)
 
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
@@ -232,7 +232,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 
 	// Create the reverse hash since we have cached based on the SYN and
 	// Retrieve the connection context
-	connection, err := d.networkConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
+	c, err := d.networkConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
@@ -241,17 +241,19 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		return nil, nil
 	}
 
+	connection := c.(*TCPConnection)
+
 	// Process the packet if I am the right state. I should have either received a Syn packet or
 	// I could have send a SynAck and this is a duplicate request since my response was lost.
-	if connection.(*Connection).State == SynReceived || connection.(*Connection).State == SynAckSend {
+	if connection.State == TCPSynReceived || connection.State == TCPSynAckSend {
 
-		connection.(*Connection).State = SynAckSend
+		connection.State = TCPSynAckSend
 
 		// Create TCP Option
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 		// Create a token
-		tcpData := d.createPacketToken(false, context.(*PUContext), connection.(*Connection))
+		tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
 
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
@@ -288,8 +290,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	}
 
 	// Get the connection state. We need the state of the two random numbers
-	connection, err := d.appConnectionTracker.Get(tcpPacket.L4FlowHash())
-
+	c, err := d.appConnectionTracker.Get(tcpPacket.L4FlowHash())
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package":   "enforcer",
@@ -299,12 +300,14 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		return nil, nil
 	}
 
+	connection := c.(*TCPConnection)
+
 	// Only process in SynAckReceived state
-	if connection.(*Connection).State == SynAckReceived {
+	if connection.State == TCPSynAckReceived {
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
-		token := d.createPacketToken(true, context.(*PUContext), connection.(*Connection))
+		token := d.createPacketToken(true, context.(*PUContext), &connection.Auth)
 
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
@@ -324,16 +327,16 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		tcpPacket.TCPDataAttach(tcpOptions, token)
 		tcpPacket.UpdateTCPChecksum()
 
-		connection.(*Connection).State = AckSend
+		connection.State = TCPAckSend
 
 		return nil, nil
 	}
 
 	// Catch the first request packet
-	if connection.(*Connection).State == AckSend {
+	if connection.State == TCPAckSend {
 		//Delete the state at this point .. There is a small chance that both packets are lost
 		// and the other side will send us SYNACK again .. TBD if we need to change this
-		d.contextConnectionTracker.Remove(connection.(*Connection).LocalContextID)
+		d.contextConnectionTracker.Remove(connection.Auth.LocalContextID)
 		d.appConnectionTracker.Remove(tcpPacket.L4FlowHash())
 		return nil, nil
 	}
@@ -341,7 +344,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	log.WithFields(log.Fields{
 		"package": "enforcer",
 	}).Debug("Received application ACK packet in the wrong state")
-	return nil, fmt.Errorf("Received application ACK packet in the wrong state! %v", connection.(*Connection).State)
+	return nil, fmt.Errorf("Received application ACK packet in the wrong state! %v", connection.State)
 }
 
 func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
@@ -379,22 +382,22 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		"package": "enforcer",
 	}).Debug("Process network Syn packet")
 
-	var connection *Connection
+	var connection *TCPConnection
 	// First check if a connection was previously established and this is a second SYNACK
 	// packet. This means that our ACK packet was lost somewhere
 	hash := tcpPacket.L4FlowHash()
 	existing, err := d.networkConnectionTracker.Get(hash)
 
 	if err == nil {
-		connection = existing.(*Connection)
+		connection = existing.(*TCPConnection)
 	} else {
-		connection = NewConnection()
+		connection = NewTCPConnection()
 	}
 
 	// Decode the JWT token using the context key
 	// We need to add here to key renewal option where we decode with keys N, N-1
 	// TBD
-	claims, err := d.parsePacketToken(connection, tcpPacket.ReadTCPData())
+	claims, err := d.parsePacketToken(&connection.Auth, tcpPacket.ReadTCPData())
 
 	// If the token signature is not valid
 	// We must drop the connection and we drop the Syn packet. The source will
@@ -469,7 +472,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		// Update the connection state and store the Nonse send to us by the host.
 		// We use the nonse in the subsequent packets to achieve randomization.
 
-		connection.State = SynReceived
+		connection.State = TCPSynReceived
 
 		// Note that if the connection exists already we will just end-up replicating it. No
 		// harm here.
@@ -531,7 +534,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		return nil, fmt.Errorf("No remote context %v", claims.T)
 	}
 
-	connection, err := d.contextConnectionTracker.Get(string(claims.RMT))
+	c, err := d.contextConnectionTracker.Get(string(claims.RMT))
 	if err != nil {
 		d.contextConnectionTracker.DumpStore()
 		log.WithFields(log.Fields{
@@ -540,12 +543,13 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		return nil, fmt.Errorf("No connection found for %v", claims.RMT)
 	}
 
-	// Stash connection
-	tcpPacket.ConnectionMetadata = connection.(*Connection)
+	connection := c.(*TCPConnection)
 
-	connection.(*Connection).RemotePublicKey = cert
-	connection.(*Connection).RemoteContext = claims.LCL
-	connection.(*Connection).RemoteContextID = remoteContextID
+	// Stash connection
+	tcpPacket.ConnectionMetadata = connection
+	connection.Auth.RemotePublicKey = cert
+	connection.Auth.RemoteContext = claims.LCL
+	connection.Auth.RemoteContextID = remoteContextID
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
@@ -586,7 +590,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	}
 
 	if index, action := context.acceptTxtRules.Search(claims.T); !d.mutualAuthorization || index >= 0 {
-		connection.(*Connection).State = SynAckReceived
+		connection.State = TCPSynAckReceived
 		return action, nil
 	}
 
@@ -606,8 +610,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 	// Retrieve connection context
 	hash := tcpPacket.L4FlowHash()
-	connection, err := d.networkConnectionTracker.Get(hash)
-
+	c, err := d.networkConnectionTracker.Get(hash)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
@@ -615,8 +618,10 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		return nil, nil
 	}
 
+	connection := c.(*TCPConnection)
+
 	// Validate that the source/destination nonse matches. The signature has validated both directions
-	if connection.(*Connection).State == SynAckSend {
+	if connection.State == TCPSynAckSend {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 			log.WithFields(log.Fields{
@@ -627,7 +632,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			return nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
-		if _, err := d.parseAckToken(connection.(*Connection), tcpPacket.ReadTCPData()); err != nil {
+		if _, err := d.parseAckToken(&connection.Auth, tcpPacket.ReadTCPData()); err != nil {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
 			}).Error("Ack packet dropped because singature validation failed")
@@ -636,7 +641,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			return nil, fmt.Errorf("Ack packet dropped because singature validation failed %v", err)
 		}
 
-		connection.(*Connection).State = AckProcessed
+		connection.State = TCPAckProcessed
 		// Remove any of our data
 		tcpPacket.IncreaseTCPSeq(d.ackSize)
 		err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen)
@@ -661,7 +666,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		d.networkConnectionTracker.Remove(hash)
 
 		// We accept the packet as a new flow
-		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowAccept, "NA", connection.(*Connection).RemoteContextID, tcpPacket)
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowAccept, "NA", connection.Auth.RemoteContextID, tcpPacket)
 
 		// Accept the packet
 		return nil, nil
@@ -669,7 +674,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	}
 
 	// Catch the first request packets
-	if connection.(*Connection).State == AckProcessed {
+	if connection.State == TCPAckProcessed {
 		// Safe to delete the state
 		d.networkConnectionTracker.Remove(hash)
 		return nil, nil

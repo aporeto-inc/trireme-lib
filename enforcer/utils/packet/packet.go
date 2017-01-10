@@ -61,7 +61,7 @@ func New(context uint64, bytes []byte) (packet *Packet, err error) {
 	p.ipHeaderLen = bytes[ipHdrLenPos] & ipHdrLenMask
 	p.IPProto = bytes[ipProtoPos]
 	p.IPTotalLength = binary.BigEndian.Uint16(bytes[ipLengthPos : ipLengthPos+2])
-	p.ipID = binary.BigEndian.Uint16(bytes[ipIDPos : ipIDPos+2])
+	p.ipID = binary.BigEndian.Uint16(bytes[IPIDPos : IPIDPos+2])
 	p.ipChecksum = binary.BigEndian.Uint16(bytes[ipChecksumPos : ipChecksumPos+2])
 	p.SourceAddress = net.IP(bytes[ipSourceAddrPos : ipSourceAddrPos+4])
 	p.DestinationAddress = net.IP(bytes[ipDestAddrPos : ipDestAddrPos+4])
@@ -258,8 +258,8 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 	return
 }
 
-// fixupIPHdrOnTCPDataModify modifies the IP header fields and checksum
-func (p *Packet) fixupIPHdrOnTCPDataModify(old, new uint16) {
+// FixupIPHdrOnDataModify modifies the IP header fields and checksum
+func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 
 	// IP Header Processing
 	// IP chekcsum fixup.
@@ -438,7 +438,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 	p.FixupTCPHdrOnTCPDataDetach(dataLength, optionLength)
 
 	// Process IP Header fields
-	p.fixupIPHdrOnTCPDataModify(p.IPTotalLength, p.IPTotalLength-(dataLength+optionLength))
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength-(dataLength+optionLength))
 	return
 }
 
@@ -510,7 +510,7 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 	packetLenIncrease := uint16(len(tcpData) + len(tcpOptions))
 
 	// IP Header Processing
-	p.fixupIPHdrOnTCPDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
 
 	// TCP Header Processing
 	p.FixupTCPHdrOnTCPDataAttach(tcpOptions, tcpData)

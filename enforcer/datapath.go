@@ -443,11 +443,11 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 
 }
 
-func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, connection *Connection) []byte {
+func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, auth *AuthInfo) []byte {
 
 	claims := &tokens.ConnectionClaims{
-		LCL: connection.LocalContext,
-		RMT: connection.RemoteContext,
+		LCL: auth.LocalContext,
+		RMT: auth.RemoteContext,
 	}
 
 	if !ackToken {
@@ -457,10 +457,10 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 	return d.tokenEngine.CreateAndSign(ackToken, claims)
 }
 
-func (d *datapathEnforcer) parsePacketToken(connection *Connection, data []byte) (*tokens.ConnectionClaims, error) {
+func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, cert := d.tokenEngine.Decode(false, data, connection.RemotePublicKey)
+	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
 	if claims == nil {
 		return nil, fmt.Errorf("Cannot decode the token")
 	}
@@ -471,9 +471,9 @@ func (d *datapathEnforcer) parsePacketToken(connection *Connection, data []byte)
 		return nil, fmt.Errorf("No Transmitter Label ")
 	}
 
-	connection.RemotePublicKey = cert
-	connection.RemoteContext = claims.LCL
-	connection.RemoteContextID = remoteContextID
+	auth.RemotePublicKey = cert
+	auth.RemoteContext = claims.LCL
+	auth.RemoteContextID = remoteContextID
 
 	return claims, nil
 }

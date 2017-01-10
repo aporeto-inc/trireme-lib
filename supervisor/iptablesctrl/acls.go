@@ -109,36 +109,31 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
 	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":  "iptablesctrl",
-			"appChain": appChain,
-			"netChain": netChain,
-			"context":  i.appPacketIPTableContext,
-			"error":    err.Error(),
+			"package": "iptablesctrl",
+			"chain":   appChain,
+			"context": i.appPacketIPTableContext,
+			"error":   err.Error(),
 		}).Debug("Failed to create the container specific chain")
 		return err
 	}
 
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":  "iptablesctrl",
-			"appChain": appChain,
-			"netChain": netChain,
-			"context":  i.appAckPacketIPTableContext,
-			"error":    err.Error(),
+			"package": "iptablesctrl",
+			"chain":   appChain,
+			"context": i.appAckPacketIPTableContext,
+			"error":   err.Error(),
 		}).Debug("Failed to create the container specific chain")
-
 		return err
 	}
 
 	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":  "iptablesctrl",
-			"appChain": appChain,
-			"netChain": netChain,
-			"context":  i.netPacketIPTableContext,
-			"error":    err.Error(),
+			"package": "iptablesctrl",
+			"chain":   netChain,
+			"context": i.netPacketIPTableContext,
+			"error":   err.Error(),
 		}).Debug("Failed to create the container specific chain")
-
 		return err
 	}
 
@@ -251,6 +246,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 		}
 	}
 
+	// Drop all new TCP connetions
 	if err := i.ipt.Append(
 		i.appAckPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
@@ -315,6 +311,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		}
 	}
 
+	// Drop all TCP connections
 	if err := i.ipt.Append(
 		i.netPacketIPTableContext, chain,
 		"-s", "0.0.0.0/0",

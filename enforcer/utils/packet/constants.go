@@ -19,7 +19,7 @@ const (
 	ipLengthPos = 2
 
 	// ipIDPos is location of IP Identifier
-	ipIDPos = 4
+	IPIDPos = 4
 
 	// ipProtoPos is the location of the IP Protocol
 	ipProtoPos = 9
