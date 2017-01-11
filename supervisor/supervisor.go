@@ -85,7 +85,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	s := &Config{
 		mode:              mode,
 		impl:              nil,
-		versionTracker:    cache.NewCache(nil),
+		versionTracker:    cache.NewCache(),
 		targetNetworks:    targetNetworks,
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),

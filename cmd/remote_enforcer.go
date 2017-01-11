@@ -215,7 +215,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	s.Enforcer.Start()
 
-	statsClient := &StatsClient{collector: collectorInstance, server: s, FlowCache: cache.NewCacheWithExpiration(120*time.Second, 1000), Rpchdl: rpcwrapper.NewRPCWrapper()}
+	statsClient := &StatsClient{collector: collectorInstance, server: s, FlowCache: cache.NewCacheWithExpiration(120 * time.Second), Rpchdl: rpcwrapper.NewRPCWrapper()}
 
 	s.connectStatsClient(statsClient)
 
