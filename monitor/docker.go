@@ -356,9 +356,18 @@ func (d *dockerMonitor) syncContainers() error {
 			log.WithFields(log.Fields{
 				"package": "monitor",
 				"error":   err.Error(),
-			}).Error("Error Syncing existing Container")
+			}).Error("Error Syncing existing running Container")
 		}
 
+		if container.State.Running && container.State.Paused {
+			contextID, _ := contextIDFromDockerID(container.ID)
+			if err := <-d.puHandler.HandlePUEvent(contextID, EventPause); err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Error("Error Syncing existing paused Container")
+			}
+		}
 	}
 
 	return nil
