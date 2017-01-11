@@ -22,7 +22,9 @@ type ProcessingUnitsHandler interface {
 	HandlePUEvent(contextID string, event Event) <-chan error
 }
 
-// A SynchronizationHandler asdasd
+// A SynchronizationHandler can handle a PU synchronization routine.
 type SynchronizationHandler interface {
-	HandleSynchronization(contextID string, state State, RuntimeReader policy.RuntimeReader) error
+
+	// HandleSynchronization handles a synchronization routine.
+	HandleSynchronization(contextID string, state State, RuntimeReader policy.RuntimeReader, syncType SynchronizationType) error
 }

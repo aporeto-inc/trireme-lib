@@ -338,7 +338,7 @@ func (d *dockerMonitor) syncContainers() error {
 			} else {
 				state = StateStopped
 			}
-			d.syncHandler.HandleSynchronization(contextID, state, PURuntime)
+			d.syncHandler.HandleSynchronization(contextID, state, PURuntime, SynchronizationTypeInitial)
 		}
 	}
 

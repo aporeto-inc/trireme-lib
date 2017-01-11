@@ -1,40 +1,55 @@
 package monitor
 
-// Event represents the event picked up by the monitor.
+// An Event represents the event picked up by the monitor.
 type Event string
 
-// EventStart is the event generated when a PU starts.
-const EventStart = "start"
+const (
+	// EventStart is the event generated when a PU starts.
+	EventStart Event = "start"
 
-// EventStop is the event generated when a PU stops/dies.
-const EventStop = "stop"
+	// EventStop is the event generated when a PU stops/dies.
+	EventStop Event = "stop"
 
-// EventCreate is the event generated when a PU gets created.
-const EventCreate = "create"
+	// EventCreate is the event generated when a PU gets created.
+	EventCreate Event = "create"
 
-// EventDestroy is the event generated when a PU is definitely removed.
-const EventDestroy = "destroy"
+	// EventDestroy is the event generated when a PU is definitely removed.
+	EventDestroy Event = "destroy"
 
-// EventPause is the event generated when a PU is set to pause.
-const EventPause = "pause"
+	// EventPause is the event generated when a PU is set to pause.
+	EventPause Event = "pause"
 
-// EventUnpause is the event generated when a PU is unpaused.
-const EventUnpause = "unpause"
+	// EventUnpause is the event generated when a PU is unpaused.
+	EventUnpause Event = "unpause"
+)
 
-// State describes the state of the PU.
-type State string
+// A State describes the state of the PU.
+type State int
 
-// StateStarted is the event generated when a PU starts.
-const StateStarted = "started"
+const (
+	// StateStarted is the state of a started PU.
+	StateStarted State = iota + 1
 
-// StateStopped is the event generated when a PU stops/dies.
-const StateStopped = "stopped"
+	// StateStopped is the state of stopped PU.
+	StateStopped
 
-// StatePaused is the event generated when a PU gets created.
-const StatePaused = "paused"
+	// StatePaused is the state of a paused PU.
+	StatePaused
 
-// StateUnknwown is the event generated when a PU is definitely removed.
-const StateUnknwown = "unknown"
+	// StateDestroyed is the state of destroyed PU.
+	StateDestroyed
 
-// StateDestroyed is the event generated when a PU is definitely removed.
-const StateDestroyed = "destroyed"
+	// StateUnknwown is the state of PU in an unknown state.
+	StateUnknwown
+)
+
+// A SynchronizationType represents the type of synchronization job.
+type SynchronizationType int
+
+const (
+	// SynchronizationTypeInitial indicates the initial synchronization job.
+	SynchronizationTypeInitial SynchronizationType = iota + 1
+
+	// SynchronizationTypePeriodic indicates subsequent synchronization jobs.
+	SynchronizationTypePeriodic
+)
