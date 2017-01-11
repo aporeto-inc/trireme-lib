@@ -546,10 +546,10 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	connection := c.(*TCPConnection)
 
 	// Stash connection
-	tcpPacket.ConnectionMetadata = connection
 	connection.Auth.RemotePublicKey = cert
 	connection.Auth.RemoteContext = claims.LCL
 	connection.Auth.RemoteContextID = remoteContextID
+	tcpPacket.ConnectionMetadata = &connection.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		log.WithFields(log.Fields{
