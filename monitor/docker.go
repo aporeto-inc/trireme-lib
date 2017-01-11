@@ -319,12 +319,32 @@ func (d *dockerMonitor) syncContainers() error {
 				"error":   err.Error(),
 			}).Error("Error Syncing existing Container")
 		}
-		if err := d.startDockerContainer(&container); err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Error("Error Syncing existing Container")
+
+		if container.State.Running {
+			// Only activate container if it is up and running.
+
+			if err := d.startDockerContainer(&container); err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Error("Error Syncing existing Container")
+			}
+
+			if container.State.Paused {
+				// Notify also that the container  is paused (and running)
+				err := <-d.puHandler.HandlePUEvent(container.ID, EventPause)
+				if err != nil {
+					log.WithFields(log.Fields{
+						"package": "monitor",
+						"error":   err.Error(),
+					}).Error("Error handling Container in paused state")
+				}
+			}
+		} else {
+			// Container is not running. Simply notify that it's stopped:
+			d.stopDockerContainer(container.ID)
 		}
+
 	}
 
 	return nil
