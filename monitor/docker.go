@@ -332,7 +332,7 @@ func (d *dockerMonitor) syncContainers() error {
 
 			if container.State.Paused {
 				// Notify also that the container  is paused (and running)
-				err := <-d.puHandler.HandlePUEvent(container.ID, EventPause)
+				err := <-d.puHandler.HandlePUEvent(contextIDFromDockerID(container.ID), EventPause)
 				if err != nil {
 					log.WithFields(log.Fields{
 						"package": "monitor",
