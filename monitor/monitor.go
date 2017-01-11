@@ -20,3 +20,21 @@ const EventPause = "pause"
 
 // EventUnpause is the event generated when a PU is unpaused.
 const EventUnpause = "unpause"
+
+// State describes the state of the PU.
+type State string
+
+// StateStarted is the event generated when a PU starts.
+const StateStarted = "started"
+
+// StateStopped is the event generated when a PU stops/dies.
+const StateStopped = "stopped"
+
+// StatePaused is the event generated when a PU gets created.
+const StatePaused = "paused"
+
+// StateUnknwown is the event generated when a PU is definitely removed.
+const StateUnknwown = "unknown"
+
+// StateDestroyed is the event generated when a PU is definitely removed.
+const StateDestroyed = "destroyed"
