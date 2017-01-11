@@ -331,14 +331,25 @@ func (d *dockerMonitor) syncContainers() error {
 			}
 
 			if container.State.Paused {
+
 				// Notify also that the container  is paused (and running)
-				err := <-d.puHandler.HandlePUEvent(contextIDFromDockerID(container.ID), EventPause)
+				contextID, err := contextIDFromDockerID(container.ID)
+				if err != nil {
+					log.WithFields(log.Fields{
+						"package": "monitor",
+						"error":   err.Error(),
+					}).Error("Couldn't generate ContextID out of DockerID")
+					continue
+				}
+
+				err = <-d.puHandler.HandlePUEvent(contextID, EventPause)
 				if err != nil {
 					log.WithFields(log.Fields{
 						"package": "monitor",
 						"error":   err.Error(),
 					}).Error("Error handling Container in paused state")
 				}
+
 			}
 		} else {
 			// Container is not running. Simply notify that it's stopped:
