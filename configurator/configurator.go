@@ -80,7 +80,7 @@ func NewTriremeWithDockerMonitor(
 
 		}
 		trireme := trireme.NewTrireme(serverID, resolver, proxySupervise, proxyEnforce)
-		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
+		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart, nil)
 		return trireme, monitor, proxySupervise.(supervisor.Excluder)
 	}
 
@@ -99,7 +99,7 @@ func NewTriremeWithDockerMonitor(
 	}
 	trireme := trireme.NewTrireme(serverID, resolver, localSupervisor, localEnforcer)
 
-	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
+	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart, nil)
 
 	return trireme, monitor, localSupervisor.(supervisor.Excluder)
 

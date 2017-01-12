@@ -125,6 +125,7 @@ type dockerMonitor struct {
 	stopprocessor      chan bool
 	stoplistener       chan bool
 	syncAtStart        bool
+	syncHandler        SynchronizationHandler
 
 	collector collector.EventCollector
 	puHandler ProcessingUnitsHandler
@@ -142,6 +143,7 @@ func NewDockerMonitor(
 	p ProcessingUnitsHandler,
 	m DockerMetadataExtractor,
 	l collector.EventCollector, syncAtStart bool,
+	s SynchronizationHandler,
 ) Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
@@ -157,6 +159,7 @@ func NewDockerMonitor(
 		puHandler:          p,
 		collector:          l,
 		syncAtStart:        syncAtStart,
+		syncHandler:        s,
 		eventnotifications: make(chan *events.Message, 1000),
 		handlers:           make(map[DockerEvent]func(event *events.Message) error),
 		stoplistener:       make(chan bool),
@@ -310,6 +313,35 @@ func (d *dockerMonitor) syncContainers() error {
 		return fmt.Errorf("Error Getting ContainerList: %s", err)
 	}
 
+	if d.syncHandler != nil {
+		for _, c := range containers {
+			container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
+
+			if err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Error("Error Syncing existing Container")
+			}
+
+			contextID, _ := contextIDFromDockerID(container.ID)
+
+			PURuntime, _ := d.extractMetadata(&container)
+
+			var state State
+			if container.State.Running {
+				if !container.State.Paused {
+					state = StateStarted
+				} else {
+					state = StatePaused
+				}
+			} else {
+				state = StateStopped
+			}
+			d.syncHandler.HandleSynchronization(contextID, state, PURuntime, SynchronizationTypeInitial)
+		}
+	}
+
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
@@ -319,11 +351,22 @@ func (d *dockerMonitor) syncContainers() error {
 				"error":   err.Error(),
 			}).Error("Error Syncing existing Container")
 		}
+
 		if err := d.startDockerContainer(&container); err != nil {
 			log.WithFields(log.Fields{
 				"package": "monitor",
 				"error":   err.Error(),
-			}).Error("Error Syncing existing Container")
+			}).Error("Error Syncing existing running Container")
+		}
+
+		if container.State.Running && container.State.Paused {
+			contextID, _ := contextIDFromDockerID(container.ID)
+			if err := <-d.puHandler.HandlePUEvent(contextID, EventPause); err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Error("Error Syncing existing paused Container")
+			}
 		}
 	}
 
