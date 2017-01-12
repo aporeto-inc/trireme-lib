@@ -35,7 +35,7 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		}
 
 		ipaddrs := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
-		tpolicy := policy.NewPUPolicy("SomeId", policy.AllowAll, nil, nil, nil, nil, nil, nil, ipaddrs, nil)
+		tpolicy := policy.NewPUPolicy("SomeId", policy.Police, nil, nil, nil, nil, nil, nil, ipaddrs, nil)
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -260,7 +260,7 @@ func TestSimpleUpdate(t *testing.T) {
 	// Generate a new Policy ...
 	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
 	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
-	newPolicy := policy.NewPUPolicy("", policy.AllowAll, nil, nil, nil, nil, tagsMap, nil, ipl, nil)
+	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
 }
 
