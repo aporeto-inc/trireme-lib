@@ -209,6 +209,14 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
 
+	if policyInfo.TriremeAction == policy.AllowAll {
+		log.WithFields(log.Fields{
+			"package":   "trireme",
+			"contextID": contextID,
+		}).Debug("Resolver returned a PUPolicy with AllowAll Action. Not policing.")
+		return nil
+	}
+
 	// Create a copy as we are going to modify it locally
 	policyInfo = policyInfo.Clone()
 
