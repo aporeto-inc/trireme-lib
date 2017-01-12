@@ -180,14 +180,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	runtimeInfo := cachedElement.(*policy.PURuntime)
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 
-	if policyInfo.TriremeAction == policy.AllowAll {
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-		}).Debug("Resolver returned a PUPolicy with AllowAll Action. Not policing.")
-		return nil
-	}
-
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package":     "trireme",
