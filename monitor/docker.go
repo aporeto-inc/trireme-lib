@@ -340,6 +340,8 @@ func (d *dockerMonitor) syncContainers() error {
 			}
 			d.syncHandler.HandleSynchronization(contextID, state, PURuntime, SynchronizationTypeInitial)
 		}
+
+		d.syncHandler.HandleSynchronizationComplete(SynchronizationTypeInitial)
 	}
 
 	for _, c := range containers {

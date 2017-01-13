@@ -27,4 +27,7 @@ type SynchronizationHandler interface {
 
 	// HandleSynchronization handles a synchronization routine.
 	HandleSynchronization(contextID string, state State, RuntimeReader policy.RuntimeReader, syncType SynchronizationType) error
+
+	// HandleSynchronizationComplete is called when a synchronization job is complete.
+	HandleSynchronizationComplete(syncType SynchronizationType)
 }
