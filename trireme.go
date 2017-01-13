@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
@@ -19,12 +20,13 @@ type trireme struct {
 	supervisor supervisor.Supervisor
 	enforcer   enforcer.PolicyEnforcer
 	resolver   PolicyResolver
+	collector  collector.EventCollector
 	stop       chan bool
 	requests   chan *triremeRequest
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.Supervisor, enforcer enforcer.PolicyEnforcer) Trireme {
+func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.Supervisor, enforcer enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
 
 	trireme := &trireme{
 		serverID:   serverID,
@@ -32,6 +34,7 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisor supervisor.
 		supervisor: supervisor,
 		enforcer:   enforcer,
 		resolver:   resolver,
+		collector:  eventCollector,
 		stop:       make(chan bool),
 		requests:   make(chan *triremeRequest),
 	}
@@ -216,10 +219,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.enforcer.Enforce(contextID, containerInfo)
+	if err = t.enforcer.Enforce(contextID, containerInfo); err != nil {
 
-	if err != nil {
-		//t.supervisor.Unsupervise(contextID)
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
@@ -229,10 +230,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 
-	err = t.supervisor.Supervise(contextID, containerInfo)
+	if err = t.supervisor.Supervise(contextID, containerInfo); err != nil {
 
-	if err != nil {
 		t.enforcer.Unenforce(contextID)
+
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
@@ -241,10 +242,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
-	log.WithFields(log.Fields{
-		"package":   "trireme",
-		"contextID": contextID,
-	}).Debug("Finished HandleCreate")
+	ip, _ := containerInfo.Policy.DefaultIPAddress()
+	t.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), collector.ContainerStart)
 
 	return nil
 }
@@ -325,9 +324,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	addTransmitterLabel(contextID, containerInfo)
 
-	err = t.enforcer.Enforce(contextID, containerInfo)
-
-	if err != nil {
+	if err = t.enforcer.Enforce(contextID, containerInfo); err != nil {
 
 		log.WithFields(log.Fields{
 			"package":   "trireme",
@@ -337,9 +334,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		return fmt.Errorf("Policy Update failed for Enforcer %s", err)
 	}
 
-	err = t.supervisor.Supervise(contextID, containerInfo)
-
-	if err != nil {
+	if err = t.supervisor.Supervise(contextID, containerInfo); err != nil {
 		t.enforcer.Unenforce(contextID)
 		log.WithFields(log.Fields{
 			"package":     "trireme",
@@ -352,10 +347,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		return fmt.Errorf("Policy Update failed for Supervisor %s", err)
 	}
 
-	log.WithFields(log.Fields{
-		"package":   "trireme",
-		"contextID": contextID,
-	}).Debug("Finish to update a policy")
+	ip, _ := newPolicy.DefaultIPAddress()
+	t.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), collector.ContainerUpdate)
 
 	return nil
 }

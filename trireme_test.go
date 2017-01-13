@@ -4,18 +4,20 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-func createMocks() (TestPolicyResolver, supervisor.TestSupervisor, enforcer.TestPolicyEnforcer, monitor.TestMonitor) {
+func createMocks() (TestPolicyResolver, supervisor.TestSupervisor, enforcer.TestPolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {
 	tresolver := NewTestPolicyResolver()
 	tsupervisor := supervisor.NewTestSupervisor()
 	tenforcer := enforcer.NewTestPolicyEnforcer()
 	tmonitor := monitor.NewTestMonitor()
-	return tresolver, tsupervisor, tenforcer, tmonitor
+	tcollector := &collector.DefaultCollector{}
+	return tresolver, tsupervisor, tenforcer, tmonitor, tcollector
 }
 
 func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, tsupervisor supervisor.TestSupervisor, tenforcer enforcer.TestPolicyEnforcer, tmonitor monitor.TestMonitor, id string, runtime *policy.PURuntime) {
@@ -214,8 +216,8 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 }
 
 func TestSimpleCreate(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -224,8 +226,8 @@ func TestSimpleCreate(t *testing.T) {
 }
 
 func TestSimpleDelete(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -234,8 +236,8 @@ func TestSimpleDelete(t *testing.T) {
 }
 
 func TestCreateDelete(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -245,8 +247,8 @@ func TestCreateDelete(t *testing.T) {
 }
 
 func TestSimpleUpdate(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -265,8 +267,8 @@ func TestSimpleUpdate(t *testing.T) {
 }
 
 func TestCache(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -295,8 +297,8 @@ func TestCache(t *testing.T) {
 }
 
 func TestStop(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()

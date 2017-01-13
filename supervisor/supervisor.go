@@ -197,9 +197,6 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 		return err
 	}
 
-	ip, _ := containerInfo.Runtime.DefaultIPAddress()
-	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "start")
-
 	return nil
 }
 
@@ -219,9 +216,6 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 		s.Unsupervise(contextID)
 		return fmt.Errorf("Error in updating PU implementation. PU has been terminated")
 	}
-
-	ip, _ := containerInfo.Runtime.DefaultIPAddress()
-	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")
 
 	return nil
 }

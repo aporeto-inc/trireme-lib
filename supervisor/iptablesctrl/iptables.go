@@ -76,7 +76,7 @@ func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 		return ip, true
 	}
 
-	return "0.0.0.0/0", false
+	return "0.0.0.0/0", i.remote
 }
 
 // ConfigureRules implmenets the ConfigureRules interface
@@ -87,7 +87,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
-	if !ok && !i.remote {
+	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
 
@@ -124,7 +124,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 	}
 
 	ipAddress, ok := i.defaultIP(ipAddresses.IPs)
-	if !ok && !i.remote {
+	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
 
@@ -146,7 +146,7 @@ func (i *Instance) UpdateRules(version int, contextID string, policyrules *polic
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
-	if !ok && !i.remote {
+	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
 
