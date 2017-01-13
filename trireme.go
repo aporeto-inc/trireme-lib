@@ -275,8 +275,8 @@ func (t *trireme) doHandleDelete(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":         "trireme",
 			"contextID":       contextID,
-			"supervisorError": errS.Error(),
-			"enforcerError":   errE.Error(),
+			"supervisorError": errS,
+			"enforcerError":   errE,
 		}).Debug("Error when deleting")
 
 		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
