@@ -87,7 +87,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
-	if !ok {
+	if !ok && !i.remote {
 		return fmt.Errorf("No ip address found ")
 	}
 
@@ -124,7 +124,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 	}
 
 	ipAddress, ok := i.defaultIP(ipAddresses.IPs)
-	if !ok {
+	if !ok && !i.remote {
 		return fmt.Errorf("No ip address found ")
 	}
 
@@ -146,7 +146,7 @@ func (i *Instance) UpdateRules(version int, contextID string, policyrules *polic
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
-	if !ok {
+	if !ok && !i.remote {
 		return fmt.Errorf("No ip address found ")
 	}
 
