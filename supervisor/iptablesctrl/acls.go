@@ -475,8 +475,10 @@ func (i *Instance) cleanACLs() error {
 	// Clean the mark rule
 	i.removeMarkRule()
 
-	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
+	if !i.remote {
+		// Clean Application Rules/Chains
+		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
+	}
 
 	// Clean Application Rules/Chains
 	i.cleanACLSection(i.appAckPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
