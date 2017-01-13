@@ -27,6 +27,7 @@ type Instance struct {
 	appPacketIPTableSection    string
 	netPacketIPTableContext    string
 	netPacketIPTableSection    string
+	remote                     bool
 }
 
 // NewInstance creates a new iptables controller instance
@@ -46,6 +47,7 @@ func NewInstance(networkQueues, applicationQueues string, targetNetworks []strin
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
+		remote:                     remote,
 	}
 
 	if remote {

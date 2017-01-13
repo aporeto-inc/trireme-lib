@@ -13,93 +13,120 @@ import (
 // a particular chain
 func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]string {
 
-	return [][]string{
-		{
+	rules := [][]string{}
+
+	if !i.remote {
+		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-s", ip,
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
-		},
-		{
-			i.appAckPacketIPTableContext,
-			i.appPacketIPTableSection,
-			"-s", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Container specific chain",
-			"-j", appChain,
-		},
-		{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-d", ip,
-			"-m", "comment", "--comment", "Container specific chain",
-			"-j", netChain,
-		},
+		})
 	}
+
+	rules = append(rules, []string{
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-s", ip,
+		"-p", "tcp",
+		"-m", "comment", "--comment", "Container specific chain",
+		"-j", appChain,
+	})
+
+	rules = append(rules, []string{
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-d", ip,
+		"-m", "comment", "--comment", "Container specific chain",
+		"-j", netChain,
+	})
+
+	return rules
+
 }
 
 //trapRules provides the packet trap rules to add/delete
 func (i *Instance) trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
 
-	return [][]string{
-		// Application Syn and Syn/Ack
-		{
+	rules := [][]string{}
+
+	if !i.remote {
+		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-d", network,
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
+		})
 
-		// Application everything else
-		{
+		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
+		})
+	} else {
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-d", network,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		})
 
-		// Network side rules
-		{
-			i.netPacketIPTableContext, netChain,
-			"-s", network,
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-d", network,
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
-			"-j", "NFQUEUE", "--queue-balance", netQueue,
-		},
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		})
 	}
+
+	rules = append(rules, []string{
+		i.netPacketIPTableContext, netChain,
+		"-s", network,
+		"-p", "tcp",
+		"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+		"-j", "NFQUEUE", "--queue-balance", netQueue,
+	})
+
+	return rules
+
 }
 
 // exclusionChainRules provides the list of rules that are used to send traffic to
 // a particular chain
 func (i *Instance) exclusionChainRules(ip string) [][]string {
+	rules := [][]string{}
 
-	return [][]string{
-		{
+	if !i.remote {
+		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-d", ip,
 			"-m", "comment", "--comment", "Trireme excluded IP",
 			"-j", "ACCEPT",
-		},
-		{
-			i.appAckPacketIPTableContext,
-			i.appPacketIPTableSection,
-			"-d", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-		{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-s", ip,
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
+		})
 	}
+	rules = append(rules, []string{
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-d", ip,
+		"-p", "tcp",
+		"-m", "comment", "--comment", "Trireme excluded IP",
+		"-j", "ACCEPT",
+	})
 
+	rules = append(rules, []string{
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-s", ip,
+		"-m", "comment", "--comment", "Trireme excluded IP",
+		"-j", "ACCEPT",
+	})
+
+	return rules
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
@@ -107,14 +134,16 @@ func (i *Instance) exclusionChainRules(ip string) [][]string {
 // All rules related to a container are contained within the dedicated chain
 func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"chain":   appChain,
-			"context": i.appPacketIPTableContext,
-			"error":   err.Error(),
-		}).Debug("Failed to create the container specific chain")
-		return err
+	if !i.remote {
+		if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
+			log.WithFields(log.Fields{
+				"package": "iptablesctrl",
+				"chain":   appChain,
+				"context": i.appPacketIPTableContext,
+				"error":   err.Error(),
+			}).Debug("Failed to create the container specific chain")
+			return err
+		}
 	}
 
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, appChain); err != nil {
@@ -404,6 +433,11 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 }
 
 func (i *Instance) acceptMarkedPackets() error {
+
+	if i.remote {
+		return nil
+	}
+
 	table := i.appAckPacketIPTableContext
 	chain := i.appPacketIPTableSection
 	err := i.ipt.Insert(table, chain, 1,
@@ -421,6 +455,10 @@ func (i *Instance) acceptMarkedPackets() error {
 }
 
 func (i *Instance) removeMarkRule() error {
+
+	if i.remote {
+		return nil
+	}
 
 	i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "mark",
