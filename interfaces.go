@@ -36,6 +36,6 @@ type PolicyResolver interface {
 	// ResolvePolicy returns the policy.PUPolicy associated with the given contextID using the given policy.RuntimeReader.
 	ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
-	// HandlePUEvent is called when a PU is stopped/killed.
+	// HandleDeletePU is called when a PU is stopped/killed.
 	HandlePUEvent(contextID string, eventType monitor.Event)
 }

@@ -1,4 +1,4 @@
-// +build !linux darwin
+// +build darwin !linux
 
 /*
    Copyright 2014 Krishna Raman <kraman@gmail.com>
@@ -47,6 +47,7 @@ const (
 //NFPacket structure holds the packet
 type NFPacket struct {
 	Buffer      []byte
+	Mark        string
 	Xbuffer     *C.uchar
 	QueueHandle *C.struct_nfq_q_handle
 	ID          int

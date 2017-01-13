@@ -1,10 +1,9 @@
-package main
+package remoteenforcer
 
 import (
 	"container/list"
 	"crypto/ecdsa"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"os/user"
@@ -45,7 +44,36 @@ type collectorentry struct {
 	entry      *enforcer.StatsPayload
 }
 
-//CollectFlowEvent expoted
+//Server : This is the structure for maintaining state required by the remote enforcer.
+//It is cache of variables passed by th controller to the remote enforcer and other handles
+//required by the remote enforcer to talk to the external processes
+type Server struct {
+	MutualAuth  bool
+	Validity    time.Duration
+	SecretType  tokens.SecretsType
+	ContextID   string
+	CAPEM       []byte
+	PublicPEM   []byte
+	PrivatePEM  []byte
+	StatsClient *rpcwrapper.RPCWrapper
+	Enforcer    enforcer.PolicyEnforcer
+	Collector   collector.EventCollector
+	Supervisor  supervisor.Supervisor
+	pupolicy    *policy.PUPolicy
+	rpcchannel  string
+	rpchdl      *rpcwrapper.RPCWrapper
+}
+
+//StatsClient  This is the struct for storing state for the rpc client
+//which reports flow stats back to the controller process
+type StatsClient struct {
+	collector *CollectorImpl
+	server    *Server
+	FlowCache *cache.Cache
+	Rpchdl    *rpcwrapper.RPCWrapper
+}
+
+//CollectFlowEvent collects a new flow event and adds it to a local list it shares with SendStats
 func (c *CollectorImpl) CollectFlowEvent(contextID string, tags *policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet) {
 
 	l4FlowHash := tcpPacket.L4FlowHash()
@@ -72,35 +100,6 @@ func (c *CollectorImpl) CollectContainerEvent(contextID string, ip string, tags 
 	log.WithFields(log.Fields{"package": "remoteEnforcer",
 		"Msg": "Unexpected call to CollectContainer Event",
 	}).Error("Received a container event in Remote Enforcer ")
-}
-
-//Server : This is the structure for maintaining state required by the remote enforcer.
-//It is cache of variables passed by th controller to the remote enforcer and other handles
-//required by the remote enforcer to talk to the external processes
-type Server struct {
-	MutualAuth  bool
-	Validity    time.Duration
-	SecretType  tokens.SecretsType
-	ContextID   string
-	CAPEM       []byte
-	PublicPEM   []byte
-	PrivatePEM  []byte
-	pupolicy    *policy.PUPolicy
-	rpcchannel  string
-	rpchdl      *rpcwrapper.RPCWrapper
-	StatsClient *rpcwrapper.RPCWrapper
-	Enforcer    enforcer.PolicyEnforcer
-	Collector   collector.EventCollector
-	Supervisor  supervisor.Supervisor
-}
-
-//StatsClient  This is the struct for storing state for the rpc client
-//which reports flow stats back to the controller process
-type StatsClient struct {
-	collector *CollectorImpl
-	server    *Server
-	FlowCache *cache.Cache
-	Rpchdl    *rpcwrapper.RPCWrapper
 }
 
 //SendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
@@ -170,10 +169,15 @@ func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
+	//Check if sucessfully switched namespace
+	nsEnterState := os.Getenv("NSENTER_ERROR_STATE")
+	if len(nsEnterState) != 0 {
+		resp.Status = (nsEnterState)
+		return errors.New(resp.Status)
+	}
 	if !s.rpchdl.CheckValidity(&req) {
-		resp.Status = errors.New("Message Auth Failed")
-		return resp.Status
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
 	}
 
 	collectorInstance := &CollectorImpl{
@@ -219,17 +223,17 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	s.connectStatsClient(statsClient)
 
-	resp.Status = nil
+	resp.Status = ""
 
-	return resp.Status
+	return nil
 }
 
 // InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
 func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req) {
-		resp.Status = errors.New("Message Auth Failed")
-		return resp.Status
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
 	}
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
@@ -250,24 +254,26 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 				"package": "remote_enforcer",
 				"Error":   err.Error(),
 			}).Error("Failed to instantiate the iptables supervisor")
-			resp.Status = err
-			return resp.Status
+			if err != nil {
+				resp.Status = err.Error()
+			}
+			return err
 		}
 
 	}
 
 	s.Supervisor.Start()
 
-	resp.Status = nil
-	return resp.Status
+	resp.Status = ""
+	return nil
 }
 
 //Supervise This method calls the supervisor method on the supervisor created during initsupervisor
 func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req) {
-		resp.Status = errors.New("Message Auth Failed")
-		return resp.Status
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
 	}
 
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
@@ -301,16 +307,18 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 			"error":  err.Error(),
 		}).Info("Supervise status remote_enforcer ")
 	}
-	resp.Status = err
-	return resp.Status
+	if err != nil {
+		resp.Status = err.Error()
+	}
+	return err
 }
 
 //Unenforce this method calls the unenforce method on the enforcer created from initenforcer
 func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req) {
-		resp.Status = errors.New("Message Auth Failed")
-		return resp.Status
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.Enforcer.Unenforce(payload.ContextID)
@@ -320,8 +328,8 @@ func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req) {
-		resp.Status = errors.New("Message Auth Failed")
-		return resp.Status
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
 	return s.Supervisor.Unsupervise(payload.ContextID)
@@ -331,8 +339,8 @@ func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) 
 func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req) {
-		resp.Status = errors.New("Message Auth Failed")
-		return resp.Status
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 
@@ -355,13 +363,14 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		}).Info("Failed Runtime")
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
-
 	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"method": "Enforce",
 		"error":  err,
 	}).Info("ENFORCE STATUS")
-	resp.Status = err
+	if err != nil {
+		resp.Status = err.Error()
+	}
 	return err
 }
 
@@ -369,10 +378,13 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 //THis allows a graceful exit of the enforcer
 func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
+	//Cleanup resources held in this namespace
+	s.Supervisor.Stop()
+	s.Enforcer.Stop()
 	os.Exit(0)
 	return nil
 }
-func main() {
+func LaunchRemoteEnforcer() {
 
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
@@ -381,17 +393,14 @@ func main() {
 	rpchdl := rpcwrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe
-	flag.Parse()
+	//flag.Parse()
 	userDetails, _ := user.Current()
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"uid":      userDetails.Uid,
 		"gid":      userDetails.Gid,
 		"username": userDetails.Username,
 	}).Info("Enforcer user id")
-	err := rpchdl.StartServer("unix", namedPipe, server)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
-	}
+	rpchdl.StartServer("unix", namedPipe, server)
+	server.EnforcerExit(rpcwrapper.Request{}, nil)
 	os.Exit(0)
 }

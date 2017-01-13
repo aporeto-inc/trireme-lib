@@ -29,10 +29,11 @@ type Instance struct {
 	appPacketIPTableSection    string
 	netPacketIPTableContext    string
 	netPacketIPTableSection    string
+	mode                       int
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, remote bool) (*Instance, error) {
+func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, remote bool, mode int) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -51,6 +52,7 @@ func NewInstance(networkQueues, applicationQueues string, targetNetworks []strin
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
+		mode: mode,
 	}
 
 	if remote {
@@ -82,8 +84,8 @@ func (i *Instance) setPrefix(contextID string) (app, net string) {
 }
 
 // ConfigureRules implmenets the ConfigureRules interface
-func (i *Instance) ConfigureRules(version int, contextID string, policyrules *policy.PUPolicy) error {
-
+func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	if policyrules == nil {
@@ -104,7 +106,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap, port string, mark string) error {
 
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
@@ -129,8 +131,8 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 }
 
 // UpdateRules implements the update part of the interface
-func (i *Instance) UpdateRules(version int, contextID string, policyrules *policy.PUPolicy) error {
-
+func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address

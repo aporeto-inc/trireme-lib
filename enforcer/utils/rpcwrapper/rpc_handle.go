@@ -115,6 +115,7 @@ func NewRPCServer() RPCServer {
 func (r *RPCWrapper) StartServer(protocol string, path string, handler interface{}) error {
 
 	RegisterTypes()
+
 	rpc.Register(handler)
 	rpc.HandleHTTP()
 	os.Remove(path)

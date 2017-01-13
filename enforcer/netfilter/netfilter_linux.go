@@ -29,6 +29,7 @@ import "C"
 
 import (
 	"fmt"
+	"strconv"
 	"syscall"
 	"time"
 	"unsafe"
@@ -67,8 +68,8 @@ const (
 
 //NFPacket structure holds the packet
 type NFPacket struct {
-	Buffer []byte
-
+	Buffer      []byte
+	Mark        string
 	Xbuffer     *C.uchar
 	QueueHandle *C.struct_nfq_q_handle
 	ID          int
@@ -231,7 +232,7 @@ func (nfq *NFQueue) run() {
 }
 
 //export processPacket
-func processPacket(packetID C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
+func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
 
 	nfq, ok := theTable[idx]
 	if !ok {
@@ -248,6 +249,7 @@ func processPacket(packetID C.int, data *C.uchar, len C.int, newData *C.uchar, i
 		Buffer:      C.GoBytes(unsafe.Pointer(data), len),
 		Xbuffer:     newData,
 		ID:          int(packetID),
+		Mark:        strconv.Itoa(int(mark)),
 		QueueHandle: nfq.qh,
 	}
 

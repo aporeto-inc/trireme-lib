@@ -46,12 +46,15 @@ func init() {
 // New returns a pointer to Packet structure built from the
 // provided bytes buffer which is expected to contain valid TCP/IP
 // packet bytes.
-func New(context uint64, bytes []byte) (packet *Packet, err error) {
+func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) {
 
 	var p Packet
 
 	// Buffer Setup
 	p.Buffer = bytes
+
+	// Get the mark value
+	p.Mark = mark
 
 	// Options and Payload that maybe added
 	p.tcpOptions = []byte{}

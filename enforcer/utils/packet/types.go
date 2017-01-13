@@ -99,10 +99,48 @@ func tcpFlagsToStr(flags uint8) string {
 	return s
 }
 
+func TcpFlagsToStr(flags uint8) string {
+	s := ""
+	if flags&0x20 == 0 {
+		s = s + "."
+	} else {
+		s = s + "U"
+	}
+	if flags&0x10 == 0 {
+		s = s + "."
+	} else {
+		s = s + "A"
+	}
+	if flags&0x08 == 0 {
+		s = s + "."
+	} else {
+		s = s + "P"
+	}
+	if flags&0x04 == 0 {
+		s = s + "."
+	} else {
+		s = s + "R"
+	}
+	if flags&0x02 == 0 {
+		s = s + "."
+	} else {
+		s = s + "S"
+	}
+	if flags&0x01 == 0 {
+		s = s + "."
+	} else {
+		s = s + "F"
+	}
+	return s
+}
+
 // Packet is the main structure holding packet information
 type Packet struct {
 	// Metadata
 	context uint64
+
+	// Mark is the nfqueue Mark
+	Mark string
 
 	// Buffers : input/output buffer
 	Buffer     []byte

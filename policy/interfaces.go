@@ -29,6 +29,8 @@ type RuntimeReader interface {
 
 	// IPAddresses returns a copy of all the IP addresses.
 	IPAddresses() *IPMap
+	//Returns the PUType for the PU
+	PUType() PUType
 }
 
 // InfoInteractor is the interface for setting up policy before providing to trireme

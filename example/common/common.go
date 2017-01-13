@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 	"github.com/docker/docker/api/types"
@@ -131,7 +132,7 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 }
 
 //TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractor *monitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -166,7 +167,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK(networks []string, extractor *monitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
 	policyEngine := NewCustomPolicyResolver()
 
@@ -222,5 +223,5 @@ func SwarmExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 		"bridge": info.NetworkSettings.IPAddress,
 	})
 
-	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa), nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, policy.ContainerPU), nil
 }

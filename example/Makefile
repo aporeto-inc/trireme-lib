@@ -15,6 +15,7 @@ package:
 	mv example docker/trireme-example
 	make -C ../cmd package
 	mv $(GOPATH)/bin/remote_enforcer docker/remote_enforcer
+	mv $(GOPATH)/bin/aporetolaunch docker/aporetolaunch
 
 docker_build: build
 	docker \

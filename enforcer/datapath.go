@@ -4,6 +4,7 @@ package enforcer
 import (
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -11,8 +12,10 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/netfilter"
+
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -36,6 +39,8 @@ type datapathEnforcer struct {
 	appConnectionTracker cache.DataStore
 	// Key=Context Value=Connection. Create on syn packet from application with local context-id
 	contextConnectionTracker cache.DataStore
+
+	sourcePortCache cache.DataStore
 
 	// stats
 	net    *InterfaceStats
@@ -79,6 +84,7 @@ func NewDatapathEnforcer(
 		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
+		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
 		filterQueue:              filterQueue,
 		mutualAuthorization:      mutualAuth,
 		service:                  service,
@@ -143,31 +149,76 @@ func NewDefaultDatapathEnforcer(
 
 func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"contextID": contextID,
-	}).Debug("Enforce IP")
-
-	ip, err := d.contextTracker.Get(contextID)
+	hashSlice, err := d.contextTracker.Get(contextID)
 
 	if err != nil {
 		return d.doCreatePU(contextID, puInfo)
 	}
 
-	puContext, err := d.puTracker.Get(ip)
-
-	if err != nil {
-		return d.doCreatePU(contextID, puInfo)
+	if len(hashSlice.([]*DualHash)) == 0 {
+		return fmt.Errorf("Unable to resolve context from existing hash")
 	}
 
-	return d.doUpdatePU(puContext.(*PUContext), puInfo)
+	puContext, err := d.puTracker.Get(hashSlice.([]*DualHash)[0].app)
+	if err != nil {
+		return d.doUpdatePU(puContext.(*PUContext), puInfo)
+	}
+
+	return d.doCreatePU(contextID, puInfo)
+
+}
+
+func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHash {
+	var hashSlice []*DualHash
+
+	expectedMark, ok := puInfo.Runtime.Tag(cgnetcls.CgroupMarkTag)
+	if !ok {
+		expectedMark = ""
+	}
+
+	expectedPort, ok := puInfo.Runtime.Tag(cgnetcls.PortTag)
+	if !ok {
+		expectedPort = "0"
+		hashSlice = append(hashSlice, &DualHash{
+			app: "mark:" + expectedMark + "$",
+			net: "port:" + expectedPort,
+		})
+		return hashSlice
+	}
+
+	portlist := strings.Split(expectedPort, ",")
+	for _, port := range portlist {
+		hashSlice = append(hashSlice, &DualHash{
+			app: "mark:" + expectedMark + "$",
+			net: "port:" + port,
+		})
+	}
+	return hashSlice
+}
+
+func (d *datapathEnforcer) puHash(ip string, puInfo *policy.PUInfo) (hash []*DualHash) {
+
+	if puInfo.Runtime.PUType() == policy.LinuxProcessPU {
+		return d.createHashForProcess(puInfo)
+	}
+
+	return []*DualHash{&DualHash{
+		app: ip,
+		net: ip,
+	}}
 }
 
 func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 
 	ip := DefaultNetwork
-	if !d.remote {
+
+	//This is to check that we are not doing this for a process in the host
+	//processes managed by systemd will not have a separate IP
+	//IP are not required to process rules we have for cgroup
+
+	if !d.remote && (puInfo.Runtime.PUType() == policy.ContainerPU) {
 		if _, ok := puInfo.Policy.DefaultIPAddress(); !ok {
+			log.WithFields(log.Fields{"package": "Enforcer"}).Info("Default IP address not found")
 			return fmt.Errorf("No IP address found")
 		}
 		ip, _ = puInfo.Policy.DefaultIPAddress()
@@ -175,14 +226,20 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 			return fmt.Errorf("Invalid up address %s\n", ip)
 		}
 	}
-
 	pu := &PUContext{
 		ID: contextID,
 	}
 
+	hashSlice := d.puHash(ip, puInfo)
+
 	d.doUpdatePU(pu, puInfo)
-	d.contextTracker.AddOrUpdate(contextID, ip)
-	d.puTracker.AddOrUpdate(ip, pu)
+
+	d.contextTracker.AddOrUpdate(contextID, hashSlice)
+
+	for _, hash := range hashSlice {
+		d.puTracker.AddOrUpdate(hash.app, pu)
+		d.puTracker.AddOrUpdate(hash.net, pu)
+	}
 
 	return nil
 }
@@ -201,19 +258,20 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 		"contextID": contextID,
 	}).Debug("Unenforce IP")
 
-	ip, err := d.contextTracker.Get(contextID)
+	hashSlice, err := d.contextTracker.Get(contextID)
 
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package":   "enforcer",
 			"contextID": contextID,
 			"error":     err.Error(),
-		}).Debug("IP not found in Enforcer when unenforce")
+		}).Debug("Hash of IP  not found in Enforcer when unenforce")
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}
-
-	err = d.puTracker.Remove(ip)
-
+	for _, hash := range hashSlice.([]*DualHash) {
+		d.puTracker.Remove(hash.app)
+		d.puTracker.Remove(hash.net)
+	}
 	d.contextTracker.Remove(contextID)
 
 	if err != nil {
@@ -347,7 +405,7 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 	d.net.IncomingPackets++
 
 	// Parse the packet - drop if parsing fails
-	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer)
+	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, p.Mark)
 	if err != nil {
 		d.net.CreateDropPackets++
 		netPacket.Print(packet.PacketFailureCreate)
@@ -400,7 +458,7 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
 	// lots of things at the ingress to the network
-	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer)
+	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, p.Mark)
 
 	if err != nil {
 		d.app.CreateDropPackets++
@@ -480,9 +538,29 @@ func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*token
 
 // contextFromIP returns the context from the default IP if remote. otherwise
 // it returns the context from the passed IP
-func (d *datapathEnforcer) contextFromIP(ip string) (interface{}, error) {
+func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port string) (interface{}, error) {
+
+	d.puTracker.DumpStore()
 	if d.remote {
-		return d.puTracker.Get(DefaultNetwork)
+		ip = DefaultNetwork
 	}
-	return d.puTracker.Get(ip)
+	pu, err := d.puTracker.Get(ip)
+	if err == nil {
+		return pu, err
+	}
+
+	if app {
+		pu, err = d.puTracker.Get("mark:" + mark + "$")
+		if err != nil {
+			return nil, fmt.Errorf("PU context cannot be found ")
+		}
+		return pu, nil
+	}
+
+	pu, err = d.puTracker.Get("port:" + port)
+	if err != nil {
+		return nil, fmt.Errorf("PU Context cannot be found")
+	}
+
+	return pu, nil
 }

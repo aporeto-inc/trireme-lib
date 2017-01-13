@@ -25,7 +25,7 @@
 #include <errno.h>
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
-extern uint processPacket(int id, unsigned char* data, int len, unsigned char* newData, u_int32_t idx);
+extern uint processPacket(int id, int mark, unsigned char* data, int len, unsigned char* newData, u_int32_t idx);
 
 
 // Callback for the nf handler. Follows standard message. Passes control to the Go call back
@@ -36,6 +36,7 @@ static int nf_callback(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct n
     struct nfqnl_msg_packet_hdr *ph = NULL;
     unsigned char *buffer , *new_data;
     int buffer_length ;
+    int mark ;
 
     ph = nfq_get_msg_packet_hdr(nfa);
     if (ph == NULL ) {
@@ -43,13 +44,15 @@ static int nf_callback(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct n
       return -1;
     }
 
+    mark = nfq_get_nfmark(nfa);
+
     id = ntohl(ph->packet_id);
 
     buffer_length = nfq_get_payload(nfa, &buffer);
 
     new_data = (unsigned char *) malloc(buffer_length+1440);
 
-    return processPacket(id, buffer, buffer_length, new_data, (uint32_t)((uintptr_t)cb_func) );
+    return processPacket(id, mark, buffer, buffer_length, new_data, (uint32_t)((uintptr_t)cb_func) );
 
 }
 

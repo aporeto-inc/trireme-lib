@@ -202,6 +202,8 @@ func (p *PUPolicy) DefaultIPAddress() (string, bool) {
 
 // PURuntime holds all data related to the status of the container run time
 type PURuntime struct {
+	// puType is the type of the PU (container or process )
+	puType PUType
 	//PURuntimeMutex is a mutex to prevent access to same runtime object from multiple threads
 	puRuntimeMutex *sync.Mutex
 	// Pid holds the value of the first process of the container
@@ -215,7 +217,7 @@ type PURuntime struct {
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap) *PURuntime {
+func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType PUType) *PURuntime {
 
 	t := tags
 	if t == nil {
@@ -226,6 +228,7 @@ func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap) *PURuntime {
 		i = NewIPMap(nil)
 	}
 	return &PURuntime{
+		puType:         puType,
 		puRuntimeMutex: &sync.Mutex{},
 		tags:           t,
 		ips:            i,
@@ -236,7 +239,7 @@ func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap) *PURuntime {
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, nil, nil)
+	return NewPURuntime("", 0, nil, nil, ContainerPU)
 }
 
 // Clone returns a copy of the policy
@@ -244,7 +247,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone())
+	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone(), r.puType)
 }
 
 // PURuntimeJSON is a Json representation of PURuntime
@@ -300,6 +303,11 @@ func (r *PURuntime) SetName(name string) {
 	r.name = name
 }
 
+// PUType returns the PU type
+func (r *PURuntime) PUType() PUType {
+	return r.puType
+}
+
 // DefaultIPAddress returns the default IP address for the processing unit
 func (r *PURuntime) DefaultIPAddress() (string, bool) {
 	r.puRuntimeMutex.Lock()
@@ -353,9 +361,9 @@ type PUInfo struct {
 }
 
 // NewPUInfo instantiates a new ContainerPolicy
-func NewPUInfo(contextID string) *PUInfo {
+func NewPUInfo(contextID string, puType PUType) *PUInfo {
 	policy := NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil)
-	runtime := NewPURuntime("", 0, nil, nil)
+	runtime := NewPURuntime("", 0, nil, nil, puType)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)
 }
 

@@ -1,3 +1,6 @@
+//Package ProcessMon is to manage and monitor remote enforcers.
+//When we access the processmanager interface through here it acts as a singleton
+//The ProcessMonitor interface is not a singleton and can be used to monitor a list of processes
 package ProcessMon
 
 import (
@@ -5,14 +8,19 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
 
-var processName = "./remote_enforcer"
+var processName = "./trireme-example"
 
 //ProcessMon exported
 type ProcessMon struct {
@@ -29,15 +37,21 @@ type processInfo struct {
 	deleted   bool
 }
 
-//var activeProcesses = cache.NewCache()
+type processMonitor struct {
+	processmap map[int]interface{}
+	sync.RWMutex
+}
 
-type exitStatus struct {
+//ExitStatus captures the exit status of a process
+//The contextID is optional and is primarily used by remote enforcer processes
+//and represents the namespace in which the process was running
+type ExitStatus struct {
 	process    int
 	contextID  string
 	exitStatus error
 }
 
-var childExitStatus = make(chan exitStatus, 100)
+var childExitStatus = make(chan ExitStatus, 100)
 var netnspath string
 
 // ErrEnforcerAlreadyRunning Exported
@@ -140,8 +154,8 @@ func collectChildExitStatus() {
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient) error {
-
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, processname string) error {
+	var cmdName string
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
 		return nil
@@ -166,9 +180,17 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		//return linkErr
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
+	var cmdArgs []string
+	if len(strings.TrimSpace(processname)) != 0 {
 
-	cmdName := processName
-	cmdArgs := []string{contextID}
+		cmdName = processname
+
+	} else {
+		cmdName, _ = filepath.Abs(filepath.Dir(os.Args[0]))
+		cmdName = cmdName + "/" + filepath.Base(os.Args[0])
+		cmdArgs = append(cmdArgs, "-mode=aporeto_enforcer")
+	}
+
 	cmd := exec.Command(cmdName, cmdArgs...)
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
@@ -193,7 +215,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 			i++
 		}
 		status := cmd.Wait()
-		childExitStatus <- exitStatus{process: pid, contextID: contextID, exitStatus: status}
+		childExitStatus <- ExitStatus{process: pid, contextID: contextID, exitStatus: status}
 	}()
 	//processMonWait(cmd, contextID)
 	go func() {
@@ -214,20 +236,70 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 }
 
 //NewProcessMon is a method to create a new processmon
-func NewProcessMon() ProcessManager {
+func newProcessMon() ProcessManager {
 
 	launcher = &ProcessMon{activeProcesses: cache.NewCache()}
 	return launcher
 }
 
-//GetProcessMonHdl will ensure that we return an existing handle if one has been created.
+//GetProcessManagerHdl will ensure that we return an existing handle if one has been created.
 //or return a new one if there is none
 //This needs locks
-func GetProcessMonHdl() ProcessManager {
+func GetProcessManagerHdl() ProcessManager {
 
 	if launcher == nil {
-		return NewProcessMon()
+		return newProcessMon()
 	}
 	return launcher
 
+}
+
+func GetProcessMonitorHdl() ProcessMonitor {
+	pInstance := &processMonitor{processmap: make(map[int]interface{})}
+	go pInstance.processMonitorLoop()
+	return pInstance
+}
+
+//ProcessExists returns an error if the
+//Magic number 0 -- when kill is called with 0 no signal is sent to the process
+//Error checks are performed and we get an error if the pid does not exists
+//This can be used to poll for the pid existence in poll mode
+func (p *processMonitor) ProcessExists(pid int) bool {
+
+	if err := syscall.Kill(pid, 0); err != nil {
+		return false
+	}
+	return true
+}
+
+//AddProcessMonList adds the pid to a list of monitored pids
+//We will post an event on the passed channel when we the process exits
+func (p *processMonitor) AddProcessMonList(pid int, eventChannel chan int) error {
+	p.Lock()
+	p.processmap[pid] = eventChannel
+	p.Unlock()
+	return nil
+}
+
+//TODO - This loop can get really long if we are monitoring a lot of processes
+//We make a syscall for each process in the list
+//netlink is another option but can be noisy if we are manging only a small set
+//Will revisit this implementation
+func (p *processMonitor) processMonitorLoop() {
+	for {
+		p.Lock()
+		defer p.Unlock()
+		for k, v := range p.processmap {
+			p.Unlock()
+			if !p.ProcessExists(k) {
+				outchan := v.(chan int)
+				outchan <- k
+				delete(p.processmap, k)
+			}
+			p.Lock()
+		}
+		p.Unlock()
+		time.Sleep(100 * time.Millisecond)
+
+	}
 }

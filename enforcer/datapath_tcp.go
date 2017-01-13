@@ -169,7 +169,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	var connection *TCPConnection
 
 	// Find the container context
-	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -203,7 +203,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	connection.State = TCPSynSend
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
 	d.contextConnectionTracker.AddOrUpdate(string(connection.Auth.LocalContext), connection)
-
+	d.sourcePortCache.AddOrUpdate(tcpPacket.SourcePort, context)
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
@@ -220,7 +220,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	}).Debug("process application syn ack packet")
 
 	// Find the container context
-	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -278,7 +278,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	}).Debug("process application ack packet")
 
 	// Find the container context
-	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -503,7 +503,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// First we need to receover our state of the connection. If we don't have any state
 	// we drop the packets and the connections
 	// connection, err := d.appConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
-
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
 		log.WithFields(log.Fields{
@@ -687,8 +686,16 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	// Lookup the policy rules for the packet - Return false if they don't exist
-	context, err := d.contextFromIP(tcpPacket.DestinationAddress.String())
+	var err error
+	var context interface{}
+	if tcpPacket.TCPFlags == packet.TCPSynAckMask {
+		if context, err = d.sourcePortCache.Get(tcpPacket.DestinationPort); err != nil {
+			return nil, nil
+		}
+	} else {
+		// Lookup the policy rules for the packet - Return false if they don't exist
+		context, err = d.contextFromIP(false, tcpPacket.DestinationAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	}
 
 	if err != nil {
 		log.WithFields(log.Fields{

@@ -19,13 +19,13 @@ func TestLaunchProcess(t *testing.T) {
 	dir, _ := os.Getwd()
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat") // Cat will block and should be present on all linux
-	err := p.LaunchProcess(contextID, refPid, rpchdl)
+	err := p.LaunchProcess(contextID, refPid, rpchdl, "")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
 		t.SkipNow()
 	}
 	//Trying to launch in the same context should suceed
-	err = p.LaunchProcess(contextID, refPid, rpchdl)
+	err = p.LaunchProcess(contextID, refPid, rpchdl, "")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
 	}
@@ -36,7 +36,7 @@ func TestLaunchProcess(t *testing.T) {
 	p.KillProcess(contextID)
 	//Launch Process Should not fail if the /var/run/netns does not exist
 	os.Remove("/var/run/netns")
-	err = p.LaunchProcess(contextID, refPid, rpchdl)
+	err = p.LaunchProcess(contextID, refPid, rpchdl, "")
 	if err != nil {
 		t.Errorf("TEST:Failed when the directory is missing %v", err)
 	}
@@ -44,7 +44,7 @@ func TestLaunchProcess(t *testing.T) {
 	os.Rename("./remote_enforcer", "./remote_enforcer.orig")
 	setprocessname("cat1")
 	//if binary  is absent we should return an error
-	err = p.LaunchProcess(contextID, refPid, rpchdl)
+	err = p.LaunchProcess(contextID, refPid, rpchdl, "")
 	if err == nil {
 		t.Errorf("TEST:No error returned even when binary is not present")
 	}
@@ -54,7 +54,7 @@ func TestLaunchProcess(t *testing.T) {
 		return nil
 	})
 	setprocessname("cat")
-	err = p.LaunchProcess(contextID, refPid, rpchdl)
+	err = p.LaunchProcess(contextID, refPid, rpchdl, "")
 	if err != nil {
 		t.Errorf("TEST:Failed to create RPC client %v", err)
 	}
@@ -79,7 +79,7 @@ func TestGetExitStatus(t *testing.T) {
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat")
 	rpchdl := rpcwrapper.NewTestRPCClient()
-	err := p.LaunchProcess(contextID, refPid, rpchdl)
+	err := p.LaunchProcess(contextID, refPid, rpchdl, "")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
 	}
@@ -117,7 +117,7 @@ func TestSetExitStatus(t *testing.T) {
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string) error {
 		return nil
 	})
-	err = p.LaunchProcess(contextID, refPid, rpchdl)
+	err = p.LaunchProcess(contextID, refPid, rpchdl, "")
 	err = p.SetExitStatus(contextID, true)
 	if err != nil {
 		t.Errorf("TEST:Exit status failed for enforcer process")
@@ -145,6 +145,7 @@ func TestKillProcess(t *testing.T) {
 	contextID := "12345"
 	refPid := 1
 	calledRemoteCall := false
+	paramvalidate := false
 
 	//Lets launch process
 	p := NewProcessMon()
@@ -154,8 +155,11 @@ func TestKillProcess(t *testing.T) {
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
 
-	p.LaunchProcess(contextID, refPid, rpchdl)
+	p.LaunchProcess(contextID, refPid, rpchdl, "")
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
+		if contextID == passed_contextID {
+			paramvalidate = true
+		}
 		calledRemoteCall = true
 		return errors.New("Null Error")
 	})

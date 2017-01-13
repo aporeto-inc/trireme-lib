@@ -30,24 +30,23 @@ const (
 
 //Request exported
 type Request struct {
-	MethodIdentifier int
-	HashAuth         []byte
-	Payload          interface{}
+	HashAuth []byte
+	Payload  interface{}
 }
 
-//exported
+//exported consts from the package
 const (
 	SUCCESS      = 0
 	StatsChannel = "/tmp/statschannel.sock"
 )
 
-//Response exported
+//Response is the response for every RPC call. This is used to carry the status of the actual function call
+//made on the remote end
 type Response struct {
-	MethodIdentifier int
-	Status           error
+	Status string
 }
 
-//InitRequestPayload exported
+//InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
 	FqConfig   *enforcer.FilterQueue
 	MutualAuth bool
@@ -59,13 +58,13 @@ type InitRequestPayload struct {
 	PrivatePEM []byte
 }
 
-//InitSupervisorPayload exported
+//InitSupervisorPayload for supervisor init request
 type InitSupervisorPayload struct {
 	CaptureMethod  CaptureType
 	TargetNetworks []string
 }
 
-// EnforcePayload exported
+// EnforcePayload Payload for enforce request
 type EnforcePayload struct {
 	ContextID        string
 	ManagementID     string
@@ -80,7 +79,7 @@ type EnforcePayload struct {
 	PuPolicy         *policy.PUPolicy
 }
 
-//SuperviseRequestPayload exported
+//SuperviseRequestPayload for Supervise request
 type SuperviseRequestPayload struct {
 	ContextID        string
 	ManagementID     string
@@ -95,17 +94,17 @@ type SuperviseRequestPayload struct {
 	PuPolicy         *policy.PUPolicy
 }
 
-//UnEnforcePayload exported
+//UnEnforcePayload payload for unenforce request
 type UnEnforcePayload struct {
 	ContextID string
 }
 
-//UnSupervisePayload exported
+//UnSupervisePayload payload for unsupervise request
 type UnSupervisePayload struct {
 	ContextID string
 }
 
-//InitResponsePayload exported
+//InitResponsePayload Response payload
 type InitResponsePayload struct {
 	Status int
 }
@@ -125,6 +124,7 @@ type UnEnforceResponsePayload struct {
 	Status int
 }
 
+//StatsPayload is the payload carries by the stats reporting form the remote enforcer
 type StatsPayload struct {
 	NumFlows int
 	Flows    []enforcer.StatsPayload

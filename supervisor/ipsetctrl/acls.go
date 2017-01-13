@@ -57,10 +57,9 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.appAckPacketIPTableContext,
-			"section": i.appPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                      "ipsetctrl",
+			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
+			"error": err.Error(),
 		}).Debug("Error when adding app acl rule")
 		return err
 
@@ -74,10 +73,9 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.appAckPacketIPTableContext,
-			"section": i.appPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                      "ipsetctrl",
+			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
+			"error": err.Error(),
 		}).Debug("Error when adding app acl rule")
 		return err
 
@@ -97,10 +95,9 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.netPacketIPTableContext,
-			"section": i.netPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                   "ipsetctrl",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"error":                     err.Error(),
 		}).Debug("Error when adding app acl rule")
 		return err
 	}
@@ -113,10 +110,9 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.netPacketIPTableContext,
-			"section": i.netPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                   "ipsetctrl",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"error":                     err.Error(),
 		}).Debug("Error when adding app acl rule")
 		return err
 	}
@@ -134,10 +130,9 @@ func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.appAckPacketIPTableContext,
-			"section": i.appPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                      "ipsetctrl",
+			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
+			"error": err.Error(),
 		}).Debug("Error when adding app acl rule")
 	}
 
@@ -149,10 +144,10 @@ func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.appAckPacketIPTableContext,
-			"section": i.appPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                   "ipsetctrl",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"chain":                     i.appPacketIPTableSection,
+			"error":                     err.Error(),
 		}).Debug("Error when removing ingress app acl rule")
 
 	}
@@ -169,10 +164,10 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.netPacketIPTableContext,
-			"section": i.netPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                   "ipsetctrl",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"chain":                     i.appPacketIPTableSection,
+			"error":                     err.Error(),
 		}).Debug("Error when removing ingress app acl rule")
 
 	}
@@ -184,10 +179,10 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 		"-j", "ACCEPT",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"context": i.netPacketIPTableContext,
-			"section": i.appPacketIPTableSection,
-			"error":   err.Error(),
+			"package":                   "ipsetctrl",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"chain":                     i.appPacketIPTableSection,
+			"error":                     err.Error(),
 		}).Debug("Error when removing ingress app acl rule")
 
 	}

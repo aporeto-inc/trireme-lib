@@ -7,9 +7,16 @@ import (
 	"os/signal"
 
 	"github.com/aporeto-inc/trireme"
+	"github.com/aporeto-inc/trireme/cmd/remoteenforcer"
+	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/extractor"
+	"github.com/aporeto-inc/trireme/monitor/cliextractor"
+	"github.com/aporeto-inc/trireme/monitor/contextstore"
+	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -23,7 +30,7 @@ var swarm = flag.String("swarm", "", "Support the Swarm Mode extractor")
 
 func usage() {
 
-	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]   -metadata=[string] -enforcer=[remote|local]\n")
+	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]   -metadata=[string] -enforcer=[remote|local] -mode=[aporeto_enforcer|aporeto_service]\n")
 	flag.PrintDefaults()
 	os.Exit(2)
 }
@@ -37,28 +44,29 @@ func main() {
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
 	var remote string
-
+	var mode string
 	flag.Usage = usage
 
 	flag.StringVar(&remote, "enforcer", "local", "Launch enforcer process in the network namespace of container")
-
+	flag.StringVar(&mode, "mode", "aporeto_service", "Launch trireme as enforcer or service")
 	flag.Parse()
 
 	var t trireme.Trireme
 	var m monitor.Monitor
 	//var e supervisor.Excluder
 	var remoteEnforcer bool
-
+	if mode == "aporeto_enforcer" {
+		remoteenforcer.LaunchRemoteEnforcer()
+	}
 	if remote == "local" {
 		remoteEnforcer = false
 	} else {
 		remoteEnforcer = true
 	}
-
-	var customExtractor monitor.DockerMetadataExtractor
+	var customExtractor dockermonitor.DockerMetadataExtractor
 	if *externalMetadataFile != "" {
 		var err error
-		customExtractor, err = extractor.NewExternalExtractor(*externalMetadataFile)
+		customExtractor, err = cliextractor.NewExternalExtractor(*externalMetadataFile)
 		if err != nil {
 			fmt.Printf("error: ABC, %s", err)
 		}
@@ -77,7 +85,7 @@ func main() {
 		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
 	} else {
 		log.Infof("Setting up trireme with PSK")
-		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
+		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8", "127.0.0.1/24"}, &customExtractor, remoteEnforcer)
 
 	}
 
@@ -89,15 +97,20 @@ func main() {
 		panic("Failed to create Monitor")
 	}
 
-	t.Start()
-	m.Start()
-
+	//use rpcmonitor no need to return it since no other consumer for it
+	netcls := cgnetcls.NewCgroupNetController()
+	contextstorehdl := contextstore.NewContextStore()
+	rpcmonitor, _ := rpcmonitor.NewRPCMonitor(rpcmonitor.Rpcaddress, linuxmonitor.SystemdRPCMetadataExtractor, t, &collector.DefaultCollector{}, netcls, contextstorehdl)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-
+	t.Start()
+	m.Start()
+	go rpcmonitor.Start()
 	<-c
 
 	fmt.Println("Bye!")
 	m.Stop()
 	t.Stop()
+	rpcmonitor.Stop()
+
 }

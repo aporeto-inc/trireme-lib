@@ -14,7 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/remote/launch"
+	"github.com/aporeto-inc/trireme/processmon"
 )
 
 //keyPEM is a private interface required by the enforcerlauncher to expose method not exposed by the
@@ -68,9 +68,11 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
 		log.WithFields(log.Fields{
-			"package": "enforcerproxy",
+			"package":        "enforcerproxy",
+			"error":          err.Error(),
+			"Error Response": resp.Status,
 		}).Debug("Failed to initialize enforcer")
-		return fmt.Errorf("Failed ot initialize remote enforcer")
+		return fmt.Errorf("Failed to initialize remote enforcer")
 	}
 
 	s.initDone[contextID] = true
@@ -86,7 +88,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		"pid":     puInfo.Runtime.Pid(),
 	}).Info("PID of container")
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl)
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, "")
 	if err != nil {
 		return err
 	}
@@ -200,7 +202,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		Secrets:     secrets,
 		serverID:    serverID,
 		validity:    validity,
-		prochdl:     ProcessMon.GetProcessMonHdl(),
+		prochdl:     ProcessMon.GetProcessManagerHdl(),
 		rpchdl:      rpchdl,
 		initDone:    make(map[string]bool),
 		filterQueue: filterQueue,

@@ -79,7 +79,7 @@ func TestInvalidIPContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", policy.ContainerPU)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, false).(*datapathEnforcer)
 		enforcer.Enforce("SomeServerId", puInfo)
@@ -105,7 +105,7 @@ func TestInvalidTokenContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", policy.ContainerPU)
 
 		ip := policy.NewIPMap(map[string]string{
 			"brige": "164.67.228.152",
@@ -153,7 +153,7 @@ func TestPacketHandling(t *testing.T) {
 		Convey("Given I create a two processing unit instances", func() {
 
 			// Create ProcessingUnit 1
-			puInfo1 := policy.NewPUInfo("SomeProcessingUnitId1")
+			puInfo1 := policy.NewPUInfo("SomeProcessingUnitId1", policy.ContainerPU)
 			ip1 := policy.NewIPMap(map[string]string{})
 			ip1.Add("bridge", "164.67.228.152")
 			puInfo1.Runtime.SetIPAddresses(ip1)
@@ -163,7 +163,7 @@ func TestPacketHandling(t *testing.T) {
 			puInfo1.Policy.AddReceiverRules(&tagSelector)
 
 			// Create processing unit 2
-			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2")
+			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2", policy.ContainerPU)
 			ip2 := policy.NewIPMap(map[string]string{"bridge": "10.1.10.76"})
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "10.1.10.76"})
@@ -263,7 +263,7 @@ func TestCacheState(t *testing.T) {
 	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, false).(*datapathEnforcer)
 	contextID := "123"
 
-	puInfo := policy.NewPUInfo(contextID)
+	puInfo := policy.NewPUInfo(contextID, policy.ContainerPU)
 
 	// Should fail: Not in cache
 	err := enforcer.Unenforce(contextID)
