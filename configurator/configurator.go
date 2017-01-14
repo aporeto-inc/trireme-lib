@@ -72,8 +72,9 @@ func NewTriremeWithDockerMonitor(
 	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[trireme.RemoteEnforcer], networks, rpcwrapper)
 	supervisors[trireme.RemoteEnforcer] = s
 
-	enforcers[trireme.LocalEnforcer] = enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets, RemoteEnforcer)
+	enforcers[trireme.LocalEnforcer] = enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets, true)
 	supervisors[trireme.LocalEnforcer], err = NewDefaultSupervisor(eventCollector, enforcers[trireme.LocalEnforcer], networks)
+
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
@@ -81,8 +82,8 @@ func NewTriremeWithDockerMonitor(
 		}).Fatal("Failed to load Supervisor")
 
 	}
-	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers)
-	dockermonitor := dockermonitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart)
+	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	dockermonitor := dockermonitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart, nil)
 	return trireme, dockermonitor, supervisors[0].(supervisor.Excluder)
 
 }

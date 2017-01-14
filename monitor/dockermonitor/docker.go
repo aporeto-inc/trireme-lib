@@ -126,6 +126,7 @@ type dockerMonitor struct {
 	stopprocessor      chan bool
 	stoplistener       chan bool
 	syncAtStart        bool
+	syncHandler        monitor.SynchronizationHandler
 
 	collector collector.EventCollector
 	puHandler monitor.ProcessingUnitsHandler
@@ -143,6 +144,7 @@ func NewDockerMonitor(
 	p monitor.ProcessingUnitsHandler,
 	m DockerMetadataExtractor,
 	l collector.EventCollector, syncAtStart bool,
+	s monitor.SynchronizationHandler,
 ) monitor.Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
@@ -309,6 +311,37 @@ func (d *dockerMonitor) syncContainers() error {
 			"error":   err.Error(),
 		}).Error("Error Getting ContainerList")
 		return fmt.Errorf("Error Getting ContainerList: %s", err)
+	}
+
+	if d.syncHandler != nil {
+		for _, c := range containers {
+			container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
+
+			if err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Error("Error Syncing existing Container")
+			}
+
+			contextID, _ := contextIDFromDockerID(container.ID)
+
+			PURuntime, _ := d.extractMetadata(&container)
+
+			var state monitor.State
+			if container.State.Running {
+				if !container.State.Paused {
+					state = monitor.StateStarted
+				} else {
+					state = monitor.StatePaused
+				}
+			} else {
+				state = monitor.StateStopped
+			}
+			d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitor.SynchronizationTypeInitial)
+		}
+
+		d.syncHandler.HandleSynchronizationComplete(monitor.SynchronizationTypeInitial)
 	}
 
 	for _, c := range containers {

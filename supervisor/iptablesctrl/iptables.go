@@ -39,6 +39,7 @@ type Instance struct {
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
 	mode                       int
+	remote                     bool
 }
 
 // NewInstance creates a new iptables controller instance
@@ -58,7 +59,8 @@ func NewInstance(networkQueues, applicationQueues string, targetNetworks []strin
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
-		mode: mode,
+		mode:   mode,
+		remote: remote,
 	}
 
 	if remote || mode == LocalServer {
@@ -91,7 +93,7 @@ func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 		return ip, true
 	}
 
-	return "0.0.0.0/0", false
+	return "0.0.0.0/0", i.remote
 }
 
 // ConfigureRules implmenets the ConfigureRules interface
@@ -267,6 +269,7 @@ func (i *Instance) Start() error {
 
 		return fmt.Errorf("Filter of marked packets was not set")
 	}
+
 	//This rule is capture return packets from a process/container talking on the same host
 	if err := i.CaptureSYNACKPackets(); err != nil {
 		log.WithFields(log.Fields{"package": "supervisor",

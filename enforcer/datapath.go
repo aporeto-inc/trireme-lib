@@ -40,7 +40,8 @@ type datapathEnforcer struct {
 	// Key=Context Value=Connection. Create on syn packet from application with local context-id
 	contextConnectionTracker cache.DataStore
 
-	sourcePortCache cache.DataStore
+	sourcePortCache      cache.DataStore
+	destinationPortCache cache.DataStore
 
 	// stats
 	net    *InterfaceStats
@@ -85,6 +86,7 @@ func NewDatapathEnforcer(
 		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
+		destinationPortCache:     cache.NewCacheWithExpiration(time.Second * 60),
 		filterQueue:              filterQueue,
 		mutualAuthorization:      mutualAuth,
 		service:                  service,

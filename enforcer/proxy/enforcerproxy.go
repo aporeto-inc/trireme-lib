@@ -125,7 +125,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		log.WithFields(log.Fields{
 			"package": "remenforcer",
 			"error":   err,
-		}).Fatal("Failed to Enforce remote enforcer")
+		}).Error("Failed to Enforce remote enforcer")
 		return ErrEnforceFailed
 	}
 
@@ -146,7 +146,7 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 		log.WithFields(log.Fields{
 			"package": "remenforcer",
 			"error":   err,
-		}).Fatal("Failed to Enforce remote enforcer")
+		}).Error("Failed to Enforce remote enforcer")
 		return ErrEnforceFailed
 	}
 

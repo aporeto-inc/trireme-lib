@@ -127,7 +127,7 @@ func Test_CacheTimer(t *testing.T) {
 							So(val.(string), ShouldResemble, "value2")
 
 							Convey("But if I wait for two seconds after the update, the item must not exixt", func() {
-								<-time.After(1 * time.Second)
+								<-time.After(2 * time.Second)
 								_, err := c.Get("key")
 								So(err, ShouldNotBeNil)
 							})

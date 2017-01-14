@@ -15,9 +15,12 @@ import (
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process network packets")
+	if d.remote && p.TCPFlags == packet.TCPSynAckMask {
+		portHash := p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
+		if _, err := d.sourcePortCache.Get(portHash); err != nil {
+			return nil
+		}
+	}
 
 	d.netTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
@@ -74,9 +77,12 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process application packets")
+	if d.remote && p.TCPFlags == packet.TCPSynAckMask {
+		portHash := p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
+		if _, err := d.destinationPortCache.Get(portHash); err != nil {
+			return nil
+		}
+	}
 
 	d.appTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
@@ -162,10 +168,6 @@ func (d *datapathEnforcer) parseAckToken(connection *AuthInfo, data []byte) (*to
 
 func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process application syn packet")
-
 	var connection *TCPConnection
 
 	// Find the container context
@@ -175,7 +177,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"error":   cerr.Error(),
-		}).Debug("Container not found for application syn packet")
+		}).Debug("Context not found for application syn packet")
 		return nil, nil
 	}
 
@@ -186,11 +188,6 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 		connection = NewTCPConnection()
 		connection.Auth.RemoteIP = tcpPacket.DestinationAddress.String()
 		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
-		log.WithFields(log.Fields{
-			"package":    "enforcer",
-			"remoteip":   connection.Auth.RemoteIP,
-			"remoteport": connection.Auth.RemotePort,
-		}).Debug("Connection not found, creating new connection")
 	}
 
 	// Create TCP Option
@@ -203,7 +200,9 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	connection.State = TCPSynSend
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
 	d.contextConnectionTracker.AddOrUpdate(string(connection.Auth.LocalContext), connection)
-	d.sourcePortCache.AddOrUpdate(tcpPacket.SourcePort, context)
+
+	portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+	d.sourcePortCache.AddOrUpdate(portHash, context)
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
@@ -214,18 +213,24 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 }
 
 func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
+	var context interface{}
+	var err error
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process application syn ack packet")
+	if d.remote && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+		portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort)) + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))
+		if context, err = d.destinationPortCache.Get(portHash); err != nil {
+			return nil, err
+		}
+	} else {
 
-	// Find the container context
-	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+		// Find the container context
+		context, err = d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	}
 
-	if cerr != nil {
+	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
-			"error":   cerr.Error(),
+			"error":   err.Error(),
 		}).Debug("Container not found for application syn ack packet")
 		return nil, nil
 	}
@@ -271,11 +276,6 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 }
 
 func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
-
-	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-	}).Debug("process application ack packet")
 
 	// Find the container context
 	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
@@ -349,15 +349,6 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 
 func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-	}).Debug("process application TCP packet")
-
-	// Initialize payload and options buffer with our new TCP options. Currenty using
-	// the experimental option and padding the packet with two data fields to make
-	// a 32-bit alignment. We have to use these data actually rather then send 0s.
-
 	// State machine based on the flags
 	switch tcpPacket.TCPFlags {
 	case packet.TCPSynMask: //Processing SYN packet from Application
@@ -378,11 +369,8 @@ func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet)
 
 func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Process network Syn packet")
-
 	var connection *TCPConnection
+
 	// First check if a connection was previously established and this is a second SYNACK
 	// packet. This means that our ACK packet was lost somewhere
 	hash := tcpPacket.L4FlowHash()
@@ -457,7 +445,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 			"claims":  fmt.Sprintf("%+v", claims.T),
 			"context": context.ID,
 			"rules":   fmt.Sprintf("%+v", context.rejectRcvRules),
-		}).Debug("Syn packet - no matched tags - reject")
+		}).Debug("Syn packet - rejected because of deny policy")
 
 		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
 
@@ -477,6 +465,8 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		// Note that if the connection exists already we will just end-up replicating it. No
 		// harm here.
 		d.networkConnectionTracker.AddOrUpdate(hash, connection)
+		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort)) + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+		d.destinationPortCache.AddOrUpdate(portHash, context)
 
 		// Accept the connection
 		return action, nil
@@ -495,10 +485,6 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 }
 
 func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
-
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Process network Syn Ack packet")
 
 	// First we need to receover our state of the connection. If we don't have any state
 	// we drop the packets and the connections
@@ -688,8 +674,9 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 
 	var err error
 	var context interface{}
-	if tcpPacket.TCPFlags == packet.TCPSynAckMask {
-		if context, err = d.sourcePortCache.Get(tcpPacket.DestinationPort); err != nil {
+	if d.remote && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))
+		if context, err = d.sourcePortCache.Get(portHash); err != nil {
 			return nil, nil
 		}
 	} else {

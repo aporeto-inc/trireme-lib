@@ -85,7 +85,7 @@ func main() {
 		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
 	} else {
 		log.Infof("Setting up trireme with PSK")
-		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8", "127.0.0.1/24"}, &customExtractor, remoteEnforcer)
+		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
 
 	}
 

@@ -460,11 +460,11 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.DeleteChain(i.netPacketIPTableContext, netChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":                   "iptablesctrl",
-			"appChain":                  appChain,
-			"netChain":                  netChain,
-			"error":                     err.Error(),
-			"context": i.netPacketIPTableContext,
+			"package":  "iptablesctrl",
+			"appChain": appChain,
+			"netChain": netChain,
+			"error":    err.Error(),
+			"context":  i.netPacketIPTableContext,
 		}).Debug("Failed to clear and delete the netChain")
 	}
 
@@ -472,24 +472,27 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 }
 
 func (i *Instance) CaptureSYNACKPackets() error {
-	table := i.appAckPacketIPTableContext
-	chain := i.appSynAckIPTableSection
-	for _, network := range i.targetNetworks {
-		err := i.ipt.Insert(table, chain, 1,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-s", network,
-			"-j", "NFQUEUE", "--queue-balance", "4:7")
-		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "iptablesctrl",
-				"table":   table,
-				"chain":   chain,
-			}).Debug("Failed to install")
-		}
-		return err
-	}
+	// table := i.appAckPacketIPTableContext
+	// chain := i.appSynAckIPTableSection
+	// for _, network := range i.targetNetworks {
+	// 	err := i.ipt.Insert(table, chain, 1,
+	// 		"-i", "!lo",
+	// 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+	// 		"-s", network,
+	// 		"-j", "NFQUEUE", "--queue-balance", "4:7")
+	// 	if err != nil {
+	// 		log.WithFields(log.Fields{
+	// 			"package": "iptablesctrl",
+	// 			"table":   table,
+	// 			"chain":   chain,
+	// 		}).Debug("Failed to install")
+	// 		return err
+	// 	}
+	//
+	// }
 	return nil
 }
+
 func (i *Instance) acceptMarkedPackets() error {
 	table := i.appAckPacketIPTableContext
 	chain := i.appPacketIPTableSection
