@@ -12,20 +12,6 @@ import (
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string) [][]string {
 
 	str := [][]string{
-		// {
-		// 	i.appPacketIPTableContext,
-		// 	i.appCgroupIPTableSection,
-		// 	"-m", "cgroup", "--cgroup", mark,
-		// 	"-m", "comment", "--comment", "Server specific chain",
-		// 	"-j", "MARK", "--set-mark", mark,
-		// },
-		// {
-		// 	i.appPacketIPTableContext,
-		// 	i.appCgroupIPTableSection,
-		// 	"-m", "cgroup", "--cgroup", mark,
-		// 	"-m", "comment", "--comment", "Server specific chain",
-		// 	"-j", appChain,
-		// },
 		{
 			i.appAckPacketIPTableContext,
 			i.appCgroupIPTableSection,
@@ -52,15 +38,6 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", netChain,
 		},
-
-		// {
-		// 	i.netPacketIPTableContext,
-		// 	i.netPacketIPTableSection,
-		// 	"-p", "tcp",
-		// 	"--tcp-flags", "SYN,ACK", "SYN,ACK",
-		// 	"-m", "comment", "--comment", "Container specific chain",
-		// 	"-j", netChain,
-		// },
 	}
 
 	return str
@@ -72,7 +49,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 
 	rules := [][]string{}
 
-	if !i.remote {
+	if !(i.remote || i.mode == LocalServer) {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
@@ -108,7 +85,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 
 	rules := [][]string{}
 
-	if !i.remote {
+	if !(i.remote || i.mode == LocalServer) {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-d", network,
@@ -157,7 +134,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 func (i *Instance) exclusionChainRules(ip string) [][]string {
 	rules := [][]string{}
 
-	if !i.remote {
+	if !(i.remote || i.mode == LocalServer) {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
@@ -191,7 +168,7 @@ func (i *Instance) exclusionChainRules(ip string) [][]string {
 // All rules related to a container are contained within the dedicated chain
 func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
-	if !i.remote {
+	if !(i.remote || i.mode == LocalServer) {
 		if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
 			log.WithFields(log.Fields{
 				"package": "iptablesctrl",
@@ -499,31 +476,39 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 	return nil
 }
 
+// CaptureSYNACKPackets install rules to capture all SynAck packets
 func (i *Instance) CaptureSYNACKPackets() error {
-	// table := i.appAckPacketIPTableContext
-	// chain := i.appSynAckIPTableSection
-	// for _, network := range i.targetNetworks {
-	// 	err := i.ipt.Insert(table, chain, 1,
-	// 		"-i", "!lo",
-	// 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-	// 		"-s", network,
-	// 		"-j", "NFQUEUE", "--queue-balance", "4:7")
-	// 	if err != nil {
-	// 		log.WithFields(log.Fields{
-	// 			"package": "iptablesctrl",
-	// 			"table":   table,
-	// 			"chain":   chain,
-	// 		}).Debug("Failed to install")
-	// 		return err
-	// 	}
-	//
-	// }
+
+	err := i.ipt.Insert(i.appAckPacketIPTableContext, "INPUT", 1,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.networkQueues)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"table":   i.appAckPacketIPTableContext,
+			"chain":   "INPUT",
+		}).Debug("Failed to install SynAck packet capture at input ")
+		return err
+	}
+
+	err = i.ipt.Insert(i.netPacketIPTableContext, "OUTPUT", 1,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.applicationQueues)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"table":   i.netPacketIPTableContext,
+			"chain":   "OUTPUT",
+		}).Debug("Failed to install SynAck packet capture at output ")
+		return err
+	}
+
 	return nil
 }
 
 func (i *Instance) acceptMarkedPackets() error {
 
-	if i.remote {
+	if i.remote || i.mode == LocalServer {
 		return nil
 	}
 
@@ -546,7 +531,7 @@ func (i *Instance) acceptMarkedPackets() error {
 
 func (i *Instance) removeMarkRule() error {
 
-	if i.remote {
+	if i.remote || i.mode == LocalServer {
 		return nil
 	}
 
@@ -566,7 +551,7 @@ func (i *Instance) cleanACLs() error {
 	i.removeMarkRule()
 
 	// Clean Application Rules/Chains in Raw if needed
-	if !i.remote {
+	if !i.remote || i.mode == LocalServer {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
 	}
 

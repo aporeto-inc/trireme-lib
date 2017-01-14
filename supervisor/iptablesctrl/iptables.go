@@ -262,21 +262,23 @@ func (i *Instance) Start() error {
 	// Clean any previous ACLs
 	i.cleanACLs()
 
-	if i.acceptMarkedPackets() != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-		}).Debug("Cannot filter marked packets. Abort")
+	if !i.remote {
+		if i.acceptMarkedPackets() != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+			}).Debug("Cannot filter marked packets. Abort")
 
-		return fmt.Errorf("Filter of marked packets was not set")
+			return fmt.Errorf("Filter of marked packets was not set")
+		}
 	}
-
-	//This rule is capture return packets from a process/container talking on the same host
+	// Explicit rule to capture all SynAck packets
 	if err := i.CaptureSYNACKPackets(); err != nil {
 		log.WithFields(log.Fields{"package": "supervisor",
 			"Error": err.Error(),
 		}).Debug("Cannot install rule to match syn ack packets for local services")
 		return err
 	}
+
 	return nil
 }
 
