@@ -47,7 +47,7 @@ func TestNewInstance(t *testing.T) {
 
 func TestChainName(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net := i.chainName("Context", 1)
 			Convey("I should get the right names", func() {
@@ -59,8 +59,8 @@ func TestChainName(t *testing.T) {
 }
 
 func TestDefaultIP(t *testing.T) {
-	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+	Convey("Given an iptables controller with remote off ", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -83,11 +83,37 @@ func TestDefaultIP(t *testing.T) {
 			})
 		})
 	})
+
+	Convey("Given an iptables controller with remote on ", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		Convey("When I get the default IP address of a list that has the default namespace", func() {
+			addresslist := map[string]string{
+				policy.DefaultNamespace: "10.1.1.1",
+			}
+			address, status := i.defaultIP(addresslist)
+
+			Convey("I should get the right IP", func() {
+				So(address, ShouldResemble, "10.1.1.1")
+				So(status, ShouldBeTrue)
+			})
+		})
+
+		Convey("When I provide list with no matching default", func() {
+			addresslist := map[string]string{}
+			address, status := i.defaultIP(addresslist)
+
+			Convey("I should get back the default IP and true status", func() {
+				So(address, ShouldResemble, "0.0.0.0/0")
+				So(status, ShouldBeFalse)
+			})
+		})
+	})
+
 }
 
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -205,7 +231,7 @@ func TestConfigureRules(t *testing.T) {
 
 func TestDeleteRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -250,7 +276,7 @@ func TestDeleteRules(t *testing.T) {
 
 func TestUpdateRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -358,7 +384,7 @@ func TestUpdateRules(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	Convey("Given an iptables controllers,", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 

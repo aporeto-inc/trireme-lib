@@ -79,7 +79,7 @@ func NewTriremeWithDockerMonitor(
 			}).Fatal("Failed to load Supervisor")
 
 		}
-		trireme := trireme.NewTrireme(serverID, resolver, proxySupervise, proxyEnforce)
+		trireme := trireme.NewTrireme(serverID, resolver, proxySupervise, proxyEnforce, eventCollector)
 		monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart, nil)
 		return trireme, monitor, proxySupervise.(supervisor.Excluder)
 	}
@@ -97,7 +97,7 @@ func NewTriremeWithDockerMonitor(
 		}).Fatal("Failed to load Supervisor")
 
 	}
-	trireme := trireme.NewTrireme(serverID, resolver, localSupervisor, localEnforcer)
+	trireme := trireme.NewTrireme(serverID, resolver, localSupervisor, localEnforcer, eventCollector)
 
 	monitor := monitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart, nil)
 

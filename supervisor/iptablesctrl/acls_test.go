@@ -22,7 +22,7 @@ func matchSpec(term string, rulespec []string) error {
 func TestAddContainerChain(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
