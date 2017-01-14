@@ -9,7 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/cmd/remoteenforcer"
 	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/example/common"
+	"github.com/aporeto-inc/trireme/examples/common"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/cliextractor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"

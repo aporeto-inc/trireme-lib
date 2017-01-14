@@ -384,6 +384,8 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	os.Exit(0)
 	return nil
 }
+
+// LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer() {
 
 	log.SetLevel(log.DebugLevel)
