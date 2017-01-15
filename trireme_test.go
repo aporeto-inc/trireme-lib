@@ -11,10 +11,10 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-func createMocks() (TestPolicyResolver, supervisor.TestSupervisor, enforcer.TestPolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {
+func createMocks() (TestPolicyResolver, map[policy.PUType]supervisor.Supervisor, map[policy.PUType]enforcer.PolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {
 	tresolver := NewTestPolicyResolver()
-	tsupervisor := supervisor.NewTestSupervisor()
-	tenforcer := enforcer.NewTestPolicyEnforcer()
+	tsupervisor := map[policy.PUType]supervisor.Supervisor{policy.ContainerPU: supervisor.NewTestSupervisor()}
+	tenforcer := map[policy.PUType]enforcer.PolicyEnforcer{policy.ContainerPU: enforcer.NewTestPolicyEnforcer()}
 	tmonitor := monitor.NewTestMonitor()
 	tcollector := &collector.DefaultCollector{}
 	return tresolver, tsupervisor, tenforcer, tmonitor, tcollector
@@ -222,7 +222,7 @@ func TestSimpleCreate(t *testing.T) {
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestSimpleDelete(t *testing.T) {
@@ -232,7 +232,7 @@ func TestSimpleDelete(t *testing.T) {
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestDeleteNotExist(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestDeleteNotExist(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestCreateDelete(t *testing.T) {
@@ -242,8 +242,8 @@ func TestCreateDelete(t *testing.T) {
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
-	doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
+	doTestDelete(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestSimpleUpdate(t *testing.T) {
@@ -257,13 +257,13 @@ func TestSimpleUpdate(t *testing.T) {
 	})
 	runtime.SetIPAddresses(ipa)
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 	// Generate a new Policy ...
 	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
 	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
 	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, nil)
-	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
+	doTestUpdate(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
 
 func TestCache(t *testing.T) {
@@ -274,7 +274,7 @@ func TestCache(t *testing.T) {
 	runtime := policy.NewPURuntimeWithDefaults()
 
 	for i := 0; i < 5; i++ {
-		doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+		doTestCreate(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 		// Expecting cache to find it
 		cacheRuntime, err := trireme.PURuntime(contextID)
@@ -286,7 +286,7 @@ func TestCache(t *testing.T) {
 			t.Errorf("Cache failed. Expected %v, got %v", runtime, cacheRuntime)
 		}
 
-		doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+		doTestDelete(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 		// Expecting cache to not find it
 		_, err = trireme.PURuntime(contextID)
@@ -303,11 +303,11 @@ func TestStop(t *testing.T) {
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 	trireme.Stop()
 	trireme.Start()
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[policy.ContainerPU].(supervisor.TestSupervisor), tenforcer[policy.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestTransmitterLabel(t *testing.T) {
@@ -316,7 +316,7 @@ func TestTransmitterLabel(t *testing.T) {
 
 	mgmtID := "mgmt"
 	contextID := "Context"
-	containerInfo := policy.NewPUInfo(contextID)
+	containerInfo := policy.NewPUInfo(contextID, policy.ContainerPU)
 	containerInfo.Policy.ManagementID = mgmtID
 	addTransmitterLabel(contextID, containerInfo)
 	label, ok := containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
@@ -330,7 +330,7 @@ func TestTransmitterLabel(t *testing.T) {
 	// If management ID is not set, use contextID as the TransmitterLabel
 
 	contextID = "Context"
-	containerInfo = policy.NewPUInfo(contextID)
+	containerInfo = policy.NewPUInfo(contextID, policy.ContainerPU)
 	addTransmitterLabel(contextID, containerInfo)
 	label, ok = containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
 	if !ok {
