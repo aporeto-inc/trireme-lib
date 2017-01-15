@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 	"github.com/bvandewalle/go-ipset/ipset"
@@ -18,7 +19,7 @@ func TestNewInstance(t *testing.T) {
 		mark := 0x1000
 
 		Convey("If I create a local implemenetation and iptables and ipsets exists", func() {
-			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, false)
+			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, false, constants.LocalContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -33,7 +34,7 @@ func TestNewInstance(t *testing.T) {
 		})
 
 		Convey("If I create a remote implemenetation and iptables and ipsets exists", func() {
-			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, true)
+			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, true, constants.LocalContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -51,7 +52,7 @@ func TestNewInstance(t *testing.T) {
 
 func TestDefaultIP(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -78,7 +79,7 @@ func TestDefaultIP(t *testing.T) {
 
 func TestSetPrefix(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net := i.setPrefix("Context")
 			Convey("I should get the right names", func() {
@@ -92,7 +93,7 @@ func TestSetPrefix(t *testing.T) {
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an ipset controller properly configured", t, func() {
 
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -131,8 +132,11 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil, ipl, nil)
+			containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+			containerinfo.Policy = policyrules
+			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
-			err := i.ConfigureRules(0, "context", policyrules)
+			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("It should fail with no crash and return error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -149,8 +153,12 @@ func TestConfigureRules(t *testing.T) {
 			nil,
 			nil, ipl, nil)
 
+		containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+		containerinfo.Policy = policyrules
+		containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
+
 		Convey("When I try to configure rules with no container set  ", func() {
-			err := i.ConfigureRules(0, "context", policyrules)
+			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get an  error ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -171,7 +179,7 @@ func TestConfigureRules(t *testing.T) {
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 
 		Convey("When I try to configure rules after I add a container set and iptables/ipsets works ", func() {
-			err := i.ConfigureRules(0, "context", policyrules)
+			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get no errors ", func() {
 				So(err, ShouldBeNil)
 			})
@@ -181,7 +189,7 @@ func TestConfigureRules(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				return fmt.Errorf("Error")
 			})
-			err := i.ConfigureRules(0, "context", policyrules)
+			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -192,7 +200,7 @@ func TestConfigureRules(t *testing.T) {
 
 func TestDeleteRules(t *testing.T) {
 	Convey("Given a properly configured ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -217,14 +225,14 @@ func TestDeleteRules(t *testing.T) {
 		Convey("When I delete the rules of a container", func() {
 			ipl := policy.NewIPMap(map[string]string{})
 			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
-			err := i.DeleteRules(0, "context", policy.NewIPMap(ipl.IPs))
+			err := i.DeleteRules(0, "context", policy.NewIPMap(ipl.IPs), "0", "0")
 			Convey("It should return no errors", func() {
 				So(err, ShouldBeNil)
 			})
 		})
 
 		Convey("When I delete the rules with invalid map list", func() {
-			err := i.DeleteRules(0, "context", &policy.IPMap{})
+			err := i.DeleteRules(0, "context", &policy.IPMap{}, "0", "0")
 			Convey("It should return an error ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -235,7 +243,7 @@ func TestDeleteRules(t *testing.T) {
 
 func TestUpdateRules(t *testing.T) {
 	Convey("Given a properly configured ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -297,16 +305,20 @@ func TestUpdateRules(t *testing.T) {
 			nil,
 			nil, ipl, nil)
 
+		containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+		containerinfo.Policy = policyrules
+		containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
+
 		Convey("When I update the rules of a container", func() {
 
-			err := i.DeleteRules(0, "context", policy.NewIPMap(ipl.IPs))
+			err := i.DeleteRules(0, "context", policy.NewIPMap(ipl.IPs), "0", "0")
 			Convey("It should return no errors", func() {
 				So(err, ShouldBeNil)
 			})
 		})
 
 		Convey("When I delete the rules with invalid map list", func() {
-			err := i.UpdateRules(0, "context", policyrules)
+			err := i.UpdateRules(0, "context", containerinfo)
 			Convey("It should succeed with no errors  ", func() {
 				So(err, ShouldBeNil)
 			})

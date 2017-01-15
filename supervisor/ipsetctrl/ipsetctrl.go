@@ -86,6 +86,11 @@ func (i *Instance) setPrefix(contextID string) (app, net string) {
 
 // ConfigureRules implmenets the ConfigureRules interface
 func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+
+	if containerInfo == nil {
+		return fmt.Errorf("Container info cannot be nil")
+	}
+
 	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
