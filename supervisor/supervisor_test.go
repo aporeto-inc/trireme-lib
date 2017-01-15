@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
@@ -48,10 +49,10 @@ func TestNewSupervisor(t *testing.T) {
 
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, false)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 		targetNets := []string{"172.17.0.0/24"}
-		mode := LocalContainer
-		implementation := IPTables
+		mode := constants.LocalContainer
+		implementation := constants.IPTables
 
 		Convey("When I provide correct parameters", func() {
 			s, err := NewSupervisor(c, e, targetNets, mode, implementation)
@@ -59,7 +60,7 @@ func TestNewSupervisor(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
 				So(s.collector, ShouldEqual, c)
-				So(s.mode, ShouldEqual, IPTables)
+				So(s.mode, ShouldEqual, constants.IPTables)
 			})
 		})
 
@@ -96,9 +97,9 @@ func TestSupervise(t *testing.T) {
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, false)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
-		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, LocalContainer, IPTables)
+		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
@@ -112,7 +113,7 @@ func TestSupervise(t *testing.T) {
 		puInfo := createPUInfo()
 
 		Convey("When I supervise a new PU with valid policy", func() {
-			impl.EXPECT().ConfigureRules(0, "contextID", puInfo.Policy).Return(nil)
+			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			err := s.Supervise("contextID", puInfo)
 			Convey("I should not get an error", func() {
 				So(err, ShouldBeNil)
@@ -120,8 +121,8 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I supervise a new PU with valid policy, but there is an error", func() {
-			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo.Policy).Return(fmt.Errorf("Error"))
-			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any()).Return(nil)
+			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(fmt.Errorf("Error"))
+			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			err := s.Supervise("errorPU", puInfo)
 			Convey("I should  get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -129,7 +130,7 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I send supervise command for a second time, it should do an update", func() {
-			impl.EXPECT().ConfigureRules(0, "contextID", puInfo.Policy).Return(nil)
+			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any()).Return(nil)
 			s.Supervise("contextID", puInfo)
 			err := s.Supervise("contextID", puInfo)
@@ -139,9 +140,9 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I send supervise command for a second time, and the update fails", func() {
-			impl.EXPECT().ConfigureRules(0, "contextID", puInfo.Policy).Return(nil)
+			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any()).Return(fmt.Errorf("Error"))
-			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			s.Supervise("contextID", puInfo)
 			err := s.Supervise("contextID", puInfo)
 			Convey("I should get an error", func() {
@@ -160,9 +161,9 @@ func TestUnsupervise(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, false)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
-		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, LocalContainer, IPTables)
+		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
@@ -176,8 +177,8 @@ func TestUnsupervise(t *testing.T) {
 		puInfo := createPUInfo()
 
 		Convey("When I try to unsupervise a valid PU ", func() {
-			impl.EXPECT().ConfigureRules(0, "contextID", puInfo.Policy).Return(nil)
-			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any()).Return(nil)
+			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			s.Supervise("contextID", puInfo)
 			err := s.Unsupervise("contextID")
 			Convey("I should get no errors", func() {
@@ -194,9 +195,9 @@ func TestStart(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, false)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
-		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, LocalContainer, IPTables)
+		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 

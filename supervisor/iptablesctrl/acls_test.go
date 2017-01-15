@@ -6,6 +6,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
@@ -16,13 +17,13 @@ func matchSpec(term string, rulespec []string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("Error: Rule not found %s\n", term)
+	return fmt.Errorf("error: Rule not found %s ", term)
 }
 
 func TestAddContainerChain(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -81,7 +82,7 @@ func TestAddContainerChain(t *testing.T) {
 func TestAddChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -89,7 +90,7 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1")
+			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -102,7 +103,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1")
+			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -115,7 +116,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1")
+			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -128,7 +129,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1")
+			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -140,7 +141,7 @@ func TestAddChainRules(t *testing.T) {
 func TestAddPacketTrap(t *testing.T) {
 
 	Convey("Given an iptables controller, when I test addPacketTrap", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -199,7 +200,7 @@ func TestAddPacketTrap(t *testing.T) {
 func TestAddAppACLs(t *testing.T) {
 
 	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -259,7 +260,7 @@ func TestAddAppACLs(t *testing.T) {
 				if matchSpec("0.0.0.0/0", rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error %s\n", rulespec)
+				return fmt.Errorf("error %s ", rulespec)
 			})
 			err := i.addAppACLs("chain", "", rules)
 			Convey("I should get no error", func() {
@@ -292,7 +293,7 @@ func TestAddAppACLs(t *testing.T) {
 				if matchSpec("0.0.0.0/0", rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error %s\n", rulespec)
+				return fmt.Errorf("error %s ", rulespec)
 			})
 			err := i.addAppACLs("chain", "", rules)
 			Convey("I should get no error", func() {
@@ -325,7 +326,7 @@ func TestAddAppACLs(t *testing.T) {
 				if matchSpec("0.0.0.0/0", rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error %s\n", rulespec)
+				return fmt.Errorf("error %s ", rulespec)
 			})
 			err := i.addAppACLs("chain", "", rules)
 			Convey("I should get no error", func() {
@@ -339,7 +340,7 @@ func TestAddAppACLs(t *testing.T) {
 func TestAddNetAcls(t *testing.T) {
 
 	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -399,7 +400,7 @@ func TestAddNetAcls(t *testing.T) {
 				if matchSpec("0.0.0.0/0", rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error %s\n", rulespec)
+				return fmt.Errorf("error %s ", rulespec)
 			})
 			err := i.addNetACLs("chain", "", rules)
 			Convey("I should get no error", func() {
@@ -432,7 +433,7 @@ func TestAddNetAcls(t *testing.T) {
 				if matchSpec("0.0.0.0/0", rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error %s\n", rulespec)
+				return fmt.Errorf("error %s ", rulespec)
 			})
 			err := i.addNetACLs("chain", "", rules)
 			Convey("I should get no error", func() {
@@ -465,7 +466,7 @@ func TestAddNetAcls(t *testing.T) {
 				if matchSpec("0.0.0.0/0", rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error %s\n", rulespec)
+				return fmt.Errorf("error %s ", rulespec)
 			})
 			err := i.addNetACLs("chain", "", rules)
 			Convey("I should get no error", func() {
@@ -479,7 +480,7 @@ func TestAddNetAcls(t *testing.T) {
 func TestDeleteChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -487,7 +488,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1")
+			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -497,7 +498,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1")
+			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
 			Convey("I should still get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -510,7 +511,7 @@ func TestDeleteChainRules(t *testing.T) {
 func TestDeleteAllContainerChains(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -560,7 +561,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 func TestAcceptMarkedPackets(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -592,7 +593,7 @@ func TestAcceptMarkedPackets(t *testing.T) {
 func TestRemoveMarkRule(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -643,7 +644,7 @@ func TestRemoveMarkRule(t *testing.T) {
 
 func TestAddExclusionChainRules(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -702,7 +703,7 @@ func TestAddExclusionChainRules(t *testing.T) {
 func TestDeleteExclusionChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 

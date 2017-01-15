@@ -177,6 +177,11 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 
 // UpdateRules implements the update part of the interface
 func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+
+	if containerInfo == nil {
+		return fmt.Errorf("Container info cannot be nil")
+	}
+
 	policyrules := containerInfo.Policy
 	if policyrules == nil {
 		return fmt.Errorf("Policy rules cannot be nil")
