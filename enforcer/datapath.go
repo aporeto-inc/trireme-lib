@@ -227,7 +227,7 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 		}
 		ip, _ = puInfo.Policy.DefaultIPAddress()
 		if net.ParseIP(ip) == nil {
-			return fmt.Errorf("invalid up address %s\n", ip)
+			return fmt.Errorf("invalid up address %s ", ip)
 		}
 	}
 	pu := &PUContext{
