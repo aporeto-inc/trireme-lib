@@ -8,6 +8,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
 
@@ -19,33 +20,6 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 	"github.com/aporeto-inc/trireme/supervisor/proxy"
 )
-
-const (
-	// DefaultDockerSocket is the default socket to use to communicate with docker
-	DefaultDockerSocket = "/var/run/docker.sock"
-
-	// DefaultDockerSocketType is unix
-	DefaultDockerSocketType = "unix"
-)
-
-// NewIPSetSupervisor is the Supervisor based on IPSets.
-func NewIPSetSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
-
-	return supervisor.NewSupervisor(eventCollector, enforcer, networks, supervisor.LocalContainer, supervisor.IPSets)
-
-}
-
-// NewIPTablesSupervisor is the current old supervisor implementation.
-func NewIPTablesSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
-
-	return supervisor.NewSupervisor(eventCollector, enforcer, networks, supervisor.LocalContainer, supervisor.IPTables)
-
-}
-
-// NewDefaultSupervisor returns the IPTables supervisor
-func NewDefaultSupervisor(eventCollector collector.EventCollector, enforcer enforcer.PolicyEnforcer, networks []string) (supervisor.Supervisor, error) {
-	return NewIPTablesSupervisor(eventCollector, enforcer, networks)
-}
 
 // NewTriremeWithDockerMonitor TODO
 func NewTriremeWithDockerMonitor(
@@ -72,8 +46,20 @@ func NewTriremeWithDockerMonitor(
 	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[trireme.RemoteEnforcer], networks, rpcwrapper)
 	supervisors[trireme.RemoteEnforcer] = s
 
-	enforcers[trireme.LocalEnforcer] = enforcer.NewDefaultDatapathEnforcer(serverID, eventCollector, nil, secrets, true)
-	supervisors[trireme.LocalEnforcer], err = NewDefaultSupervisor(eventCollector, enforcers[trireme.LocalEnforcer], networks)
+	enforcers[trireme.LocalEnforcer] = enforcer.NewDefaultDatapathEnforcer(serverID,
+		eventCollector,
+		nil,
+		secrets,
+		constants.LocalServer,
+	)
+
+	supervisors[trireme.LocalEnforcer], err = supervisor.NewSupervisor(
+		eventCollector,
+		enforcers[trireme.LocalEnforcer],
+		networks,
+		constants.LocalServer,
+		constants.IPTables,
+	)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -83,7 +69,7 @@ func NewTriremeWithDockerMonitor(
 
 	}
 	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
-	dockermonitor := dockermonitor.NewDockerMonitor(DefaultDockerSocketType, DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart, nil)
+	dockermonitor := dockermonitor.NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, trireme, dockerMetadataExtractor, eventCollector, syncAtStart, nil)
 	return trireme, dockermonitor, supervisors[0].(supervisor.Excluder)
 
 }

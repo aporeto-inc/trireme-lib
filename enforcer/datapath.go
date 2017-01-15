@@ -10,6 +10,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/netfilter"
 
@@ -52,9 +53,8 @@ type datapathEnforcer struct {
 	// ack size
 	ackSize uint32
 
-	// remote indicates that this is a remote enforcer and it only processes one unit
-	// As a result the enforcer will ignore IP addresses
-	remote bool
+	// mode captures the mode of the enforcer
+	mode constants.ModeType
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -68,7 +68,7 @@ func NewDatapathEnforcer(
 	secrets tokens.Secrets,
 	serverID string,
 	validity time.Duration,
-	remote bool,
+	mode constants.ModeType,
 ) PolicyEnforcer {
 
 	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
@@ -97,7 +97,7 @@ func NewDatapathEnforcer(
 		netTCP:                   &PacketStats{},
 		appTCP:                   &PacketStats{},
 		ackSize:                  secrets.AckSize(),
-		remote:                   remote,
+		mode:                     mode,
 	}
 
 	if d.tokenEngine == nil {
@@ -114,7 +114,7 @@ func NewDefaultDatapathEnforcer(
 	collector collector.EventCollector,
 	service PacketProcessor,
 	secrets tokens.Secrets,
-	remote bool,
+	mode constants.ModeType,
 ) PolicyEnforcer {
 
 	if collector == nil {
@@ -145,7 +145,7 @@ func NewDefaultDatapathEnforcer(
 		secrets,
 		serverID,
 		validity,
-		remote,
+		mode,
 	)
 }
 
@@ -214,18 +214,20 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 
 	ip := DefaultNetwork
 
-	//This is to check that we are not doing this for a process in the host
-	//processes managed by systemd will not have a separate IP
-	//IP are not required to process rules we have for cgroup
+	// This is to check that we are not doing this for a process in the host
+	// processes managed by systemd will not have a separate IP
+	// IP are not required to process rules we have for cgroup
 
-	if !d.remote && (puInfo.Runtime.PUType() == policy.ContainerPU) {
+	if d.mode == constants.LocalContainer && (puInfo.Runtime.PUType() == policy.ContainerPU) {
 		if _, ok := puInfo.Policy.DefaultIPAddress(); !ok {
-			log.WithFields(log.Fields{"package": "Enforcer"}).Info("Default IP address not found")
+			log.WithFields(log.Fields{
+				"package": "Enforcer",
+			}).Info("Default IP address not found")
 			return fmt.Errorf("No IP address found")
 		}
 		ip, _ = puInfo.Policy.DefaultIPAddress()
 		if net.ParseIP(ip) == nil {
-			return fmt.Errorf("Invalid up address %s\n", ip)
+			return fmt.Errorf("invalid up address %s\n", ip)
 		}
 	}
 	pu := &PUContext{
@@ -329,6 +331,7 @@ func (d *datapathEnforcer) Start() error {
 
 	log.WithFields(log.Fields{
 		"package": "enforcer",
+		"mode":    d.mode,
 	}).Debug("Start enforcer")
 
 	d.StartApplicationInterceptor()
@@ -543,9 +546,10 @@ func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*token
 func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port string) (interface{}, error) {
 
 	d.puTracker.DumpStore()
-	if d.remote {
+	if d.mode != constants.LocalContainer {
 		ip = DefaultNetwork
 	}
+
 	pu, err := d.puTracker.Get(ip)
 	if err == nil {
 		return pu, err

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -49,7 +50,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 
 	rules := [][]string{}
 
-	if !(i.remote || i.mode == LocalServer) {
+	if i.mode == constants.LocalContainer {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
@@ -85,7 +86,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 
 	rules := [][]string{}
 
-	if !(i.remote || i.mode == LocalServer) {
+	if i.mode == constants.LocalContainer {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-d", network,
@@ -101,13 +102,6 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		})
 	} else {
-		rules = append(rules, []string{
-			i.appAckPacketIPTableContext, appChain,
-			"-d", network,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		})
-
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
@@ -134,7 +128,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 func (i *Instance) exclusionChainRules(ip string) [][]string {
 	rules := [][]string{}
 
-	if !(i.remote || i.mode == LocalServer) {
+	if i.mode == constants.LocalContainer {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
@@ -168,7 +162,7 @@ func (i *Instance) exclusionChainRules(ip string) [][]string {
 // All rules related to a container are contained within the dedicated chain
 func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
-	if !(i.remote || i.mode == LocalServer) {
+	if i.mode == constants.LocalContainer {
 		if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
 			log.WithFields(log.Fields{
 				"package": "iptablesctrl",
@@ -251,7 +245,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
 func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string) error {
 
-	if i.mode == LocalServer {
+	if i.mode == constants.LocalServer {
 		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Append")
 	}
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Append")
@@ -404,7 +398,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 // deleteChainRules deletes the rules that send traffic to our chain
 func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, mark string) error {
 
-	if i.mode == LocalServer {
+	if i.mode == constants.LocalServer {
 		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Delete")
 	}
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")
@@ -508,7 +502,7 @@ func (i *Instance) CaptureSYNACKPackets() error {
 
 func (i *Instance) acceptMarkedPackets() error {
 
-	if i.remote || i.mode == LocalServer {
+	if i.mode != constants.LocalContainer {
 		return nil
 	}
 
@@ -531,7 +525,7 @@ func (i *Instance) acceptMarkedPackets() error {
 
 func (i *Instance) removeMarkRule() error {
 
-	if i.remote || i.mode == LocalServer {
+	if i.mode != constants.LocalContainer {
 		return nil
 	}
 
@@ -551,7 +545,7 @@ func (i *Instance) cleanACLs() error {
 	i.removeMarkRule()
 
 	// Clean Application Rules/Chains in Raw if needed
-	if !i.remote || i.mode == LocalServer {
+	if i.mode == constants.LocalContainer {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
 	}
 

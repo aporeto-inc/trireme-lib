@@ -14,6 +14,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -202,7 +203,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			secrets,
 			payload.ServerID,
 			payload.Validity,
-			true)
+			constants.RemoteContainer)
 	} else {
 		//PSK params
 		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
@@ -214,7 +215,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			secrets,
 			payload.ServerID,
 			payload.Validity,
-			true)
+			constants.RemoteContainer)
 	}
 
 	s.Enforcer.Start()
@@ -246,8 +247,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		s.Supervisor, err = supervisor.NewSupervisor(s.Collector,
 			s.Enforcer,
 			payload.TargetNetworks,
-			supervisor.RemoteContainer,
-			supervisor.IPTables,
+			constants.RemoteContainer,
+			constants.IPTables,
 		)
 		if err != nil {
 			log.WithFields(log.Fields{

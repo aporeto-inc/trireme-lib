@@ -5,8 +5,10 @@ import (
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
+
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -14,14 +16,6 @@ const (
 	chainPrefix    = "TRIREME-"
 	appChainPrefix = chainPrefix + "App-"
 	netChainPrefix = chainPrefix + "Net-"
-)
-const (
-	// RemoteContainer indicates a remote supervisor
-	RemoteContainer int = iota
-	// LocalContainer indicates a container based supervisor
-	LocalContainer
-	// LocalServer indicates a Linux service
-	LocalServer
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -38,12 +32,11 @@ type Instance struct {
 	netPacketIPTableSection    string
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
-	mode                       int
-	remote                     bool
+	mode                       constants.ModeType
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, remote bool, mode int) (*Instance, error) {
+func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -59,11 +52,10 @@ func NewInstance(networkQueues, applicationQueues string, targetNetworks []strin
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
-		mode:   mode,
-		remote: remote,
+		mode: mode,
 	}
 
-	if remote || mode == LocalServer {
+	if mode == constants.LocalServer || mode == constants.RemoteContainer {
 		i.appPacketIPTableSection = "OUTPUT"
 		i.appCgroupIPTableSection = "OUTPUT"
 		i.netPacketIPTableSection = "INPUT"
@@ -93,35 +85,37 @@ func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 		return ip, true
 	}
 
-	return "0.0.0.0/0", i.remote
+	if i.mode == constants.LocalContainer {
+		return "0.0.0.0/0", false
+	}
+
+	return "0.0.0.0/0", true
 }
 
 // ConfigureRules implmenets the ConfigureRules interface
 func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 	policyrules := containerInfo.Policy
-	var ipAddress string
+
 	appChain, netChain := i.chainName(contextID, version)
 	// policyrules.DefaultIPAddress()
 
 	// Supporting only one ip
-	//This check is not required for LocalServer
-	if i.mode != LocalServer {
-		var ok bool
-		ipAddress, ok = i.defaultIP(policyrules.IPAddresses().IPs)
-		if !ok {
-			return fmt.Errorf("No ip address found ")
-		}
+	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
+	if !ok {
+		return fmt.Errorf("No ip address found ")
 	}
 
 	// Configure all the ACLs
 	if err := i.addContainerChain(appChain, netChain); err != nil {
 		return err
 	}
-	if i.mode != LocalServer {
+
+	if i.mode != constants.LocalServer {
 
 		if err := i.addChainRules(appChain, netChain, ipAddress, "", ""); err != nil {
 			return err
 		}
+
 	} else {
 		mark, ok := containerInfo.Runtime.Tag(cgnetcls.CgroupMarkTag)
 		if !ok {
@@ -158,7 +152,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 	var ok bool
 
 	// Supporting only one ip
-	if i.mode != LocalServer {
+	if i.mode != constants.LocalServer {
 		if ipAddresses == nil {
 			return fmt.Errorf("Provided map of IP addresses is nil")
 		}
@@ -170,7 +164,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 	}
 
 	appChain, netChain := i.chainName(contextID, version)
-	if i.mode == LocalServer {
+	if i.mode == constants.LocalServer {
 		i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
 	} else {
 		i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
@@ -216,7 +210,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Add mapping to new chain
-	if i.mode != LocalServer {
+	if i.mode != constants.LocalServer {
 
 		if err := i.addChainRules(appChain, netChain, ipAddress, "", ""); err != nil {
 			return err
@@ -233,7 +227,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	//Remove mapping from old chain
-	if i.mode != LocalServer {
+	if i.mode != constants.LocalServer {
 		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, "", ""); err != nil {
 			return err
 		}
@@ -262,7 +256,7 @@ func (i *Instance) Start() error {
 	// Clean any previous ACLs
 	i.cleanACLs()
 
-	if !i.remote {
+	if i.mode == constants.LocalContainer {
 		if i.acceptMarkedPackets() != nil {
 			log.WithFields(log.Fields{
 				"package": "supervisor",
@@ -271,6 +265,7 @@ func (i *Instance) Start() error {
 			return fmt.Errorf("Filter of marked packets was not set")
 		}
 	}
+
 	// Explicit rule to capture all SynAck packets
 	if err := i.CaptureSYNACKPackets(); err != nil {
 		log.WithFields(log.Fields{"package": "supervisor",

@@ -8,6 +8,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 )
@@ -15,7 +16,7 @@ import (
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
-	if d.remote && p.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
 		portHash := p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
 		if _, err := d.sourcePortCache.Get(portHash); err != nil {
 			return nil
@@ -77,7 +78,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error {
 
-	if d.remote && p.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
 		portHash := p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
 		if _, err := d.destinationPortCache.Get(portHash); err != nil {
 			return nil
@@ -216,7 +217,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	var context interface{}
 	var err error
 
-	if d.remote && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
 		portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort)) + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))
 		if context, err = d.destinationPortCache.Get(portHash); err != nil {
 			return nil, err
@@ -674,7 +675,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 
 	var err error
 	var context interface{}
-	if d.remote && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
 		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))
 		if context, err = d.sourcePortCache.Get(portHash); err != nil {
 			return nil, nil
