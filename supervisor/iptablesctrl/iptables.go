@@ -267,11 +267,13 @@ func (i *Instance) Start() error {
 	}
 
 	// Explicit rule to capture all SynAck packets
-	if err := i.CaptureSYNACKPackets(); err != nil {
-		log.WithFields(log.Fields{"package": "supervisor",
-			"Error": err.Error(),
-		}).Debug("Cannot install rule to match syn ack packets for local services")
-		return err
+	if i.mode != constants.LocalContainer {
+		if err := i.CaptureSYNACKPackets(); err != nil {
+			log.WithFields(log.Fields{"package": "supervisor",
+				"Error": err.Error(),
+			}).Debug("Cannot install rule to match syn ack packets for local services")
+			return err
+		}
 	}
 
 	return nil

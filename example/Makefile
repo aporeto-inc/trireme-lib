@@ -12,7 +12,7 @@ build:  remote_enforcer_build
 	make package
 
 package:
-	mv examples docker/trireme-example
+	mv example docker/trireme-example
 	make -C ../cmd package
 	mv $(GOPATH)/bin/remote_enforcer docker/remote_enforcer
 	mv $(GOPATH)/bin/aporetolaunch docker/aporetolaunch

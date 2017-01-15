@@ -3,6 +3,7 @@ package trireme
 import (
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor"
 )
 
 // Trireme is the main interface to the Trireme package.
@@ -16,6 +17,9 @@ type Trireme interface {
 
 	// Stop stops the component.
 	Stop() error
+
+	// Supervisor returns the supervisor for a given PU type
+	Supervisor(kind policy.PUType) supervisor.Supervisor
 
 	monitor.ProcessingUnitsHandler
 

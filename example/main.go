@@ -8,15 +8,10 @@ import (
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/cmd/remoteenforcer"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/examples/common"
+	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/cliextractor"
-	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -27,6 +22,7 @@ var keyFile = flag.String("keyFile", "key.pem", "Set the path of key certificate
 var caCertFile = flag.String("caCertFile", "ca.crt", "Set the path of certificate authority to use.")
 var externalMetadataFile = flag.String("metadata", "", "An external executable file for the metadata extractor")
 var swarm = flag.String("swarm", "", "Support the Swarm Mode extractor")
+var hybrid = flag.Bool("hybrid", false, "Hybrid mode")
 
 func usage() {
 
@@ -53,16 +49,19 @@ func main() {
 
 	var t trireme.Trireme
 	var m monitor.Monitor
+	var rm monitor.Monitor
 	//var e supervisor.Excluder
 	var remoteEnforcer bool
 	if mode == "aporeto_enforcer" {
 		remoteenforcer.LaunchRemoteEnforcer()
 	}
+
 	if remote == "local" {
 		remoteEnforcer = false
 	} else {
 		remoteEnforcer = true
 	}
+
 	var customExtractor dockermonitor.DockerMetadataExtractor
 	if *externalMetadataFile != "" {
 		var err error
@@ -80,13 +79,16 @@ func main() {
 		customExtractor = common.SwarmExtractor
 	}
 
-	if *usePKI {
-		log.Infof("Setting up trireme with PKI")
-		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
+	if !*hybrid {
+		if *usePKI {
+			log.Infof("Setting up trireme with PKI")
+			t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
+		} else {
+			log.Infof("Setting up trireme with PSK")
+			t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
+		}
 	} else {
-		log.Infof("Setting up trireme with PSK")
-		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
-
+		t, m, rm, _ = common.HybridTriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
 	}
 
 	if t == nil {
@@ -97,20 +99,25 @@ func main() {
 		panic("Failed to create Monitor")
 	}
 
-	//use rpcmonitor no need to return it since no other consumer for it
-	netcls := cgnetcls.NewCgroupNetController()
-	contextstorehdl := contextstore.NewContextStore()
-	rpcmonitor, _ := rpcmonitor.NewRPCMonitor(rpcmonitor.Rpcaddress, linuxmonitor.SystemdRPCMetadataExtractor, t, &collector.DefaultCollector{}, netcls, contextstorehdl)
+	if *hybrid && rm == nil {
+		panic("Failed to create remote monitor for hybrid")
+	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	t.Start()
 	m.Start()
-	go rpcmonitor.Start()
+	if rm != nil {
+		rm.Start()
+	}
+
 	<-c
 
 	fmt.Println("Bye!")
 	m.Stop()
 	t.Stop()
-	rpcmonitor.Stop()
+	if rm != nil {
+		rm.Stop()
+	}
 
 }
