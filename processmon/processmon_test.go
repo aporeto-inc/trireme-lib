@@ -13,7 +13,7 @@ func TestLaunchProcess(t *testing.T) {
 	//Will use refPid to be 1 (init) guaranteed to be there
 	//Normal case should launch a process
 	rpchdl := rpcwrapper.NewTestRPCClient()
-	p := NewProcessMon()
+	p := newProcessMon()
 	contextID := "12345"
 	refPid := 1
 	dir, _ := os.Getwd()
@@ -41,13 +41,6 @@ func TestLaunchProcess(t *testing.T) {
 		t.Errorf("TEST:Failed when the directory is missing %v", err)
 	}
 	p.KillProcess(contextID)
-	os.Rename("./remote_enforcer", "./remote_enforcer.orig")
-	setprocessname("cat1")
-	//if binary  is absent we should return an error
-	err = p.LaunchProcess(contextID, refPid, rpchdl, "")
-	if err == nil {
-		t.Errorf("TEST:No error returned even when binary is not present")
-	}
 
 	os.Rename("./remote_enforcer.orig", "./remote_enforcer")
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string) error {
@@ -75,7 +68,7 @@ func TestGetExitStatus(t *testing.T) {
 	contextID := "12345"
 	refPid := 1
 	//Lets launch process
-	p := NewProcessMon()
+	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat")
 	rpchdl := rpcwrapper.NewTestRPCClient()
@@ -105,7 +98,7 @@ func TestSetExitStatus(t *testing.T) {
 	contextID := "12345"
 	refPid := 1
 	//Lets launch process
-	p := NewProcessMon()
+	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat")
 	//Error returned when process does not exists
@@ -148,7 +141,7 @@ func TestKillProcess(t *testing.T) {
 	paramvalidate := false
 
 	//Lets launch process
-	p := NewProcessMon()
+	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat")
 	rpchdl := rpcwrapper.NewTestRPCClient()
