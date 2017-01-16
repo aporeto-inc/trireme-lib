@@ -4,6 +4,7 @@ package cgnetcls
 //This package does not use interfaces/objects from other trireme component so we don't need to mock anything here
 //We will create actual system objects
 //This can be tested only on linux since the directory structure will not exist anywhere else
+//Tests here will be skipped if you don't run as root
 import (
 	"fmt"
 	"io/ioutil"
@@ -27,6 +28,9 @@ func cleanupnetclsgroup() {
 	os.RemoveAll(basePath + aporetobase + testcgroupname)
 }
 func TestCreategroup(t *testing.T) {
+	if os.Getenv("USER") != "root" {
+		t.SkipNow()
+	}
 	cg := NewCgroupNetController()
 	err := cg.Creategroup(testcgroupname)
 	defer cleanupnetclsgroup()
@@ -89,6 +93,9 @@ func TestCreategroup(t *testing.T) {
 
 func TestAssignMark(t *testing.T) {
 	cg := NewCgroupNetController()
+	if os.Getenv("USER") != "root" {
+		t.SkipNow()
+	}
 	//Assigning mark before creating group
 	err := cg.AssignMark(testcgroupname, testmark)
 	if err == nil {
@@ -120,6 +127,9 @@ func TestAddProcess(t *testing.T) {
 	//hopefully this pid does not exist
 	pid := 1<<31 - 1
 	r := rand.New(rand.NewSource(23))
+	if os.Getenv("USER") != "root" {
+		t.SkipNow()
+	}
 	cg := NewCgroupNetController()
 	//AddProcess to a non-existent group
 	err := cg.AddProcess(testcgroupname, os.Getpid())
@@ -160,6 +170,9 @@ func TestAddProcess(t *testing.T) {
 }
 
 func TestRemoveProcess(t *testing.T) {
+	if os.Getenv("USER") != "root" {
+		t.SkipNow()
+	}
 	cg := NewCgroupNetController()
 	//Removing process from non-existent group
 	err := cg.RemoveProcess(testcgroupname, 1)
@@ -183,6 +196,9 @@ func TestRemoveProcess(t *testing.T) {
 }
 
 func TestDeleteCgroup(t *testing.T) {
+	if os.Getenv("USER") != "root" {
+		t.SkipNow()
+	}
 	cg := NewCgroupNetController()
 	//Removing process from non-existent group
 	err := cg.DeleteCgroup(testcgroupname)
@@ -201,6 +217,9 @@ func TestDeleteCgroup(t *testing.T) {
 }
 
 func TestDeleteBasePath(t *testing.T) {
+	if os.Getenv("USER") != "root" {
+		t.SkipNow()
+	}
 	cg := NewCgroupNetController()
 	//Removing process from non-existent group
 	err := cg.DeleteCgroup(testcgroupname)
