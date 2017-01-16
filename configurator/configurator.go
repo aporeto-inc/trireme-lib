@@ -197,7 +197,7 @@ func NewHybridTrireme(
 
 	processEnforcer := enforcer.NewDefaultDatapathEnforcer(serverID,
 		eventCollector,
-		nil,
+		processor,
 		secrets,
 		constants.LocalServer,
 	)

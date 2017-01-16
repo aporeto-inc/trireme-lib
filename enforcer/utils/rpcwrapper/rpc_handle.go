@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
+	"log"
 	"net"
 	"net/http"
 	"net/rpc"
@@ -120,7 +121,7 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 	rpc.HandleHTTP()
 	os.Remove(path)
 	if len(path) == 0 {
-		panic("Sock param not passed in environment")
+		log.Fatal("Sock param not passed in environment")
 	}
 	listen, err := net.Listen(protocol, path)
 

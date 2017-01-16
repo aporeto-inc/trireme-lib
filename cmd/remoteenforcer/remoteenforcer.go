@@ -60,9 +60,19 @@ type Server struct {
 	Enforcer    enforcer.PolicyEnforcer
 	Collector   collector.EventCollector
 	Supervisor  supervisor.Supervisor
+	Service     enforcer.PacketProcessor
 	pupolicy    *policy.PUPolicy
 	rpcchannel  string
 	rpchdl      *rpcwrapper.RPCWrapper
+}
+
+// NewServer starts a new server
+func NewServer(service enforcer.PacketProcessor, rpcchan string) *Server {
+	return &Server{
+		pupolicy:   nil,
+		Service:    service,
+		rpcchannel: rpcchan,
+	}
 }
 
 //StatsClient  This is the struct for storing state for the rpc client
@@ -199,7 +209,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			payload.MutualAuth,
 			payload.FqConfig,
 			collectorInstance,
-			nil, // TODO - PASS SERVICE ARGUMENTS
+			s.Service,
 			secrets,
 			payload.ServerID,
 			payload.Validity,
@@ -211,7 +221,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			payload.MutualAuth,
 			payload.FqConfig,
 			collectorInstance,
-			nil, // TODO - PASS SERVICE ARGUMENTS
+			s.Service,
 			secrets,
 			payload.ServerID,
 			payload.Validity,
@@ -389,10 +399,9 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer() {
 
-	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
 	namedPipe := os.Getenv(envSocketPath)
-	server := &Server{pupolicy: nil}
+	server := &Server{pupolicy: nil, Service: nil}
 	rpchdl := rpcwrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe
