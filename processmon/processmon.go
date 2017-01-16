@@ -20,7 +20,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
 
-var processName = "./trireme-example"
+var processName = ""
 
 //ProcessMon exported
 type ProcessMon struct {
@@ -181,17 +181,17 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
 	var cmdArgs []string
+
 	if len(strings.TrimSpace(processname)) != 0 {
-
 		cmdName = processname
-
 	} else {
 		cmdName, _ = filepath.Abs(filepath.Dir(os.Args[0]))
 		cmdName = cmdName + "/" + filepath.Base(os.Args[0])
-		cmdArgs = append(cmdArgs, "-mode=aporeto_enforcer")
+		cmdArgs = append(cmdArgs, "enforce")
 	}
 
 	cmd := exec.Command(cmdName, cmdArgs...)
+
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
 	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
