@@ -10,6 +10,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
@@ -47,6 +48,7 @@ type proxyInfo struct {
 	rpchdl      rpcwrapper.RPCClient
 	initDone    map[string]bool
 	filterQueue *enforcer.FilterQueue
+	commandArg  string
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -88,7 +90,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		"pid":     puInfo.Runtime.Pid(),
 	}).Info("PID of container")
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, "")
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg)
 	if err != nil {
 		return err
 	}
@@ -195,6 +197,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	serverID string,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
+	cmdArg string,
 ) enforcer.PolicyEnforcer {
 
 	proxydata := &proxyInfo{
@@ -206,6 +209,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		rpchdl:      rpchdl,
 		initDone:    make(map[string]bool),
 		filterQueue: filterQueue,
+		commandArg:  cmdArg,
 	}
 	log.WithFields(log.Fields{
 		"package": "remenforcer",
@@ -247,7 +251,8 @@ func NewDefaultProxyEnforcer(serverID string,
 		secrets,
 		serverID,
 		validity,
-		rpchdl)
+		rpchdl,
+		constants.DefaultRemoteArg)
 }
 
 //StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer

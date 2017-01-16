@@ -8,6 +8,7 @@ import (
 
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/cmd/remoteenforcer"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/cliextractor"
@@ -52,7 +53,7 @@ func main() {
 	var rm monitor.Monitor
 	//var e supervisor.Excluder
 	var remoteEnforcer bool
-	if mode == "aporeto_enforcer" {
+	if mode == constants.DefaultRemoteArg {
 		remoteenforcer.LaunchRemoteEnforcer()
 	}
 

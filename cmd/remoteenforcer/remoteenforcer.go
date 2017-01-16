@@ -401,7 +401,7 @@ func LaunchRemoteEnforcer() {
 
 	log.SetFormatter(&log.TextFormatter{})
 	namedPipe := os.Getenv(envSocketPath)
-	server := &Server{pupolicy: nil}
+	server := &Server{pupolicy: nil, Service: nil}
 	rpchdl := rpcwrapper.NewRPCServer()
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe

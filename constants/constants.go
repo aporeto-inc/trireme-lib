@@ -32,3 +32,8 @@ const (
 	IPTables
 	// Remote indicates that this is a remote supervisor
 )
+
+const (
+	// DefaultRemoteArg is the default arguments for a remote enforcer
+	DefaultRemoteArg = "-mode=enforce"
+)
