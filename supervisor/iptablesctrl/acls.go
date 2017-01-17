@@ -50,7 +50,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 
 	rules := [][]string{}
 
-	if i.mode == constants.LocalContainer {
+	if i.mode == constants.LocalContainer || i.mode == constants.RemoteContainer {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
@@ -86,7 +86,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 
 	rules := [][]string{}
 
-	if i.mode == constants.LocalContainer {
+	if i.mode == constants.LocalContainer || i.mode == constants.RemoteContainer {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-d", network,
@@ -128,7 +128,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 func (i *Instance) exclusionChainRules(ip string) [][]string {
 	rules := [][]string{}
 
-	if i.mode == constants.LocalContainer {
+	if i.mode == constants.LocalContainer || i.mode == constants.RemoteContainer {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
@@ -162,7 +162,7 @@ func (i *Instance) exclusionChainRules(ip string) [][]string {
 // All rules related to a container are contained within the dedicated chain
 func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
-	if i.mode == constants.LocalContainer {
+	if i.mode == constants.LocalContainer || i.mode == constants.RemoteContainer {
 		if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
 			log.WithFields(log.Fields{
 				"package": "iptablesctrl",
@@ -398,7 +398,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 // deleteChainRules deletes the rules that send traffic to our chain
 func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, mark string) error {
 
-	if i.mode == constants.LocalServer {
+	if i.mode == constants.LocalServer || i.mode == constants.RemoteContainer {
 		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Delete")
 	}
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")
@@ -502,7 +502,7 @@ func (i *Instance) CaptureSYNACKPackets() error {
 
 func (i *Instance) acceptMarkedPackets() error {
 
-	if i.mode != constants.LocalContainer {
+	if i.mode == constants.LocalServer {
 		return nil
 	}
 
@@ -525,7 +525,7 @@ func (i *Instance) acceptMarkedPackets() error {
 
 func (i *Instance) removeMarkRule() error {
 
-	if i.mode != constants.LocalContainer {
+	if i.mode != constants.LocalServer {
 		return nil
 	}
 
@@ -545,7 +545,7 @@ func (i *Instance) cleanACLs() error {
 	i.removeMarkRule()
 
 	// Clean Application Rules/Chains in Raw if needed
-	if i.mode == constants.LocalContainer {
+	if i.mode == constants.LocalContainer || i.mode == constants.RemoteContainer {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
 	}
 

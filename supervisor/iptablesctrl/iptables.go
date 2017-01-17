@@ -261,7 +261,7 @@ func (i *Instance) Start() error {
 	// Clean any previous ACLs
 	i.cleanACLs()
 
-	if i.mode == constants.LocalContainer {
+	if i.mode == constants.LocalContainer || i.mode == constants.RemoteContainer {
 		if i.acceptMarkedPackets() != nil {
 			log.WithFields(log.Fields{
 				"package": "supervisor",
@@ -272,7 +272,7 @@ func (i *Instance) Start() error {
 	}
 
 	// Explicit rule to capture all SynAck packets
-	if i.mode != constants.LocalContainer {
+	if i.mode == constants.LocalServer {
 		if err := i.CaptureSYNACKPackets(); err != nil {
 			log.WithFields(log.Fields{"package": "supervisor",
 				"Error": err.Error(),
