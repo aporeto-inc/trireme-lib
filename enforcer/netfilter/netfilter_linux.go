@@ -168,7 +168,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	}
 
 	// Set the max length of the queue
-	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(1000)); err != nil || ret < 0 {
+	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(maxPacketsInQueue)); err != nil || ret < 0 {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
 
@@ -194,7 +194,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	}
 
 	netlinkHandle := C.nfq_nfnlh(nfq.h)
-	C.nfnl_rcvbufsiz(netlinkHandle, C.uint(packetSize*2000))
+	C.nfnl_rcvbufsiz(netlinkHandle, C.uint(packetSize*maxPacketsInQueue))
 
 	fd := C.nfnl_fd(netlinkHandle)
 	opt := 1
