@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/user"
 	"strconv"
 	"sync"
@@ -186,9 +187,17 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
 	}
+
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
+	}
+
+	cmd := exec.Command("sysctl", "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
+	if err := cmd.Run(); err != nil {
+		log.WithFields(log.Fields{"package": "remote_enforcer",
+			"Rror": "Error ",
+		}).Error("Failed to set conntrack options. Abort")
 	}
 
 	collectorInstance := &CollectorImpl{
@@ -400,19 +409,26 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 func LaunchRemoteEnforcer() {
 
 	log.SetFormatter(&log.TextFormatter{})
+
 	namedPipe := os.Getenv(envSocketPath)
+
 	server := &Server{pupolicy: nil, Service: nil}
+
 	rpchdl := rpcwrapper.NewRPCServer()
+
 	//Map not initialized here since we don't use it on the server
 	server.rpcchannel = namedPipe
-	//flag.Parse()
+
 	userDetails, _ := user.Current()
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"uid":      userDetails.Uid,
 		"gid":      userDetails.Gid,
 		"username": userDetails.Username,
 	}).Info("Enforcer user id")
+
 	rpchdl.StartServer("unix", namedPipe, server)
+
 	server.EnforcerExit(rpcwrapper.Request{}, nil)
+
 	os.Exit(0)
 }
