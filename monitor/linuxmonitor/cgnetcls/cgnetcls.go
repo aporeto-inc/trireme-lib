@@ -50,13 +50,23 @@ func (s *netCls) Creategroup(cgroupname string) error {
 
 	//Write to the notify on release file and release agent files
 	binpath := releaseAgentbin
-	ioutil.WriteFile(basePath+releaseAgentConfFile, []byte(binpath), 0644)
+	err = ioutil.WriteFile(basePath+releaseAgentConfFile, []byte(binpath), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to register a release agent error %s", err.Error())
+	}
 
-	//writebuf := make([]byte, 4)
-	//binary.PutUvarint(writebuf, 1)
-	ioutil.WriteFile(basePath+notifyOnReleaseFile, []byte("1"), 0644)
-	ioutil.WriteFile(basePath+aporetobase+notifyOnReleaseFile, []byte("1"), 0644)
-	ioutil.WriteFile(basePath+aporetobase+cgroupname+notifyOnReleaseFile, []byte("1"), 0644)
+	err = ioutil.WriteFile(basePath+notifyOnReleaseFile, []byte("1"), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+	}
+	err = ioutil.WriteFile(basePath+aporetobase+notifyOnReleaseFile, []byte("1"), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+	}
+	err = ioutil.WriteFile(basePath+aporetobase+cgroupname+notifyOnReleaseFile, []byte("1"), 0644)
+	if err != nil {
+		return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+	}
 	return nil
 
 }
