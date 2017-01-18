@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -142,7 +141,6 @@ func Test_CacheTimer(t *testing.T) {
 }
 
 func add(a, b interface{}) interface{} {
-	fmt.Println("I am adding ", a, "and", b)
 	return a.(int) + b.(int)
 }
 

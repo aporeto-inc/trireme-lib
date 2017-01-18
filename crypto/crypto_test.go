@@ -1,8 +1,6 @@
 package crypto
 
 import (
-	"encoding/hex"
-	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -12,18 +10,15 @@ import (
 func TestComputeVerifyHMAC(t *testing.T) {
 	Convey("Given a token and a key", t, func() {
 
-		fmt.Println("")
 		token := make([]byte, 256)
 		for i := uint8(0); i < 255; i++ {
 			token[i] = byte(i)
 		}
-		fmt.Println("Token:\n" + hex.Dump(token))
 
 		key := make([]byte, 32)
 		for i := uint8(0); i < 32; i++ {
 			key[i] = i
 		}
-		fmt.Println("Key:\n" + hex.Dump(key))
 
 		Convey("When I sign the token with the key", func() {
 			expectedMac := ComputeHmac256(token, key)
