@@ -25,13 +25,23 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 	}
 
 	runtimeTags := policy.NewTagsMap(event.Tags)
-	runtimeTags.Tags[cgnetcls.CgroupNameTag] = event.PUID
-	runtimeTags.Tags[cgnetcls.CgroupMarkTag] = <-cgnetcls.MarkVal()
-	runtimeIps := policy.NewIPMap(event.IPs)
+
+	options := policy.NewTagsMap(map[string]string{cgnetcls.PortTag: "0"})
+
+	if _, ok := runtimeTags.Tags[cgnetcls.PortTag]; ok {
+		options.Tags[cgnetcls.PortTag] = runtimeTags.Tags[cgnetcls.PortTag]
+	}
+
+	options.Tags[cgnetcls.CgroupNameTag] = event.PUID
+	options.Tags[cgnetcls.CgroupMarkTag] = <-cgnetcls.MarkVal()
+
+	runtimeIps := policy.NewIPMap(map[string]string{"bridge": "0.0.0.0/0"})
+
 	runtimePID, err := strconv.Atoi(event.PID)
+
 	if err != nil {
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, policy.LinuxProcessPU, nil), nil
+	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, policy.LinuxProcessPU, options), nil
 }
