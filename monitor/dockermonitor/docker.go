@@ -114,7 +114,7 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 		"bridge": info.NetworkSettings.IPAddress,
 	})
 
-	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, policy.ContainerPU), nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, policy.ContainerPU, nil), nil
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events

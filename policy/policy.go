@@ -214,32 +214,43 @@ type PURuntime struct {
 	ips *IPMap
 	// Tags is a map of the metadata of the container
 	tags *TagsMap
+	// options
+	options *TagsMap
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType PUType) *PURuntime {
+func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType PUType, options *TagsMap) *PURuntime {
 
 	t := tags
 	if t == nil {
 		t = NewTagsMap(nil)
 	}
+
 	i := ips
 	if i == nil {
 		i = NewIPMap(nil)
 	}
+
+	o := options
+	if o == nil {
+		o = NewTagsMap(nil)
+	}
+
 	return &PURuntime{
 		puType:         puType,
 		puRuntimeMutex: &sync.Mutex{},
 		tags:           t,
 		ips:            i,
+		options:        o,
 		pid:            pid,
+		name:           name,
 	}
 }
 
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, nil, nil, ContainerPU)
+	return NewPURuntime("", 0, nil, nil, ContainerPU, nil)
 }
 
 // Clone returns a copy of the policy
@@ -247,7 +258,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone(), r.puType)
+	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone(), r.puType, r.options)
 }
 
 // PURuntimeJSON is a Json representation of PURuntime
@@ -350,6 +361,14 @@ func (r *PURuntime) Tags() *TagsMap {
 	return r.tags.Clone()
 }
 
+// Options returns tags for the processing unit
+func (r *PURuntime) Options() *TagsMap {
+	r.puRuntimeMutex.Lock()
+	defer r.puRuntimeMutex.Unlock()
+
+	return r.options.Clone()
+}
+
 // PUInfo  captures all policy information related to a connection
 type PUInfo struct {
 	// ContextID is the ID of the container that the policy applies to
@@ -363,7 +382,7 @@ type PUInfo struct {
 // NewPUInfo instantiates a new ContainerPolicy
 func NewPUInfo(contextID string, puType PUType) *PUInfo {
 	policy := NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil)
-	runtime := NewPURuntime("", 0, nil, nil, puType)
+	runtime := NewPURuntime("", 0, nil, nil, puType, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)
 }
 

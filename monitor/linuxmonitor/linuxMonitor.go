@@ -33,5 +33,5 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, policy.LinuxProcessPU), nil
+	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, policy.LinuxProcessPU, nil), nil
 }

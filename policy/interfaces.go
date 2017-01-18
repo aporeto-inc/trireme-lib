@@ -24,6 +24,9 @@ type RuntimeReader interface {
 	// Tags returns a copy of the list of the tags.
 	Tags() *TagsMap
 
+	// Options returns a copy of the list of options.
+	Options() *TagsMap
+
 	// DefaultIPAddress retutns the default IP address.
 	DefaultIPAddress() (string, bool)
 

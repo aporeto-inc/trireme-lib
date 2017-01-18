@@ -502,7 +502,7 @@ func (i *Instance) CaptureSYNACKPackets() error {
 
 func (i *Instance) acceptMarkedPackets() error {
 
-	if i.mode == constants.LocalContainer {
+	if i.mode != constants.LocalContainer {
 		return nil
 	}
 

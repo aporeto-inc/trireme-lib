@@ -45,7 +45,7 @@ func defaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, policy.ContainerPU), nil
+	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, policy.ContainerPU, nil), nil
 }
 
 // A RPCEventHandler is type of docker event handler functions.
