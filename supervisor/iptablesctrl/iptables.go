@@ -117,12 +117,12 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		}
 
 	} else {
-		mark, ok := containerInfo.Runtime.Tag(cgnetcls.CgroupMarkTag)
+		mark, ok := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
 		if !ok {
 			return fmt.Errorf("No Mark value found")
 		}
 
-		port, ok := containerInfo.Runtime.Tag(cgnetcls.PortTag)
+		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
 		if !ok {
 			port = "0"
 		}
@@ -221,11 +221,15 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 			return err
 		}
 	} else {
-		mark, ok := containerInfo.Runtime.Tag(cgnetcls.CgroupMarkTag)
+		mark, ok := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
 		if !ok {
 			return fmt.Errorf("No Mark value found")
 		}
-		portlist, ok := containerInfo.Runtime.Tag(cgnetcls.PortTag)
+		portlist, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+		if !ok {
+			portlist = "0"
+		}
+
 		if err := i.addChainRules(appChain, netChain, ipAddress, portlist, mark); err != nil {
 			return err
 		}
@@ -237,8 +241,11 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 			return err
 		}
 	} else {
-		mark, _ := containerInfo.Runtime.Tag(cgnetcls.CgroupMarkTag)
-		port, _ := containerInfo.Runtime.Tag(cgnetcls.PortTag)
+		mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
+		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+		if !ok {
+			port = "0"
+		}
 		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark); err != nil {
 			return err
 		}

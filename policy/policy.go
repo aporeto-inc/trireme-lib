@@ -325,6 +325,7 @@ func (r *PURuntime) DefaultIPAddress() (string, bool) {
 	defer r.puRuntimeMutex.Unlock()
 
 	ip, ok := r.ips.Get("bridge")
+
 	return ip, ok
 }
 

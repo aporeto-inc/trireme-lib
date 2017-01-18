@@ -279,7 +279,7 @@ func (s *Server) handleStartEvent(eventInfo *EventInfo) error {
 		}
 
 		// TODO - Get a mark id for this cgroup
-		markval, ok := runtimeInfo.Tag(cgnetcls.CgroupMarkTag)
+		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
 		if !ok {
 			s.netcls.DeleteCgroup(eventInfo.PUID)
 			log.WithFields(log.Fields{"package": "rpcmonitor",

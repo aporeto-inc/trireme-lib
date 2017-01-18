@@ -157,8 +157,8 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	}).Debug("IPTables update for the creation of a pu")
 
 	version := 0
-	mark, _ := containerInfo.Runtime.Tag(cgnetcls.CgroupMarkTag)
-	port, ok := containerInfo.Runtime.Tag(cgnetcls.PortTag)
+	mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
+	port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
 	if !ok {
 		port = "0"
 	}
@@ -197,7 +197,7 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 
 	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo); err != nil {
 		s.Unsupervise(contextID)
-		return fmt.Errorf("Error in updating PU implementation. PU has been terminated")
+		return err
 	}
 
 	return nil

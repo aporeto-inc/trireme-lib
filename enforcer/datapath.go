@@ -173,12 +173,12 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHash {
 	var hashSlice []*DualHash
 
-	expectedMark, ok := puInfo.Runtime.Tag(cgnetcls.CgroupMarkTag)
+	expectedMark, ok := puInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
 	if !ok {
 		expectedMark = ""
 	}
 
-	expectedPort, ok := puInfo.Runtime.Tag(cgnetcls.PortTag)
+	expectedPort, ok := puInfo.Runtime.Options().Get(cgnetcls.PortTag)
 	if !ok {
 		expectedPort = "0"
 		hashSlice = append(hashSlice, &DualHash{
