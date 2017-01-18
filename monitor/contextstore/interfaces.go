@@ -1,5 +1,6 @@
 package contextstore
 
+// ContextStore is the interface defining the context store
 type ContextStore interface {
 	StoreContext(contextID string, eventInfo interface{}) error
 	DestroyStore() error

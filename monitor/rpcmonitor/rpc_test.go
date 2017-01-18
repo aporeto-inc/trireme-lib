@@ -285,7 +285,7 @@ func TestStartEvent(t *testing.T) {
 				PID:       "12345",
 				IPs:       nil,
 			}
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, nil, nil, policy.ContainerPU)
+			runtime := policy.NewPURuntime(eventInfo.Name, 12345, nil, nil, policy.ContainerPU, nil)
 			puHandler.EXPECT().SetPURuntime("/test1", runtime)
 			errChan := make(chan error, 1)
 			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
@@ -318,7 +318,7 @@ func TestStartEvent(t *testing.T) {
 				PID:       "12345",
 				IPs:       nil,
 			}
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, nil, nil, policy.ContainerPU)
+			runtime := policy.NewPURuntime(eventInfo.Name, 12345, nil, nil, policy.ContainerPU, nil)
 			puHandler.EXPECT().SetPURuntime("/test1", runtime)
 			errChan := make(chan error, 1)
 			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
@@ -357,7 +357,7 @@ func TestStartEvent(t *testing.T) {
 			}
 			tags := &policy.TagsMap{Tags: make(map[string]string)}
 			tags.Add("@cgroup_mark", "100")
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU)
+			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU, nil)
 			puHandler.EXPECT().SetPURuntime("/test1", runtime)
 			errChan := make(chan error, 1)
 			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
@@ -397,7 +397,7 @@ func TestStartEvent(t *testing.T) {
 			}
 			tags := &policy.TagsMap{Tags: make(map[string]string)}
 			tags.Add("@cgroup_mark", "100")
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU)
+			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU, nil)
 			puHandler.EXPECT().SetPURuntime("/test1", runtime)
 			errChan := make(chan error, 1)
 			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
@@ -437,7 +437,7 @@ func TestStartEvent(t *testing.T) {
 			}
 			tags := &policy.TagsMap{Tags: make(map[string]string)}
 			tags.Add("@cgroup_mark", "100")
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU)
+			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU, nil)
 			puHandler.EXPECT().SetPURuntime("/test1", runtime)
 			errChan := make(chan error, 1)
 			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
