@@ -235,8 +235,8 @@ func (s *Server) handleCreateEvent(eventInfo *EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	// TODO: Adapt to generic PU
-	s.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerCreate)
+	tagsMap := policy.NewTagsMap(eventInfo.Tags)
+	s.collector.CollectContainerEvent(contextID, "localhost", tagsMap, collector.ContainerCreate)
 
 	// Send the event upstream
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
@@ -260,8 +260,6 @@ func (s *Server) handleStartEvent(eventInfo *EventInfo) error {
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
-	s.collector.CollectContainerEvent(contextID, defaultIP, runtimeInfo.Tags(), collector.ContainerStart)
-
 	// Send the event upstream
 
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventStart)
@@ -269,6 +267,8 @@ func (s *Server) handleStartEvent(eventInfo *EventInfo) error {
 	status := <-errChan
 	if nil == status {
 		//It is okay to launch this so let us create a cgroup for it
+
+		s.collector.CollectContainerEvent(contextID, defaultIP, runtimeInfo.Tags(), collector.ContainerStart)
 
 		err = s.netcls.Creategroup(eventInfo.PUID)
 		if err != nil {

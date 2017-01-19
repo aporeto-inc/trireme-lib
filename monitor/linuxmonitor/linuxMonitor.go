@@ -170,11 +170,6 @@ func processInfo(pidString string) []string {
 		return userdata
 	}
 
-	children, _ := p.Children()
-	for _, proc := range children {
-		fmt.Println(proc.Pid)
-	}
-
 	groups, err := p.Gids()
 	if err != nil {
 		return userdata
