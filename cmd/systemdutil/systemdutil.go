@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 )
 
@@ -132,7 +133,7 @@ func HandleCgroupStop(cgroupName string) error {
 		Name:      cgroupName,
 		Tags:      nil,
 		PID:       strconv.Itoa(os.Getpid()),
-		EventType: "stop",
+		EventType: monitor.EventStop,
 	}
 	response := &rpcmonitor.RPCResponse{}
 
@@ -142,5 +143,15 @@ func HandleCgroupStop(cgroupName string) error {
 
 	}
 
-	return rpcClient.Call(remoteMethodCall, request, response)
+	if err := rpcClient.Call(remoteMethodCall, request, response); err != nil {
+		return err
+	}
+
+	request.EventType = monitor.EventDestroy
+
+	if err := rpcClient.Call(remoteMethodCall, request, response); err != nil {
+		return err
+	}
+
+	return nil
 }

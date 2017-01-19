@@ -316,26 +316,15 @@ func (s *Server) handleStartEvent(eventInfo *EventInfo) error {
 func (s *Server) handleStopEvent(eventInfo *EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
-	contextStoreHdl := contextstore.NewContextStore()
 	if err != nil {
-
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
 	contextID = contextID[strings.LastIndex(contextID, "/"):]
-	if s.netcls.Deletebasepath(contextID) {
-		return nil
-	}
 
 	// Send the event upstream
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 	status := <-errChan
-	//Cleanedup sucessfully
-	//let us remove the cgroup files now
-	if status == nil {
-		s.netcls.DeleteCgroup(contextID)
-		contextStoreHdl.RemoveContext(contextID)
-	}
 
 	return status
 }
@@ -347,9 +336,22 @@ func (s *Server) handleDestroyEvent(eventInfo *EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
+	contextID = contextID[strings.LastIndex(contextID, "/"):]
+
+	contextStoreHdl := contextstore.NewContextStore()
+
+	s.netcls.Deletebasepath(contextID)
+
 	// Send the event upstream
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
-	return <-errChan
+
+	<-errChan
+
+	//let us remove the cgroup files now
+	s.netcls.DeleteCgroup(contextID)
+	contextStoreHdl.RemoveContext(contextID)
+
+	return nil
 }
 
 func (s *Server) handlePauseEvent(eventInfo *EventInfo) error {

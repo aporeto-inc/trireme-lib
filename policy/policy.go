@@ -271,6 +271,8 @@ type PURuntimeJSON struct {
 	IPAddresses *IPMap
 	// Tags is a map of the metadata of the container
 	Tags *TagsMap
+	// Options is a map of the options of the container
+	Options *TagsMap
 }
 
 // MarshalJSON Marshals this struct.
@@ -280,6 +282,7 @@ func (r *PURuntime) MarshalJSON() ([]byte, error) {
 		Name:        r.name,
 		IPAddresses: r.ips,
 		Tags:        r.tags,
+		Options:     r.options,
 	})
 }
 
@@ -312,6 +315,11 @@ func (r *PURuntime) Name() string {
 // SetName sets the Name
 func (r *PURuntime) SetName(name string) {
 	r.name = name
+}
+
+// SetOptions sets a new set of options
+func (r *PURuntime) SetOptions(options *TagsMap) {
+	r.options = options
 }
 
 // PUType returns the PU type
