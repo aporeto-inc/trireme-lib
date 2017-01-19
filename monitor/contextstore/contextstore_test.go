@@ -3,7 +3,6 @@ package contextstore
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -22,7 +21,7 @@ func cleanupstore() {
 	os.RemoveAll(storebasePath)
 }
 func TestStoreContext(t *testing.T) {
-
+	setStoreBasePath("./base")
 	cstore := NewContextStore()
 	defer cleanupstore()
 	testdata := &testdatastruct{data: 10}
@@ -34,13 +33,14 @@ func TestStoreContext(t *testing.T) {
 	} else {
 		readdata, _ := ioutil.ReadFile(storebasePath + testcontextID + eventInfoFile)
 		if strings.TrimSpace(string(readdata)) != string(marshaldata) {
-			t.Errorf("Data corrupted in store")
+			t.Errorf("Data corrupted in stores")
 			t.SkipNow()
 		}
 	}
 
 }
 func TestDestroyStore(t *testing.T) {
+	setStoreBasePath("./base")
 	cstore := NewContextStore()
 	defer cleanupstore()
 
@@ -50,6 +50,7 @@ func TestDestroyStore(t *testing.T) {
 		t.SkipNow()
 	}
 	//Reinit store
+	setStoreBasePath("./base")
 	cstore = NewContextStore()
 	testdata := &testdatastruct{data: 10}
 	cstore.StoreContext(testcontextID, testdata)
@@ -60,6 +61,7 @@ func TestDestroyStore(t *testing.T) {
 
 }
 func TestGetContextInfo(t *testing.T) {
+	setStoreBasePath("./base")
 	cstore := NewContextStore()
 	defer cleanupstore()
 
@@ -85,6 +87,7 @@ func TestGetContextInfo(t *testing.T) {
 
 }
 func TestRemoveContext(t *testing.T) {
+	setStoreBasePath("./base")
 	cstore := NewContextStore()
 	//defer cleanupstore()
 
@@ -108,8 +111,9 @@ func TestRemoveContext(t *testing.T) {
 
 }
 func TestWalkStore(t *testing.T) {
+	setStoreBasePath("./base")
 	cstore := NewContextStore()
-	//defer cleanupstore()
+	defer cleanupstore()
 	testdata := &testdatastruct{data: 10}
 	contextIDList := []string{"/test1", "/test2", "/test3"}
 
@@ -120,7 +124,6 @@ func TestWalkStore(t *testing.T) {
 	index := 0
 	for {
 		c := <-contextchan
-		fmt.Println(c)
 		if c == "" {
 			break
 		}

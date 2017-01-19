@@ -11,8 +11,11 @@ import (
 
 type store struct{}
 
-const (
+var (
 	storebasePath = "/var/run/aporeto"
+)
+
+const (
 	eventInfoFile = "/eventInfo.data"
 )
 
@@ -22,17 +25,21 @@ const (
 func NewContextStore() ContextStore {
 
 	_, err := os.Stat(storebasePath)
-	if os.ErrNotExist == err {
-		os.MkdirAll(storebasePath, 0600)
+	if os.IsNotExist(err) {
+		os.MkdirAll(storebasePath, 0700)
 	}
 	return &store{}
+}
+
+func setStoreBasePath(path string) {
+	storebasePath = path
 }
 
 //Store context writes to the store the eventInfo which can be used as a event to trireme
 func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 
 	if _, err := os.Stat(storebasePath + contextID); os.IsNotExist(err) {
-		os.MkdirAll(storebasePath+contextID, 0600)
+		os.MkdirAll(storebasePath+contextID, 0700)
 	}
 
 	data, err := json.Marshal(eventInfo)
@@ -43,7 +50,9 @@ func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 		return fmt.Errorf("Failed to convert struct to json %s\n", err.Error())
 	}
 
-	ioutil.WriteFile(storebasePath+contextID+eventInfoFile, data, 0600)
+	if err = ioutil.WriteFile(storebasePath+contextID+eventInfoFile, data, 0600); err != nil {
+		return err
+	}
 	return nil
 
 }
