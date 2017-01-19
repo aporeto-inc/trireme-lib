@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"sync"
 	"syscall"
@@ -17,6 +16,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	"github.com/kardianos/osext"
 )
 
 var processName = ""
@@ -179,18 +179,18 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		//return linkErr
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
-	var cmdArgs []string
 
-	cmdName, _ = filepath.Abs(filepath.Dir(os.Args[0]))
-	cmdName = cmdName + "/" + filepath.Base(os.Args[0])
-	cmdArgs = append(cmdArgs, arg)
+	cmdName, _ = osext.Executable()
+	cmdArgs := []string{arg}
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
+
 	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+
 	err = cmd.Start()
 	if err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
@@ -201,6 +201,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		os.Remove(netnspath + contextID)
 		return ErrBinaryNotFound
 	}
+
 	exited := make(chan int, 2)
 	go func() {
 		pid := cmd.Process.Pid

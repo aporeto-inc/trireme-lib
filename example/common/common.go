@@ -58,7 +58,7 @@ func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataEx
 }
 
 //HybridTriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, monitor.Monitor, supervisor.Excluder) {
+func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor) (trireme.Trireme, monitor.Monitor, monitor.Monitor, supervisor.Excluder) {
 
 	policyEngine := NewCustomPolicyResolver()
 

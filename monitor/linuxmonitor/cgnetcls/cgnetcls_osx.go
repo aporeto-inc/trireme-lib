@@ -57,3 +57,8 @@ func MarkVal() <-chan string {
 	return ch
 
 }
+
+// ListCgroupProcesses lists the processes of the cgroup
+func ListCgroupProcesses(cgroupname string) ([]string, error) {
+	return []string{}, nil
+}

@@ -35,5 +35,5 @@ const (
 
 const (
 	// DefaultRemoteArg is the default arguments for a remote enforcer
-	DefaultRemoteArg = "-mode=enforce"
+	DefaultRemoteArg = "enforce"
 )

@@ -1,39 +1,50 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/cmd/remoteenforcer"
+	"github.com/aporeto-inc/trireme/cmd/systemdutil"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/cliextractor"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
-
-	log "github.com/Sirupsen/logrus"
+	docopt "github.com/docopt/docopt-go"
 )
-
-var (
-	usePKI               = flag.Bool("pki", false, "Use PKI trireme")
-	hybrid               = flag.Bool("hybrid", false, "Hybrid mode")
-	remote               = flag.Bool("remote", false, "Use remote enforcers")
-	swarm                = flag.Bool("swarm", false, "Support the Swarm Mode extractor")
-	certFile             = flag.String("certFile", "cert.pem", "Set the path of certificate.")
-	keyFile              = flag.String("keyFile", "key.pem", "Set the path of key certificate key to use.")
-	caCertFile           = flag.String("caCertFile", "ca.crt", "Set the path of certificate authority to use.")
-	externalMetadataFile = flag.String("metadata", "", "An external executable file for the metadata extractor")
-	mode                 = flag.String("mode", "service", "Launch trireme as a service or enforcement only")
-)
-
-func usage() {
-	flag.PrintDefaults()
-	os.Exit(2)
-}
 
 func main() {
+
+	usage := `Command for launching programs with Trireme policy.
+
+  Usage:
+    trireme run [--servicename=<sname>] [[--metadata=<keyvalue>]...] [--keyFile=<keyFile>] [--certFile=<certFile>] [--caCert=<caFile>]<command> [--] [<params>...]
+		trireme daemon [--usePKI] [--hybrid|--remote|--local] [--swarm|--extractor <metadatafile>]
+		trireme enforce
+		trireme  <cgroup>
+		trireme -h | --help
+		trireme --version
+
+  Options:
+    -h --help                              Show this help message and exit.
+    --servicename=<sname>                  The name of the service to be launched.
+    --metadata=<keyvalue>                  The metadata/labels associated with a service.
+		--usePKI                               Use PKI for Trireme [default: false].
+		--certFile=<certfile>                  Certificate file [default: cert.pem].
+		--keyFile=<keyFile>                    Key file [default: key.pem].
+		--caCert=<caFile>                      CA certificate [default: ca.crt].
+		--hybrid                               Hybrid mode of deployment [default: false]
+		--remote                               Remote mode of deployment [default: false]
+		--local                                Local mode of deployment [default: true]
+		--swarm                                Deploy Doccker Swarm metadata extractor [default: false]
+		--extractor                            External metadata extractor [default: ]
+    --version                              show version and exit.
+  `
+
+	arguments, _ := docopt.Parse(usage, nil, true, "1.0.0rc2", false)
 
 	var t trireme.Trireme
 	var m monitor.Monitor
@@ -43,29 +54,30 @@ func main() {
 	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{})
 
-	flag.Usage = usage
-
-	flag.Parse()
-
 	// If in enforce mode then just launch in this mode and exit
-	if *mode == "enforce" {
+	if arguments["enforce"].(bool) {
 		remoteenforcer.LaunchRemoteEnforcer()
+	}
+
+	if arguments["run"].(bool) || arguments["<cgroup>"] != nil {
+		systemdutil.ExecuteCommand(arguments)
+	}
+
+	if !arguments["daemon"].(bool) {
+		os.Exit(0)
 	}
 
 	var customExtractor dockermonitor.DockerMetadataExtractor
 
-	if *externalMetadataFile != "" && *swarm == true {
-		log.Fatalln("Only provide an external extractor or swarm, but not both.")
-	}
-
-	if *externalMetadataFile != "" {
-		customExtractor, err = cliextractor.NewExternalExtractor(*externalMetadataFile)
+	if arguments["--extractor"].(bool) {
+		extractorfile := arguments["<metadatafile>"].(string)
+		customExtractor, err = cliextractor.NewExternalExtractor(extractorfile)
 		if err != nil {
 			log.Fatalf("External metadata extractor cannot be accessed: %s", err)
 		}
 	}
 
-	if *swarm == true {
+	if arguments["--swarm"].(bool) {
 		log.WithFields(log.Fields{
 			"Package":   "main",
 			"Extractor": "Swarm",
@@ -73,16 +85,25 @@ func main() {
 		customExtractor = common.SwarmExtractor
 	}
 
-	if !*hybrid {
-		if *usePKI {
+	if !arguments["--hybrid"].(bool) {
+		remote := arguments["--remote"].(bool)
+		if arguments["--usePKI"].(bool) {
 			log.Infof("Setting up trireme with PKI")
-			t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, *remote)
+
+			keyFile := arguments["--keyFile"].(string)
+			certFile := arguments["--certFile"].(string)
+			caCertFile := arguments["--caCert"].(string)
+
+			t, m, _ = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remote)
+
 		} else {
+
 			log.Infof("Setting up trireme with PSK")
-			t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, *remote)
+			t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remote)
+
 		}
 	} else { // Hybrid mode
-		t, m, rm, _ = common.HybridTriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, *remote)
+		t, m, rm, _ = common.HybridTriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor)
 	}
 
 	if t == nil {
@@ -93,7 +114,7 @@ func main() {
 		log.Fatalln("Failed to create Monitor")
 	}
 
-	if *hybrid && rm == nil {
+	if arguments["--hybrid"].(bool) && rm == nil {
 		log.Fatalln("Failed to create remote monitor for hybrid")
 	}
 

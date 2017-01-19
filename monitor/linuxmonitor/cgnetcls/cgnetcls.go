@@ -23,7 +23,7 @@ const (
 	CgroupNameTag        = "@cgroup_name"
 	CgroupMarkTag        = "@cgroup_mark"
 	PortTag              = "@port"
-	releaseAgentbin      = "/usr/bin/aporetolaunch"
+	releaseAgentbin      = "/usr/bin/trireme"
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
 	initialmarkval       = 100
@@ -196,4 +196,25 @@ func MarkVal() <-chan string {
 	}()
 	return ch
 
+}
+
+// ListCgroupProcesses lists the processes of the cgroup
+func ListCgroupProcesses(cgroupname string) ([]string, error) {
+
+	_, err := os.Stat(basePath + aporetobase + cgroupname)
+	if os.IsNotExist(err) {
+		return []string{}, errors.New("Cgroup does not exist")
+	}
+
+	data, err := ioutil.ReadFile(basePath + aporetobase + cgroupname + "/cgroup.procs")
+	if err != nil {
+		return []string{}, errors.New("Cannot read procs file")
+	}
+
+	procs := []string{}
+	for _, line := range strings.Split(string(data), "\n") {
+		procs = append(procs, string(line))
+	}
+
+	return procs, nil
 }
