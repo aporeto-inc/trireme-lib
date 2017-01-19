@@ -21,8 +21,8 @@ func main() {
 	usage := `Command for launching programs with Trireme policy.
 
   Usage:
-    trireme run [--servicename=<sname>] [[--metadata=<keyvalue>]...] [--keyFile=<keyFile>] [--certFile=<certFile>] [--caCert=<caFile>]<command> [--] [<params>...]
-		trireme daemon [--usePKI] [--hybrid|--remote|--local] [--swarm|--extractor <metadatafile>]
+    trireme run [--servicename=<sname>] [[--metadata=<keyvalue>]...] <command> [--] [<params>...]
+		trireme daemon [--usePKI] [--hybrid|--remote|--local] [--swarm|--extractor <metadatafile>] [--keyFile=<keyFile>] [--certFile=<certFile>] [--caCert=<caFile>]
 		trireme enforce
 		trireme  <cgroup>
 		trireme -h | --help
