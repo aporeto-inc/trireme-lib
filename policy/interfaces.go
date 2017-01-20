@@ -42,11 +42,11 @@ type InfoInteractor interface {
 	// Clone returns a copy of the policy
 	Clone() *PUPolicy
 
-	// IngressACLs returns a copy of IPRuleList
-	IngressACLs() *IPRuleList
+	// ApplicationACLs returns a copy of IPRuleList
+	ApplicationACLs() *IPRuleList
 
-	// EgressACLs returns a copy of IPRuleList
-	EgressACLs() *IPRuleList
+	// NetworkACLs returns a copy of IPRuleList
+	NetworkACLs() *IPRuleList
 
 	// ReceiverRules returns a copy of TagSelectorList
 	ReceiverRules() *TagSelectorList

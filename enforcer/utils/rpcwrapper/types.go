@@ -69,8 +69,8 @@ type EnforcePayload struct {
 	ContextID        string
 	ManagementID     string
 	TriremeAction    policy.PUAction
-	IngressACLs      *policy.IPRuleList
-	EgressACLs       *policy.IPRuleList
+	ApplicationACLs  *policy.IPRuleList
+	NetworkACLs      *policy.IPRuleList
 	Identity         *policy.TagsMap
 	Annotations      *policy.TagsMap
 	PolicyIPs        *policy.IPMap
@@ -84,8 +84,8 @@ type SuperviseRequestPayload struct {
 	ContextID        string
 	ManagementID     string
 	TriremeAction    policy.PUAction
-	IngressACLs      *policy.IPRuleList
-	EgressACLs       *policy.IPRuleList
+	ApplicationACLs  *policy.IPRuleList
+	NetworkACLs      *policy.IPRuleList
 	PolicyIPs        *policy.IPMap
 	Identity         *policy.TagsMap
 	Annotations      *policy.TagsMap

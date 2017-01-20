@@ -104,7 +104,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return fmt.Errorf("No ip address found")
 	}
 
-	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
+	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
 		return err
 	}
 
@@ -147,7 +147,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return fmt.Errorf("No ip address found")
 	}
 
-	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
+	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
 		return err
 	}
 

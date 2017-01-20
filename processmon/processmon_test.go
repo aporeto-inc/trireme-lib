@@ -138,7 +138,7 @@ func TestKillProcess(t *testing.T) {
 	contextID := "12345"
 	refPid := 1
 	calledRemoteCall := false
-	paramvalidate := false
+	// paramvalidate := false
 
 	//Lets launch process
 	p := newProcessMon()
@@ -151,7 +151,7 @@ func TestKillProcess(t *testing.T) {
 	p.LaunchProcess(contextID, refPid, rpchdl, "")
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
 		if contextID == passed_contextID {
-			paramvalidate = true
+			// paramvalidate = true
 		}
 		calledRemoteCall = true
 		return errors.New("Null Error")

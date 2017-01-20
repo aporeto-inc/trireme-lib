@@ -14,12 +14,12 @@ type PUPolicy struct {
 	ManagementID string
 	//TriremeAction defines what level of policy should be applied to that container.
 	TriremeAction PUAction
-	// ingressACLs is the list of ACLs to be applied when the container talks
+	// applicationACLs is the list of ACLs to be applied when the container talks
 	// to IP Addresses outside the data center
-	ingressACLs *IPRuleList
-	// egressACLs is the list of ACLs to be applied from IP Addresses outside
+	applicationACLs *IPRuleList
+	// networkACLs is the list of ACLs to be applied from IP Addresses outside
 	// the data center
-	egressACLs *IPRuleList
+	networkACLs *IPRuleList
 	// identity is the set of key value pairs that must be send over the wire.
 	identity *TagsMap
 	// annotations are key/value pairs  that should be used for accounting reasons
@@ -64,8 +64,8 @@ func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags
 		puPolicyMutex:    &sync.Mutex{},
 		ManagementID:     id,
 		TriremeAction:    action,
-		ingressACLs:      ingress,
-		egressACLs:       egress,
+		applicationACLs:  ingress,
+		networkACLs:      egress,
 		transmitterRules: txtags,
 		receiverRules:    rxtags,
 		identity:         identity,
@@ -89,8 +89,8 @@ func (p *PUPolicy) Clone() *PUPolicy {
 	np := NewPUPolicy(
 		p.ManagementID,
 		p.TriremeAction,
-		p.ingressACLs.Clone(),
-		p.egressACLs.Clone(),
+		p.applicationACLs.Clone(),
+		p.networkACLs.Clone(),
 		p.transmitterRules.Clone(),
 		p.receiverRules.Clone(),
 		p.identity.Clone(),
@@ -101,20 +101,20 @@ func (p *PUPolicy) Clone() *PUPolicy {
 	return np
 }
 
-// IngressACLs returns a copy of IPRuleList
-func (p *PUPolicy) IngressACLs() *IPRuleList {
+// ApplicationACLs returns a copy of IPRuleList
+func (p *PUPolicy) ApplicationACLs() *IPRuleList {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	return p.ingressACLs.Clone()
+	return p.applicationACLs.Clone()
 }
 
-// EgressACLs returns a copy of IPRuleList
-func (p *PUPolicy) EgressACLs() *IPRuleList {
+// NetworkACLs returns a copy of IPRuleList
+func (p *PUPolicy) NetworkACLs() *IPRuleList {
 	p.puPolicyMutex.Lock()
 	defer p.puPolicyMutex.Unlock()
 
-	return p.egressACLs.Clone()
+	return p.networkACLs.Clone()
 }
 
 // ReceiverRules returns a copy of TagSelectorList

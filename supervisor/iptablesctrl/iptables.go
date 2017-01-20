@@ -135,11 +135,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, policyrules.IngressACLs()); err != nil {
+	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, policyrules.EgressACLs()); err != nil {
+	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
@@ -206,11 +206,11 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, policyrules.IngressACLs()); err != nil {
+	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, policyrules.EgressACLs()); err != nil {
+	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 

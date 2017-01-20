@@ -299,8 +299,8 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 	pupolicy := policy.NewPUPolicy(payload.ManagementID,
 		payload.TriremeAction,
-		payload.IngressACLs,
-		payload.EgressACLs,
+		payload.ApplicationACLs,
+		payload.NetworkACLs,
 		payload.TransmitterRules,
 		payload.ReceiverRules,
 		payload.Identity,
@@ -366,8 +366,8 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 
 	pupolicy := policy.NewPUPolicy(payload.ManagementID,
 		payload.TriremeAction,
-		payload.IngressACLs,
-		payload.EgressACLs,
+		payload.ApplicationACLs,
+		payload.NetworkACLs,
 		payload.TransmitterRules,
 		payload.ReceiverRules,
 		payload.Identity,
