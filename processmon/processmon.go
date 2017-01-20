@@ -4,8 +4,9 @@
 package ProcessMon
 
 import (
+	"bufio"
 	"errors"
-	"io"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -215,12 +216,31 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	}()
 	//processMonWait(cmd, contextID)
 	go func() {
-		io.Copy(os.Stdout, stdout)
-		exited <- 1
+		stdoutreader := bufio.NewReader(stdout)
+		for {
+			str, err := stdoutreader.ReadString('\n')
+			if err != nil {
+				exited <- 1
+				return
+			} else {
+				fmt.Println(str)
+			}
+		}
+
 	}()
 	go func() {
-		io.Copy(os.Stderr, stderr)
-		exited <- 1
+		//io.Copy(os.Stderr, stderr)
+		stderrreader := bufio.NewReader(stderr)
+		for {
+			str, err := stderrreader.ReadString('\n')
+			if err != nil {
+				exited <- 1
+				return
+			} else {
+				fmt.Println(str)
+			}
+		}
+
 	}()
 	rpchdl.NewRPCClient(contextID, "/tmp/"+strconv.Itoa(refPid)+".sock")
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
