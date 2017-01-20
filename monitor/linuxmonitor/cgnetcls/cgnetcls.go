@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/kardianos/osext"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 	CgroupNameTag        = "@cgroup_name"
 	CgroupMarkTag        = "@cgroup_mark"
 	PortTag              = "@port"
-	releaseAgentbin      = "/usr/bin/trireme"
+	releaseAgentbin      = "/trireme"
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
 	initialmarkval       = 100
@@ -49,7 +50,7 @@ func (s *netCls) Creategroup(cgroupname string) error {
 	os.MkdirAll((basePath + aporetobase + cgroupname), 0700)
 
 	//Write to the notify on release file and release agent files
-	binpath := releaseAgentbin
+	binpath, _ := osext.Executable()
 	err = ioutil.WriteFile(basePath+releaseAgentConfFile, []byte(binpath), 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to register a release agent error %s", err.Error())
