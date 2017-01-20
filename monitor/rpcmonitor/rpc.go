@@ -169,10 +169,13 @@ func (r *rpcMonitor) Start() error {
 
 			conn, err := listener.Accept()
 			if err != nil {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Error("Error while handling RPC event")
+				if !strings.Contains(err.Error(), "closed") {
+					log.WithFields(log.Fields{
+						"package": "monitor",
+						"error":   err.Error(),
+					}).Error("Error while handling RPC event")
+				}
+
 				break
 			}
 

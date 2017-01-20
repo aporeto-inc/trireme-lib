@@ -77,9 +77,6 @@ func (t *trireme) Start() error {
 // for PU Creation/Update and Policy Updates
 func (t *trireme) Stop() error {
 
-	// send the stop signal for the trireme worker routine.
-	t.stop <- true
-
 	for _, s := range t.supervisors {
 		if err := s.Stop(); err != nil {
 			log.WithFields(log.Fields{
@@ -97,6 +94,9 @@ func (t *trireme) Stop() error {
 			}).Debug("Error when stopping the enforcer")
 		}
 	}
+
+	// send the stop signal for the trireme worker routine.
+	t.stop <- true
 
 	return nil
 }
