@@ -347,7 +347,6 @@ func (i *Instance) setupTrapRules(set string) error {
 		},
 	}
 
-	fmt.Println("Going into the loop")
 	for _, tr := range rules {
 		if err := i.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
 			log.WithFields(log.Fields{

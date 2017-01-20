@@ -159,6 +159,7 @@ func (r *rpcMonitor) Start() error {
 	log.WithFields(log.Fields{
 		"package": "monitor",
 	}).Debugf("Starting RPC Server and listening at endpoint: %s", r.rpcAddress)
+
 	//Launch a go func to accept connections
 	go func() {
 
@@ -189,7 +190,9 @@ func (r *rpcMonitor) Start() error {
 func (r *rpcMonitor) Stop() error {
 
 	r.listensock.Close()
+
 	os.RemoveAll(r.rpcAddress)
+
 	return nil
 }
 

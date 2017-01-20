@@ -12,7 +12,7 @@ import (
 type store struct{}
 
 var (
-	storebasePath = "/var/run/aporeto"
+	storebasePath = "/var/run/trireme"
 )
 
 const (

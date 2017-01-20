@@ -5,7 +5,7 @@ import "github.com/aporeto-inc/trireme/monitor"
 const (
 
 	// Rpcaddress is the default Linux socket for the RPC monitor
-	Rpcaddress = "/tmp/monitor.sock"
+	Rpcaddress = "/var/run/trireme/trireme.sock"
 )
 
 // EventInfo is a generic structure that defines all the information related to a PU event.
