@@ -500,6 +500,36 @@ func (i *Instance) CaptureSYNACKPackets() error {
 	return nil
 }
 
+// CleanCaptureSynAckPackets cleans the capture rules for SynAck packets
+func (i *Instance) CleanCaptureSynAckPackets() error {
+
+	err := i.ipt.Delete(i.appAckPacketIPTableContext, "INPUT",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.networkQueues)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"table":   i.appAckPacketIPTableContext,
+			"chain":   "INPUT",
+		}).Debug("Failed to delete SynAck packet capture at input ")
+	}
+
+	err = i.ipt.Delete(i.netPacketIPTableContext, "OUTPUT",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.applicationQueues)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"table":   i.netPacketIPTableContext,
+			"chain":   "OUTPUT",
+		}).Debug("Failed to delete SynAck packet capture at output ")
+	}
+
+	return nil
+}
+
 func (i *Instance) acceptMarkedPackets() error {
 
 	if i.mode != constants.LocalContainer {
@@ -543,6 +573,10 @@ func (i *Instance) cleanACLs() error {
 
 	// Clean the mark rule
 	i.removeMarkRule()
+
+	if i.mode == constants.LocalServer {
+		i.CleanCaptureSynAckPackets()
+	}
 
 	// Clean Application Rules/Chains in Raw if needed
 	if i.mode == constants.LocalContainer {
