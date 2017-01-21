@@ -13,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
+	"github.com/docker/docker/api/types/filters"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -270,8 +271,11 @@ func (d *dockerMonitor) eventProcessor() {
 // that we will miss events because the processor is delayed
 func (d *dockerMonitor) eventListener() {
 
-	messages, errs := d.dockerClient.Events(context.Background(), types.EventsOptions{})
+	options := types.EventsOptions{}
+	options.Filters = filters.NewArgs()
+	options.Filters.Add("type", "container")
 
+	messages, errs := d.dockerClient.Events(context.Background(), options)
 	for {
 		select {
 		case message := <-messages:
@@ -279,6 +283,7 @@ func (d *dockerMonitor) eventListener() {
 				"package": "monitor",
 				"message": message,
 			}).Debug("Got message from docker client")
+
 			d.eventnotifications <- &message
 		case err := <-errs:
 			if err != nil && err != io.EOF {
@@ -477,6 +482,7 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 // handleCreateEvent generates a create event type.
 func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 	dockerID := event.ID
+
 	contextID, err := contextIDFromDockerID(dockerID)
 	if err != nil {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
@@ -589,7 +595,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 	return <-errChan
 }
 
-// handleCreateEvent generates a create event type.
+// handlePauseEvent generates a create event type.
 func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 	dockerID := event.ID
 	contextID, err := contextIDFromDockerID(dockerID)
