@@ -58,7 +58,7 @@ func SwarmExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 	}
 
 	ipa := policy.NewIPMap(map[string]string{
-		"bridge": info.NetworkSettings.IPAddress,
+		"bridge": "0.0.0.0/0",
 	})
 
 	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, policy.ContainerPU, nil), nil

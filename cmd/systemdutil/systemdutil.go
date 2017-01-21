@@ -60,7 +60,7 @@ func ExecuteCommand(arguments map[string]interface{}) {
 	}
 
 	// Make RPC call
-	client, err := net.Dial("unix", rpcmonitor.Rpcaddress)
+	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
 	if err != nil {
 		stderrlogger.Fatalf("Cannot connect to policy process %s", err)
 	}
@@ -123,7 +123,7 @@ func createMetadata(servicename string, metadata []string) (map[string]string, e
 // HandleCgroupStop handles the deletion of a cgroup
 func HandleCgroupStop(cgroupName string) error {
 
-	client, err := net.Dial("unix", rpcmonitor.Rpcaddress)
+	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
 	if err != nil {
 		return err
 	}

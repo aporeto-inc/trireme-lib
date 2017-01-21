@@ -417,11 +417,6 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 //   - Updates TCP header (checksums)
 func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
-	log.WithFields(log.Fields{
-		"package":      "packet",
-		"optionLength": optionLength,
-	}).Debug("TCP data detach")
-
 	// Length
 	dataLength := p.IPTotalLength - p.TCPDataStartBytes()
 
@@ -529,4 +524,14 @@ func (p *Packet) L4FlowHash() string {
 // L4ReverseFlowHash caclulate a hash string based on the 4-tuple by reversing source and destination information
 func (p *Packet) L4ReverseFlowHash() string {
 	return p.DestinationAddress.String() + ":" + p.SourceAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort)) + ":" + strconv.Itoa(int(p.SourcePort))
+}
+
+// SynAckNetworkHash calculates a hash based on the destination IP and port
+func (p *Packet) SynAckNetworkHash() string {
+	return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
+}
+
+// SynAckApplicationHash calculates a hash based on src/dest port and dest IP address
+func (p *Packet) SynAckApplicationHash() string {
+	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
 }

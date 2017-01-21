@@ -16,9 +16,9 @@ import (
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
+	// Skip SynAck packets that we haven't seen a connection
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
-		portHash := p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
-		if _, err := d.sourcePortCache.Get(portHash); err != nil {
+		if _, err := d.sourcePortCache.Get(p.SynAckNetworkHash()); err != nil {
 			return nil
 		}
 	}
@@ -27,7 +27,6 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
-		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPNetPacket(p) {
 			d.netTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
@@ -78,9 +77,9 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error {
 
+	// Skip SynAck packets for connections that we are not processing
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
-		portHash := p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
-		if _, err := d.destinationPortCache.Get(portHash); err != nil {
+		if _, err := d.destinationPortCache.Get(p.SynAckApplicationHash()); err != nil {
 			return nil
 		}
 	}
@@ -218,13 +217,10 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	var err error
 
 	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
-		portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort)) + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))
-		if context, err = d.destinationPortCache.Get(portHash); err != nil {
+		if context, err = d.destinationPortCache.Get(tcpPacket.SynAckApplicationHash()); err != nil {
 			return nil, err
 		}
 	} else {
-
-		// Find the container context
 		context, err = d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
 	}
 
@@ -678,8 +674,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	var context interface{}
 
 	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
-		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))
-		if context, err = d.sourcePortCache.Get(portHash); err != nil {
+		if context, err = d.sourcePortCache.Get(tcpPacket.SynAckNetworkHash()); err != nil {
 			return nil, nil
 		}
 	} else {

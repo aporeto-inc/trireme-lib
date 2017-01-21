@@ -4,12 +4,15 @@
 package cgnetcls
 
 const (
-	basePath      = "/sys/fs/cgroup/net_cls/"
-	markFile      = "/net_cls.classid"
-	procs         = "/cgroup.procs"
+	basePath = "/sys/fs/cgroup/net_cls/"
+	markFile = "/net_cls.classid"
+	procs    = "/cgroup.procs"
+	// CgroupNameTag  identifies the cgroup name
 	CgroupNameTag = "@cgroup_name"
+	// CgroupMarkTag identifies the cgroup mark value
 	CgroupMarkTag = "@cgroup_mark"
-	PortTag       = "@port"
+	// PortTag is the tag for the port values
+	PortTag = "@port"
 )
 
 //Empty receiver struct
@@ -52,6 +55,7 @@ func NewCgroupNetController() Cgroupnetcls {
 
 var markval uint64 = 100
 
+// MarkVal returns a new Mark
 func MarkVal() <-chan string {
 	ch := make(chan string)
 	return ch

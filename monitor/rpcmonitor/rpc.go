@@ -69,8 +69,14 @@ type Server struct {
 	contextstore      contextstore.ContextStore
 }
 
-//NewRPCoMonitor returns a fully initialized RPC Based monitor.
-func NewRPCMonitor(rpcAddress string, metadataExtractor RPCMetadataExtractor, puHandler monitor.ProcessingUnitsHandler, collector collector.EventCollector, netcls cgnetcls.Cgroupnetcls, contextstorehdl contextstore.ContextStore) (monitor.Monitor, error) {
+// NewRPCMonitor returns a fully initialized RPC Based monitor.
+func NewRPCMonitor(
+	rpcAddress string,
+	metadataExtractor RPCMetadataExtractor,
+	puHandler monitor.ProcessingUnitsHandler,
+	collector collector.EventCollector,
+	netcls cgnetcls.Cgroupnetcls,
+	contextstorehdl contextstore.ContextStore) (monitor.Monitor, error) {
 
 	if rpcAddress == "" {
 		return nil, fmt.Errorf("RPC endpoint address invalid")
@@ -114,41 +120,77 @@ func NewRPCMonitor(rpcAddress string, metadataExtractor RPCMetadataExtractor, pu
 	return r, nil
 }
 
-// Start starts the RPC monitoring.
-// Blocking, so needs to be started with go...
-func (r *rpcMonitor) Start() error {
-
-	log.WithFields(log.Fields{"package": "rpcmonitor",
-		"message:": "Starting",
-	}).Info("Starting RPC monitor")
-
-	//Check if we had running units when we last died
-	//Ideally want to recreate these
+// reSync resyncs with all the existing services that were there before we start
+func (r *rpcMonitor) reSync() error {
 
 	walker, err := r.monitorServer.contextstore.WalkStore()
-	if err == nil {
+	if err != nil {
+		return fmt.Errorf("error in accessing context store")
+	}
 
-		for {
-			contextID := <-walker
-			if contextID == "" {
-				break
+	for {
+		contextID := <-walker
+		if contextID == "" {
+			break
+		}
+
+		data, err := r.monitorServer.contextstore.GetContextInfo("/" + contextID)
+		if err == nil && data != nil {
+
+			var eventInfo EventInfo
+
+			if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
+				return fmt.Errorf("error in umarshalling date")
 			}
-			contextID = "/" + contextID
-			data, err := r.monitorServer.contextstore.GetContextInfo(contextID)
-			if err == nil && data != nil {
-				var eventInfo EventInfo
-				json.Unmarshal(data.([]byte), &eventInfo)
 
-				r.monitorServer.handleStartEvent(&eventInfo)
+			if err := r.monitorServer.handleStartEvent(&eventInfo); err != nil {
+				return fmt.Errorf("error in processing existing data")
 			}
 		}
 	}
-	//TODO END
 
-	listener, err := net.Listen("unix", r.rpcAddress)
-	r.listensock = listener
-	os.Chmod(r.rpcAddress, 0766)
-	if err != nil {
+	return nil
+}
+
+// processRequests processes the RPC requests
+func (r *rpcMonitor) processRequests() {
+	for {
+		conn, err := r.listensock.Accept()
+		if err != nil {
+			if !strings.Contains(err.Error(), "closed") {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Error("Error while handling RPC event")
+			}
+
+			break
+		}
+
+		r.rpcServer.ServeCodec(jsonrpc.NewServerCodec(conn))
+	}
+}
+
+// Start starts the RPC monitoring.
+func (r *rpcMonitor) Start() error {
+
+	var err error
+
+	log.WithFields(log.Fields{"package": "rpcmonitor",
+		"message:": "Starting rcp monitor",
+		"socket":   r.rpcAddress,
+	}).Info("Starting RPC monitor")
+
+	// Check if we had running units when we last died
+	if err = r.reSync(); err != nil {
+		log.WithFields(log.Fields{
+			"package":  "rpcmonitor",
+			"error":    err.Error(),
+			"message:": "Unable to resync existing services",
+		}).Error("Failed to resync existing services")
+	}
+
+	if r.listensock, err = net.Listen("unix", r.rpcAddress); err != nil {
 		log.WithFields(log.Fields{"package": "rpcmonitor",
 			"error":    err.Error(),
 			"message:": "Starting",
@@ -156,33 +198,17 @@ func (r *rpcMonitor) Start() error {
 		return fmt.Errorf("couldn't create binding: %s", err)
 	}
 
-	log.WithFields(log.Fields{
-		"package": "monitor",
-	}).Debugf("Starting RPC Server and listening at endpoint: %s", r.rpcAddress)
+	if err = os.Chmod(r.rpcAddress, 0766); err != nil {
+		log.WithFields(log.Fields{"package": "rpcmonitor",
+			"error":    err.Error(),
+			"message:": "Failed to adjust permissions on rpc socket path",
+		}).Info("Failed RPC monitor")
+		return fmt.Errorf("couldn't create binding: %s", err)
+	}
 
 	//Launch a go func to accept connections
-	go func() {
+	go r.processRequests()
 
-		for {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-			}).Debugf("Handling new RPC Monitor request")
-
-			conn, err := listener.Accept()
-			if err != nil {
-				if !strings.Contains(err.Error(), "closed") {
-					log.WithFields(log.Fields{
-						"package": "monitor",
-						"error":   err.Error(),
-					}).Error("Error while handling RPC event")
-				}
-
-				break
-			}
-
-			r.rpcServer.ServeCodec(jsonrpc.NewServerCodec(conn))
-		}
-	}()
 	return nil
 }
 
@@ -204,11 +230,10 @@ func (s *Server) addHandler(event monitor.Event, handler RPCEventHandler) {
 // HandleEvent Gets called when clients generate events.
 func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 
-	log.Debugf("Handling RPC eventof type %s", eventInfo.EventType)
-
 	if eventInfo.EventType == "" {
 		return fmt.Errorf("Invalid event type")
 	}
+
 	f, present := s.handlers[eventInfo.EventType]
 	if present {
 		err := f(eventInfo)
@@ -222,18 +247,21 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 
 		return err
 	}
-	log.Debugf("RPC event not handled.")
+
 	return nil
 }
 
+// generateContextID creates the contextID from the event information
 func generateContextID(eventInfo *EventInfo) (string, error) {
 
 	if eventInfo.PUID == "" {
 		return "", fmt.Errorf("PUID is empty from eventInfo")
 	}
+
 	return eventInfo.PUID, nil
 }
 
+// handleCreateEvent handles create events
 func (s *Server) handleCreateEvent(eventInfo *EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
@@ -249,47 +277,48 @@ func (s *Server) handleCreateEvent(eventInfo *EventInfo) error {
 	return <-errChan
 }
 
+// handleStartEvent handles start events
 func (s *Server) handleStartEvent(eventInfo *EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+		return err
 	}
-	contextStore := contextstore.NewContextStore()
 
 	runtimeInfo, err := s.metadataExtractor(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate RuntimeInfo: %s", err)
+		return err
 	}
 
-	s.puHandler.SetPURuntime(contextID, runtimeInfo)
+	if err = s.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
+		return err
+	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
 	// Send the event upstream
-
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
 	status := <-errChan
-	if nil == status {
+	if status == nil {
 		//It is okay to launch this so let us create a cgroup for it
-
-		s.collector.CollectContainerEvent(contextID, defaultIP, runtimeInfo.Tags(), collector.ContainerStart)
 
 		err = s.netcls.Creategroup(eventInfo.PUID)
 		if err != nil {
-			log.WithFields(log.Fields{"package": "rpcMonitor",
-				"error": err.Error()}).Info("Error Creating cgroup")
+			log.WithFields(log.Fields{
+				"package": "rpcMonitor",
+				"error":   err.Error(),
+			}).Info("Error Creating cgroup")
 			return err
-
 		}
 
-		// TODO - Get a mark id for this cgroup
 		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
 		if !ok {
 			s.netcls.DeleteCgroup(eventInfo.PUID)
-			log.WithFields(log.Fields{"package": "rpcmonitor",
-				"PUID": eventInfo.PUID}).Error("Mark value not found")
+			log.WithFields(log.Fields{
+				"package": "rpcmonitor",
+				"PUID":    eventInfo.PUID,
+			}).Error("Mark value not found")
 			return errors.New("Mark value not found")
 		}
 
@@ -297,33 +326,42 @@ func (s *Server) handleStartEvent(eventInfo *EventInfo) error {
 		err = s.netcls.AssignMark(eventInfo.PUID, mark)
 		if err != nil {
 			s.netcls.DeleteCgroup(eventInfo.PUID)
-			log.WithFields(log.Fields{"package": "rpcMonitor",
-				"error": err.Error()}).Info("Error assigning mark value")
+			log.WithFields(log.Fields{
+				"package": "rpcMonitor",
+				"error":   err.Error(),
+			}).Info("Error assigning mark value")
 			return err
-
 		}
 
 		pid, _ := strconv.Atoi(eventInfo.PID)
 		err = s.netcls.AddProcess(eventInfo.PUID, pid)
 		if err != nil {
 			s.netcls.DeleteCgroup(eventInfo.PUID)
-			log.WithFields(log.Fields{"package": "rpcMonitor",
-				"error": err.Error()}).Info("Error adding process")
+			log.WithFields(log.Fields{
+				"package": "rpcMonitor",
+				"error":   err.Error(),
+			}).Info("Error adding process")
 			return err
 
 		}
-
+		s.collector.CollectContainerEvent(contextID, defaultIP, runtimeInfo.Tags(), collector.ContainerStart)
 	}
-	//ContextInfo Store
-	contextStore.StoreContext(contextID, eventInfo)
+
+	// Store the state in the context store for future access
+	contextstore.NewContextStore().StoreContext(contextID, eventInfo)
 	return status
 }
 
+// handleStopEvent handles a stop event
 func (s *Server) handleStopEvent(eventInfo *EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+	}
+
+	if !strings.HasPrefix(contextID, cgnetcls.TriremeBasePath) {
+		return nil
 	}
 
 	contextID = contextID[strings.LastIndex(contextID, "/"):]
@@ -335,11 +373,16 @@ func (s *Server) handleStopEvent(eventInfo *EventInfo) error {
 	return status
 }
 
+// handleDestroyEvent handles a destroy event
 func (s *Server) handleDestroyEvent(eventInfo *EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+	}
+
+	if !strings.HasPrefix(contextID, cgnetcls.TriremeBasePath) {
+		return nil
 	}
 
 	contextID = contextID[strings.LastIndex(contextID, "/"):]
@@ -360,6 +403,7 @@ func (s *Server) handleDestroyEvent(eventInfo *EventInfo) error {
 	return nil
 }
 
+// handlePauseEvent handles a pause event
 func (s *Server) handlePauseEvent(eventInfo *EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)

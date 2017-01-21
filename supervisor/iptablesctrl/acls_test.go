@@ -86,7 +86,7 @@ func TestAddChainRules(t *testing.T) {
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
-		Convey("When I add the chain rules and the succeed", func() {
+		Convey("When I add the chain rules and they succeed", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
@@ -617,30 +617,6 @@ func TestRemoveMarkRule(t *testing.T) {
 		})
 	})
 }
-
-// func TestCleanAclSection(t *testing.T) {
-// 	Convey("Given an iptables controller", t, func() {
-// 		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, false)
-// 		iptables := provider.NewTestIptablesProvider()
-// 		i.ipt = iptables
-// 		Convey("When I clean all the ACL sections", func() {
-// 			iptables.MockClearChain(t, func(table string, chain string) error {
-// 				return nil
-// 			})
-//
-// 			iptables.MockListChains(t, func(table string) ([]string, error) {
-// 				return []string{}, nil
-// 			})
-// 			iptables.MockDeleteChain(t, func(table string, chain string) error {
-// 				return nil
-// 			})
-// 			i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, "TRIREME")
-// 			Convey("I should get no error ", func() {
-// 				So(err, ShouldNotBeNil)
-// 			})
-// 		})
-// 	})
-// }
 
 func TestAddExclusionChainRules(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {

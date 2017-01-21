@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/docker/docker/api/types"
@@ -24,34 +23,24 @@ func NewExternalExtractor(filePath string) (dockermonitor.DockerMetadataExtracto
 	if err != nil {
 		return nil, fmt.Errorf("Exec file was not found at filePath %s: %s", filePath, err)
 	}
+
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return nil, fmt.Errorf("Exec file was not found at filePath %s: %s", filePath, err)
 	}
 
-	log.WithFields(log.Fields{
-		"package": "monitor",
-	}).Debug("Initializing New Bash Extractor for External script: ", filePath)
-
 	// Generate a new function
 	externalExtractor := func(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
+
 		dockerInfoJSON, err := json.Marshal(dockerInfo)
 		if err != nil {
 			return nil, fmt.Errorf("Error marshaling dockerInfo: %s", err)
 		}
-
-		log.WithFields(log.Fields{
-			"package": "monitor",
-		}).Debug("Json to send to External Bash script: ", string(dockerInfoJSON))
 
 		cmd := exec.Command(path, string(dockerInfoJSON))
 		jsonResult, err := cmd.Output()
 		if err != nil {
 			return nil, fmt.Errorf("Error running bash extractor: %s", err)
 		}
-
-		log.WithFields(log.Fields{
-			"package": "monitor",
-		}).Debug("Result from external script: ", string(jsonResult))
 
 		var m policy.PURuntime
 		err = json.Unmarshal(jsonResult, &m)

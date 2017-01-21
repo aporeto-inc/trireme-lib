@@ -410,7 +410,7 @@ func NewPSKHybridTriremeWithMonitor(
 	netcls := cgnetcls.NewCgroupNetController()
 	contextstorehdl := contextstore.NewContextStore()
 	rpcmonitor, _ := rpcmonitor.NewRPCMonitor(
-		rpcmonitor.Rpcaddress,
+		rpcmonitor.DefaultRPCAddress,
 		linuxmonitor.SystemdRPCMetadataExtractor,
 		triremeInstance,
 		eventCollector,

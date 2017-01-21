@@ -249,6 +249,7 @@ func (d *dockerMonitor) eventProcessor() {
 					if err != nil {
 						log.WithFields(log.Fields{
 							"package": "monitor",
+							"action":  event.Action,
 							"error":   err.Error(),
 						}).Error("Error while handling event")
 					}

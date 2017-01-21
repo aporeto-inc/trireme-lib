@@ -8,7 +8,7 @@ const (
 	DefaultDockerSocketType = "unix"
 )
 
-// ModeType defines whether this is local or remote
+// ModeType defines the mode of the enforcement and supervisor.
 type ModeType int
 
 const (
@@ -22,7 +22,7 @@ const (
 	LocalServer
 )
 
-// ImplementationType defines the type of implementation
+// ImplementationType defines the type of iptables or ipsets implementation
 type ImplementationType int
 
 const (

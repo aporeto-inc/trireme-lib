@@ -1,1 +1,1 @@
-./trireme --enforcer=remote
+./trireme daemon --remote 

@@ -295,8 +295,9 @@ func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
 		return t.doHandleCreate(contextID)
 	case monitor.EventStop:
 		return t.doHandleDelete(contextID)
+	default:
+		return nil
 	}
-	return nil
 }
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {

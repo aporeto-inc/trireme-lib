@@ -20,6 +20,7 @@ type testdatastruct struct {
 func cleanupstore() {
 	os.RemoveAll(storebasePath)
 }
+
 func TestStoreContext(t *testing.T) {
 	setStoreBasePath("./base")
 	cstore := NewContextStore()
@@ -37,8 +38,8 @@ func TestStoreContext(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-
 }
+
 func TestDestroyStore(t *testing.T) {
 	setStoreBasePath("./base")
 	cstore := NewContextStore()
@@ -58,8 +59,8 @@ func TestDestroyStore(t *testing.T) {
 		t.Errorf("Unable to destroy contextstore %s", err.Error())
 		t.SkipNow()
 	}
-
 }
+
 func TestGetContextInfo(t *testing.T) {
 	setStoreBasePath("./base")
 	cstore := NewContextStore()
@@ -84,8 +85,8 @@ func TestGetContextInfo(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-
 }
+
 func TestRemoveContext(t *testing.T) {
 	setStoreBasePath("./base")
 	cstore := NewContextStore()
@@ -108,8 +109,8 @@ func TestRemoveContext(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-
 }
+
 func TestWalkStore(t *testing.T) {
 	setStoreBasePath("./base")
 	cstore := NewContextStore()
@@ -133,5 +134,4 @@ func TestWalkStore(t *testing.T) {
 		t.Errorf("Walk did not get all contextIDs %d", index)
 		t.SkipNow()
 	}
-
 }

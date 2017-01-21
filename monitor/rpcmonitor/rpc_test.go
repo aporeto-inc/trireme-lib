@@ -28,8 +28,13 @@ var listener net.UnixListener
 var testRPCAddress = "/tmp/test.sock"
 
 func starttestserver() {
+
 	rpcServer := rpc.NewServer()
-	listener, err := net.ListenUnix("unix", &net.UnixAddr{testRPCAddress, "unix"})
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{
+		Name: testRPCAddress,
+		Net:  "unix",
+	})
+
 	if err != nil {
 		fmt.Println(err)
 	}
