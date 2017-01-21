@@ -9,6 +9,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/docker/docker/api/types"
@@ -115,7 +116,7 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 		"bridge": info.NetworkSettings.IPAddress,
 	})
 
-	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, policy.ContainerPU, nil), nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.ContainerPU, nil), nil
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events
@@ -285,6 +286,7 @@ func (d *dockerMonitor) eventListener() {
 			}).Debug("Got message from docker client")
 
 			d.eventnotifications <- &message
+
 		case err := <-errs:
 			if err != nil && err != io.EOF {
 				log.WithFields(log.Fields{

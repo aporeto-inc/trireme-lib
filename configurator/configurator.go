@@ -11,12 +11,9 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme/policy"
 
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 
@@ -42,8 +39,8 @@ func NewTriremeLinuxProcess(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[policy.PUType]enforcer.PolicyEnforcer{
-		policy.LinuxProcessPU: enforcer.NewDefaultDatapathEnforcer(serverID,
+	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+		constants.LinuxProcessPU: enforcer.NewDefaultDatapathEnforcer(serverID,
 			eventCollector,
 			nil,
 			secrets,
@@ -52,7 +49,7 @@ func NewTriremeLinuxProcess(
 
 	s, err := supervisor.NewSupervisor(
 		eventCollector,
-		enforcers[policy.LinuxProcessPU],
+		enforcers[constants.LinuxProcessPU],
 		networks,
 		constants.LocalServer,
 		constants.IPTables,
@@ -65,7 +62,7 @@ func NewTriremeLinuxProcess(
 		}).Fatal("Failed to load Supervisor")
 	}
 
-	supervisors := map[policy.PUType]supervisor.Supervisor{policy.ContainerPU: s}
+	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
 
 	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
 }
@@ -88,8 +85,8 @@ func NewLocalTriremeDocker(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[policy.PUType]enforcer.PolicyEnforcer{
-		policy.ContainerPU: enforcer.NewDefaultDatapathEnforcer(serverID,
+	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+		constants.ContainerPU: enforcer.NewDefaultDatapathEnforcer(serverID,
 			eventCollector,
 			nil,
 			secrets,
@@ -98,7 +95,7 @@ func NewLocalTriremeDocker(
 
 	s, err := supervisor.NewSupervisor(
 		eventCollector,
-		enforcers[policy.ContainerPU],
+		enforcers[constants.ContainerPU],
 		networks,
 		constants.LocalContainer,
 		impl,
@@ -111,7 +108,7 @@ func NewLocalTriremeDocker(
 		}).Fatal("Failed to load Supervisor")
 	}
 
-	supervisors := map[policy.PUType]supervisor.Supervisor{policy.ContainerPU: s}
+	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
 
 	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
 }
@@ -135,8 +132,8 @@ func NewDistributedTriremeDocker(serverID string,
 
 	rpcwrapper := rpcwrapper.NewRPCWrapper()
 
-	enforcers := map[policy.PUType]enforcer.PolicyEnforcer{
-		policy.ContainerPU: enforcerproxy.NewDefaultProxyEnforcer(
+	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+		constants.ContainerPU: enforcerproxy.NewDefaultProxyEnforcer(
 			serverID,
 			eventCollector,
 			secrets,
@@ -151,7 +148,7 @@ func NewDistributedTriremeDocker(serverID string,
 		}).Fatal("Cannot initialize proxy supervisor")
 	}
 
-	supervisors := map[policy.PUType]supervisor.Supervisor{policy.ContainerPU: s}
+	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
 
 	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
 }
@@ -218,14 +215,14 @@ func NewHybridTrireme(
 
 	}
 
-	enforcers := map[policy.PUType]enforcer.PolicyEnforcer{
-		policy.ContainerPU:    containerEnforcer,
-		policy.LinuxProcessPU: processEnforcer,
+	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+		constants.ContainerPU:    containerEnforcer,
+		constants.LinuxProcessPU: processEnforcer,
 	}
 
-	supervisors := map[policy.PUType]supervisor.Supervisor{
-		policy.ContainerPU:    containerSupervisor,
-		policy.LinuxProcessPU: processSupervisor,
+	supervisors := map[constants.PUType]supervisor.Supervisor{
+		constants.ContainerPU:    containerSupervisor,
+		constants.LinuxProcessPU: processSupervisor,
 	}
 
 	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
@@ -298,7 +295,7 @@ func NewPSKTriremeWithDockerMonitor(
 		syncAtStart,
 		nil)
 
-	return triremeInstance, monitorInstance, triremeInstance.Supervisor(policy.ContainerPU).(supervisor.Excluder)
+	return triremeInstance, monitorInstance, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)
 
 }
 
@@ -360,7 +357,7 @@ func NewPKITriremeWithDockerMonitor(
 		syncAtStart,
 		nil)
 
-	return triremeInstance, monitorInstance, triremeInstance.Supervisor(policy.ContainerPU).(supervisor.Excluder), publicKeyAdder
+	return triremeInstance, monitorInstance, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder), publicKeyAdder
 
 }
 
@@ -406,18 +403,17 @@ func NewPSKHybridTriremeWithMonitor(
 		nil,
 	)
 
-	//use rpcmonitor no need to return it since no other consumer for it
-	netcls := cgnetcls.NewCgroupNetController()
-	contextstorehdl := contextstore.NewContextStore()
-	rpcmonitor, _ := rpcmonitor.NewRPCMonitor(
+	// use rpcmonitor no need to return it since no other consumer for it
+	rpcmon, _ := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
-		linuxmonitor.SystemdRPCMetadataExtractor,
 		triremeInstance,
 		eventCollector,
-		netcls,
-		contextstorehdl,
 	)
 
-	return triremeInstance, monitorDocker, rpcmonitor, triremeInstance.Supervisor(policy.ContainerPU).(supervisor.Excluder)
+	// configure a LinuxServices processor for the rpc monitor
+	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor)
+	rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor)
+
+	return triremeInstance, monitorDocker, rpcmon, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)
 
 }

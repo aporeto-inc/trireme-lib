@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme/policy"
@@ -70,7 +71,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, policy.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
 }
 
 // ComputeMd5 computes the Md5 of a file

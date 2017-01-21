@@ -5,6 +5,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
@@ -17,8 +18,8 @@ import (
 type trireme struct {
 	serverID    string
 	cache       cache.DataStore
-	supervisors map[policy.PUType]supervisor.Supervisor
-	enforcers   map[policy.PUType]enforcer.PolicyEnforcer
+	supervisors map[constants.PUType]supervisor.Supervisor
+	enforcers   map[constants.PUType]enforcer.PolicyEnforcer
 	resolver    PolicyResolver
 	collector   collector.EventCollector
 	stop        chan bool
@@ -26,7 +27,7 @@ type trireme struct {
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[policy.PUType]supervisor.Supervisor, enforcers map[policy.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
+func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
 
 	trireme := &trireme{
 		serverID:    serverID,
@@ -368,7 +369,7 @@ func (t *trireme) handleRequest(request *triremeRequest) error {
 }
 
 // Supervisor returns the Trireme supervisor for the given PU Type
-func (t *trireme) Supervisor(kind policy.PUType) supervisor.Supervisor {
+func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 	if s, ok := t.supervisors[kind]; ok {
 		return s

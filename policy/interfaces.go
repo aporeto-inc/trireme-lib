@@ -9,6 +9,8 @@
 // data.
 package policy
 
+import "github.com/aporeto-inc/trireme/constants"
+
 // A RuntimeReader allows to get the specific parameters stored in the Runtime
 type RuntimeReader interface {
 
@@ -33,7 +35,7 @@ type RuntimeReader interface {
 	// IPAddresses returns a copy of all the IP addresses.
 	IPAddresses() *IPMap
 	//Returns the PUType for the PU
-	PUType() PUType
+	PUType() constants.PUType
 }
 
 // InfoInteractor is the interface for setting up policy before providing to trireme

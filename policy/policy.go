@@ -3,6 +3,8 @@ package policy
 import (
 	"encoding/json"
 	"sync"
+
+	"github.com/aporeto-inc/trireme/constants"
 )
 
 // PUPolicy captures all policy information related ot the container
@@ -203,7 +205,7 @@ func (p *PUPolicy) DefaultIPAddress() (string, bool) {
 // PURuntime holds all data related to the status of the container run time
 type PURuntime struct {
 	// puType is the type of the PU (container or process )
-	puType PUType
+	puType constants.PUType
 	//PURuntimeMutex is a mutex to prevent access to same runtime object from multiple threads
 	puRuntimeMutex *sync.Mutex
 	// Pid holds the value of the first process of the container
@@ -219,7 +221,7 @@ type PURuntime struct {
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType PUType, options *TagsMap) *PURuntime {
+func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType constants.PUType, options *TagsMap) *PURuntime {
 
 	t := tags
 	if t == nil {
@@ -250,7 +252,7 @@ func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType PUType
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, nil, nil, ContainerPU, nil)
+	return NewPURuntime("", 0, nil, nil, constants.ContainerPU, nil)
 }
 
 // Clone returns a copy of the policy
@@ -323,7 +325,7 @@ func (r *PURuntime) SetOptions(options *TagsMap) {
 }
 
 // PUType returns the PU type
-func (r *PURuntime) PUType() PUType {
+func (r *PURuntime) PUType() constants.PUType {
 	return r.puType
 }
 
@@ -389,7 +391,7 @@ type PUInfo struct {
 }
 
 // NewPUInfo instantiates a new ContainerPolicy
-func NewPUInfo(contextID string, puType PUType) *PUInfo {
+func NewPUInfo(contextID string, puType constants.PUType) *PUInfo {
 	policy := NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil)
 	runtime := NewPURuntime("", 0, nil, nil, puType, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)

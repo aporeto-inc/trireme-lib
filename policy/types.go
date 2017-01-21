@@ -45,16 +45,6 @@ const (
 	Police = 0x2
 )
 
-// PUType defines the PU type
-type PUType int
-
-const (
-	// ContainerPU indicates that this PU is a conctainer
-	ContainerPU PUType = iota
-	// LinuxProcessPU indicates that this is Linux process
-	LinuxProcessPU
-)
-
 // IPRule holds IP rules to external services
 type IPRule struct {
 	Address  string

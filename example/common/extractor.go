@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/docker/docker/api/types"
 
@@ -61,5 +62,5 @@ func SwarmExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 		"bridge": "0.0.0.0/0",
 	})
 
-	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, policy.ContainerPU, nil), nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.ContainerPU, nil), nil
 }

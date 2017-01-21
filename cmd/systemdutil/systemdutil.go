@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 )
@@ -68,6 +69,7 @@ func ExecuteCommand(arguments map[string]interface{}) {
 	//This is added since the release_notification comes in this format
 	//Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &rpcmonitor.EventInfo{
+		PUType:    constants.LinuxProcessPU,
 		PUID:      "/" + strconv.Itoa(os.Getpid()),
 		Name:      command,
 		Tags:      metadatamap,

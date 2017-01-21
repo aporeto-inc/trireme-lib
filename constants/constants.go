@@ -33,6 +33,16 @@ const (
 	// Remote indicates that this is a remote supervisor
 )
 
+// PUType defines the PU type
+type PUType int
+
+const (
+	// ContainerPU indicates that this PU is a conctainer
+	ContainerPU PUType = iota
+	// LinuxProcessPU indicates that this is Linux process
+	LinuxProcessPU
+)
+
 const (
 	// DefaultRemoteArg is the default arguments for a remote enforcer
 	DefaultRemoteArg = "enforce"

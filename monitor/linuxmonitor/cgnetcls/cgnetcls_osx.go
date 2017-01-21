@@ -4,9 +4,10 @@
 package cgnetcls
 
 const (
-	basePath = "/sys/fs/cgroup/net_cls/"
-	markFile = "/net_cls.classid"
-	procs    = "/cgroup.procs"
+	basePath        = "/sys/fs/cgroup/net_cls/"
+	markFile        = "/net_cls.classid"
+	procs           = "/cgroup.procs"
+	TriremeBasePath = "/trireme"
 	// CgroupNameTag  identifies the cgroup name
 	CgroupNameTag = "@cgroup_name"
 	// CgroupMarkTag identifies the cgroup mark value

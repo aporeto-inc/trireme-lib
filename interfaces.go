@@ -1,6 +1,7 @@
 package trireme
 
 import (
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -19,7 +20,7 @@ type Trireme interface {
 	Stop() error
 
 	// Supervisor returns the supervisor for a given PU type
-	Supervisor(kind policy.PUType) supervisor.Supervisor
+	Supervisor(kind constants.PUType) supervisor.Supervisor
 
 	monitor.ProcessingUnitsHandler
 

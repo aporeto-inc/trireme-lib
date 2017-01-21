@@ -147,7 +147,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, nil)
 
-			containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -175,7 +175,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, nil)
 
-			containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -198,7 +198,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, nil)
 
-			containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -229,7 +229,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, nil)
 
-			containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -333,7 +333,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil, ipl, nil)
 
-			containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -396,7 +396,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil, ipl, nil)
 
-			containerinfo := policy.NewPUInfo("Context", policy.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 

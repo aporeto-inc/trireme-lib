@@ -1,7 +1,7 @@
 package rpcmonitor
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -10,25 +10,22 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/mock"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore/mock"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls/mock"
-	"github.com/aporeto-inc/trireme/policy"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-//Util functions to start test RPC server
-//This will always return sucess
+// Util functions to start test RPC server
+// This will always return sucess
 var runserver bool
 var listener net.UnixListener
-
 var testRPCAddress = "/tmp/test.sock"
 
 func starttestserver() {
 
+	os.Remove(testRPCAddress)
 	rpcServer := rpc.NewServer()
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{
 		Name: testRPCAddress,
@@ -38,8 +35,7 @@ func starttestserver() {
 	if err != nil {
 		fmt.Println(err)
 	}
-	os.Chmod(testRPCAddress, 0766)
-	runserver = true
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -48,7 +44,6 @@ func starttestserver() {
 		rpcServer.ServeCodec(jsonrpc.NewServerCodec(conn))
 	}
 	os.Remove(testRPCAddress)
-
 }
 
 func stoptestserver() {
@@ -61,46 +56,151 @@ type CustomPolicyResolver struct {
 	monitor.ProcessingUnitsHandler
 }
 
+type CustomProcessor struct {
+	MonitorProcessor
+}
+
+func TestNewRPCServer(t *testing.T) {
+
+	Convey("When we try to instantiate a new monitor", t, func() {
+
+		Convey("If we start with invalid rpc address", func() {
+			_, err := NewRPCMonitor("", nil, nil)
+			Convey("It should fail ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If we start nil PU handler", func() {
+			_, err := NewRPCMonitor("rpcAddress", nil, nil)
+			Convey("It should fail", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If we start with valid parameters", func() {
+			mon, err := NewRPCMonitor("/tmp/monitor.sock", &CustomPolicyResolver{}, nil)
+			Convey("It should succeed", func() {
+				So(err, ShouldBeNil)
+				So(mon.rpcAddress, ShouldResemble, "/tmp/monitor.sock")
+				So(mon.monitorServer, ShouldNotBeNil)
+				So(mon.contextstore, ShouldNotBeNil)
+			})
+		})
+	})
+}
+
+func TestRegisterProcessor(t *testing.T) {
+	Convey("Given a new rpc monitor", t, func() {
+		mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
+		Convey("When I try to register a new processor", func() {
+			processor := &CustomProcessor{}
+			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			Convey("Then it should succeed", func() {
+				So(err, ShouldBeNil)
+				So(mon.monitorServer.handlers, ShouldNotBeNil)
+				So(mon.monitorServer.handlers[constants.LinuxProcessPU], ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I try to register the same processor twice", func() {
+			processor := &CustomProcessor{}
+			mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			Convey("Then it should fail", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+	})
+}
+
 func TestStart(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	netcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
-	contextstore := mock_contextstore.NewMockContextStore(ctrl)
 
 	puHandler := &CustomPolicyResolver{}
+	contextstore := mock_contextstore.NewMockContextStore(ctrl)
 
-	Convey("When listen fails rpc start should fail", t, func() {
+	Convey("When we start an rpc processor ", t, func() {
 
-		Convey("When we start server", func() {
+		Convey("When the socket is busy", func() {
 			clist := make(chan string, 1)
 			clist <- ""
 
 			contextstore.EXPECT().WalkStore().Return(clist, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor.contextstore = contextstore
 
-			testRPCMonitor, err := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
 			go starttestserver()
 			time.Sleep(1 * time.Second)
 			defer stoptestserver()
-			err = testRPCMonitor.Start()
-			So(err, ShouldNotBeNil)
-			//testRPCMonitor.Stop()
+			err := testRPCMonitor.Start()
+			Convey("It should fail ", func() {
+				So(err, ShouldNotBeNil)
+			})
+			stoptestserver()
 		})
-		stoptestserver()
-		Convey("When we discover invalid context we don't return an error", func() {
+
+		Convey("When we discover invalid context we ignore the errors", func() {
 			contextlist := make(chan string, 2)
 			contextlist <- "test1"
 			contextlist <- ""
+
 			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
 			contextstore.EXPECT().GetContextInfo("/test1").Return(nil, fmt.Errorf("Invalid Context"))
-			testRPCMonitor, err := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
+
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor.contextstore = contextstore
+
+			Convey("Start server returns no error", func() {
+				starerr := testRPCMonitor.Start()
+				So(starerr, ShouldBeNil)
+				testRPCMonitor.Stop()
+			})
+		})
+
+		Convey("When we discover invalid json we ignore it", func() {
+			contextlist := make(chan string, 2)
+			contextlist <- "test1"
+			contextlist <- ""
+
+			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
+			contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{PUType: 1,EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
+
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor.contextstore = contextstore
+
+			Convey("Start server returns no error", func() {
+				starterr := testRPCMonitor.Start()
+				So(starterr, ShouldBeNil)
+				testRPCMonitor.Stop()
+			})
+		})
+
+		Convey("When we discover valid context", func() {
+			contextlist := make(chan string, 2)
+			contextlist <- "test1"
+			contextlist <- ""
+
+			eventInfo := &EventInfo{
+				EventType: monitor.EventCreate,
+				PUType:    constants.LinuxProcessPU,
+				PUID:      "MyPU",
+				Name:      "testservice",
+				Tags:      nil,
+				PID:       "12345",
+				IPs:       nil,
 			}
+
+			j, _ := json.Marshal(eventInfo)
+			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
+			contextstore.EXPECT().GetContextInfo("/test1").Return(j, nil)
+
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor.contextstore = contextstore
+			processor := NewMockMonitorProcessor(ctrl)
+			processor.EXPECT().Start(gomock.Any()).Return(nil)
+			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 
 			Convey("Start server returns no error", func() {
 				starerr := testRPCMonitor.Start()
@@ -110,487 +210,179 @@ func TestStart(t *testing.T) {
 
 		})
 
-		Convey("When we discover valid context json unmarshals", func() {
-			contextlist := make(chan string, 2)
-			contextlist <- "test1"
-			contextlist <- ""
-			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
-			contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
-			testRPCMonitor, err := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-
-			Convey("Start server returns no error", func() {
-				starterr := testRPCMonitor.Start()
-				So(starterr, ShouldBeNil)
-				testRPCMonitor.Stop()
-			})
-
-		})
-
 	})
-
 }
 
 func testclienthelper(eventInfo *EventInfo) error {
 	response := &RPCResponse{}
+
 	client, err := net.Dial("unix", testRPCAddress)
 	if err != nil {
 		fmt.Println("Error", err)
 		return err
 	}
-	rpcClient := jsonrpc.NewClient(client)
-	err = rpcClient.Call("Server.HandleEvent", eventInfo, response)
-	return err
 
+	rpcClient := jsonrpc.NewClient(client)
+
+	err = rpcClient.Call("Server.HandleEvent", eventInfo, response)
+
+	return err
 }
 
 func TestHandleEvent(t *testing.T) {
-	//Will change strategy here this function forward to too many paths will test each in their own path using handleevent as the entry point
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	netcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+
+	puHandler := &CustomPolicyResolver{}
 	contextstore := mock_contextstore.NewMockContextStore(ctrl)
-	puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-	//puHandler := &CustomPolicyResolver{}
-	Convey("Testing handlevent", t, func() {
-		Convey("We pass invalid contextID  eventInfo we return error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
 
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
+	Convey("Given an RPC monitor", t, func() {
+		contextlist := make(chan string, 2)
+		contextlist <- "test1"
+		contextlist <- ""
 
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
+		contextstore.EXPECT().WalkStore().Return(contextlist, nil)
+		contextstore.EXPECT().GetContextInfo("/test1").Return(nil, fmt.Errorf("Invalid Context"))
+
+		testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+		testRPCMonitor.contextstore = contextstore
+		testRPCMonitor.Start()
+
+		Convey("If we receive an event with wrong type", func() {
+			eventInfo := &EventInfo{
+				EventType: "",
 			}
-			//CreateEvent will return an error if we cannot create context. We will use this behavior to test error paths in HandleEvent
+
+			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			Convey("We should get an error", func() {
+				So(err, ShouldNotBeNil)
+				testRPCMonitor.Stop()
+			})
+		})
+
+		Convey("If we receive an event with no registered processor", func() {
 			eventInfo := &EventInfo{
 				EventType: monitor.EventCreate,
-				PUID:      "", //This will cause the failure
-				Name:      "testservice",
-				Tags:      nil,
-				PID:       "12345",
-				IPs:       nil,
+				PUType:    constants.LinuxProcessPU,
 			}
 
-			err = testclienthelper(eventInfo)
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
+			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			Convey("We should get an error", func() {
+				So(err, ShouldNotBeNil)
+				testRPCMonitor.Stop()
+			})
 		})
 
-		Convey("We pass uninitialzed eventInfo we return error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
+		Convey("If we receive a good event with a registered processor", func() {
 
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-			//CreateEvent will return an error if we cannot create context. We will use this behavior to test error paths in HandleEvent
-			var eventInfo *EventInfo
-			eventInfo = nil
-			err = testclienthelper(eventInfo)
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
-		})
-
-		Convey("We pass a well formed  eventInfo we no error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-			os.RemoveAll(testRPCAddress)
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, &collector.DefaultCollector{}, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-			//CreateEvent will return an error if we cannot create context. We will use this behavior to test error paths in HandleEvent
-
-			eventInfo := EventInfo{
-				EventType: monitor.EventCreate,
-				PUID:      "/test1", //This will cause the failure
-				Name:      "testservice",
-				Tags:      nil,
-				PID:       "12345",
-				IPs:       nil,
-			}
-			errChan := make(chan error, 1)
-
-			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventCreate).Return(errChan)
-			errChan <- nil
-			err = testclienthelper(&eventInfo)
-			if err != nil {
-				fmt.Println(err)
-			}
-			So(err, ShouldBeNil)
-			testRPCMonitor.Stop()
-		})
-
-	})
-}
-
-func TestStartEvent(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	netcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
-	contextstore := mock_contextstore.NewMockContextStore(ctrl)
-	puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-	Convey("Testing handlstartevent", t, func() {
-		Convey("We pass invalid contextID  eventInfo we return error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-			//CreateEvent will return an error if we cannot create context. We will use this behavior to test error paths in HandleEvent
-			eventInfo := &EventInfo{
-				EventType: monitor.EventStart,
-				PUID:      "", //This will cause the failure
-				Name:      "testservice",
-				Tags:      nil,
-				PID:       "12345",
-				IPs:       nil,
-			}
-
-			err = testclienthelper(eventInfo)
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
-		})
-
-		Convey("HandlePUEvent returns an error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, &collector.DefaultCollector{}, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-			eventInfo := &EventInfo{
-				EventType: monitor.EventStart,
-				PUID:      "/test1", //This will cause the failure
-				Name:      "testservice",
-				Tags:      nil,
-				PID:       "12345",
-				IPs:       nil,
-			}
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, nil, nil, policy.ContainerPU, nil)
-			puHandler.EXPECT().SetPURuntime("/test1", runtime)
-			errChan := make(chan error, 1)
-			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
-			netcls.EXPECT().Creategroup(eventInfo.PUID).MaxTimes(0)
-			netcls.EXPECT().AssignMark(eventInfo.PUID, 100).MaxTimes(0)
-			netcls.EXPECT().AddProcess(eventInfo.PUID, 12345).MaxTimes(0)
-			errChan <- errors.New("handlePUevent error")
-			err = testclienthelper(eventInfo)
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
-		})
-
-		Convey("Creategroup returns an error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, &collector.DefaultCollector{}, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-			eventInfo := &EventInfo{
-				EventType: monitor.EventStart,
-				PUID:      "/test1", //This will cause the failure
-				Name:      "testservice",
-				Tags:      nil,
-				PID:       "12345",
-				IPs:       nil,
-			}
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, nil, nil, policy.ContainerPU, nil)
-			puHandler.EXPECT().SetPURuntime("/test1", runtime)
-			errChan := make(chan error, 1)
-			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
-			netcls.EXPECT().Creategroup(eventInfo.PUID).MaxTimes(1).Return(errors.New("Creategroup error"))
-			netcls.EXPECT().AssignMark(eventInfo.PUID, 100).MaxTimes(0)
-			netcls.EXPECT().AddProcess(eventInfo.PUID, 12345).MaxTimes(0)
-			errChan <- nil
-			err = testclienthelper(eventInfo)
-
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
-		})
-
-		Convey("Assignmark returns an error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, &collector.DefaultCollector{}, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-			markmap := make(map[string]string)
-			markmap["@cgroup_mark"] = "100"
-			var mark uint64 = 100
-			eventInfo := &EventInfo{
-				EventType: monitor.EventStart,
-				PUID:      "/test1", //This will cause the failure
-				Name:      "testservice",
-				Tags:      markmap,
-				PID:       "12345",
-				IPs:       nil,
-			}
-			tags := &policy.TagsMap{Tags: make(map[string]string)}
-			tags.Add("@cgroup_mark", "100")
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU, nil)
-			puHandler.EXPECT().SetPURuntime("/test1", runtime)
-			errChan := make(chan error, 1)
-			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
-			netcls.EXPECT().Creategroup(eventInfo.PUID).MaxTimes(1).Return(nil)
-			netcls.EXPECT().AssignMark(eventInfo.PUID, mark).MaxTimes(1).Return(errors.New("AssignMark Error"))
-			netcls.EXPECT().DeleteCgroup(eventInfo.PUID).Return(nil)
-			netcls.EXPECT().AddProcess(eventInfo.PUID, 12345).MaxTimes(0)
-			errChan <- nil
-			err = testclienthelper(eventInfo)
-
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
-		})
-
-		// Convey("handleStartEvent suceeds", func() {
-		// 	clist := make(chan string, 1)
-		// 	clist <- ""
-		//
-		// 	contextstore.EXPECT().WalkStore().Return(clist, nil)
-		//
-		// 	testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, &collector.DefaultCollector{}, netcls, contextstore)
-		// 	err := testRPCMonitor.Start()
-		// 	if err != nil {
-		// 		fmt.Println(err)
-		// 		t.SkipNow()
-		// 	}
-		// 	markmap := make(map[string]string)
-		// 	markmap["@cgroup_mark"] = "100"
-		// 	var mark uint64 = 100
-		// 	eventInfo := &EventInfo{
-		// 		EventType: monitor.EventStart,
-		// 		PUID:      "/test1", //This will cause the failure
-		// 		Name:      "testservice",
-		// 		Tags:      markmap,
-		// 		PID:       "12345",
-		// 		IPs:       nil,
-		// 	}
-		// 	tags := &policy.TagsMap{Tags: make(map[string]string)}
-		// 	tags.Add("@cgroup_mark", "100")
-		// 	runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU, nil)
-		// 	puHandler.EXPECT().SetPURuntime("/test1", runtime)
-		// 	errChan := make(chan error, 1)
-		// 	puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
-		// 	netcls.EXPECT().Creategroup(eventInfo.PUID).MaxTimes(1).Return(nil)
-		// 	netcls.EXPECT().AssignMark(eventInfo.PUID, mark).MaxTimes(1).Return(nil)
-		// 	netcls.EXPECT().AddProcess(eventInfo.PUID, 12345).MaxTimes(1).Return(nil)
-		// 	netcls.EXPECT().DeleteCgroup(eventInfo.PUID).MaxTimes(0)
-		// 	errChan <- nil
-		// 	err = testclienthelper(eventInfo)
-		//
-		// 	So(err, ShouldBeNil)
-		// 	testRPCMonitor.Stop()
-		// })
-
-		Convey("AddProcessFails", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, &collector.DefaultCollector{}, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
-			markmap := make(map[string]string)
-			markmap["@cgroup_mark"] = "100"
-			var mark uint64 = 100
-			eventInfo := &EventInfo{
-				EventType: monitor.EventStart,
-				PUID:      "/test1", //This will cause the failure
-				Name:      "testservice",
-				Tags:      markmap,
-				PID:       "12345",
-				IPs:       nil,
-			}
-			tags := &policy.TagsMap{Tags: make(map[string]string)}
-			tags.Add("@cgroup_mark", "100")
-			runtime := policy.NewPURuntime(eventInfo.Name, 12345, tags, nil, policy.ContainerPU, nil)
-			puHandler.EXPECT().SetPURuntime("/test1", runtime)
-			errChan := make(chan error, 1)
-			puHandler.EXPECT().HandlePUEvent("/test1", monitor.EventStart).Return(errChan)
-			netcls.EXPECT().Creategroup(eventInfo.PUID).MaxTimes(1).Return(nil)
-			netcls.EXPECT().AssignMark(eventInfo.PUID, mark).MaxTimes(1).Return(nil)
-			netcls.EXPECT().AddProcess(eventInfo.PUID, 12345).MaxTimes(1).Return(errors.New("Add Process error"))
-			netcls.EXPECT().DeleteCgroup(eventInfo.PUID).MaxTimes(1)
-			errChan <- nil
-
-			err = testclienthelper(eventInfo)
-
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
-		})
-
-	})
-}
-
-func TestHandleStopEvent(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	netcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
-	contextstore := mock_contextstore.NewMockContextStore(ctrl)
-	puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-	Convey("Testing handlstopevent", t, func() {
-		Convey("We pass invalid contextID  eventInfo we return error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-			err := testRPCMonitor.Start()
-			if err != nil {
-				fmt.Println(err)
-				t.SkipNow()
-			}
+			processor := NewMockMonitorProcessor(ctrl)
+			processor.EXPECT().Stop(gomock.Any()).Return(nil)
+			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 
 			eventInfo := &EventInfo{
 				EventType: monitor.EventStop,
-				PUID:      "", //This will cause the failure
-				Name:      "testservice",
-				Tags:      nil,
-				PID:       "12345",
-				IPs:       nil,
+				PUType:    constants.LinuxProcessPU,
 			}
 
-			err = testclienthelper(eventInfo)
-			So(err, ShouldNotBeNil)
-			testRPCMonitor.Stop()
+			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			Convey("We should get no error", func() {
+				So(err, ShouldBeNil)
+				testRPCMonitor.Stop()
+			})
 		})
 
-		// Convey("DeleteBasePath Returns true: We are deleting our base directory ", func() {
-		// 	clist := make(chan string, 1)
-		// 	clist <- ""
-		//
-		// 	contextstore.EXPECT().WalkStore().Return(clist, nil)
-		//
-		// 	testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-		// 	err := testRPCMonitor.Start()
-		// 	if err != nil {
-		// 		fmt.Println(err)
-		// 		t.SkipNow()
-		// 	}
-		//
-		// 	eventInfo := &EventInfo{
-		// 		EventType: monitor.EventStop,
-		// 		PUID:      "/aporeto", //This will cause the failure
-		// 		Name:      "testservice",
-		// 		Tags:      nil,
-		// 		PID:       "12345",
-		// 		IPs:       nil,
-		// 	}
-		// 	netcls.EXPECT().Deletebasepath(eventInfo.PUID).Return(true)
-		// 	puHandler.EXPECT().HandlePUEvent(eventInfo.PUID, monitor.EventStop).MaxTimes(0)
-		// 	err = testclienthelper(eventInfo)
-		// 	So(err, ShouldBeNil)
-		// 	testRPCMonitor.Stop()
-		//
-		// })
+		Convey("If we receive an event that fails processing", func() {
 
-		// Convey("HandlePUEvent returns error:Stop event failed ", func() {
-		// 	clist := make(chan string, 1)
-		// 	clist <- ""
-		//
-		// 	contextstore.EXPECT().WalkStore().Return(clist, nil)
-		//
-		// 	testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-		// 	err := testRPCMonitor.Start()
-		// 	if err != nil {
-		// 		fmt.Println(err)
-		// 		t.SkipNow()
-		// 	}
-		//
-		// 	eventInfo := &EventInfo{
-		// 		EventType: monitor.EventStop,
-		// 		PUID:      "/aporeto", //This will cause the failure
-		// 		Name:      "testservice",
-		// 		Tags:      nil,
-		// 		PID:       "12345",
-		// 		IPs:       nil,
-		// 	}
-		// 	netcls.EXPECT().Deletebasepath(eventInfo.PUID).Return(false)
-		// 	errChan := make(chan error, 1)
-		// 	puHandler.EXPECT().HandlePUEvent(eventInfo.PUID, monitor.EventStop).MaxTimes(1).Return(errChan)
-		// 	netcls.EXPECT().DeleteCgroup(eventInfo.PUID).MaxTimes(1)
-		// 	contextstore.EXPECT().RemoveContext(eventInfo.PUID).MaxTimes(1)
-		// 	errChan <- errors.New("PUEVENT STOP error")
-		// 	err = testclienthelper(eventInfo)
-		// 	So(err, ShouldNotBeNil)
-		// 	testRPCMonitor.Stop()
-		//
-		// })
+			processor := NewMockMonitorProcessor(ctrl)
+			processor.EXPECT().Create(gomock.Any()).Return(fmt.Errorf("Error"))
+			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 
-		// Convey("handlestopevent processed sucessfully ", func() {
-		// 	clist := make(chan string, 1)
-		// 	clist <- ""
-		//
-		// 	contextstore.EXPECT().WalkStore().Return(clist, nil)
-		//
-		// 	testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, puHandler, nil, netcls, contextstore)
-		// 	err := testRPCMonitor.Start()
-		// 	if err != nil {
-		// 		fmt.Println(err)
-		// 		t.SkipNow()
-		// 	}
-		//
-		// 	eventInfo := &EventInfo{
-		// 		EventType: monitor.EventStop,
-		// 		PUID:      "/aporeto", //This will cause the failure
-		// 		Name:      "testservice",
-		// 		Tags:      nil,
-		// 		PID:       "12345",
-		// 		IPs:       nil,
-		// 	}
-		// 	netcls.EXPECT().Deletebasepath(eventInfo.PUID).Return(false)
-		// 	errChan := make(chan error, 1)
-		// 	puHandler.EXPECT().HandlePUEvent(eventInfo.PUID, monitor.EventStop).MaxTimes(1).Return(errChan)
-		// 	netcls.EXPECT().DeleteCgroup(eventInfo.PUID).MaxTimes(0)
-		// 	contextstore.EXPECT().RemoveContext(eventInfo.PUID).MaxTimes(0)
-		// 	errChan <- nil
-		// 	err = testclienthelper(eventInfo)
-		// 	So(err, ShouldBeNil)
-		// 	testRPCMonitor.Stop()
-		//
-		// })
+			eventInfo := &EventInfo{
+				EventType: monitor.EventCreate,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			Convey("We should get an error", func() {
+				So(err, ShouldNotBeNil)
+				testRPCMonitor.Stop()
+			})
+		})
+	})
+}
+
+func TestDefaultRPCMetadataExtractor(t *testing.T) {
+	Convey("Given an event", t, func() {
+		Convey("If the event name is empty", func() {
+			eventInfo := &EventInfo{
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			Convey("The default extractor must return an error ", func() {
+				_, err := defaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If the event PID is empty", func() {
+			eventInfo := &EventInfo{
+				Name:      "PU",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			Convey("The default extractor must return an error ", func() {
+				_, err := defaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If the event PUID is empty", func() {
+			eventInfo := &EventInfo{
+				Name:      "PU",
+				PID:       "1234",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			Convey("The default extractor must return an error ", func() {
+				_, err := defaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If the PID is not a number", func() {
+			eventInfo := &EventInfo{
+				Name:      "PU",
+				PID:       "abcera",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			Convey("The default extractor must return an error ", func() {
+				_, err := defaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If all parameters are correct", func() {
+			eventInfo := &EventInfo{
+				Name:      "PU",
+				PID:       "1",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			Convey("The default extractor must return no error ", func() {
+				runtime, err := defaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldBeNil)
+				So(runtime, ShouldNotBeNil)
+			})
+		})
+
 	})
 }

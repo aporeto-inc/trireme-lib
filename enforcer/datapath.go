@@ -200,7 +200,7 @@ func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHa
 
 func (d *datapathEnforcer) puHash(ip string, puInfo *policy.PUInfo) (hash []*DualHash) {
 
-	if puInfo.Runtime.PUType() == policy.LinuxProcessPU {
+	if puInfo.Runtime.PUType() == constants.LinuxProcessPU {
 		return d.createHashForProcess(puInfo)
 	}
 
@@ -218,7 +218,7 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 	// processes managed by systemd will not have a separate IP
 	// IP are not required to process rules we have for cgroup
 
-	if d.mode == constants.LocalContainer && (puInfo.Runtime.PUType() == policy.ContainerPU) {
+	if d.mode == constants.LocalContainer && (puInfo.Runtime.PUType() == constants.ContainerPU) {
 		if _, ok := puInfo.Policy.DefaultIPAddress(); !ok {
 			log.WithFields(log.Fields{
 				"package": "Enforcer",
