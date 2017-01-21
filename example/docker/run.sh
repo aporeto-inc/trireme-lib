@@ -1,1 +1,1 @@
-./trireme-example --enforcer=remote
+./trireme --enforcer=remote

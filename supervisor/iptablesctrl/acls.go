@@ -105,16 +105,34 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		})
+
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-d", network,
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		})
+
 	}
 
+	// Capture Syn Packets
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
 		"-s", network,
-		"-p", "tcp",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+		"-j", "NFQUEUE", "--queue-balance", netQueue,
+	})
+
+	// Capture the first ack packet
+	rules = append(rules, []string{
+		i.netPacketIPTableContext, netChain,
+		"-s", network,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
 		"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 		"-j", "NFQUEUE", "--queue-balance", netQueue,
 	})

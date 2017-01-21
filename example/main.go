@@ -51,7 +51,7 @@ func main() {
 	var rm monitor.Monitor
 	var err error
 
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(log.InfoLevel)
 	log.SetFormatter(&log.TextFormatter{})
 
 	// If in enforce mode then just launch in this mode and exit

@@ -363,9 +363,10 @@ func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet)
 	case packet.TCPSynAckMask:
 		action, err := d.processApplicationSynAckPacket(tcpPacket)
 		return action, err
+	default:
+		return nil, nil
 	}
 
-	return nil, nil
 }
 
 func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
@@ -675,6 +676,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 
 	var err error
 	var context interface{}
+
 	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
 		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))
 		if context, err = d.sourcePortCache.Get(portHash); err != nil {
@@ -689,30 +691,21 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"error":   err.Error(),
-		}).Debug("Process network TCP packet: Failed to retrieve context for this packet")
+		}).Error("Process network TCP packet: Failed to retrieve context for this packet")
 		return nil, fmt.Errorf("Context not found for container %s %v", tcpPacket.DestinationAddress.String(), d.puTracker)
 	}
-
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-		"ip":      tcpPacket.DestinationAddress.String(),
-		"context": context.(*PUContext).ID,
-	}).Debug("Process network TCP packet")
 
 	// Update connection state in the internal state machine tracker
 	switch tcpPacket.TCPFlags {
 
 	case packet.TCPSynMask:
-		action, err := d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
-		return action, err
+		return d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
 
 	case packet.TCPAckMask:
-		action, err := d.processNetworkAckPacket(context.(*PUContext), tcpPacket)
-		return action, err
+		return d.processNetworkAckPacket(context.(*PUContext), tcpPacket)
 
 	case packet.TCPSynAckMask:
-		action, err := d.processNetworkSynAckPacket(context.(*PUContext), tcpPacket)
-		return action, err
+		return d.processNetworkSynAckPacket(context.(*PUContext), tcpPacket)
 
 	default: // Ignore any other packet
 		return nil, nil

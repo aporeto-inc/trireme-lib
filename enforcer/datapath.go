@@ -403,14 +403,11 @@ func createRuleDB(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *looku
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
 func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process network packets from NFQ")
-
 	d.net.IncomingPackets++
 
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, p.Mark)
+
 	if err != nil {
 		d.net.CreateDropPackets++
 		netPacket.Print(packet.PacketFailureCreate)
@@ -449,7 +446,6 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 		ID:          p.ID,
 		QueueHandle: p.QueueHandle,
 	}, d.filterQueue.MarkValue)
-	return
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
@@ -545,7 +541,6 @@ func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*token
 // it returns the context from the passed IP
 func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port string) (interface{}, error) {
 
-	d.puTracker.DumpStore()
 	if d.mode != constants.LocalContainer {
 		ip = DefaultNetwork
 	}
@@ -567,6 +562,5 @@ func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port 
 	if err != nil {
 		return nil, fmt.Errorf("PU Context cannot be found")
 	}
-
 	return pu, nil
 }
