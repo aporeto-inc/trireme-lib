@@ -119,6 +119,11 @@ func (r *PURuntime) SetPid(pid int) {
 	r.pid = pid
 }
 
+// SetOptions sets the Options
+func (r *PURuntime) SetOptions(options *TagsMap) {
+	r.options = options
+}
+
 // Name returns the PID
 func (r *PURuntime) Name() string {
 	return r.name
