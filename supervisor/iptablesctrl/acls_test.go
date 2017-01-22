@@ -790,5 +790,50 @@ func TestDeleteExclusionChainRules(t *testing.T) {
 		})
 
 	})
+}
 
+func TestCaptureSynAckPackets(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add the capture for the SynAck packets", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				return nil
+			})
+
+			err := i.CaptureSYNACKPackets()
+			Convey("I should get no error if iptables succeeds", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add the capture, but iptables fails in the app chain", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.appAckPacketIPTableContext {
+					return fmt.Errorf("Error")
+				}
+				return nil
+			})
+			err := i.CaptureSYNACKPackets()
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the capture, but iptables fails in the net chain", func() {
+			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+				if table == i.netPacketIPTableContext {
+					return fmt.Errorf("Error")
+				}
+				return nil
+			})
+			err := i.CaptureSYNACKPackets()
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
 }
