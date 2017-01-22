@@ -5,7 +5,9 @@
 [![Build Status](https://travis-ci.org/aporeto-inc/trireme.svg?branch=master)](https://travis-ci.org/aporeto-inc/trireme) [![Code Coverage](https://codecov.io/gh/aporeto-inc/trireme/branch/master/graph/badge.svg)](https://codecov.io/gh/aporeto-inc/trireme) [![Twitter URL](https://img.shields.io/badge/twitter-follow-blue.svg)](https://twitter.com/aporeto_trireme) [![Slack URL](https://img.shields.io/badge/slack-join-green.svg)](https://triremehq.slack.com/messages/general/) [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html) [![Documentation](https://img.shields.io/badge/docs-godoc-blue.svg)](https://godoc.org/github.com/aporeto-inc/trireme)
 
 
-Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
+Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls. 
+
+Trireme supports both containers and Linux Processes and allows security policy enforcement between any of these entities.
 
 # TL;DR
 
