@@ -1,28 +1,38 @@
-hash: 779b82d945462f365111c2afa862aa16f84bd722f4e65ccead6f2d993211dd75
-updated: 2016-12-14T16:06:47.286841251-08:00
+hash: b14a9c3035e7c493aceec0af0d85d8d670728e51ef7fb1e28bf3b83d31b05f49
+updated: 2017-01-21T21:49:05.017626856-08:00
 imports:
 - name: github.com/aporeto-inc/trireme
-  version: 135bc15b3bf0bdea7bed377feb23333d2ef93ac7
+  version: e88317d0a76d1196876c937485ebd5e092163985
   subpackages:
   - cache
+  - cmd/remoteenforcer
+  - cmd/systemdutil
   - collector
   - configurator
+  - constants
   - crypto
   - enforcer
   - enforcer/lookup
   - enforcer/netfilter
-  - enforcer/remote/enforcerLauncher
+  - enforcer/proxy
+  - enforcer/utils/nsenter
   - enforcer/utils/packet
-  - enforcer/utils/rpc_payloads
+  - enforcer/utils/rpcwrapper
   - enforcer/utils/tokens
   - monitor
-  - monitor/extractor
+  - monitor/cliextractor
+  - monitor/contextstore
+  - monitor/dockermonitor
+  - monitor/linuxmonitor
+  - monitor/linuxmonitor/cgnetcls
+  - monitor/rpcmonitor
   - policy
-  - remote/launch
+  - processmon
   - supervisor
-  - supervisor/iptablesutils
+  - supervisor/ipsetctrl
+  - supervisor/iptablesctrl
   - supervisor/provider
-  - supervisor/remote/supervisorLauncher
+  - supervisor/proxy
 - name: github.com/bvandewalle/go-ipset
   version: 0ee897a6d8bc6095299e9c03293ece091ef871de
   subpackages:
@@ -43,7 +53,7 @@ imports:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: 4d92237de1b34c8bf99e549db27b83fd087cd765
+  version: 48a9e53d70472bebad908b273351d8a07939a764
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -69,8 +79,8 @@ imports:
   - tlsconfig
 - name: github.com/docker/go-units
   version: 8a7beacffa3009a9ac66bad506b18ffdd110cf97
-- name: github.com/golang/glog
-  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: github.com/docopt/docopt-go
+  version: 784ddc588536785e7299f7272f39101f7faccc3f
 - name: github.com/Microsoft/go-winio
   version: ce2922f643c8fd76b46cadc7f404a06282678b34
 - name: github.com/opencontainers/runc

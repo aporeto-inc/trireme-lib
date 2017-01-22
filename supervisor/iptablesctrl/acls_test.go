@@ -837,3 +837,29 @@ func TestCaptureSynAckPackets(t *testing.T) {
 
 	})
 }
+
+func TestClearCaptureSynAckPackets(t *testing.T) {
+	Convey("Given an iptables controller", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I delete the capture for the SynAck packets", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appAckPacketIPTableContext && chain == i.appPacketIPTableSection {
+					return nil
+				}
+
+				if table == i.netPacketIPTableContext && chain == i.netPacketIPTableSection {
+					return nil
+				}
+				return fmt.Errorf("Error")
+			})
+
+			err := i.CleanCaptureSynAckPackets()
+			Convey("I should get no error if iptables succeeds", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+}
