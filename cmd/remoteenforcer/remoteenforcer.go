@@ -13,7 +13,6 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
@@ -81,7 +80,6 @@ func NewServer(service enforcer.PacketProcessor, rpcchan string) *Server {
 type StatsClient struct {
 	collector *CollectorImpl
 	server    *Server
-	FlowCache *cache.Cache
 	Rpchdl    *rpcwrapper.RPCWrapper
 }
 
@@ -100,10 +98,6 @@ func (c *CollectorImpl) CollectFlowEvent(contextID string, tags *policy.TagsMap,
 	c.cond.L.Lock()
 	c.FlowEntries.PushBack(&collectorentry{L4FlowHash: l4FlowHash, entry: payload})
 	c.cond.L.Unlock()
-	if c.FlowEntries.Len() == 1 {
-		c.cond.Signal()
-	}
-
 }
 
 //CollectContainerEvent exported
@@ -118,47 +112,53 @@ func (c *CollectorImpl) CollectContainerEvent(contextID string, ip string, tags 
 func (s *StatsClient) SendStats() {
 
 	//We are connected and lets pack and ship
-	rpcPayload := &rpcwrapper.StatsPayload{}
+
 	var request rpcwrapper.Request
 	var response rpcwrapper.Response
 	var statsInterval time.Duration
-	rpcPayload.NumFlows = 0
 	EnvstatsInterval, err := strconv.Atoi(os.Getenv("STATS_INTERVAL"))
 
 	if err == nil && EnvstatsInterval != 0 {
 		statsInterval = time.Duration(EnvstatsInterval) * time.Second
 	} else {
-		statsInterval = defaultTimeInterval * time.Second
+		// statsInterval = defaultTimeInterval * time.Second
+		statsInterval = 250 * time.Millisecond
 	}
 
-	starttime := time.Now()
+	ticker := time.NewTicker(statsInterval)
+
 	for {
-		s.collector.cond.L.Lock()
-		if !(s.collector.FlowEntries.Len() > 0) {
-			s.collector.cond.Wait()
-		}
-		element := s.collector.FlowEntries.Remove(s.collector.FlowEntries.Front())
-		s.collector.cond.L.Unlock()
+		select {
+		case <-ticker.C:
 
-		//Now we can proceed lock free flowcache is not shared
-		_, err := s.FlowCache.Get(element.(*collectorentry).L4FlowHash)
-		if err != nil {
-			//this is new flow add it to our rpc payload
-			rpcPayload.NumFlows = rpcPayload.NumFlows + 1
-			rpcPayload.Flows = append(rpcPayload.Flows, *element.(*collectorentry).entry)
-		}
-		if time.Since(starttime) > statsInterval {
+			rpcPayload := &rpcwrapper.StatsPayload{}
+			for s.collector.FlowEntries.Len() > 0 {
+
+				s.collector.cond.L.Lock()
+				element := s.collector.FlowEntries.Remove(s.collector.FlowEntries.Front())
+				s.collector.cond.L.Unlock()
+
+				rpcPayload.NumFlows = rpcPayload.NumFlows + 1
+				rpcPayload.Flows = append(rpcPayload.Flows, *element.(*collectorentry).entry)
+			}
 			//Send out everything we have in the payload
-			request.Payload = rpcPayload
-			err = s.Rpchdl.RemoteCall(statsContextID,
-				"StatsServer.GetStats",
-				&request,
-				&response,
-			)
-			starttime = time.Now()
-		}
+			if rpcPayload.NumFlows > 0 {
+				request.Payload = rpcPayload
+				if err = s.Rpchdl.RemoteCall(statsContextID,
+					"StatsServer.GetStats",
+					&request,
+					&response,
+				); err != nil {
+					log.WithFields(log.Fields{
+						"package": "remoteEnforcer",
+						"Msg":     "Unable to send flows",
+					}).Error("RPC failure in sending statistics")
+				}
+			}
 
+		}
 	}
+
 }
 
 //connectStatsCLient  This is an private function called by the remoteenforcer to connect back
@@ -239,7 +239,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	s.Enforcer.Start()
 
-	statsClient := &StatsClient{collector: collectorInstance, server: s, FlowCache: cache.NewCacheWithExpiration(120 * time.Second), Rpchdl: rpcwrapper.NewRPCWrapper()}
+	statsClient := &StatsClient{collector: collectorInstance, server: s, Rpchdl: rpcwrapper.NewRPCWrapper()}
 
 	s.connectStatsClient(statsClient)
 
