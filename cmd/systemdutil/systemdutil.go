@@ -131,6 +131,7 @@ func HandleCgroupStop(cgroupName string) error {
 	}
 
 	request := &rpcmonitor.EventInfo{
+		PUType:    constants.LinuxProcessPU,
 		PUID:      cgroupName,
 		Name:      cgroupName,
 		Tags:      nil,

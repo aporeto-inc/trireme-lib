@@ -21,26 +21,35 @@ func main() {
 	usage := `Command for launching programs with Trireme policy.
 
   Usage:
-    trireme run [--servicename=<sname>] [[--metadata=<keyvalue>]...] <command> [--] [<params>...]
-		trireme daemon [--usePKI] [--hybrid|--remote|--local] [--swarm|--extractor <metadatafile>] [--keyFile=<keyFile>] [--certFile=<certFile>] [--caCert=<caFile>]
-		trireme enforce
-		trireme  <cgroup>
-		trireme -h | --help
-		trireme --version
+    trireme run
+      [--servicename=<sname>]
+      [[--metadata=<keyvalue>]...]
+      <command> [--] [<params>...]
+    trireme daemon
+      [--usePKI]
+      [--hybrid|--remote|--local]
+      [--swarm|--extractor <metadatafile>]
+      [--keyFile=<keyFile>]
+      [--certFile=<certFile>]
+      [--caCert=<caFile>]
+    trireme enforce
+    trireme  <cgroup>
+    trireme -h | --help
+    trireme --version
 
   Options:
     -h --help                              Show this help message and exit.
     --servicename=<sname>                  The name of the service to be launched.
     --metadata=<keyvalue>                  The metadata/labels associated with a service.
-		--usePKI                               Use PKI for Trireme [default: false].
-		--certFile=<certfile>                  Certificate file [default: cert.pem].
-		--keyFile=<keyFile>                    Key file [default: key.pem].
-		--caCert=<caFile>                      CA certificate [default: ca.crt].
-		--hybrid                               Hybrid mode of deployment [default: false]
-		--remote                               Remote mode of deployment [default: false]
-		--local                                Local mode of deployment [default: true]
-		--swarm                                Deploy Doccker Swarm metadata extractor [default: false]
-		--extractor                            External metadata extractor [default: ]
+    --usePKI                               Use PKI for Trireme [default: false].
+    --certFile=<certfile>                  Certificate file [default: cert.pem].
+    --keyFile=<keyFile>                    Key file [default: key.pem].
+    --caCert=<caFile>                      CA certificate [default: ca.crt].
+    --hybrid                               Hybrid mode of deployment [default: false]
+    --remote                               Remote mode of deployment [default: false]
+    --local                                Local mode of deployment [default: true]
+    --swarm                                Deploy Doccker Swarm metadata extractor [default: false]
+    --extractor                            External metadata extractor [default: ]
     --version                              show version and exit.
   `
 
