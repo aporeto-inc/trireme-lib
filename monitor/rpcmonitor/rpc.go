@@ -230,7 +230,8 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 
 }
 
-func defaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
+// DefaultRPCMetadataExtractor is a default RPC metadata extractor for testing
+func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 
 	if event.Name == "" {
 		return nil, fmt.Errorf("EventInfo PU Name is empty")

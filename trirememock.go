@@ -58,7 +58,7 @@ func (m *testPolicyResolver) ResolvePolicy(contextID string, RuntimeReader polic
 	return nil, nil
 }
 
-func (m *testPolicyResolver) HandlePUEvent(contextID string, eventType monitor.Event) {
+func (m *testPolicyResolver) HandlePUEvent(contextID string, eventType monitor.Event) <-chan error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.handlePUEventMock != nil {
 		mock.handlePUEventMock(contextID, eventType)

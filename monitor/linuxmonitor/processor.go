@@ -76,7 +76,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	status := <-errChan
 	if status == nil {
 		//It is okay to launch this so let us create a cgroup for it
-
 		err = s.netcls.Creategroup(eventInfo.PUID)
 		if err != nil {
 			log.WithFields(log.Fields{

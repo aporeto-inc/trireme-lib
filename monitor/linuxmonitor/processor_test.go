@@ -1,0 +1,308 @@
+package linuxmonitor
+
+import (
+	"fmt"
+	"testing"
+
+	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/mock"
+	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls/mock"
+	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
+	"github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
+)
+
+type CustomPolicyResolver struct {
+	monitor.ProcessingUnitsHandler
+}
+
+func TestNewLinuxProcessor(t *testing.T) {
+	Convey("When I initialize a new processor", t, func() {
+		p := NewLinuxProcessor(nil, &CustomPolicyResolver{}, rpcmonitor.DefaultRPCMetadataExtractor)
+
+		Convey("I should get a valid processor", func() {
+			So(p, ShouldNotBeNil)
+			So(p.metadataExtractor, ShouldEqual, rpcmonitor.DefaultRPCMetadataExtractor)
+			So(p.collector, ShouldBeNil)
+		})
+	})
+}
+
+func TestCreate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a valid processor", t, func() {
+		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor)
+
+		Convey("When I get an event with no PUID", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "",
+			}
+			Convey("I should get an error", func() {
+				err := p.Create(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get a create event that is valid", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "1234",
+			}
+			errChan := make(chan error, 1)
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
+			errChan <- nil
+			Convey("I should get no error,", func() {
+				err := p.Create(event)
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+}
+
+func TestStop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a valid processor", t, func() {
+		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor)
+		p.netcls = mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+
+		Convey("When I get a stop event with no PUID", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "",
+			}
+			Convey("I should get an error", func() {
+				err := p.Stop(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get stop event without the Trireme Prefix", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "/blah/blah",
+			}
+			Convey("It should be ignored", func() {
+				err := p.Stop(event)
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I get a stop event that is valid", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "/trireme/1234",
+			}
+			errChan := make(chan error, 1)
+
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
+			errChan <- nil
+			Convey("I should get the status of the upstream function", func() {
+				err := p.Stop(event)
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestDestroy(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a valid processor", t, func() {
+		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor)
+		mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+		p.netcls = mockcls
+
+		Convey("When I get a destroy event with no PUID", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "",
+			}
+			Convey("I should get an error", func() {
+				err := p.Destroy(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get destroy event without the Trireme Prefix", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "/blah/blah",
+			}
+			Convey("It should be ignored", func() {
+				err := p.Destroy(event)
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I get a destroy event that is valid", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "/trireme/1234",
+			}
+			mockcls.EXPECT().Deletebasepath(gomock.Any()).Return(true)
+			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
+
+			errChan := make(chan error, 1)
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
+			errChan <- nil
+			Convey("I should get the status of the upstream function", func() {
+				err := p.Destroy(event)
+				So(err, ShouldBeNil)
+			})
+		})
+
+	})
+}
+
+func TestPause(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a valid processor", t, func() {
+		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor)
+
+		Convey("When I get a pause event with no PUID", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "",
+			}
+			Convey("I should get an error", func() {
+				err := p.Pause(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get a pause event that is valid", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "/trireme/1234",
+			}
+
+			errChan := make(chan error, 1)
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
+			errChan <- nil
+			Convey("I should get the status of the upstream function", func() {
+				err := p.Pause(event)
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+}
+
+func TestStart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a valid processor", t, func() {
+		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor)
+
+		Convey("When I get a start event with no PUID", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "",
+			}
+			Convey("I should get an error", func() {
+				err := p.Start(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get a start event that is valid that fails on the metadata extractor", func() {
+			event := &rpcmonitor.EventInfo{
+				Name: "PU",
+			}
+			Convey("I should get an error", func() {
+				err := p.Start(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get a start event and setting the PU runtime fails", func() {
+			event := &rpcmonitor.EventInfo{
+				Name:      "PU",
+				PID:       "1",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+			Convey("I should get an error ", func() {
+				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
+				err := p.Start(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get a start event and the upstream returns an error ", func() {
+			event := &rpcmonitor.EventInfo{
+				Name:      "PU",
+				PID:       "1",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+			Convey("I should get an error ", func() {
+				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
+				errChan := make(chan error, 1)
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
+				errChan <- fmt.Errorf("Error")
+				err := p.Start(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get a start event and create group fails ", func() {
+			event := &rpcmonitor.EventInfo{
+				Name:      "PU",
+				PID:       "1",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+			p.netcls = mockcls
+
+			Convey("I should get an error ", func() {
+				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
+				errChan := make(chan error, 1)
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
+				errChan <- nil
+
+				mockcls.EXPECT().Creategroup(gomock.Any()).Return(fmt.Errorf("error"))
+				err := p.Start(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I get a start event and the runtime options don't have a mark value", func() {
+			event := &rpcmonitor.EventInfo{
+				Name:      "PU",
+				PID:       "1",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
+
+			mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+			p.netcls = mockcls
+
+			Convey("I should get an error ", func() {
+				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
+				errChan := make(chan error, 1)
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
+				errChan <- nil
+
+				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
+				mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
+				// mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
+				// mockcls.EXPECT().AddProcess(gomock.Any(), gomock.Any()).Return(nil)
+				err := p.Start(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
+}

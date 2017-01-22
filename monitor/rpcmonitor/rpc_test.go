@@ -321,7 +321,7 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			}
 
 			Convey("The default extractor must return an error ", func() {
-				_, err := defaultRPCMetadataExtractor(eventInfo)
+				_, err := DefaultRPCMetadataExtractor(eventInfo)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -334,7 +334,7 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			}
 
 			Convey("The default extractor must return an error ", func() {
-				_, err := defaultRPCMetadataExtractor(eventInfo)
+				_, err := DefaultRPCMetadataExtractor(eventInfo)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -348,7 +348,7 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			}
 
 			Convey("The default extractor must return an error ", func() {
-				_, err := defaultRPCMetadataExtractor(eventInfo)
+				_, err := DefaultRPCMetadataExtractor(eventInfo)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -363,7 +363,7 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			}
 
 			Convey("The default extractor must return an error ", func() {
-				_, err := defaultRPCMetadataExtractor(eventInfo)
+				_, err := DefaultRPCMetadataExtractor(eventInfo)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -378,7 +378,7 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			}
 
 			Convey("The default extractor must return no error ", func() {
-				runtime, err := defaultRPCMetadataExtractor(eventInfo)
+				runtime, err := DefaultRPCMetadataExtractor(eventInfo)
 				So(err, ShouldBeNil)
 				So(runtime, ShouldNotBeNil)
 			})
