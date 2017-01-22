@@ -81,7 +81,7 @@ func TestAddContainerChain(t *testing.T) {
 
 func TestAddChainRules(t *testing.T) {
 
-	Convey("Given an iptables controller", t, func() {
+	Convey("Given an iptables controller for LocalContainer", t, func() {
 		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
@@ -136,11 +136,54 @@ func TestAddChainRules(t *testing.T) {
 		})
 
 	})
+
+	Convey("Given an iptables controller for LocalServer", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalServer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add the chain rules and they succeed", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I add the chain rules and the appAckPacketIPTableContext fails ", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appAckPacketIPTableContext {
+					return fmt.Errorf("Error")
+				}
+				return nil
+			})
+			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the chain rules and the netPacketIPtableContext fails ", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.netPacketIPTableContext {
+					return fmt.Errorf("Error")
+				}
+				return nil
+			})
+			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
 }
 
 func TestAddPacketTrap(t *testing.T) {
 
-	Convey("Given an iptables controller, when I test addPacketTrap", t, func() {
+	Convey("Given an iptables controller, when I test addPacketTrap for Local Container", t, func() {
 		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
@@ -165,6 +208,49 @@ func TestAddPacketTrap(t *testing.T) {
 			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1")
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the packet trap rules and the appAckPacketIPTableContext fails ", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appAckPacketIPTableContext {
+					return fmt.Errorf("Error")
+				}
+				return nil
+			})
+			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I add the packet trap rules and the netPacketIPtableContext fails ", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.netPacketIPTableContext {
+					return fmt.Errorf("Error")
+				}
+				return nil
+			})
+			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1")
+			Convey("I should get  error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
+
+	Convey("Given an iptables controller, when I test addPacketTrap for Local Server", t, func() {
+		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalServer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+
+		Convey("When I add the packet trap rules and they succeed", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1")
+			Convey("I should get no error", func() {
+				So(err, ShouldBeNil)
 			})
 		})
 
