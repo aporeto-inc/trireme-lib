@@ -133,7 +133,7 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	if !strings.HasPrefix(contextID, cgnetcls.TriremeBasePath) {
+	if !strings.HasPrefix(contextID, cgnetcls.TriremeBasePath) || contextID == cgnetcls.TriremeBasePath {
 		return nil
 	}
 
@@ -154,7 +154,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	if !strings.HasPrefix(contextID, cgnetcls.TriremeBasePath) {
+	if !strings.HasPrefix(contextID, cgnetcls.TriremeBasePath) || contextID == cgnetcls.TriremeBasePath {
 		return nil
 	}
 
