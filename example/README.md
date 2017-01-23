@@ -98,7 +98,7 @@ supporting both Linux processes and containers at the same time:
 sudo ./trireme daemon --hybrid
 ```
 
-Start an nginx server as a Linux process:
+Start an nginx server as a Linux process (make sure you have the nginx binary available at `/usr/sbin/nginx`, or adapt accordingly) :
 
 ```bash
 sudo ./trireme run --metadata=@port=80 --metadata=app=web /usr/sbin/nginx  -- '-g daemon off;'
