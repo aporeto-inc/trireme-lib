@@ -109,7 +109,7 @@ server with a curl command communication will fail. Now start with a curl comman
 metadata:
 
 ```bash
-./example run --metadata=app=web /usr/bin/curl -- -p http://172.17.0.1
+./trireme run --metadata=app=web /usr/bin/curl -- -p http://172.17.0.1
 ```
 This command should succeed. 
 
