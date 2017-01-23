@@ -186,18 +186,30 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	if len(nsEnterState) != 0 {
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
+		log.WithFields(log.Fields{
+			"package": "remenforcer",
+			"status":  "Failed nsenter in InitEnforcer",
+		}).Info("Failed nsenter in init enforcer")
 	}
 
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = ("Message Auth Failed")
+		log.WithFields(log.Fields{
+			"package": "remenforcer",
+			"status":  "Failed message authorization",
+		}).Info("Failed nsenter in init enforcer")
 		return errors.New(resp.Status)
 	}
 
 	cmd := exec.Command("sysctl", "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
 	if err := cmd.Run(); err != nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"Rror": "Error ",
+			"Error": err.Error(),
 		}).Error("Failed to set conntrack options. Abort")
+		log.WithFields(log.Fields{
+			"package": "remenforcer",
+			"status":  "Failed on sysctl",
+		}).Info("Failed to exec conntract sysctl")
 	}
 
 	collectorInstance := &CollectorImpl{
@@ -360,6 +372,10 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = ("Message Auth Failed")
+		log.WithFields(log.Fields{
+			"package": "remenforcer",
+			"status":  "Failed on sysctl",
+		}).Info("Message auth failed")
 		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
@@ -385,8 +401,9 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	}
 	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
 	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"method": "Enforce",
-		"error":  err,
+		"method":    "Enforce",
+		"error":     err,
+		"ContextID": payload.ContextID,
 	}).Info("ENFORCE STATUS")
 	if err != nil {
 		resp.Status = err.Error()
