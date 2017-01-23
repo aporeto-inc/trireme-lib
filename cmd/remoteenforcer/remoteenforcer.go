@@ -185,11 +185,11 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	nsEnterState := os.Getenv("NSENTER_ERROR_STATE")
 	if len(nsEnterState) != 0 {
 		resp.Status = (nsEnterState)
-		return errors.New(resp.Status)
 		log.WithFields(log.Fields{
 			"package": "remenforcer",
 			"status":  "Failed nsenter in InitEnforcer",
 		}).Info("Failed nsenter in init enforcer")
+		return errors.New(resp.Status)
 	}
 
 	if !s.rpchdl.CheckValidity(&req) {
@@ -210,6 +210,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			"package": "remenforcer",
 			"status":  "Failed on sysctl",
 		}).Info("Failed to exec conntract sysctl")
+		return err
 	}
 
 	collectorInstance := &CollectorImpl{
