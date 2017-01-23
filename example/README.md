@@ -95,7 +95,7 @@ First, compile the Trireme example as in the previous section. Start Trireme in 
 supporting both Linux processes and containers at the same time:
 
 ```bash
-sudo ./trireme --hybrid
+sudo ./trireme daemon --hybrid
 ```
 
 Start an nginx server as a Linux process:
