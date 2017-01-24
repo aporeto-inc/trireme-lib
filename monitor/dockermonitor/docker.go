@@ -177,7 +177,6 @@ func NewDockerMonitor(
 	d.addHandler(DockerEventDestroy, d.handleDestroyEvent)
 	d.addHandler(DockerEventPause, d.handlePauseEvent)
 	d.addHandler(DockerEventUnpause, d.handleUnpauseEvent)
-	d.addHandler(DockerEventConnect, d.handleNetworkConnectEvent)
 
 	return d
 }
@@ -410,17 +409,6 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return fmt.Errorf("Error getting some of the Docker primitives: %s", err)
 	}
 
-	ip, ok := runtimeInfo.DefaultIPAddress()
-
-	if !ok || ip == "" {
-		log.WithFields(log.Fields{
-			"package":   "monitor",
-			"contextID": contextID,
-		}).Debug("IP Not present in container, Attempting activation")
-
-		ip = ""
-	}
-
 	d.puHandler.SetPURuntime(contextID, runtimeInfo)
 	errorChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
@@ -431,11 +419,8 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		}).Debug("Setting policy failed. Stopping the container")
 
 		d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout)
-		d.collector.CollectContainerEvent(contextID, ip, nil, collector.ContainerFailed)
 		return fmt.Errorf("Policy cound't be set - container was killed")
 	}
-
-	d.collector.CollectContainerEvent(contextID, ip, runtimeInfo.Tags(), collector.ContainerStart)
 
 	return nil
 }
@@ -490,9 +475,9 @@ func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	d.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerCreate)
 	// Send the event upstream
 	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
+
 	return <-errChan
 }
 
@@ -556,18 +541,6 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 	}).Debug("Monitor handled die event")
 
 	dockerID := event.ID
-	contextID, err := contextIDFromDockerID(dockerID)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "monitor",
-			"error":   err.Error(),
-		}).Debug("Error getting ContextID")
-
-		return fmt.Errorf("Error Generating ContextID: %s", err)
-	}
-
-	d.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerStop)
 
 	return d.stopDockerContainer(dockerID)
 }
@@ -591,7 +564,6 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	d.collector.CollectContainerEvent(contextID, "", nil, collector.UnknownContainerDelete)
 	// Send the event upstream
 	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
 	return <-errChan
@@ -620,25 +592,4 @@ func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
 	// Send the event upstream
 	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventUnpause)
 	return <-errChan
-}
-
-func (d *dockerMonitor) handleNetworkConnectEvent(event *events.Message) error {
-
-	log.WithFields(log.Fields{
-		"package": "monitor",
-	}).Debug("Monitor handled network connect event")
-
-	id := event.Actor.Attributes["container"]
-
-	_, err := d.dockerClient.ContainerInspect(context.Background(), id)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "monitor",
-			"error":   err.Error(),
-		}).Error("Failed to read the affected container.")
-		return err
-	}
-
-	return nil
 }
