@@ -1,8 +1,8 @@
 hash: b14a9c3035e7c493aceec0af0d85d8d670728e51ef7fb1e28bf3b83d31b05f49
-updated: 2017-01-21T21:49:05.017626856-08:00
+updated: 2017-01-23T20:10:45.703222339-08:00
 imports:
 - name: github.com/aporeto-inc/trireme
-  version: e88317d0a76d1196876c937485ebd5e092163985
+  version: 6b7ac7eeb1c6d451b19b9dc4478f99d06fd6d106
   subpackages:
   - cache
   - cmd/remoteenforcer
@@ -53,7 +53,7 @@ imports:
   - digest
   - reference
 - name: github.com/docker/docker
-  version: 48a9e53d70472bebad908b273351d8a07939a764
+  version: 49bf474f9ed7ce7143a59d1964ff7b7fd9b52178
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -81,6 +81,12 @@ imports:
   version: 8a7beacffa3009a9ac66bad506b18ffdd110cf97
 - name: github.com/docopt/docopt-go
   version: 784ddc588536785e7299f7272f39101f7faccc3f
+- name: github.com/go-ole/go-ole
+  version: 5e9c030faf78847db7aa77e3661b9cc449de29b7
+  subpackages:
+  - oleutil
+- name: github.com/kardianos/osext
+  version: c2c54e542fb797ad986b31721e1baedf214ca413
 - name: github.com/Microsoft/go-winio
   version: ce2922f643c8fd76b46cadc7f404a06282678b34
 - name: github.com/opencontainers/runc
@@ -89,8 +95,21 @@ imports:
   - libcontainer/user
 - name: github.com/pkg/errors
   version: 839d9e913e063e28dfd0e6c7b7512793e0a48be9
+- name: github.com/shirou/gopsutil
+  version: 7783018b9dc3110d3d667f9a1714b67e6a8e66fd
+  subpackages:
+  - cpu
+  - host
+  - internal/common
+  - mem
+  - net
+  - process
+- name: github.com/shirou/w32
+  version: bb4de0191aa41b5507caa14b0650cdbddcd9280b
 - name: github.com/Sirupsen/logrus
   version: d26492970760ca5d33129d2d799e34be5c4782eb
+- name: github.com/StackExchange/wmi
+  version: e54cbda6595d7293a7a468ccf9525f6bc8887f99
 - name: golang.org/x/net
   version: 4876518f9e71663000c348837735820161a42df7
   subpackages:
