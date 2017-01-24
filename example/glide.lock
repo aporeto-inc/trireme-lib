@@ -2,7 +2,7 @@ hash: b14a9c3035e7c493aceec0af0d85d8d670728e51ef7fb1e28bf3b83d31b05f49
 updated: 2017-01-23T20:10:45.703222339-08:00
 imports:
 - name: github.com/aporeto-inc/trireme
-  version: 6b7ac7eeb1c6d451b19b9dc4478f99d06fd6d106
+  version: f99e886725e807b785d7cd716cb7cf6cd6e4734b
   subpackages:
   - cache
   - cmd/remoteenforcer
