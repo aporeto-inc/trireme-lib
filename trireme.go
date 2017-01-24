@@ -171,7 +171,7 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
 func (t *trireme) doHandleCreate(contextID string) error {
 
-	// Retreive the container runtime information from the cache
+	// Retrieve the container runtime information from the cache
 	cachedElement, err := t.cache.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{
