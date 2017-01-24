@@ -95,10 +95,10 @@ First, compile the Trireme example as in the previous section. Start Trireme in 
 supporting both Linux processes and containers at the same time:
 
 ```bash
-sudo ./trireme --hybrid
+sudo ./trireme daemon --hybrid
 ```
 
-Start an nginx server as a Linux process:
+Start an nginx server as a Linux process (make sure you have the nginx binary available at `/usr/sbin/nginx`, or adapt accordingly) :
 
 ```bash
 sudo ./trireme run --metadata=@port=80 --metadata=app=web /usr/sbin/nginx  -- '-g daemon off;'
@@ -109,7 +109,7 @@ server with a curl command communication will fail. Now start with a curl comman
 metadata:
 
 ```bash
-./example run --metadata=app=web /usr/bin/curl -- -p http://172.17.0.1
+./trireme run --metadata=app=web /usr/bin/curl -- -p http://172.17.0.1
 ```
 This command should succeed. 
 
