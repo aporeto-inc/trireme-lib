@@ -29,6 +29,7 @@ import "C"
 
 import (
 	"fmt"
+	"strconv"
 	"syscall"
 	"time"
 	"unsafe"
@@ -67,8 +68,8 @@ const (
 
 //NFPacket structure holds the packet
 type NFPacket struct {
-	Buffer []byte
-
+	Buffer      []byte
+	Mark        string
 	Xbuffer     *C.uchar
 	QueueHandle *C.struct_nfq_q_handle
 	ID          int
@@ -167,7 +168,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	}
 
 	// Set the max length of the queue
-	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(1000)); err != nil || ret < 0 {
+	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(maxPacketsInQueue)); err != nil || ret < 0 {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
 
@@ -193,7 +194,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	}
 
 	netlinkHandle := C.nfq_nfnlh(nfq.h)
-	C.nfnl_rcvbufsiz(netlinkHandle, C.uint(packetSize*2000))
+	C.nfnl_rcvbufsiz(netlinkHandle, C.uint(packetSize*maxPacketsInQueue))
 
 	fd := C.nfnl_fd(netlinkHandle)
 	opt := 1
@@ -231,7 +232,7 @@ func (nfq *NFQueue) run() {
 }
 
 //export processPacket
-func processPacket(packetID C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
+func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
 
 	nfq, ok := theTable[idx]
 	if !ok {
@@ -248,6 +249,7 @@ func processPacket(packetID C.int, data *C.uchar, len C.int, newData *C.uchar, i
 		Buffer:      C.GoBytes(unsafe.Pointer(data), len),
 		Xbuffer:     newData,
 		ID:          int(packetID),
+		Mark:        strconv.Itoa(int(mark)),
 		QueueHandle: nfq.qh,
 	}
 

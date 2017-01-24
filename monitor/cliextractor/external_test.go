@@ -1,4 +1,4 @@
-package extractor
+package cliextractor
 
 import (
 	"bufio"

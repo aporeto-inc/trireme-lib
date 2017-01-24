@@ -10,11 +10,12 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/remote/launch"
+	"github.com/aporeto-inc/trireme/processmon"
 )
 
 //keyPEM is a private interface required by the enforcerlauncher to expose method not exposed by the
@@ -47,6 +48,7 @@ type proxyInfo struct {
 	rpchdl      rpcwrapper.RPCClient
 	initDone    map[string]bool
 	filterQueue *enforcer.FilterQueue
+	commandArg  string
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -68,9 +70,11 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
 		log.WithFields(log.Fields{
-			"package": "enforcerproxy",
+			"package":        "enforcerproxy",
+			"error":          err.Error(),
+			"Error Response": resp.Status,
 		}).Debug("Failed to initialize enforcer")
-		return fmt.Errorf("Failed ot initialize remote enforcer")
+		return fmt.Errorf("Failed to initialize remote enforcer")
 	}
 
 	s.initDone[contextID] = true
@@ -86,7 +90,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		"pid":     puInfo.Runtime.Pid(),
 	}).Info("PID of container")
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl)
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg)
 	if err != nil {
 		return err
 	}
@@ -108,8 +112,8 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			ContextID:        contextID,
 			ManagementID:     puInfo.Policy.ManagementID,
 			TriremeAction:    puInfo.Policy.TriremeAction,
-			IngressACLs:      puInfo.Policy.IngressACLs(),
-			EgressACLs:       puInfo.Policy.EgressACLs(),
+			ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
+			NetworkACLs:      puInfo.Policy.NetworkACLs(),
 			PolicyIPs:        puInfo.Policy.IPAddresses(),
 			Annotations:      puInfo.Policy.Annotations(),
 			Identity:         puInfo.Policy.Identity(),
@@ -123,7 +127,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		log.WithFields(log.Fields{
 			"package": "remenforcer",
 			"error":   err,
-		}).Fatal("Failed to Enforce remote enforcer")
+		}).Error("Failed to Enforce remote enforcer")
 		return ErrEnforceFailed
 	}
 
@@ -144,7 +148,7 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 		log.WithFields(log.Fields{
 			"package": "remenforcer",
 			"error":   err,
-		}).Fatal("Failed to Enforce remote enforcer")
+		}).Error("Failed to Enforce remote enforcer")
 		return ErrEnforceFailed
 	}
 
@@ -193,6 +197,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	serverID string,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
+	cmdArg string,
 ) enforcer.PolicyEnforcer {
 
 	proxydata := &proxyInfo{
@@ -200,10 +205,11 @@ func NewProxyEnforcer(mutualAuth bool,
 		Secrets:     secrets,
 		serverID:    serverID,
 		validity:    validity,
-		prochdl:     ProcessMon.GetProcessMonHdl(),
+		prochdl:     ProcessMon.GetProcessManagerHdl(),
 		rpchdl:      rpchdl,
 		initDone:    make(map[string]bool),
 		filterQueue: filterQueue,
+		commandArg:  cmdArg,
 	}
 	log.WithFields(log.Fields{
 		"package": "remenforcer",
@@ -245,7 +251,8 @@ func NewDefaultProxyEnforcer(serverID string,
 		secrets,
 		serverID,
 		validity,
-		rpchdl)
+		rpchdl,
+		constants.DefaultRemoteArg)
 }
 
 //StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer

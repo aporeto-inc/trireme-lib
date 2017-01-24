@@ -4,18 +4,21 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-func createMocks() (TestPolicyResolver, supervisor.TestSupervisor, enforcer.TestPolicyEnforcer, monitor.TestMonitor) {
+func createMocks() (TestPolicyResolver, map[constants.PUType]supervisor.Supervisor, map[constants.PUType]enforcer.PolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {
 	tresolver := NewTestPolicyResolver()
-	tsupervisor := supervisor.NewTestSupervisor()
-	tenforcer := enforcer.NewTestPolicyEnforcer()
+	tsupervisor := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: supervisor.NewTestSupervisor()}
+	tenforcer := map[constants.PUType]enforcer.PolicyEnforcer{constants.ContainerPU: enforcer.NewTestPolicyEnforcer()}
 	tmonitor := monitor.NewTestMonitor()
-	return tresolver, tsupervisor, tenforcer, tmonitor
+	tcollector := &collector.DefaultCollector{}
+	return tresolver, tsupervisor, tenforcer, tmonitor, tcollector
 }
 
 func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, tsupervisor supervisor.TestSupervisor, tenforcer enforcer.TestPolicyEnforcer, tmonitor monitor.TestMonitor, id string, runtime *policy.PURuntime) {
@@ -214,39 +217,39 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 }
 
 func TestSimpleCreate(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestSimpleDelete(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestDeleteNotExist(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestDeleteNotExist(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestCreateDelete(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
-	doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
+	doTestDelete(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestSimpleUpdate(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -255,24 +258,24 @@ func TestSimpleUpdate(t *testing.T) {
 	})
 	runtime.SetIPAddresses(ipa)
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 	// Generate a new Policy ...
 	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
 	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
 	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, nil)
-	doTestUpdate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime, newPolicy)
+	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
 
 func TestCache(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
 	for i := 0; i < 5; i++ {
-		doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+		doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 		// Expecting cache to find it
 		cacheRuntime, err := trireme.PURuntime(contextID)
@@ -284,7 +287,7 @@ func TestCache(t *testing.T) {
 			t.Errorf("Cache failed. Expected %v, got %v", runtime, cacheRuntime)
 		}
 
-		doTestDelete(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+		doTestDelete(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 		// Expecting cache to not find it
 		_, err = trireme.PURuntime(contextID)
@@ -295,17 +298,17 @@ func TestCache(t *testing.T) {
 }
 
 func TestStop(t *testing.T) {
-	tresolver, tsupervisor, tenforcer, tmonitor := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	trireme.Start()
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 	trireme.Stop()
 	trireme.Start()
-	doTestCreate(t, trireme, tresolver, tsupervisor, tenforcer, tmonitor, contextID, runtime)
+	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestTransmitterLabel(t *testing.T) {
@@ -314,7 +317,7 @@ func TestTransmitterLabel(t *testing.T) {
 
 	mgmtID := "mgmt"
 	contextID := "Context"
-	containerInfo := policy.NewPUInfo(contextID)
+	containerInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
 	containerInfo.Policy.ManagementID = mgmtID
 	addTransmitterLabel(contextID, containerInfo)
 	label, ok := containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
@@ -328,7 +331,7 @@ func TestTransmitterLabel(t *testing.T) {
 	// If management ID is not set, use contextID as the TransmitterLabel
 
 	contextID = "Context"
-	containerInfo = policy.NewPUInfo(contextID)
+	containerInfo = policy.NewPUInfo(contextID, constants.ContainerPU)
 	addTransmitterLabel(contextID, containerInfo)
 	label, ok = containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
 	if !ok {

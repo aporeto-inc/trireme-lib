@@ -6,100 +6,181 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/policy"
 )
+
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string) [][]string {
+
+	str := [][]string{
+		{
+			i.appAckPacketIPTableContext,
+			i.appCgroupIPTableSection,
+			"-m", "cgroup", "--cgroup", mark,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Server specific chain",
+			"-j", "MARK", "--set-mark", mark,
+		},
+		{
+			i.appAckPacketIPTableContext,
+			i.appCgroupIPTableSection,
+			"-m", "cgroup", "--cgroup", mark,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Server specific chain",
+			"-j", appChain,
+		},
+
+		{
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-p", "tcp",
+			"-m", "multiport",
+			"--destination-ports", port,
+			"-m", "comment", "--comment", "Container specific chain",
+			"-j", netChain,
+		},
+	}
+
+	return str
+}
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
 func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]string {
 
-	return [][]string{
-		{
+	rules := [][]string{}
+
+	if i.mode == constants.LocalContainer {
+		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-s", ip,
 			"-m", "comment", "--comment", "Container specific chain",
 			"-j", appChain,
-		},
-		{
-			i.appAckPacketIPTableContext,
-			i.appPacketIPTableSection,
-			"-s", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Container specific chain",
-			"-j", appChain,
-		},
-		{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-d", ip,
-			"-m", "comment", "--comment", "Container specific chain",
-			"-j", netChain,
-		},
+		})
 	}
+
+	rules = append(rules, []string{
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-s", ip,
+		"-p", "tcp",
+		"-m", "comment", "--comment", "Container specific chain",
+		"-j", appChain,
+	})
+
+	rules = append(rules, []string{
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-d", ip,
+		"-m", "comment", "--comment", "Container specific chain",
+		"-j", netChain,
+	})
+
+	return rules
+
 }
 
 //trapRules provides the packet trap rules to add/delete
 func (i *Instance) trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
 
-	return [][]string{
-		// Application Syn and Syn/Ack
-		{
+	rules := [][]string{}
+
+	if i.mode == constants.LocalContainer {
+		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-d", network,
 			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
+		})
 
-		// Application everything else
-		{
+		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
-		},
+		})
 
-		// Network side rules
-		{
+		// Capture the first ack packet
+		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-s", network,
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", netQueue,
-		},
+		})
+
+	} else {
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-d", network,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		})
+
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-d", network,
+			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", appQueue,
+		})
+
+		// Capture Syn Packets
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-s", network,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", netQueue,
+		})
+
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-s", network,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", netQueue,
+		})
 	}
+
+	return rules
+
 }
 
 // exclusionChainRules provides the list of rules that are used to send traffic to
 // a particular chain
 func (i *Instance) exclusionChainRules(ip string) [][]string {
+	rules := [][]string{}
 
-	return [][]string{
-		{
+	if i.mode == constants.LocalContainer {
+		rules = append(rules, []string{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-d", ip,
 			"-m", "comment", "--comment", "Trireme excluded IP",
 			"-j", "ACCEPT",
-		},
-		{
-			i.appAckPacketIPTableContext,
-			i.appPacketIPTableSection,
-			"-d", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
-		{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-s", ip,
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		},
+		})
 	}
+	rules = append(rules, []string{
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-d", ip,
+		"-p", "tcp",
+		"-m", "comment", "--comment", "Trireme excluded IP",
+		"-j", "ACCEPT",
+	})
 
+	rules = append(rules, []string{
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-s", ip,
+		"-m", "comment", "--comment", "Trireme excluded IP",
+		"-j", "ACCEPT",
+	})
+
+	return rules
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
@@ -107,33 +188,39 @@ func (i *Instance) exclusionChainRules(ip string) [][]string {
 // All rules related to a container are contained within the dedicated chain
 func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"chain":   appChain,
-			"context": i.appPacketIPTableContext,
-			"error":   err.Error(),
-		}).Debug("Failed to create the container specific chain")
-		return err
+	if i.mode == constants.LocalContainer {
+		if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
+			log.WithFields(log.Fields{
+				"package": "iptablesctrl",
+				"chain":   appChain,
+				"context": i.appPacketIPTableContext,
+				"error":   err.Error(),
+			}).Debug("Failed to create the container specific chain")
+			return err
+		}
 	}
 
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"chain":   appChain,
-			"context": i.appAckPacketIPTableContext,
-			"error":   err.Error(),
+			"package":                      "iptablesctrl",
+			"appChain":                     appChain,
+			"netChain":                     netChain,
+			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
+			"error": err.Error(),
 		}).Debug("Failed to create the container specific chain")
+
 		return err
 	}
 
 	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"chain":   netChain,
-			"context": i.netPacketIPTableContext,
-			"error":   err.Error(),
+			"package":                   "iptablesctrl",
+			"appChain":                  appChain,
+			"netChain":                  netChain,
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"error":                     err.Error(),
 		}).Debug("Failed to create the container specific chain")
+
 		return err
 	}
 
@@ -182,8 +269,11 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(appChain string, netChain string, ip string) error {
+func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string) error {
 
+	if i.mode == constants.LocalServer {
+		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Append")
+	}
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Append")
 
 }
@@ -218,10 +308,10 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 				"-j", "ACCEPT",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package": "iptablesctrl",
-					"context": i.netPacketIPTableContext,
-					"chain":   chain,
-					"error":   err.Error(),
+					"package":                   "iptablesctrl",
+					"i.netPacketIPTableContext": i.netPacketIPTableContext,
+					"chain":                     chain,
+					"error":                     err.Error(),
 				}).Debug("Error when adding app acl rule")
 				return err
 			}
@@ -234,10 +324,10 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 				"-j", "DROP",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package": "iptablesctrl",
-					"context": i.netPacketIPTableContext,
-					"chain":   chain,
-					"error":   err.Error(),
+					"package":                   "iptablesctrl",
+					"i.netPacketIPTableContext": i.netPacketIPTableContext,
+					"chain":                     chain,
+					"error":                     err.Error(),
 				}).Debug("Error when adding app acl rule")
 				return err
 			}
@@ -281,10 +371,10 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 				"-j", "ACCEPT",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package": "iptablesctrl",
-					"context": i.netPacketIPTableContext,
-					"chain":   chain,
-					"error":   err.Error(),
+					"package":                   "iptablesctrl",
+					"i.netPacketIPTableContext": i.netPacketIPTableContext,
+					"chain":                     chain,
+					"error":                     err.Error(),
 				}).Debug("Error when adding a net acl rule")
 
 				return err
@@ -298,10 +388,10 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 				"-j", "DROP",
 			); err != nil {
 				log.WithFields(log.Fields{
-					"package": "iptablesctrl",
-					"context": i.netPacketIPTableContext,
-					"chain":   chain,
-					"error":   err.Error(),
+					"package":                   "iptablesctrl",
+					"i.netPacketIPTableContext": i.netPacketIPTableContext,
+					"chain":                     chain,
+					"error":                     err.Error(),
 				}).Debug("Error when adding a net acl rule")
 
 				return err
@@ -319,10 +409,10 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		"-j", "DROP",
 	); err != nil {
 		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"context": i.netPacketIPTableContext,
-			"chain":   chain,
-			"error":   err.Error(),
+			"package":                   "iptablesctrl",
+			"i.netPacketIPTableContext": i.netPacketIPTableContext,
+			"chain":                     chain,
+			"error":                     err.Error(),
 		}).Debug("Error when adding default net acl rule")
 
 		return err
@@ -332,7 +422,11 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(appChain, netChain, ip string) error {
+func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, mark string) error {
+
+	if i.mode == constants.LocalServer {
+		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Delete")
+	}
 
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")
 
@@ -352,14 +446,12 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 	if err := i.ipt.DeleteChain(i.appPacketIPTableContext, appChain); err != nil {
 		log.WithFields(log.Fields{
-			"package":  "iptablesctrl",
-			"appChain": appChain,
-			"netChain": netChain,
-			"error":    err.Error(),
-			"context":  i.appPacketIPTableContext,
+			"package":                   "iptablesctrl",
+			"appChain":                  appChain,
+			"netChain":                  netChain,
+			"error":                     err.Error(),
+			"i.appPacketIPTableContext": i.appPacketIPTableContext,
 		}).Debug("Failed to clear and delete the appChains")
-
-		//TODO: how do we deal with errors here
 	}
 
 	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, appChain); err != nil {
@@ -403,42 +495,103 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 	return nil
 }
 
-func (i *Instance) acceptMarkedPackets() error {
-	table := i.appAckPacketIPTableContext
-	chain := i.appPacketIPTableSection
-	err := i.ipt.Insert(table, chain, 1,
-		"-m", "mark",
-		"--mark", strconv.Itoa(i.mark),
-		"-j", "ACCEPT")
+// CaptureSYNACKPackets install rules to capture all SynAck packets
+func (i *Instance) CaptureSYNACKPackets() error {
+
+	err := i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection, 1,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.applicationQueues)
+
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "iptablesctrl",
-			"table":   table,
-			"chain":   chain,
-		}).Debug("Failed to install default mark chain.")
+			"table":   i.appAckPacketIPTableContext,
+			"chain":   "INPUT",
+		}).Debug("Failed to install SynAck packet capture at input ")
+		return err
 	}
-	return err
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection, 1,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.networkQueues)
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"table":   i.netPacketIPTableContext,
+			"chain":   "OUTPUT",
+		}).Debug("Failed to install SynAck packet capture at output ")
+		return err
+	}
+
+	return nil
+}
+
+// CleanCaptureSynAckPackets cleans the capture rules for SynAck packets
+func (i *Instance) CleanCaptureSynAckPackets() error {
+
+	i.ipt.Delete(
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.applicationQueues)
+
+	i.ipt.Delete(
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.networkQueues)
+
+	return nil
+}
+
+// acceptMarkedPackets installs the rules to accept all marked packets
+func (i *Instance) acceptMarkedPackets() error {
+
+	if i.mode != constants.LocalContainer {
+		return nil
+	}
+
+	return i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection, 1,
+		"-m", "mark",
+		"--mark", strconv.Itoa(i.mark),
+		"-j", "ACCEPT")
+
 }
 
 func (i *Instance) removeMarkRule() error {
+
+	if i.mode != constants.LocalContainer {
+		return nil
+	}
 
 	i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "mark",
 		"--mark", strconv.Itoa(i.mark),
 		"-j", "ACCEPT")
+
 	return nil
 }
 
 func (i *Instance) cleanACLs() error {
-	log.WithFields(log.Fields{
-		"package": "iptablesctrl",
-	}).Debug("Cleaning all IPTables")
 
 	// Clean the mark rule
 	i.removeMarkRule()
 
-	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
+	if i.mode == constants.LocalServer {
+		i.CleanCaptureSynAckPackets()
+	}
+
+	// Clean Application Rules/Chains in Raw if needed
+	if i.mode == constants.LocalContainer {
+		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
+	}
 
 	// Clean Application Rules/Chains
 	i.cleanACLSection(i.appAckPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
@@ -460,16 +613,7 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 		}).Debug("Can not clear the section in iptables.")
 	}
 
-	rules, err := i.ipt.ListChains(context)
-
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"context": context,
-			"section": section,
-			"error":   err.Error(),
-		}).Debug("No chain rules found in iptables")
-	}
+	rules, _ := i.ipt.ListChains(context)
 
 	for _, rule := range rules {
 

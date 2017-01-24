@@ -96,3 +96,9 @@ type StatsPayload struct {
 	Source    string
 	Packet    *packet.Packet
 }
+
+// DualHash is a record of app and net hash
+type DualHash struct {
+	app string
+	net string
+}

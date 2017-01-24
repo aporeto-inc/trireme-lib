@@ -1,8 +1,10 @@
 package trireme
 
 import (
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor"
 )
 
 // Trireme is the main interface to the Trireme package.
@@ -16,6 +18,9 @@ type Trireme interface {
 
 	// Stop stops the component.
 	Stop() error
+
+	// Supervisor returns the supervisor for a given PU type
+	Supervisor(kind constants.PUType) supervisor.Supervisor
 
 	monitor.ProcessingUnitsHandler
 
@@ -36,6 +41,6 @@ type PolicyResolver interface {
 	// ResolvePolicy returns the policy.PUPolicy associated with the given contextID using the given policy.RuntimeReader.
 	ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
-	// HandlePUEvent is called when a PU is stopped/killed.
+	// HandleDeletePU is called when a PU is stopped/killed.
 	HandlePUEvent(contextID string, eventType monitor.Event)
 }

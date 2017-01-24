@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
@@ -56,8 +57,8 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, false).(*datapathEnforcer)
-		tcpPacket, err := packet.New(0, TCPFlow[0])
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
+		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
 
@@ -79,11 +80,11 @@ func TestInvalidIPContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, false).(*datapathEnforcer)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
 		enforcer.Enforce("SomeServerId", puInfo)
-		tcpPacket, err := packet.New(0, TCPFlow[0])
+		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
 
@@ -105,16 +106,16 @@ func TestInvalidTokenContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId")
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 
 		ip := policy.NewIPMap(map[string]string{
 			"brige": "164.67.228.152",
 		})
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, false).(*datapathEnforcer)
+		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
 		enforcer.Enforce("SomeServerId", puInfo)
-		tcpPacket, err := packet.New(0, TCPFlow[0])
+		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing token)", func() {
 
@@ -153,7 +154,7 @@ func TestPacketHandling(t *testing.T) {
 		Convey("Given I create a two processing unit instances", func() {
 
 			// Create ProcessingUnit 1
-			puInfo1 := policy.NewPUInfo("SomeProcessingUnitId1")
+			puInfo1 := policy.NewPUInfo("SomeProcessingUnitId1", constants.ContainerPU)
 			ip1 := policy.NewIPMap(map[string]string{})
 			ip1.Add("bridge", "164.67.228.152")
 			puInfo1.Runtime.SetIPAddresses(ip1)
@@ -163,7 +164,7 @@ func TestPacketHandling(t *testing.T) {
 			puInfo1.Policy.AddReceiverRules(&tagSelector)
 
 			// Create processing unit 2
-			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2")
+			puInfo2 := policy.NewPUInfo("SomeProcessingUnitId2", constants.ContainerPU)
 			ip2 := policy.NewIPMap(map[string]string{"bridge": "10.1.10.76"})
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "10.1.10.76"})
@@ -174,7 +175,7 @@ func TestPacketHandling(t *testing.T) {
 			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
 			collector := &collector.DefaultCollector{}
-			enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, false).(*datapathEnforcer)
+			enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
 			enforcer.Enforce("SomeProcessingUnitId1", puInfo1)
 			enforcer.Enforce("SomeProcessingUnitId2", puInfo2)
 
@@ -188,12 +189,12 @@ func TestPacketHandling(t *testing.T) {
 					copy(input, p)
 					copy(start, p)
 
-					oldPacket, err := packet.New(0, start)
+					oldPacket, err := packet.New(0, start, "0")
 					if err == nil && oldPacket != nil {
 						oldPacket.UpdateIPChecksum()
 						oldPacket.UpdateTCPChecksum()
 					}
-					tcpPacket, err := packet.New(0, input)
+					tcpPacket, err := packet.New(0, input, "0")
 					if err == nil && tcpPacket != nil {
 						tcpPacket.UpdateIPChecksum()
 						tcpPacket.UpdateTCPChecksum()
@@ -223,7 +224,7 @@ func TestPacketHandling(t *testing.T) {
 					output := make([]byte, len(tcpPacket.GetBytes()))
 					copy(output, tcpPacket.GetBytes())
 
-					outPacket, errp := packet.New(0, output)
+					outPacket, errp := packet.New(0, output, "0")
 					So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 					So(errp, ShouldBeNil)
 					err = enforcer.processNetworkTCPPackets(outPacket)
@@ -260,10 +261,10 @@ func TestCacheState(t *testing.T) {
 
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 	collector := &collector.DefaultCollector{}
-	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, false).(*datapathEnforcer)
+	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
 	contextID := "123"
 
-	puInfo := policy.NewPUInfo(contextID)
+	puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
 
 	// Should fail: Not in cache
 	err := enforcer.Unenforce(contextID)

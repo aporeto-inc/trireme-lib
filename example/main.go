@@ -1,70 +1,92 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme"
+	"github.com/aporeto-inc/trireme/cmd/remoteenforcer"
+	"github.com/aporeto-inc/trireme/cmd/systemdutil"
 	"github.com/aporeto-inc/trireme/example/common"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/extractor"
-
-	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/monitor/cliextractor"
+	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
+	docopt "github.com/docopt/docopt-go"
 )
-
-var usePKI = flag.Bool("pki", false, "Use PKI trireme")
-var certFile = flag.String("certFile", "cert.pem", "Set the path of certificate.")
-var keyFile = flag.String("keyFile", "key.pem", "Set the path of key certificate key to use.")
-var caCertFile = flag.String("caCertFile", "ca.crt", "Set the path of certificate authority to use.")
-var externalMetadataFile = flag.String("metadata", "", "An external executable file for the metadata extractor")
-var swarm = flag.String("swarm", "", "Support the Swarm Mode extractor")
-
-func usage() {
-
-	fmt.Fprintf(os.Stderr, "usage: example -stderrthreshold=[INFO|WARN|FATAL] -log_dir=[string]   -metadata=[string] -enforcer=[remote|local]\n")
-	flag.PrintDefaults()
-	os.Exit(2)
-}
-
-func init() {
-	flag.StringVar(externalMetadataFile, "m", "", "Description")
-}
 
 func main() {
 
-	log.SetLevel(log.DebugLevel)
-	log.SetFormatter(&log.TextFormatter{})
-	var remote string
+	usage := `Command for launching programs with Trireme policy.
 
-	flag.Usage = usage
+  Usage:
+    trireme run
+      [--servicename=<sname>]
+      [[--metadata=<keyvalue>]...]
+      <command> [--] [<params>...]
+    trireme daemon
+      [--usePKI]
+      [--hybrid|--remote|--local]
+      [--swarm|--extractor <metadatafile>]
+      [--keyFile=<keyFile>]
+      [--certFile=<certFile>]
+      [--caCert=<caFile>]
+    trireme enforce
+    trireme  <cgroup>
+    trireme -h | --help
+    trireme --version
 
-	flag.StringVar(&remote, "enforcer", "local", "Launch enforcer process in the network namespace of container")
+  Options:
+    -h --help                              Show this help message and exit.
+    --servicename=<sname>                  The name of the service to be launched.
+    --metadata=<keyvalue>                  The metadata/labels associated with a service.
+    --usePKI                               Use PKI for Trireme [default: false].
+    --certFile=<certfile>                  Certificate file [default: cert.pem].
+    --keyFile=<keyFile>                    Key file [default: key.pem].
+    --caCert=<caFile>                      CA certificate [default: ca.crt].
+    --hybrid                               Hybrid mode of deployment [default: false]
+    --remote                               Remote mode of deployment [default: false]
+    --local                                Local mode of deployment [default: true]
+    --swarm                                Deploy Doccker Swarm metadata extractor [default: false]
+    --extractor                            External metadata extractor [default: ]
+    --version                              show version and exit.
+  `
 
-	flag.Parse()
+	arguments, _ := docopt.Parse(usage, nil, true, "1.0.0rc2", false)
 
 	var t trireme.Trireme
 	var m monitor.Monitor
-	//var e supervisor.Excluder
-	var remoteEnforcer bool
+	var rm monitor.Monitor
+	var err error
 
-	if remote == "local" {
-		remoteEnforcer = false
-	} else {
-		remoteEnforcer = true
+	log.SetLevel(log.InfoLevel)
+	log.SetFormatter(&log.TextFormatter{})
+
+	// If in enforce mode then just launch in this mode and exit
+	if arguments["enforce"].(bool) {
+		remoteenforcer.LaunchRemoteEnforcer()
 	}
 
-	var customExtractor monitor.DockerMetadataExtractor
-	if *externalMetadataFile != "" {
-		var err error
-		customExtractor, err = extractor.NewExternalExtractor(*externalMetadataFile)
+	if arguments["run"].(bool) || arguments["<cgroup>"] != nil {
+		systemdutil.ExecuteCommand(arguments)
+	}
+
+	if !arguments["daemon"].(bool) {
+		os.Exit(0)
+	}
+
+	var customExtractor dockermonitor.DockerMetadataExtractor
+
+	if arguments["--extractor"].(bool) {
+		extractorfile := arguments["<metadatafile>"].(string)
+		customExtractor, err = cliextractor.NewExternalExtractor(extractorfile)
 		if err != nil {
-			fmt.Printf("error: ABC, %s", err)
+			log.Fatalf("External metadata extractor cannot be accessed: %s", err)
 		}
 	}
 
-	if *swarm == "true" {
+	if arguments["--swarm"].(bool) {
 		log.WithFields(log.Fields{
 			"Package":   "main",
 			"Extractor": "Swarm",
@@ -72,32 +94,56 @@ func main() {
 		customExtractor = common.SwarmExtractor
 	}
 
-	if *usePKI {
-		log.Infof("Setting up trireme with PKI")
-		t, m, _ = common.TriremeWithPKI(*keyFile, *certFile, *caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
-	} else {
-		log.Infof("Setting up trireme with PSK")
-		t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remoteEnforcer)
+	if !arguments["--hybrid"].(bool) {
+		remote := arguments["--remote"].(bool)
+		if arguments["--usePKI"].(bool) {
+			log.Infof("Setting up trireme with PKI")
 
+			keyFile := arguments["--keyFile"].(string)
+			certFile := arguments["--certFile"].(string)
+			caCertFile := arguments["--caCert"].(string)
+
+			t, m, _ = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remote)
+
+		} else {
+
+			log.Infof("Setting up trireme with PSK")
+			t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remote)
+
+		}
+	} else { // Hybrid mode
+		t, m, rm, _ = common.HybridTriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor)
 	}
 
 	if t == nil {
-		panic("Failed to create Trireme")
+		log.Fatalln("Failed to create Trireme")
 	}
 
 	if m == nil {
-		panic("Failed to create Monitor")
+		log.Fatalln("Failed to create Monitor")
 	}
 
-	t.Start()
-	m.Start()
+	if arguments["--hybrid"].(bool) && rm == nil {
+		log.Fatalln("Failed to create remote monitor for hybrid")
+	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 
+	// Start services
+	t.Start()
+	m.Start()
+	if rm != nil {
+		rm.Start()
+	}
+
+	// Wait for Ctrl-C
 	<-c
 
 	fmt.Println("Bye!")
 	m.Stop()
 	t.Stop()
+	if rm != nil {
+		rm.Stop()
+	}
 }

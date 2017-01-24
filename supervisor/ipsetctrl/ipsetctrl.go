@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
@@ -29,10 +30,11 @@ type Instance struct {
 	appPacketIPTableSection    string
 	netPacketIPTableContext    string
 	netPacketIPTableSection    string
+	mode                       constants.ModeType
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, remote bool) (*Instance, error) {
+func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, remote bool, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -51,6 +53,7 @@ func NewInstance(networkQueues, applicationQueues string, targetNetworks []strin
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
+		mode: mode,
 	}
 
 	if remote {
@@ -82,8 +85,13 @@ func (i *Instance) setPrefix(contextID string) (app, net string) {
 }
 
 // ConfigureRules implmenets the ConfigureRules interface
-func (i *Instance) ConfigureRules(version int, contextID string, policyrules *policy.PUPolicy) error {
+func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 
+	if containerInfo == nil {
+		return fmt.Errorf("Container info cannot be nil")
+	}
+
+	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	if policyrules == nil {
@@ -96,7 +104,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 		return fmt.Errorf("No ip address found")
 	}
 
-	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
+	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
 		return err
 	}
 
@@ -104,7 +112,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap, port string, mark string) error {
 
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
@@ -129,8 +137,8 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 }
 
 // UpdateRules implements the update part of the interface
-func (i *Instance) UpdateRules(version int, contextID string, policyrules *policy.PUPolicy) error {
-
+func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
@@ -139,7 +147,7 @@ func (i *Instance) UpdateRules(version int, contextID string, policyrules *polic
 		return fmt.Errorf("No ip address found")
 	}
 
-	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.IngressACLs(), policyrules.EgressACLs(), ipAddress); err != nil {
+	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
 		return err
 	}
 

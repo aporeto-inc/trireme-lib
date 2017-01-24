@@ -7,44 +7,25 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/ipsetctrl"
 	"github.com/aporeto-inc/trireme/supervisor/iptablesctrl"
 )
 
-// ImplementationType defines the type of implementation
-type ImplementationType int
-
-const (
-	// IPSets mandates an IPset supervisor implementation
-	IPSets ImplementationType = iota
-	// IPTables mandates an IPTable supervisor implementation
-	IPTables
-	// Remote indicates that this is a remote supervisor
-)
-
-// ModeType defines whether this is local or remote
-type ModeType int
-
-const (
-	// RemoteContainer indicates a remote supervisor
-	RemoteContainer ModeType = iota
-	// LocalContainer indicates a container based supervisor
-	LocalContainer
-	// LocalServer indicates a Linux service
-	LocalServer
-)
-
 type cacheData struct {
 	version int
 	ips     *policy.IPMap
+	mark    string
+	port    string
 }
 
 // Config is the structure holding all information about the supervisor
 type Config struct {
-	implType ImplementationType
-	mode     ModeType
+	//implType ImplementationType
+	mode constants.ModeType
 
 	versionTracker cache.DataStore
 	collector      collector.EventCollector
@@ -62,7 +43,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, targetNetworks []string, mode ModeType, implementation ImplementationType) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, targetNetworks []string, mode constants.ModeType, implementation constants.ImplementationType) (*Config, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -93,18 +74,14 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		Mark:              filterQueue.MarkValue,
 	}
 
-	remote := false
-	if mode == RemoteContainer {
-		remote = true
-	}
-
 	var err error
 	switch implementation {
-	case IPSets:
-		s.impl, err = ipsetctrl.NewInstance(s.networkQueues, s.applicationQueues, s.targetNetworks, s.Mark, remote)
+	case constants.IPSets:
+		s.impl, err = ipsetctrl.NewInstance(s.networkQueues, s.applicationQueues, s.targetNetworks, s.Mark, false, mode)
 	default:
-		s.impl, err = iptablesctrl.NewInstance(s.networkQueues, s.applicationQueues, s.targetNetworks, s.Mark, remote)
+		s.impl, err = iptablesctrl.NewInstance(s.networkQueues, s.applicationQueues, s.targetNetworks, s.Mark, mode)
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("Unable to initialize supervisor controllers")
 	}
@@ -144,7 +121,7 @@ func (s *Config) Unsupervise(contextID string) error {
 
 	cacheEntry := version.(*cacheData)
 
-	s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips)
+	s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark)
 
 	s.versionTracker.Remove(contextID)
 
@@ -180,10 +157,16 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	}).Debug("IPTables update for the creation of a pu")
 
 	version := 0
-
+	mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
+	port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+	if !ok {
+		port = "0"
+	}
 	cacheEntry := &cacheData{
 		version: version,
 		ips:     containerInfo.Policy.IPAddresses(),
+		mark:    mark,
+		port:    port,
 	}
 
 	// Version the policy so that we can do hitless policy changes
@@ -192,13 +175,10 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 		return err
 	}
 
-	if err := s.impl.ConfigureRules(version, contextID, containerInfo.Policy); err != nil {
+	if err := s.impl.ConfigureRules(version, contextID, containerInfo); err != nil {
 		s.Unsupervise(contextID)
 		return err
 	}
-
-	ip, _ := containerInfo.Runtime.DefaultIPAddress()
-	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "start")
 
 	return nil
 }
@@ -215,13 +195,10 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 
 	cachedEntry := cacheEntry.(*cacheData)
 
-	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo.Policy); err != nil {
+	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo); err != nil {
 		s.Unsupervise(contextID)
-		return fmt.Errorf("Error in updating PU implementation. PU has been terminated")
+		return err
 	}
-
-	ip, _ := containerInfo.Runtime.DefaultIPAddress()
-	s.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), "update")
 
 	return nil
 }

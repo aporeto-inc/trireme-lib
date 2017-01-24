@@ -32,13 +32,13 @@ type Excluder interface {
 type Implementor interface {
 
 	// ConfigureRules
-	ConfigureRules(version int, contextID string, policyrules *policy.PUPolicy) error
+	ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error
 
 	// UpdateRules
-	UpdateRules(version int, contextID string, policyrules *policy.PUPolicy) error
+	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error
 
 	// DeleteRules
-	DeleteRules(version int, context string, ipAddresses *policy.IPMap) error
+	DeleteRules(version int, context string, ipAddresses *policy.IPMap, port string, mark string) error
 
 	// Start initializes any defaults
 	Start() error
@@ -46,6 +46,9 @@ type Implementor interface {
 	// Stop cleans up state
 	Stop() error
 
-	// Excluder supports the IP Exclusion calls.
-	Excluder
+	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
+	AddExcludedIP(ip string) error
+
+	// RemoveExcludedIP removes the exception for the destination IP given in parameter.
+	RemoveExcludedIP(ip string) error
 }

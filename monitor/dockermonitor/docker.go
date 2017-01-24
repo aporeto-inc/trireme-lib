@@ -1,4 +1,4 @@
-package monitor
+package dockermonitor
 
 import (
 	"context"
@@ -9,9 +9,12 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
+	"github.com/docker/docker/api/types/filters"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -113,7 +116,7 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 		"bridge": info.NetworkSettings.IPAddress,
 	})
 
-	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa), nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.ContainerPU, nil), nil
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events
@@ -125,10 +128,10 @@ type dockerMonitor struct {
 	stopprocessor      chan bool
 	stoplistener       chan bool
 	syncAtStart        bool
-	syncHandler        SynchronizationHandler
+	syncHandler        monitor.SynchronizationHandler
 
 	collector collector.EventCollector
-	puHandler ProcessingUnitsHandler
+	puHandler monitor.ProcessingUnitsHandler
 }
 
 // NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
@@ -140,11 +143,11 @@ type dockerMonitor struct {
 func NewDockerMonitor(
 	socketType string,
 	socketAddress string,
-	p ProcessingUnitsHandler,
+	p monitor.ProcessingUnitsHandler,
 	m DockerMetadataExtractor,
 	l collector.EventCollector, syncAtStart bool,
-	s SynchronizationHandler,
-) Monitor {
+	s monitor.SynchronizationHandler,
+) monitor.Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
 
@@ -159,7 +162,6 @@ func NewDockerMonitor(
 		puHandler:          p,
 		collector:          l,
 		syncAtStart:        syncAtStart,
-		syncHandler:        s,
 		eventnotifications: make(chan *events.Message, 1000),
 		handlers:           make(map[DockerEvent]func(event *events.Message) error),
 		stoplistener:       make(chan bool),
@@ -249,6 +251,7 @@ func (d *dockerMonitor) eventProcessor() {
 					if err != nil {
 						log.WithFields(log.Fields{
 							"package": "monitor",
+							"action":  event.Action,
 							"error":   err.Error(),
 						}).Error("Error while handling event")
 					}
@@ -269,8 +272,11 @@ func (d *dockerMonitor) eventProcessor() {
 // that we will miss events because the processor is delayed
 func (d *dockerMonitor) eventListener() {
 
-	messages, errs := d.dockerClient.Events(context.Background(), types.EventsOptions{})
+	options := types.EventsOptions{}
+	options.Filters = filters.NewArgs()
+	options.Filters.Add("type", "container")
 
+	messages, errs := d.dockerClient.Events(context.Background(), options)
 	for {
 		select {
 		case message := <-messages:
@@ -278,7 +284,9 @@ func (d *dockerMonitor) eventListener() {
 				"package": "monitor",
 				"message": message,
 			}).Debug("Got message from docker client")
+
 			d.eventnotifications <- &message
+
 		case err := <-errs:
 			if err != nil && err != io.EOF {
 				log.WithFields(log.Fields{
@@ -328,20 +336,20 @@ func (d *dockerMonitor) syncContainers() error {
 
 			PURuntime, _ := d.extractMetadata(&container)
 
-			var state State
+			var state monitor.State
 			if container.State.Running {
 				if !container.State.Paused {
-					state = StateStarted
+					state = monitor.StateStarted
 				} else {
-					state = StatePaused
+					state = monitor.StatePaused
 				}
 			} else {
-				state = StateStopped
+				state = monitor.StateStopped
 			}
-			d.syncHandler.HandleSynchronization(contextID, state, PURuntime, SynchronizationTypeInitial)
+			d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitor.SynchronizationTypeInitial)
 		}
 
-		d.syncHandler.HandleSynchronizationComplete(SynchronizationTypeInitial)
+		d.syncHandler.HandleSynchronizationComplete(monitor.SynchronizationTypeInitial)
 	}
 
 	for _, c := range containers {
@@ -353,22 +361,11 @@ func (d *dockerMonitor) syncContainers() error {
 				"error":   err.Error(),
 			}).Error("Error Syncing existing Container")
 		}
-
 		if err := d.startDockerContainer(&container); err != nil {
 			log.WithFields(log.Fields{
 				"package": "monitor",
 				"error":   err.Error(),
-			}).Error("Error Syncing existing running Container")
-		}
-
-		if container.State.Running && container.State.Paused {
-			contextID, _ := contextIDFromDockerID(container.ID)
-			if err := <-d.puHandler.HandlePUEvent(contextID, EventPause); err != nil {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Error("Error Syncing existing paused Container")
-			}
+			}).Error("Error Syncing existing Container")
 		}
 	}
 
@@ -425,7 +422,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	}
 
 	d.puHandler.SetPURuntime(contextID, runtimeInfo)
-	errorChan := d.puHandler.HandlePUEvent(contextID, EventStart)
+	errorChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
 	if err := <-errorChan; err != nil {
 		log.WithFields(log.Fields{
@@ -461,7 +458,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	errChan := d.puHandler.HandlePUEvent(contextID, EventStop)
+	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 	return <-errChan
 }
 
@@ -487,6 +484,7 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 // handleCreateEvent generates a create event type.
 func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 	dockerID := event.ID
+
 	contextID, err := contextIDFromDockerID(dockerID)
 	if err != nil {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
@@ -494,7 +492,7 @@ func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 
 	d.collector.CollectContainerEvent(contextID, "", nil, collector.ContainerCreate)
 	// Send the event upstream
-	errChan := d.puHandler.HandlePUEvent(contextID, EventCreate)
+	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
 	return <-errChan
 }
 
@@ -595,11 +593,11 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 	d.collector.CollectContainerEvent(contextID, "", nil, collector.UnknownContainerDelete)
 	// Send the event upstream
-	errChan := d.puHandler.HandlePUEvent(contextID, EventDestroy)
+	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
 	return <-errChan
 }
 
-// handleCreateEvent generates a create event type.
+// handlePauseEvent generates a create event type.
 func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 	dockerID := event.ID
 	contextID, err := contextIDFromDockerID(dockerID)
@@ -607,7 +605,7 @@ func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	errChan := d.puHandler.HandlePUEvent(contextID, EventPause)
+	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventPause)
 	return <-errChan
 }
 
@@ -620,7 +618,7 @@ func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
 	}
 
 	// Send the event upstream
-	errChan := d.puHandler.HandlePUEvent(contextID, EventUnpause)
+	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventUnpause)
 	return <-errChan
 }
 

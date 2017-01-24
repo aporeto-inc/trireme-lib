@@ -3,7 +3,17 @@ import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/aporeto-inc/trireme
   subpackages:
+  - cmd/remoteenforcer
+  - cmd/systemdutil
   - configurator
+  - constants
   - monitor
+  - monitor/cliextractor
+  - monitor/dockermonitor
   - policy
   - supervisor
+- package: github.com/docker/docker
+  subpackages:
+  - api/types
+  - client
+- package: github.com/docopt/docopt-go

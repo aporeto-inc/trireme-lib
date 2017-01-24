@@ -8,6 +8,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 )
@@ -15,15 +16,17 @@ import (
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process network packets")
+	// Skip SynAck packets that we haven't seen a connection
+	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
+		if _, err := d.sourcePortCache.Get(p.SynAckNetworkHash()); err != nil {
+			return nil
+		}
+	}
 
 	d.netTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
-		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPNetPacket(p) {
 			d.netTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
@@ -74,9 +77,12 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process application packets")
+	// Skip SynAck packets for connections that we are not processing
+	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
+		if _, err := d.destinationPortCache.Get(p.SynAckApplicationHash()); err != nil {
+			return nil
+		}
+	}
 
 	d.appTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
@@ -162,20 +168,16 @@ func (d *datapathEnforcer) parseAckToken(connection *AuthInfo, data []byte) (*to
 
 func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process application syn packet")
-
 	var connection *TCPConnection
 
 	// Find the container context
-	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"error":   cerr.Error(),
-		}).Debug("Container not found for application syn packet")
+		}).Debug("Context not found for application syn packet")
 		return nil, nil
 	}
 
@@ -186,11 +188,6 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 		connection = NewTCPConnection()
 		connection.Auth.RemoteIP = tcpPacket.DestinationAddress.String()
 		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
-		log.WithFields(log.Fields{
-			"package":    "enforcer",
-			"remoteip":   connection.Auth.RemoteIP,
-			"remoteport": connection.Auth.RemotePort,
-		}).Debug("Connection not found, creating new connection")
 	}
 
 	// Create TCP Option
@@ -204,6 +201,8 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
 	d.contextConnectionTracker.AddOrUpdate(string(connection.Auth.LocalContext), connection)
 
+	portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+	d.sourcePortCache.AddOrUpdate(portHash, context)
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
@@ -214,18 +213,21 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 }
 
 func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
+	var context interface{}
+	var err error
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process application syn ack packet")
+	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+		if context, err = d.destinationPortCache.Get(tcpPacket.SynAckApplicationHash()); err != nil {
+			return nil, err
+		}
+	} else {
+		context, err = d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	}
 
-	// Find the container context
-	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
-
-	if cerr != nil {
+	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
-			"error":   cerr.Error(),
+			"error":   err.Error(),
 		}).Debug("Container not found for application syn ack packet")
 		return nil, nil
 	}
@@ -272,13 +274,8 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 
 func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-	}).Debug("process application ack packet")
-
 	// Find the container context
-	context, cerr := d.contextFromIP(tcpPacket.SourceAddress.String())
+	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -349,15 +346,6 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 
 func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"tcpPacket": tcpPacket,
-	}).Debug("process application TCP packet")
-
-	// Initialize payload and options buffer with our new TCP options. Currenty using
-	// the experimental option and padding the packet with two data fields to make
-	// a 32-bit alignment. We have to use these data actually rather then send 0s.
-
 	// State machine based on the flags
 	switch tcpPacket.TCPFlags {
 	case packet.TCPSynMask: //Processing SYN packet from Application
@@ -371,18 +359,16 @@ func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet)
 	case packet.TCPSynAckMask:
 		action, err := d.processApplicationSynAckPacket(tcpPacket)
 		return action, err
+	default:
+		return nil, nil
 	}
 
-	return nil, nil
 }
 
 func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Process network Syn packet")
-
 	var connection *TCPConnection
+
 	// First check if a connection was previously established and this is a second SYNACK
 	// packet. This means that our ACK packet was lost somewhere
 	hash := tcpPacket.L4FlowHash()
@@ -457,7 +443,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 			"claims":  fmt.Sprintf("%+v", claims.T),
 			"context": context.ID,
 			"rules":   fmt.Sprintf("%+v", context.rejectRcvRules),
-		}).Debug("Syn packet - no matched tags - reject")
+		}).Debug("Syn packet - rejected because of deny policy")
 
 		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
 
@@ -477,6 +463,8 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		// Note that if the connection exists already we will just end-up replicating it. No
 		// harm here.
 		d.networkConnectionTracker.AddOrUpdate(hash, connection)
+		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort)) + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+		d.destinationPortCache.AddOrUpdate(portHash, context)
 
 		// Accept the connection
 		return action, nil
@@ -496,14 +484,9 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Process network Syn Ack packet")
-
 	// First we need to receover our state of the connection. If we don't have any state
 	// we drop the packets and the connections
 	// connection, err := d.appConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
-
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
 		log.WithFields(log.Fields{
@@ -687,37 +670,37 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
-	// Lookup the policy rules for the packet - Return false if they don't exist
-	context, err := d.contextFromIP(tcpPacket.DestinationAddress.String())
+	var err error
+	var context interface{}
+
+	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+		if context, err = d.sourcePortCache.Get(tcpPacket.SynAckNetworkHash()); err != nil {
+			return nil, nil
+		}
+	} else {
+		// Lookup the policy rules for the packet - Return false if they don't exist
+		context, err = d.contextFromIP(false, tcpPacket.DestinationAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	}
 
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"error":   err.Error(),
-		}).Debug("Process network TCP packet: Failed to retrieve context for this packet")
+		}).Error("Process network TCP packet: Failed to retrieve context for this packet")
 		return nil, fmt.Errorf("Context not found for container %s %v", tcpPacket.DestinationAddress.String(), d.puTracker)
 	}
-
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-		"ip":      tcpPacket.DestinationAddress.String(),
-		"context": context.(*PUContext).ID,
-	}).Debug("Process network TCP packet")
 
 	// Update connection state in the internal state machine tracker
 	switch tcpPacket.TCPFlags {
 
 	case packet.TCPSynMask:
-		action, err := d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
-		return action, err
+		return d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
 
 	case packet.TCPAckMask:
-		action, err := d.processNetworkAckPacket(context.(*PUContext), tcpPacket)
-		return action, err
+		return d.processNetworkAckPacket(context.(*PUContext), tcpPacket)
 
 	case packet.TCPSynAckMask:
-		action, err := d.processNetworkSynAckPacket(context.(*PUContext), tcpPacket)
-		return action, err
+		return d.processNetworkSynAckPacket(context.(*PUContext), tcpPacket)
 
 	default: // Ignore any other packet
 		return nil, nil

@@ -1,6 +1,6 @@
 package monitor
 
-// An Event represents the event picked up by the monitor.
+// Event represents the event picked up by the monitor.
 type Event string
 
 const (

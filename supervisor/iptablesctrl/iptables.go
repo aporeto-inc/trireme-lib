@@ -5,7 +5,10 @@ import (
 	"strconv"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
+
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -27,10 +30,13 @@ type Instance struct {
 	appPacketIPTableSection    string
 	netPacketIPTableContext    string
 	netPacketIPTableSection    string
+	appCgroupIPTableSection    string
+	appSynAckIPTableSection    string
+	mode                       constants.ModeType
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, remote bool) (*Instance, error) {
+func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -46,14 +52,19 @@ func NewInstance(networkQueues, applicationQueues string, targetNetworks []strin
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
+		mode: mode,
 	}
 
-	if remote {
+	if mode == constants.LocalServer || mode == constants.RemoteContainer {
 		i.appPacketIPTableSection = "OUTPUT"
+		i.appCgroupIPTableSection = "OUTPUT"
 		i.netPacketIPTableSection = "INPUT"
+		i.appSynAckIPTableSection = "INPUT"
 	} else {
 		i.appPacketIPTableSection = "PREROUTING"
+		i.appCgroupIPTableSection = "OUTPUT"
 		i.netPacketIPTableSection = "POSTROUTING"
+		i.appSynAckIPTableSection = "INPUT"
 	}
 
 	return i, nil
@@ -74,11 +85,16 @@ func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 		return ip, true
 	}
 
-	return "0.0.0.0/0", false
+	if i.mode == constants.LocalContainer {
+		return "0.0.0.0/0", false
+	}
+
+	return "0.0.0.0/0", true
 }
 
 // ConfigureRules implmenets the ConfigureRules interface
-func (i *Instance) ConfigureRules(version int, contextID string, policyrules *policy.PUPolicy) error {
+func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+	policyrules := containerInfo.Policy
 
 	appChain, netChain := i.chainName(contextID, version)
 	// policyrules.DefaultIPAddress()
@@ -94,19 +110,36 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 		return err
 	}
 
-	if err := i.addChainRules(appChain, netChain, ipAddress); err != nil {
-		return err
+	if i.mode != constants.LocalServer {
+
+		if err := i.addChainRules(appChain, netChain, ipAddress, "", ""); err != nil {
+			return err
+		}
+
+	} else {
+		mark, ok := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
+		if !ok {
+			return fmt.Errorf("No Mark value found")
+		}
+
+		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+		if !ok {
+			port = "0"
+		}
+		if err := i.addChainRules(appChain, netChain, ipAddress, port, mark); err != nil {
+			return err
+		}
 	}
 
 	if err := i.addPacketTrap(appChain, netChain, ipAddress); err != nil {
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, policyrules.IngressACLs()); err != nil {
+	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, policyrules.EgressACLs()); err != nil {
+	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
@@ -114,21 +147,28 @@ func (i *Instance) ConfigureRules(version int, contextID string, policyrules *po
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap, port string, mark string) error {
+	var ipAddress string
+	var ok bool
 
 	// Supporting only one ip
-	if ipAddresses == nil {
-		return fmt.Errorf("Provided map of IP addresses is nil")
-	}
+	if i.mode != constants.LocalServer {
+		if ipAddresses == nil {
+			return fmt.Errorf("Provided map of IP addresses is nil")
+		}
 
-	ipAddress, ok := i.defaultIP(ipAddresses.IPs)
-	if !ok {
-		return fmt.Errorf("No ip address found ")
+		ipAddress, ok = i.defaultIP(ipAddresses.IPs)
+		if !ok {
+			return fmt.Errorf("No ip address found ")
+		}
 	}
 
 	appChain, netChain := i.chainName(contextID, version)
-
-	i.deleteChainRules(appChain, netChain, ipAddress)
+	if i.mode == constants.LocalServer {
+		i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
+	} else {
+		i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
+	}
 
 	i.deleteAllContainerChains(appChain, netChain)
 
@@ -136,8 +176,13 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 }
 
 // UpdateRules implements the update part of the interface
-func (i *Instance) UpdateRules(version int, contextID string, policyrules *policy.PUPolicy) error {
+func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 
+	if containerInfo == nil {
+		return fmt.Errorf("Container info cannot be nil")
+	}
+
+	policyrules := containerInfo.Policy
 	if policyrules == nil {
 		return fmt.Errorf("Policy rules cannot be nil")
 	}
@@ -161,22 +206,49 @@ func (i *Instance) UpdateRules(version int, contextID string, policyrules *polic
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, policyrules.IngressACLs()); err != nil {
+	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, policyrules.EgressACLs()); err != nil {
+	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
 	// Add mapping to new chain
-	if err := i.addChainRules(appChain, netChain, ipAddress); err != nil {
-		return err
+	if i.mode != constants.LocalServer {
+
+		if err := i.addChainRules(appChain, netChain, ipAddress, "", ""); err != nil {
+			return err
+		}
+	} else {
+		mark, ok := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
+		if !ok {
+			return fmt.Errorf("No Mark value found")
+		}
+		portlist, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+		if !ok {
+			portlist = "0"
+		}
+
+		if err := i.addChainRules(appChain, netChain, ipAddress, portlist, mark); err != nil {
+			return err
+		}
 	}
 
 	//Remove mapping from old chain
-	if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress); err != nil {
-		return err
+	if i.mode != constants.LocalServer {
+		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, "", ""); err != nil {
+			return err
+		}
+	} else {
+		mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
+		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+		if !ok {
+			port = "0"
+		}
+		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark); err != nil {
+			return err
+		}
 	}
 
 	// Delete the old chain to clean up
@@ -196,12 +268,24 @@ func (i *Instance) Start() error {
 	// Clean any previous ACLs
 	i.cleanACLs()
 
-	if i.acceptMarkedPackets() != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-		}).Debug("Cannot filter marked packets. Abort")
+	if i.mode == constants.LocalContainer {
+		if i.acceptMarkedPackets() != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+			}).Debug("Cannot filter marked packets. Abort")
 
-		return fmt.Errorf("Filter of marked packets was not set")
+			return fmt.Errorf("Filter of marked packets was not set")
+		}
+	}
+
+	// Explicit rule to capture all SynAck packets
+	if i.mode != constants.LocalContainer {
+		if err := i.CaptureSYNACKPackets(); err != nil {
+			log.WithFields(log.Fields{"package": "supervisor",
+				"Error": err.Error(),
+			}).Debug("Cannot install rule to match syn ack packets for local services")
+			return err
+		}
 	}
 
 	return nil

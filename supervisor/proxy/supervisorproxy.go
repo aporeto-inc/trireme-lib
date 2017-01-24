@@ -14,7 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/remote/launch"
+	"github.com/aporeto-inc/trireme/processmon"
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
@@ -48,8 +48,8 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 			ContextID:        contextID,
 			ManagementID:     puInfo.Policy.ManagementID,
 			TriremeAction:    puInfo.Policy.TriremeAction,
-			IngressACLs:      puInfo.Policy.IngressACLs(),
-			EgressACLs:       puInfo.Policy.EgressACLs(),
+			ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
+			NetworkACLs:      puInfo.Policy.NetworkACLs(),
 			PolicyIPs:        puInfo.Policy.IPAddresses(),
 			Annotations:      puInfo.Policy.Annotations(),
 			Identity:         puInfo.Policy.Identity(),
@@ -133,7 +133,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
-		prochdl:           ProcessMon.GetProcessMonHdl(),
+		prochdl:           ProcessMon.GetProcessManagerHdl(),
 		rpchdl:            rpchdl,
 		initDone:          make(map[string]bool),
 	}
