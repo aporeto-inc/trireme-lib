@@ -103,9 +103,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return err
 	}
 
-	syscall.Exec(command, params, os.Environ())
-
-	return nil
+	return syscall.Exec(command, params, os.Environ())
 }
 
 // createMetadata extracts the relevant metadata
