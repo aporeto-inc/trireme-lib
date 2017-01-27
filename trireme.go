@@ -171,15 +171,15 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
 func (t *trireme) doHandleCreate(contextID string) error {
 
-	// Cache all the container runtime information
+	// Retrieve the container runtime information from the cache
 	cachedElement, err := t.cache.Get(contextID)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
 			"error":     err.Error(),
-		}).Debug("Couldn't add the runtimeInfo to the cache")
-
+		}).Debug("Cannot retrieve runtimeInfo from the cache")
+		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.ContainerFailed)
 		return fmt.Errorf("Couldn't get the runtimeInfo from the cache %s", err)
 	}
 
@@ -192,7 +192,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"contextID":   contextID,
 			"runtimeInfo": runtimeInfo,
 			"error":       err.Error(),
-		}).Debug("Error returned when resolving the context")
+		}).Debug("Error returned when resolving the policy")
+		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.ContainerFailed)
 		return fmt.Errorf("Policy Error for this context: %s. Container killed. %s", contextID, err)
 	}
 
@@ -203,15 +204,18 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"runtimeInfo": runtimeInfo,
 			"error":       err.Error(),
 		}).Debug("Nil policy returned when resolving the context")
-
+		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.ContainerFailed)
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
+
+	ip, _ := policyInfo.DefaultIPAddress()
 
 	if policyInfo.TriremeAction == policy.AllowAll {
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
 		}).Debug("Resolver returned a PUPolicy with AllowAll Action. Not policing.")
+		t.collector.CollectContainerEvent(contextID, ip, policyInfo.Annotations(), collector.ContainerIgnored)
 		return nil
 	}
 
@@ -229,7 +233,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"contextID": contextID,
 			"error":     err.Error(),
 		}).Debug("Not able to setup enforcer")
-
+		t.collector.CollectContainerEvent(contextID, ip, policyInfo.Annotations(), collector.ContainerFailed)
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 
@@ -241,11 +245,11 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"contextID": contextID,
 			"error":     err.Error(),
 		}).Debug("Not able to setup supervisor")
+		t.collector.CollectContainerEvent(contextID, ip, policyInfo.Annotations(), collector.ContainerFailed)
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
-	ip, _ := containerInfo.Policy.DefaultIPAddress()
-	t.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), collector.ContainerStart)
+	t.collector.CollectContainerEvent(contextID, ip, containerInfo.Policy.Annotations(), collector.ContainerStart)
 
 	return nil
 }
@@ -264,9 +268,11 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			"contextID": contextID,
 			"error":     err.Error(),
 		}).Debug("Error when getting runtime out of cache for ContextID")
-
+		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.UnknownContainerDelete)
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
+
+	ip, _ := runtime.DefaultIPAddress()
 
 	errS := t.supervisors[runtime.PUType()].Unsupervise(contextID)
 	errE := t.enforcers[runtime.PUType()].Unenforce(contextID)
@@ -280,10 +286,11 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			"supervisorError": errS,
 			"enforcerError":   errE,
 		}).Debug("Error when deleting")
-
+		t.collector.CollectContainerEvent(contextID, ip, nil, collector.ContainerDelete)
 		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
 	}
 
+	t.collector.CollectContainerEvent(contextID, ip, nil, collector.ContainerDelete)
 	return nil
 }
 
