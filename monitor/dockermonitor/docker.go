@@ -145,7 +145,8 @@ func NewDockerMonitor(
 	socketAddress string,
 	p monitor.ProcessingUnitsHandler,
 	m DockerMetadataExtractor,
-	l collector.EventCollector, syncAtStart bool,
+	l collector.EventCollector,
+	syncAtStart bool,
 	s monitor.SynchronizationHandler,
 ) monitor.Monitor {
 
@@ -161,13 +162,14 @@ func NewDockerMonitor(
 	d := &dockerMonitor{
 		puHandler:          p,
 		collector:          l,
-		syncAtStart:        syncAtStart,
 		eventnotifications: make(chan *events.Message, 1000),
 		handlers:           make(map[DockerEvent]func(event *events.Message) error),
 		stoplistener:       make(chan bool),
 		stopprocessor:      make(chan bool),
 		metadataExtractor:  m,
 		dockerClient:       cli,
+		syncAtStart:        syncAtStart,
+		syncHandler:        s,
 	}
 
 	// Add handlers for the events that we know how to process
