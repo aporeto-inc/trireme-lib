@@ -102,7 +102,7 @@ func (t *trireme) Stop() error {
 	return nil
 }
 
-// HandleCreate implements the logic needed between all the Trireme components for
+// HandlePUEvent implements the logic needed between all the Trireme components for
 // explicitly adding a new PU.
 func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) <-chan error {
 
@@ -184,6 +184,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	runtimeInfo := cachedElement.(*policy.PURuntime)
+
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 
 	if err != nil {

@@ -171,13 +171,14 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		}
 	}
 
-	linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
-		netnspath+contextID)
-	if linkErr != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": linkErr,
-		}).Error(ErrSymLinkFailed)
-		//return linkErr
+	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
+		linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
+			netnspath+contextID)
+		if linkErr != nil {
+			log.WithFields(log.Fields{"package": "ProcessMon",
+				"error": linkErr,
+			}).Error(ErrSymLinkFailed)
+		}
 	}
 	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
 
