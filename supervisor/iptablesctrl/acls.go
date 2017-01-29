@@ -549,6 +549,16 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 	return nil
 }
 
+// CleanAllSynAckPacketCaptures cleans the capture rules for SynAck packets irrespective of NFQUEUE
+func (i *Instance) CleanAllSynAckPacketCaptures() error {
+
+	i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableContext)
+
+	i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection)
+
+	return nil
+}
+
 // acceptMarkedPackets installs the rules to accept all marked packets
 func (i *Instance) acceptMarkedPackets() error {
 
