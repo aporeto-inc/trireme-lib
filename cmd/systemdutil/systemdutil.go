@@ -7,6 +7,8 @@ import (
 	"net"
 	"net/rpc/jsonrpc"
 	"os"
+	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -23,12 +25,14 @@ const (
 // ExecuteCommand executes a command in a cgroup and programs Trireme
 func ExecuteCommand(arguments map[string]interface{}) error {
 
+	var err error
+
 	stderrlogger := log.New(os.Stderr, "", 0)
 
 	if arguments["<cgroup>"] != nil && len(arguments["<cgroup>"].(string)) > 0 {
 		exitingCgroup := arguments["<cgroup>"].(string)
 
-		if err := HandleCgroupStop(exitingCgroup); err != nil {
+		if err = HandleCgroupStop(exitingCgroup); err != nil {
 			err = fmt.Errorf("Cannot connect to policy process %s. Resources not deleted\n", err)
 			stderrlogger.Print(err)
 			return err
@@ -37,29 +41,40 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return nil
 	}
 
-	command := ""
+	if !arguments["run"].(bool) {
+		return fmt.Errorf("Bad arguments - no run command")
+	}
+
 	metadata := []string{}
 	servicename := ""
 	params := []string{}
+	ports := "0"
 
-	if arguments["run"].(bool) {
-
-		command = arguments["<command>"].(string)
-
-		if args, ok := arguments["--label"]; ok && args != nil {
-			metadata = args.([]string)
-		}
-
-		if args, ok := arguments["--service-name"]; ok && args != nil {
-			servicename = args.(string)
-		}
-
-		if args, ok := arguments["<params>"]; ok && args != nil {
-			params = args.([]string)
+	command := arguments["<command>"].(string)
+	if !path.IsAbs(command) {
+		command, err = exec.LookPath(command)
+		if err != nil {
+			return err
 		}
 	}
 
-	metadatamap, err := createMetadata(servicename, metadata)
+	if args, ok := arguments["--label"]; ok && args != nil {
+		metadata = args.([]string)
+	}
+
+	if args, ok := arguments["--service-name"]; ok && args != nil {
+		servicename = args.(string)
+	}
+
+	if args, ok := arguments["<params>"]; ok && args != nil {
+		params = args.([]string)
+	}
+
+	if args, ok := arguments["--ports"]; ok && args != nil {
+		ports = args.(string)
+	}
+
+	metadatamap, err := createMetadata(servicename, ports, metadata)
 
 	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
@@ -103,13 +118,12 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return err
 	}
 
-	syscall.Exec(command, params, os.Environ())
+	return syscall.Exec(command, params, os.Environ())
 
-	return nil
 }
 
 // createMetadata extracts the relevant metadata
-func createMetadata(servicename string, metadata []string) (map[string]string, error) {
+func createMetadata(servicename string, ports string, metadata []string) (map[string]string, error) {
 
 	metadatamap := map[string]string{}
 
@@ -120,15 +134,17 @@ func createMetadata(servicename string, metadata []string) (map[string]string, e
 			return nil, fmt.Errorf("Invalid metadata")
 		}
 
-		if keyvalue[0][0] == []byte("$")[0] {
-			return nil, fmt.Errorf("Metadata cannot start with $")
+		if keyvalue[0][0] == []byte("$")[0] || keyvalue[0][0] == []byte("@")[0] {
+			return nil, fmt.Errorf("Metadata cannot start with $ or @")
 		}
 
 		metadatamap[keyvalue[0]] = keyvalue[1]
 	}
 
+	metadatamap["@port"] = ports
+
 	if servicename != "" {
-		metadatamap["$servicename"] = servicename
+		metadatamap["@servicename"] = servicename
 	}
 
 	return metadatamap, nil
