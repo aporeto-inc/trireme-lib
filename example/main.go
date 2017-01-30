@@ -22,8 +22,9 @@ func main() {
 
   Usage:
     trireme run
-      [--servicename=<sname>]
-      [[--metadata=<keyvalue>]...]
+      [--service-name=<sname>]
+      [[--label=<keyvalue>]...]
+			[--ports=<ports>]
       <command> [--] [<params>...]
     trireme daemon
       [--usePKI]
