@@ -180,8 +180,6 @@ func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 			"package":   "trireme",
 			"contextID": contextID,
 		}).Debug("PUPolicy with AllowAll Action. Not policing.")
-		fmt.Println("Notmust")
-
 		return false
 	}
 
@@ -191,11 +189,9 @@ func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 			"package":   "trireme",
 			"contextID": contextID,
 		}).Debug("PUPolicy is in Host mode. Not policing")
-		fmt.Println("Notmust")
-
 		return false
 	}
-	fmt.Println("must")
+
 	return true
 }
 
