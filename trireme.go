@@ -183,15 +183,6 @@ func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 		return false
 	}
 
-	ip, ok := containerInfo.Runtime.DefaultIPAddress()
-	if !ok || ip == "host" {
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-		}).Debug("PUPolicy is in Host mode. Not policing")
-		return false
-	}
-
 	return true
 }
 
