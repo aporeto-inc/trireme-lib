@@ -58,11 +58,18 @@ network plugins.
 In order to try it, compile the example:
 
 ```bash
-glide install
 make build
 ```
 
-You can find the trireme executable in the docker folder.
+This will output Trireme in the local directory. If you want to install it in a system
+path try
+```bash
+make install
+```
+
+By default this installs trireme in /usr/local/bin. If you want to change the destination please
+edit the Makefile and the BIN_PATH variable.
+
 
 ```bash
 sudo ./trireme --remote --swarm
@@ -94,7 +101,7 @@ to isolate traffic from each process.
 First, compile the Trireme example as in the previous section. Start Trireme in hybrid mode
 supporting both Linux processes and containers at the same time. You must specify the networks
 that you want Trireme to apply (by default it uses the docker bridge only). In the example
-below we apply Trireme only on the localhost traffic. 
+below we apply Trireme only on the localhost traffic.
 
 ```bash
 sudo ./trireme daemon --hybrid --target-networks=127.0.0.1
