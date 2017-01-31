@@ -103,7 +103,7 @@ sudo ./trireme daemon --hybrid --target-networks=127.0.0.1
 Start an nginx server as a Linux process (make sure you have the nginx binary available at `/usr/sbin/nginx`, or adapt accordingly) :
 
 ```bash
-sudo ./trireme run --metadata=@port=80 --metadata=app=web /usr/sbin/nginx  -- '-g daemon off;'
+sudo ./trireme run --ports=80 --label=app=web /usr/sbin/nginx  -- '-g daemon off;'
 ```
 
 The above command starts the nginx server, listening on port 80. If you try to access this nginx
@@ -111,7 +111,7 @@ server with a curl command communication will fail. Now start with a curl comman
 metadata:
 
 ```bash
-./trireme run --metadata=app=web /usr/bin/curl -- -p http://172.17.0.1
+./trireme run --label=app=web /usr/bin/curl -- -p http://172.17.0.1
 ```
 This command should succeed.
 
