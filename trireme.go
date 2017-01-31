@@ -169,6 +169,36 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 	}
 }
 
+// MustEnforce returns true if the Policy should go Through the Enforcer/Supervisor.
+// Return false if:
+//   - PU is in host namespace.
+//   - Policy got the AllowAll tag.
+func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
+
+	if containerInfo.Policy.TriremeAction == policy.AllowAll {
+		log.WithFields(log.Fields{
+			"package":   "trireme",
+			"contextID": contextID,
+		}).Debug("PUPolicy with AllowAll Action. Not policing.")
+		fmt.Println("Notmust")
+
+		return false
+	}
+
+	ip, ok := containerInfo.Runtime.DefaultIPAddress()
+	if !ok || ip == "host" {
+		log.WithFields(log.Fields{
+			"package":   "trireme",
+			"contextID": contextID,
+		}).Debug("PUPolicy is in Host mode. Not policing")
+		fmt.Println("Notmust")
+
+		return false
+	}
+	fmt.Println("must")
+	return true
+}
+
 func (t *trireme) doHandleCreate(contextID string) error {
 
 	// Retrieve the container runtime information from the cache
@@ -211,21 +241,17 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	ip, _ := policyInfo.DefaultIPAddress()
 
-	if policyInfo.TriremeAction == policy.AllowAll {
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-		}).Debug("Resolver returned a PUPolicy with AllowAll Action. Not policing.")
-		t.collector.CollectContainerEvent(contextID, ip, policyInfo.Annotations(), collector.ContainerIgnored)
-		return nil
-	}
-
 	// Create a copy as we are going to modify it locally
 	policyInfo = policyInfo.Clone()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 
 	addTransmitterLabel(contextID, containerInfo)
+
+	if !mustEnforce(contextID, containerInfo) {
+		t.collector.CollectContainerEvent(contextID, ip, containerInfo.Policy.Annotations(), collector.ContainerIgnored)
+		return nil
+	}
 
 	if err := t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
 
@@ -330,6 +356,10 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtimeInfo.(*policy.PURuntime))
 
 	addTransmitterLabel(contextID, containerInfo)
+
+	if !mustEnforce(contextID, containerInfo) {
+		return nil
+	}
 
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
 
