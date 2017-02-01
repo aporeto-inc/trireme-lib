@@ -155,6 +155,7 @@ func (s *StatsClient) SendStats() {
 					}).Error("RPC failure in sending statistics")
 				}
 			}
+			ticker = time.NewTicker(statsInterval)
 
 		}
 	}
