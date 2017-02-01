@@ -303,13 +303,13 @@ func (i *Instance) Stop() error {
 }
 
 // AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-func (i *Instance) AddExcludedIP(ip string) error {
+func (i *Instance) AddExcludedIP(ip []string) error {
 
 	return i.addExclusionChainRules(ip)
 }
 
 // RemoveExcludedIP removes the exception for the destion IP given in parameter.
-func (i *Instance) RemoveExcludedIP(ip string) error {
+func (i *Instance) RemoveExcludedIP(ip []string) error {
 
 	return i.deleteExclusionChainRules(ip)
 }

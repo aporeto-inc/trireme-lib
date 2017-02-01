@@ -15,7 +15,6 @@ import (
 
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/processmon"
-	"github.com/aporeto-inc/trireme/supervisor"
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.
@@ -56,6 +55,7 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 			ReceiverRules:    puInfo.Policy.ReceiverRules(),
 			TransmitterRules: puInfo.Policy.TransmitterRules(),
 			PuPolicy:         puInfo.Policy,
+			ExcludedIP:       s.ExcludedIP,
 		},
 	}
 
@@ -116,7 +116,7 @@ func (s *ProxyInfo) Stop() error {
 }
 
 // NewProxySupervisor creates a new IptablesSupervisor launcher
-func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string, rpchdl rpcwrapper.RPCClient) (supervisor.Supervisor, error) {
+func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -136,6 +136,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 		prochdl:           ProcessMon.GetProcessManagerHdl(),
 		rpchdl:            rpchdl,
 		initDone:          make(map[string]bool),
+		ExcludedIP:        []string{},
 	}
 
 	return s, nil
@@ -167,15 +168,21 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 }
 
 //AddExcludedIP call addexcluded ip on the remote supervisor
-func (s *ProxyInfo) AddExcludedIP(ip string) error {
-
-	//This is unimplemented right now
-	return nil
-}
-
-// RemoveExcludedIP removes the exception for the destion IP given in parameter.
-func (s *ProxyInfo) RemoveExcludedIP(ip string) error {
-
-	//This is unimplemented right now
+func (s *ProxyInfo) AddExcludedIP(ip []string) error {
+	s.ExcludedIP = ip
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.ExcludeIPRequestPayload{
+			Ip: ip,
+		},
+	}
+	for _, contextID := range s.rpchdl.ContextList() {
+		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
+			log.WithFields(log.Fields{
+				"package":   "remsupervisor",
+				"contextID": contextID,
+			}).Debug("Failed to Add ExcludedIPList")
+			return err
+		}
+	}
 	return nil
 }

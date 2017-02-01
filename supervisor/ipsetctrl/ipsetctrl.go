@@ -222,13 +222,18 @@ func (i *Instance) cleanACLs() error {
 }
 
 // AddExcludedIP implements the interface
-func (i *Instance) AddExcludedIP(ip string) error {
-
-	return i.addIpsetOption(ip)
+func (i *Instance) AddExcludedIP(ipList []string) error {
+	for _, ip := range ipList {
+		return i.addIpsetOption(ip)
+	}
+	return nil
 }
 
 // RemoveExcludedIP implements the interface
-func (i *Instance) RemoveExcludedIP(ip string) error {
+func (i *Instance) RemoveExcludedIP(ipList []string) error {
+	for _, ip := range ipList {
+		return i.deleteIpsetOption(ip)
+	}
+	return nil
 
-	return i.deleteIpsetOption(ip)
 }

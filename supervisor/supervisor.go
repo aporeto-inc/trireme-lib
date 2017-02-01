@@ -34,9 +34,9 @@ type Config struct {
 	applicationQueues string
 	targetNetworks    []string
 
-	Mark int
-
-	impl Implementor
+	Mark       int
+	excludedIp []string
+	impl       Implementor
 }
 
 // NewSupervisor will create a new connection supervisor that uses IPTables
@@ -72,6 +72,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
 		Mark:              filterQueue.MarkValue,
+		excludedIp:        []string{},
 	}
 
 	var err error
@@ -204,14 +205,11 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 }
 
 // AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-func (s *Config) AddExcludedIP(ip string) error {
-
-	return s.impl.AddExcludedIP(ip)
-}
-
-// RemoveExcludedIP removes the exception for the destion IP given in parameter.
-func (s *Config) RemoveExcludedIP(ip string) error {
-
+func (s *Config) AddExcludedIP(ip []string) error {
+	if len(s.excludedIp) > 0 {
+		s.impl.RemoveExcludedIP(s.excludedIp)
+	}
+	s.excludedIp = ip
 	return s.impl.AddExcludedIP(ip)
 }
 

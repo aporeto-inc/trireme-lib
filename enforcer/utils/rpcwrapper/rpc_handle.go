@@ -26,12 +26,16 @@ type RPCHdl struct {
 //RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
+	contextList  []string
 }
 
 //NewRPCWrapper creates a new rpcwrapper
 func NewRPCWrapper() *RPCWrapper {
+	rpcwrapper := &RPCWrapper{
+		rpcClientMap: cache.NewCache(),
+		contextList:  []string{},
+	}
 
-	rpcwrapper := &RPCWrapper{}
 	rpcwrapper.rpcClientMap = cache.NewCache()
 	return rpcwrapper
 }
@@ -60,6 +64,7 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 			return err
 		}
 	}
+	r.contextList = append(r.contextList, contextID)
 	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel})
 
 }
@@ -159,6 +164,11 @@ func (r *RPCWrapper) ProcessMessage(req *Request) bool {
 	return r.CheckValidity(req)
 }
 
+//GetContextList returns the list of active context managed by the rpcwrapper
+func (r *RPCWrapper) ContextList() []string {
+	return r.contextList
+}
+
 //RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
 func RegisterTypes() {
 
@@ -172,4 +182,5 @@ func RegisterTypes() {
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.ExcludeIPRequestPayload", *(&ExcludeIPRequestPayload{}))
 }

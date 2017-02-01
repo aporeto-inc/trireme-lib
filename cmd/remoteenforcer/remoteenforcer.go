@@ -64,6 +64,7 @@ type Server struct {
 	pupolicy    *policy.PUPolicy
 	rpcchannel  string
 	rpchdl      *rpcwrapper.RPCWrapper
+	Excluder    supervisor.Excluder
 }
 
 // NewServer starts a new server
@@ -262,8 +263,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		//TO DO
 		return fmt.Errorf("IPSets not supported yet")
 	default:
-		var err error
-		s.Supervisor, err = supervisor.NewSupervisor(s.Collector,
+
+		supervisorHdl, err := supervisor.NewSupervisor(s.Collector,
 			s.Enforcer,
 			payload.TargetNetworks,
 			constants.RemoteContainer,
@@ -279,6 +280,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			}
 			return err
 		}
+		s.Excluder = supervisorHdl
+		s.Supervisor = supervisorHdl
 
 	}
 
@@ -330,7 +333,10 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	if err != nil {
 		resp.Status = err.Error()
 	}
-	return err
+
+	//We are good here now add the Excluded ip list as well
+	return s.Excluder.AddExcludedIP(payload.ExcludedIP)
+
 }
 
 //Unenforce this method calls the unenforce method on the enforcer created from initenforcer
@@ -403,6 +409,16 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	s.Enforcer.Stop()
 	os.Exit(0)
 	return nil
+}
+
+func (s *Server) AddExcludedIP(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !s.rpchdl.CheckValidity(&req) {
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
+	}
+	payload := req.Payload.(rpcwrapper.ExcludeIPRequestPayload)
+	return s.Excluder.AddExcludedIP(payload.Ip)
+
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
