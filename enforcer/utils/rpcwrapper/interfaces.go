@@ -5,6 +5,7 @@ type RPCClient interface {
 	GetRPCClient(contextID string) (*RPCHdl, error)
 	RemoteCall(contextID string, methodName string, req *Request, resp *Response) error
 	DestroyRPCClient(contextID string)
+	ContextList() []string
 }
 
 type RPCServer interface {
