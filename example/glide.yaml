@@ -10,7 +10,7 @@ import:
 - package: github.com/docopt/docopt-go
   version: ^0.6.2
 - package: github.com/aporeto-inc/trireme
-  version: 71d30b53e05f9f6add9030ee9e52897ed65cccb0
+  version: fa10eb6990e7140baa0bd19ea351e7e9a2116c42 
   subpackages:
   - cache
   - cmd/remoteenforcer

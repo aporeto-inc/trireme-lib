@@ -314,6 +314,13 @@ func TestStop(t *testing.T) {
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
+func TestAddExcludedIP(t *testing.T) {
+	tresolver, tsupervisor, texcluder, tenforcer, _, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
+	trireme.Start()
+
+	trireme.AddExcludedIPList([]string{"10.10.10.1"})
+}
 func TestTransmitterLabel(t *testing.T) {
 
 	// If management ID is set, use it as the TransmitterLabel
