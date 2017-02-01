@@ -388,6 +388,7 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 	return nil
 }
 
+//AddExcludedIpList pushes the list of excluded IP to all supervisors in the system
 func (t *trireme) AddExcludedIPList(ipList []string) error {
 	for _, excluder := range t.excluders {
 		excluder.AddExcludedIP(ipList)
