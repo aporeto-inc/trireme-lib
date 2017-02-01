@@ -4,8 +4,8 @@
 package mock_supervisor
 
 import (
+	gomock "github.com/aporeto-inc/mock/gomock"
 	policy "github.com/aporeto-inc/trireme/policy"
-	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of Supervisor interface
@@ -90,7 +90,7 @@ func (_m *MockExcluder) EXPECT() *_MockExcluderRecorder {
 	return _m.recorder
 }
 
-func (_m *MockExcluder) AddExcludedIP(ip string) error {
+func (_m *MockExcluder) AddExcludedIP(ip []string) error {
 	ret := _m.ctrl.Call(_m, "AddExcludedIP", ip)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -98,16 +98,6 @@ func (_m *MockExcluder) AddExcludedIP(ip string) error {
 
 func (_mr *_MockExcluderRecorder) AddExcludedIP(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddExcludedIP", arg0)
-}
-
-func (_m *MockExcluder) RemoveExcludedIP(ip string) error {
-	ret := _m.ctrl.Call(_m, "RemoveExcludedIP", ip)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockExcluderRecorder) RemoveExcludedIP(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "RemoveExcludedIP", arg0)
 }
 
 // Mock of Implementor interface
@@ -181,7 +171,7 @@ func (_mr *_MockImplementorRecorder) Stop() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop")
 }
 
-func (_m *MockImplementor) AddExcludedIP(ip string) error {
+func (_m *MockImplementor) AddExcludedIP(ip []string) error {
 	ret := _m.ctrl.Call(_m, "AddExcludedIP", ip)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -191,7 +181,7 @@ func (_mr *_MockImplementorRecorder) AddExcludedIP(arg0 interface{}) *gomock.Cal
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddExcludedIP", arg0)
 }
 
-func (_m *MockImplementor) RemoveExcludedIP(ip string) error {
+func (_m *MockImplementor) RemoveExcludedIP(ip []string) error {
 	ret := _m.ctrl.Call(_m, "RemoveExcludedIP", ip)
 	ret0, _ := ret[0].(error)
 	return ret0

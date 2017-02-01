@@ -714,7 +714,7 @@ func TestAddExclusionChainRules(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				return nil
 			})
-			err := i.addExclusionChainRules("172.17.0.1")
+			err := i.addExclusionChainRules([]string{"172.17.0.1"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -727,7 +727,7 @@ func TestAddExclusionChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addExclusionChainRules("172.17.0.1")
+			err := i.addExclusionChainRules([]string{"172.17.0.1"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -740,7 +740,7 @@ func TestAddExclusionChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addExclusionChainRules("172.17.0.1")
+			err := i.addExclusionChainRules([]string{"172.17.0.1"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -753,7 +753,7 @@ func TestAddExclusionChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addExclusionChainRules("172.17.0.1")
+			err := i.addExclusionChainRules([]string{"172.17.0.1"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -773,7 +773,7 @@ func TestDeleteExclusionChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteExclusionChainRules("172.17.0.1")
+			err := i.deleteExclusionChainRules([]string{"172.17.0.1"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -783,7 +783,7 @@ func TestDeleteExclusionChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteExclusionChainRules("172.17.0.1")
+			err := i.deleteExclusionChainRules([]string{"172.17.0.1"})
 			Convey("I should still get no error", func() {
 				So(err, ShouldBeNil)
 			})
