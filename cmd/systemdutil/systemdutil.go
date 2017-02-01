@@ -47,7 +47,6 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 
 	metadata := []string{}
 	servicename := ""
-	params := []string{}
 	ports := "0"
 
 	command := arguments["<command>"].(string)
@@ -66,8 +65,9 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		servicename = args.(string)
 	}
 
+	params := []string{command}
 	if args, ok := arguments["<params>"]; ok && args != nil {
-		params = args.([]string)
+		params = append(params, args.([]string)...)
 	}
 
 	if args, ok := arguments["--ports"]; ok && args != nil {
