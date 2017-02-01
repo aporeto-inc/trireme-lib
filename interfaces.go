@@ -22,6 +22,9 @@ type Trireme interface {
 	// Supervisor returns the supervisor for a given PU type
 	Supervisor(kind constants.PUType) supervisor.Supervisor
 
+	//AddExcludedIPList adds the ips to all supervisor instances managed by this trireme instance
+
+	AddExcludedIPList(ipList []string) error
 	monitor.ProcessingUnitsHandler
 
 	PolicyUpdater

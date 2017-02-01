@@ -92,6 +92,7 @@ type SuperviseRequestPayload struct {
 	ReceiverRules    *policy.TagSelectorList
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
+	ExcludedIP       []string
 }
 
 //UnEnforcePayload payload for unenforce request
@@ -128,4 +129,9 @@ type UnEnforceResponsePayload struct {
 type StatsPayload struct {
 	NumFlows int
 	Flows    []enforcer.StatsPayload
+}
+
+//ExcludeIPRequestPayload carries the list of excluded ips
+type ExcludeIPRequestPayload struct {
+	Ip []string
 }

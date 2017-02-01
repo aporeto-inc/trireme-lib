@@ -63,8 +63,8 @@ func NewTriremeLinuxProcess(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	excluder := map[constants.PUType]supervisor.Excluder{constants.ContainerPU: s}
+	return trireme.NewTrireme(serverID, resolver, supervisors, excluder, enforcers, eventCollector)
 }
 
 // NewLocalTriremeDocker instantiates Trireme for Docker using enforcement on the
@@ -109,8 +109,8 @@ func NewLocalTriremeDocker(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	excluder := map[constants.PUType]supervisor.Excluder{constants.ContainerPU: s}
+	return trireme.NewTrireme(serverID, resolver, supervisors, excluder, enforcers, eventCollector)
 }
 
 // NewDistributedTriremeDocker instantiates Trireme using remote enforcers on
@@ -149,8 +149,8 @@ func NewDistributedTriremeDocker(serverID string,
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	excluders := map[constants.PUType]supervisor.Excluder{constants.ContainerPU: s}
+	return trireme.NewTrireme(serverID, resolver, supervisors, excluders, enforcers, eventCollector)
 }
 
 // NewHybridTrireme instantiates Trireme with both Linux and Docker enforcers.
@@ -224,8 +224,11 @@ func NewHybridTrireme(
 		constants.ContainerPU:    containerSupervisor,
 		constants.LinuxProcessPU: processSupervisor,
 	}
-
-	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	excluders := map[constants.PUType]supervisor.Excluder{
+		constants.ContainerPU:    containerSupervisor,
+		constants.LinuxProcessPU: processSupervisor,
+	}
+	trireme := trireme.NewTrireme(serverID, resolver, supervisors, excluders, enforcers, eventCollector)
 
 	return trireme
 }
