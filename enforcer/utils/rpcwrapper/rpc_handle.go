@@ -12,6 +12,7 @@ import (
 	"net/rpc"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"github.com/aporeto-inc/trireme/cache"
@@ -37,7 +38,8 @@ func NewRPCWrapper() *RPCWrapper {
 }
 
 const (
-	maxRetries = 100
+	maxRetries     = 1000
+	envRetryString = "REMOTE_RPCRETRIES"
 )
 
 //NewRPCClient exported
@@ -47,6 +49,14 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 
 	//establish new connection to context/container
 	RegisterTypes()
+	var max int
+	retries := os.Getenv(envRetryString)
+	if len(retries) > 0 {
+		max, _ = strconv.Atoi(retries)
+
+	} else {
+		max = maxRetries
+	}
 	numRetries := 0
 	client, err := rpc.DialHTTP("unix", channel)
 
@@ -54,7 +64,7 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 		time.Sleep(5 * time.Millisecond)
 
 		numRetries = numRetries + 1
-		if numRetries < maxRetries {
+		if numRetries < max {
 			client, err = rpc.DialHTTP("unix", channel)
 		} else {
 			return err

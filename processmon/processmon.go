@@ -180,7 +180,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 			}).Error(ErrSymLinkFailed)
 		}
 	}
-	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
+	namedPipe := "SOCKET_PATH=/var/run/" + strconv.Itoa(refPid) + ".sock"
 
 	cmdName, _ = osext.Executable()
 	cmdArgs := []string{arg}
@@ -243,7 +243,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		}
 
 	}()
-	rpchdl.NewRPCClient(contextID, "/tmp/"+strconv.Itoa(refPid)+".sock")
+	rpchdl.NewRPCClient(contextID, "/var/run/"+strconv.Itoa(refPid)+".sock")
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
 		process: cmd.Process,
 		RPCHdl:  rpchdl,

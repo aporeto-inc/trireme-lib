@@ -37,7 +37,7 @@ type Request struct {
 //exported consts from the package
 const (
 	SUCCESS      = 0
-	StatsChannel = "/tmp/statschannel.sock"
+	StatsChannel = "/var/run/statschannel.sock"
 )
 
 //Response is the response for every RPC call. This is used to carry the status of the actual function call
