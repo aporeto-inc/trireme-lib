@@ -401,23 +401,19 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	//Cleanup resources held in this namespace
 	s.Supervisor.Stop()
 	s.Enforcer.Stop()
-	os.Exit(0)
 	return nil
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer() {
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor) {
 
 	log.SetFormatter(&log.TextFormatter{})
 
 	namedPipe := os.Getenv(envSocketPath)
 
-	server := &Server{pupolicy: nil, Service: nil}
+	server := NewServer(service, namedPipe)
 
 	rpchdl := rpcwrapper.NewRPCServer()
-
-	//Map not initialized here since we don't use it on the server
-	server.rpcchannel = namedPipe
 
 	userDetails, _ := user.Current()
 	log.WithFields(log.Fields{"package": "remote_enforcer",
@@ -429,6 +425,4 @@ func LaunchRemoteEnforcer() {
 	rpchdl.StartServer("unix", namedPipe, server)
 
 	server.EnforcerExit(rpcwrapper.Request{}, nil)
-
-	os.Exit(0)
 }
