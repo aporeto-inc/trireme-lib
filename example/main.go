@@ -24,9 +24,10 @@ func main() {
     trireme run
       [--service-name=<sname>]
       [[--label=<keyvalue>]...]
-			[--ports=<ports>]
+      [--ports=<ports>]
       <command> [--] [<params>...]
     trireme daemon
+      [--target-networks=<networks>...]
       [--usePKI]
       [--hybrid|--remote|--local]
       [--swarm|--extractor <metadatafile>]
@@ -40,8 +41,8 @@ func main() {
 
   Options:
     -h --help                              Show this help message and exit.
-    --servicename=<sname>                  The name of the service to be launched.
-    --metadata=<keyvalue>                  The metadata/labels associated with a service.
+    --service-name=<sname>                 The name of the service to be launched.
+    --label=<keyvalue>                     The metadata/labels associated with a service.
     --usePKI                               Use PKI for Trireme [default: false].
     --certFile=<certfile>                  Certificate file [default: cert.pem].
     --keyFile=<keyFile>                    Key file [default: key.pem].
@@ -52,9 +53,11 @@ func main() {
     --swarm                                Deploy Doccker Swarm metadata extractor [default: false]
     --extractor                            External metadata extractor [default: ]
     --version                              show version and exit.
+    --target-networks=<networks>...        The target networks that Trireme should apply authentication [default: 172.17.0.0/24]
   `
 
 	arguments, _ := docopt.Parse(usage, nil, true, "1.0.0rc2", false)
+	fmt.Println(arguments)
 
 	var t trireme.Trireme
 	var m monitor.Monitor
@@ -95,6 +98,15 @@ func main() {
 		customExtractor = common.SwarmExtractor
 	}
 
+	targetNetworks := []string{"172.17.0.0/24", "10.0.0.0/8"}
+	if len(arguments["--target-networks"].([]string)) > 0 {
+		log.WithFields(log.Fields{
+			"Package":         "main",
+			"target networks": arguments["--target-networks"].([]string),
+		}).Info("Target Networks")
+		targetNetworks = arguments["--target-networks"].([]string)
+	}
+
 	if !arguments["--hybrid"].(bool) {
 		remote := arguments["--remote"].(bool)
 		if arguments["--usePKI"].(bool) {
@@ -104,16 +116,16 @@ func main() {
 			certFile := arguments["--certFile"].(string)
 			caCertFile := arguments["--caCert"].(string)
 
-			t, m, _ = common.TriremeWithPKI(keyFile, certFile, caCertFile, []string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remote)
+			t, m, _ = common.TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote)
 
 		} else {
 
 			log.Infof("Setting up trireme with PSK")
-			t, m, _ = common.TriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor, remote)
+			t, m, _ = common.TriremeWithPSK(targetNetworks, &customExtractor, remote)
 
 		}
 	} else { // Hybrid mode
-		t, m, rm, _ = common.HybridTriremeWithPSK([]string{"172.17.0.0/24", "10.0.0.0/8"}, &customExtractor)
+		t, m, rm, _ = common.HybridTriremeWithPSK(targetNetworks, &customExtractor)
 	}
 
 	if t == nil {

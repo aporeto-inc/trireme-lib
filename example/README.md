@@ -23,7 +23,7 @@ aporeto/trireme-example
 ```
 
 This script will load a docker container in privileged and host mode that will run this example. Trireme
-will be installed with remote enforcers and it is compatible with any networking technique that is 
+will be installed with remote enforcers and it is compatible with any networking technique that is
 possible in the host machine.
 
 You can start a docker container with a specific label (in this case **app=web**)
@@ -58,11 +58,18 @@ network plugins.
 In order to try it, compile the example:
 
 ```bash
-glide install
 make build
 ```
 
-You can find the trireme executable in the docker folder.
+This will output Trireme in the local directory. If you want to install it in a system
+path try
+```bash
+make install
+```
+
+By default this installs trireme in /usr/local/bin. If you want to change the destination please
+edit the Makefile and the BIN_PATH variable.
+
 
 ```bash
 sudo ./trireme --remote --swarm
@@ -87,21 +94,23 @@ see that the tester can access the nginx server.
 
 ## Trying Trireme with any Linux process
 
-Trireme supports any Linux process by extracting metadata from the Linux environment as 
+Trireme supports any Linux process by extracting metadata from the Linux environment as
 well as attributes supplied by the users. Trireme uses network cgroups (net_cls) capabilities
-to isolate traffic from each process. 
+to isolate traffic from each process.
 
 First, compile the Trireme example as in the previous section. Start Trireme in hybrid mode
-supporting both Linux processes and containers at the same time:
+supporting both Linux processes and containers at the same time. You must specify the networks
+that you want Trireme to apply (by default it uses the docker bridge only). In the example
+below we apply Trireme only on the localhost traffic.
 
 ```bash
-sudo ./trireme daemon --hybrid
+sudo ./trireme daemon --hybrid --target-networks=127.0.0.1
 ```
 
 Start an nginx server as a Linux process (make sure you have the nginx binary available at `/usr/sbin/nginx`, or adapt accordingly) :
 
 ```bash
-sudo ./trireme run --metadata=@port=80 --metadata=app=web /usr/sbin/nginx  -- '-g daemon off;'
+sudo ./trireme run --ports=80 --label=app=web /usr/sbin/nginx  -- '-g daemon off;'
 ```
 
 The above command starts the nginx server, listening on port 80. If you try to access this nginx
@@ -109,9 +118,9 @@ server with a curl command communication will fail. Now start with a curl comman
 metadata:
 
 ```bash
-./trireme run --metadata=app=web /usr/bin/curl -- -p http://172.17.0.1
+./trireme run --label=app=web /usr/bin/curl -- -p http://172.17.0.1
 ```
-This command should succeed. 
+This command should succeed.
 
 You can also start a docker container with the same metadata
 ```bash
