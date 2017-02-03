@@ -9,38 +9,6 @@ import:
   - client
 - package: github.com/docopt/docopt-go
   version: ^0.6.2
-- package: github.com/aporeto-inc/trireme
-  version: 71d30b53e05f9f6add9030ee9e52897ed65cccb0
-  subpackages:
-  - cache
-  - cmd/remoteenforcer
-  - cmd/systemdutil
-  - collector
-  - configurator
-  - constants
-  - crypto
-  - enforcer
-  - enforcer/lookup
-  - enforcer/netfilter
-  - enforcer/proxy
-  - enforcer/utils/nsenter
-  - enforcer/utils/packet
-  - enforcer/utils/rpcwrapper
-  - enforcer/utils/tokens
-  - monitor
-  - monitor/cliextractor
-  - monitor/contextstore
-  - monitor/dockermonitor
-  - monitor/linuxmonitor
-  - monitor/linuxmonitor/cgnetcls
-  - monitor/rpcmonitor
-  - policy
-  - processmon
-  - supervisor
-  - supervisor/ipsetctrl
-  - supervisor/iptablesctrl
-  - supervisor/provider
-  - supervisor/proxy
 - package: github.com/bvandewalle/go-ipset
   version: 0ee897a6d8bc6095299e9c03293ece091ef871de
   subpackages:

@@ -7,6 +7,8 @@ BIN_PATH := /usr/local/bin
 
 build:
 	glide install
+	@echo "Removing trireme from vendor so it can depend on this repo itself"
+	rm -rf vendor/github.com/aporeto-inc/trireme
 	CGO_ENABLED=1 go build -a -installsuffix cgo
 
 install: build
