@@ -422,18 +422,15 @@ func (s *Server) AddExcludedIP(req rpcwrapper.Request, resp *rpcwrapper.Response
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer() {
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor) {
 
 	log.SetFormatter(&log.TextFormatter{})
 
 	namedPipe := os.Getenv(envSocketPath)
 
-	server := &Server{pupolicy: nil, Service: nil}
+	server := NewServer(service, namedPipe)
 
 	rpchdl := rpcwrapper.NewRPCServer()
-
-	//Map not initialized here since we don't use it on the server
-	server.rpcchannel = namedPipe
 
 	userDetails, _ := user.Current()
 	log.WithFields(log.Fields{"package": "remote_enforcer",
