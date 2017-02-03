@@ -25,9 +25,8 @@ func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProc
 	}
 
 	if arguments["run"].(bool) || arguments["<cgroup>"] != nil {
-		// Execute a command or process a croup cleanup and exit
-		systemdutil.ExecuteCommand(arguments)
-		return nil
+		// Execute a command or process a cgroup cleanup and exit
+		return systemdutil.ExecuteCommand(arguments)
 	}
 
 	if !arguments["daemon"].(bool) {
