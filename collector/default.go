@@ -1,7 +1,6 @@
 package collector
 
 import (
-
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/policy"
 )
