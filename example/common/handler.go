@@ -90,13 +90,13 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 				"cert-file":    certFile,
 				"ca-cert-file": caCertFile,
 			}).Info("Setting up trireme with PKI")
-			t, m, _ = TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote, processor)
+			t, m, _ = TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote)
 		} else {
 			log.Info("Setting up trireme with PSK")
-			t, m, _ = TriremeWithPSK(targetNetworks, &customExtractor, remote, processor)
+			t, m, _ = TriremeWithPSK(targetNetworks, &customExtractor, remote)
 		}
 	} else { // Hybrid mode
-		t, m, rm, _ = HybridTriremeWithPSK(targetNetworks, &customExtractor, processor)
+		t, m, rm, _ = HybridTriremeWithPSK(targetNetworks, &customExtractor)
 		if rm == nil {
 			log.Fatalln("Failed to create remote monitor for hybrid")
 		}
