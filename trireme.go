@@ -19,6 +19,7 @@ type trireme struct {
 	serverID    string
 	cache       cache.DataStore
 	supervisors map[constants.PUType]supervisor.Supervisor
+	excluders   map[constants.PUType]supervisor.Excluder
 	enforcers   map[constants.PUType]enforcer.PolicyEnforcer
 	resolver    PolicyResolver
 	collector   collector.EventCollector
@@ -27,12 +28,13 @@ type trireme struct {
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
+func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, excluders map[constants.PUType]supervisor.Excluder, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
 
 	trireme := &trireme{
 		serverID:    serverID,
 		cache:       cache.NewCache(),
 		supervisors: supervisors,
+		excluders:   excluders,
 		enforcers:   enforcers,
 		resolver:    resolver,
 		collector:   eventCollector,
@@ -403,6 +405,14 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 	return nil
 }
 
+//AddExcludedIpList  pushes the list of excluded IP to all supervisors in the system
+func (t *trireme) AddExcludedIPList(ipList []string) error {
+	for _, excluder := range t.excluders {
+		excluder.AddExcludedIP(ipList)
+	}
+	return nil
+
+}
 func (t *trireme) run() {
 	for {
 		select {

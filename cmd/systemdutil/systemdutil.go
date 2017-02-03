@@ -47,7 +47,6 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 
 	metadata := []string{}
 	servicename := ""
-
 	ports := "0"
 
 	command := arguments["<command>"].(string)

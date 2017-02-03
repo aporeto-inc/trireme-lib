@@ -22,10 +22,10 @@ type Supervisor interface {
 type Excluder interface {
 
 	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-	AddExcludedIP(ip string) error
+	AddExcludedIP(ip []string) error
 
 	// RemoveExcludedIP removes the exception for the destination IP given in parameter.
-	RemoveExcludedIP(ip string) error
+	//RemoveExcludedIP(ip string) error
 }
 
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc
@@ -47,8 +47,8 @@ type Implementor interface {
 	Stop() error
 
 	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-	AddExcludedIP(ip string) error
+	AddExcludedIP(ip []string) error
 
 	// RemoveExcludedIP removes the exception for the destination IP given in parameter.
-	RemoveExcludedIP(ip string) error
+	RemoveExcludedIP(ip []string) error
 }

@@ -149,7 +149,7 @@ func main() {
 	if rm != nil {
 		rm.Start()
 	}
-
+	t.AddExcludedIPList([]string{"192.168.0.2"})
 	// Wait for Ctrl-C
 	<-c
 
