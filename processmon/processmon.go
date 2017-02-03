@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -75,6 +76,38 @@ func init() {
 	go collectChildExitStatus()
 }
 
+//private function used with test
+func setprocessname(name string) {
+
+	processName = name
+}
+
+//collectChildExitStatus is an async function which collects status for all launched child processes
+func collectChildExitStatus() {
+
+	for {
+		exitStatus := <-childExitStatus
+		log.WithFields(log.Fields{"package": "ProcessMon",
+			"ContextID":  exitStatus.contextID,
+			"pid":        exitStatus.process,
+			"ExitStatus": exitStatus.exitStatus,
+		}).Info("Enforcer exited")
+	}
+}
+
+// processIOReader will read from a reader and print it on the calling process
+func processIOReader(fd io.Reader, pid int, exited chan int) {
+	reader := bufio.NewReader(fd)
+	for {
+		str, err := reader.ReadString('\n')
+		if err != nil {
+			exited <- 1
+			return
+		}
+		fmt.Print("[" + strconv.Itoa(pid) + "]" + str)
+	}
+}
+
 //SetnsNetPath -- only planned consumer is unit test
 //Call this function if you expect network namespace links to be created in a separate path
 func (p *ProcessMon) SetnsNetPath(netpath string) {
@@ -132,25 +165,6 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	os.Remove(netnspath + contextID)
 	p.activeProcesses.Remove(contextID)
 
-}
-
-//private function uses with test
-func setprocessname(name string) {
-
-	processName = name
-}
-
-//collectChildExitStatus is an async function which collects status for all launched child processes
-func collectChildExitStatus() {
-
-	for {
-		exitStatus := <-childExitStatus
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"ContextID":  exitStatus.contextID,
-			"pid":        exitStatus.process,
-			"ExitStatus": exitStatus.exitStatus,
-		}).Info("Enforcer exited")
-	}
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
@@ -216,33 +230,11 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		childExitStatus <- ExitStatus{process: pid, contextID: contextID, exitStatus: status}
 	}()
 	//processMonWait(cmd, contextID)
-	go func() {
-		stdoutreader := bufio.NewReader(stdout)
-		for {
-			str, err := stdoutreader.ReadString('\n')
-			if err != nil {
-				exited <- 1
-				return
-			} else {
-				fmt.Println(str)
-			}
-		}
 
-	}()
-	go func() {
-		//io.Copy(os.Stderr, stderr)
-		stderrreader := bufio.NewReader(stderr)
-		for {
-			str, err := stderrreader.ReadString('\n')
-			if err != nil {
-				exited <- 1
-				return
-			} else {
-				fmt.Println(str)
-			}
-		}
+	// Stdout/err processing
+	go processIOReader(stdout, cmd.Process.Pid, exited)
+	go processIOReader(stderr, cmd.Process.Pid, exited)
 
-	}()
 	rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock")
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
 		process: cmd.Process,
@@ -271,6 +263,7 @@ func GetProcessManagerHdl() ProcessManager {
 
 }
 
+//GetProcessMonitorHdl returns the handle of the process monitor
 func GetProcessMonitorHdl() ProcessMonitor {
 	pInstance := &processMonitor{processmap: make(map[int]interface{})}
 	go pInstance.processMonitorLoop()
