@@ -264,7 +264,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		return fmt.Errorf("IPSets not supported yet")
 	default:
 
-		supervisorHdl, err := supervisor.NewSupervisor(s.Collector,
+		supervisorHandle, err := supervisor.NewSupervisor(s.Collector,
 			s.Enforcer,
 			payload.TargetNetworks,
 			constants.RemoteContainer,
@@ -280,8 +280,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			}
 			return err
 		}
-		s.Excluder = supervisorHdl
-		s.Supervisor = supervisorHdl
+		s.Excluder = supervisorHandle
+		s.Supervisor = supervisorHandle
 
 	}
 
