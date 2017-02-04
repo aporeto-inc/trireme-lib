@@ -96,15 +96,16 @@ func collectChildExitStatus() {
 }
 
 // processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader, pid int, exited chan int) {
+func processIOReader(fd io.Reader, contextID string, exited chan int) {
 	reader := bufio.NewReader(fd)
 	for {
 		str, err := reader.ReadString('\n')
 		if err != nil {
 			exited <- 1
+			fmt.Println("Error: reader failed. Exiting thread !")
 			return
 		}
-		fmt.Print("[" + strconv.Itoa(pid) + "]" + str)
+		fmt.Print("[" + contextID + "]:" + str)
 	}
 }
 
@@ -232,8 +233,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	//processMonWait(cmd, contextID)
 
 	// Stdout/err processing
-	go processIOReader(stdout, cmd.Process.Pid, exited)
-	go processIOReader(stderr, cmd.Process.Pid, exited)
+	go processIOReader(stdout, contextID, exited)
+	go processIOReader(stderr, contextID, exited)
 
 	rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock")
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
