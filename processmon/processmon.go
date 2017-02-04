@@ -205,8 +205,10 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	cmdName, _ = osext.Executable()
 	cmdArgs := []string{arg}
 
-	cmdArgs = append(cmdArgs, "--log-level")
-	cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level"].(string))
+	if _, ok := GlobalCommandArgs["--log-level"]; ok {
+		cmdArgs = append(cmdArgs, "--log-level")
+		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level"].(string))
+	}
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 
