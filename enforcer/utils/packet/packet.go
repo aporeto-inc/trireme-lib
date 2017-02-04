@@ -210,7 +210,7 @@ func (p *Packet) Print(context uint64) {
 	if print {
 		log.WithFields(log.Fields{
 			"package": "packet",
-		}).Error(buf)
+		}).Info(buf)
 	}
 }
 
