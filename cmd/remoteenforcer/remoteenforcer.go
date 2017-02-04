@@ -422,9 +422,9 @@ func (s *Server) AddExcludedIP(req rpcwrapper.Request, resp *rpcwrapper.Response
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor) {
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) {
 
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(logLevel)
 	log.SetFormatter(&log.TextFormatter{
 		ForceColors:    true,
 		DisableSorting: true,
