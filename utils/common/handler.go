@@ -13,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/cliextractor"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme/processmon"
 )
 
 // ProcessArgs handles all commands options for trireme
@@ -50,6 +51,9 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 
 	// Setup external processors
 	ExternalProcessor = processor
+
+	// Setup incoming args
+	processmon.GlobalCommandArgs = arguments
 
 	if arguments["--swarm"].(bool) {
 		log.WithFields(log.Fields{

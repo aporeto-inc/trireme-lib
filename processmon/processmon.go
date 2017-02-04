@@ -1,7 +1,7 @@
-//Package ProcessMon is to manage and monitor remote enforcers.
+//package processmon is to manage and monitor remote enforcers.
 //When we access the processmanager interface through here it acts as a singleton
 //The ProcessMonitor interface is not a singleton and can be used to monitor a list of processes
-package ProcessMon
+package processmon
 
 import (
 	"bufio"
@@ -19,6 +19,11 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/kardianos/osext"
+)
+
+var (
+	// GlobalCommandArgs are command args received while invoking this command
+	GlobalCommandArgs map[string]interface{}
 )
 
 var processName = ""
@@ -199,6 +204,9 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 
 	cmdName, _ = osext.Executable()
 	cmdArgs := []string{arg}
+
+	cmdArgs = append(cmdArgs, "--log-level")
+	cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level"].(string))
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 

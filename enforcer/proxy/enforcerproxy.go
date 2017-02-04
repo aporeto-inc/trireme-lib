@@ -44,7 +44,7 @@ type proxyInfo struct {
 	Secrets     tokens.Secrets
 	serverID    string
 	validity    time.Duration
-	prochdl     ProcessMon.ProcessManager
+	prochdl     processmon.ProcessManager
 	rpchdl      rpcwrapper.RPCClient
 	initDone    map[string]bool
 	filterQueue *enforcer.FilterQueue
@@ -205,7 +205,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		Secrets:     secrets,
 		serverID:    serverID,
 		validity:    validity,
-		prochdl:     ProcessMon.GetProcessManagerHdl(),
+		prochdl:     processmon.GetProcessManagerHdl(),
 		rpchdl:      rpchdl,
 		initDone:    make(map[string]bool),
 		filterQueue: filterQueue,

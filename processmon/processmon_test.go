@@ -1,4 +1,4 @@
-package ProcessMon
+package processmon
 
 import (
 	"errors"

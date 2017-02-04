@@ -27,7 +27,7 @@ type ProxyInfo struct {
 	applicationQueues string
 	targetNetworks    []string
 	ExcludedIP        []string
-	prochdl           ProcessMon.ProcessManager
+	prochdl           processmon.ProcessManager
 	rpchdl            rpcwrapper.RPCClient
 	initDone          map[string]bool
 }
@@ -133,7 +133,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
-		prochdl:           ProcessMon.GetProcessManagerHdl(),
+		prochdl:           processmon.GetProcessManagerHdl(),
 		rpchdl:            rpchdl,
 		initDone:          make(map[string]bool),
 		ExcludedIP:        []string{},
