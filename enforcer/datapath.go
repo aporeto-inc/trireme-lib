@@ -545,16 +545,14 @@ func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port 
 		ip = DefaultNetwork
 	}
 
-	if d.mode != constants.LocalServer {
-		pu, err := d.puTracker.Get(ip)
-		if err == nil {
-			return pu, err
-		}
+	pu, err := d.puTracker.Get(ip)
+	if err == nil {
+		return pu, err
 	}
 
 	if app {
 		markKey := "mark:" + mark + "$"
-		pu, err := d.puTracker.Get(markKey)
+		pu, err = d.puTracker.Get(markKey)
 		if err != nil {
 			return nil, fmt.Errorf("PU context cannot be found using ip %v mark %v mode %v", ip, markKey, d.mode)
 		}
@@ -562,7 +560,7 @@ func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port 
 	}
 
 	portKey := "port:" + port
-	pu, err := d.puTracker.Get(portKey)
+	pu, err = d.puTracker.Get(portKey)
 	if err != nil {
 		return nil, fmt.Errorf("PU Context cannot be found using ip %v port key %v mode %v", ip, portKey, d.mode)
 	}
