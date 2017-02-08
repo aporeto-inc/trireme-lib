@@ -551,16 +551,18 @@ func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port 
 	}
 
 	if app {
-		pu, err = d.puTracker.Get("mark:" + mark + "$")
+		markKey := "mark:" + mark + "$"
+		pu, err = d.puTracker.Get(markKey)
 		if err != nil {
-			return nil, fmt.Errorf("PU context cannot be found ")
+			return nil, fmt.Errorf("PU context cannot be found using ip %v mark %v mode %v", ip, markKey, d.mode)
 		}
 		return pu, nil
 	}
 
-	pu, err = d.puTracker.Get("port:" + port)
+	portKey := "port:" + port
+	pu, err = d.puTracker.Get(portKey)
 	if err != nil {
-		return nil, fmt.Errorf("PU Context cannot be found")
+		return nil, fmt.Errorf("PU Context cannot be found using ip %v port key %v mode %v", ip, portKey, d.mode)
 	}
 	return pu, nil
 }

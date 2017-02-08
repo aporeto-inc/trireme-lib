@@ -1,4 +1,4 @@
-package ProcessMon
+package processmon
 
 import "github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 

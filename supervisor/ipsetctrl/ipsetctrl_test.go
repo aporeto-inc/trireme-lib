@@ -326,3 +326,24 @@ func TestUpdateRules(t *testing.T) {
 
 	})
 }
+
+func TestAddExcludedIP(t *testing.T) {
+	Convey("Testing AddExcludedIP", t, func() {
+		Convey("When i call with empty list it returns nil error", func() {
+
+			i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+			err := i.AddExcludedIP([]string{})
+			So(err, ShouldBeNil)
+		})
+		Convey("When i call with a populate list error should be nil", func() {
+			i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+			err := i.AddExcludedIP([]string{"172.22.197.32"})
+			//Since nothing is initialized
+			So(err, ShouldNotBeNil)
+		})
+
+	})
+}
+
+func TestRemoveExcludedIP(t *testing.T) {
+}

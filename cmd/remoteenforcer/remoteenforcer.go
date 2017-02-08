@@ -64,6 +64,7 @@ type Server struct {
 	pupolicy    *policy.PUPolicy
 	rpcchannel  string
 	rpchdl      *rpcwrapper.RPCWrapper
+	Excluder    supervisor.Excluder
 }
 
 // NewServer starts a new server
@@ -262,8 +263,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		//TO DO
 		return fmt.Errorf("IPSets not supported yet")
 	default:
-		var err error
-		s.Supervisor, err = supervisor.NewSupervisor(s.Collector,
+
+		supervisorHandle, err := supervisor.NewSupervisor(s.Collector,
 			s.Enforcer,
 			payload.TargetNetworks,
 			constants.RemoteContainer,
@@ -279,6 +280,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			}
 			return err
 		}
+		s.Excluder = supervisorHandle
+		s.Supervisor = supervisorHandle
 
 	}
 
@@ -330,7 +333,10 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	if err != nil {
 		resp.Status = err.Error()
 	}
-	return err
+
+	//We are good here now add the Excluded ip list as well
+	return s.Excluder.AddExcludedIP(payload.ExcludedIP)
+
 }
 
 //Unenforce this method calls the unenforce method on the enforcer created from initenforcer
@@ -405,19 +411,30 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	return nil
 }
 
-// LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer() {
+func (s *Server) AddExcludedIP(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	if !s.rpchdl.CheckValidity(&req) {
+		resp.Status = ("Message Auth Failed")
+		return errors.New(resp.Status)
+	}
+	payload := req.Payload.(rpcwrapper.ExcludeIPRequestPayload)
+	return s.Excluder.AddExcludedIP(payload.Ip)
 
-	log.SetFormatter(&log.TextFormatter{})
+}
+
+// LaunchRemoteEnforcer launches a remote enforcer
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) {
+
+	log.SetLevel(logLevel)
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors:    true,
+		DisableSorting: true,
+	})
 
 	namedPipe := os.Getenv(envSocketPath)
 
-	server := &Server{pupolicy: nil, Service: nil}
+	server := NewServer(service, namedPipe)
 
 	rpchdl := rpcwrapper.NewRPCServer()
-
-	//Map not initialized here since we don't use it on the server
-	server.rpcchannel = namedPipe
 
 	userDetails, _ := user.Current()
 	log.WithFields(log.Fields{"package": "remote_enforcer",

@@ -1,12 +1,13 @@
-//Package ProcessMon is to manage and monitor remote enforcers.
+//package processmon is to manage and monitor remote enforcers.
 //When we access the processmanager interface through here it acts as a singleton
 //The ProcessMonitor interface is not a singleton and can be used to monitor a list of processes
-package ProcessMon
+package processmon
 
 import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -18,6 +19,11 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/kardianos/osext"
+)
+
+var (
+	// GlobalCommandArgs are command args received while invoking this command
+	GlobalCommandArgs map[string]interface{}
 )
 
 var processName = ""
@@ -73,6 +79,39 @@ func init() {
 
 	netnspath = "/var/run/netns/"
 	go collectChildExitStatus()
+}
+
+//private function used with test
+func setprocessname(name string) {
+
+	processName = name
+}
+
+//collectChildExitStatus is an async function which collects status for all launched child processes
+func collectChildExitStatus() {
+
+	for {
+		exitStatus := <-childExitStatus
+		log.WithFields(log.Fields{"package": "ProcessMon",
+			"ContextID":  exitStatus.contextID,
+			"pid":        exitStatus.process,
+			"ExitStatus": exitStatus.exitStatus,
+		}).Info("Enforcer exited")
+	}
+}
+
+// processIOReader will read from a reader and print it on the calling process
+func processIOReader(fd io.Reader, contextID string, exited chan int) {
+	reader := bufio.NewReader(fd)
+	for {
+		str, err := reader.ReadString('\n')
+		if err != nil {
+			exited <- 1
+			fmt.Println("Error: reader failed. Exiting thread !")
+			return
+		}
+		fmt.Print("[" + contextID + "]:" + str)
+	}
 }
 
 //SetnsNetPath -- only planned consumer is unit test
@@ -134,30 +173,17 @@ func (p *ProcessMon) KillProcess(contextID string) {
 
 }
 
-//private function uses with test
-func setprocessname(name string) {
-
-	processName = name
-}
-
-//collectChildExitStatus is an async function which collects status for all launched child processes
-func collectChildExitStatus() {
-
-	for {
-		exitStatus := <-childExitStatus
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"ContextID":  exitStatus.contextID,
-			"pid":        exitStatus.process,
-			"ExitStatus": exitStatus.exitStatus,
-		}).Info("Enforcer exited")
-	}
-}
-
 //LaunchProcess prepares the environment for the new process and launches the process
 func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string) error {
 	var cmdName string
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
+		return nil
+	}
+
+	pidstat, _ := os.Stat("/proc/" + strconv.Itoa(refPid) + "/ns/net")
+	hoststat, _ := os.Stat("/proc/1/ns/net")
+	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
 		return nil
 	}
 	_, staterr := os.Stat(netnspath)
@@ -171,18 +197,24 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		}
 	}
 
-	linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
-		netnspath+contextID)
-	if linkErr != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": linkErr,
-		}).Error(ErrSymLinkFailed)
-		//return linkErr
+	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
+		linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
+			netnspath+contextID)
+		if linkErr != nil {
+			log.WithFields(log.Fields{"package": "ProcessMon",
+				"error": linkErr,
+			}).Error(ErrSymLinkFailed)
+		}
 	}
-	namedPipe := "SOCKET_PATH=/tmp/" + strconv.Itoa(refPid) + ".sock"
+	namedPipe := "SOCKET_PATH=/var/run/" + contextID + ".sock"
 
 	cmdName, _ = osext.Executable()
 	cmdArgs := []string{arg}
+
+	if _, ok := GlobalCommandArgs["--log-level"]; ok {
+		cmdArgs = append(cmdArgs, "--log-level")
+		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level"].(string))
+	}
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 
@@ -215,34 +247,12 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		childExitStatus <- ExitStatus{process: pid, contextID: contextID, exitStatus: status}
 	}()
 	//processMonWait(cmd, contextID)
-	go func() {
-		stdoutreader := bufio.NewReader(stdout)
-		for {
-			str, err := stdoutreader.ReadString('\n')
-			if err != nil {
-				exited <- 1
-				return
-			} else {
-				fmt.Println(str)
-			}
-		}
 
-	}()
-	go func() {
-		//io.Copy(os.Stderr, stderr)
-		stderrreader := bufio.NewReader(stderr)
-		for {
-			str, err := stderrreader.ReadString('\n')
-			if err != nil {
-				exited <- 1
-				return
-			} else {
-				fmt.Println(str)
-			}
-		}
+	// Stdout/err processing
+	go processIOReader(stdout, contextID, exited)
+	go processIOReader(stderr, contextID, exited)
 
-	}()
-	rpchdl.NewRPCClient(contextID, "/tmp/"+strconv.Itoa(refPid)+".sock")
+	rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock")
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
 		process: cmd.Process,
 		RPCHdl:  rpchdl,
@@ -262,7 +272,12 @@ func newProcessMon() ProcessManager {
 //or return a new one if there is none
 //This needs locks
 func GetProcessManagerHdl() ProcessManager {
+	_, err := os.Stat(netnspath)
+	if err != nil {
+		os.MkdirAll(netnspath, 0700)
+		os.Symlink("/proc/1/ns/net", netnspath+"/host")
 
+	}
 	if launcher == nil {
 		return newProcessMon()
 	}
@@ -270,6 +285,7 @@ func GetProcessManagerHdl() ProcessManager {
 
 }
 
+//GetProcessMonitorHdl returns the handle of the process monitor
 func GetProcessMonitorHdl() ProcessMonitor {
 	pInstance := &processMonitor{processmap: make(map[int]interface{})}
 	go pInstance.processMonitorLoop()

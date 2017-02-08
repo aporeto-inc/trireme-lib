@@ -151,35 +151,35 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 
 // exclusionChainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) exclusionChainRules(ip string) [][]string {
+func (i *Instance) exclusionChainRules(ipList []string) [][]string {
 	rules := [][]string{}
-
-	if i.mode == constants.LocalContainer {
+	for _, ip := range ipList {
+		if i.mode == constants.LocalContainer {
+			rules = append(rules, []string{
+				i.appPacketIPTableContext,
+				i.appPacketIPTableSection,
+				"-d", ip,
+				"-m", "comment", "--comment", "Trireme excluded IP",
+				"-j", "ACCEPT",
+			})
+		}
 		rules = append(rules, []string{
-			i.appPacketIPTableContext,
+			i.appAckPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-d", ip,
+			"-p", "tcp",
+			"-m", "comment", "--comment", "Trireme excluded IP",
+			"-j", "ACCEPT",
+		})
+
+		rules = append(rules, []string{
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-s", ip,
 			"-m", "comment", "--comment", "Trireme excluded IP",
 			"-j", "ACCEPT",
 		})
 	}
-	rules = append(rules, []string{
-		i.appAckPacketIPTableContext,
-		i.appPacketIPTableSection,
-		"-d", ip,
-		"-p", "tcp",
-		"-m", "comment", "--comment", "Trireme excluded IP",
-		"-j", "ACCEPT",
-	})
-
-	rules = append(rules, []string{
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection,
-		"-s", ip,
-		"-m", "comment", "--comment", "Trireme excluded IP",
-		"-j", "ACCEPT",
-	})
-
 	return rules
 }
 
@@ -549,6 +549,16 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 	return nil
 }
 
+// CleanAllSynAckPacketCaptures cleans the capture rules for SynAck packets irrespective of NFQUEUE
+func (i *Instance) CleanAllSynAckPacketCaptures() error {
+
+	i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableContext)
+
+	i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection)
+
+	return nil
+}
+
 // acceptMarkedPackets installs the rules to accept all marked packets
 func (i *Instance) acceptMarkedPackets() error {
 
@@ -625,14 +635,14 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 }
 
 // addExclusionChainRules adds exclusion chain rules
-func (i *Instance) addExclusionChainRules(ip string) error {
+func (i *Instance) addExclusionChainRules(ip []string) error {
 
 	return i.processRulesFromList(i.exclusionChainRules(ip), "Insert")
 
 }
 
 // deleteExclusionChainRules removes exclusion chain rules
-func (i *Instance) deleteExclusionChainRules(ip string) error {
+func (i *Instance) deleteExclusionChainRules(ip []string) error {
 
 	return i.processRulesFromList(i.exclusionChainRules(ip), "Delete")
 

@@ -181,6 +181,8 @@ func TestPacketHandling(t *testing.T) {
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
+				firstAckProcessed := false
+
 				for i, p := range TCPFlow {
 
 					input := make([]byte, len(p))
@@ -213,12 +215,24 @@ func TestPacketHandling(t *testing.T) {
 						!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 						t.Error("Invalid Test Packet")
 					}
+
 					err = enforcer.processApplicationTCPPackets(tcpPacket)
 					So(err, ShouldBeNil)
 
 					if debug {
 						fmt.Println("Intermediate packet", i)
 						tcpPacket.Print(0)
+					}
+
+					if tcpPacket.TCPFlags&packet.TCPSynMask != 0 {
+						// In our 3 way security handshake syn and syn-ack packet should grow in length
+						So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
+					}
+
+					if !firstAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
+						// In our 3 way security handshake first ack packet should grow in length
+						firstAckProcessed = true
+						So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
 					}
 
 					output := make([]byte, len(tcpPacket.GetBytes()))

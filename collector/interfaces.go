@@ -36,6 +36,8 @@ const (
 	ContainerUpdate = "update"
 	// ContainerFailed indicates an event that a container was stopped because of policy issues
 	ContainerFailed = "forcestop"
+	// ContainerIgnored indicates that the container will be ignored by Trireme
+	ContainerIgnored = "ignore"
 	// UnknownContainerDelete indicates that policy for an unknwon container was deleted
 	UnknownContainerDelete = "unknowncontainer"
 	// PolicyValid Normal flow accept

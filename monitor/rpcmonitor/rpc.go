@@ -49,6 +49,12 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 		return nil, fmt.Errorf("RPC endpoint address invalid")
 	}
 
+	if _, err := os.Stat(rpcAddress); err == nil {
+		if err := os.Remove(rpcAddress); err != nil {
+			return nil, fmt.Errorf("Failed to clean up rpc socket")
+		}
+	}
+
 	if puHandler == nil {
 		return nil, fmt.Errorf("PU Handler required")
 	}

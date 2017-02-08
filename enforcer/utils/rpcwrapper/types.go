@@ -37,7 +37,7 @@ type Request struct {
 //exported consts from the package
 const (
 	SUCCESS      = 0
-	StatsChannel = "/tmp/statschannel.sock"
+	StatsChannel = "/var/run/statschannel.sock"
 )
 
 //Response is the response for every RPC call. This is used to carry the status of the actual function call
@@ -92,6 +92,7 @@ type SuperviseRequestPayload struct {
 	ReceiverRules    *policy.TagSelectorList
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
+	ExcludedIP       []string
 }
 
 //UnEnforcePayload payload for unenforce request
@@ -128,4 +129,9 @@ type UnEnforceResponsePayload struct {
 type StatsPayload struct {
 	NumFlows int
 	Flows    []enforcer.StatsPayload
+}
+
+//ExcludeIPRequestPayload carries the list of excluded ips
+type ExcludeIPRequestPayload struct {
+	Ip []string
 }

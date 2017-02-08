@@ -205,7 +205,7 @@ func TestThousandsOfTimers(t *testing.T) {
 			}
 			//TODO: This test is failing if we wait 3 seconds
 			Convey("After I wait for another 4 seconds", func() {
-				<-time.After(4 * time.Second)
+				<-time.After(5 * time.Second)
 				Convey("I should have no objects in the cache", func() {
 					So(c.SizeOf(), ShouldEqual, 0)
 				})

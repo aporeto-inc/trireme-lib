@@ -680,6 +680,9 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	} else {
 		// Lookup the policy rules for the packet - Return false if they don't exist
 		context, err = d.contextFromIP(false, tcpPacket.DestinationAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+		if err != nil && d.service != nil && tcpPacket.TCPFlags&packet.TCPSynMask == 0 {
+			return nil, nil
+		}
 	}
 
 	if err != nil {

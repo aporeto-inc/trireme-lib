@@ -482,7 +482,7 @@ func TestAddExcludedIP(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.AddExcludedIP("10.1.1.0")
+			err := i.AddExcludedIP([]string{"10.1.1.0"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -493,7 +493,7 @@ func TestAddExcludedIP(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.AddExcludedIP("10.1.1.0")
+			err := i.AddExcludedIP([]string{"10.1.1.0"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -516,7 +516,7 @@ func TestRemoveExcludedIP(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.RemoveExcludedIP("10.1.1.0")
+			err := i.RemoveExcludedIP([]string{"10.1.1.0"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -527,7 +527,7 @@ func TestRemoveExcludedIP(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.RemoveExcludedIP("10.1.1.0")
+			err := i.RemoveExcludedIP([]string{"10.1.1.0"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
