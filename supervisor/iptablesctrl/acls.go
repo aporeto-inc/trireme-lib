@@ -502,7 +502,7 @@ func (i *Instance) CaptureSYNACKPackets() error {
 		i.appAckPacketIPTableContext,
 		i.appPacketIPTableSection, 1,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.applicationQueues)
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -517,7 +517,7 @@ func (i *Instance) CaptureSYNACKPackets() error {
 		i.netPacketIPTableContext,
 		i.netPacketIPTableSection, 1,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.networkQueues)
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -538,13 +538,13 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 		i.appAckPacketIPTableContext,
 		i.appPacketIPTableSection,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.applicationQueues)
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
 
 	i.ipt.Delete(
 		i.netPacketIPTableContext,
 		i.netPacketIPTableSection,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.networkQueues)
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
 
 	return nil
 }
