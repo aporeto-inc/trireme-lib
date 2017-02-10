@@ -9,11 +9,12 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/rpc"
 	"os"
 	"os/signal"
 	"strconv"
 	"time"
+
+	"net/rpc"
 
 	"github.com/aporeto-inc/trireme/cache"
 )
@@ -74,6 +75,7 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 			return err
 		}
 	}
+
 	r.contextList = append(r.contextList, contextID)
 	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel})
 
@@ -105,6 +107,7 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	req.HashAuth = digest.Sum(nil)
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
+
 		return err
 	}
 	return rpcClient.Client.Call(methodName, req, resp)
@@ -166,6 +169,7 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 	rpcHdl, _ := r.rpcClientMap.Get(contextID)
 	rpcHdl.(*RPCHdl).Client.Close()
 	os.Remove(rpcHdl.(*RPCHdl).Channel)
+	r.rpcClientMap.Remove(contextID)
 }
 
 //ProcessMessage checks if the given request is valid
