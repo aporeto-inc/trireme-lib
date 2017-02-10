@@ -107,7 +107,6 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	req.HashAuth = digest.Sum(nil)
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
-
 		return err
 	}
 	return rpcClient.Client.Call(methodName, req, resp)
