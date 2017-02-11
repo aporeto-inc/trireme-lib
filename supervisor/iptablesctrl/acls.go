@@ -384,7 +384,6 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 			"chain":   chain,
 			"error":   err.Error(),
 		}).Debug("Error when adding default app acl rule for established connections")
-		fmt.Println("HERE 1 ", i.appAckPacketIPTableContext, chain, err.Error())
 		return err
 	}
 
@@ -400,7 +399,6 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 			"chain":   chain,
 			"error":   err.Error(),
 		}).Debug("Error when adding default app acl rule for established connections")
-		fmt.Println("HERE 2 ")
 		return err
 	}
 
@@ -416,7 +414,6 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 			"chain":   chain,
 			"error":   err.Error(),
 		}).Debug("Error when adding default app acl rule")
-		fmt.Println("HERE 3 ")
 		return err
 	}
 
