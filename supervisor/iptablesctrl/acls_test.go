@@ -293,7 +293,12 @@ func TestAddAppACLs(t *testing.T) {
 		Convey("When I add app ACLs with no rules", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext && chain == "chain" {
-					return matchSpec("DROP", rulespec)
+					if err := matchSpec("DROP", rulespec); err == nil {
+						return nil
+					}
+					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
+						return nil
+					}
 				}
 				return fmt.Errorf("Error")
 			})
@@ -433,7 +438,12 @@ func TestAddNetAcls(t *testing.T) {
 		Convey("When I add net ACLs with no rules", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.netPacketIPTableContext && chain == "chain" {
-					return matchSpec("DROP", rulespec)
+					if err := matchSpec("DROP", rulespec); err == nil {
+						return nil
+					}
+					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
+						return nil
+					}
 				}
 				return fmt.Errorf("Error")
 			})
