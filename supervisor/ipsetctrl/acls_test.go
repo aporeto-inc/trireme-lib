@@ -23,7 +23,7 @@ func matchSpec(term string, rulespec []string) bool {
 
 func TestCreateACLSets(t *testing.T) {
 	Convey("Given an ipsets  controllers", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -115,7 +115,7 @@ func TestCreateACLSets(t *testing.T) {
 
 func TestAddAppSetRuleS(t *testing.T) {
 	Convey("Given an ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -156,7 +156,7 @@ func TestAddAppSetRuleS(t *testing.T) {
 
 func TestAddNetSetRules(t *testing.T) {
 	Convey("Given an ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -197,7 +197,7 @@ func TestAddNetSetRules(t *testing.T) {
 
 func TestDeleteAppSetRules(t *testing.T) {
 	Convey("Given an ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -238,7 +238,7 @@ func TestDeleteAppSetRules(t *testing.T) {
 
 func TestDeleteNetSetRules(t *testing.T) {
 	Convey("Given an ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -279,7 +279,7 @@ func TestDeleteNetSetRules(t *testing.T) {
 
 func TestSetupIpset(t *testing.T) {
 	Convey("Given an ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -297,7 +297,7 @@ func TestSetupIpset(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			err := i.setupIpset("target", "container")
+			err := i.setupIpset("target", "container", []string{"172,17.0.0./24"})
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
 			})
@@ -315,7 +315,7 @@ func TestSetupIpset(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			err := i.setupIpset("target", "container")
+			err := i.setupIpset("target", "container", []string{"172,17.0.0./24"})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -333,7 +333,7 @@ func TestSetupIpset(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			err := i.setupIpset("target", "container")
+			err := i.setupIpset("target", "container", []string{"172,17.0.0./24"})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -344,7 +344,7 @@ func TestSetupIpset(t *testing.T) {
 
 func TestAddContainerToSet(t *testing.T) {
 	Convey("Given an ipset controller with a nil container set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -359,7 +359,7 @@ func TestAddContainerToSet(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid container set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -384,7 +384,7 @@ func TestAddContainerToSet(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid container set where the add fails", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -413,7 +413,7 @@ func TestAddContainerToSet(t *testing.T) {
 
 func TestDelContainerFromSet(t *testing.T) {
 	Convey("Given an ipset controller with a nil container set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -428,7 +428,7 @@ func TestDelContainerFromSet(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid container set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -453,7 +453,7 @@ func TestDelContainerFromSet(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid container set where the delete fails", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -480,7 +480,7 @@ func TestDelContainerFromSet(t *testing.T) {
 
 func TestAddIpsetOption(t *testing.T) {
 	Convey("Given an ipset controller with a nil target set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -495,7 +495,7 @@ func TestAddIpsetOption(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid target set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -520,7 +520,7 @@ func TestAddIpsetOption(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid target set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -548,7 +548,7 @@ func TestAddIpsetOption(t *testing.T) {
 
 func TestDelIPsetOption(t *testing.T) {
 	Convey("Given an ipset controller with a nil target set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -563,7 +563,7 @@ func TestDelIPsetOption(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid target set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -588,7 +588,7 @@ func TestDelIPsetOption(t *testing.T) {
 	})
 
 	Convey("Given an ipset controller with a valid target set", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -615,7 +615,7 @@ func TestDelIPsetOption(t *testing.T) {
 
 func TestSetupTrapRules(t *testing.T) {
 	Convey("Given an ipset controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, true, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, true, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()

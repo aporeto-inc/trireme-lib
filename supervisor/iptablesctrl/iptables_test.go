@@ -15,11 +15,10 @@ func TestNewInstance(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 		networkQueues := "0:1"
 		applicationQueues := "2:3"
-		targetNetworks := []string{"172.17.0.0/24"}
 		mark := 0x1000
 
 		Convey("If I create a local implemenetation and iptables exists", func() {
-			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, constants.LocalContainer)
+			i, err := NewInstance(networkQueues, applicationQueues, mark, constants.LocalContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -32,7 +31,7 @@ func TestNewInstance(t *testing.T) {
 		})
 
 		Convey("If I create a remote implemenetation and iptables exists", func() {
-			i, err := NewInstance(networkQueues, applicationQueues, targetNetworks, mark, constants.RemoteContainer)
+			i, err := NewInstance(networkQueues, applicationQueues, mark, constants.RemoteContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -48,7 +47,7 @@ func TestNewInstance(t *testing.T) {
 
 func TestChainName(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net := i.chainName("Context", 1)
 			Convey("I should get the right names", func() {
@@ -61,7 +60,7 @@ func TestChainName(t *testing.T) {
 
 func TestDefaultIP(t *testing.T) {
 	Convey("Given an iptables controller with remote off ", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -86,7 +85,7 @@ func TestDefaultIP(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller with remote on ", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -114,7 +113,7 @@ func TestDefaultIP(t *testing.T) {
 
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -145,7 +144,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -173,7 +172,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -196,7 +195,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -227,7 +226,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -250,7 +249,7 @@ func TestConfigureRules(t *testing.T) {
 
 func TestDeleteRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -295,7 +294,7 @@ func TestDeleteRules(t *testing.T) {
 
 func TestUpdateRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -331,7 +330,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -394,7 +393,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -411,7 +410,7 @@ func TestUpdateRules(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	Convey("Given an iptables controllers,", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.LocalContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -457,7 +456,7 @@ func TestStart(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.RemoteContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -470,7 +469,7 @@ func TestStop(t *testing.T) {
 
 func TestAddExcludedIP(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.RemoteContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -504,7 +503,7 @@ func TestAddExcludedIP(t *testing.T) {
 
 func TestRemoveExcludedIP(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", []string{"172.17.0.0/24"}, 0x1000, constants.RemoteContainer)
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 

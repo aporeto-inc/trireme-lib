@@ -10,12 +10,13 @@ import (
 
 // CustomPolicyResolver is a simple policy engine
 type CustomPolicyResolver struct {
+	triremeNets []string
 }
 
 // NewCustomPolicyResolver creates a new example policy engine for the Trireme package
-func NewCustomPolicyResolver() *CustomPolicyResolver {
+func NewCustomPolicyResolver(networks []string) *CustomPolicyResolver {
 
-	return &CustomPolicyResolver{}
+	return &CustomPolicyResolver{triremeNets: networks}
 }
 
 // ResolvePolicy implements the Trireme interface. Here we just create a simple
@@ -83,7 +84,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	annotations := runtimeInfo.Tags()
 
-	containerPolicyInfo := policy.NewPUPolicy(context, policy.Police, ingress, egress, nil, tagSelectors, identity, annotations, ipl, nil)
+	containerPolicyInfo := policy.NewPUPolicy(context, policy.Police, ingress, egress, nil, tagSelectors, identity, annotations, ipl, p.triremeNets, nil)
 
 	return containerPolicyInfo, nil
 }

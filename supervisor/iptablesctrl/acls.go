@@ -278,9 +278,9 @@ func (i *Instance) addChainRules(appChain string, netChain string, ip string, po
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, ip string) error {
+func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, networks []string) error {
 
-	for _, network := range i.targetNetworks {
+	for _, network := range networks {
 
 		err := i.processRulesFromList(i.trapRules(appChain, netChain, network, i.applicationQueues, i.networkQueues), "Append")
 		if err != nil {

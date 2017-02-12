@@ -200,7 +200,7 @@ func (i *Instance) deleteSet(set string) error {
 }
 
 // setupIpset sets up an ipset
-func (i *Instance) setupIpset(target, container string) error {
+func (i *Instance) setupIpset(target, container string, networks []string) error {
 
 	ips, err := i.ips.NewIpset(target, "hash:net", &ipset.Params{})
 	if err != nil {
@@ -211,7 +211,7 @@ func (i *Instance) setupIpset(target, container string) error {
 		return fmt.Errorf("Couldn't create IPSet for %s: %s", target, err)
 	}
 
-	for _, net := range i.targetNetworks {
+	for _, net := range networks {
 		if err = ips.Add(net, 0); err != nil {
 			log.WithFields(log.Fields{
 				"package": "supervisor",
