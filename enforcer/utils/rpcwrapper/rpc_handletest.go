@@ -12,6 +12,7 @@ const (
 	defaultchannel = "/tmp/test.sock"
 )
 
+// TestNewRPCClient mocks an RPC client test
 func TestNewRPCClient(t *testing.T) {
 	//createServer(defaultchannel)
 	//Test without  a rpc server

@@ -6,6 +6,7 @@ import (
 	"testing"
 )
 
+// MockRPCHdl is mock of rpchdl
 type MockRPCHdl struct {
 	Client  *rpc.Client
 	Channel string
@@ -21,6 +22,7 @@ type mockedMethods struct {
 	ContextListMock      func() []string
 }
 
+// TestRPCClient
 type TestRPCClient interface {
 	RPCClient
 	MockNewRPCClient(t *testing.T, impl func(contextID string, channel string) error)
@@ -30,6 +32,7 @@ type TestRPCClient interface {
 	MockContextList(t *testing.T, impl func() []string)
 }
 
+// TestRPCServer
 type TestRPCServer interface {
 	RPCServer
 	MockStartServer(t *testing.T, impl func(protocol string, path string, handler interface{}) error)
@@ -42,6 +45,7 @@ type testRPC struct {
 	currentTest *testing.T
 }
 
+// NewTestRPCServer
 func NewTestRPCServer() TestRPCServer {
 	return &testRPC{
 		lock:  &sync.Mutex{},
@@ -49,6 +53,7 @@ func NewTestRPCServer() TestRPCServer {
 	}
 }
 
+// NewTestRPCClient
 func NewTestRPCClient() TestRPCClient {
 	return &testRPC{
 		lock:  &sync.Mutex{},

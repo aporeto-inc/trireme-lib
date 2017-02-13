@@ -60,8 +60,7 @@ type InitRequestPayload struct {
 
 //InitSupervisorPayload for supervisor init request
 type InitSupervisorPayload struct {
-	CaptureMethod  CaptureType
-	TargetNetworks []string
+	CaptureMethod CaptureType
 }
 
 // EnforcePayload Payload for enforce request
@@ -77,6 +76,7 @@ type EnforcePayload struct {
 	ReceiverRules    *policy.TagSelectorList
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
+	TriremeNetworks  []string
 }
 
 //SuperviseRequestPayload for Supervise request
@@ -93,6 +93,7 @@ type SuperviseRequestPayload struct {
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
 	ExcludedIP       []string
+	TriremeNetworks  []string
 }
 
 //UnEnforcePayload payload for unenforce request

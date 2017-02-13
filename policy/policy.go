@@ -27,6 +27,8 @@ type PUPolicy struct {
 	receiverRules *TagSelectorList
 	// ips is the set of IP addresses and namespaces that the policy must be applied to
 	ips *IPMap
+	// triremeNetworks is the list of networks that Authorization must be enforced
+	triremeNetworks []string
 	// Extensions is an interface to a data structure that allows the policy supervisor
 	// to pass additional instructions to a plugin. Plugin and policy must be
 	// coordinated to implement the interface
@@ -34,7 +36,16 @@ type PUPolicy struct {
 }
 
 // NewPUPolicy generates a new ContainerPolicyInfo
-func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags, rxtags *TagSelectorList, identity, annotations *TagsMap, ips *IPMap, e interface{}) *PUPolicy {
+func NewPUPolicy(
+	id string,
+	action PUAction,
+	ingress,
+	egress *IPRuleList,
+	txtags, rxtags *TagSelectorList,
+	identity, annotations *TagsMap,
+	ips *IPMap,
+	triremeNetworks []string,
+	e interface{}) *PUPolicy {
 
 	if ingress == nil {
 		ingress = NewIPRuleList(nil)
@@ -68,6 +79,7 @@ func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags
 		identity:         identity,
 		annotations:      annotations,
 		ips:              ips,
+		triremeNetworks:  triremeNetworks,
 		Extensions:       e,
 	}
 }
@@ -75,7 +87,7 @@ func NewPUPolicy(id string, action PUAction, ingress, egress *IPRuleList, txtags
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
 
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil)
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, nil)
 }
 
 // Clone returns a copy of the policy
@@ -93,8 +105,10 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.identity.Clone(),
 		p.annotations.Clone(),
 		p.ips.Clone(),
+		p.triremeNetworks,
 		p.Extensions,
 	)
+
 	return np
 }
 
@@ -195,4 +209,18 @@ func (p *PUPolicy) DefaultIPAddress() (string, bool) {
 		return ip, true
 	}
 	return "0.0.0.0/0", false
+}
+
+// TriremeNetworks  returns the list of networks that Trireme must be applied
+func (p *PUPolicy) TriremeNetworks() []string {
+	return p.triremeNetworks
+}
+
+// UpdateTriremeNetworks updates the set of networks for trireme
+func (p *PUPolicy) UpdateTriremeNetworks(networks []string) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.triremeNetworks = []string{}
+	p.triremeNetworks = append(p.triremeNetworks, networks...)
 }
