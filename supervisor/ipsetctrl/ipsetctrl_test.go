@@ -165,7 +165,6 @@ func TestConfigureRules(t *testing.T) {
 		Convey("When I try to configure rules with no container set  ", func() {
 			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get an  error ", func() {
-				fmt.Println("Here is the error ", err.Error())
 				So(err, ShouldNotBeNil)
 			})
 		})
