@@ -70,6 +70,9 @@ const (
 
 	// TCPChecksumPos is the location of TCP checksum
 	TCPChecksumPos = 36
+
+	//TCPOptionPos is the location of TCP Options if present
+	TCPOptionPos = 40
 )
 
 // TCP Header masks
@@ -96,11 +99,13 @@ const (
 // TCP Options Related constants
 const (
 	// TCPAuthenticationOption is the option number will be using
-	TCPAuthenticationOption = uint8(255)
+	//TCPAuthenticationOption = uint8(255)
 
 	// TCPMssOption is the type for MSS option
 	TCPMssOption = uint8(2)
 
 	// TCPMssOptionLen is the type for MSS option
 	TCPMssOptionLen = uint8(4)
+
+	TCPFastopenCookieBaseLen = uint8(6)
 )

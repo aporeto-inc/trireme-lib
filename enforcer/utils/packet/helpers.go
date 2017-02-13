@@ -39,16 +39,16 @@ func (p *Packet) VerifyTCPChecksum() bool {
 
 	sum := p.computeTCPChecksum()
 
-	return sum == p.TCPChecksum
+	return sum == p.L4TCPPacket.TCPChecksum
 }
 
 // UpdateTCPChecksum computes the TCP header checksum and updates the
 // packet with the value.
 func (p *Packet) UpdateTCPChecksum() {
 
-	p.TCPChecksum = p.computeTCPChecksum()
+	p.L4TCPPacket.TCPChecksum = p.computeTCPChecksum()
 
-	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
+	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.L4TCPPacket.TCPChecksum)
 }
 
 // String returns a string representation of fields contained in this packet.
@@ -63,11 +63,11 @@ func (p *Packet) String() string {
 		buf.Reset()
 		buf.WriteString(header.String())
 		buf.WriteString(" srcport=")
-		buf.WriteString(strconv.Itoa(int(p.SourcePort)))
+		buf.WriteString(strconv.Itoa(int(p.L4TCPPacket.SourcePort)))
 		buf.WriteString(" dstport=")
-		buf.WriteString(strconv.Itoa(int(p.DestinationPort)))
+		buf.WriteString(strconv.Itoa(int(p.L4TCPPacket.DestinationPort)))
 		buf.WriteString(" tcpcksum=")
-		buf.WriteString(fmt.Sprintf("0x%0x", p.TCPChecksum))
+		buf.WriteString(fmt.Sprintf("0x%0x", p.L4TCPPacket.TCPChecksum))
 		buf.WriteString(" data")
 		buf.WriteString(hex.EncodeToString(p.GetBytes()))
 	}
@@ -112,7 +112,7 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buf[9] = 6
 
 	// bytes 10,11: TCP buffer size (real header + payload)
-	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.tcpData)+len(p.tcpOptions)))
+	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.L4TCPPacket.tcpData)+len(p.L4TCPPacket.tcpOptions)))
 
 	// bytes 12+: The TCP buffer (real header + payload)
 	copy(buf[12:], p.Buffer[p.l4BeginPos:])
@@ -121,8 +121,8 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buf[pseudoHeaderLen+16] = 0
 	buf[pseudoHeaderLen+17] = 0
 
-	buf = append(buf, p.tcpOptions...)
-	buf = append(buf, p.tcpData...)
+	buf = append(buf, p.L4TCPPacket.tcpOptions...)
+	buf = append(buf, p.L4TCPPacket.tcpData...)
 
 	return checksum(buf)
 }

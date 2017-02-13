@@ -43,7 +43,8 @@ type datapathEnforcer struct {
 
 	sourcePortCache      cache.DataStore
 	destinationPortCache cache.DataStore
-
+	//Cookie tracker for fast open
+	foCookieTracker cache.DataStore
 	// stats
 	net    *InterfaceStats
 	app    *InterfaceStats
@@ -87,6 +88,7 @@ func NewDatapathEnforcer(
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
 		destinationPortCache:     cache.NewCacheWithExpiration(time.Second * 60),
+		foCookieTracker:          cache.NewCacheWithExpiration(time.Second * 60),
 		filterQueue:              filterQueue,
 		mutualAuthorization:      mutualAuth,
 		service:                  service,

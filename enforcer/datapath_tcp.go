@@ -17,7 +17,7 @@ import (
 func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
 	// Skip SynAck packets that we haven't seen a connection
-	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && p.L4TCPPacket.TCPFlags == packet.TCPSynAckMask {
 		if _, err := d.sourcePortCache.Get(p.SynAckNetworkHash()); err != nil {
 			return nil
 		}
@@ -78,7 +78,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error {
 
 	// Skip SynAck packets for connections that we are not processing
-	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && p.L4TCPPacket.TCPFlags == packet.TCPSynAckMask {
 		if _, err := d.destinationPortCache.Get(p.SynAckApplicationHash()); err != nil {
 			return nil
 		}
@@ -136,14 +136,21 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	return nil
 }
 
-func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte) []byte {
+func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket *packet.Packet) []byte {
 
 	tokenLen := uint8(len(token))
-	options := []byte{packet.TCPAuthenticationOption, TCPAuthenticationOptionBaseLen + tokenLen, 0, 0}
-
-	if tokenLen != 0 {
-		options = append(options, token...)
+	options := []byte{packet.TCPFastopenCookie, packet.TCPFastopenCookieBaseLen + tokenLen}
+	options = append(options, token...)
+	for i := 0; i < int(packet.TCPFastopenCookieBaseLen); i++ {
+		options = append(options, 0)
 	}
+	for len(options)%4 != 0 {
+		options = append(options, 0)
+	}
+
+	// if tokenLen != 0 {
+	// 	options = append(options, token...)
+	// }
 
 	return options
 }
@@ -171,7 +178,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	var connection *TCPConnection
 
 	// Find the container context
-	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.L4TCPPacket.DestinationPort)))
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -187,11 +194,11 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	} else {
 		connection = NewTCPConnection()
 		connection.Auth.RemoteIP = tcpPacket.DestinationAddress.String()
-		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
+		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.L4TCPPacket.DestinationPort))
 	}
 
 	// Create TCP Option
-	tcpOptions := d.createTCPAuthenticationOption([]byte{})
+	tcpOptions := d.createTCPAuthenticationOption([]byte{}, tcpPacket)
 
 	// Create a token
 	tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
@@ -201,8 +208,13 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
 	d.contextConnectionTracker.AddOrUpdate(string(connection.Auth.LocalContext), connection)
 
-	portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+	portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.L4TCPPacket.SourcePort))
 	d.sourcePortCache.AddOrUpdate(portHash, context)
+	if err = d.ProcessTCPFastOpen(tcpPacket); err != nil {
+		//TCPFastopen returned an error drop the packet by returning an error here
+		//The stack will try again with fastopen disabled
+		return nil, err
+	}
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
@@ -216,12 +228,12 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	var context interface{}
 	var err error
 
-	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && tcpPacket.L4TCPPacket.TCPFlags == packet.TCPSynAckMask {
 		if context, err = d.destinationPortCache.Get(tcpPacket.SynAckApplicationHash()); err != nil {
 			return nil, err
 		}
 	} else {
-		context, err = d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+		context, err = d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.L4TCPPacket.DestinationPort)))
 	}
 
 	if err != nil {
@@ -252,11 +264,15 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		connection.State = TCPSynAckSend
 
 		// Create TCP Option
-		tcpOptions := d.createTCPAuthenticationOption([]byte{})
+		tcpOptions := d.createTCPAuthenticationOption([]byte{}, tcpPacket)
 
 		// Create a token
 		tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
-
+		if err = d.ProcessTCPFastOpen(tcpPacket); err != nil {
+			//TCPFastopen returned an error drop the packet by returning an error here
+			//The stack will try again with fastopen disabled
+			return nil, err
+		}
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
 		tcpPacket.DecreaseTCPAck(d.ackSize)
@@ -275,7 +291,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Find the container context
-	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.L4TCPPacket.DestinationPort)))
 
 	if cerr != nil {
 		log.WithFields(log.Fields{
@@ -306,7 +322,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		// connection minimizing the chances of a replay attack
 		token := d.createPacketToken(true, context.(*PUContext), &connection.Auth)
 
-		tcpOptions := d.createTCPAuthenticationOption([]byte{})
+		tcpOptions := d.createTCPAuthenticationOption([]byte{}, tcpPacket)
 
 		if len(token) != int(d.ackSize) {
 			log.WithFields(log.Fields{
@@ -318,7 +334,11 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 			}).Error("Protocol error for application ack packet")
 			return nil, fmt.Errorf("Protocol Error %d", len(token))
 		}
-
+		if err = d.ProcessTCPFastOpen(tcpPacket); err != nil {
+			//TCPFastopen returned an error drop the packet by returning an error here
+			//The stack will try again with fastopen disabled
+			return nil, err
+		}
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(d.ackSize)
 		tcpPacket.TCPDataAttach(tcpOptions, token)
@@ -347,7 +367,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// State machine based on the flags
-	switch tcpPacket.TCPFlags {
+	switch tcpPacket.L4TCPPacket.TCPFlags {
 	case packet.TCPSynMask: //Processing SYN packet from Application
 		action, err := d.processApplicationSynPacket(tcpPacket)
 		return action, err
@@ -379,7 +399,11 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	} else {
 		connection = NewTCPConnection()
 	}
-
+	if err = d.ProcessTCPFastOpen(tcpPacket); err != nil {
+		//TCPFastopen returned an error drop the packet by returning an error here
+		//The stack will try again with fastopen disabled
+		return nil, err
+	}
 	// Decode the JWT token using the context key
 	// We need to add here to key renewal option where we decode with keys N, N-1
 	// TBD
@@ -399,7 +423,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	}
 
 	txLabel, ok := claims.T.Get(TransmitterLabel)
-	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+	if err := tcpPacket.CheckTCPAuthenticationOption(int(packet.TCPFastopenCookieBaseLen)); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"txLabel": txLabel,
@@ -415,8 +439,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// metadata any more.
 	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
 	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
-
-	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
+	if err := tcpPacket.TCPDataDetach(uint16(tcpPacket.TCPDataOffset()*4 - 20)); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"txLabel": txLabel,
@@ -433,7 +456,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.Add(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	claims.T.Add(PortNumberLabelString, strconv.Itoa(int(tcpPacket.L4TCPPacket.DestinationPort)))
 
 	// Validate against reject rules first - We always process reject with higher priority
 	if index, _ := context.rejectRcvRules.Search(claims.T); index >= 0 {
@@ -463,7 +486,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		// Note that if the connection exists already we will just end-up replicating it. No
 		// harm here.
 		d.networkConnectionTracker.AddOrUpdate(hash, connection)
-		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort)) + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.L4TCPPacket.DestinationPort)) + ":" + strconv.Itoa(int(tcpPacket.L4TCPPacket.SourcePort))
 		d.destinationPortCache.AddOrUpdate(portHash, context)
 
 		// Accept the connection
@@ -542,13 +565,17 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
 	}
-
+	if err = d.ProcessTCPFastOpen(tcpPacket); err != nil {
+		//TCPFastopen returned an error drop the packet by returning an error here
+		//The stack will try again with fastopen disabled
+		return nil, err
+	}
 	// Remove any of our data
 	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
 	tcpPacket.IncreaseTCPSeq(tcpDataLen - 1)
 	tcpPacket.IncreaseTCPAck(d.ackSize)
 
-	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
+	if err := tcpPacket.TCPDataDetach(uint16(tcpPacket.TCPDataOffset()*4 - 20)); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 		}).Debug("SynAck packet dropped because of invalid format")
@@ -623,11 +650,16 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because singature validation failed %v", err)
 		}
-
+		if err = d.ProcessTCPFastOpen(tcpPacket); err != nil {
+			//TCPFastopen returned an error drop the packet by returning an error here
+			//The stack will try again with fastopen disabled
+			return nil, err
+		}
 		connection.State = TCPAckProcessed
+
 		// Remove any of our data
 		tcpPacket.IncreaseTCPSeq(d.ackSize)
-		err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen)
+		err := tcpPacket.TCPDataDetach(uint16(tcpPacket.TCPDataOffset()*4 - 20))
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -673,14 +705,14 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	var err error
 	var context interface{}
 
-	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
+	if d.mode != constants.LocalContainer && tcpPacket.L4TCPPacket.TCPFlags == packet.TCPSynAckMask {
 		if context, err = d.sourcePortCache.Get(tcpPacket.SynAckNetworkHash()); err != nil {
 			return nil, nil
 		}
 	} else {
 		// Lookup the policy rules for the packet - Return false if they don't exist
-		context, err = d.contextFromIP(false, tcpPacket.DestinationAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
-		if err != nil && d.service != nil && tcpPacket.TCPFlags&packet.TCPSynMask == 0 {
+		context, err = d.contextFromIP(false, tcpPacket.DestinationAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.L4TCPPacket.DestinationPort)))
+		if err != nil && d.service != nil && tcpPacket.L4TCPPacket.TCPFlags&packet.TCPSynMask == 0 {
 			return nil, nil
 		}
 	}
@@ -694,7 +726,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	}
 
 	// Update connection state in the internal state machine tracker
-	switch tcpPacket.TCPFlags {
+	switch tcpPacket.L4TCPPacket.TCPFlags {
 
 	case packet.TCPSynMask:
 		return d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
@@ -708,4 +740,65 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	default: // Ignore any other packet
 		return nil, nil
 	}
+}
+
+func (d *datapathEnforcer) ProcessTCPFastOpen(tcpPacket *packet.Packet) error {
+	/*
+		var cacheKey string
+		if tcpPacket.GetProcessingStage() == packet.PacketTypeApplication {
+			cacheKey = tcpPacket.DestinationAddress.String()
+		} else {
+			cacheKey = tcpPacket.SourceAddress.String()
+		}
+		//Lets update the fast open cookie cache here
+		optionval, present := tcpPacket.TCPOptionData(packet.TCPFastopenCookie)
+
+		if present { //option is present on the packet
+			fmt.Println("%%%%%%%%%%%%%%%%%%%%%%%%%%")
+			fmt.Println("Processing Stage", tcpPacket.GetProcessingStage())
+			fmt.Println("IP Address", tcpPacket.DestinationAddress.String())
+			fmt.Println("Found Fast Open option with cookie $$$$", optionval)
+			fmt.Println("%%%%%%%%%%%%%%%%%%%%%%%%%%")
+			//We have a cookie in the syn packet going out
+			//Check if we have seen this before if we have not drop the packet
+			//The stack will retry with tcp fast open disabled
+
+			if len(optionval) > 0 { //option is not empty. We should have seen this cookie before
+
+				val, err := d.foCookieTracker.Get(cacheKey)
+				//We have an unexpired cookie in our cache and client is sending a different cookie. Drop this packet
+				if err != nil {
+					return fmt.Errorf("Invalid fast open cookie")
+				} else if err == nil && bytes.Compare(val.([]byte), optionval) != 0 {
+					fmt.Println("Expect cookie val", val.([]byte))
+					fmt.Println("Got Cookie ", optionval)
+					return fmt.Errorf("Fast open cookie different")
+				} else {
+					//We have a valid cookie let this packet through
+					if tcpPacket.GetProcessingStage() == packet.PacketTypeNetwork {
+						//We received a packet from the network where the cookie does nto match.
+						if len(val.([]byte)) == 0 {
+							d.foCookieTracker.AddOrUpdate(cacheKey, optionval)
+						} else {
+
+						}
+					}
+					return nil
+				}
+
+			} else { //(len(optionval) ==  0
+				//we have an empty cookie being sent just create a record in our cache and let it go
+				d.foCookieTracker.Add(cacheKey, optionval)
+
+			}
+
+		} else {
+			//If we are in network and the server did not respond with fast option enabled clear the cache for this entry. This server does not support fast open
+			if tcpPacket.GetProcessingStage() == packet.PacketTypeNetwork {
+				d.foCookieTracker.Remove(cacheKey)
+			}
+		}
+		//The option is not present on the packet do nothing
+	*/
+	return nil
 }
