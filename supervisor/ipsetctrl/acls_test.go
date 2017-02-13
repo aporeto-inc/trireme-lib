@@ -297,7 +297,7 @@ func TestSetupIpset(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			err := i.setupIpset("target", "container", []string{"172,17.0.0./24"})
+			err := i.setupIpset("target", "container")
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
 			})
@@ -315,7 +315,7 @@ func TestSetupIpset(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			err := i.setupIpset("target", "container", []string{"172,17.0.0./24"})
+			err := i.setupIpset("target", "container")
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -333,7 +333,7 @@ func TestSetupIpset(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			err := i.setupIpset("target", "container", []string{"172,17.0.0./24"})
+			err := i.setupIpset("target", "container")
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 			})

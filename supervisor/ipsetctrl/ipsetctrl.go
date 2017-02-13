@@ -106,6 +106,10 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
+	if err := i.addTargetNets(containerInfo.Policy.TriremeNetworks()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -191,10 +195,11 @@ func (i *Instance) addAllRules(version int, appSetPrefix, netSetPrefix string, a
 
 // Start implements the start of the interface
 func (i *Instance) Start() error {
-	// FIX THIS
-	if err := i.setupIpset(triremeSet, containerSet, []string{"0.0.0.0/0"}); err != nil {
+
+	if err := i.setupIpset(triremeSet, containerSet); err != nil {
 		return err
 	}
+
 	if err := i.setupTrapRules(triremeSet); err != nil {
 		return err
 	}

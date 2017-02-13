@@ -132,7 +132,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				ipl,
-				[]string{"172.17.0.0/24"},
+				[]string{},
 				nil)
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -153,7 +153,10 @@ func TestConfigureRules(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			nil, ipl, []string{"172.17.0.0/24"}, nil)
+			nil,
+			ipl,
+			[]string{},
+			nil)
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 		containerinfo.Policy = policyrules
@@ -162,6 +165,7 @@ func TestConfigureRules(t *testing.T) {
 		Convey("When I try to configure rules with no container set  ", func() {
 			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get an  error ", func() {
+				fmt.Println("Here is the error ", err.Error())
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -174,9 +178,15 @@ func TestConfigureRules(t *testing.T) {
 			return testset, nil
 		})
 
+		iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+			return nil
+		})
+
 		iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 			return nil
 		})
+
+		i.Start()
 
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 
