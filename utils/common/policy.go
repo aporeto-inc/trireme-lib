@@ -43,6 +43,18 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 			Protocol: "TCP",
 			Action:   policy.Accept,
 		},
+		policy.IPRule{
+			Address:  "0.0.0.0/0",
+			Port:     "",
+			Protocol: "icmp",
+			Action:   policy.Accept,
+		},
+		policy.IPRule{
+			Address:  "0.0.0.0/0",
+			Port:     "53",
+			Protocol: "udp",
+			Action:   policy.Accept,
+		},
 	})
 
 	// Allow access to container from localhost
@@ -51,6 +63,12 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 			Address:  "172.17.0.1/32",
 			Port:     "80",
 			Protocol: "TCP",
+			Action:   policy.Accept,
+		},
+		policy.IPRule{
+			Address:  "0.0.0.0/0",
+			Port:     "",
+			Protocol: "icmp",
 			Action:   policy.Accept,
 		},
 	})
