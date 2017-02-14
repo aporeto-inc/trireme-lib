@@ -268,7 +268,6 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 
 		supervisorHandle, err := supervisor.NewSupervisor(s.Collector,
 			s.Enforcer,
-			payload.TargetNetworks,
 			constants.RemoteContainer,
 			constants.IPTables,
 		)
@@ -311,6 +310,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		payload.Identity,
 		payload.Annotations,
 		payload.PolicyIPs,
+		payload.TriremeNetworks,
 		nil)
 
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -381,6 +381,7 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		payload.Identity,
 		payload.Annotations,
 		payload.PolicyIPs,
+		payload.TriremeNetworks,
 		nil)
 
 	runtime := policy.NewPURuntimeWithDefaults()

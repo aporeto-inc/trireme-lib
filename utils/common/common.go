@@ -45,9 +45,9 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 		log.Fatalf("%s", err)
 	}
 
-	policyEngine := NewCustomPolicyResolver()
+	policyEngine := NewCustomPolicyResolver(networks)
 
-	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", networks, policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer)
+	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer)
 
 	p.PublicKeyAdd("Server1", certPEM)
 
@@ -57,18 +57,18 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
 func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
 
-	policyEngine := NewCustomPolicyResolver()
+	policyEngine := NewCustomPolicyResolver(networks)
 
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKTriremeWithDockerMonitor("Server1", networks, policyEngine, ExternalProcessor, nil, false, []byte("THIS IS A BAD PASSWORD"), *extractor, remoteEnforcer)
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, []byte("THIS IS A BAD PASSWORD"), *extractor, remoteEnforcer)
 }
 
 //HybridTriremeWithPSK is a helper method to created a PSK implementation of Trireme
 func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor) (trireme.Trireme, monitor.Monitor, monitor.Monitor, supervisor.Excluder) {
 
-	policyEngine := NewCustomPolicyResolver()
+	policyEngine := NewCustomPolicyResolver(networks)
 
 	pass := []byte("THIS IS A BAD PASSWORD")
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKHybridTriremeWithMonitor("Server1", networks, policyEngine, ExternalProcessor, nil, false, pass, *extractor)
+	return configurator.NewPSKHybridTriremeWithMonitor("Server1", policyEngine, ExternalProcessor, nil, false, pass, *extractor)
 }

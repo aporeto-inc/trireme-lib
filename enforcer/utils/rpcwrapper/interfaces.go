@@ -1,5 +1,6 @@
 package rpcwrapper
 
+// RPCClient is the client interface
 type RPCClient interface {
 	NewRPCClient(contextID string, channel string) error
 	GetRPCClient(contextID string) (*RPCHdl, error)
@@ -8,6 +9,7 @@ type RPCClient interface {
 	ContextList() []string
 }
 
+// RPCServer is the server interface
 type RPCServer interface {
 	StartServer(protocol string, path string, handler interface{}) error
 	ProcessMessage(req *Request) bool
