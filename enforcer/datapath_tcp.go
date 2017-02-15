@@ -393,7 +393,6 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// packet. This means that our ACK packet was lost somewhere
 	hash := tcpPacket.L4FlowHash()
 	existing, err := d.networkConnectionTracker.Get(hash)
-
 	if err == nil {
 		connection = existing.(*TCPConnection)
 	} else {

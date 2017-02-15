@@ -2,6 +2,10 @@ package enforcer
 
 // Go libraries
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/gob"
 	"fmt"
 	"net"
 	"strings"
@@ -255,6 +259,14 @@ func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *polic
 	puContext.acceptTxtRules, puContext.rejectTxtRules = createRuleDB(containerInfo.Policy.TransmitterRules())
 	puContext.Identity = containerInfo.Policy.Identity()
 	puContext.Annotations = containerInfo.Policy.Annotations()
+	if len(puContext.serviceID) == 0 {
+		var buf bytes.Buffer
+		enc := gob.NewEncoder(&buf)
+		enc.Encode(puContext.Identity)
+		shahash := sha256.New()
+		shahash.Write(buf.Bytes())
+		puContext.serviceID = base64.URLEncoding.EncodeToString(shahash.Sum(nil))
+	}
 	return nil
 }
 

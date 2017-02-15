@@ -1,6 +1,13 @@
 package packet
 
-import "fmt"
+import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/binary"
+	"fmt"
+	"io"
+)
 
 type TCPOptions byte
 
@@ -127,6 +134,11 @@ func (p *Packet) TCPOptionLength(option TCPOptions) int {
 	return p.L4TCPPacket.optionsMap[option].length
 }
 
+func (p *Packet) TCPOption(option TCPOptions) bool {
+	_, ok := p.L4TCPPacket.optionsMap[option]
+	return ok
+}
+
 //TCPOptionData :: accessor function to the slice of data
 func (p *Packet) TCPOptionData(option TCPOptions) ([]byte, bool) {
 	optionval, ok := p.L4TCPPacket.optionsMap[option]
@@ -141,6 +153,43 @@ func (p *Packet) TCPOptionData(option TCPOptions) ([]byte, bool) {
 //SetOptionData :: Rewrite data for an option that is already present
 func (p *Packet) SetTCPOptionData(option TCPOptions, data []byte) {
 	copy(p.L4TCPPacket.optionsMap[option].data, data)
+}
+
+func (p *Packet) GenerateTCPFastOpenCookie() []byte {
+	var binSourceIp, binDestIp uint32
+	var byteSourceIp, byteDestIp []byte
+	key := make([]byte, 16)
+	rand.Read(key)
+	if len(p.SourceAddress) == 16 {
+		binSourceIp = binary.BigEndian.Uint32(p.SourceAddress[12:16])
+
+	} else {
+		binSourceIp = binary.BigEndian.Uint32(p.SourceAddress)
+	}
+	byteSourceIp = make([]byte, 4)
+	binary.BigEndian.PutUint32(byteSourceIp, binSourceIp)
+	if len(p.SourceAddress) == 16 {
+		binDestIp = binary.BigEndian.Uint32(p.DestinationAddress[12:16])
+	} else {
+		binDestIp = binary.BigEndian.Uint32(p.DestinationAddress)
+	}
+	byteDestIp = make([]byte, 4)
+	binary.BigEndian.PutUint32(byteDestIp, binDestIp)
+	//path := []uint32{binSourceIp, binDestIp, 0, 0}
+	block, _ := aes.NewCipher(key)
+	ciphertext := make([]byte, aes.BlockSize+16)
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		panic(err)
+	}
+	stream := cipher.NewCFBEncrypter(block, iv)
+
+	plaintext := byteSourceIp
+	plaintext = append(plaintext, byteDestIp...)
+
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
+	return ciphertext
+
 }
 
 //WalkTCPOption :: debug function

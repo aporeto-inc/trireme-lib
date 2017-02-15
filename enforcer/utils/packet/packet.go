@@ -109,11 +109,15 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	p.L4TCPPacket.TCPAck = binary.BigEndian.Uint32(bytes[tcpAckPos : tcpAckPos+4])
 	p.L4TCPPacket.TCPSeq = binary.BigEndian.Uint32(bytes[tcpSeqPos : tcpSeqPos+4])
 	p.L4TCPPacket.tcpDataOffset = (bytes[tcpDataOffsetPos] & tcpDataOffsetMask) >> 4
+
 	p.L4TCPPacket.TCPFlags = bytes[tcpFlagsOffsetPos]
 	if p.L4TCPPacket.tcpDataOffset > 5 {
 		p.parseTCPOption(bytes)
 	}
 	p.context = context
+	p.L4TCPPacket.tcpData = append(p.L4TCPPacket.tcpData, bytes[(p.ipHeaderLen*4+p.L4TCPPacket.tcpDataOffset*4):p.IPTotalLength]...)
+	//20 is the fixed length portion of the tcp header
+	//p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, bytes[TCPOptionPos:(p.l4BeginPos+uint16(p.L4TCPPacket.tcpDataOffset)*4)]...)
 
 	return &p, nil
 }
