@@ -1,4 +1,4 @@
-NewLinuxProcessorpackage linuxmonitor
+package linuxmonitor
 
 import (
 	"fmt"
