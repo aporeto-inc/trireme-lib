@@ -89,18 +89,18 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	}
 
 	if p.IPTotalLength != uint16(len(p.Buffer)) {
-		if p.IPTotalLength < uint16(len(p.Buffer)) {
-			p.Buffer = p.Buffer[:p.IPTotalLength]
-		} else {
-			log.WithFields(log.Fields{
-				"package":       "packet",
-				"IPTotalLength": p.IPTotalLength,
-				"bufferLength":  len(p.Buffer),
-			}).Debug("Stated IP packet length differs from bytes available")
-			return nil, fmt.Errorf("Stated IP packet length (%d) differs from bytes available (%d)", p.IPTotalLength, len(p.Buffer))
-		}
+		// if p.IPTotalLength < uint16(len(p.Buffer)) {
+		p.Buffer = p.Buffer[:p.IPTotalLength]
+		// } else {
+		// 	log.WithFields(log.Fields{
+		// 		"package":       "packet",
+		// 		"IPTotalLength": p.IPTotalLength,
+		// 		"bufferLength":  len(p.Buffer),
+		// 	}).Debug("Stated IP packet length differs from bytes available")
+		// 	return nil, fmt.Errorf("Stated IP packet length (%d) differs from bytes available (%d)", p.IPTotalLength, len(p.Buffer))
+		// }
 	}
-
+	p.Buffer = p.Buffer[:TCPOptionPos]
 	// TCP Header Processing
 	p.l4BeginPos = minIPHdrSize
 	p.L4TCPPacket.TCPChecksum = binary.BigEndian.Uint16(bytes[TCPChecksumPos : TCPChecksumPos+2])
@@ -115,9 +115,16 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		p.parseTCPOption(bytes)
 	}
 	p.context = context
+
 	p.L4TCPPacket.tcpData = append(p.L4TCPPacket.tcpData, bytes[(p.ipHeaderLen*4+p.L4TCPPacket.tcpDataOffset*4):p.IPTotalLength]...)
+	if TCPSynMask == p.L4TCPPacket.TCPFlags {
+		fmt.Println("Total Length", len(bytes))
+		fmt.Println("IP Header Length", p.ipHeaderLen*4)
+		fmt.Println("Data Offset", p.L4TCPPacket.tcpDataOffset*4)
+		fmt.Println(hex.Dump(p.L4TCPPacket.tcpData))
+	}
 	//20 is the fixed length portion of the tcp header
-	//p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, bytes[TCPOptionPos:(p.l4BeginPos+uint16(p.L4TCPPacket.tcpDataOffset)*4)]...)
+	p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, bytes[TCPOptionPos:(p.l4BeginPos+uint16(p.L4TCPPacket.tcpDataOffset)*4)]...)
 
 	return &p, nil
 }
@@ -228,23 +235,6 @@ func (p *Packet) GetBytes() []byte {
 	pktBytes = append(pktBytes, p.L4TCPPacket.tcpOptions...)
 	pktBytes = append(pktBytes, p.L4TCPPacket.tcpData...)
 	return pktBytes
-}
-
-// ReadTCPDataString returns ths payload in a string variable
-// It does not remove the payload from the packet
-func (p *Packet) ReadTCPDataString() string {
-	return string(p.ReadTCPData())
-}
-
-// ReadTCPData returns ths payload in a string variable
-// It does not remove the payload from the packet
-func (p *Packet) ReadTCPData() []byte {
-
-	if uint16(len(p.Buffer)) >= p.IPTotalLength {
-		return p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
-	}
-
-	return []byte{}
 }
 
 // CheckTCPAuthenticationOption ensures authentication option exists at the offset provided

@@ -3,6 +3,7 @@ package enforcer
 // Go libraries
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 
@@ -144,7 +145,7 @@ func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket
 	for i := 0; i < int(packet.TCPFastopenCookieBaseLen); i++ {
 		options = append(options, 0)
 	}
-	for len(options)%4 != 0 {
+	for (len(tcpPacket.GetTCPOptions())+len(options))%4 != 0 {
 		options = append(options, 0)
 	}
 
@@ -202,7 +203,9 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 
 	// Create a token
 	tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
-
+	fmt.Println("TCP DATA")
+	fmt.Println(hex.Dump(tcpData))
+	fmt.Println("TCP DATA")
 	// Track the connection
 	connection.State = TCPSynSend
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
@@ -406,7 +409,8 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// Decode the JWT token using the context key
 	// We need to add here to key renewal option where we decode with keys N, N-1
 	// TBD
-	claims, err := d.parsePacketToken(&connection.Auth, tcpPacket.ReadTCPData())
+
+	claims, err := d.parsePacketToken(&connection.Auth, tcpPacket.GetTCPData())
 
 	// If the token signature is not valid
 	// We must drop the connection and we drop the Syn packet. The source will
@@ -509,7 +513,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// First we need to receover our state of the connection. If we don't have any state
 	// we drop the packets and the connections
 	// connection, err := d.appConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
-	tcpData := tcpPacket.ReadTCPData()
+	tcpData := tcpPacket.GetTCPData()
 	if len(tcpData) == 0 {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
@@ -641,7 +645,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			return nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
-		if _, err := d.parseAckToken(&connection.Auth, tcpPacket.ReadTCPData()); err != nil {
+		if _, err := d.parseAckToken(&connection.Auth, tcpPacket.GetTCPData()); err != nil {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
 			}).Error("Ack packet dropped because singature validation failed")

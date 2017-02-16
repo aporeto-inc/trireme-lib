@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"strings"
@@ -533,6 +534,9 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
+	fmt.Println("NETWORK SYN TCP DATA")
+	fmt.Println(hex.Dump(data))
+	fmt.Println("NETWORK SYN TCP DATA")
 	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
 	if claims == nil {
 		return nil, fmt.Errorf("Cannot decode the token")
