@@ -49,7 +49,7 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 }
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
-func NewCgroupNetController() Cgroupnetcls {
+func NewCgroupNetController(releasePath string) Cgroupnetcls {
 
 	return nil
 }

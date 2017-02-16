@@ -398,7 +398,7 @@ func NewPSKHybridTriremeWithMonitor(
 	)
 
 	// configure a LinuxServices processor for the rpc monitor
-	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor)
+	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
 	rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor)
 
 	return triremeInstance, monitorDocker, rpcmon, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)
