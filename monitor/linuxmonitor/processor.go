@@ -25,13 +25,13 @@ type LinuxProcessor struct {
 }
 
 // NewLinuxProcessor initializes a processor
-func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor) *LinuxProcessor {
+func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
 
 	return &LinuxProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
-		netcls:            cgnetcls.NewCgroupNetController(),
+		netcls:            cgnetcls.NewCgroupNetController(releasePath),
 	}
 }
 
