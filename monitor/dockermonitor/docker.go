@@ -205,7 +205,6 @@ func (d *dockerMonitor) Start() error {
 
 	//Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
-		fmt.Println("Start sync ")
 		err := d.syncContainers()
 
 		if err != nil {
@@ -324,7 +323,6 @@ func (d *dockerMonitor) syncContainers() error {
 	}
 
 	if d.syncHandler != nil {
-		fmt.Println("starting sync .. found the handler ")
 		for _, c := range containers {
 			container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
