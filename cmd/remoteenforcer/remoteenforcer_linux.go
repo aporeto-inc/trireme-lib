@@ -39,8 +39,8 @@ const (
 // It has a flow entries cache which contains unique flows that are reported back to the
 //controller/launcher process
 type CollectorImpl struct {
-	cond        *sync.Cond
-	FlowEntries *list.List
+	lock        *sync.Mutex
+	flowEntries *list.List
 }
 type collectorentry struct {
 	L4FlowHash string
@@ -98,9 +98,9 @@ func (c *CollectorImpl) CollectFlowEvent(contextID string, tags *policy.TagsMap,
 		Packet: tcpPacket,
 	}
 
-	c.cond.L.Lock()
-	c.FlowEntries.PushBack(&collectorentry{L4FlowHash: l4FlowHash, entry: payload})
-	c.cond.L.Unlock()
+	c.lock.Lock()
+	c.flowEntries.PushBack(&collectorentry{L4FlowHash: l4FlowHash, entry: payload})
+	c.lock.Unlock()
 }
 
 //CollectContainerEvent exported
@@ -135,15 +135,15 @@ func (s *StatsClient) SendStats() {
 		case <-ticker.C:
 
 			rpcPayload := &rpcwrapper.StatsPayload{}
-			for s.collector.FlowEntries.Len() > 0 {
 
-				s.collector.cond.L.Lock()
-				element := s.collector.FlowEntries.Remove(s.collector.FlowEntries.Front())
-				s.collector.cond.L.Unlock()
-
+			s.collector.lock.Lock()
+			for s.collector.flowEntries.Len() > 0 {
+				element := s.collector.flowEntries.Remove(s.collector.flowEntries.Front())
 				rpcPayload.NumFlows = rpcPayload.NumFlows + 1
 				rpcPayload.Flows = append(rpcPayload.Flows, *element.(*collectorentry).entry)
 			}
+			s.collector.lock.Unlock()
+
 			//Send out everything we have in the payload
 			if rpcPayload.NumFlows > 0 {
 				request.Payload = rpcPayload
@@ -158,10 +158,8 @@ func (s *StatsClient) SendStats() {
 					}).Error("RPC failure in sending statistics")
 				}
 			}
-
 		}
 	}
-
 }
 
 //connectStatsCLient  This is an private function called by the remoteenforcer to connect back
@@ -204,10 +202,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	}
 
 	collectorInstance := &CollectorImpl{
-		cond: &sync.Cond{
-			L: &sync.Mutex{},
-		},
-		FlowEntries: list.New(),
+		lock:        &sync.Mutex{},
+		flowEntries: list.New(),
 	}
 
 	s.Collector = collectorInstance
