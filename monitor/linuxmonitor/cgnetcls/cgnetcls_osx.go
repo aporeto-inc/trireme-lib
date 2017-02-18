@@ -13,7 +13,7 @@ const (
 	// CgroupMarkTag identifies the cgroup mark value
 	CgroupMarkTag = "@cgroup_mark"
 	// PortTag is the tag for the port values
-	PortTag = "@port"
+	PortTag = "port"
 )
 
 //Empty receiver struct
