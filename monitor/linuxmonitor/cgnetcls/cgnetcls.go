@@ -23,7 +23,7 @@ const (
 	procs                = "/cgroup.procs"
 	CgroupNameTag        = "@cgroup_name"
 	CgroupMarkTag        = "@cgroup_mark"
-	PortTag              = "@port"
+	PortTag              = "port"
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
 	initialmarkval       = 100
