@@ -117,15 +117,9 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	p.context = context
 
 	p.L4TCPPacket.tcpData = append(p.L4TCPPacket.tcpData, bytes[(p.ipHeaderLen*4+p.L4TCPPacket.tcpDataOffset*4):p.IPTotalLength]...)
-	if TCPSynMask == p.L4TCPPacket.TCPFlags {
-		fmt.Println("Total Length", len(bytes))
-		fmt.Println("IP Header Length", p.ipHeaderLen*4)
-		fmt.Println("Data Offset", p.L4TCPPacket.tcpDataOffset*4)
-		fmt.Println(hex.Dump(p.L4TCPPacket.tcpData))
-	}
+
 	//20 is the fixed length portion of the tcp header
 	p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, bytes[TCPOptionPos:(p.l4BeginPos+uint16(p.L4TCPPacket.tcpDataOffset)*4)]...)
-
 	return &p, nil
 }
 
@@ -427,7 +421,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 }
 
 // FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
-func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
+func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpData []byte) {
 
 	log.WithFields(log.Fields{
 		"package":   "packet",
@@ -435,35 +429,35 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 		"newLength": p.IPTotalLength - p.TCPDataStartBytes(),
 	}).Debug("Fixup TCP Hdr On TCP Data Attach")
 
-	numberOfOptions := len(tcpOptions) / 4
+	//numberOfOptions := len(tcpOptions) / 4
 
 	// TCP checksum fixup. Start with old checksum
-	delta := p.computeTCPChecksumDelta(tcpOptions, uint16(len(tcpOptions)), tcpData, uint16(len(tcpData)))
+	delta := p.computeTCPChecksumDelta([]byte{}, uint16(len([]byte{})), tcpData, uint16(len(tcpData)))
 	a := uint32(-p.L4TCPPacket.TCPChecksum) + delta
 	a = a + (a >> 16)
 	p.L4TCPPacket.TCPChecksum = -uint16(a)
+	//20 is the fixed length header
 
-	p.L4TCPPacket.tcpDataOffset = p.L4TCPPacket.tcpDataOffset + uint8(numberOfOptions)
+	p.L4TCPPacket.tcpDataOffset = uint8((20 + len(p.L4TCPPacket.tcpOptions)) / 4)
+
 	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.L4TCPPacket.TCPChecksum)
+
 	p.Buffer[tcpDataOffsetPos] = p.L4TCPPacket.tcpDataOffset << 4
 
 }
 
 // tcpDataAttach splits the p.Buffer into p.Buffer (header + some options), p.L4TCPPacket.tcpOptions (optionLength) and p.TCPData (dataLength)
-func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
+func (p *Packet) tcpDataAttach(data []byte) (err error) {
 
-	optionLength := len(options)
-
-	if p.TCPDataStartBytes() != p.IPTotalLength && optionLength != 0 {
+	if p.TCPDataStartBytes() != p.IPTotalLength {
 		log.WithFields(log.Fields{
 			"package":         "packet",
-			"optionLength":    optionLength,
 			"p.IPTotalLength": p.IPTotalLength,
 		}).Debug("Cannot insert options with existing data")
 		return fmt.Errorf("Cannot insert options with existing data")
 	}
 
-	p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, options...)
+	//p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, options...)
 
 	dataLength := len(data)
 
@@ -475,13 +469,13 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 }
 
 // TCPDataAttach modifies the TCP and IP header fields and checksum
-func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
+func (p *Packet) TCPDataAttach(tcpData []byte) (err error) {
 
 	log.WithFields(log.Fields{
 		"package": "packet",
 	}).Debug("TCP data attach")
 
-	if err = p.tcpDataAttach(tcpOptions, tcpData); err != nil {
+	if err = p.tcpDataAttach(tcpData); err != nil {
 		log.WithFields(log.Fields{
 			"package": "packet",
 			"error":   err.Error(),
@@ -492,13 +486,13 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 
 	// We are increasing tcpOptions by 1 32-bit word. We are always adding
 	// our option last.
-	packetLenIncrease := uint16(len(tcpData) + len(tcpOptions))
-
+	packetLenIncrease := uint16(len(tcpData) + len(p.Buffer) + len(p.L4TCPPacket.tcpOptions))
+	fmt.Println("IP Length", p.IPTotalLength, int(len(tcpData))+len(p.Buffer)+len(p.L4TCPPacket.tcpOptions))
 	// IP Header Processing
-	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, packetLenIncrease)
 
 	// TCP Header Processing
-	p.FixupTCPHdrOnTCPDataAttach(tcpOptions, tcpData)
+	p.FixupTCPHdrOnTCPDataAttach(tcpData)
 
 	return
 }

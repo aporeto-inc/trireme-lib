@@ -155,6 +155,9 @@ func (p *Packet) SetTCPOptionData(option TCPOptions, data []byte) {
 	copy(p.L4TCPPacket.optionsMap[option].data, data)
 }
 
+func (p *Packet) AppendOption(data []byte) {
+	p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, data...)
+}
 func (p *Packet) GenerateTCPFastOpenCookie() []byte {
 	var binSourceIp, binDestIp uint32
 	var byteSourceIp, byteDestIp []byte

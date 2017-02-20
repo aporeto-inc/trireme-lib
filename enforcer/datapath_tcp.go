@@ -3,7 +3,6 @@ package enforcer
 // Go libraries
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"strconv"
 
@@ -140,19 +139,16 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket *packet.Packet) []byte {
 
 	tokenLen := uint8(len(token))
-	options := []byte{packet.TCPFastopenCookie, packet.TCPFastopenCookieBaseLen + tokenLen}
+	options := []byte{packet.TCPFastopenCookie, 2 + tokenLen}
 	options = append(options, token...)
-	for i := 0; i < int(packet.TCPFastopenCookieBaseLen); i++ {
+	for i := 0; i < int(2)-1; i++ {
 		options = append(options, 0)
 	}
 	for (len(tcpPacket.GetTCPOptions())+len(options))%4 != 0 {
 		options = append(options, 0)
 	}
 
-	// if tokenLen != 0 {
-	// 	options = append(options, token...)
-	// }
-
+	tcpPacket.AppendOption(options)
 	return options
 }
 
@@ -173,7 +169,6 @@ func (d *datapathEnforcer) parseAckToken(connection *AuthInfo, data []byte) (*to
 
 	return claims, nil
 }
-
 func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	var connection *TCPConnection
@@ -199,13 +194,11 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	}
 
 	// Create TCP Option
-	tcpOptions := d.createTCPAuthenticationOption([]byte{}, tcpPacket)
+	d.createTCPAuthenticationOption([]byte{}, tcpPacket)
 
 	// Create a token
 	tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
-	fmt.Println("TCP DATA")
-	fmt.Println(hex.Dump(tcpData))
-	fmt.Println("TCP DATA")
+
 	// Track the connection
 	connection.State = TCPSynSend
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
@@ -221,7 +214,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
-	tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+	tcpPacket.TCPDataAttach(tcpData)
 
 	tcpPacket.UpdateTCPChecksum()
 	return nil, nil
@@ -267,7 +260,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		connection.State = TCPSynAckSend
 
 		// Create TCP Option
-		tcpOptions := d.createTCPAuthenticationOption([]byte{}, tcpPacket)
+		d.createTCPAuthenticationOption([]byte{}, tcpPacket)
 
 		// Create a token
 		tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
@@ -279,7 +272,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
 		tcpPacket.DecreaseTCPAck(d.ackSize)
-		tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+		tcpPacket.TCPDataAttach(tcpData)
 
 		tcpPacket.UpdateTCPChecksum()
 		return nil, nil
@@ -325,7 +318,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		// connection minimizing the chances of a replay attack
 		token := d.createPacketToken(true, context.(*PUContext), &connection.Auth)
 
-		tcpOptions := d.createTCPAuthenticationOption([]byte{}, tcpPacket)
+		d.createTCPAuthenticationOption([]byte{}, tcpPacket)
 
 		if len(token) != int(d.ackSize) {
 			log.WithFields(log.Fields{
@@ -344,7 +337,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		}
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(d.ackSize)
-		tcpPacket.TCPDataAttach(tcpOptions, token)
+		tcpPacket.TCPDataAttach(token)
 		tcpPacket.UpdateTCPChecksum()
 
 		connection.State = TCPAckSend
