@@ -136,20 +136,27 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	return nil
 }
 
-func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket *packet.Packet) []byte {
+func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket *packet.Packet) {
 
 	tokenLen := uint8(len(token))
-	options := []byte{packet.TCPFastopenCookie, 2 + tokenLen}
-	options = append(options, token...)
-	for i := 0; i < int(2)-1; i++ {
-		options = append(options, 0)
+	var options []byte
+	if tokenLen > 0 {
+		options = []byte{packet.TCPFastopenCookie, 2 + tokenLen}
+		options = append(options, token...)
+	} else {
+		options = []byte{packet.TCPFastopenCookie, 2}
 	}
-	for (len(tcpPacket.GetTCPOptions())+len(options))%4 != 0 {
-		options = append(options, 0)
+	optionval, ok := tcpPacket.TCPOptionData(packet.TCPFastopenCookie)
+	if ok {
+		if len(optionval) > 2 {
+			//We have a valid cookie do nothing
+		} else {
+			tcpPacket.SetTCPOptionData(packet.TCPFastopenCookie, options)
+		}
+	} else {
+		tcpPacket.SetTCPOptionData(packet.TCPFastopenCookie, options)
 	}
 
-	tcpPacket.AppendOption(options)
-	return options
 }
 
 func (d *datapathEnforcer) parseAckToken(connection *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {

@@ -152,7 +152,28 @@ func (p *Packet) TCPOptionData(option TCPOptions) ([]byte, bool) {
 
 //SetOptionData :: Rewrite data for an option that is already present
 func (p *Packet) SetTCPOptionData(option TCPOptions, data []byte) {
-	copy(p.L4TCPPacket.optionsMap[option].data, data)
+	_, ok := p.L4TCPPacket.optionsMap[option]
+	newoption := []byte{}
+	if ok {
+		//Option already present
+		//Create a new slice with all other options but this one
+		for k, v := range p.L4TCPPacket.optionsMap {
+			if k == option {
+				continue
+			}
+			newoption = append(newoption, v.data...)
+		}
+		//Now add the new option with the data
+		newoption = append(newoption, data...)
+	} else {
+		//Option not present just append
+		newoption = append(p.L4TCPPacket.tcpOptions, data...)
+	}
+
+	p.L4TCPPacket.tcpOptions = newoption
+	for len(p.L4TCPPacket.tcpOptions)%4 != 0 {
+		p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, 1)
+	}
 }
 
 func (p *Packet) AppendOption(data []byte) {
