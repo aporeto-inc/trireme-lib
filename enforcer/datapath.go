@@ -72,12 +72,14 @@ func NewDatapathEnforcer(
 	mode constants.ModeType,
 ) PolicyEnforcer {
 
-	// Make conntrack liberal for TCP
-	cmd := exec.Command("sysctl", "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-	if err := cmd.Run(); err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"Rror": "Error ",
-		}).Error("Failed to set conntrack options. Abort")
+	if mode == constants.RemoteContainer || mode == constants.LocalServer {
+		// Make conntrack liberal for TCP
+		cmd := exec.Command("sysctl", "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
+		if err := cmd.Run(); err != nil {
+			log.WithFields(log.Fields{"package": "enforcer",
+				"Error": err.Error(),
+			}).Error("Failed to set conntrack options. Abort")
+		}
 	}
 
 	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
