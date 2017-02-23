@@ -23,7 +23,7 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 	defer c.Unlock()
 
 	if r, ok := c.Flows[hash]; ok {
-		r.Count++
+		r.Count = r.Count + record.Count
 		return
 	}
 

@@ -302,7 +302,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	if connection.State == TCPAckSend {
 		//Delete the state at this point .. There is a small chance that both packets are lost
 		// and the other side will send us SYNACK again .. TBD if we need to change this
-		d.contextConnectionTracker.Remove(connection.Auth.LocalContext)
+		d.contextConnectionTracker.Remove(string(connection.Auth.LocalContext))
 		d.appConnectionTracker.Remove(tcpPacket.L4FlowHash())
 		return nil, nil
 	}
