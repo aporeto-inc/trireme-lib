@@ -1,7 +1,6 @@
 package remoteenforcer
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -67,7 +66,6 @@ func (s *StatsClient) SendStats() {
 				&rpcwrapper.Response{},
 			)
 
-			fmt.Println("Sending flow records ", collected)
 			if err != nil {
 				log.WithFields(log.Fields{
 					"package": "remoteEnforcer",
