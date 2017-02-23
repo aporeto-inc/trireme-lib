@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/user"
 	"time"
 
@@ -72,13 +71,6 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	if !s.rpchdl.CheckValidity(&req) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
-	}
-
-	cmd := exec.Command("sysctl", "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-	if err := cmd.Run(); err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"Rror": "Error ",
-		}).Error("Failed to set conntrack options. Abort")
 	}
 
 	collectorInstance := &CollectorImpl{

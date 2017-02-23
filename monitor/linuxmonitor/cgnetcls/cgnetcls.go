@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
@@ -225,19 +226,8 @@ func NewCgroupNetController(releasePath string) Cgroupnetcls {
 }
 
 // MarkVal returns a new Mark Value
-func MarkVal() <-chan string {
-
-	ch := make(chan string)
-
-	go func() {
-		for {
-			ch <- strconv.FormatUint(markval, 10)
-			markval = markval + 1
-		}
-	}()
-
-	return ch
-
+func MarkVal() uint64 {
+	return atomic.AddUint64(&markval, 1)
 }
 
 // ListCgroupProcesses lists the processes of the cgroup
