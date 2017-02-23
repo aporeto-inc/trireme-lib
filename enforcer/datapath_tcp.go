@@ -49,8 +49,8 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"error":   err.Error(),
-		}).Debug("Service processing failed for network packet")
-		return fmt.Errorf("Processing failed %v", err)
+		}).Debug("Packet processing failed for network packet")
+		return err
 	}
 
 	p.Print(packet.PacketStageService)
@@ -112,7 +112,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 			"package": "enforcer",
 			"error":   err.Error(),
 		}).Debug("Processing failed for application packet")
-		return fmt.Errorf("Processing failed %v", err)
+		return err
 	}
 
 	p.Print(packet.PacketStageService)
@@ -172,12 +172,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 
 	// Find the container context
 	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
-
 	if cerr != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"error":   cerr.Error(),
-		}).Debug("Context not found for application syn packet")
 		return nil, nil
 	}
 
@@ -258,9 +253,6 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		return nil, nil
 	}
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Error("Received SynACK in wrong state ")
 	return nil, fmt.Errorf("Received SynACK in wrong state ")
 }
 
@@ -502,9 +494,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// Validate the certificate and parse the token
 	claims, cert := d.tokenEngine.Decode(false, tcpData, nil)
 	if claims == nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Debug("Synack  packet dropped because of bad claims")
 
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
@@ -524,18 +513,12 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// We always a need a valid remote context ID
 	remoteContextID, ok := claims.T.Get(TransmitterLabel)
 	if !ok {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Debug("Synack, no remote context for the claims")
 		return nil, fmt.Errorf("No remote context %v", claims.T)
 	}
 
 	c, err := d.contextConnectionTracker.Get(string(claims.RMT))
 	if err != nil {
 		d.contextConnectionTracker.DumpStore()
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Debug("Synack, no connection found for the claims")
 		return nil, fmt.Errorf("No connection found for %v", claims.RMT)
 	}
 
@@ -548,9 +531,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.ConnectionMetadata = &connection.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Debug("Synack, TCP Authentication Option not found")
 
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
@@ -635,10 +615,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Process network Ack packet")
-
 	// Retrieve connection context
 	hash := tcpPacket.L4FlowHash()
 	c, err := d.networkConnectionTracker.Get(hash)
@@ -712,11 +688,6 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		tcpPacket.UpdateTCPChecksum()
 
-		// Delete the state
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Debug("processApplicationAckPacket() Connection Removed")
-
 		d.networkConnectionTracker.Remove(hash)
 
 		// We accept the packet as a new flow
@@ -778,10 +749,6 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	}
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"error":   err.Error(),
-		}).Error("Process network TCP packet: Failed to retrieve context for this packet")
 		return nil, fmt.Errorf("Context not found for container %s %v", tcpPacket.DestinationAddress.String(), d.puTracker)
 	}
 
