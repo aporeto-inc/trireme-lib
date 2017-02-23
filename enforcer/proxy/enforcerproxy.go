@@ -269,16 +269,12 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 		log.WithFields(log.Fields{"package": "enforcerproxy"}).Error("Message sender cannot be verified")
 		return errors.New("Message sender cannot be verified")
 	}
+
 	payload := req.Payload.(rpcwrapper.StatsPayload)
-	for _, flow := range payload.Flows {
-		if r.collector != nil {
-			r.collector.CollectFlowEvent(flow.ContextID,
-				flow.Tags,
-				flow.Action,
-				flow.Mode,
-				flow.Source,
-				flow.Packet)
-		}
+
+	for _, record := range payload.Flows {
+		r.collector.CollectFlowEvent(record)
 	}
+
 	return nil
 }

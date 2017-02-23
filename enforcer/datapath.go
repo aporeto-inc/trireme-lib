@@ -231,7 +231,8 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 		}
 	}
 	pu := &PUContext{
-		ID: contextID,
+		ID:           contextID,
+		ManagementID: puInfo.Policy.ManagementID,
 	}
 
 	hashSlice := d.puHash(ip, puInfo)
