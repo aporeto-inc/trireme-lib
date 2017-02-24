@@ -231,18 +231,17 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 
 	if d.mode == constants.LocalContainer && (puInfo.Runtime.PUType() == constants.ContainerPU) {
 		if _, ok := puInfo.Policy.DefaultIPAddress(); !ok {
-			log.WithFields(log.Fields{
-				"package": "Enforcer",
-			}).Info("Default IP address not found")
 			return fmt.Errorf("No IP address found")
 		}
+
 		ip, _ = puInfo.Policy.DefaultIPAddress()
 		if net.ParseIP(ip) == nil {
 			return fmt.Errorf("invalid up address %s ", ip)
 		}
 	}
 	pu := &PUContext{
-		ID: contextID,
+		ID:           contextID,
+		ManagementID: puInfo.Policy.ManagementID,
 	}
 
 	hashSlice := d.puHash(ip, puInfo)
@@ -268,35 +267,18 @@ func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *polic
 }
 
 func (d *datapathEnforcer) Unenforce(contextID string) error {
-	log.WithFields(log.Fields{
-		"package":   "enforcer",
-		"contextID": contextID,
-	}).Debug("Unenforce IP")
 
 	hashSlice, err := d.contextTracker.Get(contextID)
-
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Hash of IP  not found in Enforcer when unenforce")
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}
+
 	for _, hash := range hashSlice.([]*DualHash) {
 		d.puTracker.Remove(hash.app)
 		d.puTracker.Remove(hash.net)
 	}
-	d.contextTracker.Remove(contextID)
 
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package":   "enforcer",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("IP not found in Enforcer when unenforce")
-		return fmt.Errorf("IP not found in Enforcer")
-	}
+	d.contextTracker.Remove(contextID)
 
 	return nil
 }
@@ -304,6 +286,29 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 func (d *datapathEnforcer) GetFilterQueue() *FilterQueue {
 
 	return d.filterQueue
+}
+
+// Start starts the application and network interceptors
+func (d *datapathEnforcer) Start() error {
+
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+		"mode":    d.mode,
+	}).Debug("Start enforcer")
+
+	d.StartApplicationInterceptor()
+
+	d.StartNetworkInterceptor()
+
+	return nil
+}
+
+// Stop stops the enforcer
+func (d *datapathEnforcer) Stop() error {
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+	}).Debug("Stop enforcer")
+	return nil
 }
 
 // StartNetworkInterceptor will the process that processes  packets from the network
@@ -317,7 +322,6 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 
 		// Initalize all the queues
 		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
-
 		if err != nil {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
@@ -337,34 +341,9 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 	}
 }
 
-// Start starts the application and network interceptors
-func (d *datapathEnforcer) Start() error {
-
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-		"mode":    d.mode,
-	}).Debug("Start enforcer")
-
-	d.StartApplicationInterceptor()
-	d.StartNetworkInterceptor()
-
-	return nil
-}
-
-// Stop stops the enforcer
-func (d *datapathEnforcer) Stop() error {
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Stop enforcer")
-	return nil
-}
-
 // StartApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
 func (d *datapathEnforcer) StartApplicationInterceptor() {
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Start application interceptor")
 
 	var err error
 
@@ -391,13 +370,13 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 	}
 }
 
+// createRuleDB creates the database of rules from the policy
 func createRuleDB(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
 
 	acceptRules := lookup.NewPolicyDB()
 	rejectRules := lookup.NewPolicyDB()
 
 	for _, rule := range policyRules.TagSelectors {
-
 		if rule.Action&policy.Accept != 0 {
 			acceptRules.AddPolicy(rule)
 		} else if rule.Action&policy.Reject != 0 {
@@ -405,7 +384,6 @@ func createRuleDB(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *looku
 		} else {
 			continue
 		}
-
 	}
 
 	return acceptRules, rejectRules
@@ -430,11 +408,6 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 	}
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"error":   err.Error(),
-		}).Debug("Error when processing network packets from NFQ")
-
 		netfilter.SetVerdict(&netfilter.Verdict{
 			V:           netfilter.NfDrop,
 			Buffer:      netPacket.Buffer,
@@ -467,6 +440,7 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	}).Debug("process application packets from NFQ")
 
 	d.app.IncomingPackets++
+
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
 	// lots of things at the ingress to the network
@@ -483,11 +457,6 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	}
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"error":   err.Error(),
-		}).Debug("Error when processing application packets from NFQ")
-
 		netfilter.SetVerdict(&netfilter.Verdict{
 			V:           netfilter.NfDrop,
 			Buffer:      appPacket.Buffer,

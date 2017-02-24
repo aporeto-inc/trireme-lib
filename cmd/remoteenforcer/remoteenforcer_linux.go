@@ -3,14 +3,11 @@
 package remoteenforcer
 
 import (
-	"container/list"
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"os"
 	"os/user"
-	"strconv"
-	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -18,7 +15,6 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
-	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
@@ -28,23 +24,8 @@ import (
 const (
 	ipcProtocol         = "unix"
 	defaultPath         = "/var/run/default.sock"
-	statsContextID      = "UNUSED"
 	defaultTimeInterval = 1
-	envStatsChannelPath = "STATSCHANNEL_PATH"
-	envSocketPath       = "SOCKET_PATH"
 )
-
-//CollectorImpl : This is a local implementation for the collector interface
-// It has a flow entries cache which contains unique flows that are reported back to the
-//controller/launcher process
-type CollectorImpl struct {
-	cond        *sync.Cond
-	FlowEntries *list.List
-}
-type collectorentry struct {
-	L4FlowHash string
-	entry      *enforcer.StatsPayload
-}
 
 //Server : This is the structure for maintaining state required by the remote enforcer.
 //It is cache of variables passed by th controller to the remote enforcer and other handles
@@ -77,109 +58,6 @@ func NewServer(service enforcer.PacketProcessor, rpcchan string) *Server {
 	}
 }
 
-//StatsClient  This is the struct for storing state for the rpc client
-//which reports flow stats back to the controller process
-type StatsClient struct {
-	collector *CollectorImpl
-	server    *Server
-	Rpchdl    *rpcwrapper.RPCWrapper
-}
-
-//CollectFlowEvent collects a new flow event and adds it to a local list it shares with SendStats
-func (c *CollectorImpl) CollectFlowEvent(contextID string, tags *policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet) {
-
-	l4FlowHash := tcpPacket.L4FlowHash()
-	payload := &enforcer.StatsPayload{ContextID: contextID,
-		Tags:   tags,
-		Action: action,
-		Mode:   mode,
-		Source: sourceID,
-		Packet: tcpPacket,
-	}
-
-	c.cond.L.Lock()
-	c.FlowEntries.PushBack(&collectorentry{L4FlowHash: l4FlowHash, entry: payload})
-	c.cond.L.Unlock()
-}
-
-//CollectContainerEvent exported
-//This event should not be expected here in the enforcer process inside a particular container context
-func (c *CollectorImpl) CollectContainerEvent(contextID string, ip string, tags *policy.TagsMap, event string) {
-	log.WithFields(log.Fields{"package": "remoteEnforcer",
-		"Msg": "Unexpected call to CollectContainer Event",
-	}).Error("Received a container event in Remote Enforcer ")
-}
-
-//SendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
-func (s *StatsClient) SendStats() {
-
-	//We are connected and lets pack and ship
-
-	var request rpcwrapper.Request
-	var response rpcwrapper.Response
-	var statsInterval time.Duration
-	EnvstatsInterval, err := strconv.Atoi(os.Getenv("STATS_INTERVAL"))
-
-	if err == nil && EnvstatsInterval != 0 {
-		statsInterval = time.Duration(EnvstatsInterval) * time.Second
-	} else {
-		// statsInterval = defaultTimeInterval * time.Second
-		statsInterval = 250 * time.Millisecond
-	}
-
-	ticker := time.NewTicker(statsInterval)
-
-	for {
-		select {
-		case <-ticker.C:
-
-			rpcPayload := &rpcwrapper.StatsPayload{}
-			for s.collector.FlowEntries.Len() > 0 {
-
-				s.collector.cond.L.Lock()
-				element := s.collector.FlowEntries.Remove(s.collector.FlowEntries.Front())
-				s.collector.cond.L.Unlock()
-
-				rpcPayload.NumFlows = rpcPayload.NumFlows + 1
-				rpcPayload.Flows = append(rpcPayload.Flows, *element.(*collectorentry).entry)
-			}
-			//Send out everything we have in the payload
-			if rpcPayload.NumFlows > 0 {
-				request.Payload = rpcPayload
-				if err = s.Rpchdl.RemoteCall(statsContextID,
-					"StatsServer.GetStats",
-					&request,
-					&response,
-				); err != nil {
-					log.WithFields(log.Fields{
-						"package": "remoteEnforcer",
-						"Msg":     "Unable to send flows",
-					}).Error("RPC failure in sending statistics")
-				}
-			}
-
-		}
-	}
-
-}
-
-//connectStatsCLient  This is an private function called by the remoteenforcer to connect back
-//to the controller over a stats channel
-func (s *Server) connectStatsClient(statsClient *StatsClient) error {
-
-	statsChannel := os.Getenv(envStatsChannelPath)
-	err := statsClient.Rpchdl.NewRPCClient(statsContextID, statsChannel)
-	if err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"error": err.Error(),
-		}).Error("Stats RPC client cannot connect")
-	}
-	_, err = statsClient.Rpchdl.GetRPCClient(statsContextID)
-
-	go statsClient.SendStats()
-	return err
-}
-
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
@@ -196,10 +74,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	}
 
 	collectorInstance := &CollectorImpl{
-		cond: &sync.Cond{
-			L: &sync.Mutex{},
-		},
-		FlowEntries: list.New(),
+		Flows: map[string]*collector.FlowRecord{},
 	}
 
 	s.Collector = collectorInstance
