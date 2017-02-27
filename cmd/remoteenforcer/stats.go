@@ -1,7 +1,6 @@
 package remoteenforcer
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -94,7 +93,7 @@ func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 		}).Error("Stats RPC client cannot connect")
 	}
 	_, err = statsClient.Rpchdl.GetRPCClient(statsContextID)
-	
+
 	go statsClient.SendStats()
 	return err
 }
