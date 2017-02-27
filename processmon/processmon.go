@@ -17,6 +17,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/kardianos/osext"
 )
@@ -174,8 +175,10 @@ func (p *ProcessMon) KillProcess(contextID string) {
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string) error {
+	secretLength := 32
 	var cmdName string
+
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
 		return nil
@@ -216,7 +219,15 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	stderr, err := cmd.StderrPipe()
 
 	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
-	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+
+	randomkeystring, err := crypto.GenerateRandomString(secretLength)
+	for err != nil {
+		randomkeystring, err = crypto.GenerateRandomString(secretLength)
+	}
+	rpcClientSecret := "SECRET=" + randomkeystring
+	envStatsSecret := "STATS_SECRET=" + statsServerSecret
+	
+	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 
 	err = cmd.Start()
 	if err != nil {
@@ -246,7 +257,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	go processIOReader(stdout, contextID, exited)
 	go processIOReader(stderr, contextID, exited)
 
-	rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock")
+	rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock", randomkeystring)
 	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
 		process: cmd.Process,
 		RPCHdl:  rpchdl,
