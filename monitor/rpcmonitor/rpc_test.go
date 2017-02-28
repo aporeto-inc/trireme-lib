@@ -199,7 +199,7 @@ func TestStart(t *testing.T) {
 			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
 			testRPCMonitor.contextstore = contextstore
 			processor := NewMockMonitorProcessor(ctrl)
-			processor.EXPECT().Start(gomock.Any()).Return(nil)
+			//processor.EXPECT().Start(gomock.Any()).Return(nil)
 			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 
 			Convey("Start server returns no error", func() {
