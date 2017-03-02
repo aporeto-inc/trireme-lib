@@ -34,6 +34,7 @@ type Server struct {
 	MutualAuth  bool
 	Validity    time.Duration
 	SecretType  tokens.SecretsType
+	rpcSecret   string
 	ContextID   string
 	CAPEM       []byte
 	PublicPEM   []byte
@@ -50,11 +51,12 @@ type Server struct {
 }
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpcchan string) *Server {
+func NewServer(service enforcer.PacketProcessor, rpcchan string, secret string) *Server {
 	return &Server{
 		pupolicy:   nil,
 		Service:    service,
 		rpcchannel: rpcchan,
+		rpcSecret:  secret,
 	}
 }
 
@@ -68,7 +70,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return errors.New(resp.Status)
 	}
 
-	if !s.rpchdl.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
 	}
@@ -121,7 +123,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 // InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
 func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	if !s.rpchdl.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
 	}
@@ -162,7 +164,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 //Supervise This method calls the supervisor method on the supervisor created during initsupervisor
 func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	if !s.rpchdl.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
 	}
@@ -211,7 +213,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 //Unenforce this method calls the unenforce method on the enforcer created from initenforcer
 func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	if !s.rpchdl.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
 	}
@@ -222,7 +224,7 @@ func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 //Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
 func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	if !s.rpchdl.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
 	}
@@ -233,7 +235,7 @@ func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) 
 //Enforce this method calls the enforce method on the enforcer created during initenforcer
 func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	if !s.rpchdl.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
 	}
@@ -282,7 +284,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 }
 
 func (s *Server) AddExcludedIP(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	if !s.rpchdl.CheckValidity(&req) {
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
 	}
@@ -302,7 +304,11 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 
 	namedPipe := os.Getenv(envSocketPath)
 
-	server := NewServer(service, namedPipe)
+	secret := os.Getenv(envSecret)
+	if len(secret) == 0 {
+		os.Exit(-1)
+	}
+	server := NewServer(service, namedPipe, secret)
 
 	rpchdl := rpcwrapper.NewRPCServer()
 

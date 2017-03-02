@@ -43,7 +43,7 @@ type Server struct {
 }
 
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
-func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, collector collector.EventCollector) (*RPCMonitor, error) {
+func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, collector collector.EventCollector, cstore contextstore.ContextStore) (*RPCMonitor, error) {
 
 	if rpcAddress == "" {
 		return nil, fmt.Errorf("RPC endpoint address invalid")
@@ -58,7 +58,9 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 	if puHandler == nil {
 		return nil, fmt.Errorf("PU Handler required")
 	}
-
+	if cstore == nil {
+		return nil, fmt.Errorf("Valid context store required")
+	}
 	monitorServer := &Server{
 		handlers: map[constants.PUType]map[monitor.Event]RPCEventHandler{},
 	}
@@ -66,7 +68,7 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 	r := &RPCMonitor{
 		rpcAddress:    rpcAddress,
 		monitorServer: monitorServer,
-		contextstore:  contextstore.NewContextStore(),
+		contextstore:  cstore,
 		collector:     collector,
 	}
 
@@ -83,7 +85,6 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 // RegisterProcessor registers an event processor for a given PUTYpe. Only one
 // processor is allowed for a given PU Type.
 func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor MonitorProcessor) error {
-
 	if _, ok := r.monitorServer.handlers[puType]; ok {
 		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
 	}
@@ -105,7 +106,9 @@ func (r *RPCMonitor) reSync() error {
 	var eventInfo EventInfo
 
 	walker, err := r.contextstore.WalkStore()
+
 	if err != nil {
+
 		return fmt.Errorf("error in accessing context store")
 	}
 

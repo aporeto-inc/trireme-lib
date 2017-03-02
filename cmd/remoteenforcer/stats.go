@@ -15,6 +15,8 @@ const (
 	defaultStatsIntervalMiliseconds = 250
 	envStatsChannelPath             = "STATSCHANNEL_PATH"
 	envSocketPath                   = "SOCKET_PATH"
+	envSecret                       = "SECRET"
+	envStatsSecret                  = "STATS_SECRET"
 	statsContextID                  = "UNUSED"
 )
 
@@ -83,7 +85,8 @@ func (s *StatsClient) SendStats() {
 func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 
 	statsChannel := os.Getenv(envStatsChannelPath)
-	err := statsClient.Rpchdl.NewRPCClient(statsContextID, statsChannel)
+	secret := os.Getenv(envStatsSecret)
+	err := statsClient.Rpchdl.NewRPCClient(statsContextID, statsChannel, secret)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer",
 			"error": err.Error(),

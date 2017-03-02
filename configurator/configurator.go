@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
@@ -389,12 +390,13 @@ func NewPSKHybridTriremeWithMonitor(
 		syncAtStart,
 		nil,
 	)
-
+	cstore := contextstore.NewContextStore()
 	// use rpcmonitor no need to return it since no other consumer for it
 	rpcmon, _ := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
 		triremeInstance,
 		eventCollector,
+		cstore,
 	)
 
 	// configure a LinuxServices processor for the rpc monitor

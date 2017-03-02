@@ -23,6 +23,7 @@ import (
 type RPCHdl struct {
 	Client  *rpc.Client
 	Channel string
+	Secret  string
 }
 
 //RPCWrapper  is a struct which holds stats for all rpc sesions
@@ -50,7 +51,7 @@ const (
 //NewRPCClient exported
 //Will worry about locking later ... there is a small case where two callers
 //call NewRPCClient from a different thread
-func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
+func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
 
 	//establish new connection to context/container
 	RegisterTypes()
@@ -77,7 +78,7 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string) error {
 	}
 
 	r.contextList = append(r.contextList, contextID)
-	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel})
+	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
 }
 
@@ -91,34 +92,30 @@ func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
 	return nil, err
 }
 
-func sharedKey() []byte {
-
-	var sharedKey = []byte("sharedsecret")
-	return sharedKey
-}
-
 //RemoteCall is a wrapper around rpc.Call and also ensure message integrity by adding a hmac
 func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
 
 	var rpcBuf bytes.Buffer
 	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
-	digest := hmac.New(sha256.New, sharedKey())
-	digest.Write(rpcBuf.Bytes())
-	req.HashAuth = digest.Sum(nil)
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
 		return err
 	}
+
+	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
+	digest.Write(rpcBuf.Bytes())
+	req.HashAuth = digest.Sum(nil)
+
 	return rpcClient.Client.Call(methodName, req, resp)
 
 }
 
 //CheckValidity checks if the received message is valid
-func (r *RPCWrapper) CheckValidity(req *Request) bool {
+func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 
 	var rpcBuf bytes.Buffer
 	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
-	digest := hmac.New(sha256.New, sharedKey())
+	digest := hmac.New(sha256.New, []byte(secret))
 	digest.Write(rpcBuf.Bytes())
 	return hmac.Equal(req.HashAuth, digest.Sum(nil))
 }
@@ -172,9 +169,9 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 }
 
 //ProcessMessage checks if the given request is valid
-func (r *RPCWrapper) ProcessMessage(req *Request) bool {
+func (r *RPCWrapper) ProcessMessage(req *Request, secret string) bool {
 
-	return r.CheckValidity(req)
+	return r.CheckValidity(req, secret)
 }
 
 //GetContextList returns the list of active context managed by the rpcwrapper
