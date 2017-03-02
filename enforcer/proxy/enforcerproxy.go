@@ -203,8 +203,18 @@ func NewProxyEnforcer(mutualAuth bool,
 	cmdArg string,
 ) enforcer.PolicyEnforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
-	for err != nil {
-		statsServersecret, err = crypto.GenerateRandomString(32)
+
+	if err != nil {
+		//There is a very small chance of this happening we will log an error here.
+		//
+		log.WithFields(log.Fields{
+			"package": "remenforcer",
+			"error":   err.Error(),
+		}).Error("Failed to generate random secret for stats reporting.Falling back to static secret")
+		//We will use current time as the secret
+		statsServersecret = time.Now().String()
+
+
 	}
 	proxydata := &proxyInfo{
 		MutualAuth:        mutualAuth,
