@@ -4,9 +4,10 @@
 package cgnetcls
 
 const (
-	basePath        = "/sys/fs/cgroup/net_cls/"
-	markFile        = "/net_cls.classid"
-	procs           = "/cgroup.procs"
+	basePath = "/sys/fs/cgroup/net_cls/"
+	markFile = "/net_cls.classid"
+	procs    = "/cgroup.procs"
+	// TriremeBasePath is the base path for the trireme local state in the file system
 	TriremeBasePath = "/trireme"
 	// CgroupNameTag  identifies the cgroup name
 	CgroupNameTag = "@cgroup_name"
@@ -57,10 +58,8 @@ func NewCgroupNetController(releasePath string) Cgroupnetcls {
 var markval uint64 = 100
 
 // MarkVal returns a new Mark
-func MarkVal() <-chan string {
-	ch := make(chan string)
-	return ch
-
+func MarkVal() uint64 {
+	return 0
 }
 
 // ListCgroupProcesses lists the processes of the cgroup
