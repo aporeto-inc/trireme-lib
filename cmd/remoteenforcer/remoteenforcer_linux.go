@@ -305,9 +305,11 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 	namedPipe := os.Getenv(envSocketPath)
 
 	secret := os.Getenv(envSecret)
-	if len(secret) == 0 {
+
+  if len(secret) == 0 {
 		os.Exit(-1)
 	}
+
 	server := NewServer(service, namedPipe, secret)
 
 	rpchdl := rpcwrapper.NewRPCServer()

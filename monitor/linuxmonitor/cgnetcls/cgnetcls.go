@@ -244,9 +244,11 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	procs := []string{}
+	if len(procs) == 0 {
+		return procs, nil
+	}
 	for _, line := range strings.Split(string(data), "\n") {
 		procs = append(procs, string(line))
 	}
-
 	return procs, nil
 }
