@@ -21,11 +21,10 @@ type Supervisor interface {
 // Excluder is an interface to remove specific IPs from the Trireme implementation
 type Excluder interface {
 
-	// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-	AddExcludedIP(ip []string) error
-
-	// RemoveExcludedIP removes the exception for the destination IP given in parameter.
-	//RemoveExcludedIP(ip string) error
+	// AddExcludedIPs adds an exception for the destination parameter IPs,
+	// allowing the traffic out of that IP range to be treated as non-trireme traffic.
+	// That traffic is by definition still subject to ACLs.
+	AddExcludedIPs(ips []string) error
 }
 
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc
