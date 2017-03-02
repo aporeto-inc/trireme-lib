@@ -221,12 +221,17 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
-	for err != nil {
-		randomkeystring, err = crypto.GenerateRandomString(secretLength)
+	if err != nil {
+		//This is a more serious failure. We can't reliably control the remote enforcer
+		log.WithFields(log.Fields{
+			"package": "processmon",
+			"Error":   err.Error(),
+		}).Error("Failed to generate secret string for rpc command channel")
+		return fmt.Errorf("RPC Secret failed")
 	}
 	rpcClientSecret := "SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
-	
+
 	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 
 	err = cmd.Start()
