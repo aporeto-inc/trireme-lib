@@ -44,7 +44,7 @@ type Server struct {
 }
 
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
-func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, collector collector.EventCollector, cstore contextstore.ContextStore) (*RPCMonitor, error) {
+func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, collector collector.EventCollector) (*RPCMonitor, error) {
 
 	if rpcAddress == "" {
 		return nil, fmt.Errorf("RPC endpoint address invalid")
@@ -59,9 +59,7 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 	if puHandler == nil {
 		return nil, fmt.Errorf("PU Handler required")
 	}
-	if cstore == nil {
-		return nil, fmt.Errorf("Valid context store required")
-	}
+
 	monitorServer := &Server{
 		handlers: map[constants.PUType]map[monitor.Event]RPCEventHandler{},
 	}
@@ -69,7 +67,7 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 	r := &RPCMonitor{
 		rpcAddress:    rpcAddress,
 		monitorServer: monitorServer,
-		contextstore:  cstore,
+		contextstore:  contextstore.NewContextStore(),
 		collector:     collector,
 	}
 
@@ -134,7 +132,7 @@ func (r *RPCMonitor) reSync() error {
 				//The cgroup does not exists
 				continue
 			}
-			
+
 			if len(processlist) <= 0 {
 				//We have an empty cgroup
 				//Remove the cgroup and context store file
