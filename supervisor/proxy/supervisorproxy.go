@@ -25,7 +25,7 @@ type ProxyInfo struct {
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
-	ExcludedIP        []string
+	ExcludedIPs       []string
 	prochdl           processmon.ProcessManager
 	rpchdl            rpcwrapper.RPCClient
 	initDone          map[string]bool
@@ -54,7 +54,7 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 			ReceiverRules:    puInfo.Policy.ReceiverRules(),
 			TransmitterRules: puInfo.Policy.TransmitterRules(),
 			PuPolicy:         puInfo.Policy,
-			ExcludedIP:       s.ExcludedIP,
+			ExcludedIPs:      s.ExcludedIPs,
 			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
 		},
 	}
@@ -133,7 +133,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 		prochdl:           processmon.GetProcessManagerHdl(),
 		rpchdl:            rpchdl,
 		initDone:          make(map[string]bool),
-		ExcludedIP:        []string{},
+		ExcludedIPs:       []string{},
 	}
 
 	return s, nil
@@ -165,10 +165,10 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 
 //AddExcludedIPs call addexcluded ip on the remote supervisor
 func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
-	s.ExcludedIP = ips
+	s.ExcludedIPs = ips
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.ExcludeIPRequestPayload{
-			Ip: ips,
+			IPs: ips,
 		},
 	}
 	for _, contextID := range s.rpchdl.ContextList() {
