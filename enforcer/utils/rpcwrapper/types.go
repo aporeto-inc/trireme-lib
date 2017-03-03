@@ -134,5 +134,5 @@ type StatsPayload struct {
 
 //ExcludeIPRequestPayload carries the list of excluded ips
 type ExcludeIPRequestPayload struct {
-	IP []string
+	IPs []string
 }
