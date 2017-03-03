@@ -159,7 +159,7 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 	return nil
 }
 
-//DestroyRPCClient calls close on the rpc and cleans up the connection
+// DestroyRPCClient calls close on the rpc and cleans up the connection
 func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 	rpcHdl, _ := r.rpcClientMap.Get(contextID)
@@ -168,18 +168,18 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 	r.rpcClientMap.Remove(contextID)
 }
 
-//ProcessMessage checks if the given request is valid
+// ProcessMessage checks if the given request is valid
 func (r *RPCWrapper) ProcessMessage(req *Request, secret string) bool {
 
 	return r.CheckValidity(req, secret)
 }
 
-//GetContextList returns the list of active context managed by the rpcwrapper
+// ContextList returns the list of active context managed by the rpcwrapper
 func (r *RPCWrapper) ContextList() []string {
 	return r.contextList
 }
 
-//RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
+// RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
 func RegisterTypes() {
 
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))

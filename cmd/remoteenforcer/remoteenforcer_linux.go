@@ -206,7 +206,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	}
 
 	//We are good here now add the Excluded ip list as well
-	return s.Excluder.AddExcludedIP(payload.ExcludedIP)
+	return s.Excluder.AddExcludedIPs(payload.ExcludedIPs)
 
 }
 
@@ -283,7 +283,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	return nil
 }
 
-func (s *Server) AddExcludedIP(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+func (s *Server) AddExcludedIPs(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")
 		return errors.New(resp.Status)
@@ -306,7 +306,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 
 	secret := os.Getenv(envSecret)
 
-  if len(secret) == 0 {
+	if len(secret) == 0 {
 		os.Exit(-1)
 	}
 
