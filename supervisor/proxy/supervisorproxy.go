@@ -163,12 +163,12 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 
 }
 
-//AddExcludedIP call addexcluded ip on the remote supervisor
-func (s *ProxyInfo) AddExcludedIP(ip []string) error {
-	s.ExcludedIP = ip
+//AddExcludedIPs call addexcluded ip on the remote supervisor
+func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
+	s.ExcludedIP = ips
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.ExcludeIPRequestPayload{
-			Ip: ip,
+			Ip: ips,
 		},
 	}
 	for _, contextID := range s.rpchdl.ContextList() {
