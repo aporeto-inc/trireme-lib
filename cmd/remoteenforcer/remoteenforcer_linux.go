@@ -287,7 +287,7 @@ func (s *Server) AddExcludedIPs(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.ExcludeIPRequestPayload)
-	return s.Excluder.AddExcludedIP(payload.Ip)
+	return s.Excluder.AddExcludedIPs(payload.IPs)
 
 }
 
