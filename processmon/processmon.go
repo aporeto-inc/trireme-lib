@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -215,6 +216,11 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 
+	log.WithFields(log.Fields{"package": "ProcessMon",
+		"command": cmdName,
+		"args":    strings.Join(cmdArgs, " "),
+	}).Debug("Enforcer exectued")
+
 	stdout, err := cmd.StdoutPipe()
 	stderr, err := cmd.StderrPipe()
 
@@ -231,7 +237,6 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	}
 	rpcClientSecret := "SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
-
 
 	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 
