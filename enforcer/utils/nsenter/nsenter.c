@@ -1,3 +1,5 @@
+// +build linux !darwin
+
 #define _GNU_SOURCE
 #include<stdio.h>
 #include<stdlib.h>
@@ -24,7 +26,5 @@ void nsexec(void){
     setenv("NSENTER_ERROR_STATE",strerror(errno),1);
   }
   free(path);
-  
+
 }
-
-

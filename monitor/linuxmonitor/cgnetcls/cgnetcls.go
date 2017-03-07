@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
@@ -23,7 +24,7 @@ const (
 	procs                = "/cgroup.procs"
 	CgroupNameTag        = "@cgroup_name"
 	CgroupMarkTag        = "@cgroup_mark"
-	PortTag              = "@port"
+	PortTag              = "port"
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
 	initialmarkval       = 100
@@ -33,7 +34,8 @@ var markval uint64 = initialmarkval
 
 //Empty receiver struct
 type netCls struct {
-	markchan chan uint64
+	markchan         chan uint64
+	ReleaseAgentPath string
 }
 
 // Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
@@ -50,8 +52,8 @@ func (s *netCls) Creategroup(cgroupname string) error {
 	os.MkdirAll((basePath + TriremeBasePath + cgroupname), 0700)
 
 	//Write to the notify on release file and release agent files
-	binpath, _ := osext.Executable()
-	err = ioutil.WriteFile(basePath+releaseAgentConfFile, []byte(binpath), 0644)
+
+	err = ioutil.WriteFile(basePath+releaseAgentConfFile, []byte(s.ReleaseAgentPath), 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to register a release agent error %s", err.Error())
 	}
@@ -209,26 +211,23 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 }
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
-func NewCgroupNetController() Cgroupnetcls {
+func NewCgroupNetController(releasePath string) Cgroupnetcls {
+	binpath, _ := osext.Executable()
+	controller := &netCls{
+		markchan:         make(chan uint64),
+		ReleaseAgentPath: binpath,
+	}
 
-	controller := &netCls{markchan: make(chan uint64)}
+	if releasePath != "" {
+		controller.ReleaseAgentPath = releasePath
+	}
+
 	return controller
 }
 
 // MarkVal returns a new Mark Value
-func MarkVal() <-chan string {
-
-	ch := make(chan string)
-
-	go func() {
-		for {
-			ch <- strconv.FormatUint(markval, 10)
-			markval = markval + 1
-		}
-	}()
-
-	return ch
-
+func MarkVal() uint64 {
+	return atomic.AddUint64(&markval, 1)
 }
 
 // ListCgroupProcesses lists the processes of the cgroup
@@ -245,9 +244,11 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	procs := []string{}
+	if len(procs) == 0 {
+		return procs, nil
+	}
 	for _, line := range strings.Split(string(data), "\n") {
 		procs = append(procs, string(line))
 	}
-
 	return procs, nil
 }

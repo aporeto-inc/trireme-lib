@@ -6,34 +6,41 @@ import (
 	"testing"
 )
 
+// MockRPCHdl is mock of rpchdl
 type MockRPCHdl struct {
 	Client  *rpc.Client
 	Channel string
 }
 
 type mockedMethods struct {
-	NewRPCClientMock     func(contextID string, channel string) error
+	NewRPCClientMock     func(contextID string, channel string, secret string) error
 	GetRPCClientMock     func(contextID string) (*RPCHdl, error)
 	RemoteCallMock       func(contextID string, methodName string, req *Request, resp *Response) error
 	DestroyRPCClientMock func(contextID string)
 	StartServerMock      func(protocol string, path string, handler interface{}) error
+<<<<<<< HEAD
 	ProcessMessageMock   func(req *Request) bool
+=======
+	ProcessMessageMock   func(req *Request, secret string) bool
+>>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 	ContextListMock      func() []string
 }
 
+// TestRPCClient
 type TestRPCClient interface {
 	RPCClient
-	MockNewRPCClient(t *testing.T, impl func(contextID string, channel string) error)
+	MockNewRPCClient(t *testing.T, impl func(contextID string, channel string, secret string) error)
 	MockGetRPCClient(t *testing.T, impl func(contextID string) (*RPCHdl, error))
 	MockRemoteCall(t *testing.T, impl func(contextID string, methodName string, req *Request, resp *Response) error)
 	MockDestroyRPCClient(t *testing.T, impl func(contextID string))
 	MockContextList(t *testing.T, impl func() []string)
 }
 
+// TestRPCServer
 type TestRPCServer interface {
 	RPCServer
 	MockStartServer(t *testing.T, impl func(protocol string, path string, handler interface{}) error)
-	MockProcessMessage(t *testing.T, impl func(req *Request) bool)
+	MockProcessMessage(t *testing.T, impl func(req *Request, secret string) bool)
 }
 
 type testRPC struct {
@@ -42,6 +49,7 @@ type testRPC struct {
 	currentTest *testing.T
 }
 
+// NewTestRPCServer
 func NewTestRPCServer() TestRPCServer {
 	return &testRPC{
 		lock:  &sync.Mutex{},
@@ -49,13 +57,14 @@ func NewTestRPCServer() TestRPCServer {
 	}
 }
 
+// NewTestRPCClient
 func NewTestRPCClient() TestRPCClient {
 	return &testRPC{
 		lock:  &sync.Mutex{},
 		mocks: map[*testing.T]*mockedMethods{},
 	}
 }
-func (m *testRPC) MockNewRPCClient(t *testing.T, impl func(contextID string, channel string) error) {
+func (m *testRPC) MockNewRPCClient(t *testing.T, impl func(contextID string, channel string, secret string) error) {
 	m.currentMocks(t).NewRPCClientMock = impl
 }
 
@@ -76,7 +85,7 @@ func (m *testRPC) MockStartServer(t *testing.T, impl func(protocol string, path 
 
 }
 
-func (m *testRPC) MockProcessMessage(t *testing.T, impl func(req *Request) bool) {
+func (m *testRPC) MockProcessMessage(t *testing.T, impl func(req *Request, secret string) bool) {
 	m.currentMocks(t).ProcessMessageMock = impl
 }
 
@@ -84,9 +93,13 @@ func (m *testRPC) MockContextList(t *testing.T, impl func() []string) {
 	m.currentMocks(t).ContextListMock = impl
 }
 
+<<<<<<< HEAD
 func (m *testRPC) NewRPCClient(contextID string, channel string) error {
+=======
+func (m *testRPC) NewRPCClient(contextID string, channel string, secret string) error {
+>>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.NewRPCClientMock != nil {
-		return mock.NewRPCClientMock(contextID, channel)
+		return mock.NewRPCClientMock(contextID, channel, secret)
 
 	}
 	return nil
@@ -117,9 +130,9 @@ func (m *testRPC) StartServer(protocol string, path string, handler interface{})
 	}
 	return nil
 }
-func (m *testRPC) ProcessMessage(req *Request) bool {
+func (m *testRPC) ProcessMessage(req *Request, secret string) bool {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.ProcessMessageMock != nil {
-		return mock.ProcessMessageMock(req)
+		return mock.ProcessMessageMock(req, secret)
 	}
 	return true
 }

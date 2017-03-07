@@ -25,13 +25,13 @@ type LinuxProcessor struct {
 }
 
 // NewLinuxProcessor initializes a processor
-func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor) *LinuxProcessor {
+func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
 
 	return &LinuxProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
-		netcls:            cgnetcls.NewCgroupNetController(),
+		netcls:            cgnetcls.NewCgroupNetController(releasePath),
 	}
 }
 
@@ -44,7 +44,13 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	tagsMap := policy.NewTagsMap(eventInfo.Tags)
-	s.collector.CollectContainerEvent(contextID, "localhost", tagsMap, collector.ContainerCreate)
+
+	s.collector.CollectContainerEvent(&collector.ContainerRecord{
+		ContextID: contextID,
+		IPAddress: "127.0.0.1",
+		Tags:      tagsMap,
+		Event:     collector.ContainerCreate,
+	})
 
 	// Send the event upstream
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
@@ -117,7 +123,13 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			return err
 
 		}
-		s.collector.CollectContainerEvent(contextID, defaultIP, runtimeInfo.Tags(), collector.ContainerStart)
+
+		s.collector.CollectContainerEvent(&collector.ContainerRecord{
+			ContextID: contextID,
+			IPAddress: defaultIP,
+			Tags:      runtimeInfo.Tags(),
+			Event:     collector.ContainerStart,
+		})
 	}
 
 	// Store the state in the context store for future access

@@ -12,6 +12,7 @@ const (
 	defaultchannel = "/tmp/test.sock"
 )
 
+// TestNewRPCClient mocks an RPC client test
 func TestNewRPCClient(t *testing.T) {
 	//createServer(defaultchannel)
 	//Test without  a rpc server
@@ -27,7 +28,7 @@ func TestNewRPCClient(t *testing.T) {
 		t.Errorf("RPCClient blocked and does not return")
 
 	}
-	err := rpchdl.NewRPCClient("12345", defaultchannel)
+	err := rpchdl.NewRPCClient("12345", defaultchannel, "mysecret")
 	if err == nil {
 		t.Errorf("No error returned when there is not server")
 	}

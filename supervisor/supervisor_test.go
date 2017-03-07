@@ -39,7 +39,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, nil)
+	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, nil)
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)
 
@@ -51,12 +51,11 @@ func TestNewSupervisor(t *testing.T) {
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
-		targetNets := []string{"172.17.0.0/24"}
 		mode := constants.LocalContainer
 		implementation := constants.IPTables
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, targetNets, mode, implementation)
+			s, err := NewSupervisor(c, e, mode, implementation)
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -66,7 +65,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, targetNets, mode, implementation)
+			s, err := NewSupervisor(nil, e, mode, implementation)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -74,20 +73,13 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, targetNets, mode, implementation)
+			s, err := NewSupervisor(c, nil, mode, implementation)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
 			})
 		})
 
-		Convey("When I provide a target networks ", func() {
-			s, err := NewSupervisor(c, e, nil, mode, implementation)
-			Convey("I should get an error ", func() {
-				So(err, ShouldNotBeNil)
-				So(s, ShouldBeNil)
-			})
-		})
 	})
 }
 
@@ -100,7 +92,7 @@ func TestSupervise(t *testing.T) {
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
-		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, constants.LocalContainer, constants.IPTables)
+		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
@@ -164,7 +156,7 @@ func TestUnsupervise(t *testing.T) {
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
-		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, constants.LocalContainer, constants.IPTables)
+		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
@@ -198,7 +190,7 @@ func TestStart(t *testing.T) {
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
-		s, _ := NewSupervisor(c, e, []string{"172.17.0.0/24"}, constants.LocalContainer, constants.IPTables)
+		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 

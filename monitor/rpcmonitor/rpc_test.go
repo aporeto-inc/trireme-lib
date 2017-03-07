@@ -12,6 +12,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/contextstore/mock"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -61,7 +62,7 @@ type CustomProcessor struct {
 }
 
 func TestNewRPCServer(t *testing.T) {
-
+	cstore := contextstore.NewContextStore()
 	Convey("When we try to instantiate a new monitor", t, func() {
 
 		Convey("If we start with invalid rpc address", func() {
@@ -80,6 +81,7 @@ func TestNewRPCServer(t *testing.T) {
 
 		Convey("If we start with valid parameters", func() {
 			mon, err := NewRPCMonitor("/tmp/monitor.sock", &CustomPolicyResolver{}, nil)
+			mon.contextstore = cstore
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
 				So(mon.rpcAddress, ShouldResemble, "/tmp/monitor.sock")
@@ -91,8 +93,10 @@ func TestNewRPCServer(t *testing.T) {
 }
 
 func TestRegisterProcessor(t *testing.T) {
+	cstore := contextstore.NewContextStore()
 	Convey("Given a new rpc monitor", t, func() {
 		mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
+		mon.contextstore = cstore
 		Convey("When I try to register a new processor", func() {
 			processor := &CustomProcessor{}
 			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
@@ -199,7 +203,7 @@ func TestStart(t *testing.T) {
 			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
 			testRPCMonitor.contextstore = contextstore
 			processor := NewMockMonitorProcessor(ctrl)
-			processor.EXPECT().Start(gomock.Any()).Return(nil)
+			//processor.EXPECT().Start(gomock.Any()).Return(nil)
 			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 
 			Convey("Start server returns no error", func() {
@@ -384,5 +388,35 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			})
 		})
 
+	})
+}
+
+func TestResync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	contextstore := mock_contextstore.NewMockContextStore(ctrl)
+	Convey("When we call resync", t, func() {
+		Convey("When Walkstore returns an error", func() {
+			clist := make(chan string, 1)
+			clist <- ""
+			mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
+			mon.contextstore = contextstore
+			contextstore.EXPECT().WalkStore().Return(clist, fmt.Errorf("Walk Error"))
+			err := mon.Start()
+			So(err, ShouldBeNil)
+
+		})
+		Convey("When contestore returns invalid data", func() {
+			clist := make(chan string, 2)
+			clist <- "as"
+			clist <- ""
+			mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
+			mon.contextstore = contextstore
+			contextstore.EXPECT().WalkStore().Return(clist, nil)
+			contextstore.EXPECT().GetContextInfo("/as").Return([]byte("asdasf"), nil)
+			err := mon.Start()
+			So(err, ShouldBeNil)
+		})
 	})
 }

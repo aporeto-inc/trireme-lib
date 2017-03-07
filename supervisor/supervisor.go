@@ -32,7 +32,6 @@ type Config struct {
 
 	networkQueues     string
 	applicationQueues string
-	targetNetworks    []string
 
 	Mark       int
 	excludedIp []string
@@ -43,7 +42,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, targetNetworks []string, mode constants.ModeType, implementation constants.ImplementationType) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, mode constants.ModeType, implementation constants.ImplementationType) (*Config, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -51,10 +50,6 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 
 	if enforcerInstance == nil {
 		return nil, fmt.Errorf("Enforcer cannot be nil")
-	}
-
-	if targetNetworks == nil {
-		return nil, fmt.Errorf("TargetNetworks cannot be nil")
 	}
 
 	filterQueue := enforcerInstance.GetFilterQueue()
@@ -67,7 +62,6 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		mode:              mode,
 		impl:              nil,
 		versionTracker:    cache.NewCache(),
-		targetNetworks:    targetNetworks,
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
@@ -78,9 +72,9 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	var err error
 	switch implementation {
 	case constants.IPSets:
-		s.impl, err = ipsetctrl.NewInstance(s.networkQueues, s.applicationQueues, s.targetNetworks, s.Mark, false, mode)
+		s.impl, err = ipsetctrl.NewInstance(s.networkQueues, s.applicationQueues, s.Mark, false, mode)
 	default:
-		s.impl, err = iptablesctrl.NewInstance(s.networkQueues, s.applicationQueues, s.targetNetworks, s.Mark, mode)
+		s.impl, err = iptablesctrl.NewInstance(s.networkQueues, s.applicationQueues, s.Mark, mode)
 	}
 
 	if err != nil {

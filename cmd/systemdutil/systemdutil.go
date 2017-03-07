@@ -74,7 +74,11 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		ports = args.(string)
 	}
 
+<<<<<<< HEAD
 	metadatamap, err := createMetadata(servicename, ports, metadata)
+=======
+	name, metadatamap, err := createMetadata(servicename, command, ports, metadata)
+>>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 
 	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
@@ -96,7 +100,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 	request := &rpcmonitor.EventInfo{
 		PUType:    constants.LinuxProcessPU,
 		PUID:      "/" + strconv.Itoa(os.Getpid()),
-		Name:      command,
+		Name:      name,
 		Tags:      metadatamap,
 		PID:       strconv.Itoa(os.Getpid()),
 		EventType: "start",
@@ -123,7 +127,11 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 }
 
 // createMetadata extracts the relevant metadata
+<<<<<<< HEAD
 func createMetadata(servicename string, ports string, metadata []string) (map[string]string, error) {
+=======
+func createMetadata(servicename string, command string, ports string, metadata []string) (string, map[string]string, error) {
+>>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 
 	metadatamap := map[string]string{}
 
@@ -131,23 +139,42 @@ func createMetadata(servicename string, ports string, metadata []string) (map[st
 		keyvalue := strings.Split(element, "=")
 
 		if len(keyvalue) != 2 {
-			return nil, fmt.Errorf("Invalid metadata")
+			return "", nil, fmt.Errorf("Invalid metadata")
 		}
 
 		if keyvalue[0][0] == []byte("$")[0] || keyvalue[0][0] == []byte("@")[0] {
+			return "", nil, fmt.Errorf("Metadata cannot start with $ or @")
+		}
+
+<<<<<<< HEAD
+		if keyvalue[0][0] == []byte("$")[0] || keyvalue[0][0] == []byte("@")[0] {
 			return nil, fmt.Errorf("Metadata cannot start with $ or @")
+=======
+		if keyvalue[0] == "port" || keyvalue[0] == "execpath" {
+			return "", nil, fmt.Errorf("Metadata key cannot be port or execpath ")
+>>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		}
 
 		metadatamap[keyvalue[0]] = keyvalue[1]
 	}
 
+<<<<<<< HEAD
 	metadatamap["@port"] = ports
 
 	if servicename != "" {
 		metadatamap["@servicename"] = servicename
+=======
+	metadatamap["port"] = ports
+
+	metadatamap["execpath"] = command
+
+	name := command
+	if servicename != "" {
+		name = servicename
+>>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 	}
 
-	return metadatamap, nil
+	return name, metadatamap, nil
 }
 
 // HandleCgroupStop handles the deletion of a cgroup

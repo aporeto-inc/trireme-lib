@@ -61,7 +61,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		options.Tags[cgnetcls.PortTag] = runtimeTags.Tags[cgnetcls.PortTag]
 	}
 
-	options.Tags[cgnetcls.CgroupMarkTag] = <-cgnetcls.MarkVal()
+	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
 	runtimeIps := policy.NewIPMap(map[string]string{"bridge": "0.0.0.0/0"})
 
@@ -160,7 +160,7 @@ func processInfo(pidString string) []string {
 		for _, c := range processes {
 			pid, _ = strconv.Atoi(c)
 			p, _ = process.NewProcess(int32(pid))
-			if childRunning, err := p.IsRunning(); err != nil && childRunning {
+			if childRunning, cerr := p.IsRunning(); cerr != nil && childRunning {
 				break
 			}
 		}

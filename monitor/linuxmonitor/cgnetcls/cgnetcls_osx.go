@@ -4,16 +4,17 @@
 package cgnetcls
 
 const (
-	basePath        = "/sys/fs/cgroup/net_cls/"
-	markFile        = "/net_cls.classid"
-	procs           = "/cgroup.procs"
+	basePath = "/sys/fs/cgroup/net_cls/"
+	markFile = "/net_cls.classid"
+	procs    = "/cgroup.procs"
+	// TriremeBasePath is the base path for the trireme local state in the file system
 	TriremeBasePath = "/trireme"
 	// CgroupNameTag  identifies the cgroup name
 	CgroupNameTag = "@cgroup_name"
 	// CgroupMarkTag identifies the cgroup mark value
 	CgroupMarkTag = "@cgroup_mark"
 	// PortTag is the tag for the port values
-	PortTag = "@port"
+	PortTag = "port"
 )
 
 //Empty receiver struct
@@ -49,7 +50,7 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 }
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
-func NewCgroupNetController() Cgroupnetcls {
+func NewCgroupNetController(releasePath string) Cgroupnetcls {
 
 	return nil
 }
@@ -57,10 +58,8 @@ func NewCgroupNetController() Cgroupnetcls {
 var markval uint64 = 100
 
 // MarkVal returns a new Mark
-func MarkVal() <-chan string {
-	ch := make(chan string)
-	return ch
-
+func MarkVal() uint64 {
+	return 0
 }
 
 // ListCgroupProcesses lists the processes of the cgroup
