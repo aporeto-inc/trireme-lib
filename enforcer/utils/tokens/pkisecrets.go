@@ -102,7 +102,7 @@ func (p *PKISecrets) TransmittedKey() []byte {
 
 // AckSize returns the default size of an ACK packet
 func (p *PKISecrets) AckSize() uint32 {
-	return uint32(336)
+	return uint32(339)
 }
 
 // PublicKeyAdd validates the parameter certificate.

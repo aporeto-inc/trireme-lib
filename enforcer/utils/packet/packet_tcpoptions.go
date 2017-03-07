@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"encoding/binary"
-	"fmt"
 	"io"
 )
 
@@ -46,7 +45,8 @@ const (
 	Reserved                                     = 31
 	TCPFastopenCookie                            = 34
 	ReservedRangeBegin                           = 35
-	ReservedRangeEnd                             = 254
+	ReservedRangeEnd                             = 253
+	TCPFastopenCookieEXP                         = 254
 	AporetoAuthentication                        = 255
 )
 
@@ -94,6 +94,7 @@ var optionsMap = map[TCPOptions]int{
 	Reserved:                0,
 	TCPFastopenCookie:       -1,
 	AporetoAuthentication:   4,
+	TCPFastopenCookieEXP:    -1,
 }
 
 func (p *Packet) parseTCPOption(bytes []byte) {
@@ -109,10 +110,18 @@ func (p *Packet) parseTCPOption(bytes []byte) {
 			}
 			index = index + 1
 		} else if optionsMap[TCPOptions(options[index])] == -1 {
-			p.L4TCPPacket.optionsMap[TCPOptions(options[index])] = tcpOptionsFormat{
-				kind:   TCPOptions(options[index]),
-				length: int(options[index+1]),
-				data:   options[index:(int(options[index+1]) - 2 + int(index))],
+			if options[index+1] == 2 {
+				p.L4TCPPacket.optionsMap[TCPOptions(options[index])] = tcpOptionsFormat{
+					kind:   TCPOptions(options[index]),
+					length: int(options[index+1]),
+					data:   []byte{},
+				}
+			} else {
+				p.L4TCPPacket.optionsMap[TCPOptions(options[index])] = tcpOptionsFormat{
+					kind:   TCPOptions(options[index]),
+					length: int(options[index+1]),
+					data:   options[index+2 : (index + options[index+1])],
+				}
 			}
 			index = index + options[index+1]
 		} else {
@@ -120,7 +129,7 @@ func (p *Packet) parseTCPOption(bytes []byte) {
 			p.L4TCPPacket.optionsMap[TCPOptions(options[index])] = tcpOptionsFormat{
 				kind:   TCPOptions(options[index]),
 				length: optionsMap[TCPOptions(options[index])],
-				data:   options[index:(int(index) - 2 + optionsMap[TCPOptions(options[index])])],
+				data:   options[index+2 : (index + byte(optionsMap[TCPOptions(options[index])]))],
 			}
 			index = index + byte(optionsMap[TCPOptions(options[index])])
 		}
@@ -176,8 +185,8 @@ func (p *Packet) SetTCPOptionData(option TCPOptions, data []byte) {
 	}
 }
 
-func (p *Packet) AppendOption(data []byte) {
-	p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, data...)
+func (p *Packet) AppendOption(data []byte) []byte {
+	return p.L4TCPPacket.tcpOptions //= append(p.L4TCPPacket.tcpOptions, data...)
 }
 func (p *Packet) GenerateTCPFastOpenCookie() []byte {
 	var binSourceIp, binDestIp uint32
@@ -218,15 +227,15 @@ func (p *Packet) GenerateTCPFastOpenCookie() []byte {
 
 //WalkTCPOption :: debug function
 func (p *Packet) WalkTCPOptions() {
-	fmt.Println("************************")
-	for key, val := range p.L4TCPPacket.optionsMap {
-		fmt.Println("$$$$$$$$$")
-		fmt.Println(key)
-		fmt.Println(val.length)
-		fmt.Println(val.data)
-		fmt.Println("$$$$$$$$$")
-	}
-	fmt.Println("************************")
+	// fmt.Println("************************")
+	// for key, val := range p.L4TCPPacket.optionsMap {
+	// 	fmt.Println("$$$$$$$$$")
+	// 	fmt.Println(key)
+	// 	fmt.Println(val.length)
+	// 	fmt.Println(val.data)
+	// 	fmt.Println("$$$$$$$$$")
+	// }
+	// fmt.Println("************************")
 }
 
 func (p *Packet) TCPDataOffset() uint8 {

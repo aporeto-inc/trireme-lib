@@ -233,8 +233,11 @@ func (p *Packet) GetBytes() []byte {
 
 // CheckTCPAuthenticationOption ensures authentication option exists at the offset provided
 func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
-	_, present := p.TCPOptionData(TCPFastopenCookie)
+	_, present := p.TCPOptionData(TCPFastopenCookieEXP)
 	if present {
+		return nil
+	}
+	if p.L4TCPPacket.TCPFlags&TCPSynMask == 0 {
 		return nil
 	}
 	return fmt.Errorf("TCP Option Not Found")
@@ -246,6 +249,7 @@ func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 
 	// IP Header Processing
 	// IP chekcsum fixup.
+
 	p.ipChecksum = incCsum16(p.ipChecksum, old, new)
 	// Update IP Total Length.
 	p.IPTotalLength = p.IPTotalLength + new - old
@@ -345,48 +349,49 @@ func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint
 	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.L4TCPPacket.TCPChecksum)
 
 	// Update DataOffset
-	p.L4TCPPacket.tcpDataOffset = p.L4TCPPacket.tcpDataOffset - uint8(optionLength/4)
+	p.L4TCPPacket.tcpDataOffset = (20 + uint8(len(p.L4TCPPacket.tcpOptions))) / 4
 	p.Buffer[tcpDataOffsetPos] = p.L4TCPPacket.tcpDataOffset << 4
+
 }
 
 // tcpDataDetach splits the p.Buffer into p.Buffer (header + some options), p.L4TCPPacket.tcpOptions (optionLength) and p.TCPData (dataLength)
 func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err error) {
 
 	// Setup buffer for Options, Data and reduce the original buffer
-	if dataLength != 0 {
-		if uint16(len(p.Buffer)) >= p.IPTotalLength {
-			p.L4TCPPacket.tcpData = p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
-		} else if (p.IPTotalLength - p.TCPDataStartBytes()) != uint16(len(p.L4TCPPacket.tcpData)) {
-			log.WithFields(log.Fields{
-				"package":      "packet",
-				"error":        err.Error(),
-				"optionLength": optionLength,
-				"dataLength":   dataLength,
-			}).Debug("Not handling concat of data buffers in tcpDataDetach")
+	// if dataLength != 0 {
+	// 	if uint16(len(p.Buffer)) >= p.IPTotalLength {
+	// 		p.L4TCPPacket.tcpData = p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
+	// 	} else if (p.IPTotalLength - p.TCPDataStartBytes()) != uint16(len(p.L4TCPPacket.tcpData)) {
+	// 		log.WithFields(log.Fields{
+	// 			"package":      "packet",
+	// 			"error":        err.Error(),
+	// 			"optionLength": optionLength,
+	// 			"dataLength":   dataLength,
+	// 		}).Debug("Not handling concat of data buffers in tcpDataDetach")
 
-			return fmt.Errorf("Not handling concat of data buffers")
-		}
-	}
+	// 		return fmt.Errorf("Not handling concat of data buffers")
+	// 	}
+	// }
 
-	if optionLength != 0 {
-		if uint16(len(p.Buffer)) >= p.TCPDataStartBytes() {
-			p.L4TCPPacket.tcpOptions = p.Buffer[p.TCPDataStartBytes()-optionLength : p.TCPDataStartBytes()]
-		} else if optionLength != uint16(len(p.L4TCPPacket.tcpOptions)) {
-			log.WithFields(log.Fields{
-				"package":      "packet",
-				"error":        err.Error(),
-				"optionLength": optionLength,
-				"dataLength":   dataLength,
-			}).Debug("Not handling concat of options buffers")
+	// if optionLength != 0 {
+	// 	if uint16(len(p.Buffer)) >= p.TCPDataStartBytes() {
+	// 		p.L4TCPPacket.tcpOptions = p.Buffer[p.TCPDataStartBytes()-optionLength : p.TCPDataStartBytes()]
+	// 	} else if optionLength != uint16(len(p.L4TCPPacket.tcpOptions)) {
+	// 		log.WithFields(log.Fields{
+	// 			"package":      "packet",
+	// 			"error":        err.Error(),
+	// 			"optionLength": optionLength,
+	// 			"dataLength":   dataLength,
+	// 		}).Debug("Not handling concat of options buffers")
 
-			return fmt.Errorf("Not handling concat of options buffers")
-		}
-	}
+	// 		return fmt.Errorf("Not handling concat of options buffers")
+	// 	}
+	// }
 
-	if uint16(len(p.Buffer)) >= (p.TCPDataStartBytes() - optionLength) {
-		p.Buffer = p.Buffer[:p.TCPDataStartBytes()-optionLength]
-	}
-
+	// if uint16(len(p.Buffer)) >= (p.TCPDataStartBytes() - optionLength) {
+	// 	p.Buffer = p.Buffer[:p.TCPDataStartBytes()-optionLength]
+	// }
+	p.Buffer = p.Buffer[:p.TCPDataStartBytes()]
 	return
 }
 
@@ -416,7 +421,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 	p.FixupTCPHdrOnTCPDataDetach(dataLength, optionLength)
 
 	// Process IP Header fields
-	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength-(dataLength+optionLength))
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength-uint16(len(p.L4TCPPacket.tcpData))) //+uint16(len(p.L4TCPPacket.tcpOptions)))
 	return
 }
 
@@ -449,20 +454,20 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpData []byte) {
 // tcpDataAttach splits the p.Buffer into p.Buffer (header + some options), p.L4TCPPacket.tcpOptions (optionLength) and p.TCPData (dataLength)
 func (p *Packet) tcpDataAttach(data []byte) (err error) {
 
-	if p.TCPDataStartBytes() != p.IPTotalLength {
-		log.WithFields(log.Fields{
-			"package":         "packet",
-			"p.IPTotalLength": p.IPTotalLength,
-		}).Debug("Cannot insert options with existing data")
-		return fmt.Errorf("Cannot insert options with existing data")
-	}
+	// if p.TCPDataStartBytes() != p.IPTotalLength {
+	// 	log.WithFields(log.Fields{
+	// 		"package":         "packet",
+	// 		"p.IPTotalLength": p.IPTotalLength,
+	// 	}).Debug("Cannot insert options with existing data")
+	// 	return fmt.Errorf("Cannot insert options with existing data")
+	// }
 
 	//p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, options...)
 
 	dataLength := len(data)
 
 	if dataLength != 0 {
-		p.L4TCPPacket.tcpData = append(p.L4TCPPacket.tcpData, data...)
+		p.L4TCPPacket.tcpData = append(data, p.L4TCPPacket.tcpData...)
 	}
 
 	return
@@ -486,8 +491,7 @@ func (p *Packet) TCPDataAttach(tcpData []byte) (err error) {
 
 	// We are increasing tcpOptions by 1 32-bit word. We are always adding
 	// our option last.
-	packetLenIncrease := uint16(len(tcpData) + len(p.Buffer) + len(p.L4TCPPacket.tcpOptions))
-	fmt.Println("IP Length", p.IPTotalLength, int(len(tcpData))+len(p.Buffer)+len(p.L4TCPPacket.tcpOptions))
+	packetLenIncrease := uint16(len(p.L4TCPPacket.tcpData) + len(p.Buffer) + len(p.L4TCPPacket.tcpOptions))
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, packetLenIncrease)
 

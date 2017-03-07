@@ -83,6 +83,9 @@ const (
 	// TCPSynMask is a mask for the TCP Syn flags
 	TCPSynMask = 0x2
 
+	//TCPPshMask is a mask for TCP PSH flags
+	TCPPshMask = 0x37
+
 	// TCPSynAckMask  mask idenitifies a TCP SYN-ACK packet
 	TCPSynAckMask = 0x12
 

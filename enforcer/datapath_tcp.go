@@ -3,6 +3,7 @@ package enforcer
 // Go libraries
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"strconv"
 
@@ -132,29 +133,37 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 
 	// Accept the packet
 	d.appTCP.OutgoingPackets++
+	fmt.Println("#$%#$%#$%#$", len(p.Buffer))
+	fmt.Println("#$%#$%#$% OPTIONS ", len(p.AppendOption([]byte{})))
+	fmt.Println("#$%#$%#$% DATA ", len(p.GetTCPData()))
+	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 	return nil
 }
 
 func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket *packet.Packet) {
 
+	if tcpPacket.L4TCPPacket.TCPFlags&packet.TCPSynMask == 0 {
+		return
+	}
 	tokenLen := uint8(len(token))
 	var options []byte
 	if tokenLen > 0 {
-		options = []byte{packet.TCPFastopenCookie, 2 + tokenLen}
+		options = []byte{packet.TCPFastopenCookieEXP, 4, 0xf9, 0x89}
 		options = append(options, token...)
 	} else {
-		options = []byte{packet.TCPFastopenCookie, 2}
+		options = []byte{packet.TCPFastopenCookieEXP, 4, 0xf9, 0x89}
 	}
-	optionval, ok := tcpPacket.TCPOptionData(packet.TCPFastopenCookie)
+	optionval, ok := tcpPacket.TCPOptionData(packet.TCPFastopenCookieEXP)
+
 	if ok {
 		if len(optionval) > 2 {
 			//We have a valid cookie do nothing
 		} else {
-			tcpPacket.SetTCPOptionData(packet.TCPFastopenCookie, options)
+			tcpPacket.SetTCPOptionData(packet.TCPFastopenCookieEXP, options)
 		}
 	} else {
-		tcpPacket.SetTCPOptionData(packet.TCPFastopenCookie, options)
+		tcpPacket.SetTCPOptionData(packet.TCPFastopenCookieEXP, options)
 	}
 
 }
@@ -162,7 +171,7 @@ func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket
 func (d *datapathEnforcer) parseAckToken(connection *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, _ := d.tokenEngine.Decode(true, data, connection.RemotePublicKey)
+	claims, _ := d.tokenEngine.Decode(true, data[3:(binary.LittleEndian.Uint16(data[1:]))], connection.RemotePublicKey)
 	if claims == nil {
 		return nil, fmt.Errorf("Cannot decode the token")
 	}
@@ -325,7 +334,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		// connection minimizing the chances of a replay attack
 		token := d.createPacketToken(true, context.(*PUContext), &connection.Auth)
 
-		d.createTCPAuthenticationOption([]byte{}, tcpPacket)
+		d.createTCPAuthenticationOption(token, tcpPacket)
 
 		if len(token) != int(d.ackSize) {
 			log.WithFields(log.Fields{
@@ -340,9 +349,11 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		if err = d.ProcessTCPFastOpen(tcpPacket); err != nil {
 			//TCPFastopen returned an error drop the packet by returning an error here
 			//The stack will try again with fastopen disabled
+
 			return nil, err
 		}
 		// Attach the tags to the packet
+
 		tcpPacket.DecreaseTCPSeq(d.ackSize)
 		tcpPacket.TCPDataAttach(token)
 		tcpPacket.UpdateTCPChecksum()
@@ -370,7 +381,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// State machine based on the flags
-	switch tcpPacket.L4TCPPacket.TCPFlags {
+	switch tcpPacket.L4TCPPacket.TCPFlags & packet.TCPPshMask {
 	case packet.TCPSynMask: //Processing SYN packet from Application
 		action, err := d.processApplicationSynPacket(tcpPacket)
 		return action, err
@@ -411,7 +422,9 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// TBD
 
 	claims, err := d.parsePacketToken(&connection.Auth, tcpPacket.GetTCPData())
-
+	if data, _ := tcpPacket.TCPOptionData(packet.TCPFastopenCookie); len(data) <= 2 {
+		//This is a request remove the data
+	}
 	// If the token signature is not valid
 	// We must drop the connection and we drop the Syn packet. The source will
 	// retry but we have no state to maintain here.
@@ -442,7 +455,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// metadata any more.
 	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
 	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
-	if err := tcpPacket.TCPDataDetach(uint16(tcpPacket.TCPDataOffset()*4 - 20)); err != nil {
+	if err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.AppendOption([]byte{})))); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"txLabel": txLabel,
@@ -524,7 +537,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	}
 
 	// Validate the certificate and parse the token
-	claims, cert := d.tokenEngine.Decode(false, tcpData, nil)
+	claims, cert := d.tokenEngine.Decode(false, tcpData[3:], nil)
 	if claims == nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
@@ -578,7 +591,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.IncreaseTCPSeq(tcpDataLen - 1)
 	tcpPacket.IncreaseTCPAck(d.ackSize)
 
-	if err := tcpPacket.TCPDataDetach(uint16(tcpPacket.TCPDataOffset()*4 - 20)); err != nil {
+	if err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.AppendOption([]byte{})))); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 		}).Debug("SynAck packet dropped because of invalid format")
@@ -588,7 +601,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	tcpPacket.DropDetachedBytes()
 	tcpPacket.UpdateTCPChecksum()
-
 	// We can now verify the reverse policy. The system requires that policy
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
@@ -662,7 +674,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		// Remove any of our data
 		tcpPacket.IncreaseTCPSeq(d.ackSize)
-		err := tcpPacket.TCPDataDetach(uint16(tcpPacket.TCPDataOffset()*4 - 20))
+		err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.AppendOption([]byte{}))))
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -732,8 +744,8 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	switch tcpPacket.L4TCPPacket.TCPFlags {
 
 	case packet.TCPSynMask:
-		return d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
-
+		retval, err := d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
+		return retval, err
 	case packet.TCPAckMask:
 		return d.processNetworkAckPacket(context.(*PUContext), tcpPacket)
 

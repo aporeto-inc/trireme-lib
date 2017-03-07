@@ -123,7 +123,10 @@ func (p *Packet) computeTCPChecksum() uint16 {
 
 	buf = append(buf, p.L4TCPPacket.tcpOptions...)
 	buf = append(buf, p.L4TCPPacket.tcpData...)
-
+	// debugstring := fmt.Sprintf("\n@#$#@$@#\n")
+	// debugstring += fmt.Sprintf("%s\n", hex.Dump(buf))
+	// debugstring += fmt.Sprintf("\n@#$#@$@#\n")
+	// fmt.Println(debugstring)
 	return checksum(buf)
 }
 

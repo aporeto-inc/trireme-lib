@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"net"
@@ -526,15 +527,18 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 	if !ackToken {
 		claims.T = context.Identity
 	}
-
-	return d.tokenEngine.CreateAndSign(ackToken, claims)
+	token := []byte{0x1, 0x0, 0x0}
+	signedtoken := d.tokenEngine.CreateAndSign(ackToken, claims)
+	token = append(token, signedtoken...)
+	binary.LittleEndian.PutUint16(token[1:], uint16(len(token)))
+	return token
 }
 
 func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-
-	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
+	token := data[3:(binary.LittleEndian.Uint16(data[1:]))]
+	claims, cert := d.tokenEngine.Decode(false, token, auth.RemotePublicKey)
 	if claims == nil {
 		return nil, fmt.Errorf("Cannot decode the token")
 	}
