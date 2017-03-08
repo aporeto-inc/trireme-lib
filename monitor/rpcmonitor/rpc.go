@@ -16,7 +16,6 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -84,6 +83,7 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 // RegisterProcessor registers an event processor for a given PUTYpe. Only one
 // processor is allowed for a given PU Type.
 func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor MonitorProcessor) error {
+
 	if _, ok := r.monitorServer.handlers[puType]; ok {
 		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
 	}
@@ -105,14 +105,10 @@ func (r *RPCMonitor) reSync() error {
 	var eventInfo EventInfo
 
 	walker, err := r.contextstore.WalkStore()
-
 	if err != nil {
-
 		return fmt.Errorf("error in accessing context store")
 	}
-	//This is create to only delete if required don't create groups using this handle here
-	cgnetclshandle := cgnetcls.NewCgroupNetController("")
-	cstorehandle := contextstore.NewContextStore()
+
 	for {
 		contextID := <-walker
 		if contextID == "" {
@@ -125,21 +121,7 @@ func (r *RPCMonitor) reSync() error {
 			if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
 				return fmt.Errorf("error in umarshalling date")
 			}
-			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 
-			if err != nil {
-				cstorehandle.RemoveContext(eventInfo.PUID)
-				//The cgroup does not exists
-				continue
-			}
-
-			if len(processlist) <= 0 {
-				//We have an empty cgroup
-				//Remove the cgroup and context store file
-				cgnetclshandle.DeleteCgroup(eventInfo.PUID)
-				cstorehandle.RemoveContext(eventInfo.PUID)
-				continue
-			}
 			f, _ := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]
 
 			if err := f(&eventInfo); err != nil {

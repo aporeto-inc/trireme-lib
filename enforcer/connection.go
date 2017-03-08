@@ -6,6 +6,7 @@ import "github.com/aporeto-inc/trireme/crypto"
 type AuthInfo struct {
 	LocalContext    []byte
 	RemoteContext   []byte
+	LocalContextID  string
 	RemoteContextID string
 	RemotePublicKey interface{}
 	RemoteIP        string

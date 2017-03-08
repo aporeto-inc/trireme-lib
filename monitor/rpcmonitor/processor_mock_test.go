@@ -3,7 +3,9 @@
 
 package rpcmonitor
 
-import gomock "github.com/golang/mock/gomock"
+import (
+	gomock "github.com/golang/mock/gomock"
+)
 
 // Mock of MonitorProcessor interface
 type MockMonitorProcessor struct {
@@ -27,7 +29,6 @@ func (_m *MockMonitorProcessor) EXPECT() *_MockMonitorProcessorRecorder {
 }
 
 func (_m *MockMonitorProcessor) Start(eventInfo *EventInfo) error {
-
 	ret := _m.ctrl.Call(_m, "Start", eventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0

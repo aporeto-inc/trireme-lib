@@ -10,7 +10,7 @@ import (
 type mockedMethods struct {
 	GetExitStatusMock func(string) bool
 	KillProcessMock   func(string)
-	LaunchProcessMock func(string, int, rpcwrapper.RPCClient, string, string) error
+	LaunchProcessMock func(string, int, rpcwrapper.RPCClient, string) error
 	SetExitStatusMock func(string, bool) error
 	SetnsNetPathMock  func(string)
 }
@@ -19,7 +19,7 @@ type TestProcessManager interface {
 	ProcessManager
 	MockGetExitStatus(t *testing.T, impl func(string) bool)
 	MockKillProcess(t *testing.T, impl func(string))
-	MockLaunchProcess(t *testing.T, impl func(string, int, rpcwrapper.RPCClient, string, string) error)
+	MockLaunchProcess(t *testing.T, impl func(string, int, rpcwrapper.RPCClient, string) error)
 	MockSetExitStatus(t *testing.T, impl func(string, bool) error)
 	MockSetnsNetPath(t *testing.T, impl func(string))
 }
@@ -61,7 +61,7 @@ func (m *testProcessMon) MockGetExitStatus(t *testing.T, impl func(string) bool)
 func (m *testProcessMon) MockKillProcess(t *testing.T, impl func(string)) {
 	m.currentMocks(t).KillProcessMock = impl
 }
-func (m *testProcessMon) MockLaunchProcess(t *testing.T, impl func(string, int, rpcwrapper.RPCClient, string, string) error) {
+func (m *testProcessMon) MockLaunchProcess(t *testing.T, impl func(string, int, rpcwrapper.RPCClient, string) error) {
 	m.currentMocks(t).LaunchProcessMock = impl
 }
 func (m *testProcessMon) MockSetExitStatus(t *testing.T, impl func(string, bool) error) {
@@ -95,9 +95,9 @@ func (m *testProcessMon) KillProcess(contextID string) {
 		return
 	}
 }
-func (m *testProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, processname string, statssecret string) error {
+func (m *testProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, processname string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.LaunchProcessMock != nil {
-		return mock.LaunchProcessMock(contextID, refPid, rpchdl, processname, statssecret)
+		return mock.LaunchProcessMock(contextID, refPid, rpchdl, processname)
 
 	}
 	return nil

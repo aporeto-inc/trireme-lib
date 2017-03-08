@@ -49,8 +49,8 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"error":   err.Error(),
-		}).Debug("Packet processing failed for network packet")
-		return err
+		}).Debug("Service processing failed for network packet")
+		return fmt.Errorf("Processing failed %v", err)
 	}
 
 	p.Print(packet.PacketStageService)
@@ -112,7 +112,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 			"package": "enforcer",
 			"error":   err.Error(),
 		}).Debug("Processing failed for application packet")
-		return err
+		return fmt.Errorf("Processing failed %v", err)
 	}
 
 	p.Print(packet.PacketStageService)
@@ -172,7 +172,12 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 
 	// Find the container context
 	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
+
 	if cerr != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"error":   cerr.Error(),
+		}).Debug("Context not found for application syn packet")
 		return nil, nil
 	}
 
@@ -220,6 +225,10 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	}
 
 	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("Container not found for application syn ack packet")
 		return nil, nil
 	}
 
@@ -227,6 +236,10 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	// Retrieve the connection context
 	c, err := d.networkConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
 	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("Connection not found for application syn ack packet")
 		return nil, nil
 	}
 
@@ -253,6 +266,9 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		return nil, nil
 	}
 
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+	}).Error("Received SynACK in wrong state ")
 	return nil, fmt.Errorf("Received SynACK in wrong state ")
 }
 
@@ -262,14 +278,22 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	context, cerr := d.contextFromIP(true, tcpPacket.SourceAddress.String(), tcpPacket.Mark, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	if cerr != nil {
-		// Let these ACK packets through
+		log.WithFields(log.Fields{
+			"package":   "enforcer",
+			"tcpPacket": tcpPacket,
+			"error":     cerr,
+		}).Debug("Container not found for application ack packet")
 		return nil, nil
 	}
 
 	// Get the connection state. We need the state of the two random numbers
 	c, err := d.appConnectionTracker.Get(tcpPacket.L4FlowHash())
 	if err != nil {
-		// Untracked connection. Let it go through
+		log.WithFields(log.Fields{
+			"package":   "enforcer",
+			"tcpPacket": tcpPacket,
+			"error":     err,
+		}).Debug("Connection not found for application ack packet")
 		return nil, nil
 	}
 
@@ -285,6 +309,13 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 		if len(token) != int(d.ackSize) {
+			log.WithFields(log.Fields{
+				"package":     "enforcer",
+				"tcpPacket":   tcpPacket,
+				"tokenLength": len(token),
+				"connection":  connection,
+				"ackSize":     int(d.ackSize),
+			}).Error("Protocol error for application ack packet")
 			return nil, fmt.Errorf("Protocol Error %d", len(token))
 		}
 
@@ -302,11 +333,14 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	if connection.State == TCPAckSend {
 		//Delete the state at this point .. There is a small chance that both packets are lost
 		// and the other side will send us SYNACK again .. TBD if we need to change this
-		d.contextConnectionTracker.Remove(string(connection.Auth.LocalContext))
+		d.contextConnectionTracker.Remove(connection.Auth.LocalContextID)
 		d.appConnectionTracker.Remove(tcpPacket.L4FlowHash())
 		return nil, nil
 	}
 
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+	}).Debug("Received application ACK packet in the wrong state")
 	return nil, fmt.Errorf("Received application ACK packet in the wrong state! %v", connection.State)
 }
 
@@ -355,36 +389,25 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// We must drop the connection and we drop the Syn packet. The source will
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Debug("Syn packet dropped because of invalid token")
 
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        "",
-			DestinationID:   context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.InvalidToken,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
-
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidToken, "", tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
 
 	txLabel, ok := claims.T.Get(TransmitterLabel)
-	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); !ok || err != nil {
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        txLabel,
-			DestinationID:   context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.InvalidFormat,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
+	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"txLabel": txLabel,
+			"ok":      ok,
+			"error":   err.Error(),
+		}).Debug("TCP Authentication Option not found")
 
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
 
@@ -394,18 +417,14 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			DestinationID:   context.ManagementID,
-			SourceID:        txLabel,
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.InvalidFormat,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"txLabel": txLabel,
+			"ok":      ok,
+			"error":   err.Error(),
+		}).Debug("Syn packet dropped because of invalid format")
 
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, txLabel, tcpPacket)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 	}
 
@@ -419,17 +438,14 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// Validate against reject rules first - We always process reject with higher priority
 	if index, _ := context.rejectRcvRules.Search(claims.T); index >= 0 {
 		// Reject the connection
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        txLabel,
-			DestinationID:   context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.PolicyDrop,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"claims":  fmt.Sprintf("%+v", claims.T),
+			"context": context.ID,
+			"rules":   fmt.Sprintf("%+v", context.rejectRcvRules),
+		}).Debug("Syn packet - rejected because of deny policy")
+
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
 
 		return nil, fmt.Errorf("Connection rejected because of policy %+v", claims.T)
 	}
@@ -454,17 +470,14 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		return action, nil
 	}
 
-	d.collector.CollectFlowEvent(&collector.FlowRecord{
-		ContextID:       context.ID,
-		SourceID:        txLabel,
-		DestinationID:   context.ManagementID,
-		Tags:            context.Annotations,
-		Action:          collector.FlowReject,
-		Mode:            collector.PolicyDrop,
-		SourceIP:        tcpPacket.SourceAddress.String(),
-		DestinationIP:   tcpPacket.DestinationAddress.String(),
-		DestinationPort: tcpPacket.DestinationPort,
-	})
+	d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, txLabel, tcpPacket)
+
+	// Reject all other connections
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+		"claims":  fmt.Sprintf("%+v", claims.T),
+		"context": context.ID,
+	}).Debug("Syn packet - no matched tags - reject")
 
 	return nil, fmt.Errorf("No matched tags - reject %+v", claims.T)
 }
@@ -476,49 +489,40 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// connection, err := d.appConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        context.ManagementID,
-			DestinationID:   "",
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.MissingToken,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Debug("SynAck packet dropped because of missing token.")
 
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.MissingToken, "", tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of missing token")
 	}
 
 	// Validate the certificate and parse the token
 	claims, cert := d.tokenEngine.Decode(false, tcpData, nil)
 	if claims == nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Debug("Synack  packet dropped because of bad claims")
 
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        context.ManagementID,
-			DestinationID:   "",
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.MissingToken,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
-
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.MissingToken, "", tcpPacket)
 		return nil, fmt.Errorf("Synack  packet dropped because of bad claims %v", claims)
 	}
 
 	// We always a need a valid remote context ID
 	remoteContextID, ok := claims.T.Get(TransmitterLabel)
 	if !ok {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Debug("Synack, no remote context for the claims")
 		return nil, fmt.Errorf("No remote context %v", claims.T)
 	}
 
 	c, err := d.contextConnectionTracker.Get(string(claims.RMT))
 	if err != nil {
 		d.contextConnectionTracker.DumpStore()
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Debug("Synack, no connection found for the claims")
 		return nil, fmt.Errorf("No connection found for %v", claims.RMT)
 	}
 
@@ -531,19 +535,11 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.ConnectionMetadata = &connection.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Debug("Synack, TCP Authentication Option not found")
 
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.InvalidFormat,
-			DestinationID:   remoteContextID,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
-
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
 	}
 
@@ -553,19 +549,10 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.IncreaseTCPAck(d.ackSize)
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.InvalidFormat,
-			DestinationID:   remoteContextID,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
-
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Debug("SynAck packet dropped because of invalid format")
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
 
@@ -578,18 +565,10 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	// First validate that there are no reject rules
 	if index, _ := context.rejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			SourceID:        context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowReject,
-			Mode:            collector.PolicyDrop,
-			DestinationID:   remoteContextID,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
-
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Error("Dropping because of txt rules instruction")
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, remoteContextID, tcpPacket)
 		return nil, fmt.Errorf("Dropping because of reject rule on transmitter")
 	}
 
@@ -598,22 +577,19 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		return action, nil
 	}
 
-	d.collector.CollectFlowEvent(&collector.FlowRecord{
-		ContextID:       context.ID,
-		SourceID:        context.ManagementID,
-		Tags:            context.Annotations,
-		Action:          collector.FlowReject,
-		Mode:            collector.PolicyDrop,
-		DestinationID:   remoteContextID,
-		SourceIP:        tcpPacket.SourceAddress.String(),
-		DestinationIP:   tcpPacket.DestinationAddress.String(),
-		DestinationPort: tcpPacket.DestinationPort,
-	})
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+	}).Error("Dropping packet SYNACK at the network")
 
+	d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.PolicyDrop, remoteContextID, tcpPacket)
 	return nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
 func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
+
+	log.WithFields(log.Fields{
+		"package": "enforcer",
+	}).Debug("Process network Ack packet")
 
 	// Retrieve connection context
 	hash := tcpPacket.L4FlowHash()
@@ -631,36 +607,20 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	if connection.State == TCPSynAckSend {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Error("TCP Authentication Option not found")
 
-			d.collector.CollectFlowEvent(&collector.FlowRecord{
-				ContextID:       context.ID,
-				DestinationID:   context.ManagementID,
-				Tags:            context.Annotations,
-				Action:          collector.FlowReject,
-				Mode:            collector.InvalidFormat,
-				SourceID:        "",
-				SourceIP:        tcpPacket.SourceAddress.String(),
-				DestinationIP:   tcpPacket.DestinationAddress.String(),
-				DestinationPort: tcpPacket.DestinationPort,
-			})
-
+			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
 		if _, err := d.parseAckToken(&connection.Auth, tcpPacket.ReadTCPData()); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Error("Ack packet dropped because singature validation failed")
 
-			d.collector.CollectFlowEvent(&collector.FlowRecord{
-				ContextID:       context.ID,
-				DestinationID:   context.ManagementID,
-				Tags:            context.Annotations,
-				Action:          collector.FlowReject,
-				Mode:            collector.InvalidFormat,
-				SourceID:        "",
-				SourceIP:        tcpPacket.SourceAddress.String(),
-				DestinationIP:   tcpPacket.DestinationAddress.String(),
-				DestinationPort: tcpPacket.DestinationPort,
-			})
-
+			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because singature validation failed %v", err)
 		}
 
@@ -670,17 +630,10 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen)
 
 		if err != nil {
-			d.collector.CollectFlowEvent(&collector.FlowRecord{
-				ContextID:       context.ID,
-				DestinationID:   context.ManagementID,
-				Tags:            context.Annotations,
-				Action:          collector.FlowReject,
-				Mode:            collector.InvalidFormat,
-				SourceID:        "",
-				SourceIP:        tcpPacket.SourceAddress.String(),
-				DestinationIP:   tcpPacket.DestinationAddress.String(),
-				DestinationPort: tcpPacket.DestinationPort,
-			})
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Error("Ack packet dropped because of invalid format")
+			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
 			return nil, fmt.Errorf("Ack packet dropped because of invalid format %v", err)
 		}
 
@@ -688,38 +641,20 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		tcpPacket.UpdateTCPChecksum()
 
+		// Delete the state
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Debug("processApplicationAckPacket() Connection Removed")
+
 		d.networkConnectionTracker.Remove(hash)
 
 		// We accept the packet as a new flow
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			DestinationID:   context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowAccept,
-			Mode:            "NA",
-			SourceID:        connection.Auth.RemoteContextID,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
+		d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowAccept, "NA", connection.Auth.RemoteContextID, tcpPacket)
 
 		// Accept the packet
 		return nil, nil
 
 	}
-
-	// Everything else is dropped
-	d.collector.CollectFlowEvent(&collector.FlowRecord{
-		ContextID:       context.ID,
-		DestinationID:   context.ManagementID,
-		Tags:            context.Annotations,
-		Action:          collector.FlowReject,
-		Mode:            collector.InvalidState,
-		SourceID:        connection.Auth.RemoteContextID,
-		SourceIP:        tcpPacket.SourceAddress.String(),
-		DestinationIP:   tcpPacket.DestinationAddress.String(),
-		DestinationPort: tcpPacket.DestinationPort,
-	})
 
 	// Catch the first request packets
 	if connection.State == TCPAckProcessed {
@@ -728,6 +663,8 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		return nil, nil
 	}
 
+	// Everything else is dropped
+	d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidState, "", tcpPacket)
 	return nil, fmt.Errorf("Ack packet dropped - no matching rules")
 }
 
@@ -749,6 +686,10 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	}
 
 	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+			"error":   err.Error(),
+		}).Error("Process network TCP packet: Failed to retrieve context for this packet")
 		return nil, fmt.Errorf("Context not found for container %s %v", tcpPacket.DestinationAddress.String(), d.puTracker)
 	}
 

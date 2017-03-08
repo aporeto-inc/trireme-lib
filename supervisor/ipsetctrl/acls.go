@@ -211,6 +211,16 @@ func (i *Instance) setupIpset(target, container string) error {
 		return fmt.Errorf("Couldn't create IPSet for %s: %s", target, err)
 	}
 
+	for _, net := range i.targetNetworks {
+		if err = ips.Add(net, 0); err != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+				"error":   err.Error(),
+			}).Debug("Error adding ip to IPSet")
+			return fmt.Errorf("Error adding ip %s to %s IPSet: %s", net, target, err)
+		}
+	}
+
 	i.targetSet = ips
 
 	cSet, err := i.ips.NewIpset(container, "hash:ip", &ipset.Params{})
@@ -224,25 +234,6 @@ func (i *Instance) setupIpset(target, container string) error {
 
 	i.containerSet = cSet
 
-	return nil
-}
-
-// addTargetNets adds the target networks to the IPset
-func (i *Instance) addTargetNets(networks []string) error {
-
-	if i.targetSet == nil {
-		return fmt.Errorf("Target set not configured")
-	}
-
-	for _, net := range networks {
-		if err := i.targetSet.Add(net, 0); err != nil {
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Error adding ip to IPSet")
-			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
-		}
-	}
 	return nil
 }
 

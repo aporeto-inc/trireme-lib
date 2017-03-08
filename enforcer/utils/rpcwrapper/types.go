@@ -3,7 +3,6 @@ package rpcwrapper
 import (
 	"time"
 
-	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
@@ -61,7 +60,8 @@ type InitRequestPayload struct {
 
 //InitSupervisorPayload for supervisor init request
 type InitSupervisorPayload struct {
-	CaptureMethod CaptureType
+	CaptureMethod  CaptureType
+	TargetNetworks []string
 }
 
 // EnforcePayload Payload for enforce request
@@ -77,7 +77,6 @@ type EnforcePayload struct {
 	ReceiverRules    *policy.TagSelectorList
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
-	TriremeNetworks  []string
 }
 
 //SuperviseRequestPayload for Supervise request
@@ -94,10 +93,6 @@ type SuperviseRequestPayload struct {
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
 	ExcludedIP       []string
-<<<<<<< HEAD
-=======
-	TriremeNetworks  []string
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 }
 
 //UnEnforcePayload payload for unenforce request
@@ -132,12 +127,8 @@ type UnEnforceResponsePayload struct {
 
 //StatsPayload is the payload carries by the stats reporting form the remote enforcer
 type StatsPayload struct {
-	Flows map[string]*collector.FlowRecord
-}
-
-//ExcludeIPRequestPayload carries the list of excluded ips
-type ExcludeIPRequestPayload struct {
-	Ip []string
+	NumFlows int
+	Flows    []enforcer.StatsPayload
 }
 
 //ExcludeIPRequestPayload carries the list of excluded ips

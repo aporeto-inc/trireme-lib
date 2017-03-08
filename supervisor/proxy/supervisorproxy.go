@@ -25,6 +25,7 @@ type ProxyInfo struct {
 	collector         collector.EventCollector
 	networkQueues     string
 	applicationQueues string
+	targetNetworks    []string
 	ExcludedIP        []string
 	prochdl           processmon.ProcessManager
 	rpchdl            rpcwrapper.RPCClient
@@ -55,10 +56,6 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 			TransmitterRules: puInfo.Policy.TransmitterRules(),
 			PuPolicy:         puInfo.Policy,
 			ExcludedIP:       s.ExcludedIP,
-<<<<<<< HEAD
-=======
-			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		},
 	}
 
@@ -119,11 +116,7 @@ func (s *ProxyInfo) Stop() error {
 }
 
 // NewProxySupervisor creates a new IptablesSupervisor launcher
-<<<<<<< HEAD
 func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, targetNetworks []string, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
-=======
-func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -131,9 +124,12 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	if enforcer == nil {
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
-
+	if targetNetworks == nil {
+		return nil, fmt.Errorf("TargetNetworks cannot be nil")
+	}
 	s := &ProxyInfo{
 		versionTracker:    cache.NewCache(),
+		targetNetworks:    targetNetworks,
 		collector:         collector,
 		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
 		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
@@ -152,7 +148,8 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitSupervisorPayload{
-			CaptureMethod: rpcwrapper.IPTables,
+			CaptureMethod:  rpcwrapper.IPTables,
+			TargetNetworks: s.targetNetworks,
 		},
 	}
 

@@ -22,6 +22,7 @@ const (
 type Instance struct {
 	networkQueues              string
 	applicationQueues          string
+	targetNetworks             []string
 	mark                       int
 	ipt                        provider.IptablesProvider
 	appPacketIPTableContext    string
@@ -35,7 +36,7 @@ type Instance struct {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(networkQueues, applicationQueues string, mark int, mode constants.ModeType) (*Instance, error) {
+func NewInstance(networkQueues, applicationQueues string, targetNetworks []string, mark int, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -45,6 +46,7 @@ func NewInstance(networkQueues, applicationQueues string, mark int, mode constan
 	i := &Instance{
 		networkQueues:     networkQueues,
 		applicationQueues: applicationQueues,
+		targetNetworks:    targetNetworks,
 		mark:              mark,
 		ipt:               ipt,
 		appPacketIPTableContext:    "raw",
@@ -129,7 +131,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		}
 	}
 
-	if err := i.addPacketTrap(appChain, netChain, ipAddress, containerInfo.Policy.TriremeNetworks()); err != nil {
+	if err := i.addPacketTrap(appChain, netChain, ipAddress); err != nil {
 		return err
 	}
 
@@ -200,7 +202,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	if err := i.addPacketTrap(appChain, netChain, ipAddress, containerInfo.Policy.TriremeNetworks()); err != nil {
+	if err := i.addPacketTrap(appChain, netChain, ipAddress); err != nil {
 		return err
 	}
 

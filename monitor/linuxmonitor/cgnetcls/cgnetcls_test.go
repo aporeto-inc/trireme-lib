@@ -34,7 +34,7 @@ func TestCreategroup(t *testing.T) {
 		t.SkipNow()
 	}
 
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController()
 	err := cg.Creategroup(testcgroupname)
 	defer cleanupnetclsgroup()
 
@@ -91,7 +91,7 @@ func TestCreategroup(t *testing.T) {
 }
 
 func TestAssignMark(t *testing.T) {
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController()
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
@@ -129,7 +129,7 @@ func TestAddProcess(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController()
 	//AddProcess to a non-existent group
 	err := cg.AddProcess(testcgroupname, os.Getpid())
 	if err == nil {
@@ -172,7 +172,7 @@ func TestRemoveProcess(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController()
 	//Removing process from non-existent group
 	err := cg.RemoveProcess(testcgroupname, 1)
 	if err == nil {
@@ -198,7 +198,7 @@ func TestDeleteCgroup(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController()
 	//Removing process from non-existent group
 	err := cg.DeleteCgroup(testcgroupname)
 	if err != nil {
@@ -219,7 +219,7 @@ func TestDeleteBasePath(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController()
 	//Removing process from non-existent group
 	err := cg.DeleteCgroup(testcgroupname)
 	defer cleanupnetclsgroup()

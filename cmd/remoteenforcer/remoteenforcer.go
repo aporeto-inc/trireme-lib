@@ -1,15 +1,38 @@
-// +build darwin !linux
-
 package remoteenforcer
 
 import (
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	"container/list"
+	"crypto/ecdsa"
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+	"os/user"
+	"strconv"
+	"sync"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer"
+	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
+	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-<<<<<<< HEAD
+const (
+	ipcProtocol         = "unix"
+	defaultPath         = "/var/run/default.sock"
+	statsContextID      = "UNUSED"
+	defaultTimeInterval = 1
+	envStatsChannelPath = "STATSCHANNEL_PATH"
+	envSocketPath       = "SOCKET_PATH"
+)
+
 //CollectorImpl : This is a local implementation for the collector interface
 // It has a flow entries cache which contains unique flows that are reported back to the
 //controller/launcher process
@@ -419,16 +442,10 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 		"gid":      userDetails.Gid,
 		"username": userDetails.Username,
 	}).Info("Enforcer user id")
-=======
-// Server is a fake implementation for building on darwin.
-type Server struct{}
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 
-// EnforcerExit is a fake implementation for building on darwin.
-func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error { return nil }
+	rpchdl.StartServer("unix", namedPipe, server)
 
-// NewServer is a fake implementation for building on darwin.
-func NewServer(service enforcer.PacketProcessor, rpcchan string, secret string) *Server { return nil }
+	server.EnforcerExit(rpcwrapper.Request{}, nil)
 
-// LaunchRemoteEnforcer is a fake implementation for building on darwin.
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) {}
+	os.Exit(0)
+}

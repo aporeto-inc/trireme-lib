@@ -1,6 +1,9 @@
 package collector
 
-import "github.com/aporeto-inc/trireme/policy"
+import (
+	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/policy"
+)
 
 const (
 	// FlowReject indicates that a flow was rejected
@@ -44,31 +47,9 @@ const (
 // EventCollector is the interface for collecting events.
 type EventCollector interface {
 
-	// CollectFlowEvent collect a  flow event.
-	CollectFlowEvent(record *FlowRecord)
+	// CollectFlowEvent collects flow events.
+	CollectFlowEvent(contextID string, tags *policy.TagsMap, action string, mode string, sourceID string, tcpPacket *packet.Packet)
 
-	// CollectContainerEvent collects a container events
-	CollectContainerEvent(record *ContainerRecord)
-}
-
-// FlowRecord describes a flow record for statistis
-type FlowRecord struct {
-	ContextID       string
-	Count           int
-	SourceID        string
-	DestinationID   string
-	SourceIP        string
-	DestinationIP   string
-	DestinationPort uint16
-	Tags            *policy.TagsMap
-	Action          string
-	Mode            string
-}
-
-// ContainerRecord is a statistics record for a container
-type ContainerRecord struct {
-	ContextID string
-	IPAddress string
-	Tags      *policy.TagsMap
-	Event     string
+	// CollectContainerEvent collects container events.
+	CollectContainerEvent(contextID string, ip string, tags *policy.TagsMap, event string)
 }

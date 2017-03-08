@@ -176,7 +176,6 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 //   - PU is in host namespace.
 //   - Policy got the AllowAll tag.
 func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
-<<<<<<< HEAD
 
 	if containerInfo.Policy.TriremeAction == policy.AllowAll {
 		log.WithFields(log.Fields{
@@ -200,33 +199,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"error":     err.Error(),
 		}).Debug("Cannot retrieve runtimeInfo from the cache")
 		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.ContainerFailed)
-=======
-
-	if containerInfo.Policy.TriremeAction == policy.AllowAll {
-		log.WithFields(log.Fields{
-			"package":   "trireme",
-			"contextID": contextID,
-		}).Debug("PUPolicy with AllowAll Action. Not policing.")
-		return false
-	}
-
-	return true
-}
-
-func (t *trireme) doHandleCreate(contextID string) error {
-
-	// Retrieve the container runtime information from the cache
-	cachedElement, err := t.cache.Get(contextID)
-	if err != nil {
-
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
-		})
-
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		return fmt.Errorf("Couldn't get the runtimeInfo from the cache %s", err)
 	}
 
@@ -235,7 +207,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 
 	if err != nil {
-<<<<<<< HEAD
 		log.WithFields(log.Fields{
 			"package":     "trireme",
 			"contextID":   contextID,
@@ -243,20 +214,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"error":       err.Error(),
 		}).Debug("Error returned when resolving the policy")
 		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.ContainerFailed)
-=======
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
-		})
-
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		return fmt.Errorf("Policy Error for this context: %s. Container killed. %s", contextID, err)
 	}
 
 	if policyInfo == nil {
-<<<<<<< HEAD
 		log.WithFields(log.Fields{
 			"package":     "trireme",
 			"contextID":   contextID,
@@ -264,15 +225,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			"error":       err.Error(),
 		}).Debug("Nil policy returned when resolving the context")
 		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.ContainerFailed)
-=======
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
-		})
-
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
 
@@ -286,45 +238,24 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	addTransmitterLabel(contextID, containerInfo)
 
 	if !mustEnforce(contextID, containerInfo) {
-<<<<<<< HEAD
 		t.collector.CollectContainerEvent(contextID, ip, containerInfo.Policy.Annotations(), collector.ContainerIgnored)
-=======
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerIgnored,
-		})
-
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		return nil
 	}
 
 	if err := t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
 
-<<<<<<< HEAD
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
 			"error":     err.Error(),
 		}).Debug("Not able to setup enforcer")
 		t.collector.CollectContainerEvent(contextID, ip, policyInfo.Annotations(), collector.ContainerFailed)
-=======
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerFailed,
-		})
-
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 
 	if err := t.supervisors[containerInfo.Runtime.PUType()].Supervise(contextID, containerInfo); err != nil {
 		t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
 
-<<<<<<< HEAD
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
@@ -335,49 +266,25 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	t.collector.CollectContainerEvent(contextID, ip, containerInfo.Policy.Annotations(), collector.ContainerStart)
-=======
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerFailed,
-		})
-
-		return fmt.Errorf("Not able to setup supervisor: %s", err)
-	}
-
-	t.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: ip,
-		Tags:      containerInfo.Policy.Annotations(),
-		Event:     collector.ContainerStart,
-	})
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 
 	return nil
 }
 
 func (t *trireme) doHandleDelete(contextID string) error {
+	log.WithFields(log.Fields{
+		"package":   "trireme",
+		"contextID": contextID,
+	}).Debug("Started HandleDelete")
 
 	runtime, err := t.PURuntime(contextID)
 
 	if err != nil {
-<<<<<<< HEAD
 		log.WithFields(log.Fields{
 			"package":   "trireme",
 			"contextID": contextID,
 			"error":     err.Error(),
 		}).Debug("Error when getting runtime out of cache for ContextID")
 		t.collector.CollectContainerEvent(contextID, "N/A", nil, collector.UnknownContainerDelete)
-=======
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.UnknownContainerDelete,
-		})
-
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s : %s", contextID, err)
 	}
 
@@ -389,7 +296,6 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	t.cache.Remove(contextID)
 
 	if errS != nil || errE != nil {
-<<<<<<< HEAD
 		log.WithFields(log.Fields{
 			"package":         "trireme",
 			"contextID":       contextID,
@@ -401,25 +307,6 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	}
 
 	t.collector.CollectContainerEvent(contextID, ip, nil, collector.ContainerDelete)
-=======
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      nil,
-			Event:     collector.ContainerDelete,
-		})
-
-		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
-	}
-
-	t.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: ip,
-		Tags:      nil,
-		Event:     collector.ContainerDelete,
-	})
-
->>>>>>> 9bc878e4b477ba6069afe7247dba88b8f2ba8f83
 	return nil
 }
 
@@ -439,9 +326,19 @@ func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 
+	log.WithFields(log.Fields{
+		"package":   "trireme",
+		"contextID": contextID,
+	}).Debug("Start to update a policy")
+
 	runtimeInfo, err := t.PURuntime(contextID)
 
 	if err != nil {
+		log.WithFields(log.Fields{
+			"package":   "trireme",
+			"contextID": contextID,
+			"error":     err.Error(),
+		}).Debug("Policy Update failed because couldn't find runtime for contextID")
 		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)
 	}
 
@@ -478,12 +375,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	ip, _ := newPolicy.DefaultIPAddress()
-	t.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: ip,
-		Tags:      containerInfo.Runtime.Tags(),
-		Event:     collector.ContainerUpdate,
-	})
+	t.collector.CollectContainerEvent(contextID, ip, containerInfo.Runtime.Tags(), collector.ContainerUpdate)
 
 	return nil
 }

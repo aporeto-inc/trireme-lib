@@ -26,6 +26,7 @@ import (
 // NewTriremeLinuxProcess instantiates Trireme for a Linux process implementation
 func NewTriremeLinuxProcess(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -49,6 +50,7 @@ func NewTriremeLinuxProcess(
 	s, err := supervisor.NewSupervisor(
 		eventCollector,
 		enforcers[constants.LinuxProcessPU],
+		networks,
 		constants.LocalServer,
 		constants.IPTables,
 	)
@@ -69,6 +71,7 @@ func NewTriremeLinuxProcess(
 // main namespace
 func NewLocalTriremeDocker(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -93,6 +96,7 @@ func NewLocalTriremeDocker(
 	s, err := supervisor.NewSupervisor(
 		eventCollector,
 		enforcers[constants.ContainerPU],
+		networks,
 		constants.LocalContainer,
 		impl,
 	)
@@ -112,6 +116,7 @@ func NewLocalTriremeDocker(
 // NewDistributedTriremeDocker instantiates Trireme using remote enforcers on
 // the container namespaces
 func NewDistributedTriremeDocker(serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -135,7 +140,7 @@ func NewDistributedTriremeDocker(serverID string,
 			rpcwrapper),
 	}
 
-	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[0], rpcwrapper)
+	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[0], networks, rpcwrapper)
 
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -152,6 +157,7 @@ func NewDistributedTriremeDocker(serverID string,
 // The Docker enforcers are remote
 func NewHybridTrireme(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -175,6 +181,7 @@ func NewHybridTrireme(
 	containerSupervisor, cerr := supervisorproxy.NewProxySupervisor(
 		eventCollector,
 		containerEnforcer,
+		networks,
 		rpcwrapper)
 
 	if cerr != nil {
@@ -195,6 +202,7 @@ func NewHybridTrireme(
 	processSupervisor, perr := supervisor.NewSupervisor(
 		eventCollector,
 		processEnforcer,
+		networks,
 		constants.LocalServer,
 		constants.IPTables,
 	)
@@ -240,6 +248,7 @@ func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) tokens.Secrets {
 // compatibility. Will be removed
 func NewPSKTriremeWithDockerMonitor(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -263,6 +272,7 @@ func NewPSKTriremeWithDockerMonitor(
 	if remoteEnforcer {
 		triremeInstance = NewDistributedTriremeDocker(
 			serverID,
+			networks,
 			resolver,
 			processor,
 			eventCollector,
@@ -271,6 +281,7 @@ func NewPSKTriremeWithDockerMonitor(
 	} else {
 		triremeInstance = NewLocalTriremeDocker(
 			serverID,
+			networks,
 			resolver,
 			processor,
 			eventCollector,
@@ -297,6 +308,7 @@ func NewPSKTriremeWithDockerMonitor(
 // certificates will not be transmitted on the wire
 func NewPKITriremeWithDockerMonitor(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -322,6 +334,7 @@ func NewPKITriremeWithDockerMonitor(
 	if remoteEnforcer {
 		triremeInstance = NewDistributedTriremeDocker(
 			serverID,
+			networks,
 			resolver,
 			processor,
 			eventCollector,
@@ -330,6 +343,7 @@ func NewPKITriremeWithDockerMonitor(
 	} else {
 		triremeInstance = NewLocalTriremeDocker(
 			serverID,
+			networks,
 			resolver,
 			processor,
 			eventCollector,
@@ -355,6 +369,7 @@ func NewPKITriremeWithDockerMonitor(
 // compatibility. Will be removed
 func NewPSKHybridTriremeWithMonitor(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -374,6 +389,7 @@ func NewPSKHybridTriremeWithMonitor(
 
 	triremeInstance := NewHybridTrireme(
 		serverID,
+		networks,
 		resolver,
 		processor,
 		eventCollector,
@@ -389,6 +405,7 @@ func NewPSKHybridTriremeWithMonitor(
 		syncAtStart,
 		nil,
 	)
+
 	// use rpcmonitor no need to return it since no other consumer for it
 	rpcmon, _ := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
@@ -397,7 +414,7 @@ func NewPSKHybridTriremeWithMonitor(
 	)
 
 	// configure a LinuxServices processor for the rpc monitor
-	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
+	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor)
 	rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor)
 
 	return triremeInstance, monitorDocker, rpcmon, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)

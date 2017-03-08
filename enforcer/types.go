@@ -2,6 +2,7 @@ package enforcer
 
 import (
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
+	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -77,7 +78,6 @@ type FilterQueue struct {
 // PUContext holds data indexed by the docker ID
 type PUContext struct {
 	ID             string
-	ManagementID   string
 	Identity       *policy.TagsMap
 	Annotations    *policy.TagsMap
 	acceptTxtRules *lookup.PolicyDB
@@ -85,6 +85,16 @@ type PUContext struct {
 	acceptRcvRules *lookup.PolicyDB
 	rejectRcvRules *lookup.PolicyDB
 	Extension      interface{}
+}
+
+// StatsPayload holds the payload for statistics
+type StatsPayload struct {
+	ContextID string
+	Tags      *policy.TagsMap
+	Action    string
+	Mode      string
+	Source    string
+	Packet    *packet.Packet
 }
 
 // DualHash is a record of app and net hash

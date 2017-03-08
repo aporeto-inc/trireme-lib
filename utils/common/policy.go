@@ -10,13 +10,12 @@ import (
 
 // CustomPolicyResolver is a simple policy engine
 type CustomPolicyResolver struct {
-	triremeNets []string
 }
 
 // NewCustomPolicyResolver creates a new example policy engine for the Trireme package
-func NewCustomPolicyResolver(networks []string) *CustomPolicyResolver {
+func NewCustomPolicyResolver() *CustomPolicyResolver {
 
-	return &CustomPolicyResolver{triremeNets: networks}
+	return &CustomPolicyResolver{}
 }
 
 // ResolvePolicy implements the Trireme interface. Here we just create a simple
@@ -44,18 +43,6 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 			Protocol: "TCP",
 			Action:   policy.Accept,
 		},
-		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Port:     "",
-			Protocol: "icmp",
-			Action:   policy.Accept,
-		},
-		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Port:     "53",
-			Protocol: "udp",
-			Action:   policy.Accept,
-		},
 	})
 
 	// Allow access to container from localhost
@@ -64,12 +51,6 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 			Address:  "172.17.0.1/32",
 			Port:     "80",
 			Protocol: "TCP",
-			Action:   policy.Accept,
-		},
-		policy.IPRule{
-			Address:  "0.0.0.0/0",
-			Port:     "",
-			Protocol: "icmp",
 			Action:   policy.Accept,
 		},
 	})
@@ -84,7 +65,7 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	annotations := runtimeInfo.Tags()
 
-	containerPolicyInfo := policy.NewPUPolicy(context, policy.Police, ingress, egress, nil, tagSelectors, identity, annotations, ipl, p.triremeNets, nil)
+	containerPolicyInfo := policy.NewPUPolicy(context, policy.Police, ingress, egress, nil, tagSelectors, identity, annotations, ipl, nil)
 
 	return containerPolicyInfo, nil
 }

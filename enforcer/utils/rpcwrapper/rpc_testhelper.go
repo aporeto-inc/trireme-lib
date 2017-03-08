@@ -32,6 +32,6 @@ func startClient(channel string) (*rpc.Client, error) {
 }
 
 func asyncRpcclient(channel string, resp chan<- error, rpchdl *RPCWrapper) {
-	err := rpchdl.NewRPCClient("12345", defaultchannel, "mysecret")
+	err := rpchdl.NewRPCClient("12345", defaultchannel)
 	resp <- err
 }
