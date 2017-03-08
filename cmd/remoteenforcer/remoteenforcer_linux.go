@@ -1,4 +1,4 @@
-// +build linux !darwin
+// +build linux
 
 package remoteenforcer
 
@@ -306,7 +306,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 
 	secret := os.Getenv(envSecret)
 
-  if len(secret) == 0 {
+	if len(secret) == 0 {
 		os.Exit(-1)
 	}
 
