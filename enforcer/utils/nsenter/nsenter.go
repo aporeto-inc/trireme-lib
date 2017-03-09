@@ -1,4 +1,4 @@
-// +build darwin !linux
+// +build !linux
 
 //Package nsenter for switching namespaces
 package nsenter

@@ -1,4 +1,4 @@
-// +build linux,!darwin
+// +build linux
 
 /*
    Copyright 2014 Krishna Raman <kraman@gmail.com>
