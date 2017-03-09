@@ -1,4 +1,4 @@
-// +build linux,!darwin
+// +build linux,!darwin,!windows
 
 //Package cgnetcls implements functionality to manage classid for processes belonging to different cgroups
 package cgnetcls
