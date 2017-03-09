@@ -93,7 +93,7 @@ type SuperviseRequestPayload struct {
 	ReceiverRules    *policy.TagSelectorList
 	TransmitterRules *policy.TagSelectorList
 	PuPolicy         *policy.PUPolicy
-	ExcludedIP       []string
+	ExcludedIPs      []string
 	TriremeNetworks  []string
 }
 
@@ -134,5 +134,5 @@ type StatsPayload struct {
 
 //ExcludeIPRequestPayload carries the list of excluded ips
 type ExcludeIPRequestPayload struct {
-	Ip []string
+	IPs []string
 }

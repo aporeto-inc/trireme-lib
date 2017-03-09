@@ -22,7 +22,7 @@ type mockedMethods struct {
 	ContextListMock      func() []string
 }
 
-// TestRPCClient
+// TestRPCClient is a RPC Client used for test
 type TestRPCClient interface {
 	RPCClient
 	MockNewRPCClient(t *testing.T, impl func(contextID string, channel string, secret string) error)
@@ -32,7 +32,7 @@ type TestRPCClient interface {
 	MockContextList(t *testing.T, impl func() []string)
 }
 
-// TestRPCServer
+// TestRPCServer is a RPC Server used for test
 type TestRPCServer interface {
 	RPCServer
 	MockStartServer(t *testing.T, impl func(protocol string, path string, handler interface{}) error)
@@ -45,7 +45,7 @@ type testRPC struct {
 	currentTest *testing.T
 }
 
-// NewTestRPCServer
+// NewTestRPCServer is a Test RPC Server
 func NewTestRPCServer() TestRPCServer {
 	return &testRPC{
 		lock:  &sync.Mutex{},
@@ -53,7 +53,7 @@ func NewTestRPCServer() TestRPCServer {
 	}
 }
 
-// NewTestRPCClient
+// NewTestRPCClient is a Test RPC Client
 func NewTestRPCClient() TestRPCClient {
 	return &testRPC{
 		lock:  &sync.Mutex{},
