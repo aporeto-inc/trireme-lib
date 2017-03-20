@@ -92,7 +92,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		"pid":     puInfo.Runtime.Pid(),
 	}).Info("PID of container")
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret)
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), puInfo.Runtime.SandboxKey(), s.rpchdl, s.commandArg, s.statsServerSecret)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,6 @@ func NewProxyEnforcer(mutualAuth bool,
 		}).Error("Failed to generate random secret for stats reporting.Falling back to static secret")
 		//We will use current time as the secret
 		statsServersecret = time.Now().String()
-
 
 	}
 	proxydata := &proxyInfo{

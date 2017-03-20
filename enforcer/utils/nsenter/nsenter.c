@@ -12,19 +12,27 @@
 void nsexec(void){
   char *path = NULL;
   char *str = getenv("CONTAINER_PID");
+  char *sandboxkey = getenv("SANDBOX_KEY");
   int fd =0;
-  if(str == NULL){
-    //We are not running as remote enforcer
-    return;
+  if(sandboxkey == NULL){
+    if(str == NULL){
+      //We are not running as remote enforcer
+      return;
+    }
+    int path_len = strlen("/proc/") + strlen(str) + strlen("/ns/net");
+    path = calloc(1,path_len+1);
+    snprintf(path,path_len+1,"/proc/%s/ns/net",str);
+    fd = open(path,O_RDONLY);
+    int retval = setns(fd,0);
+    if(retval < 0){
+      setenv("NSENTER_ERROR_STATE",strerror(errno),1);
+    }
+    free(path);
+  }else{
+    fd = open(sandboxkey,O_RDONLY);
+    int retval = setns(fd,0);
+    if(retval < 0){
+      setenv("NSENTER_ERROR_STATE",strerror(errno),1);
+    }
   }
-  int path_len = strlen("/proc/") + strlen(str) + strlen("/ns/net");
-  path = calloc(1,path_len+1);
-  snprintf(path,path_len+1,"/proc/%s/ns/net",str);
-  fd = open(path,O_RDONLY);
-  int retval = setns(fd,0);
-  if(retval < 0){
-    setenv("NSENTER_ERROR_STATE",strerror(errno),1);
-  }
-  free(path);
-
 }

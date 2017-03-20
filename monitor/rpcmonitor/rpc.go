@@ -276,5 +276,5 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
+	return policy.NewPURuntime(event.Name, "", runtimePID, runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
 }

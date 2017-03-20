@@ -17,6 +17,8 @@ type PURuntime struct {
 	pid int
 	// Name is the name of the container
 	name string
+	// Sandbox key
+	sandboxKey string
 	// IPAddress is the IP Address of the container
 	ips *IPMap
 	// Tags is a map of the metadata of the container
@@ -33,6 +35,8 @@ type PURuntimeJSON struct {
 	Pid int
 	// Name is the name of the container
 	Name string
+	// Sandbox key
+	sandboxKey string
 	// IPAddress is the IP Address of the container
 	IPAddresses *IPMap
 	// Tags is a map of the metadata of the container
@@ -42,7 +46,7 @@ type PURuntimeJSON struct {
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType constants.PUType, options *TagsMap) *PURuntime {
+func NewPURuntime(name string, sandboxkey string, pid int, tags *TagsMap, ips *IPMap, puType constants.PUType, options *TagsMap) *PURuntime {
 
 	t := tags
 	if t == nil {
@@ -67,13 +71,14 @@ func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType consta
 		options:        o,
 		pid:            pid,
 		name:           name,
+		sandboxKey:     sandboxkey,
 	}
 }
 
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, nil, nil, constants.ContainerPU, nil)
+	return NewPURuntime("", "", 0, nil, nil, constants.ContainerPU, nil)
 }
 
 // Clone returns a copy of the policy
@@ -81,7 +86,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone(), r.puType, r.options)
+	return NewPURuntime(r.name, r.sandboxKey, r.pid, r.tags.Clone(), r.ips.Clone(), r.puType, r.options)
 }
 
 // MarshalJSON Marshals this struct.
@@ -102,11 +107,16 @@ func (r *PURuntime) UnmarshalJSON(param []byte) error {
 	json.Unmarshal(param, &a)
 	r.pid = a.Pid
 	r.name = a.Name
+	r.sandboxKey = a.sandboxKey
 	r.ips = a.IPAddresses
 	r.tags = a.Tags
 	r.options = a.Options
 	r.puType = a.PUType
 	return nil
+}
+
+func (r *PURuntime) SandboxKey() string {
+	return r.sandboxKey
 }
 
 // Pid returns the PID
