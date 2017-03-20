@@ -11,7 +11,8 @@ import (
 
 func TestLaunchProcess(t *testing.T) {
 	//Will use refPid to be 1 (init) guaranteed to be there
-	//Normal case should launch a process
+	//Will use sandboxkey as /proc/1/ns/net
+	sandboxkey := "/proc/1/ns/net"
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	p := newProcessMon()
 	contextID := "12345"
@@ -19,7 +20,31 @@ func TestLaunchProcess(t *testing.T) {
 	dir, _ := os.Getwd()
 	p.SetnsNetPath("/tmp/")
 	setprocessname("cat") // Cat will block and should be present on all linux
-	err := p.LaunchProcess(contextID, refPid, "", rpchdl, "", "mysecret")
+	err := p.LaunchProcess(contextID, refPid, sandboxkey, rpchdl, "", "mysecret")
+	if err != nil {
+		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
+		t.SkipNow()
+	}
+	//Trying to launch in the same context should suceed
+	err = p.LaunchProcess(contextID, refPid, "", rpchdl, "", "mysecret")
+	if err != nil {
+		t.Errorf("TEST:Launch Process Fails to launch a process")
+	}
+	//Cleanup
+	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
+		return errors.New("Null Error")
+	})
+	p.KillProcess(contextID)
+
+	//Normal case should launch a process
+	rpchdl = rpcwrapper.NewTestRPCClient()
+	p = newProcessMon()
+	contextID = "12345"
+	refPid = 1
+	dir, _ = os.Getwd()
+	p.SetnsNetPath("/tmp/")
+	setprocessname("cat") // Cat will block and should be present on all linux
+	err = p.LaunchProcess(contextID, refPid, "", rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
 		t.SkipNow()
