@@ -9,9 +9,13 @@ Welcome to Trireme, an open-source library curated by Aporeto to provide segment
 
 Trireme supports both containers and Linux Processes and allows security policy enforcement between any of these entities.
 
-# TL;DR
+# Evaluate Trireme now
 
-To get started and try it out for yourself,  [we packaged a simple example into a docker container. ](https://github.com/aporeto-inc/trireme-example)
+You can try out Trireme quickly via one of these methods:
+
+* [Trireme as a Docker container](https://github.com/aporeto-inc/trireme-example)
+* [Trireme as a Kubernetes daemonset](https://github.com/aporeto-inc/trireme-kubernetes/tree/integrations/deployment)
+* [Trireme as a Kubernetes daemonset in Red Hat OpenShift](https://github.com/aporeto-inc/trireme-kubernetes/tree/integrations/deployment/OpenShift)
 
 # Description
 
