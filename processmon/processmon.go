@@ -176,7 +176,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, sandboxKey string, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string) error {
 	secretLength := 32
 	var cmdName string
 
@@ -196,12 +196,22 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	}
 
 	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
-		linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
-			netnspath+contextID)
-		if linkErr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": linkErr,
-			}).Error(ErrSymLinkFailed)
+		if len(sandboxKey) > 0 {
+			linkErr := os.Symlink(sandboxKey,
+				netnspath+contextID)
+			if linkErr != nil {
+				log.WithFields(log.Fields{"package": "ProcessMon",
+					"error": linkErr,
+				}).Error(ErrSymLinkFailed)
+			}
+		} else {
+			linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
+				netnspath+contextID)
+			if linkErr != nil {
+				log.WithFields(log.Fields{"package": "ProcessMon",
+					"error": linkErr,
+				}).Error(ErrSymLinkFailed)
+			}
 		}
 	}
 	namedPipe := "SOCKET_PATH=/var/run/" + contextID + ".sock"
@@ -237,8 +247,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	}
 	rpcClientSecret := "SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
-
-	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+	envsandboxKey := "SANDBOX_KEY=" + sandboxKey
+	cmd.Env = append(os.Environ(), []string{namedPipe, envsandboxKey, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 
 	err = cmd.Start()
 	if err != nil {
