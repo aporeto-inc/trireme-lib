@@ -57,5 +57,5 @@ func exampleExternalDockerMetadataExtractor(info *types.ContainerJSON) (*policy.
 	ipa := policy.NewIPMap(map[string]string{
 		"bridge": info.NetworkSettings.IPAddress,
 	})
-	return policy.NewPURuntime(info.Name, info.State.Pid, tagsMap, ipa, constants.ContainerPU, nil), nil
+	return policy.NewPURuntime(info.Name, info.NetworkSettings.SandboxKey, info.State.Pid, tagsMap, ipa, constants.ContainerPU, nil), nil
 }
