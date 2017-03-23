@@ -155,9 +155,7 @@ func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket
 	optionval, ok := tcpPacket.TCPOptionData(packet.TCPFastopenCookieEXP)
 
 	if ok {
-		if len(optionval) > 2 {
-			//We have a valid cookie do nothing
-		} else {
+		if len(optionval) <= 2 {
 			tcpPacket.SetTCPOptionData(packet.TCPFastopenCookieEXP, options)
 		}
 	} else {
