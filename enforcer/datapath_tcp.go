@@ -133,9 +133,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 
 	// Accept the packet
 	d.appTCP.OutgoingPackets++
-	fmt.Println("#$%#$%#$%#$", len(p.Buffer))
-	fmt.Println("#$%#$%#$% OPTIONS ", len(p.AppendOption([]byte{})))
-	fmt.Println("#$%#$%#$% DATA ", len(p.GetTCPData()))
+
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 	return nil
@@ -455,7 +453,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// metadata any more.
 	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
 	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
-	if err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.AppendOption([]byte{})))); err != nil {
+	if err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.GetTCPOptions()))); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 			"txLabel": txLabel,
@@ -591,7 +589,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.IncreaseTCPSeq(tcpDataLen - 1)
 	tcpPacket.IncreaseTCPAck(d.ackSize)
 
-	if err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.AppendOption([]byte{})))); err != nil {
+	if err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.GetTCPOptions()))); err != nil {
 		log.WithFields(log.Fields{
 			"package": "enforcer",
 		}).Debug("SynAck packet dropped because of invalid format")
@@ -648,14 +646,8 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	// Validate that the source/destination nonse matches. The signature has validated both directions
 	if connection.State == TCPSynAckSend {
 
-		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Error("TCP Authentication Option not found")
-
-			d.collector.CollectFlowEvent(context.ID, context.Annotations, collector.FlowReject, collector.InvalidFormat, "", tcpPacket)
-			return nil, fmt.Errorf("TCP Authentication Option not found")
-		}
+		//The auth option we use now is the fast open option which is not valid for packet where the SYN flag is not set
+		//We don't expect to see it here on an ACK packet
 
 		if _, err := d.parseAckToken(&connection.Auth, tcpPacket.GetTCPData()); err != nil {
 			log.WithFields(log.Fields{
@@ -674,7 +666,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		// Remove any of our data
 		tcpPacket.IncreaseTCPSeq(d.ackSize)
-		err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.AppendOption([]byte{}))))
+		err := tcpPacket.TCPDataDetach(uint16(len(tcpPacket.GetTCPOptions())))
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -758,62 +750,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 }
 
 func (d *datapathEnforcer) ProcessTCPFastOpen(tcpPacket *packet.Packet) error {
-	/*
-		var cacheKey string
-		if tcpPacket.GetProcessingStage() == packet.PacketTypeApplication {
-			cacheKey = tcpPacket.DestinationAddress.String()
-		} else {
-			cacheKey = tcpPacket.SourceAddress.String()
-		}
-		//Lets update the fast open cookie cache here
-		optionval, present := tcpPacket.TCPOptionData(packet.TCPFastopenCookie)
-
-		if present { //option is present on the packet
-			fmt.Println("%%%%%%%%%%%%%%%%%%%%%%%%%%")
-			fmt.Println("Processing Stage", tcpPacket.GetProcessingStage())
-			fmt.Println("IP Address", tcpPacket.DestinationAddress.String())
-			fmt.Println("Found Fast Open option with cookie $$$$", optionval)
-			fmt.Println("%%%%%%%%%%%%%%%%%%%%%%%%%%")
-			//We have a cookie in the syn packet going out
-			//Check if we have seen this before if we have not drop the packet
-			//The stack will retry with tcp fast open disabled
-
-			if len(optionval) > 0 { //option is not empty. We should have seen this cookie before
-
-				val, err := d.foCookieTracker.Get(cacheKey)
-				//We have an unexpired cookie in our cache and client is sending a different cookie. Drop this packet
-				if err != nil {
-					return fmt.Errorf("Invalid fast open cookie")
-				} else if err == nil && bytes.Compare(val.([]byte), optionval) != 0 {
-					fmt.Println("Expect cookie val", val.([]byte))
-					fmt.Println("Got Cookie ", optionval)
-					return fmt.Errorf("Fast open cookie different")
-				} else {
-					//We have a valid cookie let this packet through
-					if tcpPacket.GetProcessingStage() == packet.PacketTypeNetwork {
-						//We received a packet from the network where the cookie does nto match.
-						if len(val.([]byte)) == 0 {
-							d.foCookieTracker.AddOrUpdate(cacheKey, optionval)
-						} else {
-
-						}
-					}
-					return nil
-				}
-
-			} else { //(len(optionval) ==  0
-				//we have an empty cookie being sent just create a record in our cache and let it go
-				d.foCookieTracker.Add(cacheKey, optionval)
-
-			}
-
-		} else {
-			//If we are in network and the server did not respond with fast option enabled clear the cache for this entry. This server does not support fast open
-			if tcpPacket.GetProcessingStage() == packet.PacketTypeNetwork {
-				d.foCookieTracker.Remove(cacheKey)
-			}
-		}
-		//The option is not present on the packet do nothing
-	*/
+	//Unimplemented will be implemented in following checkin.
+	//Placeholder
 	return nil
 }

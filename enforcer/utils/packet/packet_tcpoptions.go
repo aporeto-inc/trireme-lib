@@ -6,6 +6,9 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"io"
+	"net"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type TCPOptions byte
@@ -185,28 +188,25 @@ func (p *Packet) SetTCPOptionData(option TCPOptions, data []byte) {
 	}
 }
 
-func (p *Packet) AppendOption(data []byte) []byte {
-	return p.L4TCPPacket.tcpOptions //= append(p.L4TCPPacket.tcpOptions, data...)
-}
 func (p *Packet) GenerateTCPFastOpenCookie() []byte {
 	var binSourceIp, binDestIp uint32
 	var byteSourceIp, byteDestIp []byte
-	key := make([]byte, 16)
+	key := make([]byte, net.IPv6len)
 	rand.Read(key)
-	if len(p.SourceAddress) == 16 {
+	if len(p.SourceAddress) == net.IPv6len {
 		binSourceIp = binary.BigEndian.Uint32(p.SourceAddress[12:16])
 
 	} else {
 		binSourceIp = binary.BigEndian.Uint32(p.SourceAddress)
 	}
-	byteSourceIp = make([]byte, 4)
+	byteSourceIp = make([]byte, net.IPv4len)
 	binary.BigEndian.PutUint32(byteSourceIp, binSourceIp)
-	if len(p.SourceAddress) == 16 {
+	if len(p.SourceAddress) == net.IPv6len {
 		binDestIp = binary.BigEndian.Uint32(p.DestinationAddress[12:16])
 	} else {
 		binDestIp = binary.BigEndian.Uint32(p.DestinationAddress)
 	}
-	byteDestIp = make([]byte, 4)
+	byteDestIp = make([]byte, net.IPv4len)
 	binary.BigEndian.PutUint32(byteDestIp, binDestIp)
 	//path := []uint32{binSourceIp, binDestIp, 0, 0}
 	block, _ := aes.NewCipher(key)
@@ -227,15 +227,16 @@ func (p *Packet) GenerateTCPFastOpenCookie() []byte {
 
 //WalkTCPOption :: debug function
 func (p *Packet) WalkTCPOptions() {
-	// fmt.Println("************************")
-	// for key, val := range p.L4TCPPacket.optionsMap {
-	// 	fmt.Println("$$$$$$$$$")
-	// 	fmt.Println(key)
-	// 	fmt.Println(val.length)
-	// 	fmt.Println(val.data)
-	// 	fmt.Println("$$$$$$$$$")
-	// }
-	// fmt.Println("************************")
+
+	for key, val := range p.L4TCPPacket.optionsMap {
+		log.WithFields(log.Fields{
+			"package": "packet::WalkTCPOption",
+			"Option":  key,
+			"Length":  val.length,
+			"Data":    val.data,
+		}).Debug("TCP Option List")
+	}
+
 }
 
 func (p *Packet) TCPDataOffset() uint8 {

@@ -2,11 +2,7 @@ package enforcer
 
 // Go libraries
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/binary"
-	"encoding/gob"
 	"fmt"
 	"net"
 	"strings"
@@ -260,14 +256,7 @@ func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *polic
 	puContext.acceptTxtRules, puContext.rejectTxtRules = createRuleDB(containerInfo.Policy.TransmitterRules())
 	puContext.Identity = containerInfo.Policy.Identity()
 	puContext.Annotations = containerInfo.Policy.Annotations()
-	if len(puContext.serviceID) == 0 {
-		var buf bytes.Buffer
-		enc := gob.NewEncoder(&buf)
-		enc.Encode(puContext.Identity)
-		shahash := sha256.New()
-		shahash.Write(buf.Bytes())
-		puContext.serviceID = base64.URLEncoding.EncodeToString(shahash.Sum(nil))
-	}
+
 	return nil
 }
 
@@ -516,7 +505,19 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	}, d.filterQueue.MarkValue)
 
 }
+func (d *datapathEnforcer) createTokenTLV(tokenType byte) []byte {
+	return []byte{tokenType, 0x0, 0x0}
+}
 
+func (d *datapathEnforcer) parseTokenTLV(token []byte) (byte, [][]byte) {
+	tokens := make([][]byte, 2)
+	if token[0] == 0x1 {
+		length := binary.LittleEndian.Uint16(token[1:])
+		tokens[0] = token[3:length]
+		return token[0], tokens
+	}
+	return 0x1, [][]byte{}
+}
 func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, auth *AuthInfo) []byte {
 
 	claims := &tokens.ConnectionClaims{
@@ -527,7 +528,7 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 	if !ackToken {
 		claims.T = context.Identity
 	}
-	token := []byte{0x1, 0x0, 0x0}
+	token := d.createTokenTLV(1)
 	signedtoken := d.tokenEngine.CreateAndSign(ackToken, claims)
 	token = append(token, signedtoken...)
 	binary.LittleEndian.PutUint16(token[1:], uint16(len(token)))
@@ -537,8 +538,8 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	token := data[3:(binary.LittleEndian.Uint16(data[1:]))]
-	claims, cert := d.tokenEngine.Decode(false, token, auth.RemotePublicKey)
+	_, token := d.parseTokenTLV(data)
+	claims, cert := d.tokenEngine.Decode(false, token[0], auth.RemotePublicKey)
 	if claims == nil {
 		return nil, fmt.Errorf("Cannot decode the token")
 	}

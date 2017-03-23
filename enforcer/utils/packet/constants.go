@@ -8,6 +8,9 @@ const (
 	minIPHdrSize = 20
 
 	minIPHdrWords = (minIPHdrSize / 4)
+
+	//Word Size
+	IPWordSize = 4
 )
 
 // IP Header field position constants
@@ -111,4 +114,6 @@ const (
 	TCPMssOptionLen = uint8(4)
 
 	TCPFastopenCookieBaseLen = uint8(6)
+
+	TCPWordSize = 4
 )
