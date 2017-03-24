@@ -5,7 +5,7 @@
 [![Build Status](https://travis-ci.org/aporeto-inc/trireme.svg?branch=master)](https://travis-ci.org/aporeto-inc/trireme) [![Code Coverage](https://codecov.io/gh/aporeto-inc/trireme/branch/master/graph/badge.svg)](https://codecov.io/gh/aporeto-inc/trireme) [![Twitter URL](https://img.shields.io/badge/twitter-follow-blue.svg)](https://twitter.com/aporeto_trireme) [![Slack URL](https://img.shields.io/badge/slack-join-green.svg)](https://triremehq.slack.com/messages/general/) [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html) [![Documentation](https://img.shields.io/badge/docs-godoc-blue.svg)](https://godoc.org/github.com/aporeto-inc/trireme)
 
 
-Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
+Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme is a Zero-Trust networking library makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
 
 Trireme supports both containers and Linux Processes and allows security policy enforcement between any of these entities.
 
@@ -18,7 +18,7 @@ To get started and try it out for yourself,  [we packaged a simple example into 
 In the Trireme world, a processing unit end-point can be a container, Kubernetes POD, or a general Linux process. We will be referring to processing units as PUs throughout this discussion.
 
 
-The technology behind Trireme is streamlined, elegant, and simple:
+The technology behind Trireme is streamlined, elegant, and simple. It is based on The concepts of Zero-Trust networking:
 
 
 1. The identity is the set of attributes and metadata that describes the container as key/value pairs. Trireme provides an extensible interface for defining these identities. Users can choose customized methods appropriate to their environment for establishing PU identity. For example, in a Kubernetes environment, the identity can be the set of labels identifying a POD.
@@ -36,8 +36,14 @@ Trireme is a node-centric library.  Each node participating in the Trireme clust
 
 [Kubernetes-Integration ] (https://github.com/aporeto-inc/kubernetes-integration) is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
 
+[Bare-Metal-Integration] (https://github.com/aporeto-inc/trireme-bare-metal) is an implementation of Trireme for Kubernetes on-Prem, with a Cumulus agent that allows you to have a very simple networking model (routes are advertised by Cumulus) together with Trireme for policy enforcement.
+
 # Security Model
 
+Trireme is a Zero-Trust networking library. The security model behind Zero-trust networking is:
+* The Network is always untrusted. It doesn't matter if you are inside or outside your enterprise.
+* Every Flow/Connection needs to be authenticated and authorized by the endpoints
+* The network information (IP/Port) is completely irrelevant to the authorization/authentication.
 
 With Trireme, there is no need to define any security rules with IPs, port numbers, or ACLs.   Everything is based on identity attributes; your IP and port allocation scheme is not relevant to Trireme and it is compatible with most underlying networking technologies. The end-to-end authentication and authorization approach is also compatible with NATs and IPv4/IPv6 translations.
 
@@ -112,10 +118,10 @@ type PolicyUpdater interface {
 
 # Prerequisites
 
-* Trireme requires bridged-based networking solutions for which we can redirect traffic to IPTables (Flannel, default docker networks, ...). We are working on a generic solution that allows any traffic backed by any networking vendor to always be redirected from the namespace to IPTables.
-* Trireme requires IPTables with access to the `Raw` and `Mangle` modules.
+* Trireme requires IPTables with access to the `Mangle` module.
 * Trireme requires access to the Docker event API socket (`/var/run/docker.sock` by default)
 * Trireme requires privileged access.
+* Trireme requires to run in the Host PID namespace. 
 
 # License
 
