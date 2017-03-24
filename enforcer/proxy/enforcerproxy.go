@@ -214,7 +214,6 @@ func NewProxyEnforcer(mutualAuth bool,
 		//We will use current time as the secret
 		statsServersecret = time.Now().String()
 
-
 	}
 	proxydata := &proxyInfo{
 		MutualAuth:        mutualAuth,

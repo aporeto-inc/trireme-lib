@@ -4,6 +4,7 @@ package configurator
 
 import (
 	"crypto/ecdsa"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme"
@@ -226,13 +227,13 @@ func NewHybridTrireme(
 }
 
 // NewSecretsFromPSK creates secrets from a pre-shared key
-func NewSecretsFromPSK(key []byte) tokens.Secrets {
-	return tokens.NewPSKSecrets(key)
+func NewSecretsFromPSK(key []byte, validity time.Duration, serverID string) tokens.Secrets {
+	return tokens.NewPSKSecrets(key, validity, serverID)
 }
 
 // NewSecretsFromPKI creates secrets from a PKI
-func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) tokens.Secrets {
-	return tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte, validity time.Duration, serverID string) tokens.Secrets {
+	return tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{}, validity, serverID)
 }
 
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -256,7 +257,7 @@ func NewPSKTriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	secrets := NewSecretsFromPSK(key)
+	secrets := NewSecretsFromPSK(key, time.Hour*8760, serverID)
 
 	var triremeInstance trireme.Trireme
 
@@ -315,7 +316,7 @@ func NewPKITriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{}, time.Hour*8760, serverID)
 
 	var triremeInstance trireme.Trireme
 
@@ -370,7 +371,7 @@ func NewPSKHybridTriremeWithMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	secrets := NewSecretsFromPSK(key)
+	secrets := NewSecretsFromPSK(key, time.Hour*8760, serverID)
 
 	triremeInstance := NewHybridTrireme(
 		serverID,

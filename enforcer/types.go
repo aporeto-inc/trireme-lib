@@ -84,6 +84,7 @@ type PUContext struct {
 	rejectTxtRules *lookup.PolicyDB
 	acceptRcvRules *lookup.PolicyDB
 	rejectRcvRules *lookup.PolicyDB
+	serviceID      string
 	Extension      interface{}
 }
 

@@ -76,7 +76,6 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 			return err
 		}
 	}
-
 	r.contextList = append(r.contextList, contextID)
 	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
@@ -174,12 +173,12 @@ func (r *RPCWrapper) ProcessMessage(req *Request, secret string) bool {
 	return r.CheckValidity(req, secret)
 }
 
-// ContextList returns the list of active context managed by the rpcwrapper
+//GetContextList returns the list of active context managed by the rpcwrapper
 func (r *RPCWrapper) ContextList() []string {
 	return r.contextList
 }
 
-// RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
+//RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
 func RegisterTypes() {
 
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))

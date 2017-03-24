@@ -22,7 +22,7 @@ type mockedMethods struct {
 	stopMock func() error
 
 	//AddExcludedIP adds exlcluded iplist
-	AddExcludedIPsMock func(iplist []string) error
+	AddExcludedIPMock func(iplist []string) error
 }
 
 // TestSupervisor is a test implementation for IptablesProvider
@@ -33,7 +33,7 @@ type TestSupervisor interface {
 	MockUnsupervise(t *testing.T, impl func(contextID string) error)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
-	MockAddExcludedIPs(t *testing.T, impl func(ips []string) error)
+	MockAddExcludedIP(t *testing.T, impl func(ip []string) error)
 }
 
 // A testSupervisor is an empty TransactionalManipulator that can be easily mocked.
@@ -51,8 +51,8 @@ func NewTestSupervisor() *testSupervisor {
 	}
 }
 
-func (m *testSupervisor) MockAddExcludedIPs(t *testing.T, impl func(ip []string) error) {
-	m.currentMocks(t).AddExcludedIPsMock = impl
+func (m *testSupervisor) MockAddExcludedIP(t *testing.T, impl func(ip []string) error) {
+	m.currentMocks(t).AddExcludedIPMock = impl
 }
 func (m *testSupervisor) MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error) {
 
@@ -92,9 +92,9 @@ func (m *testSupervisor) Unsupervise(contextID string) error {
 	return nil
 }
 
-func (m *testSupervisor) AddExcludedIPs(ips []string) error {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.AddExcludedIPsMock != nil {
-		return mock.AddExcludedIPsMock(ips)
+func (m *testSupervisor) AddExcludedIP(ip []string) error {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.unsuperviseMock != nil {
+		return mock.AddExcludedIPMock(ip)
 	}
 	return nil
 }

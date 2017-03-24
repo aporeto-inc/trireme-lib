@@ -61,6 +61,7 @@ func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataEx
 
 	// Use this if you want a pre-shared key implementation
 	return configurator.NewPSKTriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, []byte("THIS IS A BAD PASSWORD"), *extractor, remoteEnforcer)
+
 }
 
 //HybridTriremeWithPSK is a helper method to created a PSK implementation of Trireme
@@ -70,5 +71,7 @@ func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMeta
 
 	pass := []byte("THIS IS A BAD PASSWORD")
 	// Use this if you want a pre-shared key implementation
+
 	return configurator.NewPSKHybridTriremeWithMonitor("Server1", policyEngine, ExternalProcessor, nil, false, pass, *extractor)
+
 }

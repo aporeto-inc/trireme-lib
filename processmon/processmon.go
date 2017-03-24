@@ -184,6 +184,12 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	if err == nil {
 		return nil
 	}
+
+	pidstat, _ := os.Stat("/proc/" + strconv.Itoa(refPid) + "/ns/net")
+	hoststat, _ := os.Stat("/proc/1/ns/net")
+	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
+		return nil
+	}
 	_, staterr := os.Stat(netnspath)
 	if staterr != nil {
 		mkerr := os.MkdirAll(netnspath, os.ModeDir)
@@ -288,7 +294,12 @@ func newProcessMon() ProcessManager {
 //or return a new one if there is none
 //This needs locks
 func GetProcessManagerHdl() ProcessManager {
+	_, err := os.Stat(netnspath)
+	if err != nil {
+		os.MkdirAll(netnspath, 0700)
+		os.Symlink("/proc/1/ns/net", netnspath+"/host")
 
+	}
 	if launcher == nil {
 		return newProcessMon()
 	}
