@@ -57,6 +57,8 @@ type datapathEnforcer struct {
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
+	//handle to secrets we will retire tokenEngine
+	secrets tokens.Secrets
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -101,6 +103,7 @@ func NewDatapathEnforcer(
 		appTCP:                   &PacketStats{},
 		ackSize:                  secrets.AckSize(),
 		mode:                     mode,
+		secrets:                  secrets,
 	}
 
 	if d.tokenEngine == nil {
@@ -505,9 +508,13 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	}, d.filterQueue.MarkValue)
 
 }
-func (d *datapathEnforcer) createTokenTLV(tokenType byte, capacity int) []byte {
-	token := make([]byte, 3+capacity)
+func (d *datapathEnforcer) createTokenTLV(tokenType byte, signedtoken []byte) []byte {
+	token := make([]byte, 3+len(signedtoken))
 	copy(token, []byte{tokenType, 0x0, 0x0})
+	binary.LittleEndian.PutUint16(token[1:], uint16(cap(token)))
+	for i, val := range signedtoken {
+		token[3+i] = val
+	}
 	return token
 }
 
@@ -515,13 +522,13 @@ func (d *datapathEnforcer) parseTokenTLV(token []byte) (byte, [][]byte) {
 	tokens := make([][]byte, 2)
 	if token[0] == 0x1 {
 		length := binary.LittleEndian.Uint16(token[1:])
-		tokens[0] = token[3:length]
+		tokens[0] = make([]byte, length)
+		copy(tokens[0], token[3:length])
 		return token[0], tokens
 	}
 	return 0x1, [][]byte{}
 }
 func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, auth *AuthInfo) []byte {
-
 	claims := &tokens.ConnectionClaims{
 		LCL: auth.LocalContext,
 		RMT: auth.RemoteContext,
@@ -530,22 +537,17 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 	if !ackToken {
 		claims.T = context.Identity
 	}
+	return d.createTokenTLV(1, d.secrets.CreateAndSign(tokens.JWTTokens, ackToken, claims))
 
-	signedtoken := d.tokenEngine.CreateAndSign(ackToken, claims)
-	token := d.createTokenTLV(1, len(signedtoken))
-	binary.LittleEndian.PutUint16(token[1:], uint16(len(token)))
-	for i, val := range signedtoken {
-		token[3+i] = val
-	}
-
-	return token
 }
 
 func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
-
+	var claims *tokens.ConnectionClaims
 	// Validate the certificate and parse the token
 	_, token := d.parseTokenTLV(data)
-	claims, cert := d.tokenEngine.Decode(false, token[0], auth.RemotePublicKey)
+
+	decodedinfo, cert := d.secrets.Decode(tokens.JWTTokens, false, token[0], auth.RemotePublicKey)
+	claims = decodedinfo.(*tokens.ConnectionClaims)
 	if claims == nil {
 		return nil, fmt.Errorf("Cannot decode the token")
 	}

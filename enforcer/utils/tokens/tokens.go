@@ -28,6 +28,13 @@ const (
 	PSKType
 )
 
+type TokenFormat int
+
+const (
+	JWTTokens TokenFormat = 0
+	Raw       TokenFormat = 1
+)
+
 const (
 	// MaxServerName must be of UUID size maximum
 	MaxServerName = 36
@@ -41,4 +48,6 @@ type Secrets interface {
 	TransmittedKey() []byte
 	VerifyPublicKey(pkey []byte) (interface{}, error)
 	AckSize() uint32
+	CreateAndSign(outputFormat TokenFormat, attachCert bool, claims interface{}) []byte
+	Decode(inputFormat TokenFormat, decodeCert bool, buffer []byte, cert interface{}) (interface{}, interface{})
 }
