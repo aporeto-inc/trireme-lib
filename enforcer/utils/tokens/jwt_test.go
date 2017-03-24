@@ -83,7 +83,7 @@ func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT Engine with shared secrets, it should succeed", t, func() {
 
 		j := &JWTConfig{}
-		secrets := NewPSKSecrets(psk)
+		secrets := NewPSKSecrets(psk, validity, "TRIREME")
 		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
@@ -95,7 +95,7 @@ func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT Engine with PKI secrets, it should succeed", t, func() {
 
 		j := &JWTConfig{}
-		secrets := NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
+		secrets := NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil, validity, "TRIREME")
 		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
@@ -108,7 +108,7 @@ func TestConstructorNewJWT(t *testing.T) {
 
 func TestCreateAndVerifyPSK(t *testing.T) {
 	Convey("Given a JWT valid engine with pre-shared key ", t, func() {
-		secrets := NewPSKSecrets(psk)
+		secrets := NewPSKSecrets(psk, validity, "TRIREME")
 		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
 
 		Convey("Given a signature request for a normal packet", func() {
@@ -145,7 +145,7 @@ func TestCreateAndVerifyPSK(t *testing.T) {
 
 func TestCreateAndVerifyPKI(t *testing.T) {
 	Convey("Given a JWT valid engine with a PKI  key ", t, func() {
-		secrets := NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
+		secrets := NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil, validity, "TRIREME")
 		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
 		_, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 
