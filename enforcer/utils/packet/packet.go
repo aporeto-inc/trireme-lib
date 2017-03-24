@@ -52,13 +52,9 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 
 	// Buffer Setup
 	p.Buffer = bytes
-
 	// Get the mark value
 	p.Mark = mark
 	p.L4TCPPacket = &TCPPacket{optionsMap: make(map[TCPOptions]tcpOptionsFormat)}
-	// Options and Payload that maybe added
-	//p.L4TCPPacket.tcpOptions = []byte{}
-	//p.L4TCPPacket.tcpData = []byte{}
 
 	// IP Header Processing
 	p.ipHeaderLen = bytes[ipHdrLenPos] & ipHdrLenMask
@@ -87,7 +83,6 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 
 		return nil, fmt.Errorf("Packets with IP options not supported (hdrlen=%d)", p.ipHeaderLen)
 	}
-
 	if p.IPTotalLength != uint16(len(p.Buffer)) {
 		if p.IPTotalLength < uint16(len(p.Buffer)) {
 			p.Buffer = p.Buffer[:p.IPTotalLength]

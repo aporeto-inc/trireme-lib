@@ -73,11 +73,11 @@ func TestGoodPacket(t *testing.T) {
 		t.Error("TCP checksum failed")
 	}
 
-	if pkt.DestinationPort != 99 {
+	if pkt.L4TCPPacket.DestinationPort != 99 {
 		t.Error("Unexpected destination port")
 	}
 
-	if pkt.SourcePort != 35968 {
+	if pkt.L4TCPPacket.SourcePort != 35968 {
 		t.Error("Unexpected source port")
 	}
 }
@@ -115,7 +115,8 @@ func TestEmptyPacketNoPayload(t *testing.T) {
 	t.Parallel()
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
-	data := pkt.Buffer
+	data := append(pkt.Buffer, pkt.L4TCPPacket.tcpOptions...)
+	data = append(data, pkt.L4TCPPacket.tcpData...)
 	if len(data) != 60 {
 		t.Error("Test SYN packet should have no TCP payload")
 	}
@@ -150,7 +151,8 @@ func TestExtractedBytesStillGood(t *testing.T) {
 	pkt := getTestPacket(t, synBadTCPChecksum)
 
 	// Extract unmodified bytes and feed them back in
-	bytes := pkt.Buffer
+	bytes := append(pkt.Buffer, pkt.L4TCPPacket.tcpOptions...)
+	bytes = append(bytes, pkt.L4TCPPacket.tcpData...)
 	pkt2, err := New(0, bytes, "0")
 	if err != nil {
 		t.Fatal(err)
@@ -419,7 +421,6 @@ func getTestPacket(t *testing.T, id SamplePacketName) *Packet {
 
 	tmp := make([]byte, len(testPackets[id]))
 	copy(tmp, testPackets[id])
-
 	pkt, err := New(0, tmp, "0")
 	if err != nil {
 		t.Fatal(err)
