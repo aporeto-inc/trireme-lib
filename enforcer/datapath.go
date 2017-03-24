@@ -55,6 +55,8 @@ type datapathEnforcer struct {
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
+	//handle to secrets we will retire tokenEngine
+	secrets tokens.Secrets
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -98,6 +100,7 @@ func NewDatapathEnforcer(
 		appTCP:                   &PacketStats{},
 		ackSize:                  secrets.AckSize(),
 		mode:                     mode,
+		secrets:                  secrets,
 	}
 
 	if d.tokenEngine == nil {
@@ -503,7 +506,6 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 }
 
 func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, auth *AuthInfo) []byte {
-
 	claims := &tokens.ConnectionClaims{
 		LCL: auth.LocalContext,
 		RMT: auth.RemoteContext,
@@ -513,13 +515,15 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 		claims.T = context.Identity
 	}
 
-	return d.tokenEngine.CreateAndSign(ackToken, claims)
+	return d.secrets.CreateAndSign(tokens.JWTTokens, ackToken, claims)
 }
 
 func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
+	var claims *tokens.ConnectionClaims
+	decodedinfo, cert := d.secrets.Decode(tokens.JWTTokens, false, data, auth.RemotePublicKey)
+	claims = decodedinfo.(*tokens.ConnectionClaims)
 	if claims == nil {
 		return nil, fmt.Errorf("Cannot decode the token")
 	}

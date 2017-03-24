@@ -1,13 +1,24 @@
 package tokens
 
+import "time"
+
 // PSKSecrets holds the shared key
 type PSKSecrets struct {
-	SharedKey []byte
+	SharedKey        []byte
+	SecretExpiry     time.Duration
+	format           TokenFormat
+	sessionKeyExpiry time.Duration
+	serverID         string
 }
 
 // NewPSKSecrets creates new PSK Secrets
-func NewPSKSecrets(psk []byte) *PSKSecrets {
-	return &PSKSecrets{SharedKey: psk}
+func NewPSKSecrets(psk []byte, secretExpiry time.Duration, serverID string) *PSKSecrets {
+	return &PSKSecrets{
+		SharedKey:        psk,
+		format:           JWTTokens,
+		SecretExpiry:     secretExpiry,
+		sessionKeyExpiry: time.Hour * 8760,
+	}
 }
 
 // Type implements the Secrets interface
@@ -50,4 +61,22 @@ func (p *PSKSecrets) TransmittedPEM() []byte {
 
 func (p *PSKSecrets) EncodingPEM() []byte {
 	return p.SharedKey
+}
+
+func (p *PSKSecrets) CreateAndSign(outputFormat TokenFormat, attachCert bool, claims interface{}) []byte {
+	if outputFormat == JWTTokens {
+		signinghandle, _ := NewJWT(p.SecretExpiry, p.serverID, p)
+		return signinghandle.CreateAndSign(attachCert, claims.(*ConnectionClaims))
+	} else {
+	}
+	return []byte{}
+}
+
+func (p *PSKSecrets) Decode(inputFormat TokenFormat, decodeCert bool, buffer []byte, cert interface{}) (interface{}, interface{}) {
+	if inputFormat == JWTTokens {
+		signinghandle, _ := NewJWT(p.SecretExpiry, p.serverID, p)
+		return signinghandle.Decode(decodeCert, buffer, cert)
+	} else {
+	}
+	return []byte{}, nil
 }
