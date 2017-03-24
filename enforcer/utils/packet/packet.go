@@ -57,8 +57,8 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	p.Mark = mark
 	p.L4TCPPacket = &TCPPacket{optionsMap: make(map[TCPOptions]tcpOptionsFormat)}
 	// Options and Payload that maybe added
-	p.L4TCPPacket.tcpOptions = []byte{}
-	p.L4TCPPacket.tcpData = []byte{}
+	//p.L4TCPPacket.tcpOptions = []byte{}
+	//p.L4TCPPacket.tcpData = []byte{}
 
 	// IP Header Processing
 	p.ipHeaderLen = bytes[ipHdrLenPos] & ipHdrLenMask
@@ -124,10 +124,10 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	}
 	p.context = context
 
-	p.L4TCPPacket.tcpData = append(p.L4TCPPacket.tcpData, bytes[(p.ipHeaderLen*IPWordSize+p.L4TCPPacket.tcpDataOffset*TCPWordSize):p.IPTotalLength]...)
+	p.L4TCPPacket.tcpData = bytes[(p.ipHeaderLen*IPWordSize + p.L4TCPPacket.tcpDataOffset*TCPWordSize):p.IPTotalLength]
 
 	//20 is the fixed length portion of the tcp header
-	p.L4TCPPacket.tcpOptions = append(p.L4TCPPacket.tcpOptions, bytes[TCPOptionPos:(p.l4BeginPos+uint16(p.L4TCPPacket.tcpDataOffset)*TCPWordSize)]...)
+	p.L4TCPPacket.tcpOptions = bytes[TCPOptionPos:(p.l4BeginPos + uint16(p.L4TCPPacket.tcpDataOffset)*TCPWordSize)]
 	return &p, nil
 }
 

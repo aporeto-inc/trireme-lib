@@ -134,7 +134,6 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	// Accept the packet
 	d.appTCP.OutgoingPackets++
 
-	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 	return nil
 }
@@ -144,11 +143,12 @@ func (d *datapathEnforcer) createTCPAuthenticationOption(token []byte, tcpPacket
 	if tcpPacket.L4TCPPacket.TCPFlags&packet.TCPSynMask == 0 {
 		return
 	}
+
 	tokenLen := uint8(len(token))
 	var options []byte
 	if tokenLen > 0 {
 		options = []byte{packet.TCPFastopenCookieEXP, 4, 0xf9, 0x89}
-		options = append(options, token...)
+		//options = append(options, token...)
 	} else {
 		options = []byte{packet.TCPFastopenCookieEXP, 4, 0xf9, 0x89}
 	}

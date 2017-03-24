@@ -505,8 +505,10 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	}, d.filterQueue.MarkValue)
 
 }
-func (d *datapathEnforcer) createTokenTLV(tokenType byte) []byte {
-	return []byte{tokenType, 0x0, 0x0}
+func (d *datapathEnforcer) createTokenTLV(tokenType byte, capacity int) []byte {
+	token := make([]byte, 3+capacity)
+	copy(token, []byte{tokenType, 0x0, 0x0})
+	return token
 }
 
 func (d *datapathEnforcer) parseTokenTLV(token []byte) (byte, [][]byte) {
@@ -528,10 +530,14 @@ func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, 
 	if !ackToken {
 		claims.T = context.Identity
 	}
-	token := d.createTokenTLV(1)
+
 	signedtoken := d.tokenEngine.CreateAndSign(ackToken, claims)
-	token = append(token, signedtoken...)
+	token := d.createTokenTLV(1, len(signedtoken))
 	binary.LittleEndian.PutUint16(token[1:], uint16(len(token)))
+	for i, val := range signedtoken {
+		token[3+i] = val
+	}
+
 	return token
 }
 
