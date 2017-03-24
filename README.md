@@ -31,12 +31,14 @@ The result of this approach is the decoupling of application segmentation from t
 
 Trireme is a node-centric library.  Each node participating in the Trireme cluster must spawn one instance of a process that uses this library to transparently insert the authentication and authorization step. Trireme provides the data path functions but does not implement either the identity management or the policy resolution function. Function implementation depends on the particular operational environment. Users have to provide PolicyLogic (ABAC “rules”) to Trireme for well-defined PUs, such as containers.
 
+# Existing implementation using Trireme library
 
-[This example ](https://github.com/aporeto-inc/trireme-example) is a straightforward implementation of the PolicyLogic for a simple use-case.
+* [This example ](https://github.com/aporeto-inc/trireme-example) is a straightforward implementation of the PolicyLogic for a simple use-case.
 
-[Kubernetes-Integration ] (https://github.com/aporeto-inc/kubernetes-integration) is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
+* [Kubernetes-Integration ] (https://github.com/aporeto-inc/kubernetes-integration) is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
 
-[Bare-Metal-Integration] (https://github.com/aporeto-inc/trireme-bare-metal) is an implementation of Trireme for Kubernetes on-Prem, with a Cumulus agent that allows you to have a very simple networking model (routes are advertised by Cumulus) together with Trireme for policy enforcement.
+* [Bare-Metal-Integration] (https://github.com/aporeto-inc/trireme-bare-metal) is an implementation of Trireme for Kubernetes on-Prem, with a Cumulus agent that allows you to have a very simple networking model (routes are advertised by Cumulus) together with Trireme for policy enforcement.
+
 
 # Security Model
 
@@ -73,13 +75,13 @@ Conceptually, Trireme acts on PU events. In the default implementation, the PU i
 * The `Monitor` listens to a well-defined PU creation module.  The built-in monitor listens to Docker events and generates a standard Trireme Processing Unit runtime representation. The `Monitor` hands-over the Processing Unit runtime to `Trireme`.
 * The `PolicyResolver` is implemented outside of Trireme. `Trireme` calls the `PolicyResolver` to get a PU policy based on a PU runtime. The `PolicyResolver` depends on the orchestration system used for managing identity and policy. If you plan to implement your own Policy with Trireme, you will essentially need to implement a `PolicyResolver`
 * The `Supervisor` implements the policy by redirecting the TCP negotiation packets to user space. The default implementation uses IPTables with LibNetfilter.
-* The `Enforcer` enforces the policy by analyzing the redirected packets and enforcing the identity and policy rules that are defined by the `PolicyResolver` in the PU policy.
+* The `Enforcer` enforces the policy by analyzing the redirected packets and enforcing the identity and policy rules that are defined by the `PolicyResolver` in the PU policy. Trireme supports to day a `Remote ` and a `local` enforcer. The `Remote` enforcer is advised as it is remotely started into the network namespace of the  Processing Unit, therefore not interfering at all with existing Networking implementation on the default/host namespace.
 
 
 # Defining Your Own Policy
 
 Trireme allows you to define any type of identity attributes and policies to associate with PUs.
-In order to define your own policies and identities, you need to implement a PolicyResolver interface that will receive calls from Trireme whenever a policy resolution is required.
+In order to define your own policies and identities, you need to implement a PolicyResolver interface that will receive policy requests from Trireme whenever a policy resolution is required.
 
 # PolicyResolver Implementation
 
