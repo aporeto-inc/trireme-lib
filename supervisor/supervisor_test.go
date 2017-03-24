@@ -3,6 +3,7 @@ package supervisor
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/aporeto-inc/mock/gomock"
 	"github.com/aporeto-inc/trireme/collector"
@@ -46,10 +47,11 @@ func createPUInfo() *policy.PUInfo {
 }
 
 func TestNewSupervisor(t *testing.T) {
+	validity := time.Hour * 8760
 	Convey("When I try to instantiate a new supervisor ", t, func() {
 
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := tokens.NewPSKSecrets([]byte("test password"), validity, "ServerID1")
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 		mode := constants.LocalContainer
 		implementation := constants.IPTables
@@ -84,12 +86,13 @@ func TestNewSupervisor(t *testing.T) {
 }
 
 func TestSupervise(t *testing.T) {
+	validity := time.Hour * 8760
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := tokens.NewPSKSecrets([]byte("test password"), validity, "ServerID1")
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
@@ -147,13 +150,13 @@ func TestSupervise(t *testing.T) {
 }
 
 func TestUnsupervise(t *testing.T) {
-
+	validity := time.Hour * 8760
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := tokens.NewPSKSecrets([]byte("test password"), validity, "ServerID1")
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
@@ -182,12 +185,13 @@ func TestUnsupervise(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
+	validity := time.Hour * 8760
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := tokens.NewPSKSecrets([]byte("test password"), validity, "ServerID1")
 		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
