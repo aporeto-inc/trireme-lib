@@ -5,6 +5,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
@@ -55,7 +56,7 @@ func TestInvalidContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"), time.Hour*8760, "Server1")
 		collector := &collector.DefaultCollector{}
 		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
@@ -79,7 +80,7 @@ func TestInvalidIPContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"), time.Hour*8760, "Server1")
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
@@ -105,7 +106,7 @@ func TestInvalidTokenContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"), time.Hour*8760, "Server1")
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 
 		ip := policy.NewIPMap(map[string]string{
@@ -172,7 +173,7 @@ func TestPacketHandling(t *testing.T) {
 			puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
 			puInfo2.Policy.AddReceiverRules(&tagSelector)
 
-			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+			secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"), time.Hour*8760, "Server1")
 
 			collector := &collector.DefaultCollector{}
 			enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
@@ -224,12 +225,12 @@ func TestPacketHandling(t *testing.T) {
 						tcpPacket.Print(0)
 					}
 
-					if tcpPacket.TCPFlags&packet.TCPSynMask != 0 {
+					if tcpPacket.L4TCPPacket.TCPFlags&packet.TCPSynMask != 0 {
 						// In our 3 way security handshake syn and syn-ack packet should grow in length
 						So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
 					}
 
-					if !firstAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
+					if !firstAckProcessed && tcpPacket.L4TCPPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 						// In our 3 way security handshake first ack packet should grow in length
 						firstAckProcessed = true
 						So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
@@ -248,8 +249,21 @@ func TestPacketHandling(t *testing.T) {
 						fmt.Println("Output packet", i)
 						outPacket.Print(0)
 					}
+					checkmatch := func() bool {
+						if len(oldPacket.GetBytes())+4 != len(outPacket.GetBytes()) &&
+							outPacket.L4TCPPacket.TCPFlags&packet.TCPSynMask != 0 {
+							return false
+						}
+						if outPacket.L4TCPPacket.TCPFlags&packet.TCPSynMask == 0 {
+							//This is an ACK Packet
+							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+								return false
+							}
+						}
+						return true
 
-					if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
+					}()
+					if !checkmatch {
 
 						packetDiffers = true
 						fmt.Println("Error: packets dont match")
@@ -273,7 +287,7 @@ func TestPacketHandling(t *testing.T) {
 
 func TestCacheState(t *testing.T) {
 
-	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"), time.Hour*8760, "Server1")
 	collector := &collector.DefaultCollector{}
 	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
 	contextID := "123"
