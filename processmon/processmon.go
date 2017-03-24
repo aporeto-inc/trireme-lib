@@ -185,11 +185,20 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		return nil
 	}
 
-	pidstat, _ := os.Stat("/proc/" + strconv.Itoa(refPid) + "/ns/net")
-	hoststat, _ := os.Stat("/proc/1/ns/net")
-	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return nil
+	pidstat, pidstaterr := os.Stat("/proc/" + strconv.Itoa(refPid) + "/ns/net")
+	hoststat, hoststaterr := os.Stat("/proc/1/ns/net")
+	if pidstaterr == nil && hoststaterr == nil {
+		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
+			return nil
+		}
+	} else {
+
+		log.WithFields(log.Fields{
+			"package": "processmon",
+			"Error":   fmt.Sprintf("Hoststat err %v,PidStat err %v", hoststaterr, pidstaterr),
+		}).Error("Cannot determine namespace of new container")
 	}
+
 	_, staterr := os.Stat(netnspath)
 	if staterr != nil {
 		mkerr := os.MkdirAll(netnspath, os.ModeDir)
@@ -213,7 +222,12 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	namedPipe := "SOCKET_PATH=/var/run/" + contextID + ".sock"
 
 	cmdName, _ = osext.Executable()
-	cmdArgs := []string{arg}
+	var cmdArgs []string
+	if len(arg) > 0 {
+		cmdArgs = []string{arg}
+	} else {
+		cmdArgs = []string{}
+	}
 
 	if _, ok := GlobalCommandArgs["--log-level"]; ok {
 		cmdArgs = append(cmdArgs, "--log-level")
