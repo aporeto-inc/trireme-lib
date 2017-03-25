@@ -9,7 +9,7 @@ Welcome to Trireme, an open-source library curated by Aporeto to provide segment
 
 Trireme supports both containers and Linux Processes and allows security policy enforcement between any of these entities.
 
-# Evaluate Trireme now
+# TL;DR
 
 You can try out Trireme quickly via one of these methods:
 
