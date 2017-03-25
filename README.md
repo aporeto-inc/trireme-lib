@@ -15,7 +15,7 @@ You can try out Trireme quickly via one of these methods:
 
 * [Trireme as a Docker container](https://github.com/aporeto-inc/trireme-example)
 * [Trireme as a Kubernetes daemonset](https://github.com/aporeto-inc/trireme-kubernetes/tree/integrations/deployment)
-* [Trireme as a Kubernetes daemonset in Red Hat OpenShift](https://github.com/aporeto-inc/trireme-kubernetes/tree/integrations/deployment/OpenShift)
+* [Trireme as a Kubernetes daemonset in Red Hat OpenShift](https://github.com/aporeto-inc/trireme-kubernetes/tree/master/deployment/OpenShift)
 
 # Description
 
