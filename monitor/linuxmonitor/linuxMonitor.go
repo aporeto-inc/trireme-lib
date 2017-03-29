@@ -48,7 +48,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 	runtimeTags.Tags["@sys:hostname"] = findFQFN()
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
-		runtimeTags.Tags["@sys:fileChecksum"] = hex.EncodeToString(fileMd5)
+		runtimeTags.Tags["@sys:filechecksum"] = hex.EncodeToString(fileMd5)
 	}
 
 	depends := libs(event.Name)
