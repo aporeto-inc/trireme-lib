@@ -105,11 +105,12 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
 	tags := policy.NewTagsMap(map[string]string{
-		"image": info.Config.Image,
-		"name":  info.Name,
+		"@sys:image": info.Config.Image,
+		"@sys:name":  info.Name,
 	})
+
 	for k, v := range info.Config.Labels {
-		tags.Add(k, v)
+		tags.Add("@usr:"+k, v)
 	}
 
 	ipa := policy.NewIPMap(map[string]string{
