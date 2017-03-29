@@ -33,23 +33,27 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		return nil, fmt.Errorf("EventInfo PUID is empty")
 	}
 
-	runtimeTags := policy.NewTagsMap(event.Tags)
+	runtimeTags := policy.NewTagsMap(map[string]string{})
+
+	for k, v := range event.Tags {
+		runtimeTags.Tags["@usr:"+k] = v
+	}
 
 	userdata := processInfo(event.PID)
 
 	for _, u := range userdata {
-		runtimeTags.Tags[u] = "true"
+		runtimeTags.Tags["@sys:"+u] = "true"
 	}
 
-	runtimeTags.Tags["hostname"] = findFQFN()
+	runtimeTags.Tags["@sys:hostname"] = findFQFN()
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
-		runtimeTags.Tags["FileChecksum"] = hex.EncodeToString(fileMd5)
+		runtimeTags.Tags["@sys:filechecksum"] = hex.EncodeToString(fileMd5)
 	}
 
 	depends := libs(event.Name)
 	for _, lib := range depends {
-		runtimeTags.Tags["lib:"+lib] = "true"
+		runtimeTags.Tags["@sys:lib:"+lib] = "true"
 	}
 
 	options := policy.NewTagsMap(map[string]string{
