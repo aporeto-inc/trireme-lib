@@ -79,7 +79,7 @@ func (i *Instance) chainName(contextID string, version int) (app, net string) {
 // DefaultIPAddress returns the default IP address for the processing unit
 func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 
-	if ip, ok := addresslist[policy.DefaultNamespace]; ok {
+	if ip, ok := addresslist[policy.DefaultNamespace]; ok && len(ip) > 0 {
 		return ip, true
 	}
 
@@ -95,13 +95,14 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	policyrules := containerInfo.Policy
 
 	appChain, netChain := i.chainName(contextID, version)
-	// policyrules.DefaultIPAddress()
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
 	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
+
+	fmt.Println("Here is the IP ADDress", ipAddress)
 
 	// Configure all the ACLs
 	if err := i.addContainerChain(appChain, netChain); err != nil {

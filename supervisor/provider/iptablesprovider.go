@@ -1,6 +1,6 @@
 package provider
 
-import "github.com/coreos/go-iptables/iptables"
+import "github.com/aporeto-inc/go-iptables/iptables"
 
 // IptablesProvider is an abstraction of all the methods an implementation of userspace
 // iptables need to provide.
@@ -9,6 +9,7 @@ type IptablesProvider interface {
 	Insert(table, chain string, pos int, rulespec ...string) error
 	Delete(table, chain string, rulespec ...string) error
 	ListChains(table string) ([]string, error)
+	ListAndClear(table, chain string) ([]string, error)
 	ClearChain(table, chain string) error
 	DeleteChain(table, chain string) error
 	NewChain(table, chain string) error

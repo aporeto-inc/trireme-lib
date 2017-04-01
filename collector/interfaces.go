@@ -39,6 +39,10 @@ const (
 	UnknownContainerDelete = "unknowncontainer"
 	// PolicyValid Normal flow accept
 	PolicyValid = "V"
+	// ToExternalService indicates a flow to an external service
+	ToExternalService = "ExtDest"
+	// FromExternalService indicates a flow from an external service
+	FromExternalService = "ExtSrc"
 )
 
 // EventCollector is the interface for collecting events.
