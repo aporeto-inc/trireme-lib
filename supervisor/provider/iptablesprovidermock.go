@@ -113,15 +113,6 @@ func (m *testIptablesProvider) ListChains(table string) ([]string, error) {
 	return nil, nil
 }
 
-func (m *testIptablesProvider) ListAndClear(table, chain string) ([]string, error) {
-
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.listChainsMock != nil {
-		return mock.listChainsMock(table)
-	}
-
-	return nil, nil
-}
-
 func (m *testIptablesProvider) ClearChain(table, chain string) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.clearChainMock != nil {
