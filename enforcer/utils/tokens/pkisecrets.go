@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/x509"
 	"fmt"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/crypto"
@@ -15,13 +16,18 @@ type PKISecrets struct {
 	PublicKeyPEM     []byte
 	AuthorityPEM     []byte
 	CertificateCache map[string]*ecdsa.PublicKey
+	SecretExpiry     time.Duration
 	privateKey       *ecdsa.PrivateKey
 	publicKey        *x509.Certificate
 	certPool         *x509.CertPool
+	format           TokenFormat
+	sessionKeyExpiry time.Duration
+	serverID         string
+	jwtsigninghandle *JWTConfig
 }
 
 // NewPKISecrets creates new secrets for PKI implementations
-func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) *PKISecrets {
+func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey, secretExpiry time.Duration, ServerID string) *PKISecrets {
 
 	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
@@ -36,8 +42,11 @@ func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.Pu
 		privateKey:       key,
 		publicKey:        cert,
 		certPool:         caCertPool,
+		format:           JWTTokens,
+		SecretExpiry:     secretExpiry,
+		sessionKeyExpiry: secretExpiry,
 	}
-
+	p.jwtsigninghandle, _ = NewJWT(p.SecretExpiry, p.serverID, p)
 	return p
 }
 
@@ -102,7 +111,7 @@ func (p *PKISecrets) TransmittedKey() []byte {
 
 // AckSize returns the default size of an ACK packet
 func (p *PKISecrets) AckSize() uint32 {
-	return uint32(336)
+	return uint32(339)
 }
 
 // PublicKeyAdd validates the parameter certificate.
@@ -134,4 +143,24 @@ func (p *PKISecrets) TransmittedPEM() []byte {
 
 func (p *PKISecrets) EncodingPEM() []byte {
 	return p.PrivateKeyPEM
+}
+
+func (p *PKISecrets) CreateAndSign(outputFormat TokenFormat, attachCert bool, claims interface{}) []byte {
+
+	if outputFormat == JWTTokens {
+		signinghandle, _ := NewJWT(p.SecretExpiry, p.serverID, p)
+		return signinghandle.CreateAndSign(attachCert, claims.(*ConnectionClaims))
+
+	} else {
+	}
+	return []byte{}
+}
+
+func (p *PKISecrets) Decode(inputFormat TokenFormat, decodeCert bool, buffer []byte, cert interface{}) (interface{}, interface{}) {
+	if inputFormat == JWTTokens {
+		return p.jwtsigninghandle.Decode(decodeCert, buffer, cert)
+
+	} else {
+	}
+	return []byte{}, nil
 }

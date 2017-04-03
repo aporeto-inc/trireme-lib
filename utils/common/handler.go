@@ -74,6 +74,7 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 	}
 
 	targetNetworks := []string{"172.17.0.0/24", "10.0.0.0/8"}
+
 	if len(arguments["--target-networks"].([]string)) > 0 {
 		log.WithFields(log.Fields{
 			"Package":         "main",

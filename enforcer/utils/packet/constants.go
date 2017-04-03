@@ -8,6 +8,9 @@ const (
 	minIPHdrSize = 20
 
 	minIPHdrWords = (minIPHdrSize / 4)
+
+	//Word Size
+	IPWordSize = 4
 )
 
 // IP Header field position constants
@@ -70,6 +73,9 @@ const (
 
 	// TCPChecksumPos is the location of TCP checksum
 	TCPChecksumPos = 36
+
+	//TCPOptionPos is the location of TCP Options if present
+	TCPOptionPos = 40
 )
 
 // TCP Header masks
@@ -79,6 +85,9 @@ const (
 
 	// TCPSynMask is a mask for the TCP Syn flags
 	TCPSynMask = 0x2
+
+	//TCPPshMask is a mask for TCP PSH flags
+	TCPPshMask = 0x37
 
 	// TCPSynAckMask  mask idenitifies a TCP SYN-ACK packet
 	TCPSynAckMask = 0x12
@@ -96,11 +105,15 @@ const (
 // TCP Options Related constants
 const (
 	// TCPAuthenticationOption is the option number will be using
-	TCPAuthenticationOption = uint8(255)
+	//TCPAuthenticationOption = uint8(255)
 
 	// TCPMssOption is the type for MSS option
 	TCPMssOption = uint8(2)
 
 	// TCPMssOptionLen is the type for MSS option
 	TCPMssOptionLen = uint8(4)
+
+	TCPFastopenCookieBaseLen = uint8(6)
+
+	TCPWordSize = 4
 )

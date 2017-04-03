@@ -193,7 +193,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	// Retrieve the container runtime information from the cache
 	cachedElement, err := t.cache.Get(contextID)
 	if err != nil {
-
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: "N/A",
@@ -317,13 +316,6 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
 	}
-
-	t.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: ip,
-		Tags:      nil,
-		Event:     collector.ContainerDelete,
-	})
 
 	return nil
 }

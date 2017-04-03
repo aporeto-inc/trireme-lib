@@ -152,6 +152,7 @@ func createMetadata(servicename string, command string, ports string, metadata [
 	name := command
 	if servicename != "" {
 		name = servicename
+
 	}
 
 	return name, metadatamap, nil

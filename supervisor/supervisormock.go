@@ -33,7 +33,7 @@ type TestSupervisor interface {
 	MockUnsupervise(t *testing.T, impl func(contextID string) error)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
-	MockAddExcludedIPs(t *testing.T, impl func(ips []string) error)
+	MockAddExcludedIPs(t *testing.T, impl func(ip []string) error)
 }
 
 // A testSupervisor is an empty TransactionalManipulator that can be easily mocked.
@@ -92,9 +92,9 @@ func (m *testSupervisor) Unsupervise(contextID string) error {
 	return nil
 }
 
-func (m *testSupervisor) AddExcludedIPs(ips []string) error {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.AddExcludedIPsMock != nil {
-		return mock.AddExcludedIPsMock(ips)
+func (m *testSupervisor) AddExcludedIPs(ip []string) error {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.unsuperviseMock != nil {
+		return mock.AddExcludedIPsMock(ip)
 	}
 	return nil
 }

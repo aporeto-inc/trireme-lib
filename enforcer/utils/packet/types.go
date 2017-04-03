@@ -143,9 +143,7 @@ type Packet struct {
 	Mark string
 
 	// Buffers : input/output buffer
-	Buffer     []byte
-	tcpOptions []byte
-	tcpData    []byte
+	Buffer []byte
 
 	// IP Header fields
 	ipHeaderLen        uint8
@@ -156,21 +154,27 @@ type Packet struct {
 	SourceAddress      net.IP
 	DestinationAddress net.IP
 
-	// L4 Header Fields
-	SourcePort      uint16
-	DestinationPort uint16
 	// L4 Header Begin Position
 	l4BeginPos uint16
 
 	// TCP Specific fields
-	TCPSeq        uint32
-	TCPAck        uint32
-	tcpDataOffset uint8
-	TCPFlags      uint8
-	TCPChecksum   uint16
-
+	L4TCPPacket *TCPPacket
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata
 	ConnectionMetadata interface{}
+}
+
+type TCPPacket struct {
+	// L4 Header Fields
+	TCPSeq          uint32
+	TCPAck          uint32
+	SourcePort      uint16
+	DestinationPort uint16
+	TCPChecksum     uint16
+	tcpDataOffset   uint8
+	TCPFlags        uint8
+	tcpOptions      []byte
+	tcpData         []byte
+	optionsMap      map[TCPOptions]tcpOptionsFormat
 }
