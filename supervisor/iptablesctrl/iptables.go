@@ -79,7 +79,7 @@ func (i *Instance) chainName(contextID string, version int) (app, net string) {
 // DefaultIPAddress returns the default IP address for the processing unit
 func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 
-	if ip, ok := addresslist[policy.DefaultNamespace]; ok {
+	if ip, ok := addresslist[policy.DefaultNamespace]; ok && len(ip) > 0 {
 		return ip, true
 	}
 
