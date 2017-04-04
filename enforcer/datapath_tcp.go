@@ -201,7 +201,9 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
-	tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+	if err := tcpPacket.TCPDataAttach(tcpOptions, tcpData); err != nil {
+		return nil, err
+	}
 
 	tcpPacket.UpdateTCPChecksum()
 	return nil, nil
@@ -247,7 +249,9 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
 		tcpPacket.DecreaseTCPAck(d.ackSize)
-		tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+		if err := tcpPacket.TCPDataAttach(tcpOptions, tcpData); err != nil {
+			return nil, err
+		}
 
 		tcpPacket.UpdateTCPChecksum()
 		return nil, nil
@@ -290,7 +294,9 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(d.ackSize)
-		tcpPacket.TCPDataAttach(tcpOptions, token)
+		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
+			return nil, err
+		}
 		tcpPacket.UpdateTCPChecksum()
 
 		connection.State = TCPAckSend
@@ -302,8 +308,16 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	if connection.State == TCPAckSend {
 		//Delete the state at this point .. There is a small chance that both packets are lost
 		// and the other side will send us SYNACK again .. TBD if we need to change this
-		d.contextConnectionTracker.Remove(string(connection.Auth.LocalContext))
-		d.appConnectionTracker.Remove(tcpPacket.L4FlowHash())
+		if err := d.contextConnectionTracker.Remove(string(connection.Auth.LocalContext)); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Warn("Failed to clean up cache state")
+		}
+		if err := d.appConnectionTracker.Remove(tcpPacket.L4FlowHash()); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Warn("Failed to clean up cache state")
+		}
 		return nil, nil
 	}
 
@@ -661,7 +675,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 				DestinationPort: tcpPacket.DestinationPort,
 			})
 
-			return nil, fmt.Errorf("Ack packet dropped because singature validation failed %v", err)
+			return nil, fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 		}
 
 		connection.State = TCPAckProcessed
@@ -688,7 +702,11 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		tcpPacket.UpdateTCPChecksum()
 
-		d.networkConnectionTracker.Remove(hash)
+		if err := d.networkConnectionTracker.Remove(hash); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Warn("Failed to clean up cache state from network connection tracker")
+		}
 
 		// We accept the packet as a new flow
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
@@ -724,7 +742,11 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	// Catch the first request packets
 	if connection.State == TCPAckProcessed {
 		// Safe to delete the state
-		d.networkConnectionTracker.Remove(hash)
+		if err := d.networkConnectionTracker.Remove(hash); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Warn("Failed to clean up cache state from network connection tracker")
+		}
 		return nil, nil
 	}
 

@@ -20,10 +20,21 @@ import (
 func ComputeHmac256(tags []byte, key []byte) []byte {
 
 	var buffer bytes.Buffer
-	binary.Write(&buffer, binary.BigEndian, tags)
+	if err := binary.Write(&buffer, binary.BigEndian, tags); err != nil {
+		log.WithFields(log.Fields{
+			"package": "crypto",
+			"error":   err.Error(),
+		}).Warn("Error in writing buffer in crypto")
+	}
 
 	h := hmac.New(sha256.New, key)
-	h.Write(buffer.Bytes())
+
+	if _, err := h.Write(buffer.Bytes()); err != nil {
+		log.WithFields(log.Fields{
+			"package": "crypto",
+			"error":   err.Error(),
+		}).Warn("Error in writing buffer in crypto")
+	}
 
 	return h.Sum(nil)
 

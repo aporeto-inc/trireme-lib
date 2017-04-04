@@ -40,14 +40,17 @@ func (p *PSKSecrets) AckSize() uint32 {
 	return uint32(332)
 }
 
+// AuthPEM returns the Certificate Authority PEM
 func (p *PSKSecrets) AuthPEM() []byte {
 	return p.SharedKey
 }
 
+// TransmittedPEM returns the PEM certificate that is transmitted
 func (p *PSKSecrets) TransmittedPEM() []byte {
 	return p.SharedKey
 }
 
+// EncodingPEM returns the certificate PEM that is used for encoding
 func (p *PSKSecrets) EncodingPEM() []byte {
 	return p.SharedKey
 }

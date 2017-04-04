@@ -48,7 +48,7 @@ type CustomTokenConfig struct {
 	CA *x509.Certificate
 	// Cert is the certificate of the server
 	Cert *x509.Certificate
-	// CertPEM is a buffer of the PEM file that is send to other servers - Cached for efficieny
+	// CertPEM is a buffer of the PEM file that is send to other servers - Cached for efficiency
 	CertPEM []byte
 	// IncludeCert instructs the engine to transmit the certificate with each token
 	IncludeCert bool

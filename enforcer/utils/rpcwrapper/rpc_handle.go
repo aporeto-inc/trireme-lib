@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
-	"log"
+
 	"net"
 	"net/http"
 	"os"
@@ -16,6 +16,7 @@ import (
 
 	"net/rpc"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
 )
 
@@ -96,14 +97,20 @@ func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
 func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
 
 	var rpcBuf bytes.Buffer
-	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
+	if err := binary.Write(&rpcBuf, binary.BigEndian, req.Payload); err != nil {
+		return err
+	}
+
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
 		return err
 	}
 
 	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
-	digest.Write(rpcBuf.Bytes())
+	if _, err := digest.Write(rpcBuf.Bytes()); err != nil {
+		return err
+	}
+
 	req.HashAuth = digest.Sum(nil)
 
 	return rpcClient.Client.Call(methodName, req, resp)
@@ -114,9 +121,16 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 
 	var rpcBuf bytes.Buffer
-	binary.Write(&rpcBuf, binary.BigEndian, req.Payload)
+	if err := binary.Write(&rpcBuf, binary.BigEndian, req.Payload); err != nil {
+		return false
+	}
+
 	digest := hmac.New(sha256.New, []byte(secret))
-	digest.Write(rpcBuf.Bytes())
+
+	if _, err := digest.Write(rpcBuf.Bytes()); err != nil {
+		return false
+	}
+
 	return hmac.Equal(req.HashAuth, digest.Sum(nil))
 }
 
@@ -131,22 +145,41 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 
 	RegisterTypes()
 
-	rpc.Register(handler)
+	if err := rpc.Register(handler); err != nil {
+		return err
+	}
+
 	rpc.HandleHTTP()
-	os.Remove(path)
+	if err := os.Remove(path); err != nil {
+		log.WithFields(log.Fields{
+			"package": "rpcwrapper",
+			"path":    path,
+		}).Warn("Path does not exist ")
+	}
 	if len(path) == 0 {
 		log.Fatal("Sock param not passed in environment")
 	}
+
 	listen, err := net.Listen(protocol, path)
-
 	if err != nil {
-
 		return err
 	}
+
 	go http.Serve(listen, nil)
 	defer func() {
-		listen.Close()
-		os.Remove(path)
+		if merr := listen.Close(); merr != nil {
+			log.WithFields(log.Fields{
+				"package": "rpcwrapper",
+				"error":   merr.Error(),
+			}).Warn("failed to close connection ")
+		}
+
+		if merr := os.Remove(path); merr != nil {
+			log.WithFields(log.Fields{
+				"package": "rpcwrapper",
+				"error":   merr.Error(),
+			}).Warn("failed to remove old path")
+		}
 	}()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -154,7 +187,11 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 
 	_, err = os.Stat(path)
 	if !os.IsNotExist(err) {
-		os.Remove(path)
+		if err := os.Remove(path); err != nil {
+			log.WithFields(log.Fields{
+				"package": "rpcwrapper",
+			}).Warn("failed to remove old path")
+		}
 	}
 	return nil
 }
@@ -163,9 +200,26 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 	rpcHdl, _ := r.rpcClientMap.Get(contextID)
-	rpcHdl.(*RPCHdl).Client.Close()
-	os.Remove(rpcHdl.(*RPCHdl).Channel)
-	r.rpcClientMap.Remove(contextID)
+	if err := rpcHdl.(*RPCHdl).Client.Close(); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "rpcwrapper",
+			"contextID": contextID,
+		}).Warn("failed to close channel")
+	}
+
+	if err := os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "rpcwrapper",
+			"contextID": contextID,
+		}).Warn("failed to remove channel")
+	}
+
+	if err := r.rpcClientMap.Remove(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "rpcwrapper",
+			"contextID": contextID,
+		}).Warn("failed to remove item from cache")
+	}
 }
 
 // ProcessMessage checks if the given request is valid

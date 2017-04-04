@@ -21,12 +21,6 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-const (
-	ipcProtocol         = "unix"
-	defaultPath         = "/var/run/default.sock"
-	defaultTimeInterval = 1
-)
-
 //Server : This is the structure for maintaining state required by the remote enforcer.
 //It is cache of variables passed by th controller to the remote enforcer and other handles
 //required by the remote enforcer to talk to the external processes
@@ -63,7 +57,7 @@ func NewServer(service enforcer.PacketProcessor, rpcchan string, secret string) 
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	//Check if sucessfully switched namespace
+	//Check if successfully switched namespace
 	nsEnterState := os.Getenv("NSENTER_ERROR_STATE")
 	if len(nsEnterState) != 0 {
 		resp.Status = (nsEnterState)

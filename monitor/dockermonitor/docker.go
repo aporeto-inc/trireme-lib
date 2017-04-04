@@ -345,7 +345,12 @@ func (d *dockerMonitor) syncContainers() error {
 			} else {
 				state = monitor.StateStopped
 			}
-			d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitor.SynchronizationTypeInitial)
+			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitor.SynchronizationTypeInitial); err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Error("Error Syncing existing Container")
+			}
 		}
 
 		d.syncHandler.HandleSynchronizationComplete(monitor.SynchronizationTypeInitial)
@@ -389,16 +394,23 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	}
 
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
-
 	if err != nil {
 		return fmt.Errorf("Error getting some of the Docker primitives: %s", err)
 	}
 
-	d.puHandler.SetPURuntime(contextID, runtimeInfo)
+	if err := d.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
+		return err
+	}
+
 	errorChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
 	if err := <-errorChan; err != nil {
-		d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout)
+		if err := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); err != nil {
+			log.WithFields(log.Fields{
+				"package": "monitor",
+				"error":   err.Error(),
+			}).Warn("Failed to stop bad container")
+		}
 		return fmt.Errorf("Policy cound't be set - container was killed")
 	}
 
@@ -463,7 +475,12 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 
 	if err != nil {
 		//If we see errors, we will kill the container for security reasons.
-		d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout)
+		if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
+			log.WithFields(log.Fields{
+				"package": "monitor",
+				"error":   err.Error(),
+			}).Warn("Failed to stop illegal container")
+		}
 
 		d.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,

@@ -22,7 +22,7 @@ type TokenEngine interface {
 type SecretsType int
 
 const (
-	// PKIType  for assymetric signing
+	// PKIType  for asymmetric signing
 	PKIType SecretsType = iota
 	// PSKType  for symetric signing
 	PSKType

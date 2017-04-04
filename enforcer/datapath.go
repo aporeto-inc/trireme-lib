@@ -74,7 +74,12 @@ func NewDatapathEnforcer(
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
-		cmd := exec.Command("sysctl", "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
+
+		sysctlCmd, err := exec.LookPath("sysctl")
+		if err != nil {
+			return nil
+		}
+		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
 		if err := cmd.Run(); err != nil {
 			log.WithFields(log.Fields{"package": "enforcer",
 				"Error": err.Error(),
@@ -173,8 +178,9 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 	}
 
 	puContext, err := d.puTracker.Get(hashSlice.([]*DualHash)[0].app)
-	if err != nil {
-		return d.doUpdatePU(puContext.(*PUContext), puInfo)
+	if err == nil {
+		d.doUpdatePU(puContext.(*PUContext), puInfo)
+		return nil
 	}
 
 	return d.doCreatePU(contextID, puInfo)
@@ -258,12 +264,11 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 	return nil
 }
 
-func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
+func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) {
 	puContext.acceptRcvRules, puContext.rejectRcvRules = createRuleDB(containerInfo.Policy.ReceiverRules())
 	puContext.acceptTxtRules, puContext.rejectTxtRules = createRuleDB(containerInfo.Policy.TransmitterRules())
 	puContext.Identity = containerInfo.Policy.Identity()
 	puContext.Annotations = containerInfo.Policy.Annotations()
-	return nil
 }
 
 func (d *datapathEnforcer) Unenforce(contextID string) error {
@@ -274,11 +279,27 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 	}
 
 	for _, hash := range hashSlice.([]*DualHash) {
-		d.puTracker.Remove(hash.app)
-		d.puTracker.Remove(hash.net)
+
+		if err := d.puTracker.Remove(hash.app); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+				"entry":   hash.app,
+			}).Warn("Unable to remove hash entry during unenforcement")
+		}
+
+		if err := d.puTracker.Remove(hash.net); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+				"entry":   hash.net,
+			}).Warn("Unable to remove hash entry during unenforcement")
+		}
 	}
 
-	d.contextTracker.Remove(contextID)
+	if err := d.contextTracker.Remove(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Warn("Unable to remove context from cache ")
+	}
 
 	return nil
 }
@@ -320,7 +341,7 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 
-		// Initalize all the queues
+		// Initialize all the queues
 		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
 		if err != nil {
 			log.WithFields(log.Fields{

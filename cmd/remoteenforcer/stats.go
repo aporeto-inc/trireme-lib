@@ -14,8 +14,6 @@ import (
 const (
 	defaultStatsIntervalMiliseconds = 250
 	envStatsChannelPath             = "STATSCHANNEL_PATH"
-	envSocketPath                   = "SOCKET_PATH"
-	envSecret                       = "SECRET"
 	envStatsSecret                  = "STATS_SECRET"
 	statsContextID                  = "UNUSED"
 )
@@ -24,7 +22,6 @@ const (
 //which reports flow stats back to the controller process
 type StatsClient struct {
 	collector *CollectorImpl
-	server    *Server
 	Rpchdl    *rpcwrapper.RPCWrapper
 }
 

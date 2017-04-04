@@ -74,8 +74,7 @@ func TestElements(t *testing.T) {
 
 		Convey("Given that I try to add or update an element in the cache, I should not get an error", func() {
 
-			err := c.AddOrUpdate(newid, secondValue)
-			So(err, ShouldEqual, nil)
+			c.AddOrUpdate(newid, secondValue)
 			newvalue, err := c.Get(newid)
 			So(newvalue, ShouldEqual, secondValue)
 			So(err, ShouldEqual, nil)
@@ -101,7 +100,8 @@ func Test_CacheTimer(t *testing.T) {
 		c := NewCacheWithExpiration(2 * time.Second)
 
 		Convey("When I create an item that has to exist for a second", func() {
-			c.Add("key", "value")
+			err := c.Add("key", "value")
+			So(err, ShouldBeNil)
 
 			Convey("Then I should be able to get back the item", func() {
 				val, err := c.Get("key")
@@ -111,8 +111,7 @@ func Test_CacheTimer(t *testing.T) {
 				Convey("When I wait for 1 second and update the time", func() {
 					<-time.After(1 * time.Second)
 
-					err := c.AddOrUpdate("key", "value2")
-					So(err, ShouldBeNil)
+					c.AddOrUpdate("key", "value2")
 
 					Convey("I should be able to read the second item", func() {
 						val, err := c.Get("key")
@@ -152,9 +151,12 @@ func TestLockedModify(t *testing.T) {
 		c := NewCache()
 
 		Convey("Given an element that is an integer", func() {
-			c.Add("key", 1)
+			err := c.Add("key", 1)
+			So(err, ShouldBeNil)
 			Convey("Given an an incremental add function", func() {
-				c.LockedModify("key", add, 1)
+				value, err := c.LockedModify("key", add, 1)
+				So(err, ShouldBeNil)
+				So(value, ShouldNotBeNil)
 				Convey("I should get the right value  ", func() {
 					val, err := c.Get("key")
 					So(err, ShouldBeNil)
@@ -172,12 +174,14 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 	Convey("Given that I instantiate 1 objects with 2 second timers", t, func() {
 		i := 1
 		c := NewCacheWithExpiration(2 * time.Second)
-		c.Add(i, i)
+		err := c.Add(i, i)
+		So(err, ShouldBeNil)
 		Convey("When I check the cache size After 1 seconds, the size should be 1", func() {
 			<-time.After(1 * time.Second)
 			// So(c.SizeOf(), ShouldEqual, 1)
 			Convey("When I update the object and check again after another 1 seconds, the size should be 1", func() {
-				c.Update(1, 1)
+				err := c.Update(1, 1)
+				So(err, ShouldBeNil)
 				<-time.After(1 * time.Second)
 				// So(c.SizeOf(), ShouldEqual, 1) // @TODO: fix me it should be 1
 				Convey("When I check the cache size After another 2 seconds, the size should be 0", func() {
@@ -196,12 +200,14 @@ func TestThousandsOfTimers(t *testing.T) {
 	Convey("Given that I instantiate 10K objects with 2 second timers", t, func() {
 		c := NewCacheWithExpiration(2 * time.Second)
 		for i := 0; i < 10000; i++ {
-			c.Add(i, i)
+			err := c.Add(i, i)
+			So(err, ShouldBeNil)
 		}
 		Convey("After I wait for 1 second and add 10K more objects with 2 second timers", func() {
 			<-time.After(1 * time.Second)
 			for i := 20000; i < 30000; i++ {
-				c.Add(i, i)
+				err := c.Add(i, i)
+				So(err, ShouldBeNil)
 			}
 			//TODO: This test is failing if we wait 3 seconds
 			Convey("After I wait for another 4 seconds", func() {

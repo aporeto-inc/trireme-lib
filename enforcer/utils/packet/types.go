@@ -99,6 +99,7 @@ func tcpFlagsToStr(flags uint8) string {
 	return s
 }
 
+// TcpFlagsToStr converts the TCP Flags to a string value that is human readable
 func TcpFlagsToStr(flags uint8) string {
 	s := ""
 	if flags&0x20 == 0 {

@@ -49,7 +49,9 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 
 	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer)
 
-	p.PublicKeyAdd("Server1", certPEM)
+	if err := p.PublicKeyAdd("Server1", certPEM); err != nil {
+		log.Fatal(err)
+	}
 
 	return t, m, e
 }

@@ -9,16 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-var gobTypes = []interface{}{
-	InitRequestPayload{},
-	InitResponsePayload{},
-	InitSupervisorPayload{},
-	EnforcePayload{},
-	UnEnforcePayload{},
-	SuperviseRequestPayload{},
-	UnSupervisePayload{},
-}
-
 // CaptureType identifies the type of iptables implementation that should be used
 type CaptureType int
 

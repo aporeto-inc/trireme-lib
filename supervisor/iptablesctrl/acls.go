@@ -419,7 +419,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 }
 
 // addNetACLs adds iptables rules that manage traffic from external services. The
-// explicit rules are added with the higest priority since they are direct allows.
+// explicit rules are added with the highest priority since they are direct allows.
 func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error {
 
 	for _, rule := range rules.Rules {
@@ -668,17 +668,28 @@ func (i *Instance) CaptureSYNACKPackets() error {
 // CleanCaptureSynAckPackets cleans the capture rules for SynAck packets
 func (i *Instance) CleanCaptureSynAckPackets() error {
 
-	i.ipt.Delete(
+	if err := i.ipt.Delete(
 		i.appAckPacketIPTableContext,
 		i.appPacketIPTableSection,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues); err != nil {
 
-	i.ipt.Delete(
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"error":   err.Error(),
+		}).Warn("Can not clear the SynAck packet capcture app chain.")
+	}
+
+	if err := i.ipt.Delete(
 		i.netPacketIPTableContext,
 		i.netPacketIPTableSection,
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"error":   err.Error(),
+		}).Warn("Can not clear the SynAck packet capcture net chain.")
+	}
 
 	return nil
 }
@@ -686,9 +697,19 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 // CleanAllSynAckPacketCaptures cleans the capture rules for SynAck packets irrespective of NFQUEUE
 func (i *Instance) CleanAllSynAckPacketCaptures() error {
 
-	i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableContext)
+	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableContext); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"error":   err.Error(),
+		}).Warn("Can not clear the SynAck packet capcture app chain.")
+	}
 
-	i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection)
+	if err := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"error":   err.Error(),
+		}).Warn("Can not clear the SynAck packet capcture net chain.")
+	}
 
 	return nil
 }
@@ -715,21 +736,30 @@ func (i *Instance) removeMarkRule() error {
 		return nil
 	}
 
-	i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+	return i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "mark",
 		"--mark", strconv.Itoa(i.mark),
 		"-j", "ACCEPT")
 
-	return nil
 }
 
 func (i *Instance) cleanACLs() error {
 
 	// Clean the mark rule
-	i.removeMarkRule()
+	if err := i.removeMarkRule(); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"error":   err.Error(),
+		}).Warn("Can not clear the mark rules.")
+	}
 
 	if i.mode == constants.LocalServer {
-		i.CleanCaptureSynAckPackets()
+		if err := i.CleanCaptureSynAckPackets(); err != nil {
+			log.WithFields(log.Fields{
+				"package": "iptablesctrl",
+				"error":   err.Error(),
+			}).Warn("Can not clear the SynAck ACLs.")
+		}
 	}
 
 	// Clean Application Rules/Chains in Raw if needed
@@ -754,7 +784,7 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 			"context": context,
 			"section": section,
 			"error":   err.Error(),
-		}).Debug("Can not clear the section in iptables.")
+		}).Warn("Can not clear the section in iptables.")
 	}
 
 	rules, _ := i.ipt.ListChains(context)
@@ -762,8 +792,24 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 	for _, rule := range rules {
 
 		if strings.Contains(rule, chainPrefix) {
-			i.ipt.ClearChain(context, rule)
-			i.ipt.DeleteChain(context, rule)
+
+			if err := i.ipt.ClearChain(context, rule); err != nil {
+				log.WithFields(log.Fields{
+					"package": "iptablesctrl",
+					"context": context,
+					"section": section,
+					"error":   err.Error(),
+				}).Warn("Can not clear the chain.")
+			}
+
+			if err := i.ipt.DeleteChain(context, rule); err != nil {
+				log.WithFields(log.Fields{
+					"package": "iptablesctrl",
+					"context": context,
+					"section": section,
+					"error":   err.Error(),
+				}).Warn("Can not clear the chain.")
+			}
 		}
 	}
 }

@@ -11,7 +11,7 @@ import (
 // DataStore is the interface to a datastore.
 type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
-	AddOrUpdate(u interface{}, value interface{}) (err error)
+	AddOrUpdate(u interface{}, value interface{})
 	Get(u interface{}) (i interface{}, err error)
 	Remove(u interface{}) (err error)
 	DumpStore()
@@ -66,7 +66,15 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 
 	var timer *time.Timer
 	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() { c.Remove(u) })
+		timer = time.AfterFunc(c.lifetime, func() {
+			if err := c.Remove(u); err != nil {
+				log.WithFields(log.Fields{
+					"package": "cache",
+					"cache":   c,
+					"data":    u,
+				}).Warn("Failed to remove item")
+			}
+		})
 	}
 
 	t := time.Now()
@@ -92,7 +100,15 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 
 	var timer *time.Timer
 	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() { c.Remove(u) })
+		timer = time.AfterFunc(c.lifetime, func() {
+			if err := c.Remove(u); err != nil {
+				log.WithFields(log.Fields{
+					"package": "cache",
+					"cache":   c,
+					"data":    u,
+				}).Warn("Failed to remove item")
+			}
+		})
 	}
 
 	t := time.Now()
@@ -120,11 +136,19 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 
 // AddOrUpdate adds a new value in the cache or updates the existing value
 // if needed. If an update happens the timestamp is also updated.
-func (c *Cache) AddOrUpdate(u interface{}, value interface{}) (err error) {
+func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 
 	var timer *time.Timer
 	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() { c.Remove(u) })
+		timer = time.AfterFunc(c.lifetime, func() {
+			if err := c.Remove(u); err != nil {
+				log.WithFields(log.Fields{
+					"package": "cache",
+					"cache":   c,
+					"data":    u,
+				}).Warn("Failed to remove item")
+			}
+		})
 	}
 
 	t := time.Now()
@@ -144,7 +168,6 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) (err error) {
 		timer:     timer,
 	}
 
-	return nil
 }
 
 // Get retrieves the entry from the cache
@@ -199,7 +222,15 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 
 	var timer *time.Timer
 	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() { c.Remove(u) })
+		timer = time.AfterFunc(c.lifetime, func() {
+			if err := c.Remove(u); err != nil {
+				log.WithFields(log.Fields{
+					"package": "cache",
+					"cache":   c,
+					"data":    u,
+				}).Warn("Failed to remove item")
+			}
+		})
 	}
 
 	t := time.Now()

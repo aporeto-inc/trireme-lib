@@ -11,9 +11,3 @@ type ProcessManager interface {
 	SetnsNetPath(netpath string)
 	//	ProcessExists(pid int) error
 }
-
-// ProcessMonitor is the interface of the process monitor
-type ProcessMonitor interface {
-	ProcessExists(pid int) bool
-	AddProcessMonList(pid int, eventChannel chan int) error
-}

@@ -49,7 +49,7 @@ func NewJWT(validity time.Duration, issuer string, secrets Secrets) (*JWTConfig,
 	var signMethod jwt.SigningMethod
 
 	if secrets == nil {
-		return nil, fmt.Errorf("Secrets cannnot be nil")
+		return nil, fmt.Errorf("Secrets can not be nil")
 	}
 	if secrets.Type() == PKIType {
 		signMethod = jwt.SigningMethodES256

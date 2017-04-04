@@ -116,9 +116,17 @@ func (s *Config) Unsupervise(contextID string) error {
 
 	cacheEntry := version.(*cacheData)
 
-	s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark)
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark); err != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Warn("Some rules were not deleted during unsupervise")
+	}
 
-	s.versionTracker.Remove(contextID)
+	if err := s.versionTracker.Remove(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Warn("Failed to clean the rule version cache")
+	}
 
 	return nil
 }
@@ -139,7 +147,12 @@ func (s *Config) Start() error {
 // Stop stops the supervisor
 func (s *Config) Stop() error {
 
-	s.impl.Stop()
+	if err := s.impl.Stop(); err != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Warn("Failed to stop the implementer")
+		return err
+	}
 
 	return nil
 }
@@ -165,13 +178,14 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	}
 
 	// Version the policy so that we can do hitless policy changes
-	if err := s.versionTracker.AddOrUpdate(contextID, cacheEntry); err != nil {
-		s.Unsupervise(contextID)
-		return err
-	}
+	s.versionTracker.AddOrUpdate(contextID, cacheEntry)
 
 	if err := s.impl.ConfigureRules(version, contextID, containerInfo); err != nil {
-		s.Unsupervise(contextID)
+		if uerr := s.Unsupervise(contextID); uerr != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+			}).Warn("Failed to clean up state while creating ")
+		}
 		return err
 	}
 
@@ -191,7 +205,12 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	cachedEntry := cacheEntry.(*cacheData)
 
 	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo); err != nil {
-		s.Unsupervise(contextID)
+
+		if uerr := s.Unsupervise(contextID); uerr != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+			}).Warn("Failed to clean up state while updating the PU ")
+		}
 		return err
 	}
 
@@ -202,7 +221,11 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 func (s *Config) AddExcludedIPs(ips []string) error {
 	// Remove everything and then apply the updatedSet.
 	if len(s.excludedIPs) > 0 {
-		s.impl.RemoveExcludedIP(s.excludedIPs)
+		if err := s.impl.RemoveExcludedIP(s.excludedIPs); err != nil {
+			log.WithFields(log.Fields{
+				"package": "supervisor",
+			}).Warn("Failed to clean up state while removing excluded IPs")
+		}
 	}
 	s.excludedIPs = ips
 	return s.impl.AddExcludedIP(ips)

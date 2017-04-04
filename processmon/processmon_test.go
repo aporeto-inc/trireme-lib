@@ -18,7 +18,6 @@ func TestLaunchProcess(t *testing.T) {
 	refPid := 1
 	dir, _ := os.Getwd()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat") // Cat will block and should be present on all linux
 	err := p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
@@ -46,7 +45,6 @@ func TestLaunchProcess(t *testing.T) {
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string, secret string) error {
 		return nil
 	})
-	setprocessname("cat")
 	err = p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Failed to create RPC client %v", err)
@@ -70,7 +68,6 @@ func TestGetExitStatus(t *testing.T) {
 	//Lets launch process
 	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat")
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	err := p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
@@ -100,7 +97,6 @@ func TestSetExitStatus(t *testing.T) {
 	//Lets launch process
 	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat")
 	//Error returned when process does not exists
 	err := p.SetExitStatus(contextID, true)
 	if err == nil {
@@ -143,7 +139,6 @@ func TestKillProcess(t *testing.T) {
 	//Lets launch process
 	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat")
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)

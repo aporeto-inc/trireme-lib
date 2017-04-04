@@ -33,7 +33,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		exitingCgroup := arguments["<cgroup>"].(string)
 
 		if err = HandleCgroupStop(exitingCgroup); err != nil {
-			err = fmt.Errorf("Cannot connect to policy process %s. Resources not deleted\n", err)
+			err = fmt.Errorf("cannot connect to policy process %s. Resources not deleted", err)
 			stderrlogger.Print(err)
 			return err
 		}
@@ -187,9 +187,5 @@ func HandleCgroupStop(cgroupName string) error {
 
 	request.EventType = monitor.EventDestroy
 
-	if err := rpcClient.Call(remoteMethodCall, request, response); err != nil {
-		return err
-	}
-
-	return nil
+	return rpcClient.Call(remoteMethodCall, request, response)
 }

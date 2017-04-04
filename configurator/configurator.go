@@ -390,15 +390,27 @@ func NewPSKHybridTriremeWithMonitor(
 		nil,
 	)
 	// use rpcmonitor no need to return it since no other consumer for it
-	rpcmon, _ := rpcmonitor.NewRPCMonitor(
+	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
 		triremeInstance,
 		eventCollector,
 	)
 
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "configurator",
+		}).Warn("Failed to initialize RPC monitor")
+		return nil, nil, nil, nil
+	}
+
 	// configure a LinuxServices processor for the rpc monitor
 	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
-	rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor)
+	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
+		log.WithFields(log.Fields{
+			"package": "configurator",
+		}).Warn("Failed to initialize RPC monitor")
+		return nil, nil, nil, nil
+	}
 
 	return triremeInstance, monitorDocker, rpcmon, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)
 

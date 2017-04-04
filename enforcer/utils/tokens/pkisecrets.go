@@ -124,14 +124,17 @@ func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 	return nil
 }
 
+// AuthPEM returns the Certificate Authority PEM
 func (p *PKISecrets) AuthPEM() []byte {
 	return p.AuthorityPEM
 }
 
+// TransmittedPEM returns the PEM certificate that is transmitted
 func (p *PKISecrets) TransmittedPEM() []byte {
 	return p.PublicKeyPEM
 }
 
+// EncodingPEM returns the certificate PEM that is used for encoding
 func (p *PKISecrets) EncodingPEM() []byte {
 	return p.PrivateKeyPEM
 }

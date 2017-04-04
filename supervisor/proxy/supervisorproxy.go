@@ -91,9 +91,14 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 		delete(s.initDone, contextID)
 	}
 
-	if s.prochdl.GetExitStatus(contextID) == false {
+	if !s.prochdl.GetExitStatus(contextID) {
 		//Unsupervise not called yet
-		s.prochdl.SetExitStatus(contextID, true)
+		if err := s.prochdl.SetExitStatus(contextID, true); err != nil {
+			log.WithFields(log.Fields{
+				"package":   "remsupervisor",
+				"contextID": contextID,
+			}).Warn("Failed to set exit status in unsupervise")
+		}
 	} else {
 		//We are coming here last
 		s.prochdl.KillProcess(contextID)

@@ -20,7 +20,7 @@ type RuntimeReader interface {
 	// Name returns the process name of the Runtime.
 	Name() string
 
-	// Tag retuns the value of the given tag.
+	// Tag returns  the value of the given tag.
 	Tag(string) (string, bool)
 
 	// Tags returns a copy of the list of the tags.

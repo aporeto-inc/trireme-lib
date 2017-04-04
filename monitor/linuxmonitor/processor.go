@@ -93,7 +93,12 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
 		if !ok {
-			s.netcls.DeleteCgroup(eventInfo.PUID)
+			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+				log.WithFields(log.Fields{
+					"package": "rpcMonitor",
+					"error":   err.Error(),
+				}).Warn("Failed to clean cgroup")
+			}
 			log.WithFields(log.Fields{
 				"package": "rpcmonitor",
 				"PUID":    eventInfo.PUID,
@@ -104,7 +109,13 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		mark, _ := strconv.ParseUint(markval, 10, 32)
 		err = s.netcls.AssignMark(eventInfo.PUID, mark)
 		if err != nil {
-			s.netcls.DeleteCgroup(eventInfo.PUID)
+			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+				log.WithFields(log.Fields{
+					"package": "rpcMonitor",
+					"error":   err.Error(),
+				}).Warn("Failed to clean cgroup")
+			}
+
 			log.WithFields(log.Fields{
 				"package": "rpcMonitor",
 				"error":   err.Error(),
@@ -115,11 +126,19 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		pid, _ := strconv.Atoi(eventInfo.PID)
 		err = s.netcls.AddProcess(eventInfo.PUID, pid)
 		if err != nil {
-			s.netcls.DeleteCgroup(eventInfo.PUID)
+
+			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+				log.WithFields(log.Fields{
+					"package": "rpcMonitor",
+					"error":   err.Error(),
+				}).Warn("Failed to clean cgroup")
+			}
+
 			log.WithFields(log.Fields{
 				"package": "rpcMonitor",
 				"error":   err.Error(),
 			}).Info("Error adding process")
+
 			return err
 
 		}
@@ -133,7 +152,14 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	// Store the state in the context store for future access
-	contextstore.NewContextStore().StoreContext(contextID, eventInfo)
+	if err := contextstore.NewContextStore().StoreContext(contextID, eventInfo); err != nil {
+		log.WithFields(log.Fields{
+			"package": "rpcMonitor",
+			"error":   err.Error(),
+		}).Error("Error adding process")
+		return err
+	}
+
 	return status
 }
 
@@ -182,8 +208,21 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	<-errChan
 
 	//let us remove the cgroup files now
-	s.netcls.DeleteCgroup(contextID)
-	contextStoreHdl.RemoveContext(contextID)
+	if err := s.netcls.DeleteCgroup(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "rpcMonitor",
+			"error":     err.Error(),
+			"contextID": contextID,
+		}).Warn("Failed to clean netcls group ")
+	}
+
+	if err := contextStoreHdl.RemoveContext(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "rpcMonitor",
+			"error":     err.Error(),
+			"contextID": contextID,
+		}).Warn("Failed to clean cache while destroying process ")
+	}
 
 	return nil
 }

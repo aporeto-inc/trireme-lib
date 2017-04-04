@@ -122,7 +122,7 @@ func TestCreateAndVerifyPSK(t *testing.T) {
 			So(string(recoveredClaims.LCL), ShouldEqual, lcl)
 		})
 
-		Convey("Given a singature request for an ACK packet", func() {
+		Convey("Given a signature request for an ACK packet", func() {
 			token := jwtConfig.CreateAndSign(true, &ackClaims)
 			recoveredClaims, _ := jwtConfig.Decode(true, token, nil)
 
@@ -133,7 +133,7 @@ func TestCreateAndVerifyPSK(t *testing.T) {
 
 		})
 
-		Convey("Given a singature request with a bad packet ", func() {
+		Convey("Given a signature request with a bad packet ", func() {
 			recoveredClaims, _ := jwtConfig.Decode(false, nil, nil)
 
 			So(recoveredClaims, ShouldBeNil)
@@ -160,7 +160,7 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 			So(string(recoveredClaims.LCL), ShouldEqual, lcl)
 		})
 
-		Convey("Given a singature request for an ACK packet", func() {
+		Convey("Given a signature request for an ACK packet", func() {
 			token := jwtConfig.CreateAndSign(true, &ackClaims)
 			recoveredClaims, _ := jwtConfig.Decode(true, token, cert.PublicKey.(*ecdsa.PublicKey))
 

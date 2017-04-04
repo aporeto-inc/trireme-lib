@@ -154,7 +154,9 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 // SetPURuntime returns the RuntimeInfo based on the contextID.
 func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 
-	return t.cache.AddOrUpdate(contextID, runtimeInfo)
+	t.cache.AddOrUpdate(contextID, runtimeInfo)
+
+	return nil
 
 }
 

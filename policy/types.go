@@ -63,9 +63,8 @@ func NewIPRuleList(rules []IPRule) *IPRuleList {
 	rl := &IPRuleList{
 		Rules: []IPRule{},
 	}
-	for _, v := range rules {
-		rl.Rules = append(rl.Rules, v)
-	}
+	rl.Rules = append(rl.Rules, rules...)
+
 	return rl
 }
 
@@ -154,9 +153,9 @@ func NewKeyValueOperator(k string, o Operator, kvos []string) *KeyValueOperator 
 		Operator: o,
 		Value:    []string{},
 	}
-	for _, v := range kvos {
-		kvo.Value = append(kvo.Value, v)
-	}
+
+	kvo.Value = append(kvo.Value, kvos...)
+
 	return kvo
 }
 
