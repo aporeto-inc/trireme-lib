@@ -1,11 +1,10 @@
 package rpcwrapper
 
 import (
-	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 
 	"net"
 	"net/http"
@@ -96,10 +95,7 @@ func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
 //RemoteCall is a wrapper around rpc.Call and also ensure message integrity by adding a hmac
 func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
 
-	var rpcBuf bytes.Buffer
-	if err := binary.Write(&rpcBuf, binary.BigEndian, req.Payload); err != nil {
-		return err
-	}
+	rpcBuf := []byte(fmt.Sprintf("%v", req.Payload))
 
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
@@ -120,10 +116,7 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 //CheckValidity checks if the received message is valid
 func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 
-	var rpcBuf bytes.Buffer
-	if err := binary.Write(&rpcBuf, binary.BigEndian, req.Payload); err != nil {
-		return false
-	}
+	rpcBuf := []byte(fmt.Sprintf("%v", req.Payload))
 
 	digest := hmac.New(sha256.New, []byte(secret))
 
