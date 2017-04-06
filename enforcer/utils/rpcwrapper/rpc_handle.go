@@ -1,10 +1,10 @@
 package rpcwrapper
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/gob"
-	"fmt"
 
 	"net"
 	"net/http"
@@ -95,7 +95,12 @@ func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
 //RemoteCall is a wrapper around rpc.Call and also ensure message integrity by adding a hmac
 func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
 
-	rpcBuf := []byte(fmt.Sprintf("%v", req.Payload))
+	var rpcBuffer bytes.Buffer
+	enc := gob.NewEncoder(&rpcBuffer)
+
+	if err := enc.Encode(req.Payload); err != nil {
+		return err
+	}
 
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
@@ -103,7 +108,7 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	}
 
 	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
-	if _, err := digest.Write(rpcBuf); err != nil {
+	if _, err := digest.Write(rpcBuffer.Bytes()); err != nil {
 		return err
 	}
 
@@ -116,11 +121,16 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 //CheckValidity checks if the received message is valid
 func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 
-	rpcBuf := []byte(fmt.Sprintf("%v", req.Payload))
+	var rpcBuffer bytes.Buffer
+	enc := gob.NewEncoder(&rpcBuffer)
+
+	if err := enc.Encode(req.Payload); err != nil {
+		return false
+	}
 
 	digest := hmac.New(sha256.New, []byte(secret))
 
-	if _, err := digest.Write(rpcBuf); err != nil {
+	if _, err := digest.Write(rpcBuffer.Bytes()); err != nil {
 		return false
 	}
 

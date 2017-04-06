@@ -44,17 +44,17 @@ const (
 	AfInet = 2
 
 	//NfDrop Net filter verdict
-	NfDrop verdictType = C.uint(0)
+	NfDrop verdictType = 0  // nolint
 	//NfAccept Net filter verdict
-	NfAccept verdictType = C.uint(1)
+	NfAccept verdictType = 1 //nolint
 	//NfStolen Net filter verdict
-	NfStolen verdictType = C.uint(2)
+	NfStolen verdictType = 2 // nolint
 	//NfQueue Net filter verdict
-	NfQueue verdictType = C.uint(3)
+	NfQueue verdictType = 3 // nolint
 	//NfRepeat Net filter verdict
-	NfRepeat verdictType = C.uint(4)
+	NfRepeat verdictType = 4  // nolint
 	//NfStop Net filter verdict
-	NfStop verdictType = C.uint(5)
+	NfStop verdictType = 5 // nolint
 
 	//NfDefaultPacketSize default packet size
 	NfDefaultPacketSize uint32 = 0xffff
@@ -231,8 +231,8 @@ func (nfq *NFQueue) run() {
 
 }
 
-// nolint : deadcode 
-// export processPacket
+// nolint : deadcode
+//export processPacket
 func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
 
 	nfq, ok := theTable[idx]
