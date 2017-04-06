@@ -44,26 +44,26 @@ const (
 	AfInet = 2
 
 	//NfDrop Net filter verdict
-	NfDrop verdictType = 0
+	NfDrop verdictType = C.uint(0)
 	//NfAccept Net filter verdict
-	NfAccept verdictType = 1
+	NfAccept verdictType = C.uint(1)
 	//NfStolen Net filter verdict
-	NfStolen verdictType = 2
+	NfStolen verdictType = C.uint(2)
 	//NfQueue Net filter verdict
-	NfQueue verdictType = 3
+	NfQueue verdictType = C.uint(3)
 	//NfRepeat Net filter verdict
-	NfRepeat verdictType = 4
+	NfRepeat verdictType = C.uint(4)
 	//NfStop Net filter verdict
-	NfStop verdictType = 5
+	NfStop verdictType = C.uint(5)
 
 	//NfDefaultPacketSize default packet size
 	NfDefaultPacketSize uint32 = 0xffff
 
-	// NETLINK_NO_ENOBUFS
-	NETLINK_NO_ENOBUFS = 5
+	// netlinkNoEnobufs is the number of buffers
+	netlinkNoEnobufs = 5
 
-	// SOL_NETLINK
-	SOL_NETLINK = 270
+	// solNetlink is the system call argument
+	solNetlink = 270
 )
 
 //NFPacket structure holds the packet
@@ -115,7 +115,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 			"error":   err.Error(),
 		}).Debug("Error opening NFQueue handle")
 
-		return nil, fmt.Errorf("Error opening NFQueue handle: %v\n", err)
+		return nil, fmt.Errorf("Error opening NFQueue handle: %v ", err)
 	}
 
 	if ret, err = C.nfq_unbind_pf(nfq.h, AfInet); err != nil || ret < 0 {
@@ -125,7 +125,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 			"error":   err.Error(),
 		}).Debug("Error unbinding existing NFQ handler from AfInet protocol family")
 
-		return nil, fmt.Errorf("Error unbinding existing NFQ handler from AfInet protocol family: %v\n", err)
+		return nil, fmt.Errorf("Error unbinding existing NFQ handler from AfInet protocol family: %v ", err)
 	}
 
 	if ret, err = C.nfq_bind_pf(nfq.h, AfInet); err != nil || ret < 0 {
@@ -135,7 +135,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 			"error":   err.Error(),
 		}).Debug("Error binding to AfInet protocol family")
 
-		return nil, fmt.Errorf("Error binding to AfInet protocol family: %v\n", err)
+		return nil, fmt.Errorf("Error binding to AfInet protocol family: %v ", err)
 	}
 
 	nfq.idx = uint32(time.Now().UnixNano())
@@ -150,7 +150,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 			"error":   err.Error(),
 		}).Debug("Error binding to queue")
 
-		return nil, fmt.Errorf("Error binding to queue: %v\n", err)
+		return nil, fmt.Errorf("Error binding to queue: %v ", err)
 	}
 
 	// Set packets to copy mode - We need to investigate if we can avoid one copy
@@ -164,7 +164,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 			"error":   err.Error(),
 		}).Debug("Unable to set packets copy mode")
 
-		return nil, fmt.Errorf("Unable to set packets copy mode: %v\n", err)
+		return nil, fmt.Errorf("Unable to set packets copy mode: %v ", err)
 	}
 
 	// Set the max length of the queue
@@ -177,7 +177,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 			"error":   err.Error(),
 		}).Debug("Unable to set max packets in queue")
 
-		return nil, fmt.Errorf("Unable to set max packets in queue: %v\n", err)
+		return nil, fmt.Errorf("Unable to set max packets in queue: %v ", err)
 	}
 
 	// Get the queue file descriptor
@@ -198,7 +198,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 
 	fd := C.nfnl_fd(netlinkHandle)
 	opt := 1
-	optionsError := setsockopt(int(fd), SOL_NETLINK, NETLINK_NO_ENOBUFS, unsafe.Pointer(&opt), unsafe.Sizeof(opt))
+	optionsError := setsockopt(int(fd), solNetlink, netlinkNoEnobufs, unsafe.Pointer(&opt), unsafe.Sizeof(opt))
 	if optionsError != nil {
 		log.WithFields(log.Fields{
 			"package": "netfilter",
@@ -231,7 +231,8 @@ func (nfq *NFQueue) run() {
 
 }
 
-//export processPacket
+// export processPacket
+// nolint : deadcode
 func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
 
 	nfq, ok := theTable[idx]
@@ -280,7 +281,7 @@ func SetVerdict(v *Verdict, mark int) int {
 	var bufferLength int
 	bufferLength = len(v.Buffer) + len(v.Options) + len(v.Payload)
 
-	xbuf := (*[1 << 30]C.uchar)(unsafe.Pointer(v.Xbuffer))[:bufferLength:bufferLength]
+	xbuf := (*[1 << 30]C.uchar)(unsafe.Pointer(v.Xbuffer))[:bufferLength:bufferLength] // nolint
 	// Do the memcopy to the new packet format that must be transmitted
 	// We need to use a new buffer since we are extending the packet
 	// Do the memcopy to the new packet format that must be transmitted
