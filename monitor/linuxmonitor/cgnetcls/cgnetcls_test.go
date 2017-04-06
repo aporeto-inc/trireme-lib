@@ -222,6 +222,10 @@ func TestDeleteBasePath(t *testing.T) {
 	cg := NewCgroupNetController("")
 	//Removing process from non-existent group
 	err := cg.DeleteCgroup(testcgroupname)
+	if err != nil {
+		t.Errorf("Delete of group failed %s", err.Error())
+	}
+
 	defer cleanupnetclsgroup()
 	cg.Deletebasepath(testcgroupname)
 	_, err = os.Stat(basePath + TriremeBasePath + testcgroupname)

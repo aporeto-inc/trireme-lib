@@ -14,7 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
-	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
+	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
@@ -266,8 +266,8 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	return err
 }
 
-//EnforcerExit this method is called when  we received a killrpocess message from the controller
-//THis allows a graceful exit of the enforcer
+// EnforcerExit this method is called when  we received a killrpocess message from the controller
+// This allows a graceful exit of the enforcer
 func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	//Cleanup resources held in this namespace
@@ -277,6 +277,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	return nil
 }
 
+// AddExcludedIPs implements the ExcludedIPs method of enforcers
 func (s *Server) AddExcludedIPs(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Message Auth Failed")

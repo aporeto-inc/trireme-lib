@@ -1,5 +1,4 @@
 // +build linux
-
 /*
    Copyright 2014 Krishna Raman <kraman@gmail.com>
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,7 +79,6 @@ type NFQueue struct {
 	h       *C.struct_nfq_handle
 	qh      *C.struct_nfq_q_handle
 	fd      C.int
-	packets chan NFPacket
 	idx     uint32
 	Packets chan *NFPacket
 }

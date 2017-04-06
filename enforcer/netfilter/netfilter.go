@@ -87,13 +87,6 @@ func (nfq *NFQueue) run() {
 
 }
 
-//export processPacket
-func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, newLength *C.int, idx uint32) verdictType {
-
-	return NfDrop
-
-}
-
 // SetVerdict creates a verdict
 func SetVerdict(v *Verdict, mark int) int {
 	return 0

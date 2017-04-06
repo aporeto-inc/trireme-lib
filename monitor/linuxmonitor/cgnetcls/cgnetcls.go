@@ -18,7 +18,9 @@ import (
 )
 
 const (
-	basePath             = "/sys/fs/cgroup/net_cls"
+	basePath = "/sys/fs/cgroup/net_cls"
+
+	// TriremeBasePath is the base path of the Trireme tree in cgroups
 	TriremeBasePath      = "/trireme"
 	markFile             = "/net_cls.classid"
 	procs                = "/cgroup.procs"

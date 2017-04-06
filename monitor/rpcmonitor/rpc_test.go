@@ -218,22 +218,6 @@ func TestStart(t *testing.T) {
 	})
 }
 
-func testclienthelper(eventInfo *EventInfo) error {
-	response := &RPCResponse{}
-
-	client, err := net.Dial("unix", testRPCAddress)
-	if err != nil {
-		fmt.Println("Error", err)
-		return err
-	}
-
-	rpcClient := jsonrpc.NewClient(client)
-
-	err = rpcClient.Call("Server.HandleEvent", eventInfo, response)
-
-	return err
-}
-
 func TestHandleEvent(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
