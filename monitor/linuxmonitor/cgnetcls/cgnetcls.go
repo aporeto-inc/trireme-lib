@@ -18,15 +18,18 @@ import (
 )
 
 const (
-	basePath = "/sys/fs/cgroup/net_cls"
-
 	// TriremeBasePath is the base path of the Trireme tree in cgroups
-	TriremeBasePath      = "/trireme"
+	TriremeBasePath = "/trireme"
+	// CgroupNameTag is the tag for the cgroup name
+	CgroupNameTag = "@cgroup_name"
+	// CgroupMarkTag is the tag for the cgroup mark
+	CgroupMarkTag = "@cgroup_mark"
+	// PortTag is the tag for a port
+	PortTag = "@usr:port"
+
+	basePath             = "/sys/fs/cgroup/net_cls"
 	markFile             = "/net_cls.classid"
 	procs                = "/cgroup.procs"
-	CgroupNameTag        = "@cgroup_name"
-	CgroupMarkTag        = "@cgroup_mark"
-	PortTag              = "@usr:port"
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
 	initialmarkval       = 100

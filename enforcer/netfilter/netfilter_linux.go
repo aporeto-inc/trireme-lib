@@ -1,4 +1,5 @@
 // +build linux
+
 /*
    Copyright 2014 Krishna Raman <kraman@gmail.com>
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +17,8 @@
 This library provides access to packets in the IPTables netfilter queue (NFQUEUE).
 The libnetfilter_queue library is part of the http://netfilter.org/projects/libnetfilter_queue/ project.
 */
+
+// nolint : goimports
 package netfilter
 
 /*

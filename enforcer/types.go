@@ -58,20 +58,20 @@ type PacketStats struct {
 
 // FilterQueue captures all the configuration parameters of the NFQUEUEs
 type FilterQueue struct {
+	// MarkValue is the default mark to set in packets in the RAW chain
+	MarkValue int
 	// Network Queue is the queue number of the base queue for network packets
 	NetworkQueue uint16
-	// NetworkQueueSize is the size of the network queue
-	NetworkQueueSize uint32
+	// NumberOfApplicationQueues is the number of queues that must be allocated
+	NumberOfApplicationQueues uint16
 	// NumberOfNetworkQueues is the number of network queues allocated
 	NumberOfNetworkQueues uint16
 	// ApplicationQueue is the queue number of the first application queue
 	ApplicationQueue uint16
 	// ApplicationQueueSize is the size of the application queue
 	ApplicationQueueSize uint32
-	// NumberOfApplicationQueues is the number of queues that must be allocated
-	NumberOfApplicationQueues uint16
-	// MarkValue is the default mark to set in packets in the RAW chain
-	MarkValue int
+	// NetworkQueueSize is the size of the network queue
+	NetworkQueueSize uint32
 }
 
 // PUContext holds data indexed by the docker ID
