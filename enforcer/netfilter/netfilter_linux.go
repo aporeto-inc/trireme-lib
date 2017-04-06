@@ -17,8 +17,6 @@
 This library provides access to packets in the IPTables netfilter queue (NFQUEUE).
 The libnetfilter_queue library is part of the http://netfilter.org/projects/libnetfilter_queue/ project.
 */
-
-// nolint : goimports
 package netfilter
 
 /*
@@ -46,7 +44,7 @@ const (
 	AfInet = 2
 
 	//NfDrop Net filter verdict
-	NfDrop verdictType = 0  // nolint
+	NfDrop verdictType = 0 // nolint
 	//NfAccept Net filter verdict
 	NfAccept verdictType = 1 //nolint
 	//NfStolen Net filter verdict
@@ -54,7 +52,7 @@ const (
 	//NfQueue Net filter verdict
 	NfQueue verdictType = 3 // nolint
 	//NfRepeat Net filter verdict
-	NfRepeat verdictType = 4  // nolint
+	NfRepeat verdictType = 4 // nolint
 	//NfStop Net filter verdict
 	NfStop verdictType = 5 // nolint
 
