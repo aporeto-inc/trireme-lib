@@ -231,8 +231,8 @@ func (nfq *NFQueue) run() {
 
 }
 
+// nolint : deadcode 
 // export processPacket
-// nolint : deadcode
 func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData *C.uchar, idx uint32) verdictType {
 
 	nfq, ok := theTable[idx]
