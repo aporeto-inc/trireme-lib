@@ -103,7 +103,7 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	}
 
 	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
-	if _, err := digest.Write(rpcBuf.Bytes()); err != nil {
+	if _, err := digest.Write(rpcBuf); err != nil {
 		return err
 	}
 
@@ -120,7 +120,7 @@ func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 
 	digest := hmac.New(sha256.New, []byte(secret))
 
-	if _, err := digest.Write(rpcBuf.Bytes()); err != nil {
+	if _, err := digest.Write(rpcBuf); err != nil {
 		return false
 	}
 
