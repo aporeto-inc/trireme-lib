@@ -33,7 +33,7 @@ func createFileTest(destination string) error {
 	}
 	writer := bufio.NewWriter(fileHandle)
 	fmt.Fprintln(writer, testfile)
-	writer.Flush()
+	writer.Flush() // nolint
 	return nil
 }
 
@@ -47,7 +47,7 @@ func TestReturnedFunc(t *testing.T) {
 	}
 	PUruntime, err := function(nil)
 	if err != nil {
-
+		t.Errorf("Failed to create extractor")
 	}
 	ip, _ := PUruntime.DefaultIPAddress()
 	if ip != "172.17.0.2" {

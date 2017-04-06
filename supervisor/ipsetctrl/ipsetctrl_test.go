@@ -185,7 +185,8 @@ func TestConfigureRules(t *testing.T) {
 			return nil
 		})
 
-		i.Start()
+		err := i.Start()
+		So(err, ShouldBeNil)
 
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 

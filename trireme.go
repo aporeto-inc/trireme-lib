@@ -265,7 +265,12 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	if err := t.supervisors[containerInfo.Runtime.PUType()].Supervise(contextID, containerInfo); err != nil {
-		t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
+		if werr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); werr != nil {
+			log.WithFields(log.Fields{
+				"package":   "trireme",
+				"contextID": contextID,
+			}).Warn("Failed to clean up state after failures")
+		}
 
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
@@ -307,7 +312,12 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	errS := t.supervisors[runtime.PUType()].Unsupervise(contextID)
 	errE := t.enforcers[runtime.PUType()].Unenforce(contextID)
 
-	t.cache.Remove(contextID)
+	if err := t.cache.Remove(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "trireme",
+			"contextID": contextID,
+		}).Warn("Failed to remove context from cache during cleanup. Entry doesn't exist ")
+	}
 
 	if errS != nil || errE != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
@@ -371,7 +381,12 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	if err = t.supervisors[containerInfo.Runtime.PUType()].Supervise(contextID, containerInfo); err != nil {
-		t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
+		if werr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); werr != nil {
+			log.WithFields(log.Fields{
+				"package":   "trireme",
+				"contextID": contextID,
+			}).Warn("Failed to clean up after enforcerments failures")
+		}
 
 		log.WithFields(log.Fields{
 			"package":     "trireme",
@@ -420,14 +435,17 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 	return nil
 }
 
-//AddExcludedIpList  pushes the list of excluded IP to all supervisors in the system
+// AddExcludedIpList  pushes the list of excluded IP to all supervisors in the system
 func (t *trireme) AddExcludedIPList(ipList []string) error {
 	for _, excluder := range t.excluders {
-		excluder.AddExcludedIPs(ipList)
+		if err := excluder.AddExcludedIPs(ipList); err != nil {
+			return err
+		}
 	}
 	return nil
-
 }
+
+// run is the main function for running Trireme
 func (t *trireme) run() {
 	for {
 		select {

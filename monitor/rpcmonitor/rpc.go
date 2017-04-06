@@ -35,7 +35,6 @@ type RPCMonitor struct {
 	listensock    net.Listener
 	contextstore  contextstore.ContextStore
 	collector     collector.EventCollector
-	puHandler     monitor.ProcessingUnitsHandler
 }
 
 // Server represents the Monitor RPC Server implementation
@@ -128,23 +127,44 @@ func (r *RPCMonitor) reSync() error {
 			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 
 			if err != nil {
-				cstorehandle.RemoveContext(eventInfo.PUID)
-				//The cgroup does not exists
+				//The cgroup does not exists - log error
+				if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {
+					log.WithFields(log.Fields{
+						"package": "rpcmonitor",
+						"error":   cerr.Error(),
+					}).Warn("Failed to remove state from store handler")
+				}
 				continue
 			}
 
 			if len(processlist) <= 0 {
 				//We have an empty cgroup
 				//Remove the cgroup and context store file
-				cgnetclshandle.DeleteCgroup(eventInfo.PUID)
-				cstorehandle.RemoveContext(eventInfo.PUID)
+				if err := cgnetclshandle.DeleteCgroup(eventInfo.PUID); err != nil {
+					log.WithFields(log.Fields{
+						"package": "rpcmonitor",
+						"error":   err.Error(),
+					}).Warn("Failed to remove state from store handler")
+				}
+
+				if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
+					log.WithFields(log.Fields{
+						"package": "rpcmonitor",
+						"error":   err.Error(),
+					}).Warn("Failed to remove state from store handler")
+				}
+
 				continue
 			}
-			f, _ := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]
 
-			if err := f(&eventInfo); err != nil {
-				return fmt.Errorf("error in processing existing data")
+			if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
+				if err := f(&eventInfo); err != nil {
+					return fmt.Errorf("error in processing existing data")
+				}
+			} else {
+				return fmt.Errorf("cannot find handler")
 			}
+
 		}
 	}
 
@@ -214,9 +234,19 @@ func (r *RPCMonitor) Start() error {
 // Stop monitoring RPC events.
 func (r *RPCMonitor) Stop() error {
 
-	r.listensock.Close()
+	if err := r.listensock.Close(); err != nil {
+		log.WithFields(log.Fields{
+			"package": "rpcmonitor",
+			"error":   err.Error(),
+		}).Warn("Failed to stop rpc monitor")
+	}
 
-	os.RemoveAll(r.rpcAddress)
+	if err := os.RemoveAll(r.rpcAddress); err != nil {
+		log.WithFields(log.Fields{
+			"package": "rpcmonitor",
+			"error":   err.Error(),
+		}).Warn("Failed to cleanup rpc monitor socket ")
+	}
 
 	return nil
 }

@@ -241,7 +241,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	rpcServer := &StatsServer{rpchdl: statsServer, collector: collector, secret: statsServersecret}
 
 	// Start hte server for statistics collection
-	go statsServer.StartServer("unix", rpcwrapper.StatsChannel, rpcServer)
+	go statsServer.StartServer("unix", rpcwrapper.StatsChannel, rpcServer) // nolint
 
 	return proxydata
 }

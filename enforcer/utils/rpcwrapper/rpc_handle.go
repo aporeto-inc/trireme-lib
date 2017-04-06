@@ -165,7 +165,7 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 		return err
 	}
 
-	go http.Serve(listen, nil)
+	go http.Serve(listen, nil) // nolint
 	defer func() {
 		if merr := listen.Close(); merr != nil {
 			log.WithFields(log.Fields{

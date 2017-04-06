@@ -54,15 +54,15 @@ func NewInstance(networkQueues, applicationQueues string, mark int, mode constan
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
-		i.appPacketIPTableSection = "OUTPUT"
-		i.appCgroupIPTableSection = "OUTPUT"
-		i.netPacketIPTableSection = "INPUT"
-		i.appSynAckIPTableSection = "INPUT"
+		i.appPacketIPTableSection = "OUTPUT" //nolint
+		i.appCgroupIPTableSection = "OUTPUT" //nolint
+		i.netPacketIPTableSection = "INPUT"  //nolint
+		i.appSynAckIPTableSection = "INPUT"  //nolint
 	} else {
-		i.appPacketIPTableSection = "PREROUTING"
-		i.appCgroupIPTableSection = "OUTPUT"
-		i.netPacketIPTableSection = "POSTROUTING"
-		i.appSynAckIPTableSection = "INPUT"
+		i.appPacketIPTableSection = "PREROUTING"  //nolint
+		i.appCgroupIPTableSection = "OUTPUT"      //nolint
+		i.netPacketIPTableSection = "POSTROUTING" //nolint
+		i.appSynAckIPTableSection = "INPUT"       //nolint
 	}
 
 	return i, nil

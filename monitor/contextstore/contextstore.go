@@ -26,22 +26,24 @@ func NewContextStore() ContextStore {
 
 	_, err := os.Stat(storebasePath)
 	if os.IsNotExist(err) {
-		os.MkdirAll(storebasePath, 0700)
+		if err := os.MkdirAll(storebasePath, 0700); err != nil {
+			log.WithFields(log.Fields{
+				"package": "contextstore",
+				"Error":   err.Error(),
+			}).Error("Failed to create context store directory ")
+		}
 	}
 
 	return &store{}
-}
-
-// setStoreBasePath sets the store base path
-func setStoreBasePath(path string) {
-	storebasePath = path
 }
 
 // Store context writes to the store the eventInfo which can be used as a event to trireme
 func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 
 	if _, err := os.Stat(storebasePath + contextID); os.IsNotExist(err) {
-		os.MkdirAll(storebasePath+contextID, 0700)
+		if err := os.MkdirAll(storebasePath+contextID, 0700); err != nil {
+			return err
+		}
 	}
 
 	data, err := json.Marshal(eventInfo)

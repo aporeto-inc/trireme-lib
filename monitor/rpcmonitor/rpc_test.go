@@ -19,14 +19,13 @@ import (
 )
 
 // Util functions to start test RPC server
-// This will always return sucess
-var runserver bool
+// This will always return success
 var listener net.UnixListener
 var testRPCAddress = "/tmp/test.sock"
 
 func starttestserver() {
 
-	os.Remove(testRPCAddress)
+	os.Remove(testRPCAddress) // nolint
 	rpcServer := rpc.NewServer()
 	listener, err := net.ListenUnix("unix", &net.UnixAddr{
 		Name: testRPCAddress,
@@ -44,12 +43,12 @@ func starttestserver() {
 		}
 		rpcServer.ServeCodec(jsonrpc.NewServerCodec(conn))
 	}
-	os.Remove(testRPCAddress)
+	os.Remove(testRPCAddress) // nolint
 }
 
 func stoptestserver() {
-	listener.Close()
-	os.Remove(testRPCAddress)
+	listener.Close()          //nolint
+	os.Remove(testRPCAddress) //nolint
 
 }
 
@@ -109,7 +108,8 @@ func TestRegisterProcessor(t *testing.T) {
 
 		Convey("When I try to register the same processor twice", func() {
 			processor := &CustomProcessor{}
-			mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			monerr := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			So(monerr, ShouldBeNil)
 			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
 			Convey("Then it should fail", func() {
 				So(err, ShouldNotBeNil)
@@ -159,7 +159,7 @@ func TestStart(t *testing.T) {
 			Convey("Start server returns no error", func() {
 				starerr := testRPCMonitor.Start()
 				So(starerr, ShouldBeNil)
-				testRPCMonitor.Stop()
+				testRPCMonitor.Stop() // nolint
 			})
 		})
 
@@ -177,7 +177,7 @@ func TestStart(t *testing.T) {
 			Convey("Start server returns no error", func() {
 				starterr := testRPCMonitor.Start()
 				So(starterr, ShouldBeNil)
-				testRPCMonitor.Stop()
+				testRPCMonitor.Stop() //nolint
 			})
 		})
 
@@ -204,12 +204,13 @@ func TestStart(t *testing.T) {
 			testRPCMonitor.contextstore = contextstore
 			processor := NewMockMonitorProcessor(ctrl)
 			//processor.EXPECT().Start(gomock.Any()).Return(nil)
-			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
+			rerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
+			So(rerr, ShouldBeNil)
 
 			Convey("Start server returns no error", func() {
 				starerr := testRPCMonitor.Start()
 				So(starerr, ShouldBeNil)
-				testRPCMonitor.Stop()
+				testRPCMonitor.Stop() //nolint
 			})
 
 		})
@@ -251,7 +252,8 @@ func TestHandleEvent(t *testing.T) {
 
 		testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
 		testRPCMonitor.contextstore = contextstore
-		testRPCMonitor.Start()
+		monerr := testRPCMonitor.Start()
+		So(monerr, ShouldBeNil)
 
 		Convey("If we receive an event with wrong type", func() {
 			eventInfo := &EventInfo{
@@ -261,7 +263,7 @@ func TestHandleEvent(t *testing.T) {
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get an error", func() {
 				So(err, ShouldNotBeNil)
-				testRPCMonitor.Stop()
+				testRPCMonitor.Stop() // nolint
 			})
 		})
 
@@ -274,7 +276,7 @@ func TestHandleEvent(t *testing.T) {
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get an error", func() {
 				So(err, ShouldNotBeNil)
-				testRPCMonitor.Stop()
+				testRPCMonitor.Stop() //nolint
 			})
 		})
 
@@ -282,7 +284,8 @@ func TestHandleEvent(t *testing.T) {
 
 			processor := NewMockMonitorProcessor(ctrl)
 			processor.EXPECT().Stop(gomock.Any()).Return(nil)
-			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
+			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
+			So(monerr, ShouldBeNil)
 
 			eventInfo := &EventInfo{
 				EventType: monitor.EventStop,
@@ -292,7 +295,7 @@ func TestHandleEvent(t *testing.T) {
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get no error", func() {
 				So(err, ShouldBeNil)
-				testRPCMonitor.Stop()
+				testRPCMonitor.Stop() // nolint
 			})
 		})
 
@@ -300,7 +303,8 @@ func TestHandleEvent(t *testing.T) {
 
 			processor := NewMockMonitorProcessor(ctrl)
 			processor.EXPECT().Create(gomock.Any()).Return(fmt.Errorf("Error"))
-			testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
+			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
+			So(monerr, ShouldBeNil)
 
 			eventInfo := &EventInfo{
 				EventType: monitor.EventCreate,
@@ -310,7 +314,7 @@ func TestHandleEvent(t *testing.T) {
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get an error", func() {
 				So(err, ShouldNotBeNil)
-				testRPCMonitor.Stop()
+				testRPCMonitor.Stop() // nolint
 			})
 		})
 	})

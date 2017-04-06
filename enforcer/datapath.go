@@ -56,6 +56,10 @@ type datapathEnforcer struct {
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
+
+	// stop signals
+	netStop []chan bool
+	appStop []chan bool
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -326,9 +330,19 @@ func (d *datapathEnforcer) Start() error {
 
 // Stop stops the enforcer
 func (d *datapathEnforcer) Stop() error {
+
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-	}).Debug("Stop enforcer")
+	}).Debug("Stoping enforcer")
+
+	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+		d.appStop[i] <- true
+	}
+
+	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+		d.netStop[i] <- true
+	}
+
 	return nil
 }
 
@@ -336,6 +350,8 @@ func (d *datapathEnforcer) Stop() error {
 // Still has one more copy than needed. Can be improved.
 func (d *datapathEnforcer) StartNetworkInterceptor() {
 	var err error
+
+	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
 
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
 
@@ -351,10 +367,12 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 		}
 
 		go func(i uint16) {
-			for true {
+			for {
 				select {
 				case packet := <-nfq[i].Packets:
 					d.processNetworkPacketsFromNFQ(packet)
+				case <-d.netStop[i]:
+					return
 				}
 			}
 		}(i)
@@ -367,6 +385,8 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 func (d *datapathEnforcer) StartApplicationInterceptor() {
 
 	var err error
+
+	d.appStop = make([]chan bool, d.filterQueue.NumberOfApplicationQueues)
 
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
 
@@ -381,10 +401,12 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 		}
 
 		go func(i uint16) {
-			for true {
+			for {
 				select {
 				case packet := <-nfq[i].Packets:
 					d.processApplicationPacketsFromNFQ(packet)
+				case <-d.appStop[i]:
+					return
 				}
 			}
 		}(i)

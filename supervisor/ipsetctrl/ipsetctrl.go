@@ -124,16 +124,26 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 		return fmt.Errorf("No ip address found")
 	}
 
-	i.delContainerFromSet(ipAddress)
+	var errvector [8]error
 
-	i.deleteAppSetRules(strconv.Itoa(version), appSetPrefix, ipAddress)
-	i.deleteNetSetRules(strconv.Itoa(version), netSetPrefix, ipAddress)
+	errvector[0] = i.delContainerFromSet(ipAddress)
 
-	i.deleteSet(appSetPrefix + allowPrefix + strconv.Itoa(version))
-	i.deleteSet(appSetPrefix + rejectPrefix + strconv.Itoa(version))
-	i.deleteSet(netSetPrefix + allowPrefix + strconv.Itoa(version))
-	i.deleteSet(netSetPrefix + rejectPrefix + strconv.Itoa(version))
+	errvector[1] = i.deleteAppSetRules(strconv.Itoa(version), appSetPrefix, ipAddress)
+	errvector[2] = i.deleteNetSetRules(strconv.Itoa(version), netSetPrefix, ipAddress)
 
+	errvector[3] = i.deleteSet(appSetPrefix + allowPrefix + strconv.Itoa(version))
+	errvector[4] = i.deleteSet(appSetPrefix + rejectPrefix + strconv.Itoa(version))
+	errvector[5] = i.deleteSet(netSetPrefix + allowPrefix + strconv.Itoa(version))
+	errvector[6] = i.deleteSet(netSetPrefix + rejectPrefix + strconv.Itoa(version))
+
+	for i := 0; i < 7; i++ {
+		if errvector[i] != nil {
+			log.WithFields(log.Fields{
+				"package": "ipsetctrl",
+				"error":   errvector[i].Error(),
+			}).Warn("Error while deleting rules")
+		}
+	}
 	return nil
 
 }
@@ -155,13 +165,24 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	previousVersion := strconv.Itoa(version - 1)
 
-	i.deleteAppSetRules(previousVersion, appSetPrefix, ipAddress)
-	i.deleteNetSetRules(previousVersion, netSetPrefix, ipAddress)
+	var errvector [6]error
 
-	i.deleteSet(appSetPrefix + allowPrefix + previousVersion)
-	i.deleteSet(appSetPrefix + rejectPrefix + previousVersion)
-	i.deleteSet(netSetPrefix + allowPrefix + previousVersion)
-	i.deleteSet(netSetPrefix + rejectPrefix + previousVersion)
+	errvector[0] = i.deleteAppSetRules(previousVersion, appSetPrefix, ipAddress)
+	errvector[1] = i.deleteNetSetRules(previousVersion, netSetPrefix, ipAddress)
+
+	errvector[2] = i.deleteSet(appSetPrefix + allowPrefix + previousVersion)
+	errvector[3] = i.deleteSet(appSetPrefix + rejectPrefix + previousVersion)
+	errvector[4] = i.deleteSet(netSetPrefix + allowPrefix + previousVersion)
+	errvector[5] = i.deleteSet(netSetPrefix + rejectPrefix + previousVersion)
+
+	for i := 0; i < 6; i++ {
+		if errvector[i] != nil {
+			log.WithFields(log.Fields{
+				"package": "ipsetctrl",
+				"error":   errvector[i].Error(),
+			}).Warn("Error while deleting rules")
+		}
+	}
 
 	return nil
 
@@ -208,8 +229,8 @@ func (i *Instance) Start() error {
 
 // Stop implements the stop interface
 func (i *Instance) Stop() error {
-	i.cleanACLs()
-	return nil
+
+	return i.cleanACLs()
 }
 
 func (i *Instance) cleanACLs() error {
@@ -217,10 +238,12 @@ func (i *Instance) cleanACLs() error {
 		"package": "ipsetctrl",
 	}).Debug("Cleaning all IPTables")
 
-	// Clean Application Rules/Chains
-	// i.cleanACLs()
-
-	i.cleanIPSets()
+	if err := i.cleanIPSets(); err != nil {
+		log.WithFields(log.Fields{
+			"package": "ipsetctrl",
+			"error":   err.Error(),
+		}).Warn("Error while cleaning ACL rules")
+	}
 
 	return nil
 }

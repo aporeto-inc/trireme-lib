@@ -15,6 +15,7 @@ type mockedMethods struct {
 	SetnsNetPathMock  func(string)
 }
 
+// TestProcessManager is a mock process manager
 type TestProcessManager interface {
 	ProcessManager
 	MockGetExitStatus(t *testing.T, impl func(string) bool)
@@ -30,6 +31,7 @@ type testProcessMon struct {
 	currentTest *testing.T
 }
 
+// NewTestProcessMon creates a mock process manager
 func NewTestProcessMon() ProcessManager {
 	p := &testProcessMon{
 		lock:  &sync.Mutex{},

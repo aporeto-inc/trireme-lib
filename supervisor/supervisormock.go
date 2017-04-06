@@ -36,45 +36,52 @@ type TestSupervisor interface {
 	MockAddExcludedIPs(t *testing.T, impl func(ips []string) error)
 }
 
-// A testSupervisor is an empty TransactionalManipulator that can be easily mocked.
-type testSupervisor struct {
+// A TestSupervisorInst is an empty TransactionalManipulator that can be easily mocked.
+type TestSupervisorInst struct {
 	mocks       map[*testing.T]*mockedMethods
 	lock        *sync.Mutex
 	currentTest *testing.T
 }
 
 // NewTestSupervisor returns a new TestManipulator.
-func NewTestSupervisor() *testSupervisor {
-	return &testSupervisor{
+func NewTestSupervisor() *TestSupervisorInst {
+	return &TestSupervisorInst{
 		lock:  &sync.Mutex{},
 		mocks: map[*testing.T]*mockedMethods{},
 	}
 }
 
-func (m *testSupervisor) MockAddExcludedIPs(t *testing.T, impl func(ip []string) error) {
+// MockAddExcludedIPs mocks AddExcludedIPs
+func (m *TestSupervisorInst) MockAddExcludedIPs(t *testing.T, impl func(ip []string) error) {
 	m.currentMocks(t).AddExcludedIPsMock = impl
 }
-func (m *testSupervisor) MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error) {
+
+// MockSupervise mocks the Supervise method
+func (m *TestSupervisorInst) MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error) {
 
 	m.currentMocks(t).superviseMock = impl
 }
 
-func (m *testSupervisor) MockUnsupervise(t *testing.T, impl func(contextID string) error) {
+// MockUnsupervise mocks the unsupervise method
+func (m *TestSupervisorInst) MockUnsupervise(t *testing.T, impl func(contextID string) error) {
 
 	m.currentMocks(t).unsuperviseMock = impl
 }
 
-func (m *testSupervisor) MockStart(t *testing.T, impl func() error) {
+// MockStart mocks the Start method
+func (m *TestSupervisorInst) MockStart(t *testing.T, impl func() error) {
 
 	m.currentMocks(t).startMock = impl
 }
 
-func (m *testSupervisor) MockStop(t *testing.T, impl func() error) {
+// MockStop mocks the Stop method
+func (m *TestSupervisorInst) MockStop(t *testing.T, impl func() error) {
 
 	m.currentMocks(t).stopMock = impl
 }
 
-func (m *testSupervisor) Supervise(contextID string, puInfo *policy.PUInfo) error {
+// Supervise is a test implementation of the Supervise interface
+func (m *TestSupervisorInst) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.superviseMock != nil {
 		return mock.superviseMock(contextID, puInfo)
@@ -83,7 +90,8 @@ func (m *testSupervisor) Supervise(contextID string, puInfo *policy.PUInfo) erro
 	return nil
 }
 
-func (m *testSupervisor) Unsupervise(contextID string) error {
+// Unsupervise is a test implementation of the Unsupervise interface
+func (m *TestSupervisorInst) Unsupervise(contextID string) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.unsuperviseMock != nil {
 		return mock.unsuperviseMock(contextID)
@@ -92,13 +100,16 @@ func (m *testSupervisor) Unsupervise(contextID string) error {
 	return nil
 }
 
-func (m *testSupervisor) AddExcludedIPs(ips []string) error {
+// AddExcludedIPs is a test implementation of the AddExcludedIPs interface
+func (m *TestSupervisorInst) AddExcludedIPs(ips []string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.AddExcludedIPsMock != nil {
 		return mock.AddExcludedIPsMock(ips)
 	}
 	return nil
 }
-func (m *testSupervisor) Start() error {
+
+// Start is a test implementation of the Start interface method
+func (m *TestSupervisorInst) Start() error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.startMock != nil {
 		return mock.startMock()
@@ -107,7 +118,8 @@ func (m *testSupervisor) Start() error {
 	return nil
 }
 
-func (m *testSupervisor) Stop() error {
+// Stop is a test implementation of the Stop interface method
+func (m *TestSupervisorInst) Stop() error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.stopMock != nil {
 		return mock.stopMock()
@@ -116,7 +128,7 @@ func (m *testSupervisor) Stop() error {
 	return nil
 }
 
-func (m *testSupervisor) currentMocks(t *testing.T) *mockedMethods {
+func (m *TestSupervisorInst) currentMocks(t *testing.T) *mockedMethods {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 

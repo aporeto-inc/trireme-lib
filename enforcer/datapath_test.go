@@ -83,8 +83,8 @@ func TestInvalidIPContext(t *testing.T) {
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
-		err := enforcer.Enforce("SomeServerId", puInfo)
-		So(err, ShouldBeNil)
+		enforcer.Enforce("SomeServerId", puInfo) // nolint
+
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
@@ -115,8 +115,8 @@ func TestInvalidTokenContext(t *testing.T) {
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
-		eerr := enforcer.Enforce("SomeServerId", puInfo)
-		So(eerr, ShouldBeNil)
+		enforcer.Enforce("SomeServerId", puInfo) // nolint
+
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing token)", func() {

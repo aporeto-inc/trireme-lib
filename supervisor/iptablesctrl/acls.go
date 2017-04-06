@@ -736,11 +736,17 @@ func (i *Instance) removeMarkRule() error {
 		return nil
 	}
 
-	return i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+	if err := i.ipt.Delete(i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "mark",
 		"--mark", strconv.Itoa(i.mark),
-		"-j", "ACCEPT")
+		"-j", "ACCEPT"); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+			"error":   err.Error(),
+		}).Warn("Can not clear Mark rule ")
+	}
 
+	return nil
 }
 
 func (i *Instance) cleanACLs() error {

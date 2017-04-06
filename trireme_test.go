@@ -222,7 +222,9 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 func TestSimpleCreate(t *testing.T) {
 	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	trireme.Start()
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -232,7 +234,9 @@ func TestSimpleCreate(t *testing.T) {
 func TestSimpleDelete(t *testing.T) {
 	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	trireme.Start()
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -242,7 +246,9 @@ func TestSimpleDelete(t *testing.T) {
 func TestCreateDelete(t *testing.T) {
 	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	trireme.Start()
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -253,7 +259,9 @@ func TestCreateDelete(t *testing.T) {
 func TestSimpleUpdate(t *testing.T) {
 	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	trireme.Start()
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 	ipa := policy.NewIPMap(map[string]string{
@@ -273,7 +281,9 @@ func TestSimpleUpdate(t *testing.T) {
 func TestCache(t *testing.T) {
 	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	trireme.Start()
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -303,24 +313,36 @@ func TestCache(t *testing.T) {
 func TestStop(t *testing.T) {
 	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	trireme.Start()
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
 
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
-	trireme.Stop()
-	trireme.Start()
+	if err := trireme.Stop(); err != nil {
+		t.Errorf("Failed to stop trireme ")
+	}
+
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
 func TestAddExcludedIP(t *testing.T) {
 	tresolver, tsupervisor, texcluder, tenforcer, _, tcollector := createMocks()
 	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	trireme.Start()
+	if err := trireme.Start(); err != nil {
+		t.Errorf("Failed to start trireme")
+	}
 
-	trireme.AddExcludedIPList([]string{"10.10.10.1"})
+	if err := trireme.AddExcludedIPList([]string{"10.10.10.1"}); err != nil {
+		t.Errorf("Failed to add exclusion IPs")
+	}
 }
+
 func TestTransmitterLabel(t *testing.T) {
 
 	// If management ID is set, use it as the TransmitterLabel

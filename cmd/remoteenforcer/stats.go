@@ -16,6 +16,8 @@ const (
 	envStatsChannelPath             = "STATSCHANNEL_PATH"
 	envStatsSecret                  = "STATS_SECRET"
 	statsContextID                  = "UNUSED"
+	envSocketPath                   = "SOCKET_PATH"
+	envSecret                       = "SECRET"
 )
 
 //StatsClient  This is the struct for storing state for the rpc client
@@ -23,6 +25,7 @@ const (
 type StatsClient struct {
 	collector *CollectorImpl
 	Rpchdl    *rpcwrapper.RPCWrapper
+	server    *Server
 }
 
 //SendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
