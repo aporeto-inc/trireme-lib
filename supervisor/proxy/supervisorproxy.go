@@ -53,7 +53,6 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 			Identity:         puInfo.Policy.Identity(),
 			ReceiverRules:    puInfo.Policy.ReceiverRules(),
 			TransmitterRules: puInfo.Policy.TransmitterRules(),
-			PuPolicy:         puInfo.Policy,
 			ExcludedIPs:      s.ExcludedIPs,
 			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
 		},
@@ -63,7 +62,8 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 		log.WithFields(log.Fields{
 			"package":   "remsupervisor",
 			"contextID": contextID,
-		}).Debug("Failed to initialize remote supervisor")
+			"error":     err.Error(),
+		}).Debug("Failed to send supervise command ")
 		delete(s.initDone, contextID)
 		return err
 	}
@@ -87,7 +87,8 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 		log.WithFields(log.Fields{
 			"package":   "remsupervisor",
 			"contextID": contextID,
-		}).Debug("Failed to initialize remote supervisor")
+			"error":     err.Error(),
+		}).Debug("Failed to clean up supervisor in unsupervise")
 		delete(s.initDone, contextID)
 	}
 
@@ -158,6 +159,7 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 		log.WithFields(log.Fields{
 			"package":   "remsupervisor",
 			"contextID": contextID,
+			"error":     err.Error(),
 		}).Debug("Failed to initialize remote supervisor")
 		return err
 	}
@@ -176,6 +178,7 @@ func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
 			IPs: ips,
 		},
 	}
+
 	for _, contextID := range s.rpchdl.ContextList() {
 		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
 			log.WithFields(log.Fields{

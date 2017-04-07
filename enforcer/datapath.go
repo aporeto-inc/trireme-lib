@@ -25,11 +25,10 @@ import (
 type datapathEnforcer struct {
 
 	// Configuration parameters
-	mutualAuthorization bool
-	filterQueue         *FilterQueue
-	tokenEngine         tokens.TokenEngine
-	collector           collector.EventCollector
-	service             PacketProcessor
+	filterQueue *FilterQueue
+	tokenEngine tokens.TokenEngine
+	collector   collector.EventCollector
+	service     PacketProcessor
 
 	// Internal structures and caches
 	// Key=ContextId Value=ContainerIP
@@ -51,15 +50,17 @@ type datapathEnforcer struct {
 	netTCP *PacketStats
 	appTCP *PacketStats
 
-	// ack size
-	ackSize uint32
-
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
 
 	// stop signals
 	netStop []chan bool
 	appStop []chan bool
+
+	// ack size
+	ackSize uint32
+
+	mutualAuthorization bool
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -352,6 +353,9 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 	var err error
 
 	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
+	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+		d.netStop[i] = make(chan bool)
+	}
 
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
 
@@ -387,6 +391,9 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 	var err error
 
 	d.appStop = make([]chan bool, d.filterQueue.NumberOfApplicationQueues)
+	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+		d.appStop[i] = make(chan bool)
+	}
 
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
 

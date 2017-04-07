@@ -270,9 +270,6 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 // Start starts the iptables controller
 func (i *Instance) Start() error {
-	log.WithFields(log.Fields{
-		"package": "iptablesctrl",
-	}).Debug("Start the supervisor")
 
 	// Clean any previous ACLs
 	if err := i.cleanACLs(); err != nil {
@@ -300,6 +297,10 @@ func (i *Instance) Start() error {
 			return err
 		}
 	}
+
+	log.WithFields(log.Fields{
+		"package": "iptablesctrl",
+	}).Debug("Started the iptables controller")
 
 	return nil
 }

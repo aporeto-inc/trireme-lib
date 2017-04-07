@@ -39,7 +39,7 @@ func (s *StatsClient) SendStats() {
 	}
 
 	ticker := time.NewTicker(statsInterval)
-
+	// nolint : gosimple
 	for {
 		select {
 		case <-ticker.C:

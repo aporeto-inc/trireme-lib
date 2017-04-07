@@ -133,13 +133,14 @@ func (s *Config) Unsupervise(contextID string) error {
 
 // Start starts the supervisor
 func (s *Config) Start() error {
-	log.WithFields(log.Fields{
-		"package": "supervisor",
-	}).Debug("Start the supervisor")
 
 	if err := s.impl.Start(); err != nil {
 		return fmt.Errorf("Filter of marked packets was not set")
 	}
+
+	log.WithFields(log.Fields{
+		"package": "supervisor",
+	}).Debug("Started the supervisor")
 
 	return nil
 }

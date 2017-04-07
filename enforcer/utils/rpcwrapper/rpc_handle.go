@@ -1,7 +1,6 @@
 package rpcwrapper
 
 import (
-	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/gob"
@@ -17,30 +16,29 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/cnf/structhash"
 )
 
-//RPCHdl is a per client handle
+// RPCHdl is a per client handle
 type RPCHdl struct {
 	Client  *rpc.Client
 	Channel string
 	Secret  string
 }
 
-//RPCWrapper  is a struct which holds stats for all rpc sesions
+// RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
 	contextList  []string
 }
 
-//NewRPCWrapper creates a new rpcwrapper
+// NewRPCWrapper creates a new rpcwrapper
 func NewRPCWrapper() *RPCWrapper {
-	rpcwrapper := &RPCWrapper{
+
+	return &RPCWrapper{
 		rpcClientMap: cache.NewCache(),
 		contextList:  []string{},
 	}
-
-	rpcwrapper.rpcClientMap = cache.NewCache()
-	return rpcwrapper
 }
 
 const (
@@ -48,33 +46,28 @@ const (
 	envRetryString = "REMOTE_RPCRETRIES"
 )
 
-//NewRPCClient exported
-//Will worry about locking later ... there is a small case where two callers
-//call NewRPCClient from a different thread
+// NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
 
-	//establish new connection to context/container
 	RegisterTypes()
-	var max int
+
+	max := maxRetries
 	retries := os.Getenv(envRetryString)
 	if len(retries) > 0 {
 		max, _ = strconv.Atoi(retries)
-
-	} else {
-		max = maxRetries
 	}
+
 	numRetries := 0
+
 	client, err := rpc.DialHTTP("unix", channel)
-
 	for err != nil {
-		time.Sleep(5 * time.Millisecond)
-
-		numRetries = numRetries + 1
-		if numRetries < max {
-			client, err = rpc.DialHTTP("unix", channel)
-		} else {
+		numRetries++
+		if numRetries >= max {
 			return err
 		}
+
+		time.Sleep(5 * time.Millisecond)
+		client, err = rpc.DialHTTP("unix", channel)
 	}
 
 	r.contextList = append(r.contextList, contextID)
@@ -82,25 +75,19 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 
 }
 
-//GetRPCClient gets a handle to the rpc client for the contextID( enforcer in the container)
+// GetRPCClient gets a handle to the rpc client for the contextID( enforcer in the container)
 func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
 
 	val, err := r.rpcClientMap.Get(contextID)
-	if err == nil {
-		return val.(*RPCHdl), err
+	if err != nil {
+		return nil, err
 	}
-	return nil, err
+
+	return val.(*RPCHdl), nil
 }
 
-//RemoteCall is a wrapper around rpc.Call and also ensure message integrity by adding a hmac
+// RemoteCall is a wrapper around rpc.Call and also ensure message integrity by adding a hmac
 func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
-
-	var rpcBuffer bytes.Buffer
-	enc := gob.NewEncoder(&rpcBuffer)
-
-	if err := enc.Encode(req.Payload); err != nil {
-		return err
-	}
 
 	rpcClient, err := r.GetRPCClient(contextID)
 	if err != nil {
@@ -108,29 +95,21 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	}
 
 	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
-	if _, err := digest.Write(rpcBuffer.Bytes()); err != nil {
+	if _, err := digest.Write(structhash.Dump(req.Payload, 1)); err != nil {
 		return err
 	}
 
 	req.HashAuth = digest.Sum(nil)
 
 	return rpcClient.Client.Call(methodName, req, resp)
-
 }
 
-//CheckValidity checks if the received message is valid
+// CheckValidity checks if the received message is valid
 func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
-
-	var rpcBuffer bytes.Buffer
-	enc := gob.NewEncoder(&rpcBuffer)
-
-	if err := enc.Encode(req.Payload); err != nil {
-		return false
-	}
 
 	digest := hmac.New(sha256.New, []byte(secret))
 
-	if _, err := digest.Write(rpcBuffer.Bytes()); err != nil {
+	if _, err := digest.Write(structhash.Dump(req.Payload, 1)); err != nil {
 		return false
 	}
 
@@ -225,15 +204,15 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 	}
 }
 
+// ContextList returns the list of active context managed by the rpcwrapper
+func (r *RPCWrapper) ContextList() []string {
+	return r.contextList
+}
+
 // ProcessMessage checks if the given request is valid
 func (r *RPCWrapper) ProcessMessage(req *Request, secret string) bool {
 
 	return r.CheckValidity(req, secret)
-}
-
-// ContextList returns the list of active context managed by the rpcwrapper
-func (r *RPCWrapper) ContextList() []string {
-	return r.contextList
 }
 
 // RegisterTypes  registers types that are exchanged between the controller and remoteenforcer

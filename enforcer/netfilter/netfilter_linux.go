@@ -44,7 +44,7 @@ const (
 	AfInet = 2
 
 	//NfDrop Net filter verdict
-	NfDrop verdictType = 0  // nolint
+	NfDrop verdictType = 0 // nolint
 	//NfAccept Net filter verdict
 	NfAccept verdictType = 1 //nolint
 	//NfStolen Net filter verdict
@@ -52,7 +52,7 @@ const (
 	//NfQueue Net filter verdict
 	NfQueue verdictType = 3 // nolint
 	//NfRepeat Net filter verdict
-	NfRepeat verdictType = 4  // nolint
+	NfRepeat verdictType = 4 // nolint
 	//NfStop Net filter verdict
 	NfStop verdictType = 5 // nolint
 
@@ -80,7 +80,6 @@ type NFQueue struct {
 	h       *C.struct_nfq_handle
 	qh      *C.struct_nfq_q_handle
 	fd      C.int
-	packets chan NFPacket
 	idx     uint32
 	Packets chan *NFPacket
 }

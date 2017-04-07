@@ -250,7 +250,7 @@ func NewProxyEnforcer(mutualAuth bool,
 func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
-	rpchdl *rpcwrapper.RPCWrapper) enforcer.PolicyEnforcer {
+	rpchdl rpcwrapper.RPCClient) enforcer.PolicyEnforcer {
 
 	mutualAuthorization := false
 	fqConfig := &enforcer.FilterQueue{

@@ -66,7 +66,6 @@ type EnforcePayload struct {
 	PolicyIPs        *policy.IPMap           `json:",omitempty"`
 	ReceiverRules    *policy.TagSelectorList `json:",omitempty"`
 	TransmitterRules *policy.TagSelectorList `json:",omitempty"`
-	PuPolicy         *policy.PUPolicy        `json:",omitempty"`
 	TriremeNetworks  []string                `json:",omitempty"`
 }
 
@@ -82,7 +81,6 @@ type SuperviseRequestPayload struct {
 	Annotations      *policy.TagsMap         `json:",omitempty"`
 	ReceiverRules    *policy.TagSelectorList `json:",omitempty"`
 	TransmitterRules *policy.TagSelectorList `json:",omitempty"`
-	PuPolicy         *policy.PUPolicy        `json:",omitempty"`
 	ExcludedIPs      []string                `json:",omitempty"`
 	TriremeNetworks  []string                `json:",omitempty"`
 }
