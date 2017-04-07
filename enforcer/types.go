@@ -91,4 +91,6 @@ type PUContext struct {
 type DualHash struct {
 	app string
 	net string
+
+	process bool
 }

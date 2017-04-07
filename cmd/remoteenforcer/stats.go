@@ -126,5 +126,10 @@ func (s *StatsClient) connectStatsClient() error {
 
 // Stop stops the stats client at clean up
 func (s *StatsClient) Stop() {
+
 	s.stop <- true
+
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"Msg": "Stopped the remote enforcer stats collector",
+	}).Info("Stopping stats collector")
 }

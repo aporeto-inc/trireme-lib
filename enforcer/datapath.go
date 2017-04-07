@@ -204,8 +204,9 @@ func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHa
 	if !ok {
 		expectedPort = "0"
 		hashSlice = append(hashSlice, &DualHash{
-			app: "mark:" + expectedMark + "$",
-			net: "port:" + expectedPort,
+			app:     "mark:" + expectedMark + "$",
+			net:     "port:" + expectedPort,
+			process: true,
 		})
 		return hashSlice
 	}
@@ -213,8 +214,9 @@ func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHa
 	portlist := strings.Split(expectedPort, ",")
 	for _, port := range portlist {
 		hashSlice = append(hashSlice, &DualHash{
-			app: "mark:" + expectedMark + "$",
-			net: "port:" + port,
+			app:     "mark:" + expectedMark + "$",
+			net:     "port:" + port,
+			process: true,
 		})
 	}
 	return hashSlice
@@ -227,8 +229,9 @@ func (d *datapathEnforcer) puHash(ip string, puInfo *policy.PUInfo) (hash []*Dua
 	}
 
 	return []*DualHash{&DualHash{
-		app: ip,
-		net: ip,
+		app:     ip,
+		net:     ip,
+		process: false,
 	}}
 }
 
@@ -292,11 +295,13 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 			}).Warn("Unable to remove app hash entry during unenforcement")
 		}
 
-		if err := d.puTracker.Remove(hash.net); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-				"entry":   hash.net,
-			}).Warn("Unable to remove net hash entry during unenforcement")
+		if hash.process {
+			if err := d.puTracker.Remove(hash.net); err != nil {
+				log.WithFields(log.Fields{
+					"package": "enforcer",
+					"entry":   hash.net,
+				}).Warn("Unable to remove net hash entry during unenforcement")
+			}
 		}
 	}
 

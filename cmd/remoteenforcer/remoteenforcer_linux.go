@@ -269,6 +269,8 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	s.Enforcer.Stop()
 	s.statsclient.Stop()
 
+	os.Exit(0)
+
 	return nil
 }
 
@@ -310,10 +312,6 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 	}
 
 	rpchdl.StartServer("unix", namedPipe, server)
-
-	server.EnforcerExit(rpcwrapper.Request{}, nil)
-
-	os.Exit(0)
 
 	return nil
 }
