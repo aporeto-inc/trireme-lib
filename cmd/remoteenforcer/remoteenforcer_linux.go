@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"os/user"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/collector"
@@ -21,36 +20,28 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-//Server : This is the structure for maintaining state required by the remote enforcer.
-//It is cache of variables passed by th controller to the remote enforcer and other handles
-//required by the remote enforcer to talk to the external processes
+// Server : This is the structure for maintaining state required by the remote enforcer.
+// It is cache of variables passed by th controller to the remote enforcer and other handles
+// required by the remote enforcer to talk to the external processes
 type Server struct {
-	MutualAuth  bool
-	Validity    time.Duration
-	SecretType  tokens.SecretsType
-	rpcSecret   string
-	ContextID   string
-	CAPEM       []byte
-	PublicPEM   []byte
-	PrivatePEM  []byte
-	StatsClient *rpcwrapper.RPCWrapper
-	Enforcer    enforcer.PolicyEnforcer
-	Collector   collector.EventCollector
-	Supervisor  supervisor.Supervisor
-	Service     enforcer.PacketProcessor
-	pupolicy    *policy.PUPolicy
-	rpcchannel  string
-	rpchdl      *rpcwrapper.RPCWrapper
-	Excluder    supervisor.Excluder
+	rpcSecret  string
+	rpcchannel string
+	rpchdl     rpcwrapper.RPCServer
+
+	Enforcer   enforcer.PolicyEnforcer
+	Collector  collector.EventCollector
+	Supervisor supervisor.Supervisor
+	Service    enforcer.PacketProcessor
+	Excluder   supervisor.Excluder
 }
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpcchan string, secret string) *Server {
+func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) *Server {
 	return &Server{
-		pupolicy:   nil,
 		Service:    service,
 		rpcchannel: rpcchan,
 		rpcSecret:  secret,
+		rpchdl:     rpchdl,
 	}
 }
 
@@ -280,10 +271,12 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 // AddExcludedIPs implements the ExcludedIPs method of enforcers
 func (s *Server) AddExcludedIPs(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("AddExcludedIPs Message Auth Failed")
 		return errors.New(resp.Status)
 	}
+
 	payload := req.Payload.(rpcwrapper.ExcludeIPRequestPayload)
 	return s.Excluder.AddExcludedIPs(payload.IPs)
 
@@ -306,9 +299,9 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 		os.Exit(-1)
 	}
 
-	server := NewServer(service, namedPipe, secret)
-
 	rpchdl := rpcwrapper.NewRPCServer()
+
+	server := NewServer(service, rpchdl, namedPipe, secret)
 
 	userDetails, _ := user.Current()
 	log.WithFields(log.Fields{"package": "remote_enforcer",

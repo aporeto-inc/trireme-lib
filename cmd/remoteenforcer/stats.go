@@ -26,6 +26,7 @@ type StatsClient struct {
 	collector *CollectorImpl
 	Rpchdl    *rpcwrapper.RPCWrapper
 	server    *Server
+	stop      chan bool
 }
 
 //SendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
@@ -86,14 +87,16 @@ func (s *Server) connectStatsClient(statsClient *StatsClient) error {
 
 	statsChannel := os.Getenv(envStatsChannelPath)
 	secret := os.Getenv(envStatsSecret)
-	err := statsClient.Rpchdl.NewRPCClient(statsContextID, statsChannel, secret)
-	if err != nil {
+
+	if err := statsClient.Rpchdl.NewRPCClient(statsContextID, statsChannel, secret); err != nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"error": err.Error(),
+			"error":    err.Error(),
+			"function": "connectStatsClient",
 		}).Error("Stats RPC client cannot connect")
+		return nil
 	}
-	_, err = statsClient.Rpchdl.GetRPCClient(statsContextID)
 
 	go statsClient.SendStats()
-	return err
+
+	return nil
 }

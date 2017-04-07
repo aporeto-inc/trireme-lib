@@ -58,7 +58,6 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 	}
 
 	numRetries := 0
-
 	client, err := rpc.DialHTTP("unix", channel)
 	for err != nil {
 		numRetries++
@@ -125,47 +124,54 @@ func NewRPCServer() RPCServer {
 //StartServer Starts a server and waits for new connections this function never returns
 func (r *RPCWrapper) StartServer(protocol string, path string, handler interface{}) error {
 
-	RegisterTypes()
-
-	if err := rpc.Register(handler); err != nil {
-		return err
-	}
-
-	rpc.HandleHTTP()
-	if err := os.Remove(path); err != nil {
-		log.WithFields(log.Fields{
-			"package": "rpcwrapper",
-			"path":    path,
-		}).Warn("Path does not exist ")
-	}
 	if len(path) == 0 {
 		log.Fatal("Sock param not passed in environment")
 	}
 
+	// Register RPC Type
+	RegisterTypes()
+
+	// Register handlers
+	if err := rpc.Register(handler); err != nil {
+		return err
+	}
+	rpc.HandleHTTP()
+
+	// removing old path in case it exists already - error if we can't remove it
+	if _, err := os.Stat(path); err == nil {
+
+		log.WithFields(log.Fields{
+			"package":     "rpcwrapper",
+			"socket path": path,
+		}).Warn("Socket path already exists - removing")
+
+		if rerr := os.Remove(path); rerr != nil {
+			log.WithFields(log.Fields{
+				"package":     "rpcwrapper",
+				"socket path": path,
+			}).Error("Failed to delete existing socket path")
+			return rerr
+		}
+	}
+
+	// Get listener
 	listen, err := net.Listen(protocol, path)
 	if err != nil {
 		return err
 	}
 
 	go http.Serve(listen, nil) // nolint
-	defer func() {
-		if merr := listen.Close(); merr != nil {
-			log.WithFields(log.Fields{
-				"package": "rpcwrapper",
-				"error":   merr.Error(),
-			}).Warn("failed to close connection ")
-		}
 
-		if merr := os.Remove(path); merr != nil {
-			log.WithFields(log.Fields{
-				"package": "rpcwrapper",
-				"error":   merr.Error(),
-			}).Warn("failed to remove old path")
-		}
-	}()
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c
+
+	if merr := listen.Close(); merr != nil {
+		log.WithFields(log.Fields{
+			"package": "rpcwrapper",
+			"error":   merr.Error(),
+		}).Warn("Connection already closed ")
+	}
 
 	_, err = os.Stat(path)
 	if !os.IsNotExist(err) {
@@ -175,6 +181,7 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 			}).Warn("failed to remove old path")
 		}
 	}
+
 	return nil
 }
 
