@@ -1,6 +1,7 @@
 package remoteenforcer
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -16,30 +17,53 @@ const (
 	envStatsChannelPath             = "STATSCHANNEL_PATH"
 	envStatsSecret                  = "STATS_SECRET"
 	statsContextID                  = "UNUSED"
-	envSocketPath                   = "SOCKET_PATH"
-	envSecret                       = "SECRET"
+	statsRPCCommand                 = "StatsServer.GetStats"
 )
 
 //StatsClient  This is the struct for storing state for the rpc client
 //which reports flow stats back to the controller process
 type StatsClient struct {
-	collector *CollectorImpl
-	Rpchdl    *rpcwrapper.RPCWrapper
-	server    *Server
-	stop      chan bool
+	collector     *CollectorImpl
+	rpchdl        *rpcwrapper.RPCWrapper
+	secret        string
+	statsChannel  string
+	statsInterval time.Duration
+	stop          chan bool
+}
+
+// NewStatsClient initializes a new stats client
+func NewStatsClient() (*StatsClient, error) {
+
+	statsChannel := os.Getenv(envStatsChannelPath)
+	if len(statsChannel) == 0 {
+		return nil, fmt.Errorf("No path to stats socket provided")
+	}
+
+	secret := os.Getenv(envStatsSecret)
+	if len(secret) == 0 {
+		return nil, fmt.Errorf("No secret provided for stats channel")
+	}
+
+	statsInterval := defaultStatsIntervalMiliseconds * time.Millisecond
+	envstatsInterval, err := strconv.Atoi(os.Getenv("STATS_INTERVAL"))
+	if err == nil && envstatsInterval != 0 {
+		statsInterval = time.Duration(envstatsInterval) * time.Second
+	}
+
+	return &StatsClient{
+		collector:     NewCollector(),
+		rpchdl:        rpcwrapper.NewRPCWrapper(),
+		secret:        secret,
+		statsChannel:  statsChannel,
+		statsInterval: statsInterval,
+		stop:          make(chan bool),
+	}, nil
 }
 
 //SendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
 func (s *StatsClient) SendStats() {
 
-	EnvstatsInterval, err := strconv.Atoi(os.Getenv("STATS_INTERVAL"))
-
-	statsInterval := defaultStatsIntervalMiliseconds * time.Millisecond
-	if err == nil && EnvstatsInterval != 0 {
-		statsInterval = time.Duration(EnvstatsInterval) * time.Second
-	}
-
-	ticker := time.NewTicker(statsInterval)
+	ticker := time.NewTicker(s.statsInterval)
 	// nolint : gosimple
 	for {
 		select {
@@ -62,9 +86,9 @@ func (s *StatsClient) SendStats() {
 				Payload: rpcPayload,
 			}
 
-			err := s.Rpchdl.RemoteCall(
+			err := s.rpchdl.RemoteCall(
 				statsContextID,
-				"StatsServer.GetStats",
+				statsRPCCommand,
 				&request,
 				&rpcwrapper.Response{},
 			)
@@ -76,6 +100,8 @@ func (s *StatsClient) SendStats() {
 				}).Error("RPC failure in sending statistics")
 			}
 
+		case <-s.stop:
+			return
 		}
 	}
 
@@ -83,20 +109,22 @@ func (s *StatsClient) SendStats() {
 
 //connectStatsCLient  This is an private function called by the remoteenforcer to connect back
 //to the controller over a stats channel
-func (s *Server) connectStatsClient(statsClient *StatsClient) error {
+func (s *StatsClient) connectStatsClient() error {
 
-	statsChannel := os.Getenv(envStatsChannelPath)
-	secret := os.Getenv(envStatsSecret)
-
-	if err := statsClient.Rpchdl.NewRPCClient(statsContextID, statsChannel, secret); err != nil {
+	if err := s.rpchdl.NewRPCClient(statsContextID, s.statsChannel, s.secret); err != nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer",
 			"error":    err.Error(),
 			"function": "connectStatsClient",
 		}).Error("Stats RPC client cannot connect")
-		return nil
+		return err
 	}
 
-	go statsClient.SendStats()
+	go s.SendStats()
 
 	return nil
+}
+
+// Stop stops the stats client at clean up
+func (s *StatsClient) Stop() {
+	s.stop <- true
 }

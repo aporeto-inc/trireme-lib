@@ -289,14 +289,14 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
 				"entry":   hash.app,
-			}).Warn("Unable to remove hash entry during unenforcement")
+			}).Warn("Unable to remove app hash entry during unenforcement")
 		}
 
 		if err := d.puTracker.Remove(hash.net); err != nil {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
 				"entry":   hash.net,
-			}).Warn("Unable to remove hash entry during unenforcement")
+			}).Warn("Unable to remove net hash entry during unenforcement")
 		}
 	}
 

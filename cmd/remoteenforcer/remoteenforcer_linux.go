@@ -7,10 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/user"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
@@ -20,29 +18,42 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
+const (
+	envSocketPath = "SOCKET_PATH"
+	envSecret     = "SECRET"
+)
+
 // Server : This is the structure for maintaining state required by the remote enforcer.
 // It is cache of variables passed by th controller to the remote enforcer and other handles
 // required by the remote enforcer to talk to the external processes
 type Server struct {
-	rpcSecret  string
-	rpcchannel string
-	rpchdl     rpcwrapper.RPCServer
+	rpcSecret   string
+	rpcchannel  string
+	rpchdl      rpcwrapper.RPCServer
+	statsclient *StatsClient
 
 	Enforcer   enforcer.PolicyEnforcer
-	Collector  collector.EventCollector
 	Supervisor supervisor.Supervisor
 	Service    enforcer.PacketProcessor
 	Excluder   supervisor.Excluder
 }
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) *Server {
+func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) (*Server, error) {
+
+	statsclient, err := NewStatsClient()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Server{
 		Service:    service,
 		rpcchannel: rpcchan,
 		rpcSecret:  secret,
 		rpchdl:     rpchdl,
-	}
+
+		statsclient: statsclient,
+	}, nil
 }
 
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
@@ -60,21 +71,14 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return errors.New(resp.Status)
 	}
 
-	collectorInstance := &CollectorImpl{
-		Flows: map[string]*collector.FlowRecord{},
-	}
-
-	s.Collector = collectorInstance
-
 	payload := req.Payload.(rpcwrapper.InitRequestPayload)
-
 	if payload.SecretType == tokens.PKIType {
 		//PKI params
 		secrets := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		s.Enforcer = enforcer.NewDatapathEnforcer(
 			payload.MutualAuth,
 			payload.FqConfig,
-			collectorInstance,
+			s.statsclient.collector,
 			s.Service,
 			secrets,
 			payload.ServerID,
@@ -86,7 +90,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		s.Enforcer = enforcer.NewDatapathEnforcer(
 			payload.MutualAuth,
 			payload.FqConfig,
-			collectorInstance,
+			s.statsclient.collector,
 			s.Service,
 			secrets,
 			payload.ServerID,
@@ -96,9 +100,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	s.Enforcer.Start()
 
-	statsClient := &StatsClient{collector: collectorInstance, server: s, Rpchdl: rpcwrapper.NewRPCWrapper()}
-
-	s.connectStatsClient(statsClient)
+	s.statsclient.connectStatsClient()
 
 	resp.Status = ""
 
@@ -120,7 +122,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		return fmt.Errorf("IPSets not supported yet")
 	default:
 
-		supervisorHandle, err := supervisor.NewSupervisor(s.Collector,
+		supervisorHandle, err := supervisor.NewSupervisor(s.statsclient.collector,
 			s.Enforcer,
 			constants.RemoteContainer,
 			constants.IPTables,
@@ -265,7 +267,8 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	//Cleanup resources held in this namespace
 	s.Supervisor.Stop()
 	s.Enforcer.Stop()
-	os.Exit(0)
+	s.statsclient.Stop()
+
 	return nil
 }
 
@@ -283,7 +286,7 @@ func (s *Server) AddExcludedIPs(req rpcwrapper.Request, resp *rpcwrapper.Respons
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) {
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) error {
 
 	log.SetLevel(logLevel)
 	log.SetFormatter(&log.TextFormatter{
@@ -301,18 +304,16 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 
 	rpchdl := rpcwrapper.NewRPCServer()
 
-	server := NewServer(service, rpchdl, namedPipe, secret)
-
-	userDetails, _ := user.Current()
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"uid":      userDetails.Uid,
-		"gid":      userDetails.Gid,
-		"username": userDetails.Username,
-	}).Info("Enforcer user id")
+	server, err := NewServer(service, rpchdl, namedPipe, secret)
+	if err != nil {
+		return err
+	}
 
 	rpchdl.StartServer("unix", namedPipe, server)
 
 	server.EnforcerExit(rpcwrapper.Request{}, nil)
 
 	os.Exit(0)
+
+	return nil
 }

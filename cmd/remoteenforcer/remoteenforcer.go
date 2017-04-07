@@ -10,7 +10,9 @@ import (
 )
 
 // Server is a fake implementation for building on darwin.
-type Server struct{}
+type Server struct {
+	statsclient *StatsClient
+}
 
 // EnforcerExit is a fake implementation for building on darwin.
 func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error { return nil }

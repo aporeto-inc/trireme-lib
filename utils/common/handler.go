@@ -21,8 +21,7 @@ func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProc
 
 	if arguments["enforce"].(bool) {
 		// Run enforcer and exit
-		remoteenforcer.LaunchRemoteEnforcer(processor, logLevel)
-		return nil
+		return remoteenforcer.LaunchRemoteEnforcer(processor, logLevel)
 	}
 
 	if arguments["run"].(bool) || arguments["<cgroup>"] != nil {
