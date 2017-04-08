@@ -80,6 +80,21 @@ IG7Nv+YlTVp5qA==
 
 // TestConstructorNewPolicyDB tests the NewPolicyDB constructor
 func TestConstructorNewJWT(t *testing.T) {
+	Convey("Given that I instantiate a new JWT Engine with max server name that violates requirements, it should fail", t, func() {
+
+		secrets := NewPSKSecrets(psk)
+		_, err := NewJWT(validity, "0123456789012345678901234567890123456789", secrets)
+
+		So(err, ShouldNotBeNil)
+	})
+
+	Convey("Given that I instantiate a new JWT Engine with nil secrets, it should fail", t, func() {
+
+		_, err := NewJWT(validity, "TEST", nil)
+
+		So(err, ShouldNotBeNil)
+	})
+
 	Convey("Given that I instantiate a new JWT Engine with shared secrets, it should succeed", t, func() {
 
 		j := &JWTConfig{}

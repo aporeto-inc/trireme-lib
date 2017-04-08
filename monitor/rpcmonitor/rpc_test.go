@@ -60,14 +60,24 @@ type CustomProcessor struct {
 	MonitorProcessor
 }
 
-func TestNewRPCServer(t *testing.T) {
+func TestNewRPCMonitor(t *testing.T) {
 	cstore := contextstore.NewCustomContextStore("/tmp")
 	Convey("When we try to instantiate a new monitor", t, func() {
 
 		Convey("If we start with invalid rpc address", func() {
-			_, err := NewRPCMonitor("", nil, nil)
+			_, err := NewRPCMonitor("", &CustomPolicyResolver{}, nil)
 			Convey("It should fail ", func() {
 				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If we start with an RPC address that exists", func() {
+			os.Create("/tmp/testfile") // nolint : errcheck
+			_, err := NewRPCMonitor("/tmp/testfile", &CustomPolicyResolver{}, nil)
+			Convey("I should get no error and the file is removed", func() {
+				So(err, ShouldBeNil)
+				_, ferr := os.Stat("/tmp/testfile")
+				So(ferr, ShouldNotBeNil)
 			})
 		})
 
@@ -127,6 +137,17 @@ func TestStart(t *testing.T) {
 
 	Convey("When we start an rpc processor ", t, func() {
 
+		Convey("If we can't access the context store", func() {
+			contextstore.EXPECT().WalkStore().Return(nil, fmt.Errorf("Error"))
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor.contextstore = contextstore
+
+			err := testRPCMonitor.Start()
+			Convey("It should fail", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
 		Convey("When the socket is busy", func() {
 			clist := make(chan string, 1)
 			clist <- ""
@@ -170,6 +191,7 @@ func TestStart(t *testing.T) {
 
 			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
 			contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{PUType: 1,EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
+			contextstore.EXPECT().RemoveContext("/test1").Return(nil)
 
 			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
 			testRPCMonitor.contextstore = contextstore
@@ -178,6 +200,24 @@ func TestStart(t *testing.T) {
 				starterr := testRPCMonitor.Start()
 				So(starterr, ShouldBeNil)
 				testRPCMonitor.Stop() //nolint
+			})
+		})
+
+		Convey("When we discover invalid json and we can't remove the bad context", func() {
+			contextlist := make(chan string, 2)
+			contextlist <- "test1"
+			contextlist <- ""
+
+			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
+			contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{PUType: 1,EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
+			contextstore.EXPECT().RemoveContext("/test1").Return(fmt.Errorf("Error"))
+
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor.contextstore = contextstore
+
+			Convey("Start server returns no error", func() {
+				starterr := testRPCMonitor.Start()
+				So(starterr, ShouldNotBeNil)
 			})
 		})
 
@@ -376,35 +416,5 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			})
 		})
 
-	})
-}
-
-func TestResync(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	contextstore := mock_contextstore.NewMockContextStore(ctrl)
-	Convey("When we call resync", t, func() {
-		Convey("When Walkstore returns an error", func() {
-			clist := make(chan string, 1)
-			clist <- ""
-			mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
-			mon.contextstore = contextstore
-			contextstore.EXPECT().WalkStore().Return(clist, fmt.Errorf("Walk Error"))
-			err := mon.Start()
-			So(err, ShouldBeNil)
-
-		})
-		Convey("When contestore returns invalid data", func() {
-			clist := make(chan string, 2)
-			clist <- "as"
-			clist <- ""
-			mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
-			mon.contextstore = contextstore
-			contextstore.EXPECT().WalkStore().Return(clist, nil)
-			contextstore.EXPECT().GetContextInfo("/as").Return([]byte("asdasf"), nil)
-			err := mon.Start()
-			So(err, ShouldBeNil)
-		})
 	})
 }

@@ -45,10 +45,19 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 	return nil
 }
 
+// DeleteCgroup removes the cgroup
+func (s *netCls) DeleteCgroup(cgroupname string) error {
+	return nil
+}
+
+func (s *netCls) Deletebasepath(contextID string) bool {
+	return true
+}
+
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(releasePath string) Cgroupnetcls {
 
-	return nil
+	return &netCls{}
 }
 
 // MarkVal returns a new Mark

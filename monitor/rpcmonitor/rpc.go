@@ -104,14 +104,14 @@ func (r *RPCMonitor) reSync() error {
 	var eventInfo EventInfo
 
 	walker, err := r.contextstore.WalkStore()
-
 	if err != nil {
-
 		return fmt.Errorf("error in accessing context store")
 	}
+
 	//This is create to only delete if required don't create groups using this handle here
 	cgnetclshandle := cgnetcls.NewCgroupNetController("")
 	cstorehandle := contextstore.NewContextStore()
+
 	for {
 		contextID := <-walker
 		if contextID == "" {
@@ -122,8 +122,18 @@ func (r *RPCMonitor) reSync() error {
 		if err == nil && data != nil {
 
 			if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
-				return fmt.Errorf("error in umarshalling date")
+				log.WithFields(log.Fields{
+					"package":   "rpcmonitor",
+					"error":     err.Error(),
+					"contextID": contextID,
+				}).Warn("Found invalid state for context - Cleaning up")
+
+				if rerr := r.contextstore.RemoveContext("/" + contextID); rerr != nil {
+					return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
+				}
+				continue
 			}
+
 			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 
 			if err != nil {
@@ -202,11 +212,7 @@ func (r *RPCMonitor) Start() error {
 
 	// Check if we had running units when we last died
 	if err = r.reSync(); err != nil {
-		log.WithFields(log.Fields{
-			"package":  "RPCMonitor",
-			"error":    err.Error(),
-			"message:": "Unable to resync existing services",
-		}).Error("Failed to resync existing services")
+		return err
 	}
 
 	if r.listensock, err = net.Listen("unix", r.rpcAddress); err != nil {
