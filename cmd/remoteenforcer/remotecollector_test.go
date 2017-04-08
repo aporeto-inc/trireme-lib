@@ -13,7 +13,6 @@ func TestNewCollector(t *testing.T) {
 		Convey("The collector should not be nil ", func() {
 			So(c, ShouldNotBeNil)
 			So(c.Flows, ShouldNotBeNil)
-			So(c.Mutex, ShouldNotBeNil)
 		})
 	})
 }
