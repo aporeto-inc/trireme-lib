@@ -516,12 +516,12 @@ func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 	return
 }
 
-// L4FlowHash caclulate a hash string based on the 4-tuple
+// L4FlowHash calculate a hash string based on the 4-tuple
 func (p *Packet) L4FlowHash() string {
 	return p.SourceAddress.String() + ":" + p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
 }
 
-// L4ReverseFlowHash caclulate a hash string based on the 4-tuple by reversing source and destination information
+// L4ReverseFlowHash calculate a hash string based on the 4-tuple by reversing source and destination information
 func (p *Packet) L4ReverseFlowHash() string {
 	return p.DestinationAddress.String() + ":" + p.SourceAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort)) + ":" + strconv.Itoa(int(p.SourcePort))
 }

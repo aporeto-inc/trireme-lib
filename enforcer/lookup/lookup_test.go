@@ -36,12 +36,6 @@ var (
 		Operator: policy.NotEqual,
 	}
 
-	langEqJava = policy.KeyValueOperator{
-		Key:      "lang",
-		Value:    []string{"java"},
-		Operator: policy.Equal,
-	}
-
 	envNotDemoOrQA = policy.KeyValueOperator{
 		Key:      "env",
 		Value:    []string{"demo", "qa"},
@@ -295,7 +289,7 @@ func TestFuncSearch(t *testing.T) {
 				So(action, ShouldEqual, nil)
 			})
 
-			Convey("Given that I search for a single that succeds in the Not Key  operator, it should succeed ,", func() {
+			Convey("Given that I search for a single that succeeds in the Not Key  operator, it should succeed ,", func() {
 				tags := policy.NewTagsMap(map[string]string{
 					"app": "web",
 				})

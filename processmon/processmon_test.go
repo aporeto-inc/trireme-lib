@@ -18,13 +18,12 @@ func TestLaunchProcess(t *testing.T) {
 	refPid := 1
 	dir, _ := os.Getwd()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat") // Cat will block and should be present on all linux
 	err := p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
 		t.SkipNow()
 	}
-	//Trying to launch in the same context should suceed
+	//Trying to launch in the same context should succeed
 	err = p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
@@ -35,18 +34,17 @@ func TestLaunchProcess(t *testing.T) {
 	})
 	p.KillProcess(contextID)
 	//Launch Process Should not fail if the /var/run/netns does not exist
-	os.Remove("/var/run/netns")
+	os.Remove("/var/run/netns") // nolint
 	err = p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Failed when the directory is missing %v", err)
 	}
 	p.KillProcess(contextID)
 
-	os.Rename("./remote_enforcer.orig", "./remote_enforcer")
+	os.Rename("./remote_enforcer.orig", "./remote_enforcer") //nolint
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string, secret string) error {
 		return nil
 	})
-	setprocessname("cat")
 	err = p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Failed to create RPC client %v", err)
@@ -70,13 +68,12 @@ func TestGetExitStatus(t *testing.T) {
 	//Lets launch process
 	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat")
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	err := p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
 	}
-	if p.GetExitStatus(contextID) != false {
+	if p.GetExitStatus(contextID) {
 		t.Errorf("TEST:Process delete status not intialized or getexitstatus returned wrong val")
 	}
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
@@ -100,22 +97,24 @@ func TestSetExitStatus(t *testing.T) {
 	//Lets launch process
 	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat")
 	//Error returned when process does not exists
 	err := p.SetExitStatus(contextID, true)
 	if err == nil {
-		t.Errorf("TEST:Exit status suceeds when process does not exist")
+		t.Errorf("TEST:Exit status succeeds  when process does not exist")
 	}
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string, secret string) error {
 		return nil
 	})
 	err = p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
+	if err != nil {
+		t.Errorf("TEST: Failed to launch process")
+	}
 	err = p.SetExitStatus(contextID, true)
 	if err != nil {
 		t.Errorf("TEST:Exit status failed for enforcer process")
 	}
-	if p.GetExitStatus(contextID) != true {
+	if !p.GetExitStatus(contextID) {
 		t.Errorf("TEST:SetExit Status failed")
 	}
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
@@ -143,21 +142,19 @@ func TestKillProcess(t *testing.T) {
 	//Lets launch process
 	p := newProcessMon()
 	p.SetnsNetPath("/tmp/")
-	setprocessname("cat")
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
 
-	p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
+	if err := p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret"); err != nil {
+		t.Errorf("Failed to launch process  %s", err.Error())
+	}
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
-		if contextID == passed_contextID {
-			// paramvalidate = true
-		}
 		calledRemoteCall = true
 		return errors.New("Null Error")
 	})
 	p.KillProcess(contextID)
-	if calledRemoteCall != true {
+	if !calledRemoteCall {
 		t.Errorf("TEST:RPC call not executed")
 	}
 

@@ -6,15 +6,22 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 )
 
-//CollectorImpl : This is a local implementation for the collector interface
+// CollectorImpl : This is a local implementation for the collector interface
 // It has a flow entries cache which contains unique flows that are reported back to the
-//controller/launcher process
+// controller/launcher process
 type CollectorImpl struct {
 	Flows map[string]*collector.FlowRecord
 	sync.Mutex
 }
 
-//CollectFlowEvent collects a new flow event and adds it to a local list it shares with SendStats
+// NewCollector creates a new remote collector for statistics
+func NewCollector() *CollectorImpl {
+	return &CollectorImpl{
+		Flows: map[string]*collector.FlowRecord{},
+	}
+}
+
+// CollectFlowEvent collects a new flow event and adds it to a local list it shares with SendStats
 func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 
 	hash := collector.StatsFlowHash(record)

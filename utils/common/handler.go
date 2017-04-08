@@ -21,8 +21,7 @@ func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProc
 
 	if arguments["enforce"].(bool) {
 		// Run enforcer and exit
-		remoteenforcer.LaunchRemoteEnforcer(processor, logLevel)
-		return nil
+		return remoteenforcer.LaunchRemoteEnforcer(processor, logLevel)
 	}
 
 	if arguments["run"].(bool) || arguments["<cgroup>"] != nil {
@@ -118,19 +117,27 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 	signal.Notify(c, os.Interrupt)
 
 	// Start services
-	t.Start()
-	m.Start()
+	if err := t.Start(); err != nil {
+		log.Fatalln("Failed to start Trireme")
+	}
+
+	if err := m.Start(); err != nil {
+		log.Fatalln("Failed to start monitor")
+	}
+
 	if rm != nil {
-		rm.Start()
+		if err := rm.Start(); err != nil {
+			log.Fatalln("Failed to start remote monitor")
+		}
 	}
 
 	// Wait for Ctrl-C
 	<-c
 
 	fmt.Println("Bye!")
-	m.Stop()
-	t.Stop()
+	m.Stop() // nolint
+	t.Stop() // nolint
 	if rm != nil {
-		rm.Stop()
+		rm.Stop() // nolint
 	}
 }

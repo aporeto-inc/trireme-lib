@@ -4,9 +4,6 @@
 package cgnetcls
 
 const (
-	basePath = "/sys/fs/cgroup/net_cls/"
-	markFile = "/net_cls.classid"
-	procs    = "/cgroup.procs"
 	// TriremeBasePath is the base path for the trireme local state in the file system
 	TriremeBasePath = "/trireme"
 	// CgroupNameTag  identifies the cgroup name
@@ -19,7 +16,6 @@ const (
 
 //Empty receiver struct
 type netCls struct {
-	markchan chan uint64
 }
 
 //Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
@@ -49,13 +45,20 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 	return nil
 }
 
-//NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
-func NewCgroupNetController(releasePath string) Cgroupnetcls {
-
+// DeleteCgroup removes the cgroup
+func (s *netCls) DeleteCgroup(cgroupname string) error {
 	return nil
 }
 
-var markval uint64 = 100
+func (s *netCls) Deletebasepath(contextID string) bool {
+	return true
+}
+
+//NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
+func NewCgroupNetController(releasePath string) Cgroupnetcls {
+
+	return &netCls{}
+}
 
 // MarkVal returns a new Mark
 func MarkVal() uint64 {

@@ -17,21 +17,29 @@ import (
 )
 
 // ComputeHmac256 computes the HMAC256 of the message
-func ComputeHmac256(tags []byte, key []byte) []byte {
+func ComputeHmac256(tags []byte, key []byte) ([]byte, error) {
 
 	var buffer bytes.Buffer
-	binary.Write(&buffer, binary.BigEndian, tags)
+	if err := binary.Write(&buffer, binary.BigEndian, tags); err != nil {
+		return []byte{}, err
+	}
 
 	h := hmac.New(sha256.New, key)
-	h.Write(buffer.Bytes())
 
-	return h.Sum(nil)
+	if _, err := h.Write(buffer.Bytes()); err != nil {
+		return []byte{}, err
+	}
+
+	return h.Sum(nil), nil
 
 }
 
 // VerifyHmac verifies if the HMAC of the message matches the one provided
 func VerifyHmac(tags []byte, expectedMAC []byte, key []byte) bool {
-	messageMAC := ComputeHmac256(tags, key)
+	messageMAC, err := ComputeHmac256(tags, key)
+	if err != nil {
+		return false
+	}
 
 	return hmac.Equal(messageMAC, expectedMAC)
 }

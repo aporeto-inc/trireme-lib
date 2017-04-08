@@ -54,15 +54,15 @@ func NewInstance(networkQueues, applicationQueues string, mark int, mode constan
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
-		i.appPacketIPTableSection = "OUTPUT"
-		i.appCgroupIPTableSection = "OUTPUT"
-		i.netPacketIPTableSection = "INPUT"
-		i.appSynAckIPTableSection = "INPUT"
+		i.appPacketIPTableSection = "OUTPUT" //nolint
+		i.appCgroupIPTableSection = "OUTPUT" //nolint
+		i.netPacketIPTableSection = "INPUT"  //nolint
+		i.appSynAckIPTableSection = "INPUT"  //nolint
 	} else {
-		i.appPacketIPTableSection = "PREROUTING"
-		i.appCgroupIPTableSection = "OUTPUT"
-		i.netPacketIPTableSection = "POSTROUTING"
-		i.appSynAckIPTableSection = "INPUT"
+		i.appPacketIPTableSection = "PREROUTING"  //nolint
+		i.appCgroupIPTableSection = "OUTPUT"      //nolint
+		i.netPacketIPTableSection = "POSTROUTING" //nolint
+		i.appSynAckIPTableSection = "INPUT"       //nolint
 	}
 
 	return i, nil
@@ -161,14 +161,25 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 		}
 	}
 
+	var derr error
 	appChain, netChain := i.chainName(contextID, version)
 	if i.mode == constants.LocalServer {
-		i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
+		derr = i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
 	} else {
-		i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
+		derr = i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
 	}
 
-	i.deleteAllContainerChains(appChain, netChain)
+	if derr != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+		}).Warn("Failed to clean rules")
+	}
+
+	if err := i.deleteAllContainerChains(appChain, netChain); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+		}).Warn("Failed to clean container chains while deleting the rules")
+	}
 
 	return nil
 }
@@ -259,12 +270,13 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 // Start starts the iptables controller
 func (i *Instance) Start() error {
-	log.WithFields(log.Fields{
-		"package": "iptablesctrl",
-	}).Debug("Start the supervisor")
 
 	// Clean any previous ACLs
-	i.cleanACLs()
+	if err := i.cleanACLs(); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+		}).Warn("Failed to clean previous acls while starting the supervisor")
+	}
 
 	if i.mode == constants.LocalContainer {
 		if i.acceptMarkedPackets() != nil {
@@ -286,6 +298,10 @@ func (i *Instance) Start() error {
 		}
 	}
 
+	log.WithFields(log.Fields{
+		"package": "iptablesctrl",
+	}).Debug("Started the iptables controller")
+
 	return nil
 }
 
@@ -296,7 +312,11 @@ func (i *Instance) Stop() error {
 	}).Debug("Stop the supervisor")
 
 	// Clean any previous ACLs that we have installed
-	i.cleanACLs()
+	if err := i.cleanACLs(); err != nil {
+		log.WithFields(log.Fields{
+			"package": "iptablesctrl",
+		}).Warn("Failed to clean acls while stopping the supervisor")
+	}
 	return nil
 }
 

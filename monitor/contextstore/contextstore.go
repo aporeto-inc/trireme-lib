@@ -26,22 +26,31 @@ func NewContextStore() ContextStore {
 
 	_, err := os.Stat(storebasePath)
 	if os.IsNotExist(err) {
-		os.MkdirAll(storebasePath, 0700)
+		if err := os.MkdirAll(storebasePath, 0700); err != nil {
+			log.WithFields(log.Fields{
+				"package": "contextstore",
+				"Error":   err.Error(),
+			}).Fatal("Failed to create context store directory ")
+		}
 	}
 
 	return &store{}
 }
 
-// setStoreBasePath sets the store base path
-func setStoreBasePath(path string) {
-	storebasePath = path
+// NewCustomContextStore will start a context store with custom paths. Mainly
+// used for testing when root access is not available and /var/run cannot be accessed
+func NewCustomContextStore(basePath string) ContextStore {
+	storebasePath = basePath
+	return NewContextStore()
 }
 
 // Store context writes to the store the eventInfo which can be used as a event to trireme
 func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 
 	if _, err := os.Stat(storebasePath + contextID); os.IsNotExist(err) {
-		os.MkdirAll(storebasePath+contextID, 0700)
+		if err := os.MkdirAll(storebasePath+contextID, 0700); err != nil {
+			return err
+		}
 	}
 
 	data, err := json.Marshal(eventInfo)
@@ -61,19 +70,11 @@ func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 func (s *store) GetContextInfo(contextID string) (interface{}, error) {
 
 	if _, err := os.Stat(storebasePath + contextID); os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"package": "contextstore",
-			"Error":   err.Error(),
-		}).Debug("ContextID not known")
 		return nil, fmt.Errorf("Unknown ContextID %s", contextID)
 	}
 
 	data, err := ioutil.ReadFile(storebasePath + contextID + eventInfoFile)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "contextstore",
-			"Error":   err.Error(),
-		}).Debug("Unable to read eventInfo file")
 		return nil, fmt.Errorf("Unable to retrieve context from store %s", err.Error())
 	}
 
@@ -84,10 +85,6 @@ func (s *store) GetContextInfo(contextID string) (interface{}, error) {
 func (s *store) RemoveContext(contextID string) error {
 
 	if _, err := os.Stat(storebasePath + contextID); os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"package": "contextstore",
-			"Error":   err.Error(),
-		}).Debug("ContextID not known")
 		return fmt.Errorf("Unknown ContextID %s", contextID)
 	}
 
@@ -99,13 +96,9 @@ func (s *store) RemoveContext(contextID string) error {
 func (s *store) DestroyStore() error {
 
 	if _, err := os.Stat(storebasePath); os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"package": "contextstore",
-			"Error":   err.Error(),
-		}).Debug("Store not initialized")
-
 		return fmt.Errorf("Store Not Initialized")
 	}
+
 	return os.RemoveAll(storebasePath)
 }
 

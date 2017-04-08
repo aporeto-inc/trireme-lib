@@ -41,7 +41,9 @@ func main() {
 	}
 
 	// Write it out on STDOUT.
-	os.Stdout.Write(jsonResult)
+	if _, err = os.Stdout.Write(jsonResult); err != nil {
+		fmt.Printf("Failed to write JSON to stdout")
+	}
 }
 
 func exampleExternalDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {

@@ -55,11 +55,6 @@ type NFPacket struct {
 
 //NFQueue implements the queue and holds all related state information
 type NFQueue struct {
-	h       *C.struct_nfq_handle
-	qh      *C.struct_nfq_q_handle
-	fd      C.int
-	packets chan NFPacket
-	idx     uint32
 	Packets chan *NFPacket
 }
 
@@ -76,8 +71,6 @@ type Verdict struct {
 	QueueHandle *C.struct_nfq_q_handle
 }
 
-var theTable = make(map[uint32]*NFQueue, 0)
-
 // NewNFQueue creates and bind to queue specified by queueID.
 func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*NFQueue, error) {
 
@@ -91,13 +84,6 @@ func (nfq *NFQueue) Close() {
 
 // run just calls the Run function in the C space
 func (nfq *NFQueue) run() {
-
-}
-
-//export processPacket
-func processPacket(queueID C.int, data *C.uchar, len C.int, newData *C.uchar, newLength *C.int, idx uint32) verdictType {
-
-	return NfDrop
 
 }
 

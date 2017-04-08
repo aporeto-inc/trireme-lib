@@ -99,7 +99,9 @@ func (r *PURuntime) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON Unmarshals this struct.
 func (r *PURuntime) UnmarshalJSON(param []byte) error {
 	a := &PURuntimeJSON{}
-	json.Unmarshal(param, &a)
+	if err := json.Unmarshal(param, &a); err != nil {
+		return err
+	}
 	r.pid = a.Pid
 	r.name = a.Name
 	r.ips = a.IPAddresses

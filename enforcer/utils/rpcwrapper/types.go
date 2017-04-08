@@ -9,16 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-var gobTypes = []interface{}{
-	InitRequestPayload{},
-	InitResponsePayload{},
-	InitSupervisorPayload{},
-	EnforcePayload{},
-	UnEnforcePayload{},
-	SuperviseRequestPayload{},
-	UnSupervisePayload{},
-}
-
 // CaptureType identifies the type of iptables implementation that should be used
 type CaptureType int
 
@@ -49,90 +39,88 @@ type Response struct {
 
 //InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
-	FqConfig   *enforcer.FilterQueue
-	MutualAuth bool
-	Validity   time.Duration
-	SecretType tokens.SecretsType
-	ServerID   string
-	CAPEM      []byte
-	PublicPEM  []byte
-	PrivatePEM []byte
+	FqConfig   *enforcer.FilterQueue `json:",omitempty"`
+	MutualAuth bool                  `json:",omitempty"`
+	Validity   time.Duration         `json:",omitempty"`
+	SecretType tokens.SecretsType    `json:",omitempty"`
+	ServerID   string                `json:",omitempty"`
+	CAPEM      []byte                `json:",omitempty"`
+	PublicPEM  []byte                `json:",omitempty"`
+	PrivatePEM []byte                `json:",omitempty"`
 }
 
 //InitSupervisorPayload for supervisor init request
 type InitSupervisorPayload struct {
-	CaptureMethod CaptureType
+	CaptureMethod CaptureType `json:",omitempty"`
 }
 
 // EnforcePayload Payload for enforce request
 type EnforcePayload struct {
-	ContextID        string
-	ManagementID     string
-	TriremeAction    policy.PUAction
-	ApplicationACLs  *policy.IPRuleList
-	NetworkACLs      *policy.IPRuleList
-	Identity         *policy.TagsMap
-	Annotations      *policy.TagsMap
-	PolicyIPs        *policy.IPMap
-	ReceiverRules    *policy.TagSelectorList
-	TransmitterRules *policy.TagSelectorList
-	PuPolicy         *policy.PUPolicy
-	TriremeNetworks  []string
+	ContextID        string                  `json:",omitempty"`
+	ManagementID     string                  `json:",omitempty"`
+	TriremeAction    policy.PUAction         `json:",omitempty"`
+	ApplicationACLs  *policy.IPRuleList      `json:",omitempty"`
+	NetworkACLs      *policy.IPRuleList      `json:",omitempty"`
+	Identity         *policy.TagsMap         `json:",omitempty"`
+	Annotations      *policy.TagsMap         `json:",omitempty"`
+	PolicyIPs        *policy.IPMap           `json:",omitempty"`
+	ReceiverRules    *policy.TagSelectorList `json:",omitempty"`
+	TransmitterRules *policy.TagSelectorList `json:",omitempty"`
+	TriremeNetworks  []string                `json:",omitempty"`
 }
 
 //SuperviseRequestPayload for Supervise request
 type SuperviseRequestPayload struct {
-	ContextID        string
-	ManagementID     string
-	TriremeAction    policy.PUAction
-	ApplicationACLs  *policy.IPRuleList
-	NetworkACLs      *policy.IPRuleList
-	PolicyIPs        *policy.IPMap
-	Identity         *policy.TagsMap
-	Annotations      *policy.TagsMap
-	ReceiverRules    *policy.TagSelectorList
-	TransmitterRules *policy.TagSelectorList
-	PuPolicy         *policy.PUPolicy
-	ExcludedIPs      []string
-	TriremeNetworks  []string
+	ContextID        string                  `json:",omitempty"`
+	ManagementID     string                  `json:",omitempty"`
+	TriremeAction    policy.PUAction         `json:",omitempty"`
+	ApplicationACLs  *policy.IPRuleList      `json:",omitempty"`
+	NetworkACLs      *policy.IPRuleList      `json:",omitempty"`
+	PolicyIPs        *policy.IPMap           `json:",omitempty"`
+	Identity         *policy.TagsMap         `json:",omitempty"`
+	Annotations      *policy.TagsMap         `json:",omitempty"`
+	ReceiverRules    *policy.TagSelectorList `json:",omitempty"`
+	TransmitterRules *policy.TagSelectorList `json:",omitempty"`
+	ExcludedIPs      []string                `json:",omitempty"`
+	TriremeNetworks  []string                `json:",omitempty"`
 }
 
 //UnEnforcePayload payload for unenforce request
 type UnEnforcePayload struct {
-	ContextID string
+	ContextID string `json:",omitempty"`
 }
 
 //UnSupervisePayload payload for unsupervise request
 type UnSupervisePayload struct {
-	ContextID string
+	ContextID string `json:",omitempty"`
 }
 
 //InitResponsePayload Response payload
 type InitResponsePayload struct {
-	Status int
+	Status int `json:",omitempty"`
 }
 
 //EnforceResponsePayload exported
 type EnforceResponsePayload struct {
-	Status int
+	Status int `json:",omitempty"`
 }
 
 //SuperviseResponsePayload exported
 type SuperviseResponsePayload struct {
-	Status int
+	Status int `json:",omitempty"`
 }
 
 //UnEnforceResponsePayload exported
 type UnEnforceResponsePayload struct {
-	Status int
+	Status int `json:",omitempty"`
 }
 
 //StatsPayload is the payload carries by the stats reporting form the remote enforcer
 type StatsPayload struct {
-	Flows map[string]*collector.FlowRecord
+	Flows map[string]*collector.FlowRecord `json:",omitempty"`
 }
 
 //ExcludeIPRequestPayload carries the list of excluded ips
 type ExcludeIPRequestPayload struct {
-	IPs []string
+	IPs []string `json:",omitempty"`
 }

@@ -1,5 +1,5 @@
 // Package enforcerproxy :: This is the implementation of the RPC client
-// It implementes the interface of Trireme Enforcer and forwards these
+// It implements the interface of Trireme Enforcer and forwards these
 // requests to the actual remote enforcer instead of implementing locally
 package enforcerproxy
 
@@ -157,8 +157,13 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 
 	delete(s.initDone, contextID)
 
-	if s.prochdl.GetExitStatus(contextID) == false {
-		s.prochdl.SetExitStatus(contextID, true)
+	if !s.prochdl.GetExitStatus(contextID) {
+		if err := s.prochdl.SetExitStatus(contextID, true); err != nil {
+			log.WithFields(log.Fields{
+				"package": "remenforcer",
+				"error":   err,
+			}).Warn("failed to set exit status ")
+		}
 	} else {
 		s.prochdl.KillProcess(contextID)
 	}
@@ -214,7 +219,6 @@ func NewProxyEnforcer(mutualAuth bool,
 		//We will use current time as the secret
 		statsServersecret = time.Now().String()
 
-
 	}
 	proxydata := &proxyInfo{
 		MutualAuth:        mutualAuth,
@@ -237,7 +241,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	rpcServer := &StatsServer{rpchdl: statsServer, collector: collector, secret: statsServersecret}
 
 	// Start hte server for statistics collection
-	go statsServer.StartServer("unix", rpcwrapper.StatsChannel, rpcServer)
+	go statsServer.StartServer("unix", rpcwrapper.StatsChannel, rpcServer) // nolint
 
 	return proxydata
 }
@@ -246,7 +250,7 @@ func NewProxyEnforcer(mutualAuth bool,
 func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
-	rpchdl *rpcwrapper.RPCWrapper) enforcer.PolicyEnforcer {
+	rpchdl rpcwrapper.RPCClient) enforcer.PolicyEnforcer {
 
 	mutualAuthorization := false
 	fqConfig := &enforcer.FilterQueue{

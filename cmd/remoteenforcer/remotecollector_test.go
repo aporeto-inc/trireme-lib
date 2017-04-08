@@ -7,6 +7,16 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+func TestNewCollector(t *testing.T) {
+	Convey("When I create a new collector", t, func() {
+		c := NewCollector()
+		Convey("The collector should not be nil ", func() {
+			So(c, ShouldNotBeNil)
+			So(c.Flows, ShouldNotBeNil)
+		})
+	})
+}
+
 func TestCollectFlowEvent(t *testing.T) {
 	Convey("Given a stats collector", t, func() {
 		c := &CollectorImpl{

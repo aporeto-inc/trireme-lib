@@ -106,7 +106,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 				m.equalMapTable[keyValueOp.Key] = map[string][]*ForwardingPolicy{}
 			}
 			for _, v := range keyValueOp.Value {
-				if v[len(v)-1] == byte("*"[0]) {
+				if v[len(v)-1] == "*"[0] {
 					m.equalPrefixes[keyValueOp.Key] = m.equalPrefixes[keyValueOp.Key].sortedInsert(len(v) - 1)
 					m.equalMapTable[keyValueOp.Key][v[:len(v)-1]] = append(m.equalMapTable[keyValueOp.Key][v[:len(v)-1]], &e)
 				} else {

@@ -189,14 +189,15 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 	return nil
 }
 
+//deleteSet deletes the ipset
 func (i *Instance) deleteSet(set string) error {
+
 	ipSet, err := i.ips.NewIpset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
 
-	ipSet.Destroy()
-	return nil
+	return ipSet.Destroy()
 }
 
 // setupIpset sets up an ipset
@@ -372,11 +373,17 @@ func (i *Instance) setupTrapRules(set string) error {
 // cleanIPSets cleans all the ipsets
 func (i *Instance) cleanIPSets() error {
 
-	i.ipt.ClearChain(i.appPacketIPTableContext, i.appPacketIPTableSection)
+	err1 := i.ipt.ClearChain(i.appPacketIPTableContext, i.appPacketIPTableSection)
 
-	i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableSection)
+	err2 := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableSection)
 
-	i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection)
+	err3 := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection)
+
+	if err1 != nil || err2 != nil || err3 != nil {
+		log.WithFields(log.Fields{
+			"package": "supervisor",
+		}).Debug("Failed to clean one or more chains during cleanup ")
+	}
 
 	return i.ips.DestroyAll()
 }

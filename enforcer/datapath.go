@@ -25,11 +25,10 @@ import (
 type datapathEnforcer struct {
 
 	// Configuration parameters
-	mutualAuthorization bool
-	filterQueue         *FilterQueue
-	tokenEngine         tokens.TokenEngine
-	collector           collector.EventCollector
-	service             PacketProcessor
+	filterQueue *FilterQueue
+	tokenEngine tokens.TokenEngine
+	collector   collector.EventCollector
+	service     PacketProcessor
 
 	// Internal structures and caches
 	// Key=ContextId Value=ContainerIP
@@ -51,11 +50,17 @@ type datapathEnforcer struct {
 	netTCP *PacketStats
 	appTCP *PacketStats
 
+	// mode captures the mode of the enforcer
+	mode constants.ModeType
+
+	// stop signals
+	netStop []chan bool
+	appStop []chan bool
+
 	// ack size
 	ackSize uint32
 
-	// mode captures the mode of the enforcer
-	mode constants.ModeType
+	mutualAuthorization bool
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -74,11 +79,19 @@ func NewDatapathEnforcer(
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
-		cmd := exec.Command("sysctl", "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
+
+		sysctlCmd, err := exec.LookPath("sysctl")
+		if err != nil {
+			log.WithFields(log.Fields{"package": "enforcer",
+				"Error": err.Error(),
+			}).Fatal("sysctl command must be installed. Abort")
+		}
+
+		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
 		if err := cmd.Run(); err != nil {
 			log.WithFields(log.Fields{"package": "enforcer",
 				"Error": err.Error(),
-			}).Error("Failed to set conntrack options. Abort")
+			}).Fatal("Failed to set conntrack options. Abort")
 		}
 	}
 
@@ -116,6 +129,7 @@ func NewDatapathEnforcer(
 			"package": "enforcer",
 		}).Fatal("Unable to create enforcer")
 	}
+
 	return d
 }
 
@@ -173,8 +187,9 @@ func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) erro
 	}
 
 	puContext, err := d.puTracker.Get(hashSlice.([]*DualHash)[0].app)
-	if err != nil {
-		return d.doUpdatePU(puContext.(*PUContext), puInfo)
+	if err == nil {
+		d.doUpdatePU(puContext.(*PUContext), puInfo)
+		return nil
 	}
 
 	return d.doCreatePU(contextID, puInfo)
@@ -193,8 +208,9 @@ func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHa
 	if !ok {
 		expectedPort = "0"
 		hashSlice = append(hashSlice, &DualHash{
-			app: "mark:" + expectedMark + "$",
-			net: "port:" + expectedPort,
+			app:     "mark:" + expectedMark + "$",
+			net:     "port:" + expectedPort,
+			process: true,
 		})
 		return hashSlice
 	}
@@ -202,8 +218,9 @@ func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHa
 	portlist := strings.Split(expectedPort, ",")
 	for _, port := range portlist {
 		hashSlice = append(hashSlice, &DualHash{
-			app: "mark:" + expectedMark + "$",
-			net: "port:" + port,
+			app:     "mark:" + expectedMark + "$",
+			net:     "port:" + port,
+			process: true,
 		})
 	}
 	return hashSlice
@@ -216,8 +233,9 @@ func (d *datapathEnforcer) puHash(ip string, puInfo *policy.PUInfo) (hash []*Dua
 	}
 
 	return []*DualHash{&DualHash{
-		app: ip,
-		net: ip,
+		app:     ip,
+		net:     ip,
+		process: false,
 	}}
 }
 
@@ -258,12 +276,11 @@ func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) e
 	return nil
 }
 
-func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
+func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) {
 	puContext.acceptRcvRules, puContext.rejectRcvRules = createRuleDB(containerInfo.Policy.ReceiverRules())
 	puContext.acceptTxtRules, puContext.rejectTxtRules = createRuleDB(containerInfo.Policy.TransmitterRules())
 	puContext.Identity = containerInfo.Policy.Identity()
 	puContext.Annotations = containerInfo.Policy.Annotations()
-	return nil
 }
 
 func (d *datapathEnforcer) Unenforce(contextID string) error {
@@ -274,11 +291,29 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 	}
 
 	for _, hash := range hashSlice.([]*DualHash) {
-		d.puTracker.Remove(hash.app)
-		d.puTracker.Remove(hash.net)
+
+		if err := d.puTracker.Remove(hash.app); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+				"entry":   hash.app,
+			}).Warn("Unable to remove app hash entry during unenforcement")
+		}
+
+		if hash.process {
+			if err := d.puTracker.Remove(hash.net); err != nil {
+				log.WithFields(log.Fields{
+					"package": "enforcer",
+					"entry":   hash.net,
+				}).Warn("Unable to remove net hash entry during unenforcement")
+			}
+		}
 	}
 
-	d.contextTracker.Remove(contextID)
+	if err := d.contextTracker.Remove(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package": "enforcer",
+		}).Warn("Unable to remove context from cache ")
+	}
 
 	return nil
 }
@@ -305,9 +340,19 @@ func (d *datapathEnforcer) Start() error {
 
 // Stop stops the enforcer
 func (d *datapathEnforcer) Stop() error {
+
 	log.WithFields(log.Fields{
 		"package": "enforcer",
-	}).Debug("Stop enforcer")
+	}).Debug("Stoping enforcer")
+
+	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+		d.appStop[i] <- true
+	}
+
+	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+		d.netStop[i] <- true
+	}
+
 	return nil
 }
 
@@ -316,11 +361,16 @@ func (d *datapathEnforcer) Stop() error {
 func (d *datapathEnforcer) StartNetworkInterceptor() {
 	var err error
 
+	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
+	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+		d.netStop[i] = make(chan bool)
+	}
+
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 
-		// Initalize all the queues
+		// Initialize all the queues
 		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -329,11 +379,13 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
 
-		go func(i uint16) {
-			for true {
+		go func(j uint16) {
+			for {
 				select {
-				case packet := <-nfq[i].Packets:
+				case packet := <-nfq[j].Packets:
 					d.processNetworkPacketsFromNFQ(packet)
+				case <-d.netStop[j]:
+					return
 				}
 			}
 		}(i)
@@ -347,6 +399,11 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 
 	var err error
 
+	d.appStop = make([]chan bool, d.filterQueue.NumberOfApplicationQueues)
+	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+		d.appStop[i] = make(chan bool)
+	}
+
 	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
@@ -359,11 +416,13 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
 
-		go func(i uint16) {
-			for true {
+		go func(j uint16) {
+			for {
 				select {
-				case packet := <-nfq[i].Packets:
+				case packet := <-nfq[j].Packets:
 					d.processApplicationPacketsFromNFQ(packet)
+				case <-d.appStop[j]:
+					return
 				}
 			}
 		}(i)

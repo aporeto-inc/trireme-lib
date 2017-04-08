@@ -125,7 +125,8 @@ func TestSupervise(t *testing.T) {
 		Convey("When I send supervise command for a second time, it should do an update", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any()).Return(nil)
-			s.Supervise("contextID", puInfo)
+			noerr := s.Supervise("contextID", puInfo)
+			So(noerr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
 			Convey("I should not get an error", func() {
 				So(err, ShouldBeNil)
@@ -136,7 +137,8 @@ func TestSupervise(t *testing.T) {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any()).Return(fmt.Errorf("Error"))
 			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-			s.Supervise("contextID", puInfo)
+			serr := s.Supervise("contextID", puInfo)
+			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -172,7 +174,8 @@ func TestUnsupervise(t *testing.T) {
 		Convey("When I try to unsupervise a valid PU ", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-			s.Supervise("contextID", puInfo)
+			serr := s.Supervise("contextID", puInfo)
+			So(serr, ShouldBeNil)
 			err := s.Unsupervise("contextID")
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)

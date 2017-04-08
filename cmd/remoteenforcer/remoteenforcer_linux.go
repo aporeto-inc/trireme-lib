@@ -7,14 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/user"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
-	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter"
+	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
@@ -22,74 +19,67 @@ import (
 )
 
 const (
-	ipcProtocol         = "unix"
-	defaultPath         = "/var/run/default.sock"
-	defaultTimeInterval = 1
+	envSocketPath = "SOCKET_PATH"
+	envSecret     = "SECRET"
+	nsErrorState  = "NSENTER_ERROR_STATE"
 )
 
-//Server : This is the structure for maintaining state required by the remote enforcer.
-//It is cache of variables passed by th controller to the remote enforcer and other handles
-//required by the remote enforcer to talk to the external processes
+// Server : This is the structure for maintaining state required by the remote enforcer.
+// It is cache of variables passed by th controller to the remote enforcer and other handles
+// required by the remote enforcer to talk to the external processes
 type Server struct {
-	MutualAuth  bool
-	Validity    time.Duration
-	SecretType  tokens.SecretsType
 	rpcSecret   string
-	ContextID   string
-	CAPEM       []byte
-	PublicPEM   []byte
-	PrivatePEM  []byte
-	StatsClient *rpcwrapper.RPCWrapper
-	Enforcer    enforcer.PolicyEnforcer
-	Collector   collector.EventCollector
-	Supervisor  supervisor.Supervisor
-	Service     enforcer.PacketProcessor
-	pupolicy    *policy.PUPolicy
 	rpcchannel  string
-	rpchdl      *rpcwrapper.RPCWrapper
-	Excluder    supervisor.Excluder
+	rpchdl      rpcwrapper.RPCServer
+	statsclient *StatsClient
+
+	Enforcer   enforcer.PolicyEnforcer
+	Supervisor supervisor.Supervisor
+	Service    enforcer.PacketProcessor
+	Excluder   supervisor.Excluder
 }
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpcchan string, secret string) *Server {
+func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) (*Server, error) {
+
+	statsclient, err := NewStatsClient()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Server{
-		pupolicy:   nil,
 		Service:    service,
 		rpcchannel: rpcchan,
 		rpcSecret:  secret,
-	}
+		rpchdl:     rpchdl,
+
+		statsclient: statsclient,
+	}, nil
 }
 
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-	//Check if sucessfully switched namespace
-	nsEnterState := os.Getenv("NSENTER_ERROR_STATE")
+	//Check if successfully switched namespace
+	nsEnterState := os.Getenv(nsErrorState)
 	if len(nsEnterState) != 0 {
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
 	}
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Message Auth Failed")
+		resp.Status = ("Init message authentication failed")
 		return errors.New(resp.Status)
 	}
 
-	collectorInstance := &CollectorImpl{
-		Flows: map[string]*collector.FlowRecord{},
-	}
-
-	s.Collector = collectorInstance
-
 	payload := req.Payload.(rpcwrapper.InitRequestPayload)
-
 	if payload.SecretType == tokens.PKIType {
 		//PKI params
 		secrets := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		s.Enforcer = enforcer.NewDatapathEnforcer(
 			payload.MutualAuth,
 			payload.FqConfig,
-			collectorInstance,
+			s.statsclient.collector,
 			s.Service,
 			secrets,
 			payload.ServerID,
@@ -101,7 +91,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		s.Enforcer = enforcer.NewDatapathEnforcer(
 			payload.MutualAuth,
 			payload.FqConfig,
-			collectorInstance,
+			s.statsclient.collector,
 			s.Service,
 			secrets,
 			payload.ServerID,
@@ -111,9 +101,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	s.Enforcer.Start()
 
-	statsClient := &StatsClient{collector: collectorInstance, server: s, Rpchdl: rpcwrapper.NewRPCWrapper()}
-
-	s.connectStatsClient(statsClient)
+	s.statsclient.connectStatsClient()
 
 	resp.Status = ""
 
@@ -124,7 +112,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Message Auth Failed")
+		resp.Status = ("Supervisor Init Message Auth Failed")
 		return errors.New(resp.Status)
 	}
 
@@ -135,7 +123,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		return fmt.Errorf("IPSets not supported yet")
 	default:
 
-		supervisorHandle, err := supervisor.NewSupervisor(s.Collector,
+		supervisorHandle, err := supervisor.NewSupervisor(s.statsclient.collector,
 			s.Enforcer,
 			constants.RemoteContainer,
 			constants.IPTables,
@@ -158,6 +146,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 	s.Supervisor.Start()
 
 	resp.Status = ""
+
 	return nil
 }
 
@@ -165,7 +154,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Message Auth Failed")
+		resp.Status = ("Supervise Message Auth Failed")
 		return errors.New(resp.Status)
 	}
 
@@ -197,12 +186,13 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"method": "Supervise",
-			"error":  err.Error(),
-		}).Info("Supervise status remote_enforcer ")
-	}
-	if err != nil {
+			"method":    "Supervise",
+			"contextID": payload.ContextID,
+			"error":     err.Error(),
+		}).Info("Unable to initialize supervisor  ")
+
 		resp.Status = err.Error()
+		return err
 	}
 
 	//We are good here now add the Excluded ip list as well
@@ -214,7 +204,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Message Auth Failed")
+		resp.Status = ("Unenforce Message Auth Failed")
 		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
@@ -225,7 +215,7 @@ func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Message Auth Failed")
+		resp.Status = ("Unsupervise Message Auth Failed")
 		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
@@ -236,7 +226,7 @@ func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) 
 func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Message Auth Failed")
+		resp.Status = ("Enforce Message Auth Failed")
 		return errors.New(resp.Status)
 	}
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
@@ -261,40 +251,51 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		}).Info("Failed Runtime")
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
-	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"method": "Enforce",
-		"error":  err,
-	}).Info("ENFORCE STATUS")
-	if err != nil {
+
+	if err := s.Enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
+		return err
 	}
-	return err
+
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"method":    "Enforce",
+		"contextID": payload.ContextID,
+	}).Info("Enforcer enabled")
+
+	resp.Status = ""
+
+	return nil
 }
 
-//EnforcerExit this method is called when  we received a killrpocess message from the controller
-//THis allows a graceful exit of the enforcer
+// EnforcerExit this method is called when  we received a killrpocess message from the controller
+// This allows a graceful exit of the enforcer
 func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	//Cleanup resources held in this namespace
 	s.Supervisor.Stop()
 	s.Enforcer.Stop()
+	s.statsclient.Stop()
+
 	os.Exit(0)
+
 	return nil
 }
 
+// AddExcludedIPs implements the ExcludedIPs method of enforcers
 func (s *Server) AddExcludedIPs(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Message Auth Failed")
+		resp.Status = ("AddExcludedIPs Message Auth Failed")
 		return errors.New(resp.Status)
 	}
+
 	payload := req.Payload.(rpcwrapper.ExcludeIPRequestPayload)
 	return s.Excluder.AddExcludedIPs(payload.IPs)
 
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) {
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) error {
 
 	log.SetLevel(logLevel)
 	log.SetFormatter(&log.TextFormatter{
@@ -310,20 +311,14 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 		os.Exit(-1)
 	}
 
-	server := NewServer(service, namedPipe, secret)
-
 	rpchdl := rpcwrapper.NewRPCServer()
 
-	userDetails, _ := user.Current()
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"uid":      userDetails.Uid,
-		"gid":      userDetails.Gid,
-		"username": userDetails.Username,
-	}).Info("Enforcer user id")
+	server, err := NewServer(service, rpchdl, namedPipe, secret)
+	if err != nil {
+		return err
+	}
 
 	rpchdl.StartServer("unix", namedPipe, server)
 
-	server.EnforcerExit(rpcwrapper.Request{}, nil)
-
-	os.Exit(0)
+	return nil
 }

@@ -1,6 +1,6 @@
-//package processmon is to manage and monitor remote enforcers.
-//When we access the processmanager interface through here it acts as a singleton
-//The ProcessMonitor interface is not a singleton and can be used to monitor a list of processes
+// Package processmon is to manage and monitor remote enforcers.
+// When we access the processmanager interface through here it acts as a singleton
+// The ProcessMonitor interface is not a singleton and can be used to monitor a list of processes
 package processmon
 
 import (
@@ -12,9 +12,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
-	"syscall"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
@@ -27,8 +24,6 @@ var (
 	// GlobalCommandArgs are command args received while invoking this command
 	GlobalCommandArgs map[string]interface{}
 )
-
-var processName = ""
 
 //ProcessMon exported
 type ProcessMon struct {
@@ -43,11 +38,6 @@ type processInfo struct {
 	RPCHdl    rpcwrapper.RPCClient
 	process   *os.Process
 	deleted   bool
-}
-
-type processMonitor struct {
-	processmap map[int]interface{}
-	sync.RWMutex
 }
 
 //ExitStatus captures the exit status of a process
@@ -83,12 +73,6 @@ func init() {
 	go collectChildExitStatus()
 }
 
-//private function used with test
-func setprocessname(name string) {
-
-	processName = name
-}
-
 //collectChildExitStatus is an async function which collects status for all launched child processes
 func collectChildExitStatus() {
 
@@ -109,7 +93,6 @@ func processIOReader(fd io.Reader, contextID string, exited chan int) {
 		str, err := reader.ReadString('\n')
 		if err != nil {
 			exited <- 1
-			fmt.Println("Error: reader failed. Exiting thread !")
 			return
 		}
 		fmt.Print("[" + contextID + "]:" + str)
@@ -141,11 +124,9 @@ func (p *ProcessMon) SetExitStatus(contextID string, status bool) error {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err,
-		}).Error("Process already dead")
 		return err
 	}
+
 	val := s.(*processInfo)
 	val.deleted = status
 	p.activeProcesses.AddOrUpdate(contextID, val)
@@ -167,11 +148,24 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	req.Payload = s.(*processInfo).process.Pid
 	err = s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
 	if err != nil {
-		s.(*processInfo).process.Kill()
+		if err := s.(*processInfo).process.Kill(); err != nil {
+			log.WithFields(log.Fields{"package": "ProcessMon",
+				"msg":   "Failed to kill process",
+				"Error": err.Error(),
+			}).Warn("Process is already dead")
+		}
 	}
 	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
-	os.Remove(netnspath + contextID)
-	p.activeProcesses.Remove(contextID)
+	if err := os.Remove(netnspath + contextID); err != nil {
+		log.WithFields(log.Fields{"package": "ProcessMon",
+			"msg": "Failed to remote process from netns path ",
+		}).Warn("OS Error")
+	}
+	if err := p.activeProcesses.Remove(contextID); err != nil {
+		log.WithFields(log.Fields{"package": "ProcessMon",
+			"msg": "Failed to remote process from cache ",
+		}).Warn("Entry was not found in the cache")
+	}
 
 }
 
@@ -219,22 +213,26 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	log.WithFields(log.Fields{"package": "ProcessMon",
 		"command": cmdName,
 		"args":    strings.Join(cmdArgs, " "),
-	}).Debug("Enforcer exectued")
+	}).Debug("Enforcer executed")
 
 	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
 	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
 
 	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		//This is a more serious failure. We can't reliably control the remote enforcer
-		log.WithFields(log.Fields{
-			"package": "processmon",
-			"Error":   err.Error(),
-		}).Error("Failed to generate secret string for rpc command channel")
-		return fmt.Errorf("RPC Secret failed")
+		return fmt.Errorf("Failed to generate secret %s", err.Error())
 	}
+
 	rpcClientSecret := "SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
 
@@ -242,12 +240,13 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 
 	err = cmd.Start()
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err,
-			"PATH":  cmdName,
-		}).Error("Enforcer Binary not present in expected location")
 		//Cleanup resources
-		os.Remove(netnspath + contextID)
+		if oerr := os.Remove(netnspath + contextID); oerr != nil {
+			log.WithFields(log.Fields{"package": "ProcessMon",
+				"error": err,
+				"PATH":  cmdName,
+			}).Warn("Failed to clean up netns path")
+		}
 		return ErrBinaryNotFound
 	}
 
@@ -262,14 +261,16 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		status := cmd.Wait()
 		childExitStatus <- ExitStatus{process: pid, contextID: contextID, exitStatus: status}
 	}()
-	//processMonWait(cmd, contextID)
 
 	// Stdout/err processing
 	go processIOReader(stdout, contextID, exited)
 	go processIOReader(stderr, contextID, exited)
 
-	rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock", randomkeystring)
-	p.activeProcesses.Add(contextID, &processInfo{contextID: contextID,
+	if err := rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock", randomkeystring); err != nil {
+		return err
+	}
+
+	p.activeProcesses.AddOrUpdate(contextID, &processInfo{contextID: contextID,
 		process: cmd.Process,
 		RPCHdl:  rpchdl,
 		deleted: false})
@@ -294,55 +295,4 @@ func GetProcessManagerHdl() ProcessManager {
 	}
 	return launcher
 
-}
-
-//GetProcessMonitorHdl returns the handle of the process monitor
-func GetProcessMonitorHdl() ProcessMonitor {
-	pInstance := &processMonitor{processmap: make(map[int]interface{})}
-	go pInstance.processMonitorLoop()
-	return pInstance
-}
-
-//ProcessExists returns an error if the
-//Magic number 0 -- when kill is called with 0 no signal is sent to the process
-//Error checks are performed and we get an error if the pid does not exists
-//This can be used to poll for the pid existence in poll mode
-func (p *processMonitor) ProcessExists(pid int) bool {
-
-	if err := syscall.Kill(pid, 0); err != nil {
-		return false
-	}
-	return true
-}
-
-//AddProcessMonList adds the pid to a list of monitored pids
-//We will post an event on the passed channel when we the process exits
-func (p *processMonitor) AddProcessMonList(pid int, eventChannel chan int) error {
-	p.Lock()
-	p.processmap[pid] = eventChannel
-	p.Unlock()
-	return nil
-}
-
-//TODO - This loop can get really long if we are monitoring a lot of processes
-//We make a syscall for each process in the list
-//netlink is another option but can be noisy if we are manging only a small set
-//Will revisit this implementation
-func (p *processMonitor) processMonitorLoop() {
-	for {
-		p.Lock()
-		defer p.Unlock()
-		for k, v := range p.processmap {
-			p.Unlock()
-			if !p.ProcessExists(k) {
-				outchan := v.(chan int)
-				outchan <- k
-				delete(p.processmap, k)
-			}
-			p.Lock()
-		}
-		p.Unlock()
-		time.Sleep(100 * time.Millisecond)
-
-	}
 }

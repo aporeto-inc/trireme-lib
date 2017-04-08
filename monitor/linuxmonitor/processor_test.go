@@ -8,26 +8,22 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/mock"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/contextstore"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-type CustomPolicyResolver struct {
-	monitor.ProcessingUnitsHandler
-}
-
-func TestNewLinuxProcessor(t *testing.T) {
-	Convey("When I initialize a new processor", t, func() {
-		p := NewLinuxProcessor(nil, &CustomPolicyResolver{}, rpcmonitor.DefaultRPCMetadataExtractor, "")
-
-		Convey("I should get a valid processor", func() {
-			So(p, ShouldNotBeNil)
-			So(p.metadataExtractor, ShouldEqual, rpcmonitor.DefaultRPCMetadataExtractor)
-			So(p.collector, ShouldBeNil)
-		})
-	})
+func testLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
+	return &LinuxProcessor{
+		collector:         collector,
+		puHandler:         puHandler,
+		metadataExtractor: metadataExtractor,
+		netcls:            cgnetcls.NewCgroupNetController(releasePath),
+		contextStore:      contextstore.NewCustomContextStore("/tmp"),
+	}
 }
 
 func TestCreate(t *testing.T) {
@@ -36,7 +32,7 @@ func TestCreate(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
+		p := testLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
 
 		Convey("When I get an event with no PUID", func() {
 			event := &rpcmonitor.EventInfo{
@@ -69,7 +65,7 @@ func TestStop(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
+		p := testLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
 		p.netcls = mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("When I get a stop event with no PUID", func() {
@@ -115,7 +111,7 @@ func TestDestroy(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
+		p := testLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
 		mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 		p.netcls = mockcls
 
@@ -164,7 +160,7 @@ func TestPause(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
+		p := testLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
 
 		Convey("When I get a pause event with no PUID", func() {
 			event := &rpcmonitor.EventInfo{
@@ -198,7 +194,7 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		p := NewLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
+		p := testLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
 
 		Convey("When I get a start event with no PUID", func() {
 			event := &rpcmonitor.EventInfo{

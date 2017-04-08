@@ -21,7 +21,8 @@ func TestComputeVerifyHMAC(t *testing.T) {
 		}
 
 		Convey("When I sign the token with the key", func() {
-			expectedMac := ComputeHmac256(token, key)
+			expectedMac, err := ComputeHmac256(token, key)
+			So(err, ShouldBeNil)
 			So(expectedMac, ShouldNotBeNil)
 
 			Convey("I should be able to verify the token with the same key", func() {

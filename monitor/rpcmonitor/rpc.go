@@ -35,7 +35,6 @@ type RPCMonitor struct {
 	listensock    net.Listener
 	contextstore  contextstore.ContextStore
 	collector     collector.EventCollector
-	puHandler     monitor.ProcessingUnitsHandler
 }
 
 // Server represents the Monitor RPC Server implementation
@@ -105,14 +104,14 @@ func (r *RPCMonitor) reSync() error {
 	var eventInfo EventInfo
 
 	walker, err := r.contextstore.WalkStore()
-
 	if err != nil {
-
 		return fmt.Errorf("error in accessing context store")
 	}
+
 	//This is create to only delete if required don't create groups using this handle here
 	cgnetclshandle := cgnetcls.NewCgroupNetController("")
 	cstorehandle := contextstore.NewContextStore()
+
 	for {
 		contextID := <-walker
 		if contextID == "" {
@@ -123,28 +122,59 @@ func (r *RPCMonitor) reSync() error {
 		if err == nil && data != nil {
 
 			if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
-				return fmt.Errorf("error in umarshalling date")
+				log.WithFields(log.Fields{
+					"package":   "rpcmonitor",
+					"error":     err.Error(),
+					"contextID": contextID,
+				}).Warn("Found invalid state for context - Cleaning up")
+
+				if rerr := r.contextstore.RemoveContext("/" + contextID); rerr != nil {
+					return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
+				}
+				continue
 			}
+
 			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 
 			if err != nil {
-				cstorehandle.RemoveContext(eventInfo.PUID)
-				//The cgroup does not exists
+				//The cgroup does not exists - log error
+				if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {
+					log.WithFields(log.Fields{
+						"package": "rpcmonitor",
+						"error":   cerr.Error(),
+					}).Warn("Failed to remove state from store handler")
+				}
 				continue
 			}
 
 			if len(processlist) <= 0 {
 				//We have an empty cgroup
 				//Remove the cgroup and context store file
-				cgnetclshandle.DeleteCgroup(eventInfo.PUID)
-				cstorehandle.RemoveContext(eventInfo.PUID)
+				if err := cgnetclshandle.DeleteCgroup(eventInfo.PUID); err != nil {
+					log.WithFields(log.Fields{
+						"package": "rpcmonitor",
+						"error":   err.Error(),
+					}).Warn("Failed to remove state from store handler")
+				}
+
+				if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
+					log.WithFields(log.Fields{
+						"package": "rpcmonitor",
+						"error":   err.Error(),
+					}).Warn("Failed to remove state from store handler")
+				}
+
 				continue
 			}
-			f, _ := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]
 
-			if err := f(&eventInfo); err != nil {
-				return fmt.Errorf("error in processing existing data")
+			if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
+				if err := f(&eventInfo); err != nil {
+					return fmt.Errorf("error in processing existing data")
+				}
+			} else {
+				return fmt.Errorf("cannot find handler")
 			}
+
 		}
 	}
 
@@ -182,27 +212,15 @@ func (r *RPCMonitor) Start() error {
 
 	// Check if we had running units when we last died
 	if err = r.reSync(); err != nil {
-		log.WithFields(log.Fields{
-			"package":  "RPCMonitor",
-			"error":    err.Error(),
-			"message:": "Unable to resync existing services",
-		}).Error("Failed to resync existing services")
+		return err
 	}
 
 	if r.listensock, err = net.Listen("unix", r.rpcAddress); err != nil {
-		log.WithFields(log.Fields{"package": "RPCMonitor",
-			"error":    err.Error(),
-			"message:": "Starting",
-		}).Info("Failed RPC monitor")
-		return fmt.Errorf("couldn't create binding: %s", err)
+		return fmt.Errorf("Failed to start RPC monitor: couldn't create binding: %s", err.Error())
 	}
 
 	if err = os.Chmod(r.rpcAddress, 0766); err != nil {
-		log.WithFields(log.Fields{"package": "RPCMonitor",
-			"error":    err.Error(),
-			"message:": "Failed to adjust permissions on rpc socket path",
-		}).Info("Failed RPC monitor")
-		return fmt.Errorf("couldn't create binding: %s", err)
+		return fmt.Errorf("Failed to start RPC monitor: cannot adjust permissions %s", err.Error())
 	}
 
 	//Launch a go func to accept connections
@@ -214,9 +232,19 @@ func (r *RPCMonitor) Start() error {
 // Stop monitoring RPC events.
 func (r *RPCMonitor) Stop() error {
 
-	r.listensock.Close()
+	if err := r.listensock.Close(); err != nil {
+		log.WithFields(log.Fields{
+			"package": "rpcmonitor",
+			"error":   err.Error(),
+		}).Warn("Failed to stop rpc monitor")
+	}
 
-	os.RemoveAll(r.rpcAddress)
+	if err := os.RemoveAll(r.rpcAddress); err != nil {
+		log.WithFields(log.Fields{
+			"package": "rpcmonitor",
+			"error":   err.Error(),
+		}).Warn("Failed to cleanup rpc monitor socket ")
+	}
 
 	return nil
 }
@@ -237,12 +265,8 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		f, present := s.handlers[eventInfo.PUType][eventInfo.EventType]
 		if present {
 			if err := f(eventInfo); err != nil {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Error("Error while handling event")
 				result.Error = err.Error()
-				return err
+				return fmt.Errorf("Failed to Handle Event: %s ", err.Error())
 			}
 			return nil
 		}

@@ -98,7 +98,7 @@ func TestAssignMark(t *testing.T) {
 	//Assigning mark before creating group
 	err := cg.AssignMark(testcgroupname, testmark)
 	if err == nil {
-		t.Errorf("Assign mark suceeded without a valid group being present ")
+		t.Errorf("Assign mark succeeded without a valid group being present ")
 		t.SkipNow()
 	}
 	cg.Creategroup(testcgroupname)
@@ -133,7 +133,7 @@ func TestAddProcess(t *testing.T) {
 	//AddProcess to a non-existent group
 	err := cg.AddProcess(testcgroupname, os.Getpid())
 	if err == nil {
-		t.Errorf("Process sucessfully added to a non existent group")
+		t.Errorf("Process successfully added to a non existent group")
 		t.SkipNow()
 	}
 	cg.Creategroup(testcgroupname)
@@ -176,7 +176,7 @@ func TestRemoveProcess(t *testing.T) {
 	//Removing process from non-existent group
 	err := cg.RemoveProcess(testcgroupname, 1)
 	if err == nil {
-		t.Errorf("RemoveProcess suceeded without valid group being present ")
+		t.Errorf("RemoveProcess succeeded without valid group being present ")
 		t.SkipNow()
 	}
 	cg.Creategroup(testcgroupname)
@@ -222,6 +222,10 @@ func TestDeleteBasePath(t *testing.T) {
 	cg := NewCgroupNetController("")
 	//Removing process from non-existent group
 	err := cg.DeleteCgroup(testcgroupname)
+	if err != nil {
+		t.Errorf("Delete of group failed %s", err.Error())
+	}
+
 	defer cleanupnetclsgroup()
 	cg.Deletebasepath(testcgroupname)
 	_, err = os.Stat(basePath + TriremeBasePath + testcgroupname)

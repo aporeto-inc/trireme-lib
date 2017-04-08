@@ -22,6 +22,7 @@ type LinuxProcessor struct {
 	puHandler         monitor.ProcessingUnitsHandler
 	metadataExtractor rpcmonitor.RPCMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
+	contextStore      contextstore.ContextStore
 }
 
 // NewLinuxProcessor initializes a processor
@@ -32,6 +33,7 @@ func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pro
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
 		netcls:            cgnetcls.NewCgroupNetController(releasePath),
+		contextStore:      contextstore.NewContextStore(),
 	}
 }
 
@@ -84,42 +86,43 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		//It is okay to launch this so let us create a cgroup for it
 		err = s.netcls.Creategroup(eventInfo.PUID)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "rpcMonitor",
-				"error":   err.Error(),
-			}).Info("Error Creating cgroup")
 			return err
 		}
 
 		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
 		if !ok {
-			s.netcls.DeleteCgroup(eventInfo.PUID)
-			log.WithFields(log.Fields{
-				"package": "rpcmonitor",
-				"PUID":    eventInfo.PUID,
-			}).Error("Mark value not found")
+			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+				log.WithFields(log.Fields{
+					"package": "rpcMonitor",
+					"error":   err.Error(),
+				}).Warn("Failed to clean cgroup")
+			}
 			return errors.New("Mark value not found")
 		}
 
 		mark, _ := strconv.ParseUint(markval, 10, 32)
 		err = s.netcls.AssignMark(eventInfo.PUID, mark)
 		if err != nil {
-			s.netcls.DeleteCgroup(eventInfo.PUID)
-			log.WithFields(log.Fields{
-				"package": "rpcMonitor",
-				"error":   err.Error(),
-			}).Info("Error assigning mark value")
+			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+				log.WithFields(log.Fields{
+					"package": "rpcMonitor",
+					"error":   err.Error(),
+				}).Warn("Failed to clean cgroup")
+			}
 			return err
 		}
 
 		pid, _ := strconv.Atoi(eventInfo.PID)
 		err = s.netcls.AddProcess(eventInfo.PUID, pid)
 		if err != nil {
-			s.netcls.DeleteCgroup(eventInfo.PUID)
-			log.WithFields(log.Fields{
-				"package": "rpcMonitor",
-				"error":   err.Error(),
-			}).Info("Error adding process")
+
+			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+				log.WithFields(log.Fields{
+					"package": "rpcMonitor",
+					"error":   err.Error(),
+				}).Warn("Failed to clean cgroup")
+			}
+
 			return err
 
 		}
@@ -133,7 +136,10 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	// Store the state in the context store for future access
-	contextstore.NewContextStore().StoreContext(contextID, eventInfo)
+	if err := s.contextStore.StoreContext(contextID, eventInfo); err != nil {
+		return err
+	}
+
 	return status
 }
 
@@ -182,8 +188,21 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	<-errChan
 
 	//let us remove the cgroup files now
-	s.netcls.DeleteCgroup(contextID)
-	contextStoreHdl.RemoveContext(contextID)
+	if err := s.netcls.DeleteCgroup(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "rpcMonitor",
+			"error":     err.Error(),
+			"contextID": contextID,
+		}).Warn("Failed to clean netcls group ")
+	}
+
+	if err := contextStoreHdl.RemoveContext(contextID); err != nil {
+		log.WithFields(log.Fields{
+			"package":   "rpcMonitor",
+			"error":     err.Error(),
+			"contextID": contextID,
+		}).Warn("Failed to clean cache while destroying process ")
+	}
 
 	return nil
 }
