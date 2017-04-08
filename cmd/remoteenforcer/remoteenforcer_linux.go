@@ -21,6 +21,7 @@ import (
 const (
 	envSocketPath = "SOCKET_PATH"
 	envSecret     = "SECRET"
+	nsErrorState  = "NSENTER_ERROR_STATE"
 )
 
 // Server : This is the structure for maintaining state required by the remote enforcer.
@@ -60,14 +61,14 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	//Check if successfully switched namespace
-	nsEnterState := os.Getenv("NSENTER_ERROR_STATE")
+	nsEnterState := os.Getenv(nsErrorState)
 	if len(nsEnterState) != 0 {
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
 	}
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Init Message Auth Failed")
+		resp.Status = ("Init message authentication failed")
 		return errors.New(resp.Status)
 	}
 
@@ -185,12 +186,13 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
 		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"method": "Supervise",
-			"error":  err.Error(),
-		}).Info("Supervise status remote_enforcer ")
-	}
-	if err != nil {
+			"method":    "Supervise",
+			"contextID": payload.ContextID,
+			"error":     err.Error(),
+		}).Info("Unable to initialize supervisor  ")
+
 		resp.Status = err.Error()
+		return err
 	}
 
 	//We are good here now add the Excluded ip list as well
@@ -249,15 +251,20 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		}).Info("Failed Runtime")
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
-	err := s.Enforcer.Enforce(payload.ContextID, puInfo)
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"method": "Enforce",
-		"error":  err,
-	}).Info("ENFORCE STATUS")
-	if err != nil {
+
+	if err := s.Enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
+		return err
 	}
-	return err
+
+	log.WithFields(log.Fields{"package": "remote_enforcer",
+		"method":    "Enforce",
+		"contextID": payload.ContextID,
+	}).Info("Enforcer enabled")
+
+	resp.Status = ""
+
+	return nil
 }
 
 // EnforcerExit this method is called when  we received a killrpocess message from the controller

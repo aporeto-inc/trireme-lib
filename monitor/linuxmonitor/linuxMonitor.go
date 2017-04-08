@@ -85,7 +85,7 @@ func ComputeMd5(filePath string) ([]byte, error) {
 	if err != nil {
 		return result, err
 	}
-	defer file.Close() //nolint
+	defer file.Close() //nolint : errcheck
 
 	hash := md5.New()
 	if _, err := io.Copy(hash, file); err != nil {

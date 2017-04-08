@@ -399,8 +399,7 @@ func NewPSKHybridTriremeWithMonitor(
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
-		}).Warn("Failed to initialize RPC monitor")
-		return nil, nil, nil, nil
+		}).Fatal("Failed to initialize RPC monitor")
 	}
 
 	// configure a LinuxServices processor for the rpc monitor
@@ -408,8 +407,7 @@ func NewPSKHybridTriremeWithMonitor(
 	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
 		log.WithFields(log.Fields{
 			"package": "configurator",
-		}).Warn("Failed to initialize RPC monitor")
-		return nil, nil, nil, nil
+		}).Fatal("Failed to initialize RPC monitor")
 	}
 
 	return triremeInstance, monitorDocker, rpcmon, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)

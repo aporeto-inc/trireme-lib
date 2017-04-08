@@ -85,7 +85,10 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 	}
 
 	// Sign the buffer
-	signature := crypto.ComputeHmac256(buffer[lclIndex:], c.Key.([]byte))
+	signature, err := crypto.ComputeHmac256(buffer[lclIndex:], c.Key.([]byte))
+	if err != nil {
+		return []byte{}
+	}
 
 	// Add the signature as the first part of the buffer
 	copy(buffer[0:], signature)
@@ -104,7 +107,10 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, cert *x509.Certifica
 	}
 
 	messageMac := data[:sizeOfMessageMac]
-	expectedMac := crypto.ComputeHmac256(data[lclIndex:], c.Key.([]byte))
+	expectedMac, err := crypto.ComputeHmac256(data[lclIndex:], c.Key.([]byte))
+	if err != nil {
+		return nil, nil
+	}
 
 	if !hmac.Equal(messageMac, expectedMac) {
 		return nil, nil

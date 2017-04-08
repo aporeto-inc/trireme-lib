@@ -82,13 +82,16 @@ func NewDatapathEnforcer(
 
 		sysctlCmd, err := exec.LookPath("sysctl")
 		if err != nil {
-			return nil
+			log.WithFields(log.Fields{"package": "enforcer",
+				"Error": err.Error(),
+			}).Fatal("sysctl command must be installed. Abort")
 		}
+
 		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
 		if err := cmd.Run(); err != nil {
 			log.WithFields(log.Fields{"package": "enforcer",
 				"Error": err.Error(),
-			}).Error("Failed to set conntrack options. Abort")
+			}).Fatal("Failed to set conntrack options. Abort")
 		}
 	}
 
@@ -126,6 +129,7 @@ func NewDatapathEnforcer(
 			"package": "enforcer",
 		}).Fatal("Unable to create enforcer")
 	}
+
 	return d
 }
 
@@ -375,12 +379,12 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
 
-		go func(i uint16) {
+		go func(j uint16) {
 			for {
 				select {
-				case packet := <-nfq[i].Packets:
+				case packet := <-nfq[j].Packets:
 					d.processNetworkPacketsFromNFQ(packet)
-				case <-d.netStop[i]:
+				case <-d.netStop[j]:
 					return
 				}
 			}
@@ -412,12 +416,12 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 			}).Fatal("Unable to initialize netfilter queue - Aborting")
 		}
 
-		go func(i uint16) {
+		go func(j uint16) {
 			for {
 				select {
-				case packet := <-nfq[i].Packets:
+				case packet := <-nfq[j].Packets:
 					d.processApplicationPacketsFromNFQ(packet)
-				case <-d.appStop[i]:
+				case <-d.appStop[j]:
 					return
 				}
 			}

@@ -189,14 +189,15 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 	return nil
 }
 
+//deleteSet deletes the ipset
 func (i *Instance) deleteSet(set string) error {
+
 	ipSet, err := i.ips.NewIpset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err)
 	}
 
-	ipSet.Destroy() //nolint
-	return nil
+	return ipSet.Destroy()
 }
 
 // setupIpset sets up an ipset

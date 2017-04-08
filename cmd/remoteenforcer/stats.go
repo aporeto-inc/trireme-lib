@@ -131,5 +131,5 @@ func (s *StatsClient) Stop() {
 
 	log.WithFields(log.Fields{"package": "remote_enforcer",
 		"Msg": "Stopped the remote enforcer stats collector",
-	}).Info("Stopping stats collector")
+	}).Debug("Stopping stats collector")
 }

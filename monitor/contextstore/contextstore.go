@@ -30,7 +30,7 @@ func NewContextStore() ContextStore {
 			log.WithFields(log.Fields{
 				"package": "contextstore",
 				"Error":   err.Error(),
-			}).Error("Failed to create context store directory ")
+			}).Fatal("Failed to create context store directory ")
 		}
 	}
 

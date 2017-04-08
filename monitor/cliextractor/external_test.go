@@ -33,7 +33,7 @@ func createFileTest(destination string) error {
 	}
 	writer := bufio.NewWriter(fileHandle)
 	fmt.Fprintln(writer, testfile)
-	writer.Flush() // nolint
+	writer.Flush() // nolint : errcheck
 	return nil
 }
 
