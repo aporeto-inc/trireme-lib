@@ -37,6 +37,13 @@ func NewContextStore() ContextStore {
 	return &store{}
 }
 
+// NewCustomContextStore will start a context store with custom paths. Mainly
+// used for testing when root access is not available and /var/run cannot be accessed
+func NewCustomContextStore(basePath string) ContextStore {
+	storebasePath = basePath
+	return NewContextStore()
+}
+
 // Store context writes to the store the eventInfo which can be used as a event to trireme
 func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 

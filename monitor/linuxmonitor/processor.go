@@ -22,6 +22,7 @@ type LinuxProcessor struct {
 	puHandler         monitor.ProcessingUnitsHandler
 	metadataExtractor rpcmonitor.RPCMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
+	contextStore      contextstore.ContextStore
 }
 
 // NewLinuxProcessor initializes a processor
@@ -32,6 +33,7 @@ func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pro
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
 		netcls:            cgnetcls.NewCgroupNetController(releasePath),
+		contextStore:      contextstore.NewContextStore(),
 	}
 }
 
@@ -152,7 +154,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	// Store the state in the context store for future access
-	if err := contextstore.NewContextStore().StoreContext(contextID, eventInfo); err != nil {
+	if err := s.contextStore.StoreContext(contextID, eventInfo); err != nil {
 		log.WithFields(log.Fields{
 			"package": "rpcMonitor",
 			"error":   err.Error(),

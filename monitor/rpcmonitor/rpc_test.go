@@ -61,7 +61,7 @@ type CustomProcessor struct {
 }
 
 func TestNewRPCServer(t *testing.T) {
-	cstore := contextstore.NewContextStore()
+	cstore := contextstore.NewCustomContextStore("/tmp")
 	Convey("When we try to instantiate a new monitor", t, func() {
 
 		Convey("If we start with invalid rpc address", func() {
@@ -92,7 +92,7 @@ func TestNewRPCServer(t *testing.T) {
 }
 
 func TestRegisterProcessor(t *testing.T) {
-	cstore := contextstore.NewContextStore()
+	cstore := contextstore.NewCustomContextStore("/tmp")
 	Convey("Given a new rpc monitor", t, func() {
 		mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
 		mon.contextstore = cstore
