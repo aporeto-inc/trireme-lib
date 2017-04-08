@@ -19,7 +19,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 // NewServer is a fake implementation for building on darwin.
 func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, pcchan string, secret string) (*Server, error) {
-	return nil
+	return nil, nil
 }
 
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.

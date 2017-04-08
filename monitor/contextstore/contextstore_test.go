@@ -22,8 +22,7 @@ func cleanupstore() {
 }
 
 func TestStoreContext(t *testing.T) {
-	storebasePath = "./base"
-	cstore := NewContextStore()
+	cstore := NewCustomContextStore("./base")
 	defer cleanupstore()
 	testdata := &testdatastruct{data: 10}
 	marshaldata, _ := json.Marshal(testdata)
