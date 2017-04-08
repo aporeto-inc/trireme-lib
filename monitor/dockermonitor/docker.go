@@ -91,12 +91,7 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "monitor",
-			"error":   err.Error(),
-		}).Debug("Error creating Docker Client")
-
-		return nil, fmt.Errorf("Error creating Docker Client %s", err)
+		return nil, fmt.Errorf("Error creating Docker Client %s", err.Error())
 	}
 
 	return dockerClient, nil

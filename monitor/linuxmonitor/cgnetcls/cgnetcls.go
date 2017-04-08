@@ -87,11 +87,6 @@ func (s *netCls) AssignMark(cgroupname string, mark uint64) error {
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"package":    "cgnetcls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-		}).Error("Cgroup does not exist")
 		return errors.New("Cgroup does not exist")
 	}
 
@@ -99,11 +94,6 @@ func (s *netCls) AssignMark(cgroupname string, mark uint64) error {
 	markval := "0x" + (strconv.FormatUint(mark, 16))
 
 	if err := ioutil.WriteFile(basePath+TriremeBasePath+cgroupname+markFile, []byte(markval), 0644); err != nil {
-		log.WithFields(log.Fields{
-			"package":    "cgnetls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-		}).Error("Failed to assign mark ")
 		return errors.New("Failed to  write to net_cls.classid file for new cgroup")
 	}
 
@@ -115,10 +105,7 @@ func (s *netCls) AddProcess(cgroupname string, pid int) error {
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
-		log.WithFields(log.Fields{"package": "cgnetcls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname}).Error("Cgroup does not exist")
-		return errors.New("Cgroup does not exist")
+		return errors.New("Cannot add process. Cgroup does not exist")
 	}
 
 	PID := []byte(strconv.Itoa(pid))
@@ -127,13 +114,7 @@ func (s *netCls) AddProcess(cgroupname string, pid int) error {
 	}
 
 	if err := ioutil.WriteFile(basePath+TriremeBasePath+cgroupname+procs, PID, 0644); err != nil {
-		log.WithFields(log.Fields{
-			"package":    "cgnetls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-			"Pid":        pid,
-		}).Error("Failed to add process to cgroup")
-		return errors.New("Failed to add process to cgroup")
+		return errors.New("Cannot add process. Failed to add process to cgroup")
 	}
 
 	return nil
@@ -145,32 +126,16 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"package":    "cgnetcls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-		}).Error("Cgroup does not exist")
-		return errors.New("Cgroup does not exist")
+		return errors.New("Cannot clean up process. Cgroup does not exist")
 	}
 
 	data, err := ioutil.ReadFile(basePath + procs)
 	if err != nil || !strings.Contains(string(data), strconv.Itoa(pid)) {
-		log.WithFields(log.Fields{
-			"package":    "cgnetls",
-			"cgroupname": cgroupname,
-			"Pid":        pid,
-		}).Error("Process is not a part of this cgroup")
-		return errors.New("Process is not a part of this cgroup")
+		return errors.New("Cannot cleanup process. Process is not a part of this cgroup")
 	}
 
 	if err := ioutil.WriteFile(basePath+procs, []byte(strconv.Itoa(pid)), 0644); err != nil {
-		log.WithFields(log.Fields{
-			"package":    "cgnetls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-			"Pid":        pid,
-		}).Error("Failed to remove process from cgroup")
-		return errors.New("Failed to remove process to cgroup")
+		return errors.New("Cannot clean up process. Failed to remove process to cgroup")
 	}
 
 	return nil
@@ -193,11 +158,6 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 
 	err = os.Remove(basePath + TriremeBasePath + cgroupname)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package":    "cgnetcls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-		}).Info("Failed to delete cgroup. perhaps Cgroup not empty")
 		return fmt.Errorf("Failed to delete cgroup %s error returned %s", cgroupname, err.Error())
 	}
 

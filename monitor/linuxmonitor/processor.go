@@ -86,10 +86,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		//It is okay to launch this so let us create a cgroup for it
 		err = s.netcls.Creategroup(eventInfo.PUID)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "rpcMonitor",
-				"error":   err.Error(),
-			}).Info("Error Creating cgroup")
 			return err
 		}
 
@@ -101,10 +97,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 					"error":   err.Error(),
 				}).Warn("Failed to clean cgroup")
 			}
-			log.WithFields(log.Fields{
-				"package": "rpcmonitor",
-				"PUID":    eventInfo.PUID,
-			}).Error("Mark value not found")
 			return errors.New("Mark value not found")
 		}
 
@@ -117,11 +109,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 					"error":   err.Error(),
 				}).Warn("Failed to clean cgroup")
 			}
-
-			log.WithFields(log.Fields{
-				"package": "rpcMonitor",
-				"error":   err.Error(),
-			}).Info("Error assigning mark value")
 			return err
 		}
 
@@ -135,11 +122,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 					"error":   err.Error(),
 				}).Warn("Failed to clean cgroup")
 			}
-
-			log.WithFields(log.Fields{
-				"package": "rpcMonitor",
-				"error":   err.Error(),
-			}).Info("Error adding process")
 
 			return err
 
@@ -155,10 +137,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	// Store the state in the context store for future access
 	if err := s.contextStore.StoreContext(contextID, eventInfo); err != nil {
-		log.WithFields(log.Fields{
-			"package": "rpcMonitor",
-			"error":   err.Error(),
-		}).Error("Error adding process")
 		return err
 	}
 

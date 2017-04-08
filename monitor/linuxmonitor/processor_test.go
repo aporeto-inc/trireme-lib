@@ -16,10 +16,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-type CustomPolicyResolver struct {
-	monitor.ProcessingUnitsHandler
-}
-
 func testLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
 	return &LinuxProcessor{
 		collector:         collector,

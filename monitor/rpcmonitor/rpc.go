@@ -210,19 +210,11 @@ func (r *RPCMonitor) Start() error {
 	}
 
 	if r.listensock, err = net.Listen("unix", r.rpcAddress); err != nil {
-		log.WithFields(log.Fields{"package": "RPCMonitor",
-			"error":    err.Error(),
-			"message:": "Starting",
-		}).Info("Failed RPC monitor")
-		return fmt.Errorf("couldn't create binding: %s", err)
+		return fmt.Errorf("Failed to start RPC monitor: couldn't create binding: %s", err.Error())
 	}
 
 	if err = os.Chmod(r.rpcAddress, 0766); err != nil {
-		log.WithFields(log.Fields{"package": "RPCMonitor",
-			"error":    err.Error(),
-			"message:": "Failed to adjust permissions on rpc socket path",
-		}).Info("Failed RPC monitor")
-		return fmt.Errorf("couldn't create binding: %s", err)
+		return fmt.Errorf("Failed to start RPC monitor: cannot adjust permissions %s", err.Error())
 	}
 
 	//Launch a go func to accept connections
@@ -267,12 +259,8 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		f, present := s.handlers[eventInfo.PUType][eventInfo.EventType]
 		if present {
 			if err := f(eventInfo); err != nil {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Error("Error while handling event")
 				result.Error = err.Error()
-				return err
+				return fmt.Errorf("Failed to Handle Event: %s ", err.Error())
 			}
 			return nil
 		}

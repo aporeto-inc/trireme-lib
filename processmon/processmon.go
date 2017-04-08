@@ -124,11 +124,9 @@ func (p *ProcessMon) SetExitStatus(contextID string, status bool) error {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err,
-		}).Error("Process already dead")
 		return err
 	}
+
 	val := s.(*processInfo)
 	val.deleted = status
 	p.activeProcesses.AddOrUpdate(contextID, val)
@@ -232,12 +230,9 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		//This is a more serious failure. We can't reliably control the remote enforcer
-		log.WithFields(log.Fields{
-			"package": "processmon",
-			"Error":   err.Error(),
-		}).Error("Failed to generate secret string for rpc command channel")
-		return fmt.Errorf("RPC Secret failed")
+		return fmt.Errorf("Failed to generate secret %s", err.Error())
 	}
+
 	rpcClientSecret := "SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
 
@@ -245,10 +240,6 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 
 	err = cmd.Start()
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err,
-			"PATH":  cmdName,
-		}).Error("Enforcer Binary not present in expected location")
 		//Cleanup resources
 		if oerr := os.Remove(netnspath + contextID); oerr != nil {
 			log.WithFields(log.Fields{"package": "ProcessMon",
