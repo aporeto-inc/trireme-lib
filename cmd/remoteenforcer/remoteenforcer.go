@@ -23,4 +23,4 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, pc
 }
 
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) {}
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) error { return nil }
