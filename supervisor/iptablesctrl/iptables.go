@@ -141,6 +141,10 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
+	if err := i.addExclusionACLs(appChain, netChain, ipAddress, policyrules.ExcludedNetworks()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -220,6 +224,10 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
+		return err
+	}
+
+	if err := i.addExclusionACLs(appChain, netChain, ipAddress, policyrules.ExcludedNetworks()); err != nil {
 		return err
 	}
 
@@ -318,16 +326,4 @@ func (i *Instance) Stop() error {
 		}).Warn("Failed to clean acls while stopping the supervisor")
 	}
 	return nil
-}
-
-// AddExcludedIP adds an exception for the destination parameter IP, allowing all the traffic.
-func (i *Instance) AddExcludedIP(ip []string) error {
-
-	return i.addExclusionChainRules(ip)
-}
-
-// RemoveExcludedIP removes the exception for the destion IP given in parameter.
-func (i *Instance) RemoveExcludedIP(ip []string) error {
-
-	return i.deleteExclusionChainRules(ip)
 }

@@ -84,7 +84,9 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 
 	annotations := runtimeInfo.Tags()
 
-	containerPolicyInfo := policy.NewPUPolicy(context, policy.Police, ingress, egress, nil, tagSelectors, identity, annotations, ipl, p.triremeNets, nil)
+	excluded := []string{"172.17.0.1/32"}
+
+	containerPolicyInfo := policy.NewPUPolicy(context, policy.Police, ingress, egress, nil, tagSelectors, identity, annotations, ipl, p.triremeNets, excluded, nil)
 
 	return containerPolicyInfo, nil
 }

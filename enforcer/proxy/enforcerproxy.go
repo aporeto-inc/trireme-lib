@@ -122,6 +122,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			ReceiverRules:    puInfo.Policy.ReceiverRules(),
 			TransmitterRules: puInfo.Policy.TransmitterRules(),
 			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
+			ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
 		},
 	}
 

@@ -29,6 +29,8 @@ type PUPolicy struct {
 	ips *IPMap
 	// triremeNetworks is the list of networks that Authorization must be enforced
 	triremeNetworks []string
+	// excludedNetworks a list of networks that must be excluded
+	excludedNetworks []string
 	// Extensions is an interface to a data structure that allows the policy supervisor
 	// to pass additional instructions to a plugin. Plugin and policy must be
 	// coordinated to implement the interface
@@ -45,6 +47,7 @@ func NewPUPolicy(
 	identity, annotations *TagsMap,
 	ips *IPMap,
 	triremeNetworks []string,
+	excludedNetworks []string,
 	e interface{}) *PUPolicy {
 
 	if ingress == nil {
@@ -80,6 +83,7 @@ func NewPUPolicy(
 		annotations:      annotations,
 		ips:              ips,
 		triremeNetworks:  triremeNetworks,
+		excludedNetworks: excludedNetworks,
 		Extensions:       e,
 	}
 }
@@ -87,7 +91,7 @@ func NewPUPolicy(
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
 
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, nil)
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, nil)
 }
 
 // Clone returns a copy of the policy
@@ -106,6 +110,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.annotations.Clone(),
 		p.ips.Clone(),
 		p.triremeNetworks,
+		p.excludedNetworks,
 		p.Extensions,
 	)
 
@@ -223,4 +228,18 @@ func (p *PUPolicy) UpdateTriremeNetworks(networks []string) {
 
 	p.triremeNetworks = []string{}
 	p.triremeNetworks = append(p.triremeNetworks, networks...)
+}
+
+// ExcludedNetworks returns the list of excluded networks.
+func (p *PUPolicy) ExcludedNetworks() []string {
+	return p.excludedNetworks
+}
+
+// UpdateExcludedNetworks updates the list of excluded networks.
+func (p *PUPolicy) UpdateExcludedNetworks(networks []string) {
+	p.puPolicyMutex.Lock()
+	defer p.puPolicyMutex.Unlock()
+
+	p.excludedNetworks = []string{}
+	p.excludedNetworks = append(p.excludedNetworks, networks...)
 }

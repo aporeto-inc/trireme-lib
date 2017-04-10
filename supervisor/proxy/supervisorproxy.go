@@ -53,7 +53,7 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 			Identity:         puInfo.Policy.Identity(),
 			ReceiverRules:    puInfo.Policy.ReceiverRules(),
 			TransmitterRules: puInfo.Policy.TransmitterRules(),
-			ExcludedIPs:      s.ExcludedIPs,
+			ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
 			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
 		},
 	}

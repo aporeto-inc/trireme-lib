@@ -39,7 +39,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, nil)
+	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, nil)
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)
 

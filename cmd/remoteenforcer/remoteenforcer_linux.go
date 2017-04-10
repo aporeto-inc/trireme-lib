@@ -36,7 +36,6 @@ type Server struct {
 	Enforcer   enforcer.PolicyEnforcer
 	Supervisor supervisor.Supervisor
 	Service    enforcer.PacketProcessor
-	Excluder   supervisor.Excluder
 }
 
 // NewServer starts a new server
@@ -138,7 +137,6 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			}
 			return err
 		}
-		s.Excluder = supervisorHandle
 		s.Supervisor = supervisorHandle
 
 	}
@@ -169,6 +167,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		payload.Annotations,
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
+		payload.ExcludedNetworks,
 		nil)
 
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -195,8 +194,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		return err
 	}
 
-	//We are good here now add the Excluded ip list as well
-	return s.Excluder.AddExcludedIPs(payload.ExcludedIPs)
+	return nil
 
 }
 
@@ -241,6 +239,7 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		payload.Annotations,
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
+		payload.ExcludedNetworks,
 		nil)
 
 	runtime := policy.NewPURuntimeWithDefaults()
@@ -279,19 +278,6 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	os.Exit(0)
 
 	return nil
-}
-
-// AddExcludedIPs implements the ExcludedIPs method of enforcers
-func (s *Server) AddExcludedIPs(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
-	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("AddExcludedIPs Message Auth Failed")
-		return errors.New(resp.Status)
-	}
-
-	payload := req.Payload.(rpcwrapper.ExcludeIPRequestPayload)
-	return s.Excluder.AddExcludedIPs(payload.IPs)
-
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer

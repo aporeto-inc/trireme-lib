@@ -70,37 +70,6 @@ func (_mr *_MockSupervisorRecorder) Stop() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop")
 }
 
-// Mock of Excluder interface
-type MockExcluder struct {
-	ctrl     *gomock.Controller
-	recorder *_MockExcluderRecorder
-}
-
-// Recorder for MockExcluder (not exported)
-type _MockExcluderRecorder struct {
-	mock *MockExcluder
-}
-
-func NewMockExcluder(ctrl *gomock.Controller) *MockExcluder {
-	mock := &MockExcluder{ctrl: ctrl}
-	mock.recorder = &_MockExcluderRecorder{mock}
-	return mock
-}
-
-func (_m *MockExcluder) EXPECT() *_MockExcluderRecorder {
-	return _m.recorder
-}
-
-func (_m *MockExcluder) AddExcludedIP(ip []string) error {
-	ret := _m.ctrl.Call(_m, "AddExcludedIP", ip)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (_mr *_MockExcluderRecorder) AddExcludedIP(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "AddExcludedIP", arg0)
-}
-
 // Mock of Implementor interface
 type MockImplementor struct {
 	ctrl     *gomock.Controller
