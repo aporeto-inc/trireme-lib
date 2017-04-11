@@ -714,7 +714,7 @@ func TestRemoveMarkRule(t *testing.T) {
 	})
 }
 
-func TestAddExclusionChainRules(t *testing.T) {
+func TestAddExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
 		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
@@ -724,7 +724,8 @@ func TestAddExclusionChainRules(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				return nil
 			})
-			err := i.addExclusionChainRules([]string{"172.17.0.1"})
+
+			err := i.addExclusionACLs("appchain", "netchain", "1.2.3.4/32", []string{"10.1.1.1/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -732,73 +733,29 @@ func TestAddExclusionChainRules(t *testing.T) {
 
 		Convey("When I add the exclusion chain rules and the appPacketIPTableContext fails ", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if table == i.appPacketIPTableContext {
-					return fmt.Errorf("Error")
-				}
-				return nil
-			})
-			err := i.addExclusionChainRules([]string{"172.17.0.1"})
-			Convey("I should get  error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When I add the exclusion chain rules and the appAckPacketIPTableContext fails ", func() {
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext {
 					return fmt.Errorf("Error")
 				}
 				return nil
 			})
-			err := i.addExclusionChainRules([]string{"172.17.0.1"})
+			err := i.addExclusionACLs("appchain", "netchain", "1.2.3.4/32", []string{"10.1.1.1/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
 		})
 
-		Convey("When I add the exclusion chain rules and the netPacketIPtableContext fails ", func() {
+		Convey("When I add the exclusion chain rules and the netPacketIPTableContext fails ", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if table == i.netPacketIPTableContext {
 					return fmt.Errorf("Error")
 				}
 				return nil
 			})
-			err := i.addExclusionChainRules([]string{"172.17.0.1"})
+			err := i.addExclusionACLs("appchain", "netchain", "1.2.3.4/32", []string{"10.1.1.1/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
 		})
-
-	})
-}
-
-func TestDeleteExclusionChainRules(t *testing.T) {
-
-	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
-		iptables := provider.NewTestIptablesProvider()
-		i.ipt = iptables
-
-		Convey("When I delete the exclusion chain rules and it succeeds", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return nil
-			})
-			err := i.deleteExclusionChainRules([]string{"172.17.0.1"})
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I delete the chain rules and it fails", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return nil
-			})
-			err := i.deleteExclusionChainRules([]string{"172.17.0.1"})
-			Convey("I should still get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
 	})
 }
 

@@ -61,8 +61,7 @@ func NewTriremeLinuxProcess(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	excluder := map[constants.PUType]supervisor.Excluder{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, excluder, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
 }
 
 // NewLocalTriremeDocker instantiates Trireme for Docker using enforcement on the
@@ -105,8 +104,7 @@ func NewLocalTriremeDocker(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	excluder := map[constants.PUType]supervisor.Excluder{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, excluder, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
 }
 
 // NewDistributedTriremeDocker instantiates Trireme using remote enforcers on
@@ -144,8 +142,7 @@ func NewDistributedTriremeDocker(serverID string,
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	excluders := map[constants.PUType]supervisor.Excluder{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, excluders, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
 }
 
 // NewHybridTrireme instantiates Trireme with both Linux and Docker enforcers.
@@ -216,11 +213,8 @@ func NewHybridTrireme(
 		constants.ContainerPU:    containerSupervisor,
 		constants.LinuxProcessPU: processSupervisor,
 	}
-	excluders := map[constants.PUType]supervisor.Excluder{
-		constants.ContainerPU:    containerSupervisor,
-		constants.LinuxProcessPU: processSupervisor,
-	}
-	trireme := trireme.NewTrireme(serverID, resolver, supervisors, excluders, enforcers, eventCollector)
+
+	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
 
 	return trireme
 }
@@ -247,7 +241,7 @@ func NewPSKTriremeWithDockerMonitor(
 	key []byte,
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
-) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+) (trireme.Trireme, monitor.Monitor) {
 
 	if eventCollector == nil {
 		log.WithFields(log.Fields{
@@ -287,7 +281,7 @@ func NewPSKTriremeWithDockerMonitor(
 		syncAtStart,
 		nil)
 
-	return triremeInstance, monitorInstance, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)
+	return triremeInstance, monitorInstance
 
 }
 
@@ -306,7 +300,7 @@ func NewPKITriremeWithDockerMonitor(
 	caCertPEM []byte,
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
-) (trireme.Trireme, monitor.Monitor, supervisor.Excluder, enforcer.PublicKeyAdder) {
+) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
 
 	if eventCollector == nil {
 		log.WithFields(log.Fields{
@@ -346,7 +340,7 @@ func NewPKITriremeWithDockerMonitor(
 		syncAtStart,
 		nil)
 
-	return triremeInstance, monitorInstance, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder), publicKeyAdder
+	return triremeInstance, monitorInstance, publicKeyAdder
 
 }
 
@@ -361,7 +355,7 @@ func NewPSKHybridTriremeWithMonitor(
 	syncAtStart bool,
 	key []byte,
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
-) (trireme.Trireme, monitor.Monitor, monitor.Monitor, supervisor.Excluder) {
+) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
 
 	if eventCollector == nil {
 		log.WithFields(log.Fields{
@@ -410,6 +404,6 @@ func NewPSKHybridTriremeWithMonitor(
 		}).Fatal("Failed to initialize RPC monitor")
 	}
 
-	return triremeInstance, monitorDocker, rpcmon, triremeInstance.Supervisor(constants.ContainerPU).(supervisor.Excluder)
+	return triremeInstance, monitorDocker, rpcmon
 
 }

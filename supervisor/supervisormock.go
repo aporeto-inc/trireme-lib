@@ -28,7 +28,6 @@ type mockedMethods struct {
 // TestSupervisor is a test implementation for IptablesProvider
 type TestSupervisor interface {
 	Supervisor
-	Excluder
 	MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnsupervise(t *testing.T, impl func(contextID string) error)
 	MockStart(t *testing.T, impl func() error)

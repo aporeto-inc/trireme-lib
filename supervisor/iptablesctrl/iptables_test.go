@@ -144,7 +144,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -172,7 +172,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -195,7 +195,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -226,7 +226,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -330,7 +330,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -393,7 +393,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -464,73 +464,5 @@ func TestStop(t *testing.T) {
 			err := i.Stop()
 			So(err, ShouldBeNil)
 		})
-	})
-}
-
-func TestAddExcludedIP(t *testing.T) {
-	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.RemoteContainer)
-		iptables := provider.NewTestIptablesProvider()
-		i.ipt = iptables
-
-		Convey("When I add an excluded IP 10.1.1.0", func() {
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if matchSpec("10.1.1.0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("Error")
-			})
-
-			err := i.AddExcludedIP([]string{"10.1.1.0"})
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I add an excluded IP 10.1.1.0 and it fails ", func() {
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("Error")
-			})
-
-			err := i.AddExcludedIP([]string{"10.1.1.0"})
-			Convey("I should get  error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-	})
-}
-
-func TestRemoveExcludedIP(t *testing.T) {
-	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.RemoteContainer)
-		iptables := provider.NewTestIptablesProvider()
-		i.ipt = iptables
-
-		Convey("When I remove an excluded IP 10.1.1.0", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				if matchSpec("10.1.1.0", rulespec) == nil {
-					return nil
-				}
-				return fmt.Errorf("Error")
-			})
-
-			err := i.RemoveExcludedIP([]string{"10.1.1.0"})
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I remove an excluded IP 10.1.1.0 and it fails ", func() {
-			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return fmt.Errorf("Error")
-			})
-
-			err := i.RemoveExcludedIP([]string{"10.1.1.0"})
-			Convey("I should get  error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
 	})
 }

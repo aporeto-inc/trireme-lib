@@ -218,20 +218,6 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	return nil
 }
 
-// AddExcludedIPs adds an exception for the destination parameter IP, allowing all the traffic.
-func (s *Config) AddExcludedIPs(ips []string) error {
-	// Remove everything and then apply the updatedSet.
-	if len(s.excludedIPs) > 0 {
-		if err := s.impl.RemoveExcludedIP(s.excludedIPs); err != nil {
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-			}).Warn("Failed to clean up state while removing excluded IPs")
-		}
-	}
-	s.excludedIPs = ips
-	return s.impl.AddExcludedIP(ips)
-}
-
 func add(a, b interface{}) interface{} {
 	entry := a.(*cacheData)
 	entry.version += b.(int)

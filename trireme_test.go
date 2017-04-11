@@ -12,16 +12,15 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-func createMocks() (TestPolicyResolver, map[constants.PUType]supervisor.Supervisor, map[constants.PUType]supervisor.Excluder, map[constants.PUType]enforcer.PolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {
+func createMocks() (TestPolicyResolver, map[constants.PUType]supervisor.Supervisor, map[constants.PUType]enforcer.PolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {
 	tresolver := NewTestPolicyResolver()
 	s := supervisor.NewTestSupervisor()
 	tsupervisor := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	texcluder := map[constants.PUType]supervisor.Excluder{constants.ContainerPU: s}
 
 	tenforcer := map[constants.PUType]enforcer.PolicyEnforcer{constants.ContainerPU: enforcer.NewTestPolicyEnforcer()}
 	tmonitor := monitor.NewTestMonitor()
 	tcollector := &collector.DefaultCollector{}
-	return tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector
+	return tresolver, tsupervisor, tenforcer, tmonitor, tcollector
 }
 
 func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, tsupervisor supervisor.TestSupervisor, tenforcer enforcer.TestPolicyEnforcer, tmonitor monitor.TestMonitor, id string, runtime *policy.PURuntime) {
@@ -41,7 +40,7 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		}
 
 		ipaddrs := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
-		tpolicy := policy.NewPUPolicy("SomeId", policy.Police, nil, nil, nil, nil, nil, nil, ipaddrs, []string{"172.17.0.0/24"}, nil)
+		tpolicy := policy.NewPUPolicy("SomeId", policy.Police, nil, nil, nil, nil, nil, nil, ipaddrs, []string{"172.17.0.0/24"}, []string{}, nil)
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -220,8 +219,8 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 }
 
 func TestSimpleCreate(t *testing.T) {
-	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
@@ -232,8 +231,8 @@ func TestSimpleCreate(t *testing.T) {
 }
 
 func TestSimpleDelete(t *testing.T) {
-	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
@@ -244,8 +243,8 @@ func TestSimpleDelete(t *testing.T) {
 }
 
 func TestCreateDelete(t *testing.T) {
-	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
@@ -257,8 +256,8 @@ func TestCreateDelete(t *testing.T) {
 }
 
 func TestSimpleUpdate(t *testing.T) {
-	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
@@ -274,13 +273,13 @@ func TestSimpleUpdate(t *testing.T) {
 	// Generate a new Policy ...
 	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
 	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
-	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, nil)
+	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
 
 func TestCache(t *testing.T) {
-	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
@@ -311,8 +310,8 @@ func TestCache(t *testing.T) {
 }
 
 func TestStop(t *testing.T) {
-	tresolver, tsupervisor, texcluder, tenforcer, tmonitor, tcollector := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
+	tresolver, tsupervisor, tenforcer, tmonitor, tcollector := createMocks()
+	trireme := NewTrireme("serverID", tresolver, tsupervisor, tenforcer, tcollector)
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
@@ -329,18 +328,6 @@ func TestStop(t *testing.T) {
 		t.Errorf("Failed to start trireme")
 	}
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
-}
-
-func TestAddExcludedIP(t *testing.T) {
-	tresolver, tsupervisor, texcluder, tenforcer, _, tcollector := createMocks()
-	trireme := NewTrireme("serverID", tresolver, tsupervisor, texcluder, tenforcer, tcollector)
-	if err := trireme.Start(); err != nil {
-		t.Errorf("Failed to start trireme")
-	}
-
-	if err := trireme.AddExcludedIPList([]string{"10.10.10.1"}); err != nil {
-		t.Errorf("Failed to add exclusion IPs")
-	}
 }
 
 func TestTransmitterLabel(t *testing.T) {

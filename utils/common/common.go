@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
-	"github.com/aporeto-inc/trireme/supervisor"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -20,7 +19,7 @@ var (
 )
 
 // TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -47,17 +46,17 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 
 	policyEngine := NewCustomPolicyResolver(networks)
 
-	t, m, e, p := configurator.NewPKITriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer)
+	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer)
 
 	if err := p.PublicKeyAdd("Server1", certPEM); err != nil {
 		log.Fatal(err)
 	}
 
-	return t, m, e
+	return t, m
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor, supervisor.Excluder) {
+func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor) {
 
 	policyEngine := NewCustomPolicyResolver(networks)
 
@@ -66,7 +65,7 @@ func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataEx
 }
 
 //HybridTriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor) (trireme.Trireme, monitor.Monitor, monitor.Monitor, supervisor.Excluder) {
+func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
 
 	policyEngine := NewCustomPolicyResolver(networks)
 

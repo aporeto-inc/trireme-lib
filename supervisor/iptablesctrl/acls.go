@@ -146,40 +146,6 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 
 }
 
-// exclusionChainRules provides the list of rules that are used to send traffic to
-// a particular chain
-func (i *Instance) exclusionChainRules(ipList []string) [][]string {
-	rules := [][]string{}
-	for _, ip := range ipList {
-		if i.mode == constants.LocalContainer {
-			rules = append(rules, []string{
-				i.appPacketIPTableContext,
-				i.appPacketIPTableSection,
-				"-d", ip,
-				"-m", "comment", "--comment", "Trireme excluded IP",
-				"-j", "ACCEPT",
-			})
-		}
-		rules = append(rules, []string{
-			i.appAckPacketIPTableContext,
-			i.appPacketIPTableSection,
-			"-d", ip,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		})
-
-		rules = append(rules, []string{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-s", ip,
-			"-m", "comment", "--comment", "Trireme excluded IP",
-			"-j", "ACCEPT",
-		})
-	}
-	return rules
-}
-
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable
 // All rules related to a container are contained within the dedicated chain
@@ -187,38 +153,16 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 
 	if i.mode == constants.LocalContainer {
 		if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
-			log.WithFields(log.Fields{
-				"package": "iptablesctrl",
-				"chain":   appChain,
-				"context": i.appPacketIPTableContext,
-				"error":   err.Error(),
-			}).Debug("Failed to create the container specific chain")
-			return err
+			return fmt.Errorf("Failed to add chain %s of context %s : %s", appChain, i.appPacketIPTableContext, err.Error())
 		}
 	}
 
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, appChain); err != nil {
-		log.WithFields(log.Fields{
-			"package":                      "iptablesctrl",
-			"appChain":                     appChain,
-			"netChain":                     netChain,
-			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
-			"error": err.Error(),
-		}).Debug("Failed to create the container specific chain")
-
-		return err
+		return fmt.Errorf("Failed to add chain %s of context %s : %s", appChain, i.appPacketIPTableContext, err.Error())
 	}
 
 	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "iptablesctrl",
-			"appChain":                  appChain,
-			"netChain":                  netChain,
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"error":                     err.Error(),
-		}).Debug("Failed to create the container specific chain")
-
-		return err
+		return fmt.Errorf("Failed to add  netchain %s of context %s : %s", netChain, i.netPacketIPTableContext, err.Error())
 	}
 
 	return nil
@@ -229,34 +173,15 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 		switch methodType {
 		case "Append":
 			if err := i.ipt.Append(cr[0], cr[1], cr[2:]...); err != nil {
-				log.WithFields(log.Fields{
-					"package": "iptablesctrl",
-					"method":  "Append",
-					"table":   cr[0],
-					"chain":   cr[1],
-					"error":   err.Error(),
-				}).Debug("Failed to append rule")
-				return err
+				return fmt.Errorf("Failed to %s rule for table %s and chain %s with error %s ", methodType, cr[0], cr[1], err.Error())
 			}
 		case "Insert":
 			if err := i.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
-				log.WithFields(log.Fields{
-					"package": "iptablesctrl",
-					"method":  "Insert",
-					"table":   cr[0],
-					"chain":   cr[1],
-				}).Debug("Failed insert rule")
-				return err
+				return fmt.Errorf("Failed to %s rule for table %s and chain %s with error %s ", methodType, cr[0], cr[1], err.Error())
 			}
 		case "Delete":
 			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-				log.WithFields(log.Fields{
-					"package": "iptablesctrl",
-					"method":  "Insert",
-					"table":   cr[0],
-					"chain":   cr[1],
-				}).Debug("Failed to delete rule")
-				return err
+				return fmt.Errorf("Failed to %s rule for table %s and chain %s with error %s ", methodType, cr[0], cr[1], err.Error())
 			}
 		default:
 			return fmt.Errorf("Invalid method type")
@@ -304,13 +229,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"--dport", rule.Port,
 					"-j", "ACCEPT",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding app acl rule")
-					return err
+					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 			case policy.Reject:
 				if err := i.ipt.Insert(
@@ -320,13 +239,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"--dport", rule.Port,
 					"-j", "DROP",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding app acl rule")
-					return err
+					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 			default:
 				continue
@@ -340,13 +253,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"-d", rule.Address,
 					"-j", "ACCEPT",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding app acl rule")
-					return err
+					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 			case policy.Reject:
 				if err := i.ipt.Insert(
@@ -355,13 +262,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"-d", rule.Address,
 					"-j", "DROP",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding app acl rule")
-					return err
+					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 			default:
 				continue
@@ -376,13 +277,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT"); err != nil {
 
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"context": i.appAckPacketIPTableContext,
-			"chain":   chain,
-			"error":   err.Error(),
-		}).Debug("Error when adding default app acl rule for established connections")
-		return err
+		return fmt.Errorf("Failed to add default udp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
 	}
 
 	if err := i.ipt.Append(
@@ -391,13 +286,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT"); err != nil {
 
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"context": i.netPacketIPTableContext,
-			"chain":   chain,
-			"error":   err.Error(),
-		}).Debug("Error when adding default app acl rule for established connections")
-		return err
+		return fmt.Errorf("Failed to add default tcp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
 	}
 
 	// Drop everything else
@@ -406,13 +295,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 		"-d", "0.0.0.0/0",
 		"-j", "DROP"); err != nil {
 
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"context": i.netPacketIPTableContext,
-			"chain":   chain,
-			"error":   err.Error(),
-		}).Debug("Error when adding default app acl rule")
-		return err
+		return fmt.Errorf("Failed to add default drop acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
 	}
 
 	return nil
@@ -434,14 +317,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"--dport", rule.Port,
 					"-j", "ACCEPT",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding a net acl rule")
 
-					return err
+					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
 				}
 			case policy.Reject:
 				if err := i.ipt.Insert(
@@ -451,14 +328,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"--dport", rule.Port,
 					"-j", "DROP",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding a net acl rule")
 
-					return err
+					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
 				}
 			default:
 				continue
@@ -472,14 +343,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"-s", rule.Address,
 					"-j", "ACCEPT",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding a net acl rule")
 
-					return err
+					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
 				}
 			case policy.Reject:
 				if err := i.ipt.Insert(
@@ -488,14 +353,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"-s", rule.Address,
 					"-j", "DROP",
 				); err != nil {
-					log.WithFields(log.Fields{
-						"package":                   "iptablesctrl",
-						"i.netPacketIPTableContext": i.netPacketIPTableContext,
-						"chain":                     chain,
-						"error":                     err.Error(),
-					}).Debug("Error when adding a net acl rule")
 
-					return err
+					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
 				}
 			default:
 				continue
@@ -510,14 +369,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "iptablesctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"chain":                     chain,
-			"error":                     err.Error(),
-		}).Debug("Error when adding default net acl rule")
 
-		return err
+		return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
 	}
 
 	if err := i.ipt.Append(
@@ -526,14 +379,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "iptablesctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"chain":                     chain,
-			"error":                     err.Error(),
-		}).Debug("Error when adding default net acl rule")
 
-		return err
+		return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
 	}
 
 	// Drop everything else
@@ -542,14 +389,8 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		"-s", "0.0.0.0/0",
 		"-j", "DROP",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "iptablesctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"chain":                     chain,
-			"error":                     err.Error(),
-		}).Debug("Error when adding default net acl rule")
 
-		return err
+		return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
 	}
 
 	return nil
@@ -575,7 +416,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 			"chain":   appChain,
 			"error":   err.Error(),
 			"context": i.appPacketIPTableContext,
-		}).Debug("Failed to clear the container specific chain")
+		}).Warn("Failed to clear the container specific chain")
 	}
 
 	if err := i.ipt.DeleteChain(i.appPacketIPTableContext, appChain); err != nil {
@@ -585,7 +426,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 			"netChain":                  netChain,
 			"error":                     err.Error(),
 			"i.appPacketIPTableContext": i.appPacketIPTableContext,
-		}).Debug("Failed to clear and delete the appChains")
+		}).Warn("Failed to clear and delete the appChains")
 	}
 
 	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, appChain); err != nil {
@@ -594,7 +435,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 			"chain":   appChain,
 			"error":   err.Error(),
 			"context": i.appAckPacketIPTableContext,
-		}).Debug("Failed to clear the container specific chain")
+		}).Warn("Failed to clear the container specific chain")
 	}
 
 	if err := i.ipt.DeleteChain(i.appAckPacketIPTableContext, appChain); err != nil {
@@ -604,7 +445,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 			"netChain": netChain,
 			"error":    err.Error(),
 			"context":  i.appAckPacketIPTableContext,
-		}).Debug("Failed to clear and delete the appChains")
+		}).Warn("Failed to clear and delete the appChains")
 	}
 
 	if err := i.ipt.ClearChain(i.netPacketIPTableContext, netChain); err != nil {
@@ -613,7 +454,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 			"chain":   netChain,
 			"error":   err.Error(),
 			"context": i.netPacketIPTableContext,
-		}).Debug("Failed to clear the container specific chain")
+		}).Warn("Failed to clear the container specific chain")
 	}
 
 	if err := i.ipt.DeleteChain(i.netPacketIPTableContext, netChain); err != nil {
@@ -623,7 +464,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 			"netChain": netChain,
 			"error":    err.Error(),
 			"context":  i.netPacketIPTableContext,
-		}).Debug("Failed to clear and delete the netChain")
+		}).Warn("Failed to clear and delete the netChain")
 	}
 
 	return nil
@@ -639,12 +480,7 @@ func (i *Instance) CaptureSYNACKPackets() error {
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"table":   i.appAckPacketIPTableContext,
-			"chain":   "INPUT",
-		}).Debug("Failed to install SynAck packet capture at input ")
-		return err
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
 
 	err = i.ipt.Insert(
@@ -654,12 +490,7 @@ func (i *Instance) CaptureSYNACKPackets() error {
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-			"table":   i.netPacketIPTableContext,
-			"chain":   "OUTPUT",
-		}).Debug("Failed to install SynAck packet capture at output ")
-		return err
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())
 	}
 
 	return nil
@@ -820,16 +651,28 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 	}
 }
 
-// addExclusionChainRules adds exclusion chain rules
-func (i *Instance) addExclusionChainRules(ip []string) error {
+// addExclusionACLs adds the set of IP addresses that must be excluded
+func (i *Instance) addExclusionACLs(appchain, netchain string, ip string, exclusions []string) error {
 
-	return i.processRulesFromList(i.exclusionChainRules(ip), "Insert")
+	for _, e := range exclusions {
+		if err := i.ipt.Insert(
+			i.appAckPacketIPTableContext, appchain, 1,
+			"-s", ip,
+			"-d", e,
+			"-j", "ACCEPT",
+		); err != nil {
+			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, appchain, e, err.Error())
+		}
 
-}
+		if err := i.ipt.Insert(
+			i.netPacketIPTableContext, netchain, 1,
+			"-s", e,
+			"-d", ip,
+			"-j", "ACCEPT",
+		); err != nil {
+			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, netchain, e, err.Error())
+		}
+	}
 
-// deleteExclusionChainRules removes exclusion chain rules
-func (i *Instance) deleteExclusionChainRules(ip []string) error {
-
-	return i.processRulesFromList(i.exclusionChainRules(ip), "Delete")
-
+	return nil
 }
