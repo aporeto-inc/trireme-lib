@@ -6,7 +6,6 @@ package enforcerproxy
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -52,7 +51,6 @@ type proxyInfo struct {
 	filterQueue       *enforcer.FilterQueue
 	commandArg        string
 	statsServerSecret string
-	sync.Mutex
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer

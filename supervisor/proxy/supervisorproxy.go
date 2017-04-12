@@ -5,7 +5,6 @@ package supervisorproxy
 import (
 	"fmt"
 	"strconv"
-	"sync"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -30,7 +29,6 @@ type ProxyInfo struct {
 	prochdl           processmon.ProcessManager
 	rpchdl            rpcwrapper.RPCClient
 	initDone          map[string]bool
-	sync.Mutex
 }
 
 //Supervise Calls Supervise on the remote supervisor
