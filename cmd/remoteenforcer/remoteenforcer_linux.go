@@ -271,11 +271,17 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	//Cleanup resources held in this namespace
-	s.Supervisor.Stop()
-	s.Enforcer.Stop()
-	s.statsclient.Stop()
+	if s.Supervisor != nil {
+		s.Supervisor.Stop()
+	}
 
-	os.Exit(0)
+	if s.Enforcer != nil {
+		s.Enforcer.Stop()
+	}
+
+	if s.statsclient != nil {
+		s.statsclient.Stop()
+	}
 
 	return nil
 }

@@ -5,6 +5,7 @@ package supervisorproxy
 import (
 	"fmt"
 	"strconv"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -29,6 +30,7 @@ type ProxyInfo struct {
 	prochdl           processmon.ProcessManager
 	rpchdl            rpcwrapper.RPCClient
 	initDone          map[string]bool
+	sync.Mutex
 }
 
 //Supervise Calls Supervise on the remote supervisor
@@ -108,7 +110,7 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 	return nil
 }
 
-//Start This method does nothing and is implemented for completeness
+// Start This method does nothing and is implemented for completeness
 // THe work done is done in the InitRemoteSupervisor method in the remote enforcer
 func (s *ProxyInfo) Start() error {
 
@@ -168,25 +170,4 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 
 	return nil
 
-}
-
-//AddExcludedIPs call addexcluded ip on the remote supervisor
-func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
-	s.ExcludedIPs = ips
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.ExcludeIPRequestPayload{
-			IPs: ips,
-		},
-	}
-
-	for _, contextID := range s.rpchdl.ContextList() {
-		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
-			log.WithFields(log.Fields{
-				"package":   "remsupervisor",
-				"contextID": contextID,
-			}).Debug("Failed to Add ExcludedIPList")
-			return err
-		}
-	}
-	return nil
 }

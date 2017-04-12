@@ -6,6 +6,7 @@ package enforcerproxy
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -51,6 +52,7 @@ type proxyInfo struct {
 	filterQueue       *enforcer.FilterQueue
 	commandArg        string
 	statsServerSecret string
+	sync.Mutex
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -157,17 +159,6 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 	}
 
 	delete(s.initDone, contextID)
-
-	if !s.prochdl.GetExitStatus(contextID) {
-		if err := s.prochdl.SetExitStatus(contextID, true); err != nil {
-			log.WithFields(log.Fields{
-				"package": "remenforcer",
-				"error":   err,
-			}).Warn("failed to set exit status ")
-		}
-	} else {
-		s.prochdl.KillProcess(contextID)
-	}
 
 	return nil
 }
