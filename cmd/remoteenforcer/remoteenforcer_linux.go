@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/constants"
@@ -38,6 +39,8 @@ type Server struct {
 	Service    enforcer.PacketProcessor
 }
 
+var cmdLock sync.Mutex
+
 // NewServer starts a new server
 func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) (*Server, error) {
 
@@ -66,6 +69,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return errors.New(resp.Status)
 	}
 
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Init message authentication failed")
 		return errors.New(resp.Status)
@@ -115,6 +120,9 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		return errors.New(resp.Status)
 	}
 
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
 	switch payload.CaptureMethod {
 	case rpcwrapper.IPSets:
@@ -132,13 +140,10 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 				"package": "remote_enforcer",
 				"Error":   err.Error(),
 			}).Error("Failed to instantiate the iptables supervisor")
-			if err != nil {
-				resp.Status = err.Error()
-			}
+			resp.Status = err.Error()
 			return err
 		}
 		s.Supervisor = supervisorHandle
-
 	}
 
 	s.Supervisor.Start()
@@ -155,6 +160,9 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		resp.Status = ("Supervise Message Auth Failed")
 		return errors.New(resp.Status)
 	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 	pupolicy := policy.NewPUPolicy(payload.ManagementID,
@@ -205,6 +213,10 @@ func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		resp.Status = ("Unenforce Message Auth Failed")
 		return errors.New(resp.Status)
 	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.Enforcer.Unenforce(payload.ContextID)
 }
@@ -216,6 +228,10 @@ func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) 
 		resp.Status = ("Unsupervise Message Auth Failed")
 		return errors.New(resp.Status)
 	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
 	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
 	return s.Supervisor.Unsupervise(payload.ContextID)
 }
@@ -227,6 +243,10 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		resp.Status = ("Enforce Message Auth Failed")
 		return errors.New(resp.Status)
 	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 
 	pupolicy := policy.NewPUPolicy(payload.ManagementID,
@@ -270,17 +290,33 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 // This allows a graceful exit of the enforcer
 func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+
+	msgErrors := ""
 	//Cleanup resources held in this namespace
 	if s.Supervisor != nil {
-		s.Supervisor.Stop()
+		if err := s.Supervisor.Stop(); err != nil {
+			msgErrors = msgErrors + "SuperVisor Error:" + err.Error() + "-"
+		}
 	}
 
 	if s.Enforcer != nil {
-		s.Enforcer.Stop()
+		if err := s.Enforcer.Stop(); err != nil {
+			msgErrors = msgErrors + "Enforcer Error:" + err.Error() + "-"
+		}
 	}
 
 	if s.statsclient != nil {
 		s.statsclient.Stop()
+	}
+
+	s.Supervisor = nil
+	s.Enforcer = nil
+	s.statsclient = nil
+
+	if len(msgErrors) > 0 {
+		return fmt.Errorf(msgErrors)
 	}
 
 	return nil

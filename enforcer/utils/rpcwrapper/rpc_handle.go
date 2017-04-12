@@ -200,7 +200,8 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 		log.WithFields(log.Fields{
 			"package":   "rpcwrapper",
 			"contextID": contextID,
-		}).Warn("failed to remove channel")
+			"error":     err.Error(),
+		}).Info("RCP channel is already removed")
 	}
 
 	if err := r.rpcClientMap.Remove(contextID); err != nil {

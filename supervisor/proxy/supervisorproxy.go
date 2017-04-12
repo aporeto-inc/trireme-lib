@@ -77,33 +77,7 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 
 	delete(s.initDone, contextID)
 
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.UnSupervisePayload{
-			ContextID: contextID,
-		},
-	}
-
-	if err := s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, &rpcwrapper.Response{}); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "remsupervisor",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Failed to clean up supervisor in unsupervise")
-		delete(s.initDone, contextID)
-	}
-
-	if !s.prochdl.GetExitStatus(contextID) {
-		//Unsupervise not called yet
-		if err := s.prochdl.SetExitStatus(contextID, true); err != nil {
-			log.WithFields(log.Fields{
-				"package":   "remsupervisor",
-				"contextID": contextID,
-			}).Warn("Failed to set exit status in unsupervise")
-		}
-	} else {
-		//We are coming here last
-		s.prochdl.KillProcess(contextID)
-	}
+	s.prochdl.KillProcess(contextID)
 
 	return nil
 }
@@ -117,7 +91,9 @@ func (s *ProxyInfo) Start() error {
 
 //Stop This method does nothing
 func (s *ProxyInfo) Stop() error {
-
+	for c := range s.initDone {
+		s.Unsupervise(c) // nolint
+	}
 	return nil
 }
 

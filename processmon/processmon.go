@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
@@ -146,21 +147,38 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	req := &rpcwrapper.Request{}
 	resp := &rpcwrapper.Response{}
 	req.Payload = s.(*processInfo).process.Pid
-	err = s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
-	if err != nil {
-		if err := s.(*processInfo).process.Kill(); err != nil {
+
+	c := make(chan error, 1)
+	go func() {
+		c <- s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
+	}()
+	select {
+	case kerr := <-c:
+		if kerr != nil {
+			if perr := s.(*processInfo).process.Kill(); perr != nil {
+				log.WithFields(log.Fields{"package": "ProcessMon",
+					"msg":       "Failed to kill process",
+					"Error":     perr.Error(),
+					"RPC Error": kerr.Error(),
+				}).Info("Process is already dead, even though RPC gave error")
+			}
+		}
+	case <-time.After(5 * time.Second):
+		if perr := s.(*processInfo).process.Kill(); perr != nil {
 			log.WithFields(log.Fields{"package": "ProcessMon",
 				"msg":   "Failed to kill process",
 				"Error": err.Error(),
-			}).Warn("Process is already dead")
+			}).Info("Process is already dead")
 		}
 	}
+
 	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
 	if err := os.Remove(netnspath + contextID); err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
 			"msg": "Failed to remote process from netns path ",
 		}).Warn("OS Error")
 	}
+
 	if err := p.activeProcesses.Remove(contextID); err != nil {
 		log.WithFields(log.Fields{"package": "ProcessMon",
 			"msg": "Failed to remote process from cache ",
