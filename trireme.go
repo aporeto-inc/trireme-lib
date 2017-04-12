@@ -78,8 +78,6 @@ func (t *trireme) Start() error {
 // for PU Creation/Update and Policy Updates
 func (t *trireme) Stop() error {
 
-	fmt.Println("Stopping Trireme Supervisors  ")
-
 	for _, s := range t.supervisors {
 		if err := s.Stop(); err != nil {
 			log.WithFields(log.Fields{
@@ -88,8 +86,6 @@ func (t *trireme) Stop() error {
 			}).Debug("Error when stopping the controller")
 		}
 	}
-
-	fmt.Println("Stopping Trireme enforcers")
 
 	for _, e := range t.enforcers {
 		if err := e.Stop(); err != nil {
