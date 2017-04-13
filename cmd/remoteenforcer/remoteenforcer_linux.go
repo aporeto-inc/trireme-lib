@@ -2,12 +2,20 @@
 
 package remoteenforcer
 
+/*
+#cgo CFLAGS: -Wall
+#include <stdlib.h>
+*/
+import "C"
+
 import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"os"
-	"sync"
+	"os/exec"
+	"strconv"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/constants"
@@ -23,6 +31,7 @@ const (
 	envSocketPath = "SOCKET_PATH"
 	envSecret     = "SECRET"
 	nsErrorState  = "NSENTER_ERROR_STATE"
+	nsEnterLogs   = "NSENTER_LOGS"
 )
 
 // Server : This is the structure for maintaining state required by the remote enforcer.
@@ -59,22 +68,71 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 	}, nil
 }
 
+// getCEnvVariable returns an environment variable set in the c context
+func getCEnvVariable(name string) string {
+
+	val := C.getenv(C.CString(name))
+	if val == nil {
+		return ""
+	}
+	return C.GoString(val)
+}
+
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
 	//Check if successfully switched namespace
-	nsEnterState := os.Getenv(nsErrorState)
+	nsEnterState := getCEnvVariable(nsErrorState)
+	nsEnterLogMsg := getCEnvVariable(nsEnterLogs)
 	if len(nsEnterState) != 0 {
+
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
+		}).Error("Remote enforcer failed")
 		resp.Status = (nsEnterState)
+		return errors.New(resp.Status)
+	}
+
+	pid := strconv.Itoa(os.Getpid())
+	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
+			"err":     err.Error(),
+		}).Error("Remote enforcer failed - unable to identify namespace")
+		resp.Status = err.Error()
+		return errors.New(resp.Status)
+	}
+
+	netnsString := strings.TrimSpace(string(netns))
+	if len(netnsString) == 0 {
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
+		}).Error("Remote enforcer failed - not running in a namespace")
+		resp.Status = "Not running in a namespace"
+		return errors.New(resp.Status)
+	}
+
+	log.WithFields(log.Fields{
+		"package":           "remote_enforcer",
+		"logs":              nsEnterLogMsg,
+		"network namespace": netnsString,
+	}).Info("Remote enforcer launched")
+
+	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = ("Init message authentication failed")
 		return errors.New(resp.Status)
 	}
 
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
-	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Init message authentication failed")
-		return errors.New(resp.Status)
-	}
 
 	payload := req.Payload.(rpcwrapper.InitRequestPayload)
 	if payload.SecretType == tokens.PKIType {
