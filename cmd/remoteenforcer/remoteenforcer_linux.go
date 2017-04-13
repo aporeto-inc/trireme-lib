@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"strconv"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/constants"
@@ -78,6 +80,23 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		"package": "remote_enforcer",
 		"logs":    os.Getenv(nsEnterLogs),
 	}).Info("Remote enforcer launched")
+
+	pid := strconv.Itoa(os.Getpid())
+	out, err := exec.Command("ip", "netns", "identify", pid).Output()
+	if err != nil {
+		resp.Status = err.Error()
+		return errors.New(resp.Status)
+	}
+
+	if len(out) == 0 {
+		resp.Status = "Not running in a namespace"
+		return errors.New(resp.Status)
+	}
+
+	log.WithFields(log.Fields{
+		"package":           "remote_enforcer",
+		"network namespace": string(out),
+	}).Debug("Remote enforcer running in network namespace")
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Init message authentication failed")
