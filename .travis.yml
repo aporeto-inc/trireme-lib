@@ -23,9 +23,9 @@ before_install:
   - gometalinter.v1 --install
 
 install:
-  - glide install
-  - mv vendor $GOPATH
-  - cp -rf $GOPATH/vendor/* $GOPATH/src/
+  - go get -u github.com/docker/docker
+  - cd $GOPATH/src/github.com/docker/docker && git checkout 1.13.x && cd - 
+  - go get -t -v ./...
 
 script:
   - gometalinter.v1 --disable-all --enable=vet --enable=vetshadow --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell --deadline=5m ./...
