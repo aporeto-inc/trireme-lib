@@ -1,17 +1,5 @@
 package: github.com/aporeto-inc/trireme
 import:
-- package: github.com/Sirupsen/logrus
-- package: github.com/aporeto-inc/mock
-  subpackages:
-  - gomock
-- package: github.com/bvandewalle/go-ipset
-  subpackages:
-  - ipset
-- package: github.com/cnf/structhash
-- package: github.com/coreos/go-iptables
-  subpackages:
-  - iptables
-- package: github.com/dgrijalva/jwt-go
 - package: github.com/docker/docker
   version: ^1.13.0
   subpackages:
@@ -19,18 +7,3 @@ import:
   - api/types/events
   - api/types/filters
   - client
-- package: github.com/golang/mock
-  subpackages:
-  - gomock
-- package: github.com/kardianos/osext
-- package: github.com/shirou/gopsutil
-  subpackages:
-  - process
-- package: golang.org/x/net
-  subpackages:
-  - ipv4
-testImport:
-- package: github.com/satori/go.uuid
-- package: github.com/smartystreets/goconvey
-  subpackages:
-  - convey
