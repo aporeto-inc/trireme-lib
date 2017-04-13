@@ -2,6 +2,12 @@
 
 package remoteenforcer
 
+/*
+#cgo CFLAGS: -Wall
+#include <stdlib.h>
+*/
+import "C"
+
 import (
 	"crypto/ecdsa"
 	"errors"
@@ -9,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/constants"
@@ -59,13 +66,23 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 	}, nil
 }
 
+// getCEnvVariable returns an environment variable set in the c context
+func getCEnvVariable(name string) string {
+
+	val := C.getenv(C.CString(name))
+	if val == nil {
+		return ""
+	}
+	return C.GoString(val)
+}
+
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	//Check if successfully switched namespace
-	nsEnterState := os.Getenv(nsErrorState)
-	nsEnterLogMsg := os.Getenv(nsEnterLogs)
+	nsEnterState := getCEnvVariable(nsErrorState)
+	nsEnterLogMsg := getCEnvVariable(nsEnterLogs)
 	if len(nsEnterState) != 0 {
 
 		log.WithFields(log.Fields{
@@ -90,7 +107,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return errors.New(resp.Status)
 	}
 
-	if len(netns) == 0 {
+	netnsString := strings.TrimSpace(string(netns))
+	if len(netnsString) == 0 {
 		log.WithFields(log.Fields{
 			"package": "remote_enforcer",
 			"nsErr":   nsEnterState,
@@ -103,7 +121,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	log.WithFields(log.Fields{
 		"package":           "remote_enforcer",
 		"logs":              nsEnterLogMsg,
-		"network namespace": string(netns),
+		"network namespace": netnsString,
 	}).Info("Remote enforcer launched")
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
