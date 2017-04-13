@@ -24,7 +24,8 @@ before_install:
 
 install:
   - glide install
-  - mv vendor/* $GOPATH/src 
+  - mv vendor $GOPATH
+  - cp -rf vendor/* $GOPATH/src/
   - gometalinter.v1 --disable-all --enable=vet --enable=vetshadow --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell --deadline=5m ./...
 
 script:
