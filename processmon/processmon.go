@@ -194,8 +194,9 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	} else {
 
 		log.WithFields(log.Fields{
-			"package": "processmon",
-			"Error":   fmt.Sprintf("Hoststat err %v,PidStat err %v", hoststaterr, pidstaterr),
+			"package":   "processmon",
+			"HostError": hoststat.Error(),
+			"NetError":  pidstat.Error(),
 		}).Error("Cannot determine namespace of new container")
 	}
 	_, staterr := os.Stat(netnspath)
