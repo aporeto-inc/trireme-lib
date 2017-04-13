@@ -98,15 +98,13 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	log.WithFields(log.Fields{"package": "enforcerproxy",
-		"contexID":      contextID,
-		"Lauch Process": err,
+		"contexID": contextID,
 	}).Info("Called enforce and launched process")
 
 	if _, ok := s.initDone[contextID]; !ok {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
 			return err
 		}
-
 	}
 
 	request := &rpcwrapper.Request{
