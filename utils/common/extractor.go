@@ -37,7 +37,7 @@ func SwarmExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
 		serviceID := info.Config.Labels["com.docker.swarm.service.id"]
 
-		service, _, err := cli.ServiceInspectWithRaw(context.Background(), serviceID, types.ServiceInspectOptions{})
+		service, _, err := cli.ServiceInspectWithRaw(context.Background(), serviceID)
 		if err != nil {
 			log.WithFields(log.Fields{
 				"Package": "main",

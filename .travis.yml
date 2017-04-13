@@ -22,8 +22,11 @@ before_install:
   - go get -v github.com/Masterminds/glide
   - gometalinter.v1 --install
 
+install:
+  - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd - 
+  - go get -t -v ./...
+
 script:
-  - go get -v -t ./...
   - gometalinter.v1 --disable-all --enable=vet --enable=vetshadow --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell --deadline=5m ./...
   - ./.test.sh
 
