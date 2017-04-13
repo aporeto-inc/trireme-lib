@@ -487,8 +487,15 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 		return fmt.Errorf("Cannot read container information. Killing container. ")
 	}
 
-	return d.startDockerContainer(&info)
+	if info.HostConfig.NetworkMode == "host" {
+		log.WithFields(log.Fields{
+			"package":                  "monitor",
+			"Host namespace container": contextID,
+		}).Warn("Ignore host namespace container - do nothing ")
+		return nil
+	}
 
+	return d.startDockerContainer(&info)
 }
 
 //handleDie event is called when a container dies. It generates a "Stop" event.
