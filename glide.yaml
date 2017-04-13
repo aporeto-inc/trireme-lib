@@ -1,9 +1,0 @@
-package: github.com/aporeto-inc/trireme
-import:
-- package: github.com/docker/docker
-  version: ^1.13.0
-  subpackages:
-  - api/types
-  - api/types/events
-  - api/types/filters
-  - client
