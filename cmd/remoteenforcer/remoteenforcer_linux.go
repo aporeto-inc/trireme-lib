@@ -70,8 +70,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 		log.WithFields(log.Fields{
 			"package": "remote_enforcer",
-			"err":     nsEnterState,
-			"logs":    nsEnterLogMsg,
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
 		}).Error("Remote enforcer failed")
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
@@ -82,8 +82,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"package": "remote_enforcer",
-			"err":     nsEnterState,
-			"logs":    nsEnterLogMsg,
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
 			"err":     err.Error(),
 		}).Error("Remote enforcer failed - unable to identify namespace")
 		resp.Status = err.Error()
@@ -93,8 +93,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	if len(netns) == 0 {
 		log.WithFields(log.Fields{
 			"package": "remote_enforcer",
-			"err":     nsEnterState,
-			"logs":    nsEnterLogMsg,
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
 		}).Error("Remote enforcer failed - not running in a namespace")
 		resp.Status = "Not running in a namespace"
 		return errors.New(resp.Status)
