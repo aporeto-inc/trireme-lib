@@ -23,12 +23,12 @@ void nsexec(void) {
   }
 
   // Setup proc symlink
-  snprintf(path, sieof(path), "/proc/%s/ns/net", str);
+  snprintf(path, sizeof(path), "/proc/%s/ns/net", str);
 
   // Setup FD to symlink
   fd = open(path, O_RDONLY);
   if(fd < 0) {
-    snprintf(msg, sizeof(msg), "path:%s fd:%d", path, fd)
+    snprintf(msg, sizeof(msg), "path:%s fd:%d", path, fd);
     setenv("NSENTER_ERROR_STATE",strerror(-ENOENT), 1);
     setenv("NSENTER_LOGS", path, 1);
     return;
@@ -37,7 +37,7 @@ void nsexec(void) {
   // Set namespace
   int retval = setns(fd,0);
   if(retval < 0){
-    snprintf(msg, sizeof(msg), "path:%s fd:%d retval:%d", path, fd, retval)
+    snprintf(msg, sizeof(msg), "path:%s fd:%d retval:%d", path, fd, retval);
     setenv("NSENTER_ERROR_STATE",strerror(errno),1);
     setenv("NSENTER_LOGS",msg,1);
     return;
