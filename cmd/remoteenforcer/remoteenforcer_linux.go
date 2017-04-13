@@ -65,38 +65,46 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	//Check if successfully switched namespace
 	nsEnterState := os.Getenv(nsErrorState)
+	nsEnterLogMsg := os.Getenv(nsEnterLogs)
 	if len(nsEnterState) != 0 {
 
 		log.WithFields(log.Fields{
 			"package": "remote_enforcer",
 			"err":     nsEnterState,
-			"logs":    os.Getenv(nsEnterLogs),
-		}).Info("Remote enforcer failed")
+			"logs":    nsEnterLogMsg,
+		}).Error("Remote enforcer failed")
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
 	}
 
-	log.WithFields(log.Fields{
-		"package": "remote_enforcer",
-		"logs":    os.Getenv(nsEnterLogs),
-	}).Info("Remote enforcer launched")
-
 	pid := strconv.Itoa(os.Getpid())
-	out, err := exec.Command("ip", "netns", "identify", pid).Output()
+	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
 	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"err":     nsEnterState,
+			"logs":    nsEnterLogMsg,
+			"err":     err.Error(),
+		}).Error("Remote enforcer failed - unable to identify namespace")
 		resp.Status = err.Error()
 		return errors.New(resp.Status)
 	}
 
-	if len(out) == 0 {
+	if len(netns) == 0 {
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"err":     nsEnterState,
+			"logs":    nsEnterLogMsg,
+		}).Error("Remote enforcer failed - not running in a namespace")
 		resp.Status = "Not running in a namespace"
 		return errors.New(resp.Status)
 	}
 
 	log.WithFields(log.Fields{
 		"package":           "remote_enforcer",
-		"network namespace": string(out),
-	}).Debug("Remote enforcer running in network namespace")
+		"logs":              nsEnterLogMsg,
+		"network namespace": string(netns),
+	}).Info("Remote enforcer launched")
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Init message authentication failed")
