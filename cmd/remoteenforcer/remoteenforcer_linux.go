@@ -22,6 +22,7 @@ const (
 	envSocketPath = "SOCKET_PATH"
 	envSecret     = "SECRET"
 	nsErrorState  = "NSENTER_ERROR_STATE"
+	nsEnterLogs   = "NSENTER_LOGS"
 )
 
 // Server : This is the structure for maintaining state required by the remote enforcer.
@@ -59,12 +60,24 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
 	//Check if successfully switched namespace
 	nsEnterState := os.Getenv(nsErrorState)
 	if len(nsEnterState) != 0 {
+
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"err":     nsEnterState,
+			"logs":    os.Getenv(nsEnterLogs),
+		}).Info("Remote enforcer failed")
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
 	}
+
+	log.WithFields(log.Fields{
+		"package": "remote_enforcer",
+		"logs":    os.Getenv(nsEnterLogs),
+	}).Info("Remote enforcer launched")
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Init message authentication failed")
