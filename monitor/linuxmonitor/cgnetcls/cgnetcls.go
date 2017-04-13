@@ -27,7 +27,7 @@ const (
 	// PortTag is the tag for a port
 	PortTag = "@usr:port"
 
-	basePath             = "/var/run/aporeto/cgroup"
+	basePath             = "/sys/fs/cgroup/net_cls"
 	markFile             = "/net_cls.classid"
 	procs                = "/cgroup.procs"
 	releaseAgentConfFile = "/release_agent"
