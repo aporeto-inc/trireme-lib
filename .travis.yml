@@ -23,8 +23,7 @@ before_install:
   - gometalinter.v1 --install
 
 install:
-  - go get -u github.com/docker/docker
-  - cd $GOPATH/src/github.com/docker/docker && git checkout 1.13.x && cd - 
+  - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd - 
   - go get -t -v ./...
 
 script:
