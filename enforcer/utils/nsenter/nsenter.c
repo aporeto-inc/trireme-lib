@@ -23,7 +23,7 @@ void nsexec(void) {
   }
 
   // Setup proc symlink
-  snprintf(path, sizeof(path), "/proc/%s/ns/net", str);
+  snprintf(path, sizeof(path), "/myproc/%s/ns/net", str);
 
   // Setup FD to symlink
   fd = open(path, O_RDONLY);
