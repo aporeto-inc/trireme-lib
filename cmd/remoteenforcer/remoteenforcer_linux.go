@@ -94,29 +94,6 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return errors.New(resp.Status)
 	}
 
-	pid := strconv.Itoa(os.Getpid())
-	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
-	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-			"err":     err.Error(),
-		}).Error("Remote enforcer failed - unable to identify namespace")
-		resp.Status = err.Error()
-		return errors.New(resp.Status)
-	}
-
-	netnsString := strings.TrimSpace(string(netns))
-	if len(netnsString) == 0 {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-		}).Error("Remote enforcer failed - not running in a namespace")
-		resp.Status = "Not running in a namespace"
-		return errors.New(resp.Status)
-	}
 
 	log.WithFields(log.Fields{
 		"package":           "remote_enforcer",
