@@ -13,9 +13,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"strconv"
-	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/constants"
@@ -94,11 +91,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return errors.New(resp.Status)
 	}
 
-
 	log.WithFields(log.Fields{
 		"package":           "remote_enforcer",
 		"logs":              nsEnterLogMsg,
-		"network namespace": netnsString,
 	}).Info("Remote enforcer launched")
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
