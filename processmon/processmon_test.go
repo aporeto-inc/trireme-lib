@@ -57,7 +57,7 @@ func TestLaunchProcess(t *testing.T) {
 	refPid = LaunchContainer()
 	dir, _ = os.Getwd()
 	p.SetnsNetPath("/tmp/")
-	err = p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret")
+	err = p.LaunchProcess(contextID, refPid, rpchdl, "", "mysecret", "/proc")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
 		t.SkipNow()
