@@ -15,15 +15,21 @@ void nsexec(void) {
   int fd = 0;
   char path[STRBUF_SIZE];
   char msg[STRBUF_SIZE];
-  char * str = getenv("CONTAINER_PID");
+  char mountpoint[STRBUF_SIZE] = {0};
+  char *str = getenv("CONTAINER_PID");
+  char *proc_mountpoint = getenv("PROC_MOUNTPOINT");
   if(str == NULL){
     // We are not running as remote enforcer
     setenv("NSENTER_LOGS", "no container pid", 1);
     return;
   }
-
+  if(proc_mountpoint == NULL){
+    strncpy(mountpoint,"/proc",strlen("/proc"));
+  }else{
+    strncpy(mountpoint,proc_mountpoint,STRBUF_SIZE);
+  }
   // Setup proc symlink
-  snprintf(path, sizeof(path), "/myproc/%s/ns/net", str);
+  snprintf(path, sizeof(path), "%s/%s/ns/net", mountpoint,str);
 
   // Setup FD to symlink
   fd = open(path, O_RDONLY);

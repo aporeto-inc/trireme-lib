@@ -51,6 +51,7 @@ type proxyInfo struct {
 	filterQueue       *enforcer.FilterQueue
 	commandArg        string
 	statsServerSecret string
+	procMountPoint    string
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -92,7 +93,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		"pid":     puInfo.Runtime.Pid(),
 	}).Info("PID of container")
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret)
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
 	if err != nil {
 		return err
 	}
@@ -205,6 +206,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
+	procMountPoint string,
 ) enforcer.PolicyEnforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
@@ -230,6 +232,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		filterQueue:       filterQueue,
 		commandArg:        cmdArg,
 		statsServerSecret: statsServersecret,
+		procMountPoint:    procMountPoint,
 	}
 	log.WithFields(log.Fields{
 		"package": "remenforcer",
@@ -249,7 +252,9 @@ func NewProxyEnforcer(mutualAuth bool,
 func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
-	rpchdl rpcwrapper.RPCClient) enforcer.PolicyEnforcer {
+	rpchdl rpcwrapper.RPCClient,
+	procMountPoint string,
+) enforcer.PolicyEnforcer {
 
 	mutualAuthorization := false
 	fqConfig := &enforcer.FilterQueue{
@@ -272,7 +277,9 @@ func NewDefaultProxyEnforcer(serverID string,
 		serverID,
 		validity,
 		rpchdl,
-		constants.DefaultRemoteArg)
+		constants.DefaultRemoteArg,
+		procMountPoint,
+	)
 }
 
 //StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer

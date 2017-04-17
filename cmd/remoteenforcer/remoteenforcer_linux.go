@@ -25,28 +25,29 @@ import (
 )
 
 const (
-	envSocketPath = "SOCKET_PATH"
-	envSecret     = "SECRET"
-	nsErrorState  = "NSENTER_ERROR_STATE"
-	nsEnterLogs   = "NSENTER_LOGS"
+	envSocketPath     = "SOCKET_PATH"
+	envSecret         = "SECRET"
+	envProcMountPoint = "PROC_MOUNTPOINT"
+	nsErrorState      = "NSENTER_ERROR_STATE"
+	nsEnterLogs       = "NSENTER_LOGS"
 )
 
 // Server : This is the structure for maintaining state required by the remote enforcer.
 // It is cache of variables passed by th controller to the remote enforcer and other handles
 // required by the remote enforcer to talk to the external processes
 type Server struct {
-	rpcSecret   string
-	rpcchannel  string
-	rpchdl      rpcwrapper.RPCServer
-	statsclient *StatsClient
-
-	Enforcer   enforcer.PolicyEnforcer
-	Supervisor supervisor.Supervisor
-	Service    enforcer.PacketProcessor
+	rpcSecret      string
+	rpcchannel     string
+	rpchdl         rpcwrapper.RPCServer
+	statsclient    *StatsClient
+	procMountPoint string
+	Enforcer       enforcer.PolicyEnforcer
+	Supervisor     supervisor.Supervisor
+	Service        enforcer.PacketProcessor
 }
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) (*Server, error) {
+func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, procMountPoint string) (*Server, error) {
 
 	statsclient, err := NewStatsClient()
 	if err != nil {
@@ -54,12 +55,12 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 	}
 
 	return &Server{
-		Service:    service,
-		rpcchannel: rpcchan,
-		rpcSecret:  secret,
-		rpchdl:     rpchdl,
-
-		statsclient: statsclient,
+		Service:        service,
+		rpcchannel:     rpcchan,
+		rpcSecret:      secret,
+		rpchdl:         rpchdl,
+		procMountPoint: procMountPoint,
+		statsclient:    statsclient,
 	}, nil
 }
 
@@ -92,8 +93,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	}
 
 	log.WithFields(log.Fields{
-		"package":           "remote_enforcer",
-		"logs":              nsEnterLogMsg,
+		"package": "remote_enforcer",
+		"logs":    nsEnterLogMsg,
 	}).Info("Remote enforcer launched")
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
@@ -113,7 +114,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			secrets,
 			payload.ServerID,
 			payload.Validity,
-			constants.RemoteContainer)
+			constants.RemoteContainer,
+			s.procMountPoint,
+		)
 	} else {
 		//PSK params
 		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
@@ -125,7 +128,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			secrets,
 			payload.ServerID,
 			payload.Validity,
-			constants.RemoteContainer)
+			constants.RemoteContainer,
+			s.procMountPoint,
+		)
 	}
 
 	s.Enforcer.Start()
@@ -320,7 +325,10 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 	})
 
 	namedPipe := os.Getenv(envSocketPath)
-
+	procMountPoint := os.Getenv(envProcMountPoint)
+	if len(procMountPoint) == 0 {
+		procMountPoint = "/proc"
+	}
 	secret := os.Getenv(envSecret)
 
 	if len(secret) == 0 {
@@ -329,7 +337,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 
 	rpchdl := rpcwrapper.NewRPCServer()
 
-	server, err := NewServer(service, rpchdl, namedPipe, secret)
+	server, err := NewServer(service, rpchdl, namedPipe, secret, procMountPoint)
 	if err != nil {
 		return err
 	}

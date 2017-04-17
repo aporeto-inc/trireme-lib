@@ -44,6 +44,7 @@ func NewTriremeLinuxProcess(
 			nil,
 			secrets,
 			constants.LocalServer,
+			"/proc",
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -87,6 +88,7 @@ func NewLocalTriremeDocker(
 			nil,
 			secrets,
 			constants.LocalContainer,
+			"/proc",
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -130,7 +132,9 @@ func NewDistributedTriremeDocker(serverID string,
 			serverID,
 			eventCollector,
 			secrets,
-			rpcwrapper),
+			rpcwrapper,
+			"/proc",
+		),
 	}
 
 	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[0], rpcwrapper)
@@ -167,7 +171,9 @@ func NewHybridTrireme(
 		serverID,
 		eventCollector,
 		secrets,
-		rpcwrapper)
+		rpcwrapper,
+		"/proc",
+	)
 
 	containerSupervisor, cerr := supervisorproxy.NewProxySupervisor(
 		eventCollector,
@@ -187,6 +193,7 @@ func NewHybridTrireme(
 		processor,
 		secrets,
 		constants.LocalServer,
+		"/proc",
 	)
 
 	processSupervisor, perr := supervisor.NewSupervisor(
