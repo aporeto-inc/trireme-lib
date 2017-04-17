@@ -47,13 +47,16 @@ type Server struct {
 }
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, procMountPoint string) (*Server, error) {
+func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) (*Server, error) {
 
 	statsclient, err := NewStatsClient()
 	if err != nil {
 		return nil, err
 	}
-
+	procMountPoint := os.Getenv(envProcMountPoint)
+	if len(procMountPoint) == 0 {
+		procMountPoint = "/proc"
+	}
 	return &Server{
 		Service:        service,
 		rpcchannel:     rpcchan,
@@ -325,10 +328,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 	})
 
 	namedPipe := os.Getenv(envSocketPath)
-	procMountPoint := os.Getenv(envProcMountPoint)
-	if len(procMountPoint) == 0 {
-		procMountPoint = "/proc"
-	}
+
 	secret := os.Getenv(envSecret)
 
 	if len(secret) == 0 {
@@ -337,7 +337,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) 
 
 	rpchdl := rpcwrapper.NewRPCServer()
 
-	server, err := NewServer(service, rpchdl, namedPipe, secret, procMountPoint)
+	server, err := NewServer(service, rpchdl, namedPipe, secret)
 	if err != nil {
 		return err
 	}
