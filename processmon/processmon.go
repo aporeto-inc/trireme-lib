@@ -180,7 +180,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		return nil
 	}
 
-	pidstat, pidstaterr := os.Stat(procMountPoint + strconv.Itoa(refPid) + "/ns/net")
+	pidstat, pidstaterr := os.Stat(procMountPoint + "/" + strconv.Itoa(refPid) + "/ns/net")
 	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
@@ -217,7 +217,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	}
 
 	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
-		linkErr := os.Symlink(procMountPoint+strconv.Itoa(refPid)+"/ns/net",
+		linkErr := os.Symlink(procMountPoint+"/"+strconv.Itoa(refPid)+"/ns/net",
 			netnspath+contextID)
 		if linkErr != nil {
 			log.WithFields(log.Fields{"package": "ProcessMon",
