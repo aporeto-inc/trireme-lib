@@ -146,6 +146,7 @@ func NewDockerMonitor(
 	l collector.EventCollector,
 	syncAtStart bool,
 	s monitor.SynchronizationHandler,
+	killContainerError bool,
 ) monitor.Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
@@ -168,6 +169,7 @@ func NewDockerMonitor(
 		dockerClient:       cli,
 		syncAtStart:        syncAtStart,
 		syncHandler:        s,
+		killContainerError: killContainerError,
 	}
 
 	// Add handlers for the events that we know how to process
