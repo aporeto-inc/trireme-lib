@@ -180,8 +180,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		return nil
 	}
 
-	pidstat, pidstaterr := os.Stat("/proc/" + strconv.Itoa(refPid) + "/ns/net")
-	hoststat, hoststaterr := os.Stat("/proc/1/ns/net")
+	pidstat, pidstaterr := os.Stat(procMountPoint + strconv.Itoa(refPid) + "/ns/net")
+	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
 			log.WithFields(log.Fields{
@@ -225,7 +225,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 			}).Error(ErrSymLinkFailed)
 		}
 	}
-	namedPipe := "SOCKET_PATH=/var/run/" + contextID + ".sock"
+	namedPipe := "APORETO_ENV_SOCKET_PATH=/var/run/" + contextID + ".sock"
 
 	cmdName, _ = osext.Executable()
 	cmdArgs := []string{arg}
@@ -259,8 +259,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		//This is a more serious failure. We can't reliably control the remote enforcer
 		return fmt.Errorf("Failed to generate secret %s", err.Error())
 	}
-	MountPoint := "PROC_MOUNTPOINT=" + procMountPoint
-	rpcClientSecret := "SECRET=" + randomkeystring
+	MountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
+	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
 
 	cmd.Env = append(os.Environ(), []string{MountPoint, namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)

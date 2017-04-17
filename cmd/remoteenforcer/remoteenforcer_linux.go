@@ -13,6 +13,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"strconv"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/constants"
@@ -25,11 +28,11 @@ import (
 )
 
 const (
-	envSocketPath     = "SOCKET_PATH"
-	envSecret         = "SECRET"
-	envProcMountPoint = "PROC_MOUNTPOINT"
-	nsErrorState      = "NSENTER_ERROR_STATE"
-	nsEnterLogs       = "NSENTER_LOGS"
+	envSocketPath     = "APORETO_ENV_SOCKET_PATH"
+	envSecret         = "APORETO_ENV_SECRET"
+	envProcMountPoint = "APORETO_ENV_PROC_MOUNTPOINT"
+	nsErrorState      = "APORETO_ENV_NSENTER_ERROR_STATE"
+	nsEnterLogs       = "APORETO_ENV_NSENTER_LOGS"
 )
 
 // Server : This is the structure for maintaining state required by the remote enforcer.
@@ -92,6 +95,30 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			"nsLogs":  nsEnterLogMsg,
 		}).Error("Remote enforcer failed")
 		resp.Status = (nsEnterState)
+		return errors.New(resp.Status)
+	}
+
+	pid := strconv.Itoa(os.Getpid())
+	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
+			"err":     err.Error(),
+		}).Error("Remote enforcer failed - unable to identify namespace")
+		resp.Status = err.Error()
+		return errors.New(resp.Status)
+	}
+
+	netnsString := strings.TrimSpace(string(netns))
+	if len(netnsString) == 0 {
+		log.WithFields(log.Fields{
+			"package": "remote_enforcer",
+			"nsErr":   nsEnterState,
+			"nsLogs":  nsEnterLogMsg,
+		}).Error("Remote enforcer failed - not running in a namespace")
+		resp.Status = "Not running in a namespace"
 		return errors.New(resp.Status)
 	}
 
