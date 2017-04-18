@@ -123,13 +123,13 @@ type dockerMonitor struct {
 	eventnotifications chan *events.Message
 	stopprocessor      chan bool
 	stoplistener       chan bool
-	syncAtStart        bool
 	syncHandler        monitor.SynchronizationHandler
 
 	collector collector.EventCollector
 	puHandler monitor.ProcessingUnitsHandler
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
 	killContainerError bool
+	syncAtStart        bool
 }
 
 // NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
