@@ -536,6 +536,7 @@ func (p *Packet) SynAckApplicationHash() string {
 	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
 }
 
+// SourcePortHash calculates a hash based on dest ip/port for net packet and src ip/port for app packet.
 func (p *Packet) SourcePortHash(stage uint64) string {
 	if stage == PacketTypeNetwork {
 		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
@@ -543,6 +544,7 @@ func (p *Packet) SourcePortHash(stage uint64) string {
 	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort))
 }
 
+// DestinationPortHash calculates a hash based on dest ip/port, src port for net packet and src ip/port, dest port for app packet.
 func (p *Packet) DestinationPortHash(stage uint64) string {
 	if stage == PacketTypeNetwork {
 		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort)) + ":" + strconv.Itoa(int(p.SourcePort))
