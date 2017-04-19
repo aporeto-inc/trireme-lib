@@ -187,7 +187,10 @@ func TestPacketHandling(t *testing.T) {
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
+				firstSynProcessed := false
+				firstSynAckProcessed := false
 				firstAckProcessed := false
+				secondAckProcessed := false
 
 				for i, p := range TCPFlow {
 
@@ -230,14 +233,29 @@ func TestPacketHandling(t *testing.T) {
 						tcpPacket.Print(0)
 					}
 
+					/*
+						// Ensure source port cache exists at syn and is removed when the ack is processed
+						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynMask {
+							c, e := enforcer.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+							So(e, ShouldBeNil)
+							So(c, ShouldNotBeNil)
+						} else if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+							if firstAckProcessed {
+								// After first ack has been processed, the second ack packet should see the cache disappear
+								c, e := enforcer.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+								So(e, ShouldBeNil)
+								So(c, ShouldBeNil)
+							}
+						}
+					*/
+
 					if tcpPacket.TCPFlags&packet.TCPSynMask != 0 {
 						// In our 3 way security handshake syn and syn-ack packet should grow in length
 						So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
 					}
 
-					if !firstAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
+					if !firstSynAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 						// In our 3 way security handshake first ack packet should grow in length
-						firstAckProcessed = true
 						So(tcpPacket.IPTotalLength, ShouldBeGreaterThan, oldPacket.IPTotalLength)
 					}
 
@@ -254,9 +272,22 @@ func TestPacketHandling(t *testing.T) {
 						fmt.Println("Output packet", i)
 						outPacket.Print(0)
 					}
+					/*
+						// Ensure source port cache exists at syn and is removed when the ack is processed
+						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynMask {
+							c, e := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+							So(e, ShouldBeNil)
+							So(c, ShouldNotBeNil)
+						} else if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+							if firstAckProcessed {
+								c, e := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+								So(e, ShouldBeNil)
+								So(c, ShouldBeNil)
+							}
+						}
+					*/
 
 					if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
-
 						packetDiffers = true
 						fmt.Println("Error: packets dont match")
 						fmt.Println("Input Packet")
@@ -265,6 +296,32 @@ func TestPacketHandling(t *testing.T) {
 						outPacket.Print(0)
 						t.Errorf("Packet %d Input and output packet do not match", i)
 						t.FailNow()
+					}
+
+					// Update packet states
+					if !firstSynProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynMask {
+						firstSynProcessed = true
+					}
+					if !firstSynAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
+						firstSynAckProcessed = true
+					}
+					if !secondAckProcessed && firstAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+						secondAckProcessed = true
+					}
+					if !firstAckProcessed && tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+						firstAckProcessed = true
+					}
+
+					// Check port cache to be empty for sure after the client has received an ack. More checks to come as connections can fail in middle.
+					if firstSynProcessed && firstSynAckProcessed && secondAckProcessed && i > 4 {
+						fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+						cs, es := enforcer.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+						So(cs, ShouldBeNil)
+						So(es, ShouldNotBeNil)
+						fmt.Println("DestPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+						cd, ed := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+						So(cd, ShouldBeNil)
+						So(ed, ShouldNotBeNil)
 					}
 				}
 

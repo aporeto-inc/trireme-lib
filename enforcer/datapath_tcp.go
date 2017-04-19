@@ -708,6 +708,9 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			}).Warn("Failed to clean up cache state from network connection tracker")
 		}
 
+		//We have  connection established lets remove the destinationport cache entry
+		d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+
 		// We accept the packet as a new flow
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
