@@ -328,7 +328,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// State machine based on the flags
-	switch tcpPacket.TCPFlags {
+	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask: //Processing SYN packet from Application
 		action, err := d.processApplicationSynPacket(tcpPacket)
 		return action, err
@@ -343,7 +343,6 @@ func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet)
 	default:
 		return nil, nil
 	}
-
 }
 
 func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
@@ -783,7 +782,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	// Update connection state in the internal state machine tracker
 	switch tcpPacket.TCPFlags {
 
-	case packet.TCPSynMask:
+	case packet.TCPSynMask & packet.TCPSynAckMask:
 		return d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
 
 	case packet.TCPAckMask:
