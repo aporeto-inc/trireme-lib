@@ -537,7 +537,7 @@ func (p *Packet) SourcePortHash(stage uint64) string {
 // DestinationPortHash calculates a hash based on dest ip/port, src port for net packet and src ip/port, dest port for app packet.
 func (p *Packet) DestinationPortHash(stage uint64) string {
 	if stage == PacketTypeNetwork {
-		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort)) + ":" + strconv.Itoa(int(p.SourcePort))
+		return p.L4FlowHash()
 	}
-	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
+	return p.L4ReverseFlowHash()
 }
