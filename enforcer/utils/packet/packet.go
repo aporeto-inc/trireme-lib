@@ -535,3 +535,17 @@ func (p *Packet) SynAckNetworkHash() string {
 func (p *Packet) SynAckApplicationHash() string {
 	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
 }
+
+func (p *Packet) SourcePortHash(stage uint64) string {
+	if stage == PacketTypeNetwork {
+		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
+	}
+	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort))
+}
+
+func (p *Packet) DestinationPortHash(stage uint64) string {
+	if stage == PacketTypeNetwork {
+		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort)) + ":" + strconv.Itoa(int(p.SourcePort))
+	}
+	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
+}
