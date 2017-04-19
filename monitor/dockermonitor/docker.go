@@ -123,11 +123,13 @@ type dockerMonitor struct {
 	eventnotifications chan *events.Message
 	stopprocessor      chan bool
 	stoplistener       chan bool
-	syncAtStart        bool
 	syncHandler        monitor.SynchronizationHandler
 
 	collector collector.EventCollector
 	puHandler monitor.ProcessingUnitsHandler
+	// killContainerError if enabled kills the container if a policy setting resulted in an error.
+	killContainerError bool
+	syncAtStart        bool
 }
 
 // NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
@@ -144,6 +146,7 @@ func NewDockerMonitor(
 	l collector.EventCollector,
 	syncAtStart bool,
 	s monitor.SynchronizationHandler,
+	killContainerError bool,
 ) monitor.Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
@@ -166,6 +169,7 @@ func NewDockerMonitor(
 		dockerClient:       cli,
 		syncAtStart:        syncAtStart,
 		syncHandler:        s,
+		killContainerError: killContainerError,
 	}
 
 	// Add handlers for the events that we know how to process
@@ -400,13 +404,16 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	errorChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
 	if err := <-errorChan; err != nil {
-		if err := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Warn("Failed to stop bad container")
+		if d.killContainerError {
+			if err := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Warn("Failed to stop bad container")
+			}
+			return fmt.Errorf("Policy cound't be set - container was killed")
 		}
-		return fmt.Errorf("Policy cound't be set - container was killed")
+		return fmt.Errorf("Policy cound't be set - container was kept alive per policy")
 	}
 
 	return nil
@@ -469,22 +476,27 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 	info, err := d.dockerClient.ContainerInspect(context.Background(), dockerID)
 
 	if err != nil {
-		//If we see errors, we will kill the container for security reasons.
-		if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Warn("Failed to stop illegal container")
+
+		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
+		if d.killContainerError {
+			if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
+				log.WithFields(log.Fields{
+					"package": "monitor",
+					"error":   err.Error(),
+				}).Warn("Failed to stop illegal container")
+			}
+
+			d.collector.CollectContainerEvent(&collector.ContainerRecord{
+				ContextID: contextID,
+				IPAddress: "N/A",
+				Tags:      nil,
+				Event:     collector.ContainerFailed,
+			})
+
+			return fmt.Errorf("Cannot read container information. Killing container. ")
 		}
-
-		d.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
-		})
-
-		return fmt.Errorf("Cannot read container information. Killing container. ")
+	} else {
+		return fmt.Errorf("Cannot read container information. Container still alive per policy. ")
 	}
 
 	if info.HostConfig.NetworkMode == "host" {
