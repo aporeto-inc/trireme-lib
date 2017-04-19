@@ -241,6 +241,7 @@ func NewPSKTriremeWithDockerMonitor(
 	key []byte,
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
+	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor) {
 
 	if eventCollector == nil {
@@ -279,7 +280,8 @@ func NewPSKTriremeWithDockerMonitor(
 		dockerMetadataExtractor,
 		eventCollector,
 		syncAtStart,
-		nil)
+		nil,
+		killContainerError)
 
 	return triremeInstance, monitorInstance
 
@@ -300,6 +302,7 @@ func NewPKITriremeWithDockerMonitor(
 	caCertPEM []byte,
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
+	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
 
 	if eventCollector == nil {
@@ -338,7 +341,8 @@ func NewPKITriremeWithDockerMonitor(
 		dockerMetadataExtractor,
 		eventCollector,
 		syncAtStart,
-		nil)
+		nil,
+		killContainerError)
 
 	return triremeInstance, monitorInstance, publicKeyAdder
 
@@ -355,6 +359,7 @@ func NewPSKHybridTriremeWithMonitor(
 	syncAtStart bool,
 	key []byte,
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
 
 	if eventCollector == nil {
@@ -382,6 +387,7 @@ func NewPSKHybridTriremeWithMonitor(
 		eventCollector,
 		syncAtStart,
 		nil,
+		killContainerError,
 	)
 	// use rpcmonitor no need to return it since no other consumer for it
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
