@@ -476,7 +476,6 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 	info, err := d.dockerClient.ContainerInspect(context.Background(), dockerID)
 
 	if err != nil {
-
 		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
 		if d.killContainerError {
 			if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
@@ -492,10 +491,8 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 				Tags:      nil,
 				Event:     collector.ContainerFailed,
 			})
-
 			return fmt.Errorf("Cannot read container information. Killing container. ")
 		}
-	} else {
 		return fmt.Errorf("Cannot read container information. Container still alive per policy. ")
 	}
 
