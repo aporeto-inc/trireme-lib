@@ -18,7 +18,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
 	// Skip SynAck packets that we haven't seen a connection
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
-		if _, err := d.sourcePortCache.Get(p.SynAckNetworkHash()); err != nil {
+		if _, err := d.sourcePortCache.Get(p.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
 			return nil
 		}
 	}
@@ -79,7 +79,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 
 	// Skip SynAck packets for connections that we are not processing
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
-		if _, err := d.destinationPortCache.Get(p.SynAckApplicationHash()); err != nil {
+		if _, err := d.destinationPortCache.Get(p.DestinationPortHash(packet.PacketTypeApplication)); err != nil {
 			return nil
 		}
 	}
@@ -191,13 +191,12 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	// Create a token
 	tcpData := d.createPacketToken(false, context.(*PUContext), &connection.Auth)
 
-	// Track the connection
+	// Track the connection/port cache
 	connection.State = TCPSynSend
 	d.appConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), connection)
 	d.contextConnectionTracker.AddOrUpdate(string(connection.Auth.LocalContext), connection)
+	d.sourcePortCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), context)
 
-	portHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
-	d.sourcePortCache.AddOrUpdate(portHash, context)
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
@@ -214,7 +213,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	var err error
 
 	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
-		if context, err = d.destinationPortCache.Get(tcpPacket.SynAckApplicationHash()); err != nil {
+		if context, err = d.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeApplication)); err != nil {
 			return nil, err
 		}
 	} else {
@@ -318,6 +317,8 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 				"package": "enforcer",
 			}).Warn("Failed to clean up cache state")
 		}
+		//Remove the sourceport cache entry here
+		d.sourcePortCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 		return nil, nil
 	}
 
@@ -327,7 +328,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet) (interface{}, error) {
 
 	// State machine based on the flags
-	switch tcpPacket.TCPFlags {
+	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask: //Processing SYN packet from Application
 		action, err := d.processApplicationSynPacket(tcpPacket)
 		return action, err
@@ -342,7 +343,6 @@ func (d *datapathEnforcer) processApplicationTCPPacket(tcpPacket *packet.Packet)
 	default:
 		return nil, nil
 	}
-
 }
 
 func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
@@ -461,8 +461,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		// Note that if the connection exists already we will just end-up replicating it. No
 		// harm here.
 		d.networkConnectionTracker.AddOrUpdate(hash, connection)
-		portHash := tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort)) + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
-		d.destinationPortCache.AddOrUpdate(portHash, context)
+		d.destinationPortCache.AddOrUpdate(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork), context)
 
 		// Accept the connection
 		return action, nil
@@ -708,6 +707,9 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			}).Warn("Failed to clean up cache state from network connection tracker")
 		}
 
+		//We have  connection established lets remove the destinationport cache entry
+		d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+
 		// We accept the packet as a new flow
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
@@ -747,6 +749,9 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 				"package": "enforcer",
 			}).Warn("Failed to clean up cache state from network connection tracker")
 		}
+
+		//We have  connection established lets remove the destinationport cache entry
+		d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
 		return nil, nil
 	}
 
@@ -759,7 +764,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	var context interface{}
 
 	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
-		if context, err = d.sourcePortCache.Get(tcpPacket.SynAckNetworkHash()); err != nil {
+		if context, err = d.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
 			return nil, nil
 		}
 	} else {
@@ -777,7 +782,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	// Update connection state in the internal state machine tracker
 	switch tcpPacket.TCPFlags {
 
-	case packet.TCPSynMask:
+	case packet.TCPSynMask & packet.TCPSynAckMask:
 		return d.processNetworkSynPacket(context.(*PUContext), tcpPacket)
 
 	case packet.TCPAckMask:
