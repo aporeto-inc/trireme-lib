@@ -14,6 +14,9 @@ import (
 )
 
 var (
+	// PacketLogLevel determines if packet logging is turned on
+	PacketLogLevel int
+
 	// printCount prints the debug header for packets every few lines that it prints
 	printCount int
 
@@ -24,6 +27,7 @@ var (
 )
 
 func init() {
+	PacketLogLevel = 0
 	debugContext = 0
 	debugContextApp = 0 //PacketStageIncoming
 	debugContextNet = 0 //PacketStageOutgoing
@@ -155,7 +159,7 @@ func (p *Packet) Print(context uint64) {
 	logPkt := false
 	detailed := false
 
-	if (log.GetLevel() == log.DebugLevel || context == 0) || (dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0) || (dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0) {
+	if (PacketLogLevel > 0 || context == 0) || (dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0) || (dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0) {
 		logPkt = true
 		detailed = true
 	} else if dbgContext&debugContext != 0 {
@@ -165,7 +169,7 @@ func (p *Packet) Print(context uint64) {
 	var buf string
 	print := false
 
-	if logPkt || log.GetLevel() == log.DebugLevel {
+	if logPkt {
 		if printCount%200 == 0 {
 			buf += fmt.Sprintf("Packet: %5s %5s %25s %15s %5s %15s %5s %6s %20s %20s %6s %20s %20s %2s %5s %5s\n",
 				"IPID", "Dir", "Comment", "SIP", "SP", "DIP", "DP", "Flags", "TCPSeq", "TCPAck", "TCPLen", "ExpAck", "ExpSeq", "DO", "Acsum", "Ccsum")
@@ -198,7 +202,7 @@ func (p *Packet) Print(context uint64) {
 		print = true
 	}
 
-	if detailed || log.GetLevel() == log.DebugLevel {
+	if detailed {
 		pktBytes := []byte{0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 8, 0}
 		pktBytes = append(pktBytes, p.Buffer...)
 		pktBytes = append(pktBytes, p.tcpOptions...)
