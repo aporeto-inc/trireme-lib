@@ -19,7 +19,7 @@ var (
 )
 
 // TriremeWithPKI is a helper method to created a PKI implementation of Trireme
-func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool, killContainerError bool) (trireme.Trireme, monitor.Monitor) {
+func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor) {
 
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
@@ -46,7 +46,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 
 	policyEngine := NewCustomPolicyResolver(networks)
 
-	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer, killContainerError)
+	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer)
 
 	if err := p.PublicKeyAdd("Server1", certPEM); err != nil {
 		log.Fatal(err)
@@ -56,20 +56,20 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 }
 
 //TriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool, killContainerError bool) (trireme.Trireme, monitor.Monitor) {
+func TriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, remoteEnforcer bool) (trireme.Trireme, monitor.Monitor) {
 
 	policyEngine := NewCustomPolicyResolver(networks)
 
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKTriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, []byte("THIS IS A BAD PASSWORD"), *extractor, remoteEnforcer, killContainerError)
+	return configurator.NewPSKTriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, []byte("THIS IS A BAD PASSWORD"), *extractor, remoteEnforcer)
 }
 
 //HybridTriremeWithPSK is a helper method to created a PSK implementation of Trireme
-func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor, killContainerError bool) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
+func HybridTriremeWithPSK(networks []string, extractor *dockermonitor.DockerMetadataExtractor) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
 
 	policyEngine := NewCustomPolicyResolver(networks)
 
 	pass := []byte("THIS IS A BAD PASSWORD")
 	// Use this if you want a pre-shared key implementation
-	return configurator.NewPSKHybridTriremeWithMonitor("Server1", policyEngine, ExternalProcessor, nil, false, pass, *extractor, killContainerError)
+	return configurator.NewPSKHybridTriremeWithMonitor("Server1", policyEngine, ExternalProcessor, nil, false, pass, *extractor)
 }

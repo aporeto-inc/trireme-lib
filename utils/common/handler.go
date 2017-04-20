@@ -16,9 +16,6 @@ import (
 	"github.com/aporeto-inc/trireme/processmon"
 )
 
-// KillContainerOnError defines if the Container is getting killed if the policy Application resulted in an error
-const KillContainerOnError = true
-
 // ProcessArgs handles all commands options for trireme
 func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProcessor, logLevel log.Level) (err error) {
 
@@ -96,13 +93,13 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 				"cert-file":    certFile,
 				"ca-cert-file": caCertFile,
 			}).Info("Setting up trireme with PKI")
-			t, m = TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote, KillContainerOnError)
+			t, m = TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote)
 		} else {
 			log.Info("Setting up trireme with PSK")
-			t, m = TriremeWithPSK(targetNetworks, &customExtractor, remote, KillContainerOnError)
+			t, m = TriremeWithPSK(targetNetworks, &customExtractor, remote)
 		}
 	} else { // Hybrid mode
-		t, m, rm = HybridTriremeWithPSK(targetNetworks, &customExtractor, KillContainerOnError)
+		t, m, rm = HybridTriremeWithPSK(targetNetworks, &customExtractor)
 		if rm == nil {
 			log.Fatalln("Failed to create remote monitor for hybrid")
 		}
