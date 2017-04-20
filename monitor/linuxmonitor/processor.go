@@ -127,6 +127,13 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 		}
 
+		log.WithFields(log.Fields{
+			"package": "rpcMonitor",
+			"name":    eventInfo.Name,
+			"pid":     eventInfo.PID,
+			"puid":    eventInfo.PUID,
+		}).Debug("Start processing unit")
+
 		s.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: defaultIP,
