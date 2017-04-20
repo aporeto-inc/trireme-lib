@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
@@ -177,6 +178,25 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
 		return nil
+	}
+
+	pidstat, pidstaterr := os.Stat("/proc/" + strconv.Itoa(refPid) + "/ns/net")
+	hoststat, hoststaterr := os.Stat("/proc/1/ns/net")
+	if pidstaterr == nil && hoststaterr == nil {
+		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
+			log.WithFields(log.Fields{
+				"package": "processmon",
+				"Method":  "LaunchProcess",
+				"Error":   "Refuse to launch an enforcer in the host namespace",
+			}).Info("Refused to Launch a remote enforcer in host namespace")
+			return nil
+		}
+	} else {
+
+		log.WithFields(log.Fields{
+			"package": "processmon",
+			"Error":   fmt.Sprintf("Hoststat err %v,PidStat err %v", hoststaterr, pidstaterr),
+		}).Error("Cannot determine namespace of new container")
 	}
 	_, staterr := os.Stat(netnspath)
 	if staterr != nil {
