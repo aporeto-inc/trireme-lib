@@ -28,7 +28,6 @@ const (
 	// PortTag is the tag for a port
 	PortTag = "@usr:port"
 
-	basePath             = "/sys/fs/cgroup/net_cls"
 	markFile             = "/net_cls.classid"
 	procs                = "/cgroup.procs"
 	releaseAgentConfFile = "/release_agent"
@@ -36,6 +35,7 @@ const (
 	initialmarkval       = 100
 )
 
+var basePath string = "/sys/fs/cgroup/net_cls"
 var markval uint64 = initialmarkval
 
 //Empty receiver struct
@@ -179,26 +179,38 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 func mountCgroupController() {
 	mounts, _ := ioutil.ReadFile("/proc/mounts")
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
+	var net_cls bool = false
+	var cgroupMount string
 	for sc.Scan() {
-		if strings.HasPrefix(sc.Text(), "cgroup") && strings.Contains(sc.Text(), "net_cls") {
-			line := strings.Split(sc.Text(), " ")
-			if line[1] == "/var/run/aporeto/cgroup" {
-				//No need to do anything
-			} else {
-				//Bind mount
-				err := syscall.Mount(line[1], "/var/run/aporeto/cgroup", "cgroup", syscall.MS_BIND, "net_cls,net_prio")
-				if err != nil {
-					fmt.Println(err.Error())
-				}
+		if strings.HasPrefix(sc.Text(), "cgroup") {
+			cgroupMount = strings.Split(sc.Text(), " ")[1]
+			cgroupMount = cgroupMount[:strings.LastIndex(basePath, "/")]
+			if strings.Contains(sc.Text(), "net_cls") {
+				basePath = strings.Split(sc.Text(), " ")[1]
+				net_cls = true
+				fmt.Println("BASE PATH", basePath)
 				return
 			}
 		}
+
+	}
+	
+	if len(cgroupMount) == 0 {
+		log.WithFields(log.Fields{
+			"package": "cgnetcls",
+			"error":   "Cgroups not enabled or net_cls not mounted",
+		}).Error("Cgroups are not enabled or net_cls is not mounted")
+		return
+	}
+	if !net_cls {
+		basePath = cgroupMount + "/net_cls"
+		os.MkdirAll(basePath, 0700)
+		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
+		fmt.Println("basepath", basePath)
+		return
+
 	}
 
-	log.WithFields(log.Fields{
-		"package": "cgnetcls",
-		"error":   "Cgroups not enabled or net_cls not mounted",
-	}).Error("Cgroups are not enabled or net_cls is not mounted")
 }
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
