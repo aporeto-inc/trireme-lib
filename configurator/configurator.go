@@ -24,9 +24,9 @@ import (
 )
 
 const (
-	//The default proc mountpoint
+	//DefaultProcMountPoint The default proc mountpoint
 	DefaultProcMountPoint = "/proc"
-	//The aporeto proc mountpoint just in case we are launched with some specific docker config
+	//AporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
 	AporetoProcMountPoint = "/aporetoproc"
 )
 
