@@ -5,8 +5,6 @@ package remoteenforcer
 import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 // Server is a fake implementation for building on darwin.
@@ -23,4 +21,4 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, pc
 }
 
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) error { return nil }
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error { return nil }

@@ -347,13 +347,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) error {
-
-	log.SetLevel(logLevel)
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors:    true,
-		DisableSorting: true,
-	})
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
 	namedPipe := os.Getenv(envSocketPath)
 
