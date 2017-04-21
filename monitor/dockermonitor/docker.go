@@ -128,8 +128,8 @@ type dockerMonitor struct {
 	collector collector.EventCollector
 	puHandler monitor.ProcessingUnitsHandler
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
-	killContainerError bool
-	syncAtStart        bool
+	killContainerOnPolicyError bool
+	syncAtStart                bool
 }
 
 // NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
@@ -146,7 +146,7 @@ func NewDockerMonitor(
 	l collector.EventCollector,
 	syncAtStart bool,
 	s monitor.SynchronizationHandler,
-	killContainerError bool,
+	killContainerOnPolicyError bool,
 ) monitor.Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
@@ -159,17 +159,17 @@ func NewDockerMonitor(
 	}
 
 	d := &dockerMonitor{
-		puHandler:          p,
-		collector:          l,
-		eventnotifications: make(chan *events.Message, 1000),
-		handlers:           make(map[DockerEvent]func(event *events.Message) error),
-		stoplistener:       make(chan bool),
-		stopprocessor:      make(chan bool),
-		metadataExtractor:  m,
-		dockerClient:       cli,
-		syncAtStart:        syncAtStart,
-		syncHandler:        s,
-		killContainerError: killContainerError,
+		puHandler:                  p,
+		collector:                  l,
+		eventnotifications:         make(chan *events.Message, 1000),
+		handlers:                   make(map[DockerEvent]func(event *events.Message) error),
+		stoplistener:               make(chan bool),
+		stopprocessor:              make(chan bool),
+		metadataExtractor:          m,
+		dockerClient:               cli,
+		syncAtStart:                syncAtStart,
+		syncHandler:                s,
+		killContainerOnPolicyError: killContainerOnPolicyError,
 	}
 
 	// Add handlers for the events that we know how to process
@@ -404,7 +404,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	errorChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
 	if err := <-errorChan; err != nil {
-		if d.killContainerError {
+		if d.killContainerOnPolicyError {
 			if err := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); err != nil {
 				log.WithFields(log.Fields{
 					"package": "monitor",
@@ -477,7 +477,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 
 	if err != nil {
 		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
-		if d.killContainerError {
+		if d.killContainerOnPolicyError {
 			if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
 				log.WithFields(log.Fields{
 					"package": "monitor",
