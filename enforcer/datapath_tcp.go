@@ -318,7 +318,18 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 			}).Warn("Failed to clean up cache state")
 		}
 		//Remove the sourceport cache entry here
-		d.sourcePortCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+		if err := d.sourcePortCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
+			log.WithFields(log.Fields{
+				"package":       "enforcer",
+				"src-port-hash": tcpPacket.SourcePortHash(packet.PacketTypeApplication),
+			}).Warn("Failed to clean up cache state")
+		}
+		log.WithFields(log.Fields{
+			"package":       "enforcer",
+			"context":       string(connection.Auth.LocalContext),
+			"app-conn":      tcpPacket.L4FlowHash(),
+			"src-port-hash": tcpPacket.SourcePortHash(packet.PacketTypeApplication),
+		}).Debug("Caches maybe clean")
 		return nil, nil
 	}
 
@@ -708,7 +719,18 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		}
 
 		//We have  connection established lets remove the destinationport cache entry
-		d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+		if err := d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork)); err != nil {
+			log.WithFields(log.Fields{
+				"package": "enforcer",
+			}).Warn("Failed to clean destination port cache")
+		}
+
+		log.WithFields(log.Fields{
+			"package":        "enforcer",
+			"context":        string(connection.Auth.LocalContext),
+			"net-conn":       hash,
+			"dest-port-hash": tcpPacket.DestinationPortHash(packet.PacketTypeNetwork),
+		}).Debug("Caches maybe clean")
 
 		// We accept the packet as a new flow
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
