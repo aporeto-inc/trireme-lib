@@ -4,6 +4,7 @@
 package cgnetcls
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -175,6 +176,31 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 	return false
 }
 
+func mountCgroupController() {
+	mounts, _ := ioutil.ReadFile("/proc/mounts")
+	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
+	for sc.Scan() {
+		if strings.HasPrefix(sc.Text(), "cgroup") && strings.Contains(sc.Text(), "net_cls") {
+			line := strings.Split(sc.Text(), " ")
+			if line[1] == "/var/run/aporeto/cgroup" {
+				//No need to do anything
+			} else {
+				//Bind mount
+				err := syscall.Mount(line[1], "/var/run/aporeto/cgroup", "cgroup", syscall.MS_BIND, "net_cls,net_prio")
+				if err != nil {
+					fmt.Println(err.Error())
+				}
+				return
+			}
+		}
+	}
+
+	log.WithFields(log.Fields{
+		"package": "cgnetcls",
+		"error":   "Cgroups not enabled or net_cls not mounted",
+	}).Error("Cgroups are not enabled or net_cls is not mounted")
+}
+
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	binpath, _ := osext.Executable()
@@ -186,7 +212,7 @@ func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	if releasePath != "" {
 		controller.ReleaseAgentPath = releasePath
 	}
-
+	mountCgroupController()
 	return controller
 }
 

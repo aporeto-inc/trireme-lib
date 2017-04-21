@@ -25,10 +25,11 @@ import (
 type datapathEnforcer struct {
 
 	// Configuration parameters
-	filterQueue *FilterQueue
-	tokenEngine tokens.TokenEngine
-	collector   collector.EventCollector
-	service     PacketProcessor
+	filterQueue    *FilterQueue
+	tokenEngine    tokens.TokenEngine
+	collector      collector.EventCollector
+	service        PacketProcessor
+	procMountPoint string
 
 	// Internal structures and caches
 	// Key=ContextId Value=ContainerIP
@@ -75,6 +76,7 @@ func NewDatapathEnforcer(
 	serverID string,
 	validity time.Duration,
 	mode constants.ModeType,
+	procMountPoint string,
 ) PolicyEnforcer {
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
@@ -122,6 +124,7 @@ func NewDatapathEnforcer(
 		appTCP:                   &PacketStats{},
 		ackSize:                  secrets.AckSize(),
 		mode:                     mode,
+		procMountPoint:           procMountPoint,
 	}
 
 	if d.tokenEngine == nil {
@@ -140,6 +143,7 @@ func NewDefaultDatapathEnforcer(
 	service PacketProcessor,
 	secrets tokens.Secrets,
 	mode constants.ModeType,
+	procMountPoint string,
 ) PolicyEnforcer {
 
 	if collector == nil {
@@ -171,6 +175,7 @@ func NewDefaultDatapathEnforcer(
 		serverID,
 		validity,
 		mode,
+		procMountPoint,
 	)
 }
 

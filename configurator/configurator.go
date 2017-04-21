@@ -23,6 +23,13 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor/proxy"
 )
 
+const (
+	//DefaultProcMountPoint The default proc mountpoint
+	DefaultProcMountPoint = "/proc"
+	//AporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
+	AporetoProcMountPoint = "/aporetoproc"
+)
+
 // NewTriremeLinuxProcess instantiates Trireme for a Linux process implementation
 func NewTriremeLinuxProcess(
 	serverID string,
@@ -44,6 +51,7 @@ func NewTriremeLinuxProcess(
 			nil,
 			secrets,
 			constants.LocalServer,
+			DefaultProcMountPoint,
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -87,6 +95,7 @@ func NewLocalTriremeDocker(
 			nil,
 			secrets,
 			constants.LocalContainer,
+			DefaultProcMountPoint,
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -130,7 +139,9 @@ func NewDistributedTriremeDocker(serverID string,
 			serverID,
 			eventCollector,
 			secrets,
-			rpcwrapper),
+			rpcwrapper,
+			DefaultProcMountPoint,
+		),
 	}
 
 	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[0], rpcwrapper)
@@ -167,7 +178,9 @@ func NewHybridTrireme(
 		serverID,
 		eventCollector,
 		secrets,
-		rpcwrapper)
+		rpcwrapper,
+		DefaultProcMountPoint,
+	)
 
 	containerSupervisor, cerr := supervisorproxy.NewProxySupervisor(
 		eventCollector,
@@ -187,6 +200,7 @@ func NewHybridTrireme(
 		processor,
 		secrets,
 		constants.LocalServer,
+		DefaultProcMountPoint,
 	)
 
 	processSupervisor, perr := supervisor.NewSupervisor(

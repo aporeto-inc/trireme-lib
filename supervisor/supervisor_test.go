@@ -50,7 +50,7 @@ func TestNewSupervisor(t *testing.T) {
 
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 		mode := constants.LocalContainer
 		implementation := constants.IPTables
 
@@ -90,7 +90,7 @@ func TestSupervise(t *testing.T) {
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -156,7 +156,7 @@ func TestUnsupervise(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -191,7 +191,7 @@ func TestStart(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := tokens.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer)
+		e := enforcer.NewDefaultDatapathEnforcer("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
 		impl := mock_supervisor.NewMockImplementor(ctrl)

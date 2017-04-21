@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
@@ -170,13 +171,39 @@ func (p *ProcessMon) KillProcess(contextID string) {
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
 	secretLength := 32
 	var cmdName string
 
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
 		return nil
+	}
+
+	pidstat, pidstaterr := os.Stat(procMountPoint + "/" + strconv.Itoa(refPid) + "/ns/net")
+	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
+	if pidstaterr == nil && hoststaterr == nil {
+		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
+			log.WithFields(log.Fields{
+				"package": "processmon",
+				"Method":  "LaunchProcess",
+				"Error":   "Refuse to launch an enforcer in the host namespace",
+			}).Info("Refused to Launch a remote enforcer in host namespace")
+			return nil
+		}
+	} else {
+		var hosterrstring, piderrstring string
+		if hoststaterr != nil {
+			hosterrstring = hoststaterr.Error()
+		}
+		if pidstaterr != nil {
+			piderrstring = pidstaterr.Error()
+		}
+		log.WithFields(log.Fields{
+			"package":   "processmon",
+			"HostError": hosterrstring,
+			"NetError":  piderrstring,
+		}).Error("Cannot determine namespace of new container")
 	}
 	_, staterr := os.Stat(netnspath)
 	if staterr != nil {
@@ -190,7 +217,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	}
 
 	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
-		linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
+		linkErr := os.Symlink(procMountPoint+"/"+strconv.Itoa(refPid)+"/ns/net",
 			netnspath+contextID)
 		if linkErr != nil {
 			log.WithFields(log.Fields{"package": "ProcessMon",
@@ -198,7 +225,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 			}).Error(ErrSymLinkFailed)
 		}
 	}
-	namedPipe := "SOCKET_PATH=/var/run/" + contextID + ".sock"
+	namedPipe := "APORETO_ENV_SOCKET_PATH=/var/run/" + contextID + ".sock"
 
 	cmdName, _ = osext.Executable()
 	cmdArgs := []string{arg}
@@ -232,11 +259,11 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		//This is a more serious failure. We can't reliably control the remote enforcer
 		return fmt.Errorf("Failed to generate secret %s", err.Error())
 	}
-
-	rpcClientSecret := "SECRET=" + randomkeystring
+	MountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
+	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
 
-	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+	cmd.Env = append(os.Environ(), []string{MountPoint, namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 
 	err = cmd.Start()
 	if err != nil {

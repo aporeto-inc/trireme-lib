@@ -20,11 +20,11 @@ import (
 const KillContainerOnError = true
 
 // ProcessArgs handles all commands options for trireme
-func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProcessor, logLevel log.Level) (err error) {
+func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProcessor) (err error) {
 
 	if arguments["enforce"].(bool) {
 		// Run enforcer and exit
-		return remoteenforcer.LaunchRemoteEnforcer(processor, logLevel)
+		return remoteenforcer.LaunchRemoteEnforcer(processor)
 	}
 
 	if arguments["run"].(bool) || arguments["<cgroup>"] != nil {
