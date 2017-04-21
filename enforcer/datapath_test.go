@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
@@ -181,7 +180,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
 	collector := &collector.DefaultCollector{}
-	enforcer = NewDefaultDatapathEnforcer(serverID, collector, nil, secret, constants.LocalContainer, configurator.DefaultProcMountPoint).(*datapathEnforcer)
+	enforcer = NewDefaultDatapathEnforcer(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
 
 	err1 = enforcer.Enforce(puID1, puInfo1)
 
@@ -627,7 +626,7 @@ func TestCacheState(t *testing.T) {
 
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 	collector := &collector.DefaultCollector{}
-	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, configurator.DefaultProcMountPoint).(*datapathEnforcer)
+	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
 	contextID := "123"
 
 	puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
