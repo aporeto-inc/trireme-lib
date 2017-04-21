@@ -180,7 +180,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
 	collector := &collector.DefaultCollector{}
-	enforcer = NewDefaultDatapathEnforcer(serverID, collector, nil, secret, constants.LocalContainer).(*datapathEnforcer)
+	enforcer = NewDefaultDatapathEnforcer(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
 
 	err1 = enforcer.Enforce(puID1, puInfo1)
 
@@ -198,7 +198,6 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 
 		Convey("Given I create a two processing unit instances", func() {
 			puInfo1, puInfo2, enforcer, err1, err2 := setupProcessingUnitsInDatapathAndEnforce()
-
 
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
