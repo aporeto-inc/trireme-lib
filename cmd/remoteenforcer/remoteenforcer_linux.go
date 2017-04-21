@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
@@ -58,7 +59,7 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 	}
 	procMountPoint := os.Getenv(envProcMountPoint)
 	if len(procMountPoint) == 0 {
-		procMountPoint = "/proc"
+		procMountPoint = configurator.DefaultProcMountPoint
 	}
 	return &Server{
 		Service:        service,

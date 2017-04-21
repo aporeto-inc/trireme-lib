@@ -176,7 +176,7 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 	return false
 }
 
-func mountcgroupcontroller() {
+func mountCgroupController() {
 	mounts, _ := ioutil.ReadFile("/proc/mounts")
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
 	for sc.Scan() {
@@ -212,7 +212,7 @@ func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	if releasePath != "" {
 		controller.ReleaseAgentPath = releasePath
 	}
-	mountcgroupcontroller()
+	mountCgroupController()
 	return controller
 }
 
