@@ -184,17 +184,16 @@ func mountCgroupController() {
 	for sc.Scan() {
 		if strings.HasPrefix(sc.Text(), "cgroup") {
 			cgroupMount = strings.Split(sc.Text(), " ")[1]
-			cgroupMount = cgroupMount[:strings.LastIndex(basePath, "/")]
+			cgroupMount = cgroupMount[:strings.LastIndex(cgroupMount, "/")]
 			if strings.Contains(sc.Text(), "net_cls") {
 				basePath = strings.Split(sc.Text(), " ")[1]
 				net_cls = true
-				fmt.Println("BASE PATH", basePath)
 				return
 			}
 		}
 
 	}
-	
+
 	if len(cgroupMount) == 0 {
 		log.WithFields(log.Fields{
 			"package": "cgnetcls",
@@ -206,7 +205,6 @@ func mountCgroupController() {
 		basePath = cgroupMount + "/net_cls"
 		os.MkdirAll(basePath, 0700)
 		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
-		fmt.Println("basepath", basePath)
 		return
 
 	}
