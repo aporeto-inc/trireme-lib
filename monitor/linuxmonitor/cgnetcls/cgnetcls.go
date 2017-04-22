@@ -35,7 +35,7 @@ const (
 	initialmarkval       = 100
 )
 
-var basePath string = "/sys/fs/cgroup/net_cls"
+var basePath = "/sys/fs/cgroup/net_cls"
 var markval uint64 = initialmarkval
 
 //Empty receiver struct
@@ -179,7 +179,7 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 func mountCgroupController() {
 	mounts, _ := ioutil.ReadFile("/proc/mounts")
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
-	var net_cls bool = false
+	var netCls = false
 	var cgroupMount string
 	for sc.Scan() {
 		if strings.HasPrefix(sc.Text(), "cgroup") {
