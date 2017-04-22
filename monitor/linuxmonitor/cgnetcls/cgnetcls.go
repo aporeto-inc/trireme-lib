@@ -187,7 +187,7 @@ func mountCgroupController() {
 			cgroupMount = cgroupMount[:strings.LastIndex(cgroupMount, "/")]
 			if strings.Contains(sc.Text(), "net_cls") {
 				basePath = strings.Split(sc.Text(), " ")[1]
-				net_cls = true
+				netCls = true
 				return
 			}
 		}
@@ -201,7 +201,7 @@ func mountCgroupController() {
 		}).Error("Cgroups are not enabled or net_cls is not mounted")
 		return
 	}
-	if !net_cls {
+	if !netCls {
 		basePath = cgroupMount + "/net_cls"
 		os.MkdirAll(basePath, 0700)
 		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
