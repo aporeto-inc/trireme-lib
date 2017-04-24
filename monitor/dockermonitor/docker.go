@@ -202,13 +202,14 @@ func (d *dockerMonitor) Start() error {
 
 	// Starting the eventListener First.
 	errChan := make(chan error, 1)
+	defer close(errChan)
 	go d.eventListener(errChan)
 	//This channel is only for catching startup errors
 	//We don't listen to this channel later or push anything to this channel
 	if eventErr := <-errChan; eventErr != nil {
 		return eventErr
 	}
-	close(errChan)
+
 	//Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
 		err := d.syncContainers()
