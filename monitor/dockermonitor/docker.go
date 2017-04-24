@@ -286,9 +286,9 @@ func (d *dockerMonitor) eventListener(errChan chan error) {
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
 	err := <-errs
-
 	errChan <- err
-	//ErrChan is not avaialble after this status post and close by the receiver
+	//ErrChan is not available after this status post and close by the receiver
+	//Startup error is handled differently for other errors we just debug logs
 	for {
 		select {
 		case message := <-messages:
