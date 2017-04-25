@@ -79,8 +79,8 @@ func collectChildExitStatus() {
 
 	for {
 		exitStatus := <-childExitStatus
-		zap.L().Debug("Enforcer exited",
-			zap.String("contextID", exitStatus.contextID),
+		zap.L().Info("Remote enforcer exited",
+			zap.String("nativeContextID", exitStatus.contextID),
 			zap.Int("pid", exitStatus.process),
 			zap.Error(exitStatus.exitStatus),
 		)
