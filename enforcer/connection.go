@@ -58,10 +58,6 @@ func (c *TCPConnection) SetReported() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if log.GetLevel() < log.DebugLevel {
-		return
-	}
-
 	// Logging information
 	reported := "flow-reported:"
 	if c.flowReported {
@@ -69,6 +65,11 @@ func (c *TCPConnection) SetReported() {
 	} else {
 		c.flowReported = true
 	}
+
+	if log.GetLevel() < log.DebugLevel {
+		return
+	}
+
 	authStr := fmt.Sprintf(" (%+v)", c.Auth)
 	reported = reported + authStr
 
@@ -94,14 +95,6 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup(expiration bool) {
 
-	if !expiration {
-		return
-	}
-
-	if log.GetLevel() < log.DebugLevel {
-		return
-	}
-
 	// Logging information
 	if !c.flowReported {
 
@@ -115,6 +108,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 		}
 		log.WithFields(log.Fields{
 			"package":         "enforcer",
+			"expiring":        expiration,
 			"connectionState": c.state,
 			"authInfo":        authStr,
 			"logs":            logStr,
