@@ -238,6 +238,11 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 	var timer *time.Timer
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
+			if val, err := c.Get(u); err != nil {
+				if _, ok := val.(Cleanable); ok {
+					val.(Cleanable).Cleanup(true)
+				}
+			}
 			if err := c.Remove(u); err != nil {
 				log.WithFields(log.Fields{
 					"package": "cache",
