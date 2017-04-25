@@ -40,10 +40,15 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	authStr := fmt.Sprintf("%+v", c.Auth)
-	stateChange := fmt.Sprintf("%d -> %d %s", c.state, state, authStr)
-
 	c.state = state
+
+	if log.GetLevel() < log.DebugLevel {
+		return
+	}
+
+	// Logging information
+	authStr := fmt.Sprintf("%+v", c.Auth)
+	stateChange := fmt.Sprintf("set-state: %d -> %d (%s)", c.state, state, authStr)
 	c.logs = append(c.logs, stateChange)
 }
 
@@ -53,14 +58,18 @@ func (c *TCPConnection) SetReported() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	reported := "FlowReported"
+	if log.GetLevel() < log.DebugLevel {
+		return
+	}
+
+	// Logging information
+	reported := "flow-reported:"
 	if c.flowReported {
 		reported = reported + " Again ! (Error)"
 	} else {
 		c.flowReported = true
 	}
-
-	authStr := fmt.Sprintf("%+v", c.Auth)
+	authStr := fmt.Sprintf(" (%+v)", c.Auth)
 	reported = reported + authStr
 
 	c.logs = append(c.logs, reported)
@@ -72,14 +81,24 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	if log.GetLevel() < log.DebugLevel {
+		return
+	}
+
+	// Logging information
 	authStr := fmt.Sprintf("%+v", c.Auth)
-	pktLog := fmt.Sprintf("[%s] %s state:%d %s", flowHash, tcpFlags, c.state, authStr)
+	pktLog := fmt.Sprintf("pkt-registered: [%s] tcpf:%s state:%d (%s)", flowHash, tcpFlags, c.state, authStr)
 	c.logs = append(c.logs, pktLog)
 }
 
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup() {
 
+	if log.GetLevel() < log.DebugLevel {
+		return
+	}
+
+	// Logging information
 	if !c.flowReported {
 
 		c.mutex.Lock()
@@ -88,7 +107,7 @@ func (c *TCPConnection) Cleanup() {
 		authStr := fmt.Sprintf("%+v", c.Auth)
 		logStr := ""
 		for i, v := range c.logs {
-			logStr = logStr + fmt.Sprintf("[%05d]: %s", i, v)
+			logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
 		}
 		log.WithFields(log.Fields{
 			"package":         "enforcer",
