@@ -36,10 +36,12 @@ func (c *TCPConnection) GetState() TCPFlowState {
 
 // SetState is used to setup the state for the TCP connection
 func (c *TCPConnection) SetState(state TCPFlowState) {
-	stateChange := fmt.Sprintf("%d -> %d", c.state, state)
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+
+	authStr := fmt.Sprintf("%+v", c.Auth)
+	stateChange := fmt.Sprintf("%d -> %d %s", c.state, state, authStr)
 
 	c.state = state
 	c.logs = append(c.logs, stateChange)
@@ -47,6 +49,10 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 
 // SetReported is used to track if a flow is reported
 func (c *TCPConnection) SetReported() {
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	reported := "FlowReported"
 	if c.flowReported {
 		reported = reported + " Again ! (Error)"
@@ -54,8 +60,8 @@ func (c *TCPConnection) SetReported() {
 		c.flowReported = true
 	}
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	authStr := fmt.Sprintf("%+v", c.Auth)
+	reported = reported + authStr
 
 	c.logs = append(c.logs, reported)
 }
@@ -63,11 +69,11 @@ func (c *TCPConnection) SetReported() {
 // SetPacketInfo is used to setup the state for the TCP connection
 func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 
-	pktLog := fmt.Sprintf("[%s] %s", flowHash, tcpFlags)
-
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
+	authStr := fmt.Sprintf("%+v", c.Auth)
+	pktLog := fmt.Sprintf("[%s] %s state:%d %s", flowHash, tcpFlags, c.state, authStr)
 	c.logs = append(c.logs, pktLog)
 }
 
