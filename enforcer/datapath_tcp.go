@@ -776,7 +776,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		}
 
 		//We have  connection established lets remove the destinationport cache entry
-		d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+		d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork)) //nolint
 
 		// Packet can be forwarded
 		return nil, nil
