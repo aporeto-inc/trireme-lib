@@ -92,7 +92,11 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 }
 
 // Cleanup will provide information when a connection is removed by a timer.
-func (c *TCPConnection) Cleanup() {
+func (c *TCPConnection) Cleanup(expiration bool) {
+
+	if !expiration {
+		return
+	}
 
 	if log.GetLevel() < log.DebugLevel {
 		return

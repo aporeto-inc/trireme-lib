@@ -21,7 +21,7 @@ type DataStore interface {
 // Cleanable is an interface that could be implemented by elements being
 // inserted in cache with expiration
 type Cleanable interface {
-	Cleanup()
+	Cleanup(timer bool)
 }
 
 // Cache is the structure that involves the map of entries. The cache
@@ -67,6 +67,11 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 	var timer *time.Timer
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
+			if val, err := c.Get(u); err != nil {
+				if _, ok := val.(Cleanable); ok {
+					val.(Cleanable).Cleanup(true)
+				}
+			}
 			if err := c.Remove(u); err != nil {
 				log.WithFields(log.Fields{
 					"package": "cache",
@@ -101,6 +106,11 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 	var timer *time.Timer
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
+			if val, err := c.Get(u); err != nil {
+				if _, ok := val.(Cleanable); ok {
+					val.(Cleanable).Cleanup(true)
+				}
+			}
 			if err := c.Remove(u); err != nil {
 				log.WithFields(log.Fields{
 					"package": "cache",
@@ -141,6 +151,11 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 	var timer *time.Timer
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
+			if val, err := c.Get(u); err != nil {
+				if _, ok := val.(Cleanable); ok {
+					val.(Cleanable).Cleanup(true)
+				}
+			}
 			if err := c.Remove(u); err != nil {
 				log.WithFields(log.Fields{
 					"package": "cache",
@@ -200,7 +215,7 @@ func (c *Cache) Remove(u interface{}) (err error) {
 	}
 
 	if _, ok := val.value.(Cleanable); ok {
-		val.value.(Cleanable).Cleanup()
+		val.value.(Cleanable).Cleanup(false)
 	}
 
 	delete(c.data, u)
