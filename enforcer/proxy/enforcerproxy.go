@@ -84,14 +84,14 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 //Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
 func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	zap.L().Info("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
+	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
 
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
 	if err != nil {
 		return err
 	}
 
-	zap.L().Info("Called enforce and launched process", zap.String("contextID", contextID))
+	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
 
 	if _, ok := s.initDone[contextID]; !ok {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {

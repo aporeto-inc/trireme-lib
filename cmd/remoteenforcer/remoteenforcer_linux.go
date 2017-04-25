@@ -121,7 +121,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return errors.New(resp.Status)
 	}
 
-	zap.L().Info("Remote enforcer launched",
+	zap.L().Debug("Remote enforcer launched",
 		zap.String("nsLogs", nsEnterLogMsg),
 	)
 

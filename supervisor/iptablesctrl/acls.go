@@ -497,7 +497,7 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues); err != nil {
 
-		zap.L().Warn("Can not clear the SynAck packet capcture app chain", zap.Error(err))
+		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
 	}
 
 	if err := i.ipt.Delete(
@@ -506,7 +506,7 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues); err != nil {
 
-		zap.L().Warn("Can not clear the SynAck packet capcture net chain", zap.Error(err))
+		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
 
 	return nil
@@ -516,11 +516,11 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 func (i *Instance) CleanAllSynAckPacketCaptures() error {
 
 	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableContext); err != nil {
-		zap.L().Warn("Can not clear the SynAck packet capcture app chain", zap.Error(err))
+		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
 	}
 
 	if err := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
-		zap.L().Warn("Can not clear the SynAck packet capcture net chain", zap.Error(err))
+		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
 
 	return nil
