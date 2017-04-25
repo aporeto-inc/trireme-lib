@@ -213,6 +213,12 @@ func (d *dockerMonitor) Start() error {
 				"error":   err.Error(),
 			}).Error("Error Syncing existingContainers")
 		}
+		if err != nil {
+			log.WithFields(log.Fields{
+				"package": "dockermonitor",
+				"error":   err.Error(),
+			}).Debug("Error Syncing")
+		}
 	}
 
 	// Processing the events received duringthe time of Sync.
@@ -278,6 +284,7 @@ func (d *dockerMonitor) eventListener() {
 	options.Filters.Add("type", "container")
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
+
 	for {
 		select {
 		case message := <-messages:
@@ -294,6 +301,10 @@ func (d *dockerMonitor) eventListener() {
 					"package": "monitor",
 					"error":   err.Error(),
 				}).Debug("Received docker event error")
+			}
+			if err != nil {
+				log.Entry.Debug("Events Error")
+				log.Entry.Debug(err.Error())
 			}
 		case stop := <-d.stoplistener:
 			if stop {
