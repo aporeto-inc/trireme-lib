@@ -278,8 +278,6 @@ func (d *dockerMonitor) eventListener() {
 	options.Filters.Add("type", "container")
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
-	//ErrChan is not available after this status post and close by the receiver
-	//Startup error is handled differently for other errors we just debug logs
 	for {
 		select {
 		case message := <-messages:
