@@ -201,14 +201,7 @@ func (d *dockerMonitor) Start() error {
 	}).Debug("Starting the docker monitor")
 
 	// Starting the eventListener First.
-	errChan := make(chan error, 1)
-	defer close(errChan)
-	go d.eventListener(errChan)
-	//This channel is only for catching startup errors
-	//We don't listen to this channel later or push anything to this channel
-	if eventErr := <-errChan; eventErr != nil {
-		return eventErr
-	}
+	go d.eventListener()
 
 	//Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
@@ -279,15 +272,13 @@ func (d *dockerMonitor) eventProcessor() {
 // eventListener listens to Docker events from the daemon and passes to
 // to the processor through a buffered channel. This minimizes the chances
 // that we will miss events because the processor is delayed
-func (d *dockerMonitor) eventListener(errChan chan error) {
+func (d *dockerMonitor) eventListener() {
 
 	options := types.EventsOptions{}
 	options.Filters = filters.NewArgs()
 	options.Filters.Add("type", "container")
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
-	err := <-errs
-	errChan <- err
 	//ErrChan is not available after this status post and close by the receiver
 	//Startup error is handled differently for other errors we just debug logs
 	for {
