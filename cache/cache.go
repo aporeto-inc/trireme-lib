@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // DataStore is the interface to a datastore.
@@ -68,11 +68,7 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
 			if err := c.Remove(u); err != nil {
-				log.WithFields(log.Fields{
-					"package": "cache",
-					"cache":   c,
-					"data":    u,
-				}).Warn("Failed to remove item")
+				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
 			}
 		})
 	}
@@ -102,11 +98,7 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
 			if err := c.Remove(u); err != nil {
-				log.WithFields(log.Fields{
-					"package": "cache",
-					"cache":   c,
-					"data":    u,
-				}).Warn("Failed to remove item")
+				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
 			}
 		})
 	}
@@ -142,11 +134,7 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
 			if err := c.Remove(u); err != nil {
-				log.WithFields(log.Fields{
-					"package": "cache",
-					"cache":   c,
-					"data":    u,
-				}).Warn("Failed to remove item")
+				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
 			}
 		})
 	}
@@ -224,11 +212,7 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
 			if err := c.Remove(u); err != nil {
-				log.WithFields(log.Fields{
-					"package": "cache",
-					"cache":   c,
-					"data":    u,
-				}).Warn("Failed to remove item")
+				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
 			}
 		})
 	}
@@ -260,11 +244,13 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 // DumpStore prints the whole data store for debuggin
 func (c *Cache) DumpStore() {
 
-	for u := range c.data {
-		log.WithFields(log.Fields{
-			"package": "cache",
-			"cache":   c,
-			"data":    u,
-		}).Debug("Current data of the cache")
-	}
+	zap.L().Warn("Dumping store is deprecated.")
+	// This is not good.
+	// for u := range c.data {
+	// 	log.WithFields(log.Fields{
+	// 		"package": "cache",
+	// 		"cache":   c,
+	// 		"data":    u,
+	// 	}).Debug("Current data of the cache")
+	// }
 }

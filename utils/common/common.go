@@ -4,13 +4,13 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 var (
@@ -24,24 +24,24 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 	// Load client cert
 	certPEM, err := ioutil.ReadFile(certFile)
 	if err != nil {
-		log.Fatal(err)
+		zap.L().Fatal(err.Error())
 	}
 
 	// Load key
 	keyPEM, err := ioutil.ReadFile(keyFile)
 	if err != nil {
-		log.Fatal(err)
+		zap.L().Fatal(err.Error())
 	}
 
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
-		log.Fatalf("Failed to read key PEM ")
+		zap.L().Fatal("Failed to read key PEM")
 	}
 
 	// Load CA cert
 	caCertPEM, err := ioutil.ReadFile(caCertFile)
 	if err != nil {
-		log.Fatalf("%s", err)
+		zap.L().Fatal(err.Error())
 	}
 
 	policyEngine := NewCustomPolicyResolver(networks)
@@ -49,7 +49,7 @@ func TriremeWithPKI(keyFile, certFile, caCertFile string, networks []string, ext
 	t, m, p := configurator.NewPKITriremeWithDockerMonitor("Server1", policyEngine, ExternalProcessor, nil, false, keyPEM, certPEM, caCertPEM, *extractor, remoteEnforcer, killContainerError)
 
 	if err := p.PublicKeyAdd("Server1", certPEM); err != nil {
-		log.Fatal(err)
+		zap.L().Fatal(err.Error())
 	}
 
 	return t, m

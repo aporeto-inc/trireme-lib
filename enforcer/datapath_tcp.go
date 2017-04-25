@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -30,11 +31,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 		if !d.service.PreProcessTCPNetPacket(p) {
 			d.netTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
-
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Debug("Pre service processing failed for network packet")
-			return fmt.Errorf("Pre service processing failed")
+			return fmt.Errorf("Pre service processing failed for network packet")
 		}
 	}
 
@@ -45,12 +42,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 	if err != nil {
 		d.netTCP.AuthDropPackets++
 		p.Print(packet.PacketFailureAuth)
-
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"error":   err.Error(),
-		}).Debug("Packet processing failed for network packet")
-		return err
+		return fmt.Errorf("Packet processing failed for network packet: %s", err.Error())
 	}
 
 	p.Print(packet.PacketStageService)
@@ -60,11 +52,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 		if !d.service.PostProcessTCPNetPacket(p, action) {
 			d.netTCP.ServicePostDropPackets++
 			p.Print(packet.PacketFailureService)
-
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Debug("Post service processing failed for network packet")
-			return fmt.Errorf("Post service processing failed")
+			return fmt.Errorf("PostPost service processing failed for network packet")
 		}
 	}
 
@@ -80,12 +68,11 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	// Skip SynAck packets for connections that we are not processing
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
 		if _, err := d.destinationPortCache.Get(p.DestinationPortHash(packet.PacketTypeApplication)); err != nil {
-
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-				"flow":    p.L4FlowHash(),
-				"key":     p.DestinationPortHash(packet.PacketTypeApplication),
-			}).Debug("Early exit destination port cache miss")
+			zap.L().Debug("Early exit destination port cache miss",
+				zap.String("flow", p.L4FlowHash()),
+				zap.String("key", p.DestinationPortHash(packet.PacketTypeApplication)),
+				zap.Error(err),
+			)
 			return nil
 		}
 	}
@@ -98,11 +85,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 		if !d.service.PreProcessTCPAppPacket(p) {
 			d.appTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
-
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Debug("Pre service processing failed for application packet")
-			return fmt.Errorf("Pre service processing failed")
+			return fmt.Errorf("Pre service processing failed for application packet")
 		}
 	}
 
@@ -113,12 +96,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 	if err != nil {
 		d.appTCP.AuthDropPackets++
 		p.Print(packet.PacketFailureAuth)
-
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"error":   err.Error(),
-		}).Debug("Processing failed for application packet")
-		return err
+		return fmt.Errorf("Processing failed for application packet: %s", err.Error())
 	}
 
 	p.Print(packet.PacketStageService)
@@ -128,11 +106,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 		if !d.service.PostProcessTCPAppPacket(p, action) {
 			d.appTCP.ServicePostDropPackets++
 			p.Print(packet.PacketFailureService)
-
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Debug("Post service processing failed for application packet")
-			return fmt.Errorf("Post service processing failed")
+			return fmt.Errorf("Post service processing failed for application packet")
 		}
 	}
 
@@ -262,7 +236,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		return nil, nil
 	}
 
-	return nil, fmt.Errorf("Received SynACK in wrong state ")
+	return nil, fmt.Errorf("Received SynACK in wrong state")
 }
 
 func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet) (interface{}, error) {
@@ -272,12 +246,12 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 
 	if cerr != nil {
 		// Let these ACK packets through
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"sip":     tcpPacket.SourceAddress.String(),
-			"mark":    tcpPacket.Mark,
-			"dport":   strconv.Itoa(int(tcpPacket.DestinationPort)),
-		}).Debug("Early exit no context found from IP")
+		zap.L().Debug("Early exit no context found from IP",
+			zap.Stringer("sip", tcpPacket.SourceAddress),
+			zap.String("mark", tcpPacket.Mark),
+			zap.Uint16("dport", tcpPacket.DestinationPort),
+			zap.Error(cerr),
+		)
 		return nil, nil
 	}
 
@@ -285,10 +259,10 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	c, err := d.appConnectionTracker.Get(tcpPacket.L4FlowHash())
 	if err != nil {
 		// Untracked connection. Let it go through
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"flow":    tcpPacket.L4FlowHash(),
-		}).Debug("Early exit no connection found from flow")
+		zap.L().Debug("Early exit no connection found from flow",
+			zap.String("flow", tcpPacket.L4FlowHash()),
+			zap.Error(err),
+		)
 		return nil, nil
 	}
 
@@ -324,28 +298,23 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		//Delete the state at this point .. There is a small chance that both packets are lost
 		// and the other side will send us SYNACK again .. TBD if we need to change this
 		if err := d.contextConnectionTracker.Remove(string(connection.Auth.LocalContext)); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Warn("Failed to clean up cache state")
+			zap.L().Warn("Failed to clean up cache state", zap.Error(err))
 		}
 		if err := d.appConnectionTracker.Remove(tcpPacket.L4FlowHash()); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Warn("Failed to clean up cache state")
+			zap.L().Warn("Failed to clean up cache state", zap.Error(err))
 		}
 		//Remove the sourceport cache entry here
 		if err := d.sourcePortCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
-			log.WithFields(log.Fields{
-				"package":       "enforcer",
-				"src-port-hash": tcpPacket.SourcePortHash(packet.PacketTypeApplication),
-			}).Warn("Failed to clean up cache state")
+			zap.L().Warn("Failed to clean up cache state",
+				zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
+				zap.Error(err),
+			)
 		}
-		log.WithFields(log.Fields{
-			"package":       "enforcer",
-			"context":       string(connection.Auth.LocalContext),
-			"app-conn":      tcpPacket.L4FlowHash(),
-			"src-port-hash": tcpPacket.SourcePortHash(packet.PacketTypeApplication),
-		}).Debug("Caches maybe clean")
+		zap.L().Debug("Caches maybe clean",
+			zap.String("context", string(connection.Auth.LocalContext)),
+			zap.String("app-conn", tcpPacket.L4FlowHash()),
+			zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
+		)
 		return nil, nil
 	}
 
@@ -547,7 +516,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 			DestinationPort: tcpPacket.DestinationPort,
 		})
 
-		return nil, fmt.Errorf("Synack  packet dropped because of bad claims %v", claims)
+		return nil, fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
 	}
 
 	// We always a need a valid remote context ID
@@ -659,9 +628,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	hash := tcpPacket.L4FlowHash()
 	c, err := d.networkConnectionTracker.Get(hash)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Debug("Ignore the packet")
+		zap.L().Debug("Ignore the packet", zap.Error(err))
 		return nil, nil
 	}
 
@@ -729,24 +696,19 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		tcpPacket.UpdateTCPChecksum()
 
 		if err := d.networkConnectionTracker.Remove(hash); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Warn("Failed to clean up cache state from network connection tracker")
+			zap.L().Warn("Failed to clean up cache state from network connection tracker", zap.Error(err))
 		}
 
 		//We have  connection established lets remove the destinationport cache entry
 		if err := d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork)); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Warn("Failed to clean destination port cache")
+			zap.L().Warn("Failed to clean destination port cache", zap.Error(err))
 		}
 
-		log.WithFields(log.Fields{
-			"package":        "enforcer",
-			"context":        string(connection.Auth.LocalContext),
-			"net-conn":       hash,
-			"dest-port-hash": tcpPacket.DestinationPortHash(packet.PacketTypeNetwork),
-		}).Debug("Caches maybe clean")
+		zap.L().Debug("Caches maybe clean",
+			zap.String("context", string(connection.Auth.LocalContext)),
+			zap.String("net-conn", hash),
+			zap.String("dest-port-hash", tcpPacket.DestinationPortHash(packet.PacketTypeNetwork)),
+		)
 
 		// We accept the packet as a new flow
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
@@ -770,9 +732,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	if connection.State == TCPAckProcessed {
 		// Safe to delete the state
 		if err := d.networkConnectionTracker.Remove(hash); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-			}).Warn("Failed to clean up cache state from network connection tracker")
+			zap.L().Warn("Failed to clean up cache state from network connection tracker", zap.Error(err))
 		}
 
 		//We have  connection established lets remove the destinationport cache entry
