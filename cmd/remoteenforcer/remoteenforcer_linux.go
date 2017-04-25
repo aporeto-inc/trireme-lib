@@ -242,7 +242,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
 		zap.L().Error("Unable to initialize supervisor",
-			zap.String(payload.ContextID),
+			zap.String("ContextID", payload.ContextID),
 			zap.Error(err),
 		)
 		resp.Status = err.Error()
