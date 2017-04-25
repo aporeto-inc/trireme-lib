@@ -308,7 +308,7 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		return err
 	}
 
-	zap.Debug("Enforcer enabled", zap.String("contextID", payload.ContextID))
+	zap.L().Debug("Enforcer enabled", zap.String("contextID", payload.ContextID))
 
 	resp.Status = ""
 
