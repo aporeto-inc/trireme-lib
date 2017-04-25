@@ -500,6 +500,55 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 	})
 }
 
+func TestConnectionTrackerState(t *testing.T) {
+	SIP := net.IPv4zero
+	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
+		Convey("Given I create a two processing unit instances", func() {
+			puInfo1, puInfo2, enforcer, err1, err2 := setupProcessingUnitsInDatapathAndEnforce()
+
+			So(puInfo1, ShouldNotBeNil)
+			So(puInfo2, ShouldNotBeNil)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			i := 0 /*first packet in TCPFLOW slice is a syn packet*/
+			Convey("When i pass a syn packet through the enforcer", func() {
+				input := make([]byte, len(TCPFlow[i]))
+				start := make([]byte, len(TCPFlow[i]))
+				copy(input, TCPFlow[i])
+				copy(start, TCPFlow[i])
+				oldPacket, err := packet.New(0, start, "0")
+				if err == nil && oldPacket != nil {
+					oldPacket.UpdateIPChecksum()
+					oldPacket.UpdateTCPChecksum()
+				}
+				tcpPacket, err := packet.New(0, input, "0")
+				if err == nil && tcpPacket != nil {
+					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateTCPChecksum()
+				}
+				if debug {
+					fmt.Println("Input packet", i)
+					tcpPacket.Print(0)
+				}
+
+				So(err, ShouldBeNil)
+				So(tcpPacket, ShouldNotBeNil)
+
+				if reflect.DeepEqual(SIP, net.IPv4zero) {
+					SIP = tcpPacket.SourceAddress
+				}
+				if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
+					!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+					t.Error("Invalid Test Packet")
+				}
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+				_, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+
+			})
+		})
+	})
+}
 func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 	SIP := net.IPv4zero
