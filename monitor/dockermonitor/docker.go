@@ -212,7 +212,6 @@ func (d *dockerMonitor) Start() error {
 				"package": "monitor",
 				"error":   err.Error(),
 			}).Error("Error Syncing existingContainers")
-			return err
 		}
 	}
 
