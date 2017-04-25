@@ -766,19 +766,6 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 	}
 
-	// Everything else is dropped
-	d.collector.CollectFlowEvent(&collector.FlowRecord{
-		ContextID:       context.ID,
-		DestinationID:   context.ManagementID,
-		Tags:            context.Annotations,
-		Action:          collector.FlowReject,
-		Mode:            collector.InvalidState,
-		SourceID:        connection.Auth.RemoteContextID,
-		SourceIP:        tcpPacket.SourceAddress.String(),
-		DestinationIP:   tcpPacket.DestinationAddress.String(),
-		DestinationPort: tcpPacket.DestinationPort,
-	})
-
 	// Catch the first request packets
 	if connection.State == TCPAckProcessed {
 		// Safe to delete the state
@@ -790,8 +777,23 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		//We have  connection established lets remove the destinationport cache entry
 		d.destinationPortCache.Remove(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+
+		// Packet can be forwarded
 		return nil, nil
 	}
+
+	// Everything else is dropped - ACK received in the Syn state without a SynAck
+	d.collector.CollectFlowEvent(&collector.FlowRecord{
+		ContextID:       context.ID,
+		DestinationID:   context.ManagementID,
+		Tags:            context.Annotations,
+		Action:          collector.FlowReject,
+		Mode:            collector.InvalidState,
+		SourceID:        connection.Auth.RemoteContextID,
+		SourceIP:        tcpPacket.SourceAddress.String(),
+		DestinationIP:   tcpPacket.DestinationAddress.String(),
+		DestinationPort: tcpPacket.DestinationPort,
+	})
 
 	return nil, fmt.Errorf("Ack packet dropped - no matching rules")
 }
