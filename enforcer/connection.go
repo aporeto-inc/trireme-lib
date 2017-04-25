@@ -1,6 +1,12 @@
 package enforcer
 
-import "github.com/aporeto-inc/trireme/crypto"
+import (
+	"fmt"
+	"sync"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/crypto"
+)
 
 // AuthInfo keeps authentication information about a connection
 type AuthInfo struct {
@@ -14,15 +20,86 @@ type AuthInfo struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
-	State TCPFlowState
+	state TCPFlowState
 	Auth  AuthInfo
+
+	// Debugging Information
+	mutex        sync.Mutex
+	flowReported bool
+	logs         []string
+}
+
+// GetState is used to return the state
+func (c *TCPConnection) GetState() TCPFlowState {
+	return c.state
+}
+
+// SetState is used to setup the state for the TCP connection
+func (c *TCPConnection) SetState(state TCPFlowState) {
+	stateChange := fmt.Sprintf("%d -> %d", c.state, state)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.state = state
+	c.logs = append(c.logs, stateChange)
+}
+
+// SetReported is used to track if a flow is reported
+func (c *TCPConnection) SetReported() {
+	reported := "FlowReported"
+	if c.flowReported {
+		reported = reported + " Again ! (Error)"
+	} else {
+		c.flowReported = true
+	}
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.logs = append(c.logs, reported)
+}
+
+// SetPacketInfo is used to setup the state for the TCP connection
+func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
+
+	pktLog := fmt.Sprintf("[%s] %s", flowHash, tcpFlags)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	c.logs = append(c.logs, pktLog)
+}
+
+// Cleanup will provide information when a connection is removed by a timer.
+func (c *TCPConnection) Cleanup() {
+
+	if !c.flowReported {
+
+		c.mutex.Lock()
+		defer c.mutex.Unlock()
+
+		authStr := fmt.Sprintf("%+v", c.Auth)
+		logStr := ""
+		for i, v := range c.logs {
+			logStr = logStr + fmt.Sprintf("[%05d]: %s", i, v)
+		}
+		log.WithFields(log.Fields{
+			"package":         "enforcer",
+			"connectionState": c.state,
+			"authInfo":        authStr,
+			"logs":            logStr,
+		}).Error("Connection not reported")
+	}
 }
 
 // NewTCPConnection returns a TCPConnection information struct
 func NewTCPConnection() *TCPConnection {
 
 	c := &TCPConnection{
-		State: TCPSynSend,
+		state: TCPSynSend,
+		mutex: sync.Mutex{},
+		logs:  make([]string, 0),
 	}
 	initConnection(&c.Auth)
 	return c
