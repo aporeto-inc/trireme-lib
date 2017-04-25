@@ -197,7 +197,7 @@ func (p *Packet) Print(context uint64) {
 	}
 
 	if print {
-		zap.L().Info(buf)
+		zap.L().Debug(buf)
 	}
 }
 

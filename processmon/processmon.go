@@ -79,7 +79,7 @@ func collectChildExitStatus() {
 
 	for {
 		exitStatus := <-childExitStatus
-		zap.L().Info("Remote enforcer exited",
+		zap.L().Debug("Remote enforcer exited",
 			zap.String("nativeContextID", exitStatus.contextID),
 			zap.Int("pid", exitStatus.process),
 			zap.Error(exitStatus.exitStatus),
@@ -137,7 +137,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		zap.L().Info("Process already killed or never launched")
+		zap.L().Debug("Process already killed or never launched")
 		return
 	}
 	req := &rpcwrapper.Request{}
@@ -172,7 +172,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-			zap.L().Info("Refused to Launch a remote enforcer in host namespace")
+			zap.L().Error("Refused to launch a remote enforcer in host namespace")
 			return nil
 		}
 	} else {

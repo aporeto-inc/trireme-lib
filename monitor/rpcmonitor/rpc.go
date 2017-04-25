@@ -198,7 +198,7 @@ func (r *RPCMonitor) Start() error {
 
 	var err error
 
-	zap.L().Info("Starting RPC monitor", zap.String("address", r.rpcAddress))
+	zap.L().Debug("Starting RPC monitor", zap.String("address", r.rpcAddress))
 
 	// Check if we had running units when we last died
 	if err = r.reSync(); err != nil {
