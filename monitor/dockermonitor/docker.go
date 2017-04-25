@@ -303,8 +303,9 @@ func (d *dockerMonitor) eventListener() {
 				}).Debug("Received docker event error")
 			}
 			if err != nil {
-				log.Entry.Debug("Events Error")
-				log.Entry.Debug(err.Error())
+				log.WithFields(log.Fields{
+					"package": "Event Errors",
+				}).Debug("Events Error")
 			}
 		case stop := <-d.stoplistener:
 			if stop {
