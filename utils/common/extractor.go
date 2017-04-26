@@ -10,7 +10,6 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/docker/docker/api/types"
 
-	log "github.com/Sirupsen/logrus"
 	dockerClient "github.com/docker/docker/client"
 )
 
@@ -22,12 +21,7 @@ func SwarmExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
 	cli, err := dockerClient.NewClient("unix:///var/run/docker.sock", "v1.23", nil, defaultHeaders)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"Package": "main",
-			"error":   err.Error(),
-		}).Debug("Failed to open docker connection")
-
-		return nil, fmt.Errorf("Error creating Docker Client %s", err)
+		return nil, fmt.Errorf("Error creating Docker client %s", err)
 	}
 
 	// Get the labels from Docker. If it is a swarm service, get the labels from
@@ -39,11 +33,7 @@ func SwarmExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
 		service, _, err := cli.ServiceInspectWithRaw(context.Background(), serviceID)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"Package": "main",
-				"error":   err.Error(),
-			}).Debug("Failed get swarm labels")
-			return nil, fmt.Errorf("Error creating Docker Client %s", err)
+			return nil, fmt.Errorf("Failed get swarm labels: %s", err)
 		}
 
 		dockerLabels = service.Spec.Labels

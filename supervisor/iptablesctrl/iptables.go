@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
@@ -174,15 +175,11 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 	}
 
 	if derr != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-		}).Warn("Failed to clean rules")
+		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
 	if err := i.deleteAllContainerChains(appChain, netChain); err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-		}).Warn("Failed to clean container chains while deleting the rules")
+		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 
 	return nil
@@ -281,17 +278,11 @@ func (i *Instance) Start() error {
 
 	// Clean any previous ACLs
 	if err := i.cleanACLs(); err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-		}).Warn("Failed to clean previous acls while starting the supervisor")
+		zap.L().Warn("Failed to clean previous acls while starting the supervisor", zap.Error(err))
 	}
 
 	if i.mode == constants.LocalContainer {
 		if i.acceptMarkedPackets() != nil {
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-			}).Debug("Cannot filter marked packets. Abort")
-
 			return fmt.Errorf("Filter of marked packets was not set")
 		}
 	}
@@ -299,31 +290,24 @@ func (i *Instance) Start() error {
 	// Explicit rule to capture all SynAck packets
 	if i.mode != constants.LocalContainer {
 		if err := i.CaptureSYNACKPackets(); err != nil {
-			log.WithFields(log.Fields{"package": "supervisor",
-				"Error": err.Error(),
-			}).Debug("Cannot install rule to match syn ack packets for local services")
-			return err
+			return fmt.Errorf("Cannot install rule to match syn ack packets for local services: %s", err)
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"package": "iptablesctrl",
-	}).Debug("Started the iptables controller")
+	zap.L().Debug("Started the iptables controller")
 
 	return nil
 }
 
 // Stop stops the supervisor
 func (i *Instance) Stop() error {
-	log.WithFields(log.Fields{
-		"package": "iptablesctrl",
-	}).Debug("Stop the supervisor")
+
+	zap.L().Debug("Stop the supervisor")
 
 	// Clean any previous ACLs that we have installed
 	if err := i.cleanACLs(); err != nil {
-		log.WithFields(log.Fields{
-			"package": "iptablesctrl",
-		}).Warn("Failed to clean acls while stopping the supervisor")
+		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
+
 	return nil
 }

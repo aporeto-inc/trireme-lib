@@ -17,7 +17,8 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
@@ -89,12 +90,10 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	nsEnterState := getCEnvVariable(nsErrorState)
 	nsEnterLogMsg := getCEnvVariable(nsEnterLogs)
 	if len(nsEnterState) != 0 {
-
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-		}).Error("Remote enforcer failed")
+		zap.L().Error("Remote enforcer failed",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+		)
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
 	}
@@ -102,31 +101,29 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	pid := strconv.Itoa(os.Getpid())
 	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-			"err":     err.Error(),
-		}).Error("Remote enforcer failed - unable to identify namespace")
+		zap.L().Error("Remote enforcer failed: unable to identify namespace",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+			zap.Error(err),
+		)
 		resp.Status = err.Error()
 		return errors.New(resp.Status)
 	}
 
 	netnsString := strings.TrimSpace(string(netns))
 	if len(netnsString) == 0 {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-		}).Error("Remote enforcer failed - not running in a namespace")
+		zap.L().Error("Remote enforcer failed: not running in a namespace",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+			zap.Error(err),
+		)
 		resp.Status = "Not running in a namespace"
 		return errors.New(resp.Status)
 	}
 
-	log.WithFields(log.Fields{
-		"package": "remote_enforcer",
-		"logs":    nsEnterLogMsg,
-	}).Info("Remote enforcer launched")
+	zap.L().Debug("Remote enforcer launched",
+		zap.String("nsLogs", nsEnterLogMsg),
+	)
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Init message authentication failed")
@@ -194,10 +191,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			constants.IPTables,
 		)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "remote_enforcer",
-				"Error":   err.Error(),
-			}).Error("Failed to instantiate the iptables supervisor")
+			zap.L().Error("Failed to instantiate the iptables supervisor", zap.Error(err))
 			if err != nil {
 				resp.Status = err.Error()
 			}
@@ -243,19 +237,14 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	// TODO - Set PID to 1 - needed only for statistics
 	puInfo.Runtime.SetPid(1)
 
-	log.WithFields(log.Fields{
-		"package": "remote_enforcer",
-		"method":  "Supervise",
-	}).Info("Called Supervise Start in remote_enforcer")
+	zap.L().Debug("Called Supervise Start in remote_enforcer")
 
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"method":    "Supervise",
-			"contextID": payload.ContextID,
-			"error":     err.Error(),
-		}).Info("Unable to initialize supervisor  ")
-
+		zap.L().Error("Unable to initialize supervisor",
+			zap.String("ContextID", payload.ContextID),
+			zap.Error(err),
+		)
 		resp.Status = err.Error()
 		return err
 	}
@@ -311,9 +300,6 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-		}).Info("Failed Runtime")
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
 
@@ -322,10 +308,7 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		return err
 	}
 
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"method":    "Enforce",
-		"contextID": payload.ContextID,
-	}).Info("Enforcer enabled")
+	zap.L().Debug("Enforcer enabled", zap.String("contextID", payload.ContextID))
 
 	resp.Status = ""
 

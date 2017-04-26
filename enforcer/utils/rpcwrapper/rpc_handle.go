@@ -4,6 +4,9 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
+
+	"go.uber.org/zap"
 
 	"net"
 	"net/http"
@@ -14,7 +17,6 @@ import (
 
 	"net/rpc"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/cnf/structhash"
 )
@@ -125,7 +127,7 @@ func NewRPCServer() RPCServer {
 func (r *RPCWrapper) StartServer(protocol string, path string, handler interface{}) error {
 
 	if len(path) == 0 {
-		log.Fatal("Sock param not passed in environment")
+		zap.L().Fatal("Sock param not passed in environment")
 	}
 
 	// Register RPC Type
@@ -140,17 +142,10 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 	// removing old path in case it exists already - error if we can't remove it
 	if _, err := os.Stat(path); err == nil {
 
-		log.WithFields(log.Fields{
-			"package":     "rpcwrapper",
-			"socket path": path,
-		}).Warn("Socket path already exists - removing")
+		zap.L().Warn("Socket path already exists: removing", zap.String("path", path))
 
 		if rerr := os.Remove(path); rerr != nil {
-			log.WithFields(log.Fields{
-				"package":     "rpcwrapper",
-				"socket path": path,
-			}).Error("Failed to delete existing socket path")
-			return rerr
+			return fmt.Errorf("Failed to delete existing socket path %s: %s", path, rerr.Error())
 		}
 	}
 
@@ -167,18 +162,13 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 	<-c
 
 	if merr := listen.Close(); merr != nil {
-		log.WithFields(log.Fields{
-			"package": "rpcwrapper",
-			"error":   merr.Error(),
-		}).Warn("Connection already closed ")
+		zap.L().Warn("Connection already closed", zap.Error(merr))
 	}
 
 	_, err = os.Stat(path)
 	if !os.IsNotExist(err) {
 		if err := os.Remove(path); err != nil {
-			log.WithFields(log.Fields{
-				"package": "rpcwrapper",
-			}).Warn("failed to remove old path")
+			zap.L().Warn("failed to remove old path", zap.Error(err))
 		}
 	}
 
@@ -190,24 +180,24 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 	rpcHdl, _ := r.rpcClientMap.Get(contextID)
 	if err := rpcHdl.(*RPCHdl).Client.Close(); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "rpcwrapper",
-			"contextID": contextID,
-		}).Warn("failed to close channel")
+		zap.L().Warn("Failed to close channel",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
 	}
 
 	if err := os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "rpcwrapper",
-			"contextID": contextID,
-		}).Warn("failed to remove channel")
+		zap.L().Warn("Failed to remove channel",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
 	}
 
 	if err := r.rpcClientMap.Remove(contextID); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "rpcwrapper",
-			"contextID": contextID,
-		}).Warn("failed to remove item from cache")
+		zap.L().Warn("Failed to remove item from cache",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
 	}
 }
 

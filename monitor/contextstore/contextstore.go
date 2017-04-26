@@ -6,7 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type store struct{}
@@ -27,10 +27,7 @@ func NewContextStore() ContextStore {
 	_, err := os.Stat(storebasePath)
 	if os.IsNotExist(err) {
 		if err := os.MkdirAll(storebasePath, 0700); err != nil {
-			log.WithFields(log.Fields{
-				"package": "contextstore",
-				"Error":   err.Error(),
-			}).Fatal("Failed to create context store directory ")
+			zap.L().Fatal("Failed to create context store directory", zap.Error(err))
 		}
 	}
 

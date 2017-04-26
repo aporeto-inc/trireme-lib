@@ -18,10 +18,10 @@ func LaunchContainer() int {
 	var out, out2 bytes.Buffer
 	runcmd := exec.Command("docker", "run", "-d", "--name=testprocessmon", "nginx")
 	runcmd.Stdout = &out
-	runcmd.Run()
+	runcmd.Run() // nolint: errcheck
 	runcmd1 := exec.Command("docker", "inspect", "testprocessmon")
 	runcmd1.Stdout = &out2
-	runcmd1.Run()
+	runcmd1.Run() // nolint: errcheck
 	reader := bytes.NewReader(out2.Bytes())
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
@@ -36,7 +36,7 @@ func LaunchContainer() int {
 }
 func KillContainer() {
 	killcmd := exec.Command("docker", "rm", "-f", "testprocessmon")
-	killcmd.Run()
+	killcmd.Run() // nolint: errcheck
 }
 func TestLaunchProcess(t *testing.T) {
 	//Will use refPid to be 1 (init) guaranteed to be there
