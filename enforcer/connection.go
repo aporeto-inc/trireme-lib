@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/crypto"
+)
+
+var (
+	// TraceLogging provides very high level of detail logs for connections
+	TraceLogging int
 )
 
 // AuthInfo keeps authentication information about a connection
@@ -61,7 +67,7 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 
 	c.state = state
 
-	if log.GetLevel() < log.DebugLevel {
+	if TraceLogging == 0 {
 		return
 	}
 
@@ -81,7 +87,7 @@ func (c *TCPConnection) SetReported(dropped bool) {
 		repeatedReporting = true
 	}
 
-	if log.GetLevel() < log.DebugLevel {
+	if TraceLogging == 0 {
 		return
 	}
 
@@ -106,7 +112,7 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if log.GetLevel() < log.DebugLevel {
+	if TraceLogging == 0 {
 		return
 	}
 
@@ -120,30 +126,19 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	authStr := fmt.Sprintf("%+v", c.Auth)
 	logStr := ""
 	for i, v := range c.logs {
 		logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
 	}
 	// Logging information
 	if !c.flowReported {
-
-		log.WithFields(log.Fields{
-			"package":         "enforcer",
-			"expiring":        expiration,
-			"connectionState": c.state,
-			"authInfo":        authStr,
-			"logs":            logStr,
-		}).Error("Connection not reported")
+		zap.L().Error("Connection not reported",
+			zap.String("connection", c.String()),
+			zap.String("logs", logStr))
 	} else {
-
-		log.WithFields(log.Fields{
-			"package":         "enforcer",
-			"expiring":        expiration,
-			"connectionState": c.state,
-			"authInfo":        authStr,
-			"logs":            logStr,
-		}).Debug("Connection reported")
+		zap.L().Debug("Connection reported",
+			zap.String("connection", c.String()),
+			zap.String("logs", logStr))
 	}
 }
 
