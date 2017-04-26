@@ -32,7 +32,7 @@ func TestCollectFlowEvent(t *testing.T) {
 				SourceIP:        "1.1.1.1",
 				DestinationIP:   "2.2.2.2",
 				DestinationPort: 80,
-				Count:           1,
+				Count:           0,
 				Tags:            &policy.TagsMap{},
 			}
 			c.CollectFlowEvent(r)
