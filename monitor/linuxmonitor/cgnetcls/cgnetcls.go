@@ -229,6 +229,7 @@ func MarkVal() uint64 {
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
+
 	if os.IsNotExist(err) {
 		return []string{}, errors.New("Cgroup does not exist")
 	}
@@ -239,9 +240,7 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	procs := []string{}
-	if len(procs) == 0 {
-		return procs, nil
-	}
+
 	for _, line := range strings.Split(string(data), "\n") {
 		procs = append(procs, string(line))
 	}
