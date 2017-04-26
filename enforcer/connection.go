@@ -53,13 +53,18 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 }
 
 // SetReported is used to track if a flow is reported
-func (c *TCPConnection) SetReported() {
+func (c *TCPConnection) SetReported(dropped bool) {
 
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	// Logging information
 	reported := "flow-reported:"
+	if dropped {
+		reported = reported + " dropped: "
+	} else {
+		reported = reported + " accepted: "
+	}
 	if c.flowReported {
 		reported = reported + " Again ! (Error)"
 	} else {

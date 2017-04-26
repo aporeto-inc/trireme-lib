@@ -393,7 +393,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		connection = NewTCPConnection()
 	}
 
-	connection.SetPacketInfo(tcpPacket.L4FlowHash(), packet.TCPFlagsToStr(tcpPacket.TCPFlags))
+	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Decode the JWT token using the context key
 	// We need to add here to key renewal option where we decode with keys N, N-1
@@ -405,7 +405,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
 
-		connection.SetReported()
+		connection.SetReported(true)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			SourceID:        "",
@@ -423,7 +423,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	txLabel, ok := claims.T.Get(TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); !ok || err != nil {
 
-		connection.SetReported()
+		connection.SetReported(true)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			SourceID:        txLabel,
@@ -445,7 +445,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 
-		connection.SetReported()
+		connection.SetReported(true)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			DestinationID:   context.ManagementID,
@@ -472,7 +472,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	if index, _ := context.rejectRcvRules.Search(claims.T); index >= 0 {
 
 		// Reject the connection
-		connection.SetReported()
+		connection.SetReported(true)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			SourceID:        txLabel,
@@ -507,7 +507,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 		return action, nil
 	}
 
-	connection.SetReported()
+	connection.SetReported(true)
 	d.collector.CollectFlowEvent(&collector.FlowRecord{
 		ContextID:       context.ID,
 		SourceID:        txLabel,
@@ -588,7 +588,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 
-		connection.SetReported()
+		connection.SetReported(true)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			SourceID:        context.ManagementID,
@@ -611,7 +611,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 
-		connection.SetReported()
+		connection.SetReported(true)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			SourceID:        context.ManagementID,
@@ -637,7 +637,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// First validate that there are no reject rules
 	if index, _ := context.rejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
 
-		connection.SetReported()
+		connection.SetReported(true)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			SourceID:        context.ManagementID,
@@ -658,7 +658,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		return action, nil
 	}
 
-	connection.SetReported()
+	connection.SetReported(true)
 	d.collector.CollectFlowEvent(&collector.FlowRecord{
 		ContextID:       context.ID,
 		SourceID:        context.ManagementID,
@@ -695,7 +695,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 
-			connection.SetReported()
+			connection.SetReported(true)
 			d.collector.CollectFlowEvent(&collector.FlowRecord{
 				ContextID:       context.ID,
 				DestinationID:   context.ManagementID,
@@ -713,7 +713,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		if _, err := d.parseAckToken(&connection.Auth, tcpPacket.ReadTCPData()); err != nil {
 
-			connection.SetReported()
+			connection.SetReported(true)
 			d.collector.CollectFlowEvent(&collector.FlowRecord{
 				ContextID:       context.ID,
 				DestinationID:   context.ManagementID,
@@ -736,7 +736,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		if err != nil {
 
-			connection.SetReported()
+			connection.SetReported(true)
 			d.collector.CollectFlowEvent(&collector.FlowRecord{
 				ContextID:       context.ID,
 				DestinationID:   context.ManagementID,
@@ -756,7 +756,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 		tcpPacket.UpdateTCPChecksum()
 
 		// We accept the packet as a new flow
-		connection.SetReported()
+		connection.SetReported(false)
 		d.collector.CollectFlowEvent(&collector.FlowRecord{
 			ContextID:       context.ID,
 			DestinationID:   context.ManagementID,
@@ -791,7 +791,6 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		// Accept the packet
 		return nil, nil
-
 	}
 
 	// Catch the first request packets
@@ -812,7 +811,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	}
 
 	// Everything else is dropped - ACK received in the Syn state without a SynAck
-	connection.SetReported()
+	connection.SetReported(true)
 	d.collector.CollectFlowEvent(&collector.FlowRecord{
 		ContextID:       context.ID,
 		DestinationID:   context.ManagementID,
