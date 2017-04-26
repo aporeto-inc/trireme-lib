@@ -26,15 +26,18 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 
 	hash := collector.StatsFlowHash(record)
 
+	// If flow event doesn't have a count make it equal to 1. At least one flow is collected
+	if record.Count == 0 {
+		record.Count = 1
+	}
+
 	c.Lock()
 	defer c.Unlock()
 
 	if r, ok := c.Flows[hash]; ok {
-		r.Count = r.Count + 1
+		r.Count = r.Count + record.Count
 		return
 	}
-
-	record.Count = 1
 
 	c.Flows[hash] = record
 
