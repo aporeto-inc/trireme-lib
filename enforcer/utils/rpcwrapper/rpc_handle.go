@@ -187,7 +187,7 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 	}
 
 	if err := os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
-		zap.L().Warn("Failed to remove channel",
+		zap.L().Debug("Failed to remove channel - already closed",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
