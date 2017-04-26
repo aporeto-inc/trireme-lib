@@ -30,14 +30,11 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 	defer c.Unlock()
 
 	if r, ok := c.Flows[hash]; ok {
-		r.Count = r.Count + 1
+		r.Count = r.Count + record.Count
 		return
 	}
 
-	record.Count = 1
-
 	c.Flows[hash] = record
-
 	c.Flows[hash].Tags = c.Flows[hash].Tags.Clone()
 }
 
