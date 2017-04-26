@@ -161,7 +161,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 		connection = existing.(*TCPConnection)
 	} else {
 		connection = NewTCPConnection()
-		connection.SetReported(false) // Application clients
+		connection.SetReported(false) // Application clients do not report flow so dont generate errors
 		connection.Auth.RemoteIP = tcpPacket.DestinationAddress.String()
 		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
 	}

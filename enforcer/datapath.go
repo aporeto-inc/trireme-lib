@@ -102,8 +102,8 @@ func NewDatapathEnforcer(
 	d := &datapathEnforcer{
 		contextTracker:           cache.NewCache(),
 		puTracker:                cache.NewCache(),
-		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
+		networkConnectionTracker: cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
+		appConnectionTracker:     cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
 		destinationPortCache:     cache.NewCacheWithExpiration(time.Second * 60),

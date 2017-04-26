@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/crypto"
 )
 
@@ -27,6 +28,14 @@ type TCPConnection struct {
 	mutex        sync.Mutex
 	flowReported bool
 	logs         []string
+}
+
+// TCPConnectionExpirationNotifier handles processing the expiration of an element
+func TCPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item interface{}) {
+
+	if conn, ok := item.(*TCPConnection); ok {
+		conn.Cleanup(true)
+	}
 }
 
 // GetState is used to return the state
@@ -110,6 +119,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 	}
 	// Logging information
 	if !c.flowReported {
+
 		log.WithFields(log.Fields{
 			"package":         "enforcer",
 			"expiring":        expiration,
@@ -118,13 +128,14 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 			"logs":            logStr,
 		}).Error("Connection not reported")
 	} else {
+
 		log.WithFields(log.Fields{
 			"package":         "enforcer",
 			"expiring":        expiration,
 			"connectionState": c.state,
 			"authInfo":        authStr,
 			"logs":            logStr,
-		}).Info("Connection reported")
+		}).Debug("Connection reported")
 	}
 }
 
