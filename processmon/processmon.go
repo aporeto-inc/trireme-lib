@@ -11,8 +11,8 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"time"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -153,19 +153,15 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	case kerr := <-c:
 		if kerr != nil {
 			if perr := s.(*processInfo).process.Kill(); perr != nil {
-				log.WithFields(log.Fields{"package": "ProcessMon",
-					"msg":       "Failed to kill process",
-					"Error":     perr.Error(),
-					"RPC Error": kerr.Error(),
-				}).Info("Process is already dead, even though RPC gave error")
+				zap.L().Info("Failed to list chains",
+					zap.String("Remote error", kerr.Error()),
+					zap.String("Kill error", perr.Error()))
 			}
 		}
 	case <-time.After(5 * time.Second):
 		if perr := s.(*processInfo).process.Kill(); perr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"msg":   "Failed to kill process",
-				"Error": err.Error(),
-			}).Info("Process is already dead")
+			zap.L().Info("Time out while killing process ",
+				zap.Error(perr))
 		}
 	}
 
