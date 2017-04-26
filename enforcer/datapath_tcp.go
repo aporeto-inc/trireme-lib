@@ -755,6 +755,20 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 		tcpPacket.UpdateTCPChecksum()
 
+		// We accept the packet as a new flow
+		connection.SetReported()
+		d.collector.CollectFlowEvent(&collector.FlowRecord{
+			ContextID:       context.ID,
+			DestinationID:   context.ManagementID,
+			Tags:            context.Annotations,
+			Action:          collector.FlowAccept,
+			Mode:            "NA",
+			SourceID:        connection.Auth.RemoteContextID,
+			SourceIP:        tcpPacket.SourceAddress.String(),
+			DestinationIP:   tcpPacket.DestinationAddress.String(),
+			DestinationPort: tcpPacket.DestinationPort,
+		})
+
 		if err := d.networkConnectionTracker.Remove(hash); err != nil {
 			log.WithFields(log.Fields{
 				"package": "enforcer",
@@ -775,20 +789,6 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 			"dest-port-hash": tcpPacket.DestinationPortHash(packet.PacketTypeNetwork),
 		}).Debug("Caches maybe clean")
 
-		// We accept the packet as a new flow
-		connection.SetReported()
-		d.collector.CollectFlowEvent(&collector.FlowRecord{
-			ContextID:       context.ID,
-			DestinationID:   context.ManagementID,
-			Tags:            context.Annotations,
-			Action:          collector.FlowAccept,
-			Mode:            "NA",
-			SourceID:        connection.Auth.RemoteContextID,
-			SourceIP:        tcpPacket.SourceAddress.String(),
-			DestinationIP:   tcpPacket.DestinationAddress.String(),
-			DestinationPort: tcpPacket.DestinationPort,
-		})
-
 		// Accept the packet
 		return nil, nil
 
@@ -796,6 +796,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 	// Catch the first request packets
 	if connection.GetState() == TCPAckProcessed {
+
 		// Safe to delete the state
 		if err := d.networkConnectionTracker.Remove(hash); err != nil {
 			log.WithFields(log.Fields{
