@@ -36,13 +36,13 @@ type datapathEnforcer struct {
 	contextTracker cache.DataStore
 	puTracker      cache.DataStore
 	// Key=FlowHash Value=Connection. Created on syn packet from network with regular flow hash
-	networkConnectionTracker cache.DataStore
+	destinationConnectionTracker cache.DataStore
 	// Key=FlowHash Value=Connection. Created on syn packet from application with regular flow hash
-	appConnectionTracker cache.DataStore
+	originatorConnectionTracker cache.DataStore
 	// Key=Context Value=Connection. Create on syn packet from application with local context-id
 	contextConnectionTracker cache.DataStore
 
-	sourcePortCache      cache.DataStore
+	originatorPortCache  cache.DataStore
 	destinationPortCache cache.DataStore
 
 	// stats
@@ -106,25 +106,25 @@ func NewDatapathEnforcer(
 	}
 
 	d := &datapathEnforcer{
-		contextTracker:           cache.NewCache(),
-		puTracker:                cache.NewCache(),
-		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
-		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
-		destinationPortCache:     cache.NewCacheWithExpiration(time.Second * 60),
-		filterQueue:              filterQueue,
-		mutualAuthorization:      mutualAuth,
-		service:                  service,
-		collector:                collector,
-		tokenEngine:              tokenEngine,
-		net:                      &InterfaceStats{},
-		app:                      &InterfaceStats{},
-		netTCP:                   &PacketStats{},
-		appTCP:                   &PacketStats{},
-		ackSize:                  secrets.AckSize(),
-		mode:                     mode,
-		procMountPoint:           procMountPoint,
+		contextTracker:               cache.NewCache(),
+		puTracker:                    cache.NewCache(),
+		destinationConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
+		originatorConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
+		contextConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
+		originatorPortCache:          cache.NewCacheWithExpiration(time.Second * 60),
+		destinationPortCache:         cache.NewCacheWithExpiration(time.Second * 60),
+		filterQueue:                  filterQueue,
+		mutualAuthorization:          mutualAuth,
+		service:                      service,
+		collector:                    collector,
+		tokenEngine:                  tokenEngine,
+		net:                          &InterfaceStats{},
+		app:                          &InterfaceStats{},
+		netTCP:                       &PacketStats{},
+		appTCP:                       &PacketStats{},
+		ackSize:                      secrets.AckSize(),
+		mode:                         mode,
+		procMountPoint:               procMountPoint,
 	}
 
 	if d.tokenEngine == nil {
