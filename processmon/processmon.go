@@ -153,7 +153,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	case kerr := <-c:
 		if kerr != nil {
 			if perr := s.(*processInfo).process.Kill(); perr != nil {
-				zap.L().Debug("Processs is already dead",
+				zap.L().Debug("Process is already dead",
 					zap.String("Remote error", kerr.Error()),
 					zap.String("Kill error", perr.Error()))
 			}
