@@ -204,7 +204,7 @@ func (d *dockerMonitor) Start() error {
 	defer cancel()
 	_, pingerr := d.dockerClient.Ping(ctx)
 	if pingerr != nil {
-		zap.L().Error("Ping Error", pingerr)
+
 		return fmt.Errorf("Docker daemon not running")
 	}
 	// Starting the eventListener First.
