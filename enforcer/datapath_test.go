@@ -543,11 +543,103 @@ func TestConnectionTrackerState(t *testing.T) {
 				}
 				err = enforcer.processApplicationTCPPackets(tcpPacket)
 				So(err, ShouldBeNil)
-				_, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+				appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+				So(appConn.(*TCPConnection).State, ShouldEqual, TCPSynSend)
+				So(err, ShouldBeNil)
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
 
+				outPacket, err := packet.New(0, output, "0")
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+				netconn, err := enforcer.networkConnectionTracker.Get(outPacket.L4FlowHash())
+				So(err, ShouldBeNil)
+				So(netconn.(*TCPConnection).State, ShouldEqual, TCPSynReceived)
+
+			})
+			Convey("When i pass a SYN and SYN ACK packet through the enforcer", func() {
+				input := make([]byte, len(TCPFlow[i]))
+				start := make([]byte, len(TCPFlow[i]))
+				copy(input, TCPFlow[i])
+				copy(start, TCPFlow[i])
+				oldPacket, err := packet.New(0, start, "0")
+				if err == nil && oldPacket != nil {
+					oldPacket.UpdateIPChecksum()
+					oldPacket.UpdateTCPChecksum()
+				}
+				tcpPacket, err := packet.New(0, input, "0")
+				if err == nil && tcpPacket != nil {
+					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateTCPChecksum()
+				}
+				if debug {
+					fmt.Println("Input packet", i)
+					tcpPacket.Print(0)
+				}
+
+				So(err, ShouldBeNil)
+				So(tcpPacket, ShouldNotBeNil)
+
+				if reflect.DeepEqual(SIP, net.IPv4zero) {
+					SIP = tcpPacket.SourceAddress
+				}
+				if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
+					!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+					t.Error("Invalid Test Packet")
+				}
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+				//Now lets send the synack packet from the server in response
+				i++
+				inputsynack := make([]byte, len(TCPFlow[i]))
+				startsynack := make([]byte, len(TCPFlow[i]))
+				copy(inputsynack, TCPFlow[i])
+				copy(startsynack, TCPFlow[i])
+				oldPacket, err = packet.New(0, start, "0")
+				if err == nil && oldPacket != nil {
+					oldPacket.UpdateIPChecksum()
+					oldPacket.UpdateTCPChecksum()
+				}
+				tcpPacket, err = packet.New(0, input, "0")
+				if err == nil && tcpPacket != nil {
+					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateTCPChecksum()
+				}
+				if debug {
+					fmt.Println("Input packet", i)
+					tcpPacket.Print(0)
+				}
+				enforcer.processAppicationTCPPackets(tcpPacket)
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+				CheckAfterSynAckPacket(enforcer *datapathEnforcer,tcpPacket,outPacket packet.Packet)
+				
 			})
 		})
 	})
+}
+
+func CheckAfterSynPacket(enforcer *datapathEnforcer, tcpPacket, outPacket packet.Packet) {
+	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(appConn.(*TCPConnection).State, ShouldEqual, TCPSynSend)
+	So(err, ShouldBeNil)
+
+	netconn, err := enforcer.networkConnectionTracker.Get(outPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(netconn.(*TCPConnection).State, ShouldEqual, TCPSynReceived)
+
 }
 func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
@@ -566,7 +658,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
-				firstAckPacketReceived := false
+				//firstAckPacketReceived := false
 
 				for i, p := range TCPFlow {
 
@@ -623,21 +715,6 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 							})
 						}
 
-						// ACK Packets only
-						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
-							if !firstAckPacketReceived {
-								firstAckPacketReceived = true
-							} else {
-								Convey("When I pass any application packets with ACK flag for packet "+string(i), func() {
-									Convey("Then I expect src port cache to be NOT populated "+string(i), func() {
-										fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-										cs, es := enforcer.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-										So(cs, ShouldBeNil)
-										So(es, ShouldNotBeNil)
-									})
-								})
-							}
-						}
 					}
 
 					output := make([]byte, len(tcpPacket.GetBytes()))
