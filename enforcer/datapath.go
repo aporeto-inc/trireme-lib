@@ -102,8 +102,8 @@ func NewDatapathEnforcer(
 	d := &datapathEnforcer{
 		contextTracker:           cache.NewCache(),
 		puTracker:                cache.NewCache(),
-		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
+		networkConnectionTracker: cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
+		appConnectionTracker:     cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
 		destinationPortCache:     cache.NewCacheWithExpiration(time.Second * 60),
@@ -166,6 +166,34 @@ func NewDefaultDatapathEnforcer(
 		mode,
 		procMountPoint,
 	)
+}
+
+func (d *datapathEnforcer) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
+
+	if connection != nil {
+		connection.SetReported(true)
+	}
+	d.collector.CollectFlowEvent(&collector.FlowRecord{
+		ContextID:       context.ID,
+		DestinationID:   destID,
+		SourceID:        sourceID,
+		Tags:            context.Annotations,
+		Action:          action,
+		Mode:            mode,
+		SourceIP:        p.SourceAddress.String(),
+		DestinationIP:   p.DestinationAddress.String(),
+		DestinationPort: p.DestinationPort,
+	})
+}
+
+func (d *datapathEnforcer) reportAcceptedFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext) {
+
+	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowAccept, "NA")
+}
+
+func (d *datapathEnforcer) reportRejectedFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
+
+	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowReject, mode)
 }
 
 func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
