@@ -200,10 +200,11 @@ func (d *dockerMonitor) Start() error {
 		"package": "monitor",
 	}).Debug("Starting the docker monitor")
 	//Check if the server is running before you go ahead
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, pingerr := d.dockerClient.Ping(ctx)
 	if pingerr != nil {
+		zap.L().Error("Ping Error", pingerr)
 		return fmt.Errorf("Docker daemon not running")
 	}
 	// Starting the eventListener First.
