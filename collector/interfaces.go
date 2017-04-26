@@ -15,6 +15,8 @@ const (
 	InvalidFormat = "format"
 	// InvalidContext indicates that there was no context in the metadata
 	InvalidContext = "context"
+	// InvalidConnection indicates that there was no connection found
+	InvalidConnection = "connection"
 	// InvalidState indicates that a packet was received without proper state information
 	InvalidState = "state"
 	// InvalidNonse indicates that the nonse check failed

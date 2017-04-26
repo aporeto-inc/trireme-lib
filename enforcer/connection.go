@@ -21,11 +21,11 @@ type AuthInfo struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
+	mutex sync.Mutex
 	state TCPFlowState
 	Auth  AuthInfo
 
 	// Debugging Information
-	mutex        sync.Mutex
 	flowReported bool
 	logs         []string
 }
@@ -38,8 +38,18 @@ func TCPConnectionExpirationNotifier(c cache.DataStore, id interface{}, item int
 	}
 }
 
+// String returns a printable version of connection
+func (c *TCPConnection) String() string {
+
+	return fmt.Sprintf("state:%d auth: %+v", c.state, c.Auth)
+}
+
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	return c.state
 }
 
@@ -55,10 +65,7 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 		return
 	}
 
-	// Logging information
-	authStr := fmt.Sprintf("%+v", c.Auth)
-	stateChange := fmt.Sprintf("set-state: %d -> %d (%s)", c.state, state, authStr)
-	c.logs = append(c.logs, stateChange)
+	c.logs = append(c.logs, fmt.Sprintf("set-state: %s %d", c.String(), state))
 }
 
 // SetReported is used to track if a flow is reported
@@ -67,25 +74,28 @@ func (c *TCPConnection) SetReported(dropped bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	// Logging information
-	reported := "flow-reported:"
-	if dropped {
-		reported = reported + " dropped: "
-	} else {
-		reported = reported + " accepted: "
-	}
-	if c.flowReported {
-		reported = reported + " Again ! (Error)"
-	} else {
+	repeatedReporting := false
+	if !c.flowReported {
 		c.flowReported = true
+	} else {
+		repeatedReporting = true
 	}
 
 	if log.GetLevel() < log.DebugLevel {
 		return
 	}
 
-	authStr := fmt.Sprintf(" (%+v)", c.Auth)
-	reported = reported + authStr
+	// Logging information
+	reported := "flow-reported:"
+	if repeatedReporting {
+		reported = reported + " (ERROR duplicate reporting)"
+	}
+	if dropped {
+		reported = reported + " dropped: "
+	} else {
+		reported = reported + " accepted: "
+	}
+	reported = reported + c.String()
 
 	c.logs = append(c.logs, reported)
 }
@@ -100,9 +110,7 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 		return
 	}
 
-	// Logging information
-	authStr := fmt.Sprintf("%+v", c.Auth)
-	pktLog := fmt.Sprintf("pkt-registered: [%s] tcpf:%s state:%d (%s)", flowHash, tcpFlags, c.state, authStr)
+	pktLog := fmt.Sprintf("pkt-registered: [%s] tcpf:%s %s", flowHash, tcpFlags, c.String())
 	c.logs = append(c.logs, pktLog)
 }
 
@@ -140,12 +148,13 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 }
 
 // NewTCPConnection returns a TCPConnection information struct
-func NewTCPConnection() *TCPConnection {
+func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
 
 	c := &TCPConnection{
-		state: TCPSynSend,
-		mutex: sync.Mutex{},
-		logs:  make([]string, 0),
+		state:        TCPSynSend,
+		mutex:        sync.Mutex{},
+		flowReported: trackFlowReporting,
+		logs:         make([]string, 0),
 	}
 	initConnection(&c.Auth)
 	return c
