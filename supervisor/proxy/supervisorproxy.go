@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
-
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
@@ -59,13 +57,8 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, &rpcwrapper.Response{}); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "remsupervisor",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Failed to send supervise command ")
 		delete(s.initDone, contextID)
-		return err
+		return fmt.Errorf("Failed to send supervise command: context=%s error=%s", contextID, err)
 	}
 
 	return nil
@@ -132,16 +125,28 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "remsupervisor",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Failed to initialize remote supervisor")
-		return err
+		return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 	}
 
 	s.initDone[contextID] = true
 
 	return nil
 
+}
+
+//AddExcludedIPs call addexcluded ip on the remote supervisor
+func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
+	s.ExcludedIPs = ips
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.ExcludeIPRequestPayload{
+			IPs: ips,
+		},
+	}
+
+	for _, contextID := range s.rpchdl.ContextList() {
+		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
+			return fmt.Errorf("Failed to add excluded IP list: context=%s error=%s", contextID, err)
+		}
+	}
+	return nil
 }

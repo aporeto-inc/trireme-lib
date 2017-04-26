@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/crypto"
@@ -51,6 +52,7 @@ type proxyInfo struct {
 	filterQueue       *enforcer.FilterQueue
 	commandArg        string
 	statsServerSecret string
+	procMountPoint    string
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -71,12 +73,7 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
-		log.WithFields(log.Fields{
-			"package":        "enforcerproxy",
-			"error":          err.Error(),
-			"Error Response": resp.Status,
-		}).Debug("Failed to initialize enforcer")
-		return fmt.Errorf("Failed to initialize remote enforcer")
+		return fmt.Errorf("Failed to initialize remote enforcer: status %s, error: %s", resp.Status, err.Error())
 	}
 
 	s.initDone[contextID] = true
@@ -87,19 +84,14 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 //Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
 func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	log.WithFields(log.Fields{
-		"package": "enforcerproxy",
-		"pid":     puInfo.Runtime.Pid(),
-	}).Info("PID of container")
+	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret)
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
 	if err != nil {
 		return err
 	}
 
-	log.WithFields(log.Fields{"package": "enforcerproxy",
-		"contexID": contextID,
-	}).Info("Called enforce and launched process")
+	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
 
 	if _, ok := s.initDone[contextID]; !ok {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
@@ -126,10 +118,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "remenforcer",
-			"error":   err,
-		}).Error("Failed to Enforce remote enforcer")
+		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
 		return ErrEnforceFailed
 	}
 
@@ -179,20 +168,17 @@ func NewProxyEnforcer(mutualAuth bool,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
+	procMountPoint string,
 ) enforcer.PolicyEnforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
 	if err != nil {
-		//There is a very small chance of this happening we will log an error here.
-		//
-		log.WithFields(log.Fields{
-			"package": "remenforcer",
-			"error":   err.Error(),
-		}).Error("Failed to generate random secret for stats reporting.Falling back to static secret")
-		//We will use current time as the secret
+		// There is a very small chance of this happening we will log an error here.
+		zap.L().Error("Failed to generate random secret for stats reporting.Falling back to static secret", zap.Error(err))
+		// We will use current time as the secret
 		statsServersecret = time.Now().String()
-
 	}
+
 	proxydata := &proxyInfo{
 		MutualAuth:        mutualAuth,
 		Secrets:           secrets,
@@ -204,11 +190,10 @@ func NewProxyEnforcer(mutualAuth bool,
 		filterQueue:       filterQueue,
 		commandArg:        cmdArg,
 		statsServerSecret: statsServersecret,
+		procMountPoint:    procMountPoint,
 	}
-	log.WithFields(log.Fields{
-		"package": "remenforcer",
-		"method":  "NewDataPathEnforcer",
-	}).Info("Called NewDataPathEnforcer")
+
+	zap.L().Debug("Called NewDataPathEnforcer")
 
 	statsServer := rpcwrapper.NewRPCWrapper()
 	rpcServer := &StatsServer{rpchdl: statsServer, collector: collector, secret: statsServersecret}
@@ -223,7 +208,9 @@ func NewProxyEnforcer(mutualAuth bool,
 func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets tokens.Secrets,
-	rpchdl rpcwrapper.RPCClient) enforcer.PolicyEnforcer {
+	rpchdl rpcwrapper.RPCClient,
+	procMountPoint string,
+) enforcer.PolicyEnforcer {
 
 	mutualAuthorization := false
 	fqConfig := &enforcer.FilterQueue{
@@ -246,7 +233,9 @@ func NewDefaultProxyEnforcer(serverID string,
 		serverID,
 		validity,
 		rpchdl,
-		constants.DefaultRemoteArg)
+		constants.DefaultRemoteArg,
+		procMountPoint,
+	)
 }
 
 //StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer
@@ -260,7 +249,7 @@ type StatsServer struct {
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		log.WithFields(log.Fields{"package": "enforcerproxy"}).Error("Message sender cannot be verified")
+		zap.L().Error("Message sender cannot be verified")
 		return errors.New("Message sender cannot be verified")
 	}
 

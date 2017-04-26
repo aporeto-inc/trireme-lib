@@ -7,7 +7,8 @@ import (
 	"os"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
@@ -123,11 +124,13 @@ type dockerMonitor struct {
 	eventnotifications chan *events.Message
 	stopprocessor      chan bool
 	stoplistener       chan bool
-	syncAtStart        bool
 	syncHandler        monitor.SynchronizationHandler
 
 	collector collector.EventCollector
 	puHandler monitor.ProcessingUnitsHandler
+	// killContainerError if enabled kills the container if a policy setting resulted in an error.
+	killContainerOnPolicyError bool
+	syncAtStart                bool
 }
 
 // NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
@@ -144,28 +147,27 @@ func NewDockerMonitor(
 	l collector.EventCollector,
 	syncAtStart bool,
 	s monitor.SynchronizationHandler,
+	killContainerOnPolicyError bool,
 ) monitor.Monitor {
 
 	cli, err := initDockerClient(socketType, socketAddress)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "monitor",
-			"error":   err.Error(),
-		}).Fatal("Unable to initialize Docker client")
+		zap.L().Fatal("Unable to initialize Docker client", zap.Error(err))
 	}
 
 	d := &dockerMonitor{
-		puHandler:          p,
-		collector:          l,
-		eventnotifications: make(chan *events.Message, 1000),
-		handlers:           make(map[DockerEvent]func(event *events.Message) error),
-		stoplistener:       make(chan bool),
-		stopprocessor:      make(chan bool),
-		metadataExtractor:  m,
-		dockerClient:       cli,
-		syncAtStart:        syncAtStart,
-		syncHandler:        s,
+		puHandler:                  p,
+		collector:                  l,
+		eventnotifications:         make(chan *events.Message, 1000),
+		handlers:                   make(map[DockerEvent]func(event *events.Message) error),
+		stoplistener:               make(chan bool),
+		stopprocessor:              make(chan bool),
+		metadataExtractor:          m,
+		dockerClient:               cli,
+		syncAtStart:                syncAtStart,
+		syncHandler:                s,
+		killContainerOnPolicyError: killContainerOnPolicyError,
 	}
 
 	// Add handlers for the events that we know how to process
@@ -192,9 +194,7 @@ func (d *dockerMonitor) addHandler(event DockerEvent, handler DockerEventHandler
 // It listens to all ContainerEvents
 func (d *dockerMonitor) Start() error {
 
-	log.WithFields(log.Fields{
-		"package": "monitor",
-	}).Debug("Starting the docker monitor")
+	zap.L().Debug("Starting the docker monitor")
 
 	// Starting the eventListener First.
 	go d.eventListener()
@@ -204,10 +204,7 @@ func (d *dockerMonitor) Start() error {
 		err := d.syncContainers()
 
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Error("Error Syncing existingContainers")
+			zap.L().Error("Error Syncing existingContainers", zap.Error(err))
 		}
 	}
 
@@ -220,9 +217,7 @@ func (d *dockerMonitor) Start() error {
 // Stop monitoring docker events.
 func (d *dockerMonitor) Stop() error {
 
-	log.WithFields(log.Fields{
-		"package": "monitor",
-	}).Debug("Stopping the docker monitor")
+	zap.L().Debug("Stopping the docker monitor")
 
 	d.stoplistener <- true
 	d.stopprocessor <- true
@@ -239,23 +234,17 @@ func (d *dockerMonitor) eventProcessor() {
 			if event.Action != "" {
 				f, present := d.handlers[DockerEvent(event.Action)]
 				if present {
-					log.WithFields(log.Fields{
-						"package": "monitor",
-					}).Debug("Handling docker event")
 
 					err := f(event)
 
 					if err != nil {
-						log.WithFields(log.Fields{
-							"package": "monitor",
-							"action":  event.Action,
-							"error":   err.Error(),
-						}).Error("Error while handling event")
+						zap.L().Error("Error while handling event",
+							zap.String("action", event.Action),
+							zap.Error(err),
+						)
 					}
 				} else {
-					log.WithFields(log.Fields{
-						"package": "monitor",
-					}).Debug("Docker event not handled.")
+					zap.L().Debug("Docker event not handled.", zap.String("action", event.Action))
 				}
 			}
 		case <-d.stopprocessor:
@@ -277,19 +266,12 @@ func (d *dockerMonitor) eventListener() {
 	for {
 		select {
 		case message := <-messages:
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"message": message,
-			}).Debug("Got message from docker client")
-
+			zap.L().Debug("Got message from docker client", zap.String("action", message.Action))
 			d.eventnotifications <- &message
 
 		case err := <-errs:
 			if err != nil && err != io.EOF {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Debug("Received docker event error")
+				zap.L().Warn("Received docker event error", zap.Error(err))
 			}
 		case stop := <-d.stoplistener:
 			if stop {
@@ -303,9 +285,7 @@ func (d *dockerMonitor) eventListener() {
 // same process as when a container is initially spawn up
 func (d *dockerMonitor) syncContainers() error {
 
-	log.WithFields(log.Fields{
-		"package": "monitor",
-	}).Debug("Syncing all existing containers")
+	zap.L().Debug("Syncing all existing containers")
 
 	options := types.ContainerListOptions{All: true}
 	containers, err := d.dockerClient.ContainerList(context.Background(), options)
@@ -319,10 +299,7 @@ func (d *dockerMonitor) syncContainers() error {
 			container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
 			if err != nil {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Error("Error Syncing existing Container")
+				zap.L().Error("Error Syncing existing Container", zap.Error(err))
 				continue
 			}
 
@@ -341,10 +318,7 @@ func (d *dockerMonitor) syncContainers() error {
 				state = monitor.StateStopped
 			}
 			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitor.SynchronizationTypeInitial); err != nil {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Error("Error Syncing existing Container")
+				zap.L().Error("Error Syncing existing Container", zap.Error(err))
 			}
 		}
 
@@ -355,18 +329,12 @@ func (d *dockerMonitor) syncContainers() error {
 		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Error("Error Syncing existing Container")
+			zap.L().Error("Error Syncing existing Container", zap.Error(err))
 			continue
 		}
 
 		if err := d.startDockerContainer(&container); err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Error("Error Syncing existing Container")
+			zap.L().Error("Error Syncing existing Container", zap.Error(err))
 		}
 	}
 
@@ -400,13 +368,13 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	errorChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
 	if err := <-errorChan; err != nil {
-		if err := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Warn("Failed to stop bad container")
+		if d.killContainerOnPolicyError {
+			if err := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); err != nil {
+				zap.L().Warn("Failed to stop bad container", zap.Error(err))
+			}
+			return fmt.Errorf("Policy cound't be set - container was killed")
 		}
-		return fmt.Errorf("Policy cound't be set - container was killed")
+		return fmt.Errorf("Policy cound't be set - container was kept alive per policy")
 	}
 
 	return nil
@@ -469,29 +437,25 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 	info, err := d.dockerClient.ContainerInspect(context.Background(), dockerID)
 
 	if err != nil {
-		//If we see errors, we will kill the container for security reasons.
-		if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
-			log.WithFields(log.Fields{
-				"package": "monitor",
-				"error":   err.Error(),
-			}).Warn("Failed to stop illegal container")
+		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
+		if d.killContainerOnPolicyError {
+			if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
+				zap.L().Warn("Failed to stop illegal container", zap.Error(err))
+			}
+
+			d.collector.CollectContainerEvent(&collector.ContainerRecord{
+				ContextID: contextID,
+				IPAddress: "N/A",
+				Tags:      nil,
+				Event:     collector.ContainerFailed,
+			})
+			return fmt.Errorf("Cannot read container information. Killing container. ")
 		}
-
-		d.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
-		})
-
-		return fmt.Errorf("Cannot read container information. Killing container. ")
+		return fmt.Errorf("Cannot read container information. Container still alive per policy. ")
 	}
 
 	if info.HostConfig.NetworkMode == "host" {
-		log.WithFields(log.Fields{
-			"package":                  "monitor",
-			"Host namespace container": contextID,
-		}).Warn("Ignore host namespace container - do nothing ")
+		zap.L().Warn("Ignore host namespace container: do nothing", zap.String("contextID", contextID))
 		return nil
 	}
 

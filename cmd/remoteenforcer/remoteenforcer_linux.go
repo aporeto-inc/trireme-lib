@@ -18,7 +18,9 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
+	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
@@ -29,24 +31,25 @@ import (
 )
 
 const (
-	envSocketPath = "SOCKET_PATH"
-	envSecret     = "SECRET"
-	nsErrorState  = "NSENTER_ERROR_STATE"
-	nsEnterLogs   = "NSENTER_LOGS"
+	envSocketPath     = "APORETO_ENV_SOCKET_PATH"
+	envSecret         = "APORETO_ENV_SECRET"
+	envProcMountPoint = "APORETO_ENV_PROC_MOUNTPOINT"
+	nsErrorState      = "APORETO_ENV_NSENTER_ERROR_STATE"
+	nsEnterLogs       = "APORETO_ENV_NSENTER_LOGS"
 )
 
 // Server : This is the structure for maintaining state required by the remote enforcer.
 // It is cache of variables passed by th controller to the remote enforcer and other handles
 // required by the remote enforcer to talk to the external processes
 type Server struct {
-	rpcSecret   string
-	rpcchannel  string
-	rpchdl      rpcwrapper.RPCServer
-	statsclient *StatsClient
-
-	Enforcer   enforcer.PolicyEnforcer
-	Supervisor supervisor.Supervisor
-	Service    enforcer.PacketProcessor
+	rpcSecret      string
+	rpcchannel     string
+	rpchdl         rpcwrapper.RPCServer
+	statsclient    *StatsClient
+	procMountPoint string
+	Enforcer       enforcer.PolicyEnforcer
+	Supervisor     supervisor.Supervisor
+	Service        enforcer.PacketProcessor
 }
 
 var cmdLock sync.Mutex
@@ -58,14 +61,17 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 	if err != nil {
 		return nil, err
 	}
-
+	procMountPoint := os.Getenv(envProcMountPoint)
+	if len(procMountPoint) == 0 {
+		procMountPoint = configurator.DefaultProcMountPoint
+	}
 	return &Server{
-		Service:    service,
-		rpcchannel: rpcchan,
-		rpcSecret:  secret,
-		rpchdl:     rpchdl,
-
-		statsclient: statsclient,
+		Service:        service,
+		rpcchannel:     rpcchan,
+		rpcSecret:      secret,
+		rpchdl:         rpchdl,
+		procMountPoint: procMountPoint,
+		statsclient:    statsclient,
 	}, nil
 }
 
@@ -87,12 +93,10 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	nsEnterState := getCEnvVariable(nsErrorState)
 	nsEnterLogMsg := getCEnvVariable(nsEnterLogs)
 	if len(nsEnterState) != 0 {
-
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-		}).Error("Remote enforcer failed")
+		zap.L().Error("Remote enforcer failed",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+		)
 		resp.Status = (nsEnterState)
 		return errors.New(resp.Status)
 	}
@@ -100,32 +104,29 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	pid := strconv.Itoa(os.Getpid())
 	netns, err := exec.Command("ip", "netns", "identify", pid).Output()
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-			"err":     err.Error(),
-		}).Error("Remote enforcer failed - unable to identify namespace")
+		zap.L().Error("Remote enforcer failed: unable to identify namespace",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+			zap.Error(err),
+		)
 		resp.Status = err.Error()
 		return errors.New(resp.Status)
 	}
 
 	netnsString := strings.TrimSpace(string(netns))
 	if len(netnsString) == 0 {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-			"nsErr":   nsEnterState,
-			"nsLogs":  nsEnterLogMsg,
-		}).Error("Remote enforcer failed - not running in a namespace")
+		zap.L().Error("Remote enforcer failed: not running in a namespace",
+			zap.String("nsErr", nsEnterState),
+			zap.String("nsLogs", nsEnterLogMsg),
+			zap.Error(err),
+		)
 		resp.Status = "Not running in a namespace"
 		return errors.New(resp.Status)
 	}
 
-	log.WithFields(log.Fields{
-		"package":           "remote_enforcer",
-		"logs":              nsEnterLogMsg,
-		"network namespace": netnsString,
-	}).Info("Remote enforcer launched")
+	zap.L().Debug("Remote enforcer launched",
+		zap.String("nsLogs", nsEnterLogMsg),
+	)
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Init message authentication failed")
@@ -147,7 +148,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			secrets,
 			payload.ServerID,
 			payload.Validity,
-			constants.RemoteContainer)
+			constants.RemoteContainer,
+			s.procMountPoint,
+		)
 	} else {
 		//PSK params
 		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
@@ -159,7 +162,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			secrets,
 			payload.ServerID,
 			payload.Validity,
-			constants.RemoteContainer)
+			constants.RemoteContainer,
+			s.procMountPoint,
+		)
 	}
 
 	s.Enforcer.Start()
@@ -195,11 +200,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			constants.IPTables,
 		)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "remote_enforcer",
-				"Error":   err.Error(),
-			}).Error("Failed to instantiate the iptables supervisor")
-			resp.Status = err.Error()
+			zap.L().Error("Failed to instantiate the iptables supervisor", zap.Error(err))
 			return err
 		}
 		s.Supervisor = supervisorHandle
@@ -244,19 +245,14 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	// TODO - Set PID to 1 - needed only for statistics
 	puInfo.Runtime.SetPid(1)
 
-	log.WithFields(log.Fields{
-		"package": "remote_enforcer",
-		"method":  "Supervise",
-	}).Info("Called Supervise Start in remote_enforcer")
+	zap.L().Debug("Called Supervise Start in remote_enforcer")
 
 	err := s.Supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"method":    "Supervise",
-			"contextID": payload.ContextID,
-			"error":     err.Error(),
-		}).Info("Unable to initialize supervisor  ")
-
+		zap.L().Error("Unable to initialize supervisor",
+			zap.String("ContextID", payload.ContextID),
+			zap.Error(err),
+		)
 		resp.Status = err.Error()
 		return err
 	}
@@ -324,9 +320,6 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
-		log.WithFields(log.Fields{
-			"package": "remote_enforcer",
-		}).Info("Failed Runtime")
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
 
@@ -335,10 +328,7 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		return err
 	}
 
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"method":    "Enforce",
-		"contextID": payload.ContextID,
-	}).Info("Enforcer enabled")
+	zap.L().Debug("Enforcer enabled", zap.String("contextID", payload.ContextID))
 
 	resp.Status = ""
 
@@ -382,13 +372,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor, logLevel log.Level) error {
-
-	log.SetLevel(logLevel)
-	log.SetFormatter(&log.TextFormatter{
-		ForceColors:    true,
-		DisableSorting: true,
-	})
+func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
 	namedPipe := os.Getenv(envSocketPath)
 

@@ -8,7 +8,8 @@ import (
 	"strings"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
@@ -25,10 +26,11 @@ import (
 type datapathEnforcer struct {
 
 	// Configuration parameters
-	filterQueue *FilterQueue
-	tokenEngine tokens.TokenEngine
-	collector   collector.EventCollector
-	service     PacketProcessor
+	filterQueue    *FilterQueue
+	tokenEngine    tokens.TokenEngine
+	collector      collector.EventCollector
+	service        PacketProcessor
+	procMountPoint string
 
 	// Internal structures and caches
 	// Key=ContextId Value=ContainerIP
@@ -75,6 +77,7 @@ func NewDatapathEnforcer(
 	serverID string,
 	validity time.Duration,
 	mode constants.ModeType,
+	procMountPoint string,
 ) PolicyEnforcer {
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
@@ -82,32 +85,25 @@ func NewDatapathEnforcer(
 
 		sysctlCmd, err := exec.LookPath("sysctl")
 		if err != nil {
-			log.WithFields(log.Fields{"package": "enforcer",
-				"Error": err.Error(),
-			}).Fatal("sysctl command must be installed. Abort")
+			zap.L().Fatal("sysctl command must be installed", zap.Error(err))
 		}
 
 		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
 		if err := cmd.Run(); err != nil {
-			log.WithFields(log.Fields{"package": "enforcer",
-				"Error": err.Error(),
-			}).Fatal("Failed to set conntrack options. Abort")
+			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
 	}
 
 	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-			"error":   err.Error(),
-		}).Fatal("Unable to create TokenEngine in enforcer")
+		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
 	}
 
 	d := &datapathEnforcer{
 		contextTracker:           cache.NewCache(),
 		puTracker:                cache.NewCache(),
-		networkConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		appConnectionTracker:     cache.NewCacheWithExpiration(time.Second * 60),
+		networkConnectionTracker: cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
+		appConnectionTracker:     cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
 		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
 		destinationPortCache:     cache.NewCacheWithExpiration(time.Second * 60),
@@ -122,12 +118,11 @@ func NewDatapathEnforcer(
 		appTCP:                   &PacketStats{},
 		ackSize:                  secrets.AckSize(),
 		mode:                     mode,
+		procMountPoint:           procMountPoint,
 	}
 
 	if d.tokenEngine == nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Fatal("Unable to create enforcer")
+		zap.L().Fatal("Unable to create enforcer")
 	}
 
 	return d
@@ -140,13 +135,11 @@ func NewDefaultDatapathEnforcer(
 	service PacketProcessor,
 	secrets tokens.Secrets,
 	mode constants.ModeType,
+	procMountPoint string,
 ) PolicyEnforcer {
 
 	if collector == nil {
-		log.WithFields(log.Fields{
-			"package":  "enforcer",
-			"serverID": serverID,
-		}).Fatal("Collector must be given to NewDefaultDatapathEnforcer")
+		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
 	}
 
 	mutualAuthorization := false
@@ -171,7 +164,36 @@ func NewDefaultDatapathEnforcer(
 		serverID,
 		validity,
 		mode,
+		procMountPoint,
 	)
+}
+
+func (d *datapathEnforcer) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
+
+	if connection != nil {
+		connection.SetReported(true)
+	}
+	d.collector.CollectFlowEvent(&collector.FlowRecord{
+		ContextID:       context.ID,
+		DestinationID:   destID,
+		SourceID:        sourceID,
+		Tags:            context.Annotations,
+		Action:          action,
+		Mode:            mode,
+		SourceIP:        p.SourceAddress.String(),
+		DestinationIP:   p.DestinationAddress.String(),
+		DestinationPort: p.DestinationPort,
+	})
+}
+
+func (d *datapathEnforcer) reportAcceptedFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext) {
+
+	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowAccept, "NA")
+}
+
+func (d *datapathEnforcer) reportRejectedFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
+
+	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowReject, mode)
 }
 
 func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
@@ -293,26 +315,27 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 	for _, hash := range hashSlice.([]*DualHash) {
 
 		if err := d.puTracker.Remove(hash.app); err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-				"entry":   hash.app,
-			}).Warn("Unable to remove app hash entry during unenforcement")
+			zap.L().Warn("Unable to remove app hash entry during unenforcement",
+				zap.String("entry", hash.app),
+				zap.Error(err),
+			)
 		}
 
 		if hash.process {
 			if err := d.puTracker.Remove(hash.net); err != nil {
-				log.WithFields(log.Fields{
-					"package": "enforcer",
-					"entry":   hash.net,
-				}).Warn("Unable to remove net hash entry during unenforcement")
+				zap.L().Warn("Unable to remove net hash entry during unenforcement",
+					zap.String("entry", hash.app),
+					zap.Error(err),
+				)
 			}
 		}
 	}
 
 	if err := d.contextTracker.Remove(contextID); err != nil {
-		log.WithFields(log.Fields{
-			"package": "enforcer",
-		}).Warn("Unable to remove context from cache ")
+		zap.L().Warn("Unable to remove context from cache",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
 	}
 
 	return nil
@@ -326,13 +349,9 @@ func (d *datapathEnforcer) GetFilterQueue() *FilterQueue {
 // Start starts the application and network interceptors
 func (d *datapathEnforcer) Start() error {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-		"mode":    d.mode,
-	}).Debug("Start enforcer")
+	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
 
 	d.StartApplicationInterceptor()
-
 	d.StartNetworkInterceptor()
 
 	return nil
@@ -341,9 +360,7 @@ func (d *datapathEnforcer) Start() error {
 // Stop stops the enforcer
 func (d *datapathEnforcer) Stop() error {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("Stoping enforcer")
+	zap.L().Debug("Stoping enforcer")
 
 	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
 		d.appStop[i] <- true
@@ -373,10 +390,7 @@ func (d *datapathEnforcer) StartNetworkInterceptor() {
 		// Initialize all the queues
 		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-				"error":   err.Error(),
-			}).Fatal("Unable to initialize netfilter queue - Aborting")
+			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
 
 		go func(j uint16) {
@@ -410,10 +424,7 @@ func (d *datapathEnforcer) StartApplicationInterceptor() {
 		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize)
 
 		if err != nil {
-			log.WithFields(log.Fields{
-				"package": "enforcer",
-				"error":   err.Error(),
-			}).Fatal("Unable to initialize netfilter queue - Aborting")
+			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
 
 		go func(j uint16) {
@@ -494,9 +505,7 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
 
-	log.WithFields(log.Fields{
-		"package": "enforcer",
-	}).Debug("process application packets from NFQ")
+	zap.L().Debug("process application packets from NFQ")
 
 	d.app.IncomingPackets++
 

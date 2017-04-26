@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
@@ -138,10 +139,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 
 	for i := 0; i < 7; i++ {
 		if errvector[i] != nil {
-			log.WithFields(log.Fields{
-				"package": "ipsetctrl",
-				"error":   errvector[i].Error(),
-			}).Warn("Error while deleting rules")
+			zap.L().Warn("Error while deleting rules", zap.Error(errvector[i]))
 		}
 	}
 	return nil
@@ -160,7 +158,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
-		return err
+		return fmt.Errorf("Unable to add all rules: %s", err)
 	}
 
 	previousVersion := strconv.Itoa(version - 1)
@@ -177,10 +175,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	for i := 0; i < 6; i++ {
 		if errvector[i] != nil {
-			log.WithFields(log.Fields{
-				"package": "ipsetctrl",
-				"error":   errvector[i].Error(),
-			}).Warn("Error while deleting rules")
+			zap.L().Warn("Error while deleting rules", zap.Error(errvector[i]))
 		}
 	}
 
@@ -234,15 +229,11 @@ func (i *Instance) Stop() error {
 }
 
 func (i *Instance) cleanACLs() error {
-	log.WithFields(log.Fields{
-		"package": "ipsetctrl",
-	}).Debug("Cleaning all IPTables")
+
+	zap.L().Debug("Cleaning all IPTables")
 
 	if err := i.cleanIPSets(); err != nil {
-		log.WithFields(log.Fields{
-			"package": "ipsetctrl",
-			"error":   err.Error(),
-		}).Warn("Error while cleaning ACL rules")
+		zap.L().Warn("Error while cleaning ACL rules", zap.Error(err))
 	}
 
 	return nil

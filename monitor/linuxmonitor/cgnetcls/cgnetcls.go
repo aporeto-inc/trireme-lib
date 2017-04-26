@@ -4,6 +4,7 @@
 package cgnetcls
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -13,7 +14,8 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/kardianos/osext"
 )
 
@@ -27,7 +29,6 @@ const (
 	// PortTag is the tag for a port
 	PortTag = "@usr:port"
 
-	basePath             = "/sys/fs/cgroup/net_cls"
 	markFile             = "/net_cls.classid"
 	procs                = "/cgroup.procs"
 	releaseAgentConfFile = "/release_agent"
@@ -35,6 +36,7 @@ const (
 	initialmarkval       = 100
 )
 
+var basePath = "/sys/fs/cgroup/net_cls"
 var markval uint64 = initialmarkval
 
 //Empty receiver struct
@@ -148,11 +150,7 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"package":    "cgnetcls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-		}).Info("Group already deleted ")
+		zap.L().Debug("Group already deleted", zap.Error(err))
 		return nil
 	}
 
@@ -175,6 +173,38 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 	return false
 }
 
+func mountCgroupController() {
+	mounts, _ := ioutil.ReadFile("/proc/mounts")
+	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
+	var netCls = false
+	var cgroupMount string
+	for sc.Scan() {
+		if strings.HasPrefix(sc.Text(), "cgroup") {
+			cgroupMount = strings.Split(sc.Text(), " ")[1]
+			cgroupMount = cgroupMount[:strings.LastIndex(cgroupMount, "/")]
+			if strings.Contains(sc.Text(), "net_cls") {
+				basePath = strings.Split(sc.Text(), " ")[1]
+				netCls = true
+				return
+			}
+		}
+
+	}
+
+	if len(cgroupMount) == 0 {
+		zap.L().Error("Cgroups are not enabled or net_cls is not mounted")
+		return
+	}
+	if !netCls {
+		basePath = cgroupMount + "/net_cls"
+		os.MkdirAll(basePath, 0700)
+		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
+		return
+
+	}
+
+}
+
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	binpath, _ := osext.Executable()
@@ -186,7 +216,7 @@ func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	if releasePath != "" {
 		controller.ReleaseAgentPath = releasePath
 	}
-
+	mountCgroupController()
 	return controller
 }
 

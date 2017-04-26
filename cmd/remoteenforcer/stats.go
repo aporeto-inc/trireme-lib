@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-
-	log "github.com/Sirupsen/logrus"
 )
 
 const (
@@ -94,10 +94,7 @@ func (s *StatsClient) SendStats() {
 			)
 
 			if err != nil {
-				log.WithFields(log.Fields{
-					"package": "remoteEnforcer",
-					"Msg":     "Unable to send flows",
-				}).Error("RPC failure in sending statistics")
+				zap.L().Error("RPC failure in sending statistics: Unable to send flows")
 			}
 
 		case <-s.stop:
@@ -107,15 +104,12 @@ func (s *StatsClient) SendStats() {
 
 }
 
-//connectStatsCLient  This is an private function called by the remoteenforcer to connect back
-//to the controller over a stats channel
+// connectStatsCLient  This is an private function called by the remoteenforcer to connect back
+// to the controller over a stats channel
 func (s *StatsClient) connectStatsClient() error {
 
 	if err := s.rpchdl.NewRPCClient(statsContextID, s.statsChannel, s.secret); err != nil {
-		log.WithFields(log.Fields{"package": "remote_enforcer",
-			"error":    err.Error(),
-			"function": "connectStatsClient",
-		}).Error("Stats RPC client cannot connect")
+		zap.L().Error("Stats RPC client cannot connect", zap.Error(err))
 		return err
 	}
 
@@ -129,7 +123,5 @@ func (s *StatsClient) Stop() {
 
 	s.stop <- true
 
-	log.WithFields(log.Fields{"package": "remote_enforcer",
-		"Msg": "Stopped the remote enforcer stats collector",
-	}).Debug("Stopping stats collector")
+	zap.L().Debug("Stopping stats collector")
 }

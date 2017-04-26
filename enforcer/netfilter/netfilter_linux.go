@@ -34,7 +34,7 @@ import (
 	"time"
 	"unsafe"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type verdictType C.uint
@@ -108,32 +108,14 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	var ret C.int
 
 	if nfq.h, err = C.nfq_open(); err != nil {
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Error opening NFQueue handle")
-
 		return nil, fmt.Errorf("Error opening NFQueue handle: %v ", err)
 	}
 
 	if ret, err = C.nfq_unbind_pf(nfq.h, AfInet); err != nil || ret < 0 {
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Error unbinding existing NFQ handler from AfInet protocol family")
-
 		return nil, fmt.Errorf("Error unbinding existing NFQ handler from AfInet protocol family: %v ", err)
 	}
 
 	if ret, err = C.nfq_bind_pf(nfq.h, AfInet); err != nil || ret < 0 {
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Error binding to AfInet protocol family")
-
 		return nil, fmt.Errorf("Error binding to AfInet protocol family: %v ", err)
 	}
 
@@ -143,12 +125,6 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 
 	if nfq.qh, err = C.CreateQueue(nfq.h, C.u_int16_t(queueID), C.u_int32_t(nfq.idx)); err != nil || nfq.qh == nil {
 		C.nfq_close(nfq.h)
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Error binding to queue")
-
 		return nil, fmt.Errorf("Error binding to queue: %v ", err)
 	}
 
@@ -157,12 +133,6 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	if C.nfq_set_mode(nfq.qh, C.u_int8_t(2), C.uint(packetSize)) < 0 {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Unable to set packets copy mode")
-
 		return nil, fmt.Errorf("Unable to set packets copy mode: %v ", err)
 	}
 
@@ -170,12 +140,6 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	if ret, err = C.nfq_set_queue_maxlen(nfq.qh, C.u_int32_t(maxPacketsInQueue)); err != nil || ret < 0 {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Unable to set max packets in queue")
-
 		return nil, fmt.Errorf("Unable to set max packets in queue: %v ", err)
 	}
 
@@ -183,12 +147,6 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	if nfq.fd, err = C.nfq_fd(nfq.h); err != nil {
 		C.nfq_destroy_queue(nfq.qh)
 		C.nfq_close(nfq.h)
-
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   err.Error(),
-		}).Debug("Unable to get queue file-descriptor.")
-
 		return nil, fmt.Errorf("Unable to get queue file-descriptor. %v", err)
 	}
 
@@ -199,10 +157,7 @@ func NewNFQueue(queueID uint16, maxPacketsInQueue uint32, packetSize uint32) (*N
 	opt := 1
 	optionsError := setsockopt(int(fd), solNetlink, netlinkNoEnobufs, unsafe.Pointer(&opt), unsafe.Sizeof(opt))
 	if optionsError != nil {
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"error":   optionsError.Error(),
-		}).Error("Unable to get queue file-descriptor.")
+		zap.L().Error("Unable to get queue file-descriptor", zap.Error(optionsError))
 	}
 
 	theTable[nfq.idx] = &nfq
@@ -236,11 +191,7 @@ func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData
 
 	nfq, ok := theTable[idx]
 	if !ok {
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"idx":     idx,
-		}).Debug("Dropping, unexpectedly due to bad idx=")
-
+		zap.L().Debug("Dropping, unexpectedly due to bad idx", zap.Uint32("idx", idx))
 		return NfDrop
 	}
 
@@ -256,10 +207,7 @@ func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData
 	select {
 	case nfq.Packets <- &p:
 	default:
-		log.WithFields(log.Fields{
-			"package": "netfilter",
-			"idx":     idx,
-		}).Debug("Dropping packet - queue full ")
+		zap.L().Debug("Dropping packet: queue full", zap.Uint32("idx", idx))
 	}
 
 	return 1

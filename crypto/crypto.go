@@ -13,7 +13,7 @@ import (
 	"encoding/pem"
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // ComputeHmac256 computes the HMAC256 of the message
@@ -53,10 +53,7 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 	_, err := rand.Read(b)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-			"error":   err.Error(),
-		}).Debug("GenerateRandomBytes failed")
+		zap.L().Debug("GenerateRandomBytes failed", zap.Error(err))
 		return nil, err
 	}
 
@@ -80,10 +77,7 @@ func CreateEphemeralKey(curve func() elliptic.Curve, pub *ecdsa.PublicKey) (*ecd
 	ephemeral, err := ecdsa.GenerateKey(curve(), rand.Reader)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-			"error":   err.Error(),
-		}).Debug("CreateEphemeralKey failed, returning empty array of bytes")
+		zap.L().Error("CreateEphemeralKey failed, returning empty array of bytes", zap.Error(err))
 		return nil, []byte{}
 	}
 
@@ -101,10 +95,7 @@ func LoadRootCertificates(rootPEM []byte) *x509.CertPool {
 	ok := roots.AppendCertsFromPEM(rootPEM)
 
 	if !ok {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-			"rootPEM": rootPEM,
-		}).Debug("AppendCertsFromPEM failed")
+		zap.L().Error("AppendCertsFromPEM failed", zap.ByteString("rootPEM", rootPEM))
 		return nil
 	}
 
@@ -117,9 +108,6 @@ func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(keyPEM)
 
 	if block == nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-		}).Debug("Failed to Parse PEM block")
 		return nil, fmt.Errorf("Failed to Parse PEM block")
 	}
 
@@ -127,9 +115,6 @@ func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
 	key, err := x509.ParseECPrivateKey(block.Bytes)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-		}).Debug("ParseECPrivateKey failed")
 		return nil, err
 	}
 
@@ -143,19 +128,12 @@ func LoadAndVerifyCertificate(certPEM []byte, roots *x509.CertPool) (*x509.Certi
 	// Decode the certificate
 	certBlock, _ := pem.Decode(certPEM)
 	if certBlock == nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-		}).Debug("Failed to decode PEM block")
 		return nil, fmt.Errorf("Failed to decode PEM block")
 	}
 
 	// Create the certificate structure
 	cert, err := x509.ParseCertificate(certBlock.Bytes)
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-			"error":   err.Error(),
-		}).Debug("Failed to ParseCertificate")
 		return nil, err
 	}
 
@@ -164,10 +142,6 @@ func LoadAndVerifyCertificate(certPEM []byte, roots *x509.CertPool) (*x509.Certi
 	}
 
 	if _, err := cert.Verify(opts); err != nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-			"error":   err.Error(),
-		}).Debug("Failed to verify the option for the certificate ")
 		return nil, err
 	}
 
@@ -182,9 +156,6 @@ func LoadAndVerifyECSecrets(keyPEM, certPEM, caCertPEM []byte) (key *ecdsa.Priva
 	key, err = LoadEllipticCurveKey(keyPEM)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "crypto",
-		}).Debug("Failed to LoadEllipticCurveKey")
 		return nil, nil, nil, err
 	}
 

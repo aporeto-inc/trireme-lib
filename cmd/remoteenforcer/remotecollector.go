@@ -26,6 +26,11 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 
 	hash := collector.StatsFlowHash(record)
 
+	// If flow event doesn't have a count make it equal to 1. At least one flow is collected
+	if record.Count == 0 {
+		record.Count = 1
+	}
+
 	c.Lock()
 	defer c.Unlock()
 
@@ -35,6 +40,8 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 	}
 
 	c.Flows[hash] = record
+
+	c.Flows[hash].Tags = c.Flows[hash].Tags.Clone()
 }
 
 //CollectContainerEvent exported

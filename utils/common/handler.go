@@ -5,7 +5,8 @@ import (
 	"os"
 	"os/signal"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/cmd/remoteenforcer"
 	"github.com/aporeto-inc/trireme/cmd/systemdutil"
@@ -16,12 +17,15 @@ import (
 	"github.com/aporeto-inc/trireme/processmon"
 )
 
+// KillContainerOnError defines if the Container is getting killed if the policy Application resulted in an error
+const KillContainerOnError = true
+
 // ProcessArgs handles all commands options for trireme
-func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProcessor, logLevel log.Level) (err error) {
+func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProcessor) (err error) {
 
 	if arguments["enforce"].(bool) {
 		// Run enforcer and exit
-		return remoteenforcer.LaunchRemoteEnforcer(processor, logLevel)
+		return remoteenforcer.LaunchRemoteEnforcer(processor)
 	}
 
 	if arguments["run"].(bool) || arguments["<cgroup>"] != nil {
@@ -30,7 +34,6 @@ func ProcessArgs(arguments map[string]interface{}, processor enforcer.PacketProc
 	}
 
 	if !arguments["daemon"].(bool) {
-		log.Error("Invalid parameters")
 		return fmt.Errorf("Invalid parameters")
 	}
 
@@ -55,29 +58,20 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 	processmon.GlobalCommandArgs = arguments
 
 	if arguments["--swarm"].(bool) {
-		log.WithFields(log.Fields{
-			"Package":   "main",
-			"Extractor": "Swarm",
-		}).Info("Using Docker Swarm extractor")
+		zap.L().Info("Using Docker Swarm extractor")
 		customExtractor = SwarmExtractor
 	} else if arguments["--extractor"].(bool) {
 		extractorfile := arguments["<metadatafile>"].(string)
-		log.WithFields(log.Fields{
-			"Package":   "main",
-			"Extractor": extractorfile,
-		}).Info("Using custom extractor")
+		zap.L().Info("Using custom extractor")
 		customExtractor, err = cliextractor.NewExternalExtractor(extractorfile)
 		if err != nil {
-			log.Fatalf("External metadata extractor cannot be accessed: %s", err)
+			zap.L().Fatal("External metadata extractor cannot be accessed", zap.Error(err))
 		}
 	}
 
 	targetNetworks := []string{"172.17.0.0/24", "10.0.0.0/8"}
 	if len(arguments["--target-networks"].([]string)) > 0 {
-		log.WithFields(log.Fields{
-			"Package":         "main",
-			"target networks": arguments["--target-networks"].([]string),
-		}).Info("Target Networks")
+		zap.L().Info("Target Networks", zap.Strings("networks", arguments["--target-networks"].([]string)))
 		targetNetworks = arguments["--target-networks"].([]string)
 	}
 
@@ -87,30 +81,29 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 			keyFile := arguments["--keyFile"].(string)
 			certFile := arguments["--certFile"].(string)
 			caCertFile := arguments["--caCert"].(string)
-			log.WithFields(log.Fields{
-				"Package":      "main",
-				"key-file":     keyFile,
-				"cert-file":    certFile,
-				"ca-cert-file": caCertFile,
-			}).Info("Setting up trireme with PKI")
-			t, m = TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote)
+			zap.L().Info("Setting up trireme with PKI",
+				zap.String("key", keyFile),
+				zap.String("cert", certFile),
+				zap.String("ca", caCertFile),
+			)
+			t, m = TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote, KillContainerOnError)
 		} else {
-			log.Info("Setting up trireme with PSK")
-			t, m = TriremeWithPSK(targetNetworks, &customExtractor, remote)
+			zap.L().Info("Setting up trireme with PSK")
+			t, m = TriremeWithPSK(targetNetworks, &customExtractor, remote, KillContainerOnError)
 		}
 	} else { // Hybrid mode
-		t, m, rm = HybridTriremeWithPSK(targetNetworks, &customExtractor)
+		t, m, rm = HybridTriremeWithPSK(targetNetworks, &customExtractor, KillContainerOnError)
 		if rm == nil {
-			log.Fatalln("Failed to create remote monitor for hybrid")
+			zap.L().Fatal("Failed to create remote monitor for hybrid")
 		}
 	}
 
 	if t == nil {
-		log.Fatalln("Failed to create Trireme")
+		zap.L().Fatal("Failed to create Trireme")
 	}
 
 	if m == nil {
-		log.Fatalln("Failed to create Monitor")
+		zap.L().Fatal("Failed to create Monitor")
 	}
 
 	c := make(chan os.Signal, 1)
@@ -118,16 +111,16 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 
 	// Start services
 	if err := t.Start(); err != nil {
-		log.Fatalln("Failed to start Trireme")
+		zap.L().Fatal("Failed to start Trireme")
 	}
 
 	if err := m.Start(); err != nil {
-		log.Fatalln("Failed to start monitor")
+		zap.L().Fatal("Failed to start monitor")
 	}
 
 	if rm != nil {
 		if err := rm.Start(); err != nil {
-			log.Fatalln("Failed to start remote monitor")
+			zap.L().Fatal("Failed to start remote monitor")
 		}
 	}
 

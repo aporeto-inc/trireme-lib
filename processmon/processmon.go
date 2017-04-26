@@ -11,10 +11,11 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"time"
+	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
@@ -79,11 +80,11 @@ func collectChildExitStatus() {
 
 	for {
 		exitStatus := <-childExitStatus
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"ContextID":  exitStatus.contextID,
-			"pid":        exitStatus.process,
-			"ExitStatus": exitStatus.exitStatus,
-		}).Info("Enforcer exited")
+		zap.L().Debug("Remote enforcer exited",
+			zap.String("nativeContextID", exitStatus.contextID),
+			zap.Int("pid", exitStatus.process),
+			zap.Error(exitStatus.exitStatus),
+		)
 	}
 }
 
@@ -112,9 +113,7 @@ func (p *ProcessMon) GetExitStatus(contextID string) bool {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err,
-		}).Info("Process already dead")
+		zap.L().Debug("Process already dead", zap.Error(err))
 		return true
 	}
 	return (s.(*processInfo)).deleted
@@ -139,9 +138,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"msg": "Process already killed",
-		}).Info("Process already killed or never launched")
+		zap.L().Debug("Process already killed or never launched")
 		return
 	}
 	req := &rpcwrapper.Request{}
@@ -174,21 +171,16 @@ func (p *ProcessMon) KillProcess(contextID string) {
 
 	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
 	if err := os.Remove(netnspath + contextID); err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"msg": "Failed to remote process from netns path ",
-		}).Warn("OS Error")
+		zap.L().Warn("Failed to remote process from netns path", zap.Error(err))
 	}
 
 	if err := p.activeProcesses.Remove(contextID); err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"msg": "Failed to remote process from cache ",
-		}).Warn("Entry was not found in the cache")
+		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
 	}
-
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
 	secretLength := 32
 	var cmdName string
 
@@ -196,27 +188,36 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	if err == nil {
 		return nil
 	}
+
+	pidstat, pidstaterr := os.Stat(procMountPoint + "/" + strconv.Itoa(refPid) + "/ns/net")
+	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
+	if pidstaterr == nil && hoststaterr == nil {
+		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
+			zap.L().Error("Refused to launch a remote enforcer in host namespace")
+			return nil
+		}
+	} else {
+		zap.L().Error("Cannot determine namespace of new container",
+			zap.String("hostError", hoststaterr.Error()),
+			zap.String("netError", pidstaterr.Error()),
+		)
+	}
 	_, staterr := os.Stat(netnspath)
 	if staterr != nil {
 		mkerr := os.MkdirAll(netnspath, os.ModeDir)
 		if mkerr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": mkerr,
-			}).Info("Could not create directory")
-
+			zap.L().Error("Could not create directory", zap.Error(mkerr))
 		}
 	}
 
 	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
-		linkErr := os.Symlink("/proc/"+strconv.Itoa(refPid)+"/ns/net",
+		linkErr := os.Symlink(procMountPoint+"/"+strconv.Itoa(refPid)+"/ns/net",
 			netnspath+contextID)
 		if linkErr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": linkErr,
-			}).Error(ErrSymLinkFailed)
+			zap.L().Error(ErrSymLinkFailed.Error(), zap.Error(linkErr))
 		}
 	}
-	namedPipe := "SOCKET_PATH=/var/run/" + contextID + ".sock"
+	namedPipe := "APORETO_ENV_SOCKET_PATH=/var/run/" + contextID + ".sock"
 
 	cmdName, _ = osext.Executable()
 	cmdArgs := []string{arg}
@@ -228,10 +229,10 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 
-	log.WithFields(log.Fields{"package": "ProcessMon",
-		"command": cmdName,
-		"args":    strings.Join(cmdArgs, " "),
-	}).Debug("Enforcer executed")
+	zap.L().Debug("Enforcer executed",
+		zap.String("command", cmdName),
+		zap.Strings("args", cmdArgs),
+	)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -248,22 +249,22 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		//This is a more serious failure. We can't reliably control the remote enforcer
-		return fmt.Errorf("Failed to generate secret %s", err.Error())
+		return fmt.Errorf("Failed to generate secret: %s", err.Error())
 	}
-
-	rpcClientSecret := "SECRET=" + randomkeystring
+	MountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
+	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
 
-	cmd.Env = append(os.Environ(), []string{namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+	cmd.Env = append(os.Environ(), []string{MountPoint, namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
 
 	err = cmd.Start()
 	if err != nil {
 		//Cleanup resources
 		if oerr := os.Remove(netnspath + contextID); oerr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": err,
-				"PATH":  cmdName,
-			}).Warn("Failed to clean up netns path")
+			zap.L().Warn("Failed to clean up netns path",
+				zap.String("command", cmdName),
+				zap.Error(err),
+			)
 		}
 		return ErrBinaryNotFound
 	}
