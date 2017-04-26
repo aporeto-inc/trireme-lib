@@ -18,7 +18,6 @@ type DataStore interface {
 	AddOrUpdate(u interface{}, value interface{})
 	Get(u interface{}) (i interface{}, err error)
 	Remove(u interface{}) (err error)
-	removeNotify(u interface{}, notify bool) (err error)
 	DumpStore()
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 }
