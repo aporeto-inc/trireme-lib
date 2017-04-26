@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"go.uber.org/zap"
-
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
@@ -72,37 +70,12 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 
 	delete(s.initDone, contextID)
 
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.UnSupervisePayload{
-			ContextID: contextID,
-		},
-	}
-
-	if err := s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, &rpcwrapper.Response{}); err != nil {
-		zap.L().Warn("Failed to clean up supervisor in unsupervise",
-			zap.String("contextID", contextID),
-			zap.Error(err),
-		)
-		delete(s.initDone, contextID)
-	}
-
-	if !s.prochdl.GetExitStatus(contextID) {
-		//Unsupervise not called yet
-		if err := s.prochdl.SetExitStatus(contextID, true); err != nil {
-			zap.L().Warn("Failed to set exit status in unsupervise",
-				zap.String("contextID", contextID),
-				zap.Error(err),
-			)
-		}
-	} else {
-		//We are coming here last
-		s.prochdl.KillProcess(contextID)
-	}
+	s.prochdl.KillProcess(contextID)
 
 	return nil
 }
 
-//Start This method does nothing and is implemented for completeness
+// Start This method does nothing and is implemented for completeness
 // THe work done is done in the InitRemoteSupervisor method in the remote enforcer
 func (s *ProxyInfo) Start() error {
 
@@ -111,7 +84,9 @@ func (s *ProxyInfo) Start() error {
 
 //Stop This method does nothing
 func (s *ProxyInfo) Stop() error {
-
+	for c := range s.initDone {
+		s.Unsupervise(c) // nolint
+	}
 	return nil
 }
 

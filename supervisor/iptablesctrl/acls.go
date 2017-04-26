@@ -18,14 +18,14 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			i.appAckPacketIPTableContext,
 			i.appCgroupIPTableSection,
 			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server specific chain",
+			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", "MARK", "--set-mark", mark,
 		},
 		{
 			i.appAckPacketIPTableContext,
 			i.appCgroupIPTableSection,
 			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server specific chain",
+			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
 
@@ -35,7 +35,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-p", "tcp",
 			"-m", "multiport",
 			"--destination-ports", port,
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
 	}
@@ -54,7 +54,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-s", ip,
-			"-m", "comment", "--comment", "Container specific chain",
+			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", appChain,
 		})
 	}
@@ -63,7 +63,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 		i.appAckPacketIPTableContext,
 		i.appPacketIPTableSection,
 		"-s", ip,
-		"-m", "comment", "--comment", "Container specific chain",
+		"-m", "comment", "--comment", "Container-specific-chain",
 		"-j", appChain,
 	})
 
@@ -71,7 +71,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 		i.netPacketIPTableContext,
 		i.netPacketIPTableSection,
 		"-d", ip,
-		"-m", "comment", "--comment", "Container specific chain",
+		"-m", "comment", "--comment", "Container-specific-chain",
 		"-j", netChain,
 	})
 
@@ -182,7 +182,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 			}
 		case "Delete":
 			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-				return fmt.Errorf("Failed to %s rule for table %s and chain %s with error %s ", methodType, cr[0], cr[1], err.Error())
+				zap.L().Warn("Failed to delete rule from chain", zap.Error(err))
 			}
 		default:
 			return fmt.Errorf("Invalid method type")
@@ -197,6 +197,7 @@ func (i *Instance) addChainRules(appChain string, netChain string, ip string, po
 	if i.mode == constants.LocalServer {
 		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Append")
 	}
+
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Append")
 
 }
@@ -405,7 +406,6 @@ func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, 
 	}
 
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")
-
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
@@ -574,29 +574,40 @@ func (i *Instance) cleanACLs() error {
 
 	// Clean Application Rules/Chains in Raw if needed
 	if i.mode == constants.LocalContainer {
-		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
+		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
 	}
 
 	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appAckPacketIPTableContext, i.appPacketIPTableSection, chainPrefix)
-
-	// Clean Network Rules/Chains
-	i.cleanACLSection(i.netPacketIPTableContext, i.netPacketIPTableSection, chainPrefix)
+	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
 
 	return nil
 }
 
-func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
+func (i *Instance) cleanACLSection(context, netSection, appSection, chainPrefix string) {
 
-	if err := i.ipt.ClearChain(context, section); err != nil {
+	if err := i.ipt.ClearChain(context, appSection); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
 			zap.String("context", context),
-			zap.String("section", section),
+			zap.String("section", appSection),
 			zap.Error(err),
 		)
 	}
 
-	rules, _ := i.ipt.ListChains(context)
+	if err := i.ipt.ClearChain(context, netSection); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", netSection),
+			zap.Error(err),
+		)
+	}
+
+	rules, err := i.ipt.ListChains(context)
+	if err != nil {
+		zap.L().Warn("Failed to list chains",
+			zap.String("context", context),
+			zap.Error(err),
+		)
+	}
 
 	for _, rule := range rules {
 
@@ -605,7 +616,7 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 			if err := i.ipt.ClearChain(context, rule); err != nil {
 				zap.L().Warn("Can not clear the chain",
 					zap.String("context", context),
-					zap.String("section", section),
+					zap.String("section", rule),
 					zap.Error(err),
 				)
 			}
@@ -613,7 +624,7 @@ func (i *Instance) cleanACLSection(context, section, chainPrefix string) {
 			if err := i.ipt.DeleteChain(context, rule); err != nil {
 				zap.L().Warn("Can not delete the chain",
 					zap.String("context", context),
-					zap.String("section", section),
+					zap.String("section", rule),
 					zap.Error(err),
 				)
 			}

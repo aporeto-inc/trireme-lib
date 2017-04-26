@@ -128,27 +128,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 // Unenforce stops enforcing policy for the given contexID.
 func (s *proxyInfo) Unenforce(contextID string) error {
 
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.UnEnforcePayload{
-			ContextID: contextID,
-		},
-	}
-
-	err := s.rpchdl.RemoteCall(contextID, "Server.Unenforce", request, &rpcwrapper.Response{})
-	if err != nil {
-		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
-		return ErrEnforceFailed
-	}
-
 	delete(s.initDone, contextID)
-
-	if !s.prochdl.GetExitStatus(contextID) {
-		if err := s.prochdl.SetExitStatus(contextID, true); err != nil {
-			zap.L().Warn("failed to set exit status", zap.Error(err))
-		}
-	} else {
-		s.prochdl.KillProcess(contextID)
-	}
 
 	return nil
 }

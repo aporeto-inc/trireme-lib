@@ -187,7 +187,7 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 	}
 
 	if err := os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
-		zap.L().Warn("Failed to remove channel",
+		zap.L().Debug("Failed to remove channel - already closed",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
@@ -225,5 +225,4 @@ func RegisterTypes() {
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
 	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.ExcludeIPRequestPayload", *(&ExcludeIPRequestPayload{}))
 }

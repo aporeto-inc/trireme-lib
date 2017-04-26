@@ -166,15 +166,9 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 		}
 	}
 
-	var derr error
 	appChain, netChain := i.chainName(contextID, version)
-	if i.mode == constants.LocalServer {
-		derr = i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
-	} else {
-		derr = i.deleteChainRules(appChain, netChain, ipAddress, port, mark)
-	}
 
-	if derr != nil {
+	if derr := i.deleteChainRules(appChain, netChain, ipAddress, port, mark); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 

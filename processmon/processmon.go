@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"strconv"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -143,16 +144,32 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	req := &rpcwrapper.Request{}
 	resp := &rpcwrapper.Response{}
 	req.Payload = s.(*processInfo).process.Pid
-	err = s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
-	if err != nil {
-		if err := s.(*processInfo).process.Kill(); err != nil {
-			zap.L().Warn("Process is already dead", zap.Error(err))
+
+	c := make(chan error, 1)
+	go func() {
+		c <- s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
+	}()
+	select {
+	case kerr := <-c:
+		if kerr != nil {
+			if perr := s.(*processInfo).process.Kill(); perr != nil {
+				zap.L().Debug("Process is already dead",
+					zap.String("Remote error", kerr.Error()),
+					zap.String("Kill error", perr.Error()))
+			}
+		}
+	case <-time.After(5 * time.Second):
+		if perr := s.(*processInfo).process.Kill(); perr != nil {
+			zap.L().Info("Time out while killing process ",
+				zap.Error(perr))
 		}
 	}
+
 	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
 	if err := os.Remove(netnspath + contextID); err != nil {
 		zap.L().Warn("Failed to remote process from netns path", zap.Error(err))
 	}
+
 	if err := p.activeProcesses.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
 	}
