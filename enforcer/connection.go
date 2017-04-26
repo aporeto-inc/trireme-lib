@@ -100,17 +100,16 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup(expiration bool) {
 
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	authStr := fmt.Sprintf("%+v", c.Auth)
+	logStr := ""
+	for i, v := range c.logs {
+		logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
+	}
 	// Logging information
 	if !c.flowReported {
-
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-
-		authStr := fmt.Sprintf("%+v", c.Auth)
-		logStr := ""
-		for i, v := range c.logs {
-			logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
-		}
 		log.WithFields(log.Fields{
 			"package":         "enforcer",
 			"expiring":        expiration,
@@ -118,6 +117,14 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 			"authInfo":        authStr,
 			"logs":            logStr,
 		}).Error("Connection not reported")
+	} else {
+		log.WithFields(log.Fields{
+			"package":         "enforcer",
+			"expiring":        expiration,
+			"connectionState": c.state,
+			"authInfo":        authStr,
+			"logs":            logStr,
+		}).Info("Connection reported")
 	}
 }
 
