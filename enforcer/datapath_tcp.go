@@ -590,7 +590,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 	// Everything else is dropped - ACK received in the Syn state without a SynAck
 	d.reportRejectedFlow(tcpPacket, connection, connection.Auth.RemoteContextID, context.ManagementID, context, collector.InvalidState)
-	zap.L().Error("INVALID STATE REACHED",
+	zap.L().Error("Invalid state reached",
 		zap.String("state", fmt.Sprintf("%v", connection.GetState())),
 		zap.String("context", context.ManagementID),
 		zap.String("net-conn", hash),
