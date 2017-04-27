@@ -464,6 +464,7 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 
 	d.net.IncomingPackets++
 
+	fmt.Println("New PACKET ID - ", p.ID)
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, p.Mark)
 
