@@ -237,7 +237,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		return nil, nil
 	}
 
-	zap.L().Error("INVALID SynAck state in App ",
+	zap.L().Debug("Invalid SynAck state in App ",
 		zap.String("context", string(connection.Auth.LocalContext)),
 		zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 		zap.String("dst-port-hash", tcpPacket.DestinationPortHash(packet.PacketTypeApplication)),
@@ -569,7 +569,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	// Catch the first request packets
 	if connection.GetState() == TCPAckProcessed {
 
-		zap.L().Error("INVALID STATE REACHED - TCPAckProcessed Depricated",
+		zap.L().Error("Invalid state reached - TCPAckProcessed Depricated",
 			zap.String("state", fmt.Sprintf("%v", connection.GetState())),
 			zap.String("context", context.ManagementID),
 			zap.String("net-conn", hash),
