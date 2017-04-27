@@ -5,7 +5,8 @@ package configurator
 import (
 	"crypto/ecdsa"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
@@ -39,9 +40,7 @@ func NewTriremeLinuxProcess(
 	secrets tokens.Secrets) trireme.Trireme {
 
 	if eventCollector == nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Warn("Using a default collector for events")
+		zap.L().Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -62,10 +61,7 @@ func NewTriremeLinuxProcess(
 	)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-			"error":   err.Error(),
-		}).Fatal("Failed to load Supervisor")
+		zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
@@ -83,9 +79,7 @@ func NewLocalTriremeDocker(
 	impl constants.ImplementationType) trireme.Trireme {
 
 	if eventCollector == nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Warn("Using a default collector for events")
+		zap.L().Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -106,10 +100,7 @@ func NewLocalTriremeDocker(
 	)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-			"error":   err.Error(),
-		}).Fatal("Failed to load Supervisor")
+		zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
@@ -126,9 +117,7 @@ func NewDistributedTriremeDocker(serverID string,
 	impl constants.ImplementationType) trireme.Trireme {
 
 	if eventCollector == nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Warn("Using a default collector for events")
+		zap.L().Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -147,9 +136,7 @@ func NewDistributedTriremeDocker(serverID string,
 	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[0], rpcwrapper)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Fatal("Cannot initialize proxy supervisor")
+		zap.L().Fatal("Cannot initialize proxy supervisor", zap.Error(err))
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
@@ -167,9 +154,7 @@ func NewHybridTrireme(
 ) trireme.Trireme {
 
 	if eventCollector == nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Warn("Using a default collector for events")
+		zap.L().Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -188,11 +173,7 @@ func NewHybridTrireme(
 		rpcwrapper)
 
 	if cerr != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-			"error":   cerr.Error(),
-		}).Fatal("Failed to load Supervisor")
-
+		zap.L().Fatal("Failed to load Supervisor", zap.Error(cerr))
 	}
 
 	processEnforcer := enforcer.NewDefaultDatapathEnforcer(serverID,
@@ -211,11 +192,7 @@ func NewHybridTrireme(
 	)
 
 	if perr != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-			"error":   perr.Error(),
-		}).Fatal("Failed to load Supervisor")
-
+		zap.L().Fatal("Failed to load Supervisor", zap.Error(perr))
 	}
 
 	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
@@ -259,9 +236,7 @@ func NewPSKTriremeWithDockerMonitor(
 ) (trireme.Trireme, monitor.Monitor) {
 
 	if eventCollector == nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Warn("Using a default collector for events")
+		zap.L().Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -320,9 +295,7 @@ func NewPKITriremeWithDockerMonitor(
 ) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
 
 	if eventCollector == nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Warn("Using a default collector for events")
+		zap.L().Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -377,9 +350,7 @@ func NewPSKHybridTriremeWithMonitor(
 ) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
 
 	if eventCollector == nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Warn("Using a default collector for events")
+		zap.L().Warn("Using a default collector for events")
 		eventCollector = &collector.DefaultCollector{}
 	}
 
@@ -411,17 +382,13 @@ func NewPSKHybridTriremeWithMonitor(
 	)
 
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Fatal("Failed to initialize RPC monitor")
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 	}
 
 	// configure a LinuxServices processor for the rpc monitor
 	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
 	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
-		log.WithFields(log.Fields{
-			"package": "configurator",
-		}).Fatal("Failed to initialize RPC monitor")
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 	}
 
 	return triremeInstance, monitorDocker, rpcmon

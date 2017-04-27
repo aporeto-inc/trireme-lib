@@ -11,10 +11,11 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"syscall"
+	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
@@ -79,11 +80,11 @@ func collectChildExitStatus() {
 
 	for {
 		exitStatus := <-childExitStatus
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"ContextID":  exitStatus.contextID,
-			"pid":        exitStatus.process,
-			"ExitStatus": exitStatus.exitStatus,
-		}).Info("Enforcer exited")
+		zap.L().Debug("Remote enforcer exited",
+			zap.String("nativeContextID", exitStatus.contextID),
+			zap.Int("pid", exitStatus.process),
+			zap.Error(exitStatus.exitStatus),
+		)
 	}
 }
 
@@ -112,9 +113,7 @@ func (p *ProcessMon) GetExitStatus(contextID string) bool {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"error": err,
-		}).Info("Process already dead")
+		zap.L().Debug("Process already dead", zap.Error(err))
 		return true
 	}
 	return (s.(*processInfo)).deleted
@@ -139,35 +138,41 @@ func (p *ProcessMon) KillProcess(contextID string) {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"msg": "Process already killed",
-		}).Info("Process already killed or never launched")
+		zap.L().Debug("Process already killed or never launched")
 		return
 	}
 	req := &rpcwrapper.Request{}
 	resp := &rpcwrapper.Response{}
 	req.Payload = s.(*processInfo).process.Pid
-	err = s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
-	if err != nil {
-		if err := s.(*processInfo).process.Kill(); err != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"msg":   "Failed to kill process",
-				"Error": err.Error(),
-			}).Warn("Process is already dead")
+
+	c := make(chan error, 1)
+	go func() {
+		c <- s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
+	}()
+	select {
+	case kerr := <-c:
+		if kerr != nil {
+			if perr := s.(*processInfo).process.Kill(); perr != nil {
+				zap.L().Debug("Process is already dead",
+					zap.String("Remote error", kerr.Error()),
+					zap.String("Kill error", perr.Error()))
+			}
+		}
+	case <-time.After(5 * time.Second):
+		if perr := s.(*processInfo).process.Kill(); perr != nil {
+			zap.L().Info("Time out while killing process ",
+				zap.Error(perr))
 		}
 	}
+
 	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
 	if err := os.Remove(netnspath + contextID); err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"msg": "Failed to remote process from netns path ",
-		}).Warn("OS Error")
-	}
-	if err := p.activeProcesses.Remove(contextID); err != nil {
-		log.WithFields(log.Fields{"package": "ProcessMon",
-			"msg": "Failed to remote process from cache ",
-		}).Warn("Entry was not found in the cache")
+		zap.L().Warn("Failed to remote process from netns path", zap.Error(err))
 	}
 
+	if err := p.activeProcesses.Remove(contextID); err != nil {
+		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
+	}
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
@@ -184,35 +189,20 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-			log.WithFields(log.Fields{
-				"package": "processmon",
-				"Method":  "LaunchProcess",
-				"Error":   "Refuse to launch an enforcer in the host namespace",
-			}).Info("Refused to Launch a remote enforcer in host namespace")
+			zap.L().Error("Refused to launch a remote enforcer in host namespace")
 			return nil
 		}
 	} else {
-		var hosterrstring, piderrstring string
-		if hoststaterr != nil {
-			hosterrstring = hoststaterr.Error()
-		}
-		if pidstaterr != nil {
-			piderrstring = pidstaterr.Error()
-		}
-		log.WithFields(log.Fields{
-			"package":   "processmon",
-			"HostError": hosterrstring,
-			"NetError":  piderrstring,
-		}).Error("Cannot determine namespace of new container")
+		zap.L().Error("Cannot determine namespace of new container",
+			zap.String("hostError", hoststaterr.Error()),
+			zap.String("netError", pidstaterr.Error()),
+		)
 	}
 	_, staterr := os.Stat(netnspath)
 	if staterr != nil {
 		mkerr := os.MkdirAll(netnspath, os.ModeDir)
 		if mkerr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": mkerr,
-			}).Info("Could not create directory")
-
+			zap.L().Error("Could not create directory", zap.Error(mkerr))
 		}
 	}
 
@@ -220,9 +210,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		linkErr := os.Symlink(procMountPoint+"/"+strconv.Itoa(refPid)+"/ns/net",
 			netnspath+contextID)
 		if linkErr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": linkErr,
-			}).Error(ErrSymLinkFailed)
+			zap.L().Error(ErrSymLinkFailed.Error(), zap.Error(linkErr))
 		}
 	}
 	namedPipe := "APORETO_ENV_SOCKET_PATH=/var/run/" + contextID + ".sock"
@@ -237,10 +225,10 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 
-	log.WithFields(log.Fields{"package": "ProcessMon",
-		"command": cmdName,
-		"args":    strings.Join(cmdArgs, " "),
-	}).Debug("Enforcer executed")
+	zap.L().Debug("Enforcer executed",
+		zap.String("command", cmdName),
+		zap.Strings("args", cmdArgs),
+	)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -257,7 +245,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		//This is a more serious failure. We can't reliably control the remote enforcer
-		return fmt.Errorf("Failed to generate secret %s", err.Error())
+		return fmt.Errorf("Failed to generate secret: %s", err.Error())
 	}
 	MountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
 	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
@@ -269,10 +257,10 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	if err != nil {
 		//Cleanup resources
 		if oerr := os.Remove(netnspath + contextID); oerr != nil {
-			log.WithFields(log.Fields{"package": "ProcessMon",
-				"error": err,
-				"PATH":  cmdName,
-			}).Warn("Failed to clean up netns path")
+			zap.L().Warn("Failed to clean up netns path",
+				zap.String("command", cmdName),
+				zap.Error(err),
+			)
 		}
 		return ErrBinaryNotFound
 	}

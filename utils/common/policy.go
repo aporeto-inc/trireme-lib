@@ -1,11 +1,12 @@
 package common
 
 import (
+	"fmt"
+
 	"github.com/aporeto-inc/trireme"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
-
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // CustomPolicyResolver is a simple policy engine
@@ -24,7 +25,10 @@ func NewCustomPolicyResolver(networks []string) *CustomPolicyResolver {
 // We also add some egress/ingress services
 func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.RuntimeReader) (*policy.PUPolicy, error) {
 
-	log.Infof("Getting Policy for ContainerID %s , name: %s ", context, runtimeInfo.Name())
+	zap.L().Info("Getting Policy for ContainerID",
+		zap.String("containerID", context),
+		zap.String("name", runtimeInfo.Name()),
+	)
 
 	tagSelectors := p.createRules(runtimeInfo)
 
@@ -94,7 +98,11 @@ func (p *CustomPolicyResolver) ResolvePolicy(context string, runtimeInfo policy.
 // HandlePUEvent implements the corresponding interface. We have no
 // state in this example
 func (p *CustomPolicyResolver) HandlePUEvent(context string, eventType monitor.Event) {
-	log.Infof("ContainerEvent %s, EventType: %s", context, eventType)
+
+	zap.L().Info("Handling container event",
+		zap.String("containerID", context),
+		zap.String("event", string(eventType)),
+	)
 }
 
 // SetPolicyUpdater is used in order to register a pointer to the policyUpdater
@@ -137,7 +145,11 @@ func (p *CustomPolicyResolver) createRules(runtimeInfo policy.RuntimeReader) *po
 
 	for i, selector := range selectorList.TagSelectors {
 		for _, clause := range selector.Clause {
-			log.Infof("Trireme policy for container %s : Selector %d : %+v ", runtimeInfo.Name(), i, clause)
+			zap.L().Info("Trireme policy for container",
+				zap.String("name", runtimeInfo.Name()),
+				zap.Int("c", i),
+				zap.String("selector", fmt.Sprintf("%#v", clause)),
+			)
 		}
 	}
 	return selectorList
