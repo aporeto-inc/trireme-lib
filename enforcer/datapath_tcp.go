@@ -569,7 +569,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	// Catch the first request packets
 	if connection.GetState() == TCPAckProcessed {
 
-		zap.L().Error("Invalid state reached - TCPAckProcessed Depricated",
+		zap.L().Error("Invalid state reached - TCPAckProcessed Deprecated",
 			zap.String("state", fmt.Sprintf("%v", connection.GetState())),
 			zap.String("context", context.ManagementID),
 			zap.String("net-conn", hash),
