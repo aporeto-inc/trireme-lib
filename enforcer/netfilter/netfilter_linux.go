@@ -196,7 +196,7 @@ func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData
 	}
 
   buffer := C.GoBytes(unsafe.Pointer(data), len)
-	local := []byte{}
+	local := make([]byte, len) 
 	copy(local, buffer)
 	// Create a new packet and associated the pointers
 	p := NFPacket{
