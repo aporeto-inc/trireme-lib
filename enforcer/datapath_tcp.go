@@ -433,12 +433,8 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 
 func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPacket *packet.Packet) (interface{}, error) {
 
-	// First we need to receover our state of the connection. If we don't have any state
-	// we drop the packets and the connections
-	// connection, err := d.appConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
-
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken)
 		return nil, fmt.Errorf("SynAck packet dropped because of missing token")
 	}
@@ -446,7 +442,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// Validate the certificate and parse the token
 	claims, cert := d.tokenEngine.Decode(false, tcpData, nil)
 	if claims == nil {
-
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken)
 		return nil, fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
 	}
@@ -454,14 +449,12 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	// We always a need a valid remote context ID
 	remoteContextID, ok := claims.T.Get(TransmitterLabel)
 	if !ok {
-
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.InvalidContext)
 		return nil, fmt.Errorf("No remote context %v", claims.T)
 	}
 
 	c, err := d.contextConnectionTracker.Get(string(claims.RMT))
 	if err != nil {
-
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.InvalidConnection)
 		return nil, fmt.Errorf("No connection found for %v", claims.RMT)
 	}
@@ -475,7 +468,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.ConnectionMetadata = &connection.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-
 		d.reportRejectedFlow(tcpPacket, connection, context.ManagementID, remoteContextID, context, collector.InvalidFormat)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
 	}
@@ -486,7 +478,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	tcpPacket.IncreaseTCPAck(d.ackSize)
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-
 		d.reportRejectedFlow(tcpPacket, connection, context.ManagementID, remoteContextID, context, collector.InvalidFormat)
 		return nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
@@ -500,7 +491,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 
 	// First validate that there are no reject rules
 	if index, _ := context.rejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
-
 		d.reportRejectedFlow(tcpPacket, connection, context.ManagementID, remoteContextID, context, collector.PolicyDrop)
 		return nil, fmt.Errorf("Dropping because of reject rule on transmitter")
 	}
@@ -528,7 +518,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Validate that the source/destination nonse matches. The signature has validated both directions
-	if connection.GetState() == TCPSynAckSend {
+	if connection.GetState() == TCPSynAckSend || connection.GetState() == TCPSynReceived {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 
