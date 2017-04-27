@@ -447,7 +447,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 							Convey("When I pass any application packets with SYN/ACK flag for packet "+string(i), func() {
 								Convey("Then I expect dst port cache to be populated "+string(i), func() {
 									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeApplication))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeApplication))
+									cs, es := enforcer.netDestPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeApplication))
 									So(cs, ShouldNotBeNil)
 									So(es, ShouldBeNil)
 								})
@@ -475,7 +475,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 							Convey("When I receive a network packet with SYN flag for packet "+string(i), func() {
 								Convey("Then I expect dst port cache to be populated "+string(i), func() {
 									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+									cs, es := enforcer.netDestPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
 									So(cs, ShouldNotBeNil)
 									So(es, ShouldBeNil)
 								})
@@ -487,7 +487,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 							Convey("When I receive a network packet with ACK flag for packet "+string(i), func() {
 								Convey("Then I expect dst port cache to be NOT populated "+string(i), func() {
 									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
+									cs, es := enforcer.netDestPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
 									So(cs, ShouldBeNil)
 									So(es, ShouldNotBeNil)
 								})
@@ -567,7 +567,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 							Convey("When I pass an application packet with SYN flag for packet "+string(i), func() {
 								Convey("Then I expect src port cache to be populated "+string(i), func() {
 									fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-									cs, es := enforcer.originatorPortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+									cs, es := enforcer.appSourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 									So(cs, ShouldNotBeNil)
 									So(es, ShouldBeNil)
 								})
@@ -582,7 +582,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 								Convey("When I pass any application packets with ACK flag for packet "+string(i), func() {
 									Convey("Then I expect src port cache to be NOT populated "+string(i), func() {
 										fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-										cs, es := enforcer.originatorPortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+										cs, es := enforcer.appSourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 										So(cs, ShouldBeNil)
 										So(es, ShouldNotBeNil)
 									})
@@ -609,7 +609,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 						if outPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 							Convey("When I pass a network packet with SYN/ACK flag for packet "+string(i), func() {
 								Convey("Then I expect src port cache to be populated "+string(i), func() {
-									cs, es := enforcer.originatorPortCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+									cs, es := enforcer.appSourcePortCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 									So(cs, ShouldNotBeNil)
 									So(es, ShouldBeNil)
 								})
