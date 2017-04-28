@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
@@ -74,7 +74,7 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 	r.rpcServer = rpc.NewServer()
 	err := r.rpcServer.Register(r.monitorServer)
 	if err != nil {
-		log.Fatalf("Format of service MonitorServer isn't correct. %s", err)
+		zap.L().Fatal("Format of service MonitorServer isn't correct", zap.Error(err))
 	}
 
 	return r, nil
@@ -122,11 +122,10 @@ func (r *RPCMonitor) reSync() error {
 		if err == nil && data != nil {
 
 			if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
-				log.WithFields(log.Fields{
-					"package":   "rpcmonitor",
-					"error":     err.Error(),
-					"contextID": contextID,
-				}).Warn("Found invalid state for context - Cleaning up")
+				zap.L().Warn("Found invalid state for context - Cleaning up",
+					zap.String("contextID", contextID),
+					zap.Error(err),
+				)
 
 				if rerr := r.contextstore.RemoveContext("/" + contextID); rerr != nil {
 					return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
@@ -139,10 +138,7 @@ func (r *RPCMonitor) reSync() error {
 			if err != nil {
 				//The cgroup does not exists - log error
 				if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {
-					log.WithFields(log.Fields{
-						"package": "rpcmonitor",
-						"error":   cerr.Error(),
-					}).Warn("Failed to remove state from store handler")
+					zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
 				}
 				continue
 			}
@@ -151,17 +147,17 @@ func (r *RPCMonitor) reSync() error {
 				//We have an empty cgroup
 				//Remove the cgroup and context store file
 				if err := cgnetclshandle.DeleteCgroup(eventInfo.PUID); err != nil {
-					log.WithFields(log.Fields{
-						"package": "rpcmonitor",
-						"error":   err.Error(),
-					}).Warn("Failed to remove state from store handler")
+					zap.L().Warn("Failed to deleted cgroup",
+						zap.String("puID", eventInfo.PUID),
+						zap.Error(err),
+					)
 				}
 
 				if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
-					log.WithFields(log.Fields{
-						"package": "rpcmonitor",
-						"error":   err.Error(),
-					}).Warn("Failed to remove state from store handler")
+					zap.L().Warn("Failed to deleted context",
+						zap.String("puID", eventInfo.PUID),
+						zap.Error(err),
+					)
 				}
 
 				continue
@@ -169,7 +165,7 @@ func (r *RPCMonitor) reSync() error {
 
 			if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
 				if err := f(&eventInfo); err != nil {
-					return fmt.Errorf("error in processing existing data")
+					return fmt.Errorf("error in processing existing data: %s", err.Error())
 				}
 			} else {
 				return fmt.Errorf("cannot find handler")
@@ -188,10 +184,7 @@ func (r *RPCMonitor) processRequests() {
 		conn, err := r.listensock.Accept()
 		if err != nil {
 			if !strings.Contains(err.Error(), "closed") {
-				log.WithFields(log.Fields{
-					"package": "monitor",
-					"error":   err.Error(),
-				}).Error("Error while handling RPC event")
+				zap.L().Error("Error while handling RPC event", zap.Error(err))
 			}
 			break
 		}
@@ -205,10 +198,7 @@ func (r *RPCMonitor) Start() error {
 
 	var err error
 
-	log.WithFields(log.Fields{"package": "RPCMonitor",
-		"message:": "Starting rpc monitor",
-		"socket":   r.rpcAddress,
-	}).Info("Starting RPC monitor")
+	zap.L().Debug("Starting RPC monitor", zap.String("address", r.rpcAddress))
 
 	// Check if we had running units when we last died
 	if err = r.reSync(); err != nil {
@@ -233,17 +223,11 @@ func (r *RPCMonitor) Start() error {
 func (r *RPCMonitor) Stop() error {
 
 	if err := r.listensock.Close(); err != nil {
-		log.WithFields(log.Fields{
-			"package": "rpcmonitor",
-			"error":   err.Error(),
-		}).Warn("Failed to stop rpc monitor")
+		zap.L().Warn("Failed to stop rpc monitor", zap.Error(err))
 	}
 
 	if err := os.RemoveAll(r.rpcAddress); err != nil {
-		log.WithFields(log.Fields{
-			"package": "rpcmonitor",
-			"error":   err.Error(),
-		}).Warn("Failed to cleanup rpc monitor socket ")
+		zap.L().Warn("Failed to cleanup rpc monitor socket", zap.Error(err))
 	}
 
 	return nil

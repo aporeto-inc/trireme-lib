@@ -1,9 +1,11 @@
 package lookup
 
 import (
+	"fmt"
 	"sort"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -212,33 +214,27 @@ func searchInMapTabe(table []*ForwardingPolicy, count []int, skip []bool) (int, 
 // PrintPolicyDB is a debugging function to dump the map
 func (m *PolicyDB) PrintPolicyDB() {
 
-	log.WithFields(log.Fields{
-		"package": "lookup",
-	}).Debug("Print Policy DB - equal table")
+	zap.L().Debug("Print Policy DB: equal table")
 
 	for key, values := range m.equalMapTable {
 		for value, policies := range values {
-			log.WithFields(log.Fields{
-				"package":  "lookup",
-				"policies": policies,
-				"key":      key,
-				"value":    value,
-			}).Debug("Print Policy DB")
+			zap.L().Debug("Print Policy DB",
+				zap.String("policies", fmt.Sprintf("%#v", policies)),
+				zap.String("key", key),
+				zap.String("value", value),
+			)
 		}
 	}
 
-	log.WithFields(log.Fields{
-		"package": "lookup",
-	}).Debug("Print Policy DB - not equal table")
+	zap.L().Debug("Print Policy DB - not equal table")
 
 	for key, values := range m.notEqualMapTable {
 		for value, policies := range values {
-			log.WithFields(log.Fields{
-				"package":  "lookup",
-				"policies": policies,
-				"key":      key,
-				"value":    value,
-			}).Debug("Print Policy DB")
+			zap.L().Debug("Print Policy DB",
+				zap.String("policies", fmt.Sprintf("%#v", policies)),
+				zap.String("key", key),
+				zap.String("value", value),
+			)
 		}
 	}
 

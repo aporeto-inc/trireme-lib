@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
-
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
@@ -59,13 +57,8 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, &rpcwrapper.Response{}); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "remsupervisor",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Failed to send supervise command ")
 		delete(s.initDone, contextID)
-		return err
+		return fmt.Errorf("Failed to send supervise command: context=%s error=%s", contextID, err)
 	}
 
 	return nil
@@ -77,38 +70,12 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 
 	delete(s.initDone, contextID)
 
-	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.UnSupervisePayload{
-			ContextID: contextID,
-		},
-	}
-
-	if err := s.rpchdl.RemoteCall(contextID, "Server.Unsupervise", request, &rpcwrapper.Response{}); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "remsupervisor",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Failed to clean up supervisor in unsupervise")
-		delete(s.initDone, contextID)
-	}
-
-	if !s.prochdl.GetExitStatus(contextID) {
-		//Unsupervise not called yet
-		if err := s.prochdl.SetExitStatus(contextID, true); err != nil {
-			log.WithFields(log.Fields{
-				"package":   "remsupervisor",
-				"contextID": contextID,
-			}).Warn("Failed to set exit status in unsupervise")
-		}
-	} else {
-		//We are coming here last
-		s.prochdl.KillProcess(contextID)
-	}
+	s.prochdl.KillProcess(contextID)
 
 	return nil
 }
 
-//Start This method does nothing and is implemented for completeness
+// Start This method does nothing and is implemented for completeness
 // THe work done is done in the InitRemoteSupervisor method in the remote enforcer
 func (s *ProxyInfo) Start() error {
 
@@ -117,7 +84,9 @@ func (s *ProxyInfo) Start() error {
 
 //Stop This method does nothing
 func (s *ProxyInfo) Stop() error {
-
+	for c := range s.initDone {
+		s.Unsupervise(c) // nolint
+	}
 	return nil
 }
 
@@ -156,12 +125,7 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "remsupervisor",
-			"contextID": contextID,
-			"error":     err.Error(),
-		}).Debug("Failed to initialize remote supervisor")
-		return err
+		return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 	}
 
 	s.initDone[contextID] = true
@@ -181,11 +145,7 @@ func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
 
 	for _, contextID := range s.rpchdl.ContextList() {
 		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
-			log.WithFields(log.Fields{
-				"package":   "remsupervisor",
-				"contextID": contextID,
-			}).Debug("Failed to Add ExcludedIPList")
-			return err
+			return fmt.Errorf("Failed to add excluded IP list: context=%s error=%s", contextID, err)
 		}
 	}
 	return nil

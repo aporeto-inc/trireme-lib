@@ -14,7 +14,8 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/kardianos/osext"
 )
 
@@ -149,11 +150,7 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
-		log.WithFields(log.Fields{
-			"package":    "cgnetcls",
-			"Error":      err.Error(),
-			"cgroupname": cgroupname,
-		}).Info("Group already deleted ")
+		zap.L().Debug("Group already deleted", zap.Error(err))
 		return nil
 	}
 
@@ -195,10 +192,7 @@ func mountCgroupController() {
 	}
 
 	if len(cgroupMount) == 0 {
-		log.WithFields(log.Fields{
-			"package": "cgnetcls",
-			"error":   "Cgroups not enabled or net_cls not mounted",
-		}).Error("Cgroups are not enabled or net_cls is not mounted")
+		zap.L().Error("Cgroups are not enabled or net_cls is not mounted")
 		return
 	}
 	if !netCls {
@@ -235,6 +229,7 @@ func MarkVal() uint64 {
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
+
 	if os.IsNotExist(err) {
 		return []string{}, errors.New("Cgroup does not exist")
 	}
@@ -245,11 +240,12 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	procs := []string{}
-	if len(procs) == 0 {
-		return procs, nil
-	}
+
 	for _, line := range strings.Split(string(data), "\n") {
-		procs = append(procs, string(line))
+		if len(line) > 0 {
+			procs = append(procs, string(line))
+		}
 	}
+
 	return procs, nil
 }

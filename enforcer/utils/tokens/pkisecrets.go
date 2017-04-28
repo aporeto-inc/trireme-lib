@@ -5,7 +5,8 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/crypto"
 )
 
@@ -59,11 +60,6 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 		cert, ok := p.CertificateCache[server]
 
 		if !ok {
-			log.WithFields(log.Fields{
-				"package": "netfilter",
-				"server":  server,
-			}).Debug("No certificate in cache for server")
-
 			return nil, fmt.Errorf("No certificate in cache for server %s", server)
 		}
 
@@ -115,10 +111,7 @@ func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 		return fmt.Errorf("Error loading new Cert: %s", err)
 	}
 
-	log.WithFields(log.Fields{
-		"package": "tokens",
-		"host":    host,
-	}).Debug("Adding Cert for host")
+	zap.L().Debug("Adding Cert for host", zap.String("host", host))
 
 	p.CertificateCache[host] = cert.PublicKey.(*ecdsa.PublicKey)
 	return nil

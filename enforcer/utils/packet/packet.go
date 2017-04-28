@@ -10,7 +10,7 @@ import (
 	"net"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 var (
@@ -75,20 +75,10 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 
 	// Some sanity checking...
 	if p.IPTotalLength < minIPPacketLen {
-		log.WithFields(log.Fields{
-			"package":        "packet",
-			"ipHeaderLength": p.ipHeaderLen,
-		}).Debug("IP Packet too small")
-
-		return nil, fmt.Errorf("IP Packet too small")
+		return nil, fmt.Errorf("IP Packet too small (hdrlen=%d)", p.ipHeaderLen)
 	}
 
 	if p.ipHeaderLen != minIPHdrWords {
-		log.WithFields(log.Fields{
-			"package":        "packet",
-			"ipHeaderLength": p.ipHeaderLen,
-		}).Debug("Packets with IP options not supported")
-
 		return nil, fmt.Errorf("Packets with IP options not supported (hdrlen=%d)", p.ipHeaderLen)
 	}
 
@@ -96,11 +86,6 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		if p.IPTotalLength < uint16(len(p.Buffer)) {
 			p.Buffer = p.Buffer[:p.IPTotalLength]
 		} else {
-			log.WithFields(log.Fields{
-				"package":       "packet",
-				"IPTotalLength": p.IPTotalLength,
-				"bufferLength":  len(p.Buffer),
-			}).Debug("Stated IP packet length differs from bytes available")
 			return nil, fmt.Errorf("Stated IP packet length (%d) differs from bytes available (%d)", p.IPTotalLength, len(p.Buffer))
 		}
 	}
@@ -212,9 +197,7 @@ func (p *Packet) Print(context uint64) {
 	}
 
 	if print {
-		log.WithFields(log.Fields{
-			"package": "packet",
-		}).Info(buf)
+		zap.L().Debug(buf)
 	}
 }
 
@@ -253,11 +236,7 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 	// Our option was not found in the right place. We don't do anything
 	// for this packet.
 	if p.Buffer[p.TCPDataStartBytes()-optionLength] != TCPAuthenticationOption {
-		log.WithFields(log.Fields{
-			"package":      "packet",
-			"optionLength": optionLength,
-		}).Debug("TCP option not found when Checking TCPAuthenticationOption")
-		err = fmt.Errorf("TCP option not found")
+		err = fmt.Errorf("TCP option not found when Checking TCPAuthenticationOption: optionLength=%d", optionLength)
 		// TODO: what about the error here ?
 		return
 	}
@@ -351,16 +330,15 @@ func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16,
 // FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
 
-	log.WithFields(log.Fields{
-		"package":          "packet",
-		"flags":            p.TCPFlags,
-		"len":              p.IPTotalLength - p.TCPDataStartBytes(),
-		"bufLen":           len(p.Buffer),
-		"dataLength":       dataLength,
-		"tcpDataLength":    len(p.tcpData),
-		"optionLength":     optionLength,
-		"tcpOptionsLength": len(p.tcpOptions),
-	}).Debug("Fixup TCP Hdr On TCP Data Detach")
+	zap.L().Debug("Fixup TCP Hdr On TCP Data Detach",
+		zap.Uint8("flags", p.TCPFlags),
+		zap.Uint16("len", p.IPTotalLength-p.TCPDataStartBytes()),
+		zap.Int("bufLen", len(p.Buffer)),
+		zap.Uint16("dataLength", dataLength),
+		zap.Int("tcpDataLength", len(p.tcpData)),
+		zap.Uint16("optionLength", optionLength),
+		zap.Int("tcpOptionsLength", len(p.tcpOptions)),
+	)
 
 	// Update TCP checksum
 	a := uint32(-p.TCPChecksum) - p.computeTCPChecksumDelta(p.tcpOptions[:optionLength], optionLength, p.tcpData[:dataLength], dataLength)
@@ -381,14 +359,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		if uint16(len(p.Buffer)) >= p.IPTotalLength {
 			p.tcpData = p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
 		} else if (p.IPTotalLength - p.TCPDataStartBytes()) != uint16(len(p.tcpData)) {
-			log.WithFields(log.Fields{
-				"package":      "packet",
-				"error":        err.Error(),
-				"optionLength": optionLength,
-				"dataLength":   dataLength,
-			}).Debug("Not handling concat of data buffers in tcpDataDetach")
-
-			return fmt.Errorf("Not handling concat of data buffers")
+			return fmt.Errorf("Not handling concat of data buffers: optionLength=%d optionLength=%d error=%s", optionLength, dataLength, err.Error())
 		}
 	}
 
@@ -396,14 +367,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		if uint16(len(p.Buffer)) >= p.TCPDataStartBytes() {
 			p.tcpOptions = p.Buffer[p.TCPDataStartBytes()-optionLength : p.TCPDataStartBytes()]
 		} else if optionLength != uint16(len(p.tcpOptions)) {
-			log.WithFields(log.Fields{
-				"package":      "packet",
-				"error":        err.Error(),
-				"optionLength": optionLength,
-				"dataLength":   dataLength,
-			}).Debug("Not handling concat of options buffers")
-
-			return fmt.Errorf("Not handling concat of options buffers")
+			return fmt.Errorf("Not handling concat of options buffers: optionLength=%d optionLength=%d error=%s", optionLength, dataLength, err.Error())
 		}
 	}
 
@@ -426,14 +390,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 	// detach TCP data
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
-		log.WithFields(log.Fields{
-			"package":      "packet",
-			"error":        err.Error(),
-			"optionLength": optionLength,
-			"dataLength":   dataLength,
-		}).Debug("TCP Data Detach failed")
-
-		return err
+		return fmt.Errorf("TCP Data Detach failed: optionLength=%d optionLength=%d error=%s", optionLength, dataLength, err.Error())
 	}
 
 	// Process TCP Header fields and metadata
@@ -447,11 +404,10 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 // FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 
-	log.WithFields(log.Fields{
-		"package":   "packet",
-		"Flags":     p.TCPFlags,
-		"newLength": p.IPTotalLength - p.TCPDataStartBytes(),
-	}).Debug("Fixup TCP Hdr On TCP Data Attach")
+	zap.L().Debug("Fixup TCP Hdr On TCP Data Attach",
+		zap.Uint8("flags", p.TCPFlags),
+		zap.Uint16("newLength", p.IPTotalLength-p.TCPDataStartBytes()),
+	)
 
 	numberOfOptions := len(tcpOptions) / 4
 	// TCP checksum fixup. Start with old checksum
@@ -472,12 +428,7 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 	optionLength := len(options)
 
 	if p.TCPDataStartBytes() != p.IPTotalLength && optionLength != 0 {
-		log.WithFields(log.Fields{
-			"package":         "packet",
-			"optionLength":    optionLength,
-			"p.IPTotalLength": p.IPTotalLength,
-		}).Debug("Cannot insert options with existing data")
-		return fmt.Errorf("Cannot insert options with existing data")
+		return fmt.Errorf("Cannot insert options with existing data: optionLength=%d, IPTotalLength=%d", optionLength, p.IPTotalLength)
 	}
 
 	p.tcpOptions = append(p.tcpOptions, options...)
@@ -494,17 +445,8 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 // TCPDataAttach modifies the TCP and IP header fields and checksum
 func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 
-	log.WithFields(log.Fields{
-		"package": "packet",
-	}).Debug("TCP data attach")
-
 	if err = p.tcpDataAttach(tcpOptions, tcpData); err != nil {
-		log.WithFields(log.Fields{
-			"package": "packet",
-			"error":   err.Error(),
-		}).Debug("TCP Data Attach failed")
-
-		return err
+		return fmt.Errorf("TCP Data Attach failed: %s", err.Error())
 	}
 
 	// We are increasing tcpOptions by 1 32-bit word. We are always adding

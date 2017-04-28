@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
@@ -92,10 +93,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
 		if !ok {
 			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
-				log.WithFields(log.Fields{
-					"package": "rpcMonitor",
-					"error":   err.Error(),
-				}).Warn("Failed to clean cgroup")
+				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 			}
 			return errors.New("Mark value not found")
 		}
@@ -104,10 +102,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		err = s.netcls.AssignMark(eventInfo.PUID, mark)
 		if err != nil {
 			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
-				log.WithFields(log.Fields{
-					"package": "rpcMonitor",
-					"error":   err.Error(),
-				}).Warn("Failed to clean cgroup")
+				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 			}
 			return err
 		}
@@ -117,10 +112,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		if err != nil {
 
 			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
-				log.WithFields(log.Fields{
-					"package": "rpcMonitor",
-					"error":   err.Error(),
-				}).Warn("Failed to clean cgroup")
+				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 			}
 
 			return err
@@ -189,19 +181,17 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	//let us remove the cgroup files now
 	if err := s.netcls.DeleteCgroup(contextID); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "rpcMonitor",
-			"error":     err.Error(),
-			"contextID": contextID,
-		}).Warn("Failed to clean netcls group ")
+		zap.L().Warn("Failed to clean netcls group",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
 	}
 
 	if err := contextStoreHdl.RemoveContext(contextID); err != nil {
-		log.WithFields(log.Fields{
-			"package":   "rpcMonitor",
-			"error":     err.Error(),
-			"contextID": contextID,
-		}).Warn("Failed to clean cache while destroying process ")
+		zap.L().Warn("Failed to clean cache while destroying process",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
 	}
 
 	return nil

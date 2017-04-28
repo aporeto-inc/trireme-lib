@@ -3,7 +3,8 @@ package ipsetctrl
 import (
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 )
@@ -56,12 +57,11 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 		"-s", ip,
 		"-j", "DROP",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                      "ipsetctrl",
-			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
-			"error": err.Error(),
-		}).Debug("Error when adding app acl rule")
-		return err
+		zap.L().Debug("Error when adding app acl rule",
+			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
+			zap.Error(err),
+		)
+		return fmt.Errorf("Error when adding app acl rule: %s", err)
 
 	}
 
@@ -72,12 +72,11 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 		"-s", ip,
 		"-j", "ACCEPT",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                      "ipsetctrl",
-			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
-			"error": err.Error(),
-		}).Debug("Error when adding app acl rule")
-		return err
+		zap.L().Debug("Error when adding app acl rule",
+			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
+			zap.Error(err),
+		)
+		return fmt.Errorf("Error when adding app acl rule: %s", err)
 
 	}
 
@@ -94,12 +93,11 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 		"-d", ip,
 		"-j", "DROP",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "ipsetctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"error":                     err.Error(),
-		}).Debug("Error when adding app acl rule")
-		return err
+		zap.L().Debug("Error when adding app acl rule",
+			zap.String("netPacketIPTableContext", i.netPacketIPTableContext),
+			zap.Error(err),
+		)
+		return fmt.Errorf("Error when adding net acl rule: %s", err)
 	}
 
 	if err := i.ipt.Insert(
@@ -109,12 +107,11 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 		"-d", ip,
 		"-j", "ACCEPT",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "ipsetctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"error":                     err.Error(),
-		}).Debug("Error when adding app acl rule")
-		return err
+		zap.L().Debug("Error when adding app acl rule",
+			zap.String("netPacketIPTableContext", i.netPacketIPTableContext),
+			zap.Error(err),
+		)
+		return fmt.Errorf("Error when adding net acl rule: %s", err)
 	}
 	return nil
 }
@@ -129,11 +126,10 @@ func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 		"-s", ip,
 		"-j", "DROP",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                      "ipsetctrl",
-			"i.appAckPacketIPTableContext": i.appAckPacketIPTableContext,
-			"error": err.Error(),
-		}).Debug("Error when adding app acl rule")
+		zap.L().Debug("Error when removing app acl rule",
+			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
+			zap.Error(err),
+		)
 	}
 
 	if err := i.ipt.Delete(
@@ -143,19 +139,19 @@ func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 		"-s", ip,
 		"-j", "ACCEPT",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "ipsetctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"chain":                     i.appPacketIPTableSection,
-			"error":                     err.Error(),
-		}).Debug("Error when removing ingress app acl rule")
-
+		zap.L().Debug("Error when removing ingress app acl rule",
+			zap.String("netPacketIPTableContext", i.netPacketIPTableContext),
+			zap.String("chaim", i.appPacketIPTableSection),
+			zap.Error(err),
+		)
 	}
+
 	return nil
 }
 
 // deleteNetSetRule
 func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
+
 	if err := i.ipt.Delete(
 		i.netPacketIPTableContext, i.netPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
@@ -163,14 +159,13 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 		"-d", ip,
 		"-j", "DROP",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "ipsetctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"chain":                     i.appPacketIPTableSection,
-			"error":                     err.Error(),
-		}).Debug("Error when removing ingress app acl rule")
-
+		zap.L().Debug("Error when removing ingress net acl rule",
+			zap.String("netPacketIPTableContext", i.netPacketIPTableContext),
+			zap.String("chaim", i.appPacketIPTableSection),
+			zap.Error(err),
+		)
 	}
+
 	if err := i.ipt.Delete(
 		i.netPacketIPTableContext, i.netPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
@@ -178,13 +173,11 @@ func (i *Instance) deleteNetSetRules(version, setPrefix, ip string) error {
 		"-d", ip,
 		"-j", "ACCEPT",
 	); err != nil {
-		log.WithFields(log.Fields{
-			"package":                   "ipsetctrl",
-			"i.netPacketIPTableContext": i.netPacketIPTableContext,
-			"chain":                     i.appPacketIPTableSection,
-			"error":                     err.Error(),
-		}).Debug("Error when removing ingress app acl rule")
-
+		zap.L().Debug("ErrorError when removing ingress app acl rule",
+			zap.String("netPacketIPTableContext", i.netPacketIPTableContext),
+			zap.String("chaim", i.appPacketIPTableSection),
+			zap.Error(err),
+		)
 	}
 	return nil
 }
@@ -205,10 +198,6 @@ func (i *Instance) setupIpset(target, container string) error {
 
 	ips, err := i.ips.NewIpset(target, "hash:net", &ipset.Params{})
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-			"error":   err.Error(),
-		}).Debug("Error creating NewIPSet")
 		return fmt.Errorf("Couldn't create IPSet for %s: %s", target, err)
 	}
 
@@ -216,11 +205,7 @@ func (i *Instance) setupIpset(target, container string) error {
 
 	cSet, err := i.ips.NewIpset(container, "hash:ip", &ipset.Params{})
 	if err != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-			"error":   err.Error(),
-		}).Debug("Error creating NewIPSet")
-		return fmt.Errorf("Failed to create container set")
+		return fmt.Errorf("Failed to create container set: %s", err)
 	}
 
 	i.containerSet = cSet
@@ -237,10 +222,6 @@ func (i *Instance) addTargetNets(networks []string) error {
 
 	for _, net := range networks {
 		if err := i.targetSet.Add(net, 0); err != nil {
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Error adding ip to IPSet")
 			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
 		}
 	}
@@ -254,10 +235,6 @@ func (i *Instance) addContainerToSet(ip string) error {
 	}
 
 	if err := i.containerSet.Add(ip, 0); err != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-			"error":   err.Error(),
-		}).Debug("Error adding container to set ")
 		return fmt.Errorf("Error adding ip %s to container set : %s", ip, err)
 	}
 	return nil
@@ -270,10 +247,6 @@ func (i *Instance) delContainerFromSet(ip string) error {
 	}
 
 	if err := i.containerSet.Del(ip); err != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-			"error":   err.Error(),
-		}).Debug("Error adding container to set ")
 		return fmt.Errorf("Error adding ip %s to container set : %s", ip, err)
 	}
 	return nil
@@ -359,11 +332,7 @@ func (i *Instance) setupTrapRules(set string) error {
 
 	for _, tr := range rules {
 		if err := i.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-				"error":   err.Error(),
-			}).Debug("Failed to add initial rules for TriremeNet IPSet.")
-			return err
+			return fmt.Errorf("Failed to add initial rules for TriremeNet IPSet: %s", err)
 		}
 	}
 
@@ -373,16 +342,16 @@ func (i *Instance) setupTrapRules(set string) error {
 // cleanIPSets cleans all the ipsets
 func (i *Instance) cleanIPSets() error {
 
-	err1 := i.ipt.ClearChain(i.appPacketIPTableContext, i.appPacketIPTableSection)
+	if err := i.ipt.ClearChain(i.appPacketIPTableContext, i.appPacketIPTableSection); err != nil {
+		zap.L().Warn("Failed to cleanup app packet chain", zap.Error(err))
+	}
 
-	err2 := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableSection)
+	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableSection); err != nil {
+		zap.L().Warn("Failed to cleanup ack packet chain", zap.Error(err))
+	}
 
-	err3 := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection)
-
-	if err1 != nil || err2 != nil || err3 != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-		}).Debug("Failed to clean one or more chains during cleanup ")
+	if err := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
+		zap.L().Warn("Failed to cleanup net packet chain", zap.Error(err))
 	}
 
 	return i.ips.DestroyAll()

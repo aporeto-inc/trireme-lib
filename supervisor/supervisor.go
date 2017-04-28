@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
@@ -117,15 +118,11 @@ func (s *Config) Unsupervise(contextID string) error {
 	cacheEntry := version.(*cacheData)
 
 	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark); err != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-		}).Warn("Some rules were not deleted during unsupervise")
+		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
 	if err := s.versionTracker.Remove(contextID); err != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-		}).Warn("Failed to clean the rule version cache")
+		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
 	}
 
 	return nil
@@ -138,9 +135,7 @@ func (s *Config) Start() error {
 		return fmt.Errorf("Filter of marked packets was not set")
 	}
 
-	log.WithFields(log.Fields{
-		"package": "supervisor",
-	}).Debug("Started the supervisor")
+	zap.L().Debug("Started the supervisor")
 
 	return nil
 }
@@ -149,10 +144,7 @@ func (s *Config) Start() error {
 func (s *Config) Stop() error {
 
 	if err := s.impl.Stop(); err != nil {
-		log.WithFields(log.Fields{
-			"package": "supervisor",
-		}).Warn("Failed to stop the implementer")
-		return err
+		return fmt.Errorf("Failed to stop the implementer: %s", err)
 	}
 
 	return nil
@@ -160,10 +152,7 @@ func (s *Config) Stop() error {
 
 func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) error {
 
-	log.WithFields(log.Fields{
-		"package":   "supervisor",
-		"contextID": contextID,
-	}).Debug("IPTables update for the creation of a pu")
+	zap.L().Debug("IPTables update for the creation of a pu", zap.String("contextID", contextID))
 
 	version := 0
 	mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
@@ -183,9 +172,10 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 
 	if err := s.impl.ConfigureRules(version, contextID, containerInfo); err != nil {
 		if uerr := s.Unsupervise(contextID); uerr != nil {
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-			}).Warn("Failed to clean up state while creating ")
+			zap.L().Warn("Failed to clean up state while creating the PU",
+				zap.String("contextID", contextID),
+				zap.Error(uerr),
+			)
 		}
 		return err
 	}
@@ -206,11 +196,11 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	cachedEntry := cacheEntry.(*cacheData)
 
 	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo); err != nil {
-
 		if uerr := s.Unsupervise(contextID); uerr != nil {
-			log.WithFields(log.Fields{
-				"package": "supervisor",
-			}).Warn("Failed to clean up state while updating the PU ")
+			zap.L().Warn("Failed to clean up state while updating the PU",
+				zap.String("contextID", contextID),
+				zap.Error(uerr),
+			)
 		}
 		return err
 	}
