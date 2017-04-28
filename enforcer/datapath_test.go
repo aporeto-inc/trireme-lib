@@ -500,8 +500,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 	})
 }
 
-func TestConnectionTrackerState(t *testing.T) {
-	SIP := net.IPv4zero
+func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 		Convey("Given I create a two processing unit instances", func() {
 			puInfo1, puInfo2, enforcer, err1, err2 := setupProcessingUnitsInDatapathAndEnforce()
@@ -512,36 +511,9 @@ func TestConnectionTrackerState(t *testing.T) {
 			So(err2, ShouldBeNil)
 			i := 0 /*first packet in TCPFLOW slice is a syn packet*/
 			Convey("When i pass a syn packet through the enforcer", func() {
-				input := make([]byte, len(TCPFlow[i]))
-				start := make([]byte, len(TCPFlow[i]))
-				copy(input, TCPFlow[i])
-				copy(start, TCPFlow[i])
-				oldPacket, err := packet.New(0, start, "0")
-				if err == nil && oldPacket != nil {
-					oldPacket.UpdateIPChecksum()
-					oldPacket.UpdateTCPChecksum()
-				}
-				tcpPacket, err := packet.New(0, input, "0")
-				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
-					tcpPacket.UpdateTCPChecksum()
-				}
-				if debug {
-					fmt.Println("Input packet", i)
-					tcpPacket.Print(0)
-				}
-
-				So(err, ShouldBeNil)
-				So(tcpPacket, ShouldNotBeNil)
-
-				if reflect.DeepEqual(SIP, net.IPv4zero) {
-					SIP = tcpPacket.SourceAddress
-				}
-				if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-					!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
-					t.Error("Invalid Test Packet")
-				}
-				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				packetSlice := selectPacket(i, t)
+				tcpPacket := packetSlice[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
 				//After sending syn packet
 				CheckAfterAppSynPacket(enforcer, tcpPacket)
 				So(err, ShouldBeNil)
@@ -557,37 +529,9 @@ func TestConnectionTrackerState(t *testing.T) {
 
 			})
 			Convey("When i pass a SYN and SYN ACK packet through the enforcer", func() {
-				input := make([]byte, len(TCPFlow[i]))
-
-				start := make([]byte, len(TCPFlow[i]))
-				copy(input, TCPFlow[i])
-				copy(start, TCPFlow[i])
-				oldPacket, err := packet.New(0, start, "0")
-				if err == nil && oldPacket != nil {
-					oldPacket.UpdateIPChecksum()
-					oldPacket.UpdateTCPChecksum()
-				}
-				tcpPacket, err := packet.New(0, input, "0")
-				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
-					tcpPacket.UpdateTCPChecksum()
-				}
-				// if debug {
-				fmt.Println("Input packet", i)
-				tcpPacket.Print(0)
-				// }
-
-				So(err, ShouldBeNil)
-				So(tcpPacket, ShouldNotBeNil)
-
-				if reflect.DeepEqual(SIP, net.IPv4zero) {
-					SIP = tcpPacket.SourceAddress
-				}
-				if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-					!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
-					t.Error("Invalid Test Packet")
-				}
-				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				i := 0
+				tcpPacket := selectPacket(i, t)[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
 				So(err, ShouldBeNil)
 
 				output := make([]byte, len(tcpPacket.GetBytes()))
@@ -601,24 +545,7 @@ func TestConnectionTrackerState(t *testing.T) {
 
 				//Now lets send the synack packet from the server in response
 				i++
-				inputsynack := make([]byte, len(TCPFlow[i]))
-				startsynack := make([]byte, len(TCPFlow[i]))
-				copy(inputsynack, TCPFlow[i])
-				copy(startsynack, TCPFlow[i])
-				oldPacket, err = packet.New(0, startsynack, "0")
-				if err == nil && oldPacket != nil {
-					oldPacket.UpdateIPChecksum()
-					oldPacket.UpdateTCPChecksum()
-				}
-				tcpPacket, err = packet.New(0, inputsynack, "0")
-				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
-					tcpPacket.UpdateTCPChecksum()
-				}
-				if debug {
-					fmt.Println("Input packet", i)
-					tcpPacket.Print(0)
-				}
+				tcpPacket = selectPacket(i, t)[1]
 				enforcer.processApplicationTCPPackets(tcpPacket)
 
 				output = make([]byte, len(tcpPacket.GetBytes()))
@@ -635,38 +562,9 @@ func TestConnectionTrackerState(t *testing.T) {
 			})
 
 			Convey("When i pass a SYN and SYNACK and another ACK packet through the enforcer", func() {
-				input := make([]byte, len(TCPFlow[i]))
-
-				start := make([]byte, len(TCPFlow[i]))
-				copy(input, TCPFlow[i])
-				copy(start, TCPFlow[i])
-				oldPacket, err := packet.New(0, start, "0")
-				So(err, ShouldBeNil)
-				if err == nil && oldPacket != nil {
-					oldPacket.UpdateIPChecksum()
-					oldPacket.UpdateTCPChecksum()
-				}
-				tcpPacket, err := packet.New(0, input, "0")
-				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
-					tcpPacket.UpdateTCPChecksum()
-				}
-				if debug {
-					fmt.Println("Input packet", i)
-					tcpPacket.Print(0)
-				}
-
-				So(err, ShouldBeNil)
-				So(tcpPacket, ShouldNotBeNil)
-
-				if reflect.DeepEqual(SIP, net.IPv4zero) {
-					SIP = tcpPacket.SourceAddress
-				}
-				if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
-					!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
-					t.Error("Invalid Test Packet")
-				}
-				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				i := 0
+				tcpPacket := selectPacket(i, t)[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
 				So(err, ShouldBeNil)
 
 				output := make([]byte, len(tcpPacket.GetBytes()))
@@ -679,24 +577,7 @@ func TestConnectionTrackerState(t *testing.T) {
 
 				//Now lets send the synack packet from the server in response
 				i++
-				inputsynack := make([]byte, len(TCPFlow[i]))
-				startsynack := make([]byte, len(TCPFlow[i]))
-				copy(inputsynack, TCPFlow[i])
-				copy(startsynack, TCPFlow[i])
-				oldPacket, err = packet.New(0, startsynack, "0")
-				if err == nil && oldPacket != nil {
-					oldPacket.UpdateIPChecksum()
-					oldPacket.UpdateTCPChecksum()
-				}
-				tcpPacket, err = packet.New(0, inputsynack, "0")
-				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
-					tcpPacket.UpdateTCPChecksum()
-				}
-				if debug {
-					fmt.Println("Input packet", i)
-					tcpPacket.Print(0)
-				}
+				tcpPacket = selectPacket(i, t)[1]
 				enforcer.processApplicationTCPPackets(tcpPacket)
 
 				output = make([]byte, len(tcpPacket.GetBytes()))
@@ -707,24 +588,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
 				i++
-				inputack := make([]byte, len(TCPFlow[i]))
-				startack := make([]byte, len(TCPFlow[i]))
-				copy(inputack, TCPFlow[i])
-				copy(startack, TCPFlow[i])
-				oldPacket, err = packet.New(0, startack, "0")
-				if err == nil && oldPacket != nil {
-					oldPacket.UpdateIPChecksum()
-					oldPacket.UpdateTCPChecksum()
-				}
-				tcpPacket, err = packet.New(0, inputack, "0")
-				if err == nil && tcpPacket != nil {
-					tcpPacket.UpdateIPChecksum()
-					tcpPacket.UpdateTCPChecksum()
-				}
-				if debug {
-					fmt.Println("Input packet", i)
-					tcpPacket.Print(0)
-				}
+				tcpPacket = selectPacket(i, t)[1]
 				err = enforcer.processApplicationTCPPackets(tcpPacket)
 				CheckAfterAppAckPacket(enforcer, tcpPacket)
 				So(err, ShouldBeNil)
@@ -928,43 +792,37 @@ func TestCacheState(t *testing.T) {
 		t.Errorf("Expected failure, no IP but passed %s", err)
 	}
 }
-func tcpflagstoStr(flags uint8) string {
-	s := ""
-	if flags&0x20 == 0 {
-		s = s + "."
-	} else {
-		s = s + "U"
+
+func selectPacket(i int, t *testing.T) [2]*packet.Packet {
+	input := make([]byte, len(TCPFlow[i]))
+	start := make([]byte, len(TCPFlow[i]))
+	copy(input, TCPFlow[i])
+	copy(start, TCPFlow[i])
+	oldPacket, err := packet.New(0, start, "0")
+	if err == nil && oldPacket != nil {
+		oldPacket.UpdateIPChecksum()
+		oldPacket.UpdateTCPChecksum()
 	}
-	if flags&0x10 == 0 {
-		s = s + "."
-	} else {
-		s = s + "A"
+	tcpPacket, err := packet.New(0, input, "0")
+	if err == nil && tcpPacket != nil {
+		tcpPacket.UpdateIPChecksum()
+		tcpPacket.UpdateTCPChecksum()
 	}
-	if flags&0x08 == 0 {
-		s = s + "."
-	} else {
-		s = s + "P"
+	if debug {
+		fmt.Println("Input packet", i)
+		tcpPacket.Print(0)
 	}
-	if flags&0x04 == 0 {
-		s = s + "."
-	} else {
-		s = s + "R"
+
+	So(err, ShouldBeNil)
+	So(tcpPacket, ShouldNotBeNil)
+	SIP := tcpPacket.SourceAddress
+	if reflect.DeepEqual(SIP, net.IPv4zero) {
+		SIP = tcpPacket.SourceAddress
 	}
-	if flags&0x02 == 0 {
-		s = s + "."
-	} else {
-		s = s + "S"
+	if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
+		!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+		t.Error("Invalid Test Packet")
 	}
-	if flags&0x01 == 0 {
-		s = s + "."
-	} else {
-		s = s + "F"
-	}
-	return s
-}
-func TestShowPackets(t *testing.T) {
-	for i, p := range TCPFlow {
-		newpacket, _ := packet.New(0, p, "0")
-		fmt.Println(i, tcpflagstoStr(newpacket.TCPFlags))
-	}
+	return [2](*packet.Packet){oldPacket, tcpPacket}
+
 }
