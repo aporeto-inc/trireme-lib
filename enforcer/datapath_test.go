@@ -826,6 +826,7 @@ func TestInvalidPacket(t *testing.T) {
 			output := make([]byte, len(tcpPacket.GetBytes()))
 			copy(output, tcpPacket.GetBytes())
 			outpacket, err := packet.New(0, output, "0")
+			So(err, ShouldBeNil)
 			//Detach the data and parse token should fail
 			err = outpacket.TCPDataDetach(binary.BigEndian.Uint16([]byte{0x0, p[32]})/4 - 20)
 			So(err, ShouldBeNil)
