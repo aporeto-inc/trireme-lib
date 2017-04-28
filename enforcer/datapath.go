@@ -464,7 +464,9 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 
 	d.net.IncomingPackets++
 
-	fmt.Println("New PACKET ID - ", p.ID)
+	zap.L().Debug("PROCESSING PACKET WITH ID",
+		zap.Int("ID", p.ID))
+
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, p.Mark)
 
@@ -477,6 +479,11 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 		d.net.ProtocolDropPackets++
 		err = fmt.Errorf("Invalid IP Protocol %d", netPacket.IPProto)
 	}
+
+	netPacket.Buffer[0] = 0xD
+	netPacket.Buffer[1] = 0xE
+	netPacket.Buffer[2] = 0xA
+	netPacket.Buffer[3] = 0xD
 
 	if err != nil {
 		netfilter.SetVerdict(&netfilter.Verdict{
