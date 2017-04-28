@@ -480,10 +480,10 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 		err = fmt.Errorf("Invalid IP Protocol %d", netPacket.IPProto)
 	}
 
-	netPacket.Buffer[0] = 0xD
-	netPacket.Buffer[1] = 0xE
-	netPacket.Buffer[2] = 0xA
-	netPacket.Buffer[3] = 0xD
+	p.Buffer[0] = 0xD
+	p.Buffer[1] = 0xE
+	p.Buffer[2] = 0xA
+	p.Buffer[3] = 0xD
 
 	if err != nil {
 		netfilter.SetVerdict(&netfilter.Verdict{
