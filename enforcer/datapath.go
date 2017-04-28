@@ -6,6 +6,7 @@ import (
 	"net"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -63,6 +64,8 @@ type datapathEnforcer struct {
 	ackSize uint32
 
 	mutualAuthorization bool
+
+	sync.Mutex
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores

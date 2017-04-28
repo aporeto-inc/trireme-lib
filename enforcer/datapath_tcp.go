@@ -17,6 +17,8 @@ import (
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
+	d.Lock()
+	defer d.Unlock()
 	// Skip SynAck packets that we haven't seen a connection
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
 		if _, err := d.sourcePortCache.Get(p.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
@@ -64,6 +66,9 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error {
+
+	d.Lock()
+	defer d.Unlock()
 
 	// Skip SynAck packets for connections that we are not processing
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
@@ -161,13 +166,8 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	if err == nil {
 		connection = existing.(*TCPConnection)
 
-		connection.Lock()
-		defer connection.Unlock()
-
 	} else {
 		connection = NewTCPConnection(false)
-		connection.Lock()
-		defer connection.Unlock()
 
 		connection.Auth.RemoteIP = tcpPacket.DestinationAddress.String()
 		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
@@ -219,8 +219,6 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		return nil, nil
 	}
 	connection := c.(*TCPConnection)
-	connection.Lock()
-	defer connection.Unlock()
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Process the packet if I am the right state. I should have either received a Syn packet or
@@ -284,8 +282,6 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		return nil, nil
 	}
 	connection := c.(*TCPConnection)
-	connection.Lock()
-	defer connection.Unlock()
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Only process in SynAckReceived state
@@ -374,8 +370,6 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	} else {
 		connection = NewTCPConnection(true)
 	}
-	connection.Lock()
-	defer connection.Unlock()
 
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
@@ -474,8 +468,6 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	}
 
 	connection := c.(*TCPConnection)
-	connection.Lock()
-	defer connection.Unlock()
 	// Stash connection
 	connection.Auth.RemotePublicKey = cert
 	connection.Auth.RemoteContext = claims.LCL
@@ -531,8 +523,6 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	}
 
 	connection := c.(*TCPConnection)
-	connection.Lock()
-	defer connection.Unlock()
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Validate that the source/destination nonse matches. The signature has validated both directions
