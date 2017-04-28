@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
 	"golang.org/x/sys/unix"
 
 	"go.uber.org/zap"
@@ -389,7 +390,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 	flag := unix.SIGHUP
 
 	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(flag), 0, 0, 0); err != nil {
-	    return fmt.Errorf("Unable to set termination process")
+		return fmt.Errorf("Unable to set termination process")
 	}
 
 	rpchdl := rpcwrapper.NewRPCServer()
