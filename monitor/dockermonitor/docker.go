@@ -196,6 +196,13 @@ func (d *dockerMonitor) Start() error {
 
 	zap.L().Debug("Starting the docker monitor")
 
+	//Check if the server is running before you go ahead
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, pingerr := d.dockerClient.Ping(ctx)
+	if pingerr != nil {
+		return fmt.Errorf("Docker daemon not running")
+	}
 	// Starting the eventListener First.
 	errChan := make(chan error, 1)
 	defer close(errChan)
@@ -270,10 +277,6 @@ func (d *dockerMonitor) eventListener(errChan chan error) {
 	options.Filters.Add("type", "container")
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
-	err := <-errs
-	errChan <- err
-	//ErrChan is not available after this status post and close by the receiver
-	//Startup error is handled differently for other errors we just debug logs
 	for {
 		select {
 		case message := <-messages:
