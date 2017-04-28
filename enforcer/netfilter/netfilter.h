@@ -65,13 +65,16 @@ static inline struct nfq_q_handle* CreateQueue(struct nfq_handle *h, u_int16_t q
 // Loop reading from the handle
 static inline void Run(struct nfq_handle *h, int fd)
 {
-    char buf[65000] __attribute__ ((aligned));
+    char buf[65536] __attribute__ ((aligned));
     int rv;
+    int nfq_error = 0;
 
     for (;;) {
-      rv = recv(fd, buf, sizeof(buf), 0);
-      if (rv >= 0) {
-        nfq_handle_packet(h, buf, rv) ;
+      rv = recv(fd, buf, sizeof(buf), MSG_WAITALL );
+      if (rv > 0) {
+         nfq_error = nfq_handle_packet(h, buf, rv);
+         if (nfq_error != 0)
+          printf("NFQ_HANDLE_PACKET ERROR %d \n", nfq_error );
       } else {
         printf("Error in receiving packets from NFQUEUE %d \n", errno  );
       }

@@ -464,7 +464,7 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 
 	d.net.IncomingPackets++
 
-	zap.L().Debug("PROCESSING PACKET WITH ID",
+	zap.L().Debug("PROCESSING NETWORK PACKET WITH ID",
 		zap.Int("ID", p.ID))
 
 	// Parse the packet - drop if parsing fails
@@ -481,7 +481,11 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 	}
 
 	if err != nil {
-		netfilter.SetVerdict(&netfilter.Verdict{
+		zap.L().Debug("Dropping the network packet",
+			zap.String("packet with sequence number", netPacket.L4FlowHash()),
+			zap.Int("mark value", d.filterQueue.MarkValue),
+			zap.Int("Packet ID", p.ID))
+		result := netfilter.SetVerdict(&netfilter.Verdict{
 			V:           netfilter.NfDrop,
 			Buffer:      netPacket.Buffer,
 			Payload:     nil,
@@ -490,11 +494,23 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 			ID:          p.ID,
 			QueueHandle: p.QueueHandle,
 		}, d.filterQueue.MarkValue)
+
+		if result < 0 {
+			zap.L().Error("Failed to set verdict for packet",
+				zap.String("sequence number", netPacket.L4FlowHash()),
+				zap.Int("mark value", d.filterQueue.MarkValue),
+				zap.Int("verdict Error", result))
+		}
 		return
 	}
 
+	zap.L().Debug("Accept the packet",
+		zap.String("packet with sequence number", netPacket.L4FlowHash()),
+		zap.Int("mark value", d.filterQueue.MarkValue),
+		zap.Int("packet ID", p.ID))
+
 	// Accept the packet
-	netfilter.SetVerdict(&netfilter.Verdict{
+	result := netfilter.SetVerdict(&netfilter.Verdict{
 		V:           netfilter.NfAccept,
 		Buffer:      netPacket.Buffer,
 		Payload:     netPacket.GetTCPData(),
@@ -503,12 +519,20 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 		ID:          p.ID,
 		QueueHandle: p.QueueHandle,
 	}, d.filterQueue.MarkValue)
+
+	if result < 0 {
+		zap.L().Error("Failed to set verdict for packet",
+			zap.String("sequence number", netPacket.L4FlowHash()),
+			zap.Int("mark value", d.filterQueue.MarkValue),
+			zap.Int("verdict Error", result))
+	}
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
 
-	zap.L().Debug("process application packets from NFQ")
+	zap.L().Debug("PROCESSING APPLICATION PACKET WITH ID",
+		zap.Int("ID", p.ID))
 
 	d.app.IncomingPackets++
 
@@ -528,7 +552,11 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 	}
 
 	if err != nil {
-		netfilter.SetVerdict(&netfilter.Verdict{
+		zap.L().Debug("Dropping the packet",
+			zap.String("packet with sequence number", appPacket.L4FlowHash()),
+			zap.Int("mark value", d.filterQueue.MarkValue),
+			zap.Int("Packet ID", p.ID))
+		if result := netfilter.SetVerdict(&netfilter.Verdict{
 			V:           netfilter.NfDrop,
 			Buffer:      appPacket.Buffer,
 			Payload:     nil,
@@ -536,12 +564,23 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 			Xbuffer:     p.Xbuffer,
 			ID:          p.ID,
 			QueueHandle: p.QueueHandle,
-		}, d.filterQueue.MarkValue)
+		}, d.filterQueue.MarkValue); result < 0 {
+
+			zap.L().Error("Failed to set verdict for packet",
+				zap.String("sequence number", appPacket.L4FlowHash()),
+				zap.Int("mark value", d.filterQueue.MarkValue),
+				zap.Int("verdict Error", result))
+		}
 		return
 	}
 
+	zap.L().Debug("Accept the packet",
+		zap.String("packet with sequence number", appPacket.L4FlowHash()),
+		zap.Int("mark value", d.filterQueue.MarkValue),
+		zap.Int("packet ID", p.ID))
+
 	// Accept the packet
-	netfilter.SetVerdict(&netfilter.Verdict{
+	if result := netfilter.SetVerdict(&netfilter.Verdict{
 		V:           netfilter.NfAccept,
 		Buffer:      appPacket.Buffer,
 		Payload:     appPacket.GetTCPData(),
@@ -549,7 +588,13 @@ func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacke
 		Xbuffer:     p.Xbuffer,
 		ID:          p.ID,
 		QueueHandle: p.QueueHandle,
-	}, d.filterQueue.MarkValue)
+	}, d.filterQueue.MarkValue); result < 0 {
+
+		zap.L().Error("Failed to set verdict for packet",
+			zap.String("sequence number", appPacket.L4FlowHash()),
+			zap.Int("mark value", d.filterQueue.MarkValue),
+			zap.Int("verdict Error", result))
+	}
 
 }
 

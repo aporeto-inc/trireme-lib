@@ -195,12 +195,13 @@ func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData
 		return NfDrop
 	}
 
-  // buffer := C.GoBytes(unsafe.Pointer(data), len)
-	// local := make([]byte, len)
-	// copy(local, buffer)
+  buffer := C.GoBytes(unsafe.Pointer(data), len)
+	local := make([]byte, len)
+	copy(local, buffer)
+
 	// Create a new packet and associated the pointers
 	p := NFPacket{
-		Buffer:      C.GoBytes(unsafe.Pointer(data), len),
+		Buffer:      local,
 		Xbuffer:     newData,
 		ID:          int(packetID),
 		Mark:        strconv.Itoa(int(mark)),
@@ -227,6 +228,12 @@ func setsockopt(s int, level int, name int, val unsafe.Pointer, vallen uintptr) 
 // SetVerdict receives the response from the processor, copies the buffers
 // and passes the result to the C code
 func SetVerdict(v *Verdict, mark int) int {
+
+  // Drop any bad packets immediately
+	if v.V == NfDrop {
+		verdict := C.nfq_set_verdict(v.QueueHandle, C.u_int32_t(v.ID), C.u_int32_t(v.V), 0 , v.Xbuffer)
+		return int(verdict)
+	}
 
 	var bufferLength int
 	bufferLength = len(v.Buffer) + len(v.Options) + len(v.Payload)
