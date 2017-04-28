@@ -14,9 +14,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
+	"golang.org/x/sys/unix"
 
 	"go.uber.org/zap"
 
@@ -343,6 +346,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	defer cmdLock.Unlock()
 
 	msgErrors := ""
+
 	//Cleanup resources held in this namespace
 	if s.Supervisor != nil {
 		if err := s.Supervisor.Stop(); err != nil {
@@ -382,6 +386,12 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 		os.Exit(-1)
 	}
 
+	flag := unix.SIGHUP
+
+	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(flag), 0, 0, 0); err != nil {
+	    return fmt.Errorf("Unable to set termination process")
+	}
+
 	rpchdl := rpcwrapper.NewRPCServer()
 
 	server, err := NewServer(service, rpchdl, namedPipe, secret)
@@ -389,7 +399,13 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 		return err
 	}
 
-	rpchdl.StartServer("unix", namedPipe, server)
+	go rpchdl.StartServer("unix", namedPipe, server)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	<-c
+
+	server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
 
 	return nil
 }
