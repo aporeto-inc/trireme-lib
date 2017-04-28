@@ -205,9 +205,7 @@ func (d *dockerMonitor) Start() error {
 		return fmt.Errorf("Docker daemon not running")
 	}
 	// Starting the eventListener First.
-	errChan := make(chan error, 1)
-	defer close(errChan)
-	go d.eventListener(errChan)
+	go d.eventListener()
 	//This channel is only for catching startup errors
 	//We don't listen to this channel later or push anything to this channel
 	if eventErr := <-errChan; eventErr != nil {
@@ -271,7 +269,7 @@ func (d *dockerMonitor) eventProcessor() {
 // eventListener listens to Docker events from the daemon and passes to
 // to the processor through a buffered channel. This minimizes the chances
 // that we will miss events because the processor is delayed
-func (d *dockerMonitor) eventListener(errChan chan error) {
+func (d *dockerMonitor) eventListener() {
 
 	options := types.EventsOptions{}
 	options.Filters = filters.NewArgs()
