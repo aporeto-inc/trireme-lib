@@ -549,6 +549,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				copy(output, tcpPacket.GetBytes())
 
 				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
 				//Check after processing networksyn packet
@@ -593,6 +594,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				copy(output, tcpPacket.GetBytes())
 
 				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
 				outPacket.Print(0)
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
@@ -623,6 +625,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				copy(output, tcpPacket.GetBytes())
 
 				outPacket, err = packet.New(0, output, "0")
+				So(err, ShouldBeNil)
 				outPacketcopy, _ := packet.New(0, output, "0")
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
@@ -638,6 +641,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				copy(input, TCPFlow[i])
 				copy(start, TCPFlow[i])
 				oldPacket, err := packet.New(0, start, "0")
+				So(err, ShouldBeNil)
 				if err == nil && oldPacket != nil {
 					oldPacket.UpdateIPChecksum()
 					oldPacket.UpdateTCPChecksum()
@@ -669,7 +673,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				copy(output, tcpPacket.GetBytes())
 
 				outPacket, err := packet.New(0, output, "0")
-				outPacket.Print(0)
+				So(err, ShouldBeNil)
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
 
@@ -699,7 +703,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				copy(output, tcpPacket.GetBytes())
 
 				outPacket, err = packet.New(0, output, "0")
-				outPacket.Print(0)
+				So(err, ShouldBeNil)
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
 				i++
@@ -728,8 +732,7 @@ func TestConnectionTrackerState(t *testing.T) {
 				copy(output, tcpPacket.GetBytes())
 
 				outPacket, err = packet.New(0, output, "0")
-				outPacket.Print(0)
-
+				So(err, ShouldBeNil)
 				CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket)
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
@@ -753,12 +756,7 @@ func CheckAfterNetSynPacket(enforcer *datapathEnforcer, tcpPacket, outPacket *pa
 	So(appConn.(*TCPConnection).state, ShouldEqual, TCPSynReceived)
 
 }
-func CheckAfterAppSynAckPacket(enforcer *datapathEnforcer, tcpPacket *packet.Packet) {
-	appconn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4ReverseFlowHash())
-	So(err, ShouldBeNil)
-	So(appconn.(*TCPConnection).state, ShouldEqual, TCPSynAckSend)
 
-}
 func CheckAfterNetSynAckPacket(t *testing.T, enforcer *datapathEnforcer, tcpPacket, outPacket *packet.Packet) {
 	tcpData := tcpPacket.ReadTCPData()
 	claims, _ := enforcer.tokenEngine.Decode(false, tcpData, nil)
