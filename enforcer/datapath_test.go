@@ -820,6 +820,7 @@ func TestInvalidPacket(t *testing.T) {
 	Convey("When I receive an invalid packet from net", t, func() {
 		for _, p := range TCPFlow {
 			tcpPacket, err := packet.New(0, p, "0")
+			So(err, ShouldBeNil)
 			_, err = enforcer.processApplicationTCPPacket(tcpPacket)
 			So(err, ShouldBeNil)
 			output := make([]byte, len(tcpPacket.GetBytes()))
