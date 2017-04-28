@@ -278,7 +278,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Only process in SynAckReceived state
-	if connection.GetState() == TCPSynAckReceived {
+	if connection.GetState() == TCPSynAckReceived || connection.GetState() == TCPSynSend {
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
