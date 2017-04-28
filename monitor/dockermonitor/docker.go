@@ -197,6 +197,7 @@ func (d *dockerMonitor) Start() error {
 	zap.L().Debug("Starting the docker monitor")
 
 	//Check if the server is running before you go ahead
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, pingerr := d.dockerClient.Ping(ctx)
@@ -204,7 +205,14 @@ func (d *dockerMonitor) Start() error {
 		return fmt.Errorf("Docker daemon not running")
 	}
 	// Starting the eventListener First.
-	go d.eventListener()
+	errChan := make(chan error, 1)
+	defer close(errChan)
+	go d.eventListener(errChan)
+	//This channel is only for catching startup errors
+	//We don't listen to this channel later or push anything to this channel
+	if eventErr := <-errChan; eventErr != nil {
+		return eventErr
+	}
 
 	//Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
@@ -263,14 +271,13 @@ func (d *dockerMonitor) eventProcessor() {
 // eventListener listens to Docker events from the daemon and passes to
 // to the processor through a buffered channel. This minimizes the chances
 // that we will miss events because the processor is delayed
-func (d *dockerMonitor) eventListener() {
+func (d *dockerMonitor) eventListener(errChan chan error) {
 
 	options := types.EventsOptions{}
 	options.Filters = filters.NewArgs()
 	options.Filters.Add("type", "container")
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
-
 	for {
 		select {
 		case message := <-messages:
