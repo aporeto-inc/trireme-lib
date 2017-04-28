@@ -152,12 +152,15 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	select {
 	case kerr := <-c:
 		if kerr != nil {
-			if perr := s.(*processInfo).process.Kill(); perr != nil {
-				zap.L().Debug("Process is already dead",
-					zap.String("Remote error", kerr.Error()),
-					zap.String("Kill error", perr.Error()))
-			}
+			zap.L().Debug("Failed to stop gracefully",
+				zap.String("Remote error", kerr.Error()))
 		}
+
+		if perr := s.(*processInfo).process.Kill(); perr != nil {
+			zap.L().Debug("Process is already dead",
+				zap.String("Kill error", perr.Error()))
+		}
+
 	case <-time.After(5 * time.Second):
 		if perr := s.(*processInfo).process.Kill(); perr != nil {
 			zap.L().Info("Time out while killing process ",
