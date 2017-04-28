@@ -197,6 +197,7 @@ func (d *dockerMonitor) Start() error {
 	zap.L().Debug("Starting the docker monitor")
 
 	//Check if the server is running before you go ahead
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, pingerr := d.dockerClient.Ping(ctx)
