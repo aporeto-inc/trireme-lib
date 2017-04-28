@@ -27,13 +27,14 @@ type AuthInfo struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
-	mutex sync.Mutex
 	state TCPFlowState
 	Auth  AuthInfo
 
 	// Debugging Information
 	flowReported bool
 	logs         []string
+
+	sync.Mutex
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -53,17 +54,11 @@ func (c *TCPConnection) String() string {
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	return c.state
 }
 
 // SetState is used to setup the state for the TCP connection
 func (c *TCPConnection) SetState(state TCPFlowState) {
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	c.state = state
 
@@ -76,9 +71,6 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 
 // SetReported is used to track if a flow is reported
 func (c *TCPConnection) SetReported(dropped bool) {
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	repeatedReporting := false
 	if !c.flowReported {
@@ -109,9 +101,6 @@ func (c *TCPConnection) SetReported(dropped bool) {
 // SetPacketInfo is used to setup the state for the TCP connection
 func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	if TraceLogging == 0 {
 		return
 	}
@@ -122,9 +111,6 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup(expiration bool) {
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	logStr := ""
 	for i, v := range c.logs {
@@ -147,7 +133,6 @@ func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
 
 	c := &TCPConnection{
 		state:        TCPSynSend,
-		mutex:        sync.Mutex{},
 		flowReported: trackFlowReporting,
 		logs:         make([]string, 0),
 	}

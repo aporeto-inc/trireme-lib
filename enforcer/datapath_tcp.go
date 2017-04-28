@@ -160,8 +160,15 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	existing, err := d.appConnectionTracker.Get(hash)
 	if err == nil {
 		connection = existing.(*TCPConnection)
+
+		connection.Lock()
+		defer connection.Unlock()
+
 	} else {
 		connection = NewTCPConnection(false)
+		connection.Lock()
+		defer connection.Unlock()
+
 		connection.Auth.RemoteIP = tcpPacket.DestinationAddress.String()
 		connection.Auth.RemotePort = strconv.Itoa(int(tcpPacket.DestinationPort))
 	}
@@ -212,6 +219,8 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 		return nil, nil
 	}
 	connection := c.(*TCPConnection)
+	connection.Lock()
+	defer connection.Unlock()
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Process the packet if I am the right state. I should have either received a Syn packet or
@@ -275,6 +284,8 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 		return nil, nil
 	}
 	connection := c.(*TCPConnection)
+	connection.Lock()
+	defer connection.Unlock()
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Only process in SynAckReceived state
@@ -363,6 +374,9 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	} else {
 		connection = NewTCPConnection(true)
 	}
+	connection.Lock()
+	defer connection.Unlock()
+
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Decode the JWT token using the context key
@@ -460,6 +474,8 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 	}
 
 	connection := c.(*TCPConnection)
+	connection.Lock()
+	defer connection.Unlock()
 	// Stash connection
 	connection.Auth.RemotePublicKey = cert
 	connection.Auth.RemoteContext = claims.LCL
@@ -515,6 +531,8 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 	}
 
 	connection := c.(*TCPConnection)
+	connection.Lock()
+	defer connection.Unlock()
 	connection.SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 
 	// Validate that the source/destination nonse matches. The signature has validated both directions

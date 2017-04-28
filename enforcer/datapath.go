@@ -6,7 +6,6 @@ import (
 	"net"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -64,8 +63,6 @@ type datapathEnforcer struct {
 	ackSize uint32
 
 	mutualAuthorization bool
-
-	sync.Mutex
 }
 
 // NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
@@ -465,8 +462,6 @@ func createRuleDB(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *looku
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
 func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 
-	d.Lock()
-	defer d.Unlock()
 	d.net.IncomingPackets++
 
 	zap.L().Debug("PROCESSING NETWORK PACKET WITH ID",
@@ -535,9 +530,6 @@ func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
-
-	d.Lock()
-	defer d.Unlock()
 
 	zap.L().Debug("PROCESSING APPLICATION PACKET WITH ID",
 		zap.Int("ID", p.ID))
