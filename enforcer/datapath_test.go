@@ -729,8 +729,11 @@ func TestConnectionTrackerState(t *testing.T) {
 
 				outPacket, err = packet.New(0, output, "0")
 				outPacket.Print(0)
+
+				CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket)
 				err = enforcer.processNetworkTCPPackets(outPacket)
 				So(err, ShouldBeNil)
+
 			})
 		})
 	})
@@ -773,6 +776,15 @@ func CheckAfterAppAckPacket(enforcer *datapathEnforcer, tcpPacket *packet.Packet
 	So(err, ShouldBeNil)
 	So(appConn.(*TCPConnection).state, ShouldEqual, TCPAckSend)
 }
+
+func CheckBeforeNetAckPacket(enforcer *datapathEnforcer, tcpPacket, outPacket *packet.Packet) {
+
+	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(appConn.(*TCPConnection).state, ShouldEqual, TCPSynAckSend)
+
+}
+
 func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 	SIP := net.IPv4zero
