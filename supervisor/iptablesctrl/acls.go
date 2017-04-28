@@ -515,7 +515,7 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 // CleanAllSynAckPacketCaptures cleans the capture rules for SynAck packets irrespective of NFQUEUE
 func (i *Instance) CleanAllSynAckPacketCaptures() error {
 
-	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableContext); err != nil {
+	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appSynAckIPTableSection); err != nil {
 		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
 	}
 
