@@ -101,8 +101,6 @@ func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor Monito
 // reSync resyncs with all the existing services that were there before we start
 func (r *RPCMonitor) reSync() error {
 
-	var eventInfo EventInfo
-
 	walker, err := r.contextstore.WalkStore()
 	if err != nil {
 		return fmt.Errorf("error in accessing context store")
@@ -118,60 +116,60 @@ func (r *RPCMonitor) reSync() error {
 			break
 		}
 
-		data, err := r.contextstore.GetContextInfo("/" + contextID)
-		if err == nil && data != nil {
+		data, cerr := r.contextstore.GetContextInfo("/" + contextID)
+		if cerr != nil || data == nil {
+			continue
+		}
 
-			if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
-				zap.L().Warn("Found invalid state for context - Cleaning up",
-					zap.String("contextID", contextID),
+		var eventInfo EventInfo
+		if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
+			zap.L().Warn("Found invalid state for context - Cleaning up",
+				zap.String("contextID", contextID),
+				zap.Error(err),
+			)
+
+			if rerr := r.contextstore.RemoveContext("/" + contextID); rerr != nil {
+				return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
+			}
+			continue
+		}
+
+		processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
+		if err != nil {
+			//The cgroup does not exists - log error and remove context
+			if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {
+				zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
+			}
+			continue
+		}
+
+		if len(processlist) <= 0 {
+			//We have an empty cgroup
+			//Remove the cgroup and context store file
+			if err := cgnetclshandle.DeleteCgroup(eventInfo.PUID); err != nil {
+				zap.L().Warn("Failed to deleted cgroup",
+					zap.String("puID", eventInfo.PUID),
 					zap.Error(err),
 				)
-
-				if rerr := r.contextstore.RemoveContext("/" + contextID); rerr != nil {
-					return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
-				}
-				continue
 			}
 
-			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
-
-			if err != nil {
-				//The cgroup does not exists - log error
-				if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {
-					zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
-				}
-				continue
+			if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
+				zap.L().Warn("Failed to deleted context",
+					zap.String("puID", eventInfo.PUID),
+					zap.Error(err),
+				)
 			}
-
-			if len(processlist) <= 0 {
-				//We have an empty cgroup
-				//Remove the cgroup and context store file
-				if err := cgnetclshandle.DeleteCgroup(eventInfo.PUID); err != nil {
-					zap.L().Warn("Failed to deleted cgroup",
-						zap.String("puID", eventInfo.PUID),
-						zap.Error(err),
-					)
-				}
-
-				if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
-					zap.L().Warn("Failed to deleted context",
-						zap.String("puID", eventInfo.PUID),
-						zap.Error(err),
-					)
-				}
-
-				continue
-			}
-
-			if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
-				if err := f(&eventInfo); err != nil {
-					return fmt.Errorf("error in processing existing data: %s", err.Error())
-				}
-			} else {
-				return fmt.Errorf("cannot find handler")
-			}
-
+			continue
 		}
+
+		if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
+			if err := f(&eventInfo); err != nil {
+				return fmt.Errorf("error in processing existing data: %s", err.Error())
+			}
+		} else {
+			return fmt.Errorf("cannot find handler")
+		}
+
 	}
 
 	return nil
