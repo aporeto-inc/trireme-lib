@@ -19,7 +19,7 @@ func (d *datapathEnforcer) processNetworkTCPPackets(p *packet.Packet) error {
 
 	// Skip SynAck packets that we haven't seen a connection
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
-		if _, err := d.sourcePortCache.Get(p.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
+		if _, err := d.sourcePortCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
 			return nil
 		}
 	}
@@ -67,7 +67,7 @@ func (d *datapathEnforcer) processApplicationTCPPackets(p *packet.Packet) error 
 
 	// Skip SynAck packets for connections that we are not processing
 	if d.mode != constants.LocalContainer && p.TCPFlags == packet.TCPSynAckMask {
-		if _, err := d.destinationPortCache.Get(p.DestinationPortHash(packet.PacketTypeApplication)); err != nil {
+		if _, err := d.destinationPortCache.GetReset(p.DestinationPortHash(packet.PacketTypeApplication)); err != nil {
 			zap.L().Debug("Early exit destination port cache miss",
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("key", p.DestinationPortHash(packet.PacketTypeApplication)),
@@ -157,7 +157,7 @@ func (d *datapathEnforcer) processApplicationSynPacket(tcpPacket *packet.Packet)
 	}
 
 	hash := tcpPacket.L4FlowHash()
-	existing, err := d.appConnectionTracker.Get(hash)
+	existing, err := d.appConnectionTracker.GetReset(hash)
 	if err == nil {
 		connection = existing.(*TCPConnection)
 	} else {
@@ -195,7 +195,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	var err error
 
 	if d.mode != constants.LocalContainer {
-		if context, err = d.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeApplication)); err != nil {
+		if context, err = d.destinationPortCache.GetReset(tcpPacket.DestinationPortHash(packet.PacketTypeApplication)); err != nil {
 			return nil, err
 		}
 	} else {
@@ -207,7 +207,7 @@ func (d *datapathEnforcer) processApplicationSynAckPacket(tcpPacket *packet.Pack
 	hash := tcpPacket.L4ReverseFlowHash()
 	// Create the reverse hash since we have cached based on the SYN and
 	// Retrieve the connection context
-	c, err := d.networkConnectionTracker.Get(hash)
+	c, err := d.networkConnectionTracker.GetReset(hash)
 	if err != nil {
 		return nil, nil
 	}
@@ -265,7 +265,7 @@ func (d *datapathEnforcer) processApplicationAckPacket(tcpPacket *packet.Packet)
 
 	// Get the connection state. We need the state of the two random numbers
 	hash := tcpPacket.L4FlowHash()
-	c, err := d.appConnectionTracker.Get(hash)
+	c, err := d.appConnectionTracker.GetReset(hash)
 	if err != nil {
 		// Untracked connection. Let it go through
 		zap.L().Debug("Early exit no connection found from flow",
@@ -357,7 +357,7 @@ func (d *datapathEnforcer) processNetworkSynPacket(context *PUContext, tcpPacket
 	// First check if a connection was previously established and this is a second SYNACK
 	// packet. This means that our ACK packet was lost somewhere
 	hash := tcpPacket.L4FlowHash()
-	existing, err := d.networkConnectionTracker.Get(hash)
+	existing, err := d.networkConnectionTracker.GetReset(hash)
 	if err == nil {
 		connection = existing.(*TCPConnection)
 	} else {
@@ -453,7 +453,7 @@ func (d *datapathEnforcer) processNetworkSynAckPacket(context *PUContext, tcpPac
 		return nil, fmt.Errorf("No remote context %v", claims.T)
 	}
 
-	c, err := d.contextConnectionTracker.Get(string(claims.RMT))
+	c, err := d.contextConnectionTracker.GetReset(string(claims.RMT))
 	if err != nil {
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.InvalidConnection)
 		return nil, fmt.Errorf("No connection found for %v", claims.RMT)
@@ -508,7 +508,7 @@ func (d *datapathEnforcer) processNetworkAckPacket(context *PUContext, tcpPacket
 
 	// Retrieve connection context
 	hash := tcpPacket.L4FlowHash()
-	c, err := d.networkConnectionTracker.Get(hash)
+	c, err := d.networkConnectionTracker.GetReset(hash)
 	if err != nil {
 		zap.L().Debug("Ignore the packet", zap.Error(err))
 		return nil, nil
@@ -606,7 +606,7 @@ func (d *datapathEnforcer) processNetworkTCPPacket(tcpPacket *packet.Packet) (in
 	var context interface{}
 
 	if d.mode != constants.LocalContainer && tcpPacket.TCPFlags == packet.TCPSynAckMask {
-		if context, err = d.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
+		if context, err = d.sourcePortCache.GetReset(tcpPacket.SourcePortHash(packet.PacketTypeNetwork)); err != nil {
 			return nil, nil
 		}
 	} else {
