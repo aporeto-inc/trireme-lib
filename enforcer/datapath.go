@@ -14,7 +14,6 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/connection"
-
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
@@ -338,76 +337,4 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
 	return nil
-}
-
-// contextFromIP returns the PU context from the default IP if remote. Otherwise
-// it returns the context from the port or mark values of the packet. Synack
-// packets are again special and the flow is reversed. If a container doesn't supply
-// its IP information, we use the default IP. This will only work with remotes
-// and Linux processes.
-func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port string) (*PUContext, error) {
-
-	pu, err := d.puFromIP.Get(packetIP)
-	if err == nil {
-		return pu.(*PUContext), nil
-	}
-
-	if err != nil && d.mode == constants.LocalContainer {
-		return nil, fmt.Errorf("IP must be always populated to local containers")
-	}
-
-	// Look for context based on the default IP
-	defaultPU, err := d.puFromIP.Get(DefaultNetwork)
-	if err == nil {
-		return defaultPU.(*PUContext), nil
-	}
-
-	if app {
-		pu, err = d.puFromMark.Get(mark)
-		if err != nil {
-			return nil, fmt.Errorf("PU context cannot be found using mark %v ", mark)
-		}
-		return pu.(*PUContext), nil
-	}
-
-	pu, err = d.puFromPort.Get(port)
-	if err != nil {
-		return nil, fmt.Errorf("PU Context cannot be found using port key %v ", port)
-	}
-	return pu.(*PUContext), nil
-}
-
-func (d *Datapath) createPacketToken(ackToken bool, context *PUContext, auth *connection.AuthInfo) []byte {
-
-	claims := &tokens.ConnectionClaims{
-		LCL: auth.LocalContext,
-		RMT: auth.RemoteContext,
-	}
-
-	if !ackToken {
-		claims.T = context.Identity
-	}
-
-	return d.tokenEngine.CreateAndSign(ackToken, claims)
-}
-
-func (d *Datapath) parsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
-
-	// Validate the certificate and parse the token
-	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
-	if claims == nil {
-		return nil, fmt.Errorf("Cannot decode the token")
-	}
-
-	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T.Get(TransmitterLabel)
-	if !ok {
-		return nil, fmt.Errorf("No Transmitter Label ")
-	}
-
-	auth.RemotePublicKey = cert
-	auth.RemoteContext = claims.LCL
-	auth.RemoteContextID = remoteContextID
-
-	return claims, nil
 }

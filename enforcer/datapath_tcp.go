@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
@@ -207,36 +208,28 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
 	return nil
 }
 
-func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
+// processApplicationTCPPacket processes a TCP packet and dispatches it to other methods based on the flags
+func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
-	tokenLen := uint8(len(token))
-	options := []byte{packet.TCPAuthenticationOption, TCPAuthenticationOptionBaseLen + tokenLen, 0, 0}
+	// State machine based on the flags
+	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
+	case packet.TCPSynMask: //Processing SYN packet from Application
+		action, err := d.processApplicationSynPacket(tcpPacket, context, conn)
+		return action, err
 
-	if tokenLen != 0 {
-		options = append(options, token...)
+	case packet.TCPAckMask:
+		action, err := d.processApplicationAckPacket(tcpPacket, context, conn)
+		return action, err
+
+	case packet.TCPSynAckMask:
+		action, err := d.processApplicationSynAckPacket(tcpPacket, context, conn)
+		return action, err
+	default:
+		return nil, nil
 	}
-
-	return options
 }
 
-func (d *Datapath) parseAckToken(connection *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
-
-	// Validate the certificate and parse the token
-	claims, _ := d.tokenEngine.Decode(true, data, connection.RemotePublicKey)
-	if claims == nil {
-		return nil, fmt.Errorf("Cannot decode the token")
-	}
-
-	// Compare the incoming random context with the stored context
-	matchLocal := bytes.Compare(claims.RMT, connection.LocalContext)
-	matchRemote := bytes.Compare(claims.LCL, connection.RemoteContext)
-	if matchLocal != 0 || matchRemote != 0 {
-		return nil, fmt.Errorf("Failed to match context in ACK packet")
-	}
-
-	return claims, nil
-}
-
+// processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
 	// Create TCP Option
@@ -262,6 +255,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	return nil, nil
 }
 
+// processApplicationSynAckPacket processes an application SynAck packet
 func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
 	// Process the packet if I am the right state. I should have either received a Syn packet or
@@ -296,6 +290,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	return nil, fmt.Errorf("Received SynACK in wrong state %v", conn.GetState())
 }
 
+// processApplicationAckPacket processes an application ack packet
 func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
 	// Only process in SynAckReceived state
@@ -351,26 +346,27 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	return nil, fmt.Errorf("Received application ACK packet in the wrong state! %v", conn.GetState())
 }
 
-func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
+// processNetworkTCPPacket processes a network TCP packet and dispatches it to different methods based on the flags
+func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
-	// State machine based on the flags
-	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
-	case packet.TCPSynMask: //Processing SYN packet from Application
-		action, err := d.processApplicationSynPacket(tcpPacket, context, conn)
-		return action, err
+	// Update connection state in the internal state machine tracker
+	switch tcpPacket.TCPFlags {
+
+	case packet.TCPSynMask & packet.TCPSynAckMask:
+		return d.processNetworkSynPacket(context, conn, tcpPacket)
 
 	case packet.TCPAckMask:
-		action, err := d.processApplicationAckPacket(tcpPacket, context, conn)
-		return action, err
+		return d.processNetworkAckPacket(context, conn, tcpPacket)
 
 	case packet.TCPSynAckMask:
-		action, err := d.processApplicationSynAckPacket(tcpPacket, context, conn)
-		return action, err
-	default:
+		return d.processNetworkSynAckPacket(context, conn, tcpPacket)
+
+	default: // Ignore any other packet
 		return nil, nil
 	}
 }
 
+// processNetworkSynPacket processes a syn packet arriving from the network
 func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Decode the JWT token using the context key
@@ -438,6 +434,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.
 	return nil, fmt.Errorf("No matched tags - reject %+v", claims.T)
 }
 
+// processNetworkSynAckPacket processes a SynAck packet arriving from the network
 func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (interface{}, error) {
 
 	tcpData := tcpPacket.ReadTCPData()
@@ -504,6 +501,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 	return nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
+// processNetworkAckPacket processes an Ack packet arriving from the network
 func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (interface{}, error) {
 
 	hash := tcpPacket.L4FlowHash()
@@ -575,25 +573,78 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 	return nil, fmt.Errorf("Ack packet dropped - Invalid State: %v", conn.GetState())
 }
 
-func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
+// createPacketToken creates the authentication token
+func (d *Datapath) createPacketToken(ackToken bool, context *PUContext, auth *connection.AuthInfo) []byte {
 
-	// Update connection state in the internal state machine tracker
-	switch tcpPacket.TCPFlags {
-
-	case packet.TCPSynMask & packet.TCPSynAckMask:
-		return d.processNetworkSynPacket(context, conn, tcpPacket)
-
-	case packet.TCPAckMask:
-		return d.processNetworkAckPacket(context, conn, tcpPacket)
-
-	case packet.TCPSynAckMask:
-		return d.processNetworkSynAckPacket(context, conn, tcpPacket)
-
-	default: // Ignore any other packet
-		return nil, nil
+	claims := &tokens.ConnectionClaims{
+		LCL: auth.LocalContext,
+		RMT: auth.RemoteContext,
 	}
+
+	if !ackToken {
+		claims.T = context.Identity
+	}
+
+	return d.tokenEngine.CreateAndSign(ackToken, claims)
 }
 
+// parsePacketToken parses the packet token and populates the right state.
+// Returns an error if the token cannot be parsed or the signature fails
+func (d *Datapath) parsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
+
+	// Validate the certificate and parse the token
+	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
+	if claims == nil {
+		return nil, fmt.Errorf("Cannot decode the token")
+	}
+
+	// We always a need a valid remote context ID
+	remoteContextID, ok := claims.T.Get(TransmitterLabel)
+	if !ok {
+		return nil, fmt.Errorf("No Transmitter Label ")
+	}
+
+	auth.RemotePublicKey = cert
+	auth.RemoteContext = claims.LCL
+	auth.RemoteContextID = remoteContextID
+
+	return claims, nil
+}
+
+// parseAckToken parses the tokens in Ack packets. They don't carry all the state context
+// and it needs to be recovered
+func (d *Datapath) parseAckToken(connection *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
+
+	// Validate the certificate and parse the token
+	claims, _ := d.tokenEngine.Decode(true, data, connection.RemotePublicKey)
+	if claims == nil {
+		return nil, fmt.Errorf("Cannot decode the token")
+	}
+
+	// Compare the incoming random context with the stored context
+	matchLocal := bytes.Compare(claims.RMT, connection.LocalContext)
+	matchRemote := bytes.Compare(claims.LCL, connection.RemoteContext)
+	if matchLocal != 0 || matchRemote != 0 {
+		return nil, fmt.Errorf("Failed to match context in ACK packet")
+	}
+
+	return claims, nil
+}
+
+// createTCPAuthenticationOption creates the TCP authentication option -
+func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
+
+	tokenLen := uint8(len(token))
+	options := []byte{packet.TCPAuthenticationOption, TCPAuthenticationOptionBaseLen + tokenLen, 0, 0}
+
+	if tokenLen != 0 {
+		options = append(options, token...)
+	}
+
+	return options
+}
+
+// appRetrieveState retrieves the state information for packets arriving from applications
 func (d *Datapath) appRetrieveState(tcpPacket *packet.Packet) (*PUContext, *connection.TCPConnection, error) {
 
 	var contextIP, contextPort string
@@ -713,4 +764,41 @@ func (d *Datapath) netRetrieveSynAckState(p *packet.Packet) (*PUContext, *connec
 	}
 
 	return cachedContext.(*PUContext), cachedConn.(*connection.TCPConnection), nil
+}
+
+// contextFromIP returns the PU context from the default IP if remote. Otherwise
+// it returns the context from the port or mark values of the packet. Synack
+// packets are again special and the flow is reversed. If a container doesn't supply
+// its IP information, we use the default IP. This will only work with remotes
+// and Linux processes.
+func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port string) (*PUContext, error) {
+
+	pu, err := d.puFromIP.Get(packetIP)
+	if err == nil {
+		return pu.(*PUContext), nil
+	}
+
+	if err != nil && d.mode == constants.LocalContainer {
+		return nil, fmt.Errorf("IP must be always populated to local containers")
+	}
+
+	// Look for context based on the default IP
+	defaultPU, err := d.puFromIP.Get(DefaultNetwork)
+	if err == nil {
+		return defaultPU.(*PUContext), nil
+	}
+
+	if app {
+		pu, err = d.puFromMark.Get(mark)
+		if err != nil {
+			return nil, fmt.Errorf("PU context cannot be found using mark %v ", mark)
+		}
+		return pu.(*PUContext), nil
+	}
+
+	pu, err = d.puFromPort.Get(port)
+	if err != nil {
+		return nil, fmt.Errorf("PU Context cannot be found using port key %v ", port)
+	}
+	return pu.(*PUContext), nil
 }
