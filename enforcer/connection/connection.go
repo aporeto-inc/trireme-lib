@@ -1,4 +1,4 @@
-package enforcer
+package connection
 
 import (
 	"fmt"
@@ -13,6 +13,30 @@ import (
 var (
 	// TraceLogging provides very high level of detail logs for connections
 	TraceLogging int
+)
+
+// TCPFlowState identifies the constants of the state of a TCP connectioncon
+type TCPFlowState int
+
+const (
+
+	// TCPSynSend is the state where the Syn packets has been send, but no response has been received
+	TCPSynSend TCPFlowState = iota
+
+	// TCPSynReceived indicates that the syn packet has been received
+	TCPSynReceived
+
+	// TCPSynAckSend indicates that the SynAck packet has been send
+	TCPSynAckSend
+
+	// TCPSynAckReceived is the state where the SynAck has been received
+	TCPSynAckReceived
+
+	// TCPAckSend indicates that the ack packets has been send
+	TCPAckSend
+
+	// TCPAckProcessed is the state that the negotiation has been completed
+	TCPAckProcessed
 )
 
 // AuthInfo keeps authentication information about a connection

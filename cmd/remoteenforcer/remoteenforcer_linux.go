@@ -144,7 +144,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	if payload.SecretType == tokens.PKIType {
 		//PKI params
 		secrets := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
-		s.Enforcer = enforcer.NewDatapathEnforcer(
+		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
 			payload.FqConfig,
 			s.statsclient.collector,
@@ -158,7 +158,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	} else {
 		//PSK params
 		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
-		s.Enforcer = enforcer.NewDatapathEnforcer(
+		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
 			payload.FqConfig,
 			s.statsclient.collector,

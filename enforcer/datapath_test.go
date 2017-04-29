@@ -59,7 +59,7 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
@@ -84,7 +84,7 @@ func TestInvalidIPContext(t *testing.T) {
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
@@ -116,7 +116,7 @@ func TestInvalidTokenContext(t *testing.T) {
 		})
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
@@ -136,7 +136,7 @@ func TestInvalidTokenContext(t *testing.T) {
 	})
 }
 
-func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo, enforcer *datapathEnforcer, err1, err2 error) {
+func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2 error) {
 
 	tagSelector := policy.TagSelector{
 
@@ -180,7 +180,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
 	collector := &collector.DefaultCollector{}
-	enforcer = NewDefaultDatapathEnforcer(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+	enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 
 	err1 = enforcer.Enforce(puID1, puInfo1)
 
@@ -441,20 +441,6 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 						tcpPacket.Print(0)
 					}
 
-					if reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) {
-						// SYN/ACK Packets only
-						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
-							Convey("When I pass any application packets with SYN/ACK flag for packet "+string(i), func() {
-								Convey("Then I expect dst port cache to be populated "+string(i), func() {
-									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeApplication))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeApplication))
-									So(cs, ShouldNotBeNil)
-									So(es, ShouldBeNil)
-								})
-							})
-						}
-					}
-
 					output := make([]byte, len(tcpPacket.GetBytes()))
 					copy(output, tcpPacket.GetBytes())
 
@@ -467,32 +453,6 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 					if debug {
 						fmt.Println("Output packet", i)
 						outPacket.Print(0)
-					}
-
-					if reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
-						// SYN Packets only
-						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynMask {
-							Convey("When I receive a network packet with SYN flag for packet "+string(i), func() {
-								Convey("Then I expect dst port cache to be populated "+string(i), func() {
-									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									So(cs, ShouldNotBeNil)
-									So(es, ShouldBeNil)
-								})
-							})
-						}
-
-						// ACK Packet only
-						if outPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
-							Convey("When I receive a network packet with ACK flag for packet "+string(i), func() {
-								Convey("Then I expect dst port cache to be NOT populated "+string(i), func() {
-									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									So(cs, ShouldBeNil)
-									So(es, ShouldNotBeNil)
-								})
-							})
-						}
 					}
 				}
 			})
@@ -626,7 +586,7 @@ func TestCacheState(t *testing.T) {
 
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 	collector := &collector.DefaultCollector{}
-	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+	enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 	contextID := "123"
 
 	puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)

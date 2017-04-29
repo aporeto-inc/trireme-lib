@@ -330,15 +330,15 @@ func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16,
 // FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
 
-	zap.L().Debug("Fixup TCP Hdr On TCP Data Detach",
-		zap.Uint8("flags", p.TCPFlags),
-		zap.Uint16("len", p.IPTotalLength-p.TCPDataStartBytes()),
-		zap.Int("bufLen", len(p.Buffer)),
-		zap.Uint16("dataLength", dataLength),
-		zap.Int("tcpDataLength", len(p.tcpData)),
-		zap.Uint16("optionLength", optionLength),
-		zap.Int("tcpOptionsLength", len(p.tcpOptions)),
-	)
+	// zap.L().Debug("Fixup TCP Hdr On TCP Data Detach",
+	// 	zap.Uint8("flags", p.TCPFlags),
+	// 	zap.Uint16("len", p.IPTotalLength-p.TCPDataStartBytes()),
+	// 	zap.Int("bufLen", len(p.Buffer)),
+	// 	zap.Uint16("dataLength", dataLength),
+	// 	zap.Int("tcpDataLength", len(p.tcpData)),
+	// 	zap.Uint16("optionLength", optionLength),
+	// 	zap.Int("tcpOptionsLength", len(p.tcpOptions)),
+	// )
 
 	// Update TCP checksum
 	a := uint32(-p.TCPChecksum) - p.computeTCPChecksumDelta(p.tcpOptions[:optionLength], optionLength, p.tcpData[:dataLength], dataLength)
@@ -404,10 +404,10 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 // FixupTCPHdrOnTCPDataAttach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 
-	zap.L().Debug("Fixup TCP Hdr On TCP Data Attach",
-		zap.Uint8("flags", p.TCPFlags),
-		zap.Uint16("newLength", p.IPTotalLength-p.TCPDataStartBytes()),
-	)
+	// zap.L().Debug("Fixup TCP Hdr On TCP Data Attach",
+	// 	zap.Uint8("flags", p.TCPFlags),
+	// 	zap.Uint16("newLength", p.IPTotalLength-p.TCPDataStartBytes()),
+	// )
 
 	numberOfOptions := len(tcpOptions) / 4
 	// TCP checksum fixup. Start with old checksum

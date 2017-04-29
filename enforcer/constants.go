@@ -6,21 +6,9 @@ const (
 	// TCPAuthenticationOptionAckLen specifies the length of TCP Authentication Option in the ack packet
 	TCPAuthenticationOptionAckLen = 20
 	// PortNumberLabelString is the label to use for port numbers
-	PortNumberLabelString = "@port"
-)
-
-// Default parameters for the NFQUEUE configuration. Parameters can be
-// changed after an isolator has been created and before its started.
-// Change in parameters after the isolator is started has no effect
-const (
-	// DefaultNumberOfQueues  is the default number of queues used in NFQUEUE
-	DefaultNumberOfQueues = 4
-	// DefaultApplicationQueue represents the queue for application packets
-	DefaultApplicationQueue = 0
-	// DefaultNetworkQueue represents the queue for the network packets
-	DefaultNetworkQueue = 4
-	// DefaultQueueSize is the size of the queues
-	DefaultQueueSize = 500
-	// DefaultMarkValue is the default Mark for packets in the raw chain
-	DefaultMarkValue = 0x1111
+	PortNumberLabelString = "$sys:port"
+	// TransmitterLabel is the name of the label used to identify the Transmitter Context
+	TransmitterLabel = "AporetoContextID"
+	// DefaultNetwork to be used
+	DefaultNetwork = "0.0.0.0/0"
 )

@@ -45,7 +45,7 @@ func NewTriremeLinuxProcess(
 	}
 
 	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
-		constants.LinuxProcessPU: enforcer.NewDefaultDatapathEnforcer(serverID,
+		constants.LinuxProcessPU: enforcer.NewWithDefaults(serverID,
 			eventCollector,
 			nil,
 			secrets,
@@ -84,7 +84,7 @@ func NewLocalTriremeDocker(
 	}
 
 	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
-		constants.ContainerPU: enforcer.NewDefaultDatapathEnforcer(serverID,
+		constants.ContainerPU: enforcer.NewWithDefaults(serverID,
 			eventCollector,
 			nil,
 			secrets,
@@ -176,7 +176,7 @@ func NewHybridTrireme(
 		zap.L().Fatal("Failed to load Supervisor", zap.Error(cerr))
 	}
 
-	processEnforcer := enforcer.NewDefaultDatapathEnforcer(serverID,
+	processEnforcer := enforcer.NewWithDefaults(serverID,
 		eventCollector,
 		processor,
 		secrets,
