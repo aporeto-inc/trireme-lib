@@ -341,12 +341,19 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 }
 
 // contextFromIP returns the PU context from the default IP if remote. Otherwise
-// it returns the context from the port or mark values of the packet
+// it returns the context from the port or mark values of the packet. Synack
+// packets are again special and the flow is reversed. If a container doesn't supply
+// its IP information, we use the default IP. This will only work with remotes
+// and Linux processes.
 func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port string) (*PUContext, error) {
 
 	pu, err := d.puFromIP.Get(packetIP)
 	if err == nil {
 		return pu.(*PUContext), nil
+	}
+
+	if err != nil && d.mode == constants.LocalContainer {
+		return nil, fmt.Errorf("IP must be always populated to local containers")
 	}
 
 	// Look for context based on the default IP
