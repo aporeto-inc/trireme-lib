@@ -195,7 +195,7 @@ func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData
 		return NfDrop
 	}
 
-  buffer := C.GoBytes(unsafe.Pointer(data), len)
+	buffer := C.GoBytes(unsafe.Pointer(data), len)
 	local := make([]byte, len)
 	copy(local, buffer)
 
@@ -229,9 +229,9 @@ func setsockopt(s int, level int, name int, val unsafe.Pointer, vallen uintptr) 
 // and passes the result to the C code
 func SetVerdict(v *Verdict, mark int) int {
 
-  // Drop any bad packets immediately
+	// Drop any bad packets immediately
 	if v.V == NfDrop {
-		verdict := C.nfq_set_verdict(v.QueueHandle, C.u_int32_t(v.ID), C.u_int32_t(v.V), 0 , v.Xbuffer)
+		verdict := C.nfq_set_verdict(v.QueueHandle, C.u_int32_t(v.ID), C.u_int32_t(v.V), 0, v.Xbuffer)
 		return int(verdict)
 	}
 
