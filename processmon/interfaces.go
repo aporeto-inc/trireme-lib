@@ -9,5 +9,4 @@ type ProcessManager interface {
 	KillProcess(contextID string)
 	LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statssecret string, procMountPoint string) error
 	SetnsNetPath(netpath string)
-	//	ProcessExists(pid int) error
 }
