@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -619,4 +620,108 @@ func TestCacheState(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected failure, no IP but passed %s", err)
 	}
+}
+
+func TestDoCreatePU(t *testing.T) {
+
+	Convey("Given an initialized enforcer for Linux Processes", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer.mode = constants.LocalServer
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
+		tags := &policy.TagsMap{}
+		tags.Tags = map[string]string{cgnetcls.CgroupMarkTag: "100", cgnetcls.PortTag: "80,90,100"}
+		puInfo.Runtime.SetOptions(tags)
+		Convey("When I create a new PU", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed", func() {
+				So(err, ShouldBeNil)
+				_, err := enforcer.contextTracker.Get(contextID)
+				So(err, ShouldBeNil)
+				_, err1 := enforcer.puFromMark.Get("100")
+				So(err1, ShouldBeNil)
+				_, err2 := enforcer.puFromPort.Get("80")
+				So(err2, ShouldBeNil)
+				_, err3 := enforcer.puFromPort.Get("90")
+				So(err3, ShouldBeNil)
+				_, err4 := enforcer.puFromIP.Get(DefaultNetwork)
+				So(err4, ShouldNotBeNil)
+			})
+		})
+	})
+
+	Convey("Given an initialized enforcer for Linux Processes", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer.mode = constants.LocalServer
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
+
+		Convey("When I create a new PU without ports or mark", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed", func() {
+				So(err, ShouldBeNil)
+				_, err := enforcer.contextTracker.Get(contextID)
+				So(err, ShouldBeNil)
+				_, err4 := enforcer.puFromIP.Get(DefaultNetwork)
+				So(err4, ShouldNotBeNil)
+			})
+		})
+	})
+
+	Convey("Given an initialized enforcer for local Linux Containers", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
+
+		Convey("When I create a new PU without an IP", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should fail ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I create a new PU with an IP", func() {
+			ip := policy.NewIPMap(map[string]string{
+				"bridge": "164.67.228.152",
+			})
+			puInfo.Runtime.SetIPAddresses(ip)
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed ", func() {
+				So(err, ShouldBeNil)
+				_, err2 := enforcer.puFromIP.Get("164.67.228.152")
+				So(err2, ShouldBeNil)
+			})
+		})
+	})
+
+	Convey("Given an initialized enforcer for remote Linux Containers", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer.mode = constants.RemoteContainer
+
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
+
+		Convey("When I create a new PU without an IP", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed ", func() {
+				So(err, ShouldBeNil)
+				_, err2 := enforcer.puFromIP.Get(DefaultNetwork)
+				So(err2, ShouldBeNil)
+			})
+		})
+	})
 }
