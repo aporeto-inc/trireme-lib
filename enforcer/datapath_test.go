@@ -1,6 +1,7 @@
 package enforcer
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 	"reflect"
@@ -8,16 +9,19 @@ import (
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (
-	debug     bool
-	iteration int
-	TCPFlow   [][]byte
+	debug          bool
+	iteration      int
+	TCPFlow        [][]byte
+	InvalidTCPFlow [][]byte
 )
 
 func init() {
@@ -51,6 +55,9 @@ func init() {
 		{ /*0x4a, 0x1d, 0x70, 0xcf, 0xa6, 0xe5, 0xb8, 0xe8, 0x56, 0x32, 0x0b, 0xde, 0x08, 0x00,*/ 0x45, 0x00, 0x00, 0x34, 0xaf, 0x96, 0x40, 0x00, 0x40, 0x06, 0xee, 0x04, 0x0a, 0x01, 0x0a, 0x4c, 0xa4, 0x43, 0xe4, 0x98, 0xe1, 0xa1, 0x00, 0x50, 0x4d, 0xa6, 0xae, 0x36, 0xfe, 0xab, 0x0c, 0x49, 0x80, 0x11, 0x10, 0x00, 0x9a, 0xcb, 0x00, 0x00, 0x01, 0x01, 0x08, 0x0a, 0x1b, 0x51, 0x10, 0xe6, 0xb3, 0xa1, 0x66, 0x2b},
 		{ /*0xb8, 0xe8, 0x56, 0x32, 0x0b, 0xde, 0x4a, 0x1d, 0x70, 0xcf, 0xa6, 0xe5, 0x08, 0x00,*/ 0x45, 0x20, 0x00, 0x28, 0x00, 0x00, 0x40, 0x00, 0x30, 0x06, 0xad, 0x87, 0xa4, 0x43, 0xe4, 0x98, 0x0a, 0x01, 0x0a, 0x4c, 0x00, 0x50, 0xe1, 0xa1, 0xfe, 0xab, 0x0c, 0x49, 0x13, 0x1c, 0x26, 0x5c, 0x50, 0x04, 0x00, 0x00, 0xec, 0x58, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 	}
+	InvalidTCPFlow = [][]byte{
+		{ /*0x4a, 0x1d, 0x70, 0xcf, 0xa6, 0xe5, 0xb8, 0xe8, 0x56, 0x32, 0x0b, 0xde, 0x08, 0x00,*/ 0x45, 0x00, 0x00, 0x40, 0xf4, 0x1f, 0x44, 0x00, 0x40, 0x06, 0xa9, 0x6f, 0x0a, 0x01, 0x0a, 0x4c, 0xa4, 0x43, 0xe4, 0x98, 0xe1, 0xa1, 0x00, 0x50, 0x4d, 0xa6, 0xac, 0x48, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x02, 0xff, 0xff, 0x6b, 0x6c, 0x00, 0x00, 0x02, 0x04, 0x05, 0xb4, 0x01, 0x03, 0x03, 0x05, 0x01, 0x01, 0x08, 0x0a, 0x1b, 0x4f, 0x37, 0x38, 0x00, 0x00, 0x00, 0x00, 0x04, 0x02, 0x00, 0x00, 0x4a, 0x1d, 0x70, 0xcf},
+	}
 }
 
 func TestInvalidContext(t *testing.T) {
@@ -59,7 +66,7 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
@@ -70,7 +77,7 @@ func TestInvalidContext(t *testing.T) {
 			Convey("Then I should see an error for non existing context", func() {
 
 				So(err, ShouldBeNil)
-				So(err1, ShouldBeNil)
+				So(err1, ShouldNotBeNil)
 				So(err2, ShouldNotBeNil)
 			})
 		})
@@ -84,7 +91,7 @@ func TestInvalidIPContext(t *testing.T) {
 		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
@@ -97,7 +104,7 @@ func TestInvalidIPContext(t *testing.T) {
 			Convey("Then I should see an error for missing IP", func() {
 
 				So(err, ShouldBeNil)
-				So(err1, ShouldBeNil)
+				So(err1, ShouldNotBeNil)
 				So(err2, ShouldNotBeNil)
 			})
 		})
@@ -116,7 +123,7 @@ func TestInvalidTokenContext(t *testing.T) {
 		})
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
@@ -129,14 +136,14 @@ func TestInvalidTokenContext(t *testing.T) {
 			Convey("Then I should see an error for missing IP", func() {
 
 				So(err, ShouldBeNil)
-				So(err1, ShouldBeNil)
+				So(err1, ShouldNotBeNil)
 				So(err2, ShouldNotBeNil)
 			})
 		})
 	})
 }
 
-func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo, enforcer *datapathEnforcer, err1, err2 error) {
+func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2 error) {
 
 	tagSelector := policy.TagSelector{
 
@@ -180,7 +187,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 
 	collector := &collector.DefaultCollector{}
-	enforcer = NewDefaultDatapathEnforcer(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+	enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 
 	err1 = enforcer.Enforce(puID1, puInfo1)
 
@@ -441,20 +448,6 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 						tcpPacket.Print(0)
 					}
 
-					if reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) {
-						// SYN/ACK Packets only
-						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
-							Convey("When I pass any application packets with SYN/ACK flag for packet "+string(i), func() {
-								Convey("Then I expect dst port cache to be populated "+string(i), func() {
-									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeApplication))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeApplication))
-									So(cs, ShouldNotBeNil)
-									So(es, ShouldBeNil)
-								})
-							})
-						}
-					}
-
 					output := make([]byte, len(tcpPacket.GetBytes()))
 					copy(output, tcpPacket.GetBytes())
 
@@ -468,36 +461,158 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 						fmt.Println("Output packet", i)
 						outPacket.Print(0)
 					}
-
-					if reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
-						// SYN Packets only
-						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynMask {
-							Convey("When I receive a network packet with SYN flag for packet "+string(i), func() {
-								Convey("Then I expect dst port cache to be populated "+string(i), func() {
-									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									So(cs, ShouldNotBeNil)
-									So(es, ShouldBeNil)
-								})
-							})
-						}
-
-						// ACK Packet only
-						if outPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
-							Convey("When I receive a network packet with ACK flag for packet "+string(i), func() {
-								Convey("Then I expect dst port cache to be NOT populated "+string(i), func() {
-									fmt.Println("DstPortHash:" + tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									cs, es := enforcer.destinationPortCache.Get(tcpPacket.DestinationPortHash(packet.PacketTypeNetwork))
-									So(cs, ShouldBeNil)
-									So(es, ShouldNotBeNil)
-								})
-							})
-						}
-					}
 				}
 			})
 		})
 	})
+}
+
+func TestConnectionTrackerStateLocalContainer(t *testing.T) {
+	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
+		Convey("Given I create a two processing unit instances", func() {
+			puInfo1, puInfo2, enforcer, err1, err2 := setupProcessingUnitsInDatapathAndEnforce()
+
+			So(puInfo1, ShouldNotBeNil)
+			So(puInfo2, ShouldNotBeNil)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			i := 0 /*first packet in TCPFLOW slice is a syn packet*/
+			Convey("When i pass a syn packet through the enforcer", func() {
+				packetSlice := selectPacket(i, t)
+				tcpPacket := packetSlice[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
+				//After sending syn packet
+				CheckAfterAppSynPacket(enforcer, tcpPacket)
+				So(err, ShouldBeNil)
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+				//Check after processing networksyn packet
+				CheckAfterNetSynPacket(enforcer, tcpPacket, outPacket)
+
+			})
+			Convey("When i pass a SYN and SYN ACK packet through the enforcer", func() {
+				i := 0
+				tcpPacket := selectPacket(i, t)[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				outPacket.Print(0)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+				//Now lets send the synack packet from the server in response
+				i++
+				tcpPacket = selectPacket(i, t)[1]
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output = make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err = packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				outPacketcopy, _ := packet.New(0, output, "0")
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+				CheckAfterNetSynAckPacket(t, enforcer, outPacketcopy, outPacket)
+
+			})
+
+			Convey("When i pass a SYN and SYNACK and another ACK packet through the enforcer", func() {
+				i := 0
+				tcpPacket := selectPacket(i, t)[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+				//Now lets send the synack packet from the server in response
+				i++
+				tcpPacket = selectPacket(i, t)[1]
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output = make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err = packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+				i++
+				tcpPacket = selectPacket(i, t)[1]
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				CheckAfterAppAckPacket(enforcer, tcpPacket)
+				So(err, ShouldBeNil)
+				output = make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err = packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+			})
+		})
+	})
+}
+
+func CheckAfterAppSynPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
+	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynSend)
+	So(err, ShouldBeNil)
+
+}
+
+func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
+
+	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynReceived)
+
+}
+
+func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
+	tcpData := tcpPacket.ReadTCPData()
+	claims, _ := enforcer.tokenEngine.Decode(false, tcpData, nil)
+	netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+	So(err, ShouldBeNil)
+	So(netconn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckReceived)
+	if !reflect.DeepEqual(netconn.(*connection.TCPConnection).Auth.LocalContext, claims.RMT) {
+		t.Error("Token parsing Failed")
+	}
+}
+
+func CheckAfterAppAckPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
+	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPAckSend)
+}
+
+func CheckBeforeNetAckPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
+
+	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckSend)
+
 }
 
 func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
@@ -626,7 +741,7 @@ func TestCacheState(t *testing.T) {
 
 	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
 	collector := &collector.DefaultCollector{}
-	enforcer := NewDefaultDatapathEnforcer("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*datapathEnforcer)
+	enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 	contextID := "123"
 
 	puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
@@ -659,4 +774,245 @@ func TestCacheState(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected failure, no IP but passed %s", err)
 	}
+}
+
+func TestDoCreatePU(t *testing.T) {
+
+	Convey("Given an initialized enforcer for Linux Processes", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer.mode = constants.LocalServer
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
+		tags := &policy.TagsMap{}
+		tags.Tags = map[string]string{cgnetcls.CgroupMarkTag: "100", cgnetcls.PortTag: "80,90,100"}
+		puInfo.Runtime.SetOptions(tags)
+		Convey("When I create a new PU", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed", func() {
+				So(err, ShouldBeNil)
+				_, err := enforcer.contextTracker.Get(contextID)
+				So(err, ShouldBeNil)
+				_, err1 := enforcer.puFromMark.Get("100")
+				So(err1, ShouldBeNil)
+				_, err2 := enforcer.puFromPort.Get("80")
+				So(err2, ShouldBeNil)
+				_, err3 := enforcer.puFromPort.Get("90")
+				So(err3, ShouldBeNil)
+				_, err4 := enforcer.puFromIP.Get(DefaultNetwork)
+				So(err4, ShouldNotBeNil)
+			})
+		})
+	})
+
+	Convey("Given an initialized enforcer for Linux Processes", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer.mode = constants.LocalServer
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
+
+		Convey("When I create a new PU without ports or mark", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed", func() {
+				So(err, ShouldBeNil)
+				_, err := enforcer.contextTracker.Get(contextID)
+				So(err, ShouldBeNil)
+				_, err4 := enforcer.puFromIP.Get(DefaultNetwork)
+				So(err4, ShouldNotBeNil)
+			})
+		})
+	})
+
+	Convey("Given an initialized enforcer for local Linux Containers", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
+
+		Convey("When I create a new PU without an IP", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should fail ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I create a new PU with an IP", func() {
+			ip := policy.NewIPMap(map[string]string{
+				"bridge": "164.67.228.152",
+			})
+			puInfo.Runtime.SetIPAddresses(ip)
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed ", func() {
+				So(err, ShouldBeNil)
+				_, err2 := enforcer.puFromIP.Get("164.67.228.152")
+				So(err2, ShouldBeNil)
+			})
+		})
+	})
+
+	Convey("Given an initialized enforcer for remote Linux Containers", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer.mode = constants.RemoteContainer
+
+		contextID := "123"
+		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
+
+		Convey("When I create a new PU without an IP", func() {
+			err := enforcer.doCreatePU(contextID, puInfo)
+
+			Convey("It should succeed ", func() {
+				So(err, ShouldBeNil)
+				_, err2 := enforcer.puFromIP.Get(DefaultNetwork)
+				So(err2, ShouldBeNil)
+			})
+		})
+	})
+}
+
+func TestContextFromIP(t *testing.T) {
+
+	Convey("Given an initialized enforcer for Linux Processes", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+
+		context := &PUContext{
+			ID: "SomePU",
+			IP: "10.1.1.1",
+		}
+
+		Convey("If I try to get the context based on the PU IP, it should succeed ", func() {
+			enforcer.puFromIP.AddOrUpdate("10.1.1.1", context)
+
+			ctx, err := enforcer.contextFromIP(true, "10.1.1.1", "", "")
+			So(err, ShouldBeNil)
+			So(ctx, ShouldNotBeNil)
+			So(ctx, ShouldEqual, context)
+		})
+
+		Convey("If I try to get context based on IP and its  not there and its a local container it should fail ", func() {
+			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", "")
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If I try to get context based on IP and a remote container, it should try the default ", func() {
+			enforcer.puFromIP.AddOrUpdate(DefaultNetwork, context)
+			enforcer.mode = constants.LocalServer
+
+			ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "", "")
+			So(err, ShouldBeNil)
+			So(ctx, ShouldNotBeNil)
+			So(ctx, ShouldEqual, context)
+		})
+
+		Convey("If there is no IP match, it should try the mark for app packets ", func() {
+			enforcer.puFromMark.AddOrUpdate("100", context)
+			enforcer.mode = constants.LocalServer
+
+			Convey("If the mark exists", func() {
+				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", "")
+				So(err, ShouldBeNil)
+				So(ctx, ShouldNotBeNil)
+				So(ctx, ShouldEqual, context)
+			})
+
+			Convey("If the mark doesn't exist", func() {
+				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", "")
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If there is no IP match, it should try the port for net packets ", func() {
+			enforcer.puFromPort.AddOrUpdate("8000", context)
+			enforcer.mode = constants.LocalServer
+
+			Convey("If the port exists", func() {
+				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", "8000")
+				So(err, ShouldBeNil)
+				So(ctx, ShouldNotBeNil)
+				So(ctx, ShouldEqual, context)
+			})
+
+			Convey("If the port doesn't exist", func() {
+				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", "9000")
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
+}
+
+func TestInvalidPacket(t *testing.T) {
+	// collector := &collector.DefaultCollector{}
+	// secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+	// enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+
+	Convey("When I receive an invalid packet", t, func() {
+		puInfo1, puInfo2, enforcer, err1, err2 := setupProcessingUnitsInDatapathAndEnforce()
+
+		So(puInfo1, ShouldNotBeNil)
+		So(puInfo2, ShouldNotBeNil)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+
+		for _, p := range InvalidTCPFlow {
+			tcpPacket, err := packet.New(0, p, "0")
+			So(err, ShouldBeNil)
+			err = enforcer.processApplicationTCPPackets(tcpPacket)
+			So(err, ShouldBeNil)
+			output := make([]byte, len(tcpPacket.GetBytes()))
+			copy(output, tcpPacket.GetBytes())
+			outpacket, err := packet.New(0, output, "0")
+			So(err, ShouldBeNil)
+			//Detach the data and parse token should fail
+			err = outpacket.TCPDataDetach(binary.BigEndian.Uint16([]byte{0x0, p[32]})/4 - 20)
+			So(err, ShouldBeNil)
+			err = enforcer.processNetworkTCPPackets(outpacket)
+			So(err, ShouldNotBeNil)
+		}
+	})
+}
+
+func selectPacket(i int, t *testing.T) [2]*packet.Packet {
+	input := make([]byte, len(TCPFlow[i]))
+	start := make([]byte, len(TCPFlow[i]))
+	copy(input, TCPFlow[i])
+	copy(start, TCPFlow[i])
+	oldPacket, err := packet.New(0, start, "0")
+	if err == nil && oldPacket != nil {
+		oldPacket.UpdateIPChecksum()
+		oldPacket.UpdateTCPChecksum()
+	}
+	tcpPacket, err := packet.New(0, input, "0")
+	if err == nil && tcpPacket != nil {
+		tcpPacket.UpdateIPChecksum()
+		tcpPacket.UpdateTCPChecksum()
+	}
+	if debug {
+		fmt.Println("Input packet", i)
+		tcpPacket.Print(0)
+	}
+
+	So(err, ShouldBeNil)
+	So(tcpPacket, ShouldNotBeNil)
+	SIP := tcpPacket.SourceAddress
+	if reflect.DeepEqual(SIP, net.IPv4zero) {
+		SIP = tcpPacket.SourceAddress
+	}
+	if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
+		!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+		t.Error("Invalid Test Packet")
+	}
+	return [2](*packet.Packet){oldPacket, tcpPacket}
 }

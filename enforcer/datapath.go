@@ -3,9 +3,9 @@ package enforcer
 // Go libraries
 import (
 	"fmt"
-	"net"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -13,17 +13,31 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/lookup"
-	"github.com/aporeto-inc/trireme/enforcer/netfilter"
-
-	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-// datapathEnforcer is the structure holding all information about a connection filter
-type datapathEnforcer struct {
+// InterfaceStats for interface
+type InterfaceStats struct {
+	IncomingPackets     uint32
+	OutgoingPackets     uint32
+	ProtocolDropPackets uint32
+	CreateDropPackets   uint32
+}
+
+// PacketStats for interface
+type PacketStats struct {
+	IncomingPackets        uint32
+	OutgoingPackets        uint32
+	AuthDropPackets        uint32
+	ServicePreDropPackets  uint32
+	ServicePostDropPackets uint32
+}
+
+// Datapath is the structure holding all information about a connection filter
+type Datapath struct {
 
 	// Configuration parameters
 	filterQueue    *FilterQueue
@@ -35,22 +49,23 @@ type datapathEnforcer struct {
 	// Internal structures and caches
 	// Key=ContextId Value=ContainerIP
 	contextTracker cache.DataStore
-	puTracker      cache.DataStore
+	puFromIP       cache.DataStore
+	puFromMark     cache.DataStore
+	puFromPort     cache.DataStore
 	// Key=FlowHash Value=Connection. Created on syn packet from network with regular flow hash
 	networkConnectionTracker cache.DataStore
 	// Key=FlowHash Value=Connection. Created on syn packet from application with regular flow hash
 	appConnectionTracker cache.DataStore
-	// Key=Context Value=Connection. Create on syn packet from application with local context-id
-	contextConnectionTracker cache.DataStore
 
-	sourcePortCache      cache.DataStore
-	destinationPortCache cache.DataStore
+	// key=sourceIP+Port , value=context : Created just for the SynAck packets to retrieve context
+	sourcePortCache           cache.DataStore
+	sourcePortConnectionCache cache.DataStore
 
 	// stats
-	net    *InterfaceStats
-	app    *InterfaceStats
-	netTCP *PacketStats
-	appTCP *PacketStats
+	net    InterfaceStats
+	app    InterfaceStats
+	netTCP PacketStats
+	appTCP PacketStats
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
@@ -63,12 +78,14 @@ type datapathEnforcer struct {
 	ackSize uint32
 
 	mutualAuthorization bool
+
+	sync.Mutex
 }
 
-// NewDatapathEnforcer will create a new data path structure. It instantiates the data stores
+// New will create a new data path structure. It instantiates the data stores
 // needed to track sessions. The data path is started with a different call.
 // Only required parameters must be provided. Rest a pre-populated with defaults.
-func NewDatapathEnforcer(
+func New(
 	mutualAuth bool,
 	filterQueue *FilterQueue,
 	collector collector.EventCollector,
@@ -99,26 +116,29 @@ func NewDatapathEnforcer(
 		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
 	}
 
-	d := &datapathEnforcer{
-		contextTracker:           cache.NewCache(),
-		puTracker:                cache.NewCache(),
-		networkConnectionTracker: cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
-		appConnectionTracker:     cache.NewCacheWithExpirationNotifier(time.Second*60, TCPConnectionExpirationNotifier),
-		contextConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		sourcePortCache:          cache.NewCacheWithExpiration(time.Second * 60),
-		destinationPortCache:     cache.NewCacheWithExpiration(time.Second * 60),
-		filterQueue:              filterQueue,
-		mutualAuthorization:      mutualAuth,
-		service:                  service,
-		collector:                collector,
-		tokenEngine:              tokenEngine,
-		net:                      &InterfaceStats{},
-		app:                      &InterfaceStats{},
-		netTCP:                   &PacketStats{},
-		appTCP:                   &PacketStats{},
-		ackSize:                  secrets.AckSize(),
-		mode:                     mode,
-		procMountPoint:           procMountPoint,
+	d := &Datapath{
+		puFromIP:   cache.NewCache(),
+		puFromMark: cache.NewCache(),
+		puFromPort: cache.NewCache(),
+
+		contextTracker: cache.NewCache(),
+
+		networkConnectionTracker:  cache.NewCacheWithExpirationNotifier(time.Second*60, connection.TCPConnectionExpirationNotifier),
+		appConnectionTracker:      cache.NewCacheWithExpirationNotifier(time.Second*60, connection.TCPConnectionExpirationNotifier),
+		sourcePortCache:           cache.NewCacheWithExpiration(time.Second * 60),
+		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 60),
+		filterQueue:               filterQueue,
+		mutualAuthorization:       mutualAuth,
+		service:                   service,
+		collector:                 collector,
+		tokenEngine:               tokenEngine,
+		net:                       InterfaceStats{},
+		app:                       InterfaceStats{},
+		netTCP:                    PacketStats{},
+		appTCP:                    PacketStats{},
+		ackSize:                   secrets.AckSize(),
+		mode:                      mode,
+		procMountPoint:            procMountPoint,
 	}
 
 	if d.tokenEngine == nil {
@@ -128,8 +148,8 @@ func NewDatapathEnforcer(
 	return d
 }
 
-// NewDefaultDatapathEnforcer create a new data path with most things used by default
-func NewDefaultDatapathEnforcer(
+// NewWithDefaults create a new data path with most things used by default
+func NewWithDefaults(
 	serverID string,
 	collector collector.EventCollector,
 	service PacketProcessor,
@@ -155,7 +175,7 @@ func NewDefaultDatapathEnforcer(
 
 	validity := time.Hour * 8760
 
-	return NewDatapathEnforcer(
+	return New(
 		mutualAuthorization,
 		fqConfig,
 		collector,
@@ -168,166 +188,49 @@ func NewDefaultDatapathEnforcer(
 	)
 }
 
-func (d *datapathEnforcer) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
+// Enforce implements the Enforce interface method and configures the data path for a new PU
+func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	if connection != nil {
-		connection.SetReported(true)
-	}
-	d.collector.CollectFlowEvent(&collector.FlowRecord{
-		ContextID:       context.ID,
-		DestinationID:   destID,
-		SourceID:        sourceID,
-		Tags:            context.Annotations,
-		Action:          action,
-		Mode:            mode,
-		SourceIP:        p.SourceAddress.String(),
-		DestinationIP:   p.DestinationAddress.String(),
-		DestinationPort: p.DestinationPort,
-	})
-}
-
-func (d *datapathEnforcer) reportAcceptedFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext) {
-
-	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowAccept, "NA")
-}
-
-func (d *datapathEnforcer) reportRejectedFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
-
-	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowReject, mode)
-}
-
-func (d *datapathEnforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
-	hashSlice, err := d.contextTracker.Get(contextID)
-
+	puContext, err := d.contextTracker.Get(contextID)
 	if err != nil {
 		return d.doCreatePU(contextID, puInfo)
 	}
 
-	if len(hashSlice.([]*DualHash)) == 0 {
-		return fmt.Errorf("Unable to resolve context from existing hash")
-	}
-
-	puContext, err := d.puTracker.Get(hashSlice.([]*DualHash)[0].app)
-	if err == nil {
-		d.doUpdatePU(puContext.(*PUContext), puInfo)
-		return nil
-	}
-
-	return d.doCreatePU(contextID, puInfo)
-
+	return d.doUpdatePU(puContext.(*PUContext), puInfo)
 }
 
-func (d *datapathEnforcer) createHashForProcess(puInfo *policy.PUInfo) []*DualHash {
-	var hashSlice []*DualHash
+// Unenforce removes the configuration for the given PU
+func (d *Datapath) Unenforce(contextID string) error {
 
-	expectedMark, ok := puInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-	if !ok {
-		expectedMark = ""
-	}
-
-	expectedPort, ok := puInfo.Runtime.Options().Get(cgnetcls.PortTag)
-	if !ok {
-		expectedPort = "0"
-		hashSlice = append(hashSlice, &DualHash{
-			app:     "mark:" + expectedMark + "$",
-			net:     "port:" + expectedPort,
-			process: true,
-		})
-		return hashSlice
-	}
-
-	portlist := strings.Split(expectedPort, ",")
-	for _, port := range portlist {
-		hashSlice = append(hashSlice, &DualHash{
-			app:     "mark:" + expectedMark + "$",
-			net:     "port:" + port,
-			process: true,
-		})
-	}
-	return hashSlice
-}
-
-func (d *datapathEnforcer) puHash(ip string, puInfo *policy.PUInfo) (hash []*DualHash) {
-
-	if puInfo.Runtime.PUType() == constants.LinuxProcessPU {
-		return d.createHashForProcess(puInfo)
-	}
-
-	return []*DualHash{&DualHash{
-		app:     ip,
-		net:     ip,
-		process: false,
-	}}
-}
-
-func (d *datapathEnforcer) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
-
-	ip := DefaultNetwork
-
-	// This is to check that we are not doing this for a process in the host
-	// processes managed by systemd will not have a separate IP
-	// IP are not required to process rules we have for cgroup
-
-	if d.mode == constants.LocalContainer && (puInfo.Runtime.PUType() == constants.ContainerPU) {
-		if _, ok := puInfo.Policy.DefaultIPAddress(); !ok {
-			return fmt.Errorf("No IP address found")
-		}
-
-		ip, _ = puInfo.Policy.DefaultIPAddress()
-		if net.ParseIP(ip) == nil {
-			return fmt.Errorf("invalid up address %s ", ip)
-		}
-	}
-	pu := &PUContext{
-		ID:           contextID,
-		ManagementID: puInfo.Policy.ManagementID,
-	}
-
-	hashSlice := d.puHash(ip, puInfo)
-
-	d.doUpdatePU(pu, puInfo)
-
-	d.contextTracker.AddOrUpdate(contextID, hashSlice)
-
-	for _, hash := range hashSlice {
-		d.puTracker.AddOrUpdate(hash.app, pu)
-		d.puTracker.AddOrUpdate(hash.net, pu)
-	}
-
-	return nil
-}
-
-func (d *datapathEnforcer) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) {
-	puContext.acceptRcvRules, puContext.rejectRcvRules = createRuleDB(containerInfo.Policy.ReceiverRules())
-	puContext.acceptTxtRules, puContext.rejectTxtRules = createRuleDB(containerInfo.Policy.TransmitterRules())
-	puContext.Identity = containerInfo.Policy.Identity()
-	puContext.Annotations = containerInfo.Policy.Annotations()
-}
-
-func (d *datapathEnforcer) Unenforce(contextID string) error {
-
-	hashSlice, err := d.contextTracker.Get(contextID)
+	puContext, err := d.contextTracker.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}
 
-	for _, hash := range hashSlice.([]*DualHash) {
+	puContext.(*PUContext).Lock()
+	defer puContext.(*PUContext).Unlock()
 
-		if err := d.puTracker.Remove(hash.app); err != nil {
-			zap.L().Warn("Unable to remove app hash entry during unenforcement",
-				zap.String("entry", hash.app),
+	pu := puContext.(*PUContext)
+	if err := d.puFromIP.Remove(pu.IP); err != nil {
+		zap.L().Warn("Unable to remove cache entry during unenforcement",
+			zap.String("IP", pu.IP),
+			zap.Error(err),
+		)
+	}
+
+	if err := d.puFromIP.Remove(pu.Mark); err != nil {
+		zap.L().Warn("Unable to remove cache entry during unenforcement",
+			zap.String("Mark", pu.Mark),
+			zap.Error(err),
+		)
+	}
+
+	for _, port := range pu.Ports {
+		if err := d.puFromIP.Remove(port); err != nil {
+			zap.L().Warn("Unable to remove cache entry during unenforcement",
+				zap.String("Port", port),
 				zap.Error(err),
 			)
-		}
-
-		if hash.process {
-			if err := d.puTracker.Remove(hash.net); err != nil {
-				zap.L().Warn("Unable to remove net hash entry during unenforcement",
-					zap.String("entry", hash.app),
-					zap.Error(err),
-				)
-			}
 		}
 	}
 
@@ -341,24 +244,25 @@ func (d *datapathEnforcer) Unenforce(contextID string) error {
 	return nil
 }
 
-func (d *datapathEnforcer) GetFilterQueue() *FilterQueue {
+// GetFilterQueue returns the filter queues used by the data path
+func (d *Datapath) GetFilterQueue() *FilterQueue {
 
 	return d.filterQueue
 }
 
 // Start starts the application and network interceptors
-func (d *datapathEnforcer) Start() error {
+func (d *Datapath) Start() error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
 
-	d.StartApplicationInterceptor()
-	d.StartNetworkInterceptor()
+	d.startApplicationInterceptor()
+	d.startNetworkInterceptor()
 
 	return nil
 }
 
 // Stop stops the enforcer
-func (d *datapathEnforcer) Stop() error {
+func (d *Datapath) Stop() error {
 
 	zap.L().Debug("Stoping enforcer")
 
@@ -373,244 +277,73 @@ func (d *datapathEnforcer) Stop() error {
 	return nil
 }
 
-// StartNetworkInterceptor will the process that processes  packets from the network
-// Still has one more copy than needed. Can be improved.
-func (d *datapathEnforcer) StartNetworkInterceptor() {
-	var err error
+func (d *Datapath) getProcessKeys(puInfo *policy.PUInfo) (string, []string) {
 
-	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
-	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
-		d.netStop[i] = make(chan bool)
-	}
-
-	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
-
-	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
-
-		// Initialize all the queues
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
-		if err != nil {
-			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
-		}
-
-		go func(j uint16) {
-			for {
-				select {
-				case packet := <-nfq[j].Packets:
-					d.processNetworkPacketsFromNFQ(packet)
-				case <-d.netStop[j]:
-					return
-				}
-			}
-		}(i)
-
-	}
-}
-
-// StartApplicationInterceptor will create a interceptor that processes
-// packets originated from a local application
-func (d *datapathEnforcer) StartApplicationInterceptor() {
-
-	var err error
-
-	d.appStop = make([]chan bool, d.filterQueue.NumberOfApplicationQueues)
-	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		d.appStop[i] = make(chan bool)
-	}
-
-	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
-
-	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize)
-
-		if err != nil {
-			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
-		}
-
-		go func(j uint16) {
-			for {
-				select {
-				case packet := <-nfq[j].Packets:
-					d.processApplicationPacketsFromNFQ(packet)
-				case <-d.appStop[j]:
-					return
-				}
-			}
-		}(i)
-	}
-}
-
-// createRuleDB creates the database of rules from the policy
-func createRuleDB(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
-
-	acceptRules := lookup.NewPolicyDB()
-	rejectRules := lookup.NewPolicyDB()
-
-	for _, rule := range policyRules.TagSelectors {
-		if rule.Action&policy.Accept != 0 {
-			acceptRules.AddPolicy(rule)
-		} else if rule.Action&policy.Reject != 0 {
-			rejectRules.AddPolicy(rule)
-		} else {
-			continue
-		}
-	}
-
-	return acceptRules, rejectRules
-}
-
-// processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
-func (d *datapathEnforcer) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
-
-	d.net.IncomingPackets++
-
-	// Parse the packet - drop if parsing fails
-	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, p.Mark)
-
-	if err != nil {
-		d.net.CreateDropPackets++
-		netPacket.Print(packet.PacketFailureCreate)
-	} else if netPacket.IPProto == packet.IPProtocolTCP {
-		err = d.processNetworkTCPPackets(netPacket)
-	} else {
-		d.net.ProtocolDropPackets++
-		err = fmt.Errorf("Invalid IP Protocol %d", netPacket.IPProto)
-	}
-
-	if err != nil {
-		netfilter.SetVerdict(&netfilter.Verdict{
-			V:           netfilter.NfDrop,
-			Buffer:      netPacket.Buffer,
-			Payload:     nil,
-			Options:     nil,
-			Xbuffer:     p.Xbuffer,
-			ID:          p.ID,
-			QueueHandle: p.QueueHandle,
-		}, d.filterQueue.MarkValue)
-		return
-	}
-
-	// Accept the packet
-	netfilter.SetVerdict(&netfilter.Verdict{
-		V:           netfilter.NfAccept,
-		Buffer:      netPacket.Buffer,
-		Payload:     netPacket.GetTCPData(),
-		Options:     netPacket.GetTCPOptions(),
-		Xbuffer:     p.Xbuffer,
-		ID:          p.ID,
-		QueueHandle: p.QueueHandle,
-	}, d.filterQueue.MarkValue)
-}
-
-// processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *datapathEnforcer) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
-
-	zap.L().Debug("process application packets from NFQ")
-
-	d.app.IncomingPackets++
-
-	// Being liberal on what we transmit - malformed TCP packets are let go
-	// We are strict on what we accept on the other side, but we don't block
-	// lots of things at the ingress to the network
-	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, p.Mark)
-
-	if err != nil {
-		d.app.CreateDropPackets++
-		appPacket.Print(packet.PacketFailureCreate)
-	} else if appPacket.IPProto == packet.IPProtocolTCP {
-		err = d.processApplicationTCPPackets(appPacket)
-	} else {
-		d.app.ProtocolDropPackets++
-		err = fmt.Errorf("Invalid IP Protocol %d", appPacket.IPProto)
-	}
-
-	if err != nil {
-		netfilter.SetVerdict(&netfilter.Verdict{
-			V:           netfilter.NfDrop,
-			Buffer:      appPacket.Buffer,
-			Payload:     nil,
-			Options:     nil,
-			Xbuffer:     p.Xbuffer,
-			ID:          p.ID,
-			QueueHandle: p.QueueHandle,
-		}, d.filterQueue.MarkValue)
-		return
-	}
-
-	// Accept the packet
-	netfilter.SetVerdict(&netfilter.Verdict{
-		V:           netfilter.NfAccept,
-		Buffer:      appPacket.Buffer,
-		Payload:     appPacket.GetTCPData(),
-		Options:     appPacket.GetTCPOptions(),
-		Xbuffer:     p.Xbuffer,
-		ID:          p.ID,
-		QueueHandle: p.QueueHandle,
-	}, d.filterQueue.MarkValue)
-
-}
-
-func (d *datapathEnforcer) createPacketToken(ackToken bool, context *PUContext, auth *AuthInfo) []byte {
-
-	claims := &tokens.ConnectionClaims{
-		LCL: auth.LocalContext,
-		RMT: auth.RemoteContext,
-	}
-
-	if !ackToken {
-		claims.T = context.Identity
-	}
-
-	return d.tokenEngine.CreateAndSign(ackToken, claims)
-}
-
-func (d *datapathEnforcer) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
-
-	// Validate the certificate and parse the token
-	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
-	if claims == nil {
-		return nil, fmt.Errorf("Cannot decode the token")
-	}
-
-	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T.Get(TransmitterLabel)
+	mark, ok := puInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
 	if !ok {
-		return nil, fmt.Errorf("No Transmitter Label ")
+		mark = ""
 	}
 
-	auth.RemotePublicKey = cert
-	auth.RemoteContext = claims.LCL
-	auth.RemoteContextID = remoteContextID
+	ports, ok := puInfo.Runtime.Options().Get(cgnetcls.PortTag)
+	if !ok {
+		ports = "0"
+	}
 
-	return claims, nil
+	portlist := strings.Split(ports, ",")
+
+	return mark, portlist
 }
 
-// contextFromIP returns the context from the default IP if remote. otherwise
-// it returns the context from the passed IP
-func (d *datapathEnforcer) contextFromIP(app bool, ip string, mark string, port string) (interface{}, error) {
+func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 
-	if d.mode != constants.LocalContainer {
+	ip, ok := puInfo.Runtime.DefaultIPAddress()
+	if !ok {
+		if d.mode == constants.LocalContainer {
+			return fmt.Errorf("No IP provided for Local Container")
+		}
 		ip = DefaultNetwork
 	}
 
-	pu, err := d.puTracker.Get(ip)
-	if err == nil {
-		return pu, err
+	pu := &PUContext{
+		ID:           contextID,
+		ManagementID: puInfo.Policy.ManagementID,
+		PUType:       puInfo.Runtime.PUType(),
+		IP:           ip,
 	}
 
-	if app {
-		markKey := "mark:" + mark + "$"
-		pu, err = d.puTracker.Get(markKey)
-		if err != nil {
-			return nil, fmt.Errorf("PU context cannot be found using ip %v mark %v mode %v", ip, markKey, d.mode)
+	// Cache PUs for retrieval based on packet information
+	if pu.PUType == constants.LinuxProcessPU {
+		pu.Mark, pu.Ports = d.getProcessKeys(puInfo)
+		d.puFromMark.AddOrUpdate(pu.Mark, pu)
+		for _, port := range pu.Ports {
+			d.puFromPort.AddOrUpdate(port, pu)
 		}
-		return pu, nil
+	} else {
+		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
+			d.puFromIP.AddOrUpdate(ip, pu)
+		} else {
+			d.puFromIP.AddOrUpdate(DefaultNetwork, pu)
+		}
 	}
 
-	portKey := "port:" + port
-	pu, err = d.puTracker.Get(portKey)
-	if err != nil {
-		return nil, fmt.Errorf("PU Context cannot be found using ip %v port key %v mode %v", ip, portKey, d.mode)
-	}
-	return pu, nil
+	// Cache PU from contextID for management and policy updates
+	d.contextTracker.AddOrUpdate(contextID, pu)
+
+	return d.doUpdatePU(pu, puInfo)
+}
+
+func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
+
+	puContext.Lock()
+	defer puContext.Unlock()
+
+	puContext.AcceptRcvRules, puContext.RejectRcvRules = createRuleDBs(containerInfo.Policy.ReceiverRules())
+
+	puContext.AcceptTxtRules, puContext.RejectTxtRules = createRuleDBs(containerInfo.Policy.TransmitterRules())
+
+	puContext.Identity = containerInfo.Policy.Identity()
+
+	puContext.Annotations = containerInfo.Policy.Annotations()
+
+	return nil
 }

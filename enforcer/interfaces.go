@@ -1,6 +1,12 @@
 package enforcer
 
-import "github.com/aporeto-inc/trireme/policy"
+import (
+	"sync"
+
+	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/lookup"
+	"github.com/aporeto-inc/trireme/policy"
+)
 
 // A PolicyEnforcer is implementing the enforcer that will modify//analyze the capture packets
 type PolicyEnforcer interface {
@@ -42,4 +48,22 @@ type PacketProcessor interface {
 
 	// PostProcessTCPNetPacket will be called for network packets and return value of false means drop packet
 	PostProcessTCPNetPacket(pkt interface{}, action interface{}) bool
+}
+
+// PUContext holds data indexed by the PU ID
+type PUContext struct {
+	ID             string
+	ManagementID   string
+	Identity       *policy.TagsMap
+	Annotations    *policy.TagsMap
+	AcceptTxtRules *lookup.PolicyDB
+	RejectTxtRules *lookup.PolicyDB
+	AcceptRcvRules *lookup.PolicyDB
+	RejectRcvRules *lookup.PolicyDB
+	Extension      interface{}
+	IP             string
+	Mark           string
+	Ports          []string
+	PUType         constants.PUType
+	sync.Mutex
 }

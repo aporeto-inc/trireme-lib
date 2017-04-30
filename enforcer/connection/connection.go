@@ -1,4 +1,4 @@
-package enforcer
+package connection
 
 import (
 	"fmt"
@@ -15,6 +15,30 @@ var (
 	TraceLogging int
 )
 
+// TCPFlowState identifies the constants of the state of a TCP connectioncon
+type TCPFlowState int
+
+const (
+
+	// TCPSynSend is the state where the Syn packets has been send, but no response has been received
+	TCPSynSend TCPFlowState = iota
+
+	// TCPSynReceived indicates that the syn packet has been received
+	TCPSynReceived
+
+	// TCPSynAckSend indicates that the SynAck packet has been send
+	TCPSynAckSend
+
+	// TCPSynAckReceived is the state where the SynAck has been received
+	TCPSynAckReceived
+
+	// TCPAckSend indicates that the ack packets has been send
+	TCPAckSend
+
+	// TCPAckProcessed is the state that the negotiation has been completed
+	TCPAckProcessed
+)
+
 // AuthInfo keeps authentication information about a connection
 type AuthInfo struct {
 	LocalContext    []byte
@@ -27,13 +51,14 @@ type AuthInfo struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
-	mutex sync.Mutex
 	state TCPFlowState
 	Auth  AuthInfo
 
 	// Debugging Information
 	flowReported bool
 	logs         []string
+
+	sync.Mutex
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -53,17 +78,11 @@ func (c *TCPConnection) String() string {
 // GetState is used to return the state
 func (c *TCPConnection) GetState() TCPFlowState {
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	return c.state
 }
 
 // SetState is used to setup the state for the TCP connection
 func (c *TCPConnection) SetState(state TCPFlowState) {
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	c.state = state
 
@@ -76,9 +95,6 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 
 // SetReported is used to track if a flow is reported
 func (c *TCPConnection) SetReported(dropped bool) {
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	repeatedReporting := false
 	if !c.flowReported {
@@ -109,9 +125,6 @@ func (c *TCPConnection) SetReported(dropped bool) {
 // SetPacketInfo is used to setup the state for the TCP connection
 func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	if TraceLogging == 0 {
 		return
 	}
@@ -122,9 +135,6 @@ func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
 
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup(expiration bool) {
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
 
 	logStr := ""
 	for i, v := range c.logs {
@@ -147,7 +157,6 @@ func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
 
 	c := &TCPConnection{
 		state:        TCPSynSend,
-		mutex:        sync.Mutex{},
 		flowReported: trackFlowReporting,
 		logs:         make([]string, 0),
 	}
