@@ -141,7 +141,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.InitRequestPayload)
-	if payload.SecretType == tokens.PKIType {
+	switch payload.SecretType {
+	case tokens.PKIType :
 		//PKI params
 		secrets := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		s.Enforcer = enforcer.New(
@@ -155,9 +156,27 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			constants.RemoteContainer,
 			s.procMountPoint,
 		)
-	} else {
+	case tokens.PSKType:
 		//PSK params
 		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
+		s.Enforcer = enforcer.New(
+			payload.MutualAuth,
+			payload.FqConfig,
+			s.statsclient.collector,
+			s.Service,
+			secrets,
+			payload.ServerID,
+			payload.Validity,
+			constants.RemoteContainer,
+			s.procMountPoint,
+		)
+	case tokens.PKICompactType:
+		//PKI Parameters
+		fmt.Println("Setting REMOTE with COMPACT PKI ")
+		secrets, err  := tokens.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
+		if err != nil {
+			return fmt.Errorf("Failed to initialize secrets")
+		}
 		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
 			payload.FqConfig,

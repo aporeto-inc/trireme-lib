@@ -26,6 +26,8 @@ const (
 	PKIType SecretsType = iota
 	// PSKType  for symetric signing
 	PSKType
+	// PKICompactType is for asymetric signing using compact JWTs on the wire
+	PKICompactType
 )
 
 const (

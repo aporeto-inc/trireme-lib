@@ -44,6 +44,7 @@ var ErrInitFailed = errors.New("Failed remote Init")
 type proxyInfo struct {
 	MutualAuth        bool
 	Secrets           tokens.Secrets
+	publicKeyToken    []byte
 	serverID          string
 	validity          time.Duration
 	prochdl           processmon.ProcessManager
@@ -70,6 +71,10 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 			PublicPEM:  s.Secrets.(keyPEM).TransmittedPEM(),
 			PrivatePEM: s.Secrets.(keyPEM).EncodingPEM(),
 		},
+	}
+
+	if s.Secrets.Type() == tokens.PKICompactType {
+		request.Payload.(*rpcwrapper.InitRequestPayload).Token = s.Secrets.TransmittedKey()
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {

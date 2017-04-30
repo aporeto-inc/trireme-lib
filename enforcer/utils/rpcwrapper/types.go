@@ -47,6 +47,7 @@ type InitRequestPayload struct {
 	CAPEM      []byte                `json:",omitempty"`
 	PublicPEM  []byte                `json:",omitempty"`
 	PrivatePEM []byte                `json:",omitempty"`
+	Token      []byte                `json:",omitempty"`
 }
 
 //InitSupervisorPayload for supervisor init request
