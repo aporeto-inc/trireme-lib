@@ -1,6 +1,7 @@
 package enforcer
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 	"reflect"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -16,9 +18,10 @@ import (
 )
 
 var (
-	debug     bool
-	iteration int
-	TCPFlow   [][]byte
+	debug          bool
+	iteration      int
+	TCPFlow        [][]byte
+	InvalidTCPFlow [][]byte
 )
 
 func init() {
@@ -51,6 +54,9 @@ func init() {
 		{ /*0x4a, 0x1d, 0x70, 0xcf, 0xa6, 0xe5, 0xb8, 0xe8, 0x56, 0x32, 0x0b, 0xde, 0x08, 0x00,*/ 0x45, 0x00, 0x00, 0x28, 0xab, 0x91, 0x00, 0x00, 0x40, 0x06, 0x32, 0x16, 0x0a, 0x01, 0x0a, 0x4c, 0xa4, 0x43, 0xe4, 0x98, 0xe1, 0xa1, 0x00, 0x50, 0x4d, 0xa6, 0xae, 0x35, 0xfe, 0xab, 0x0c, 0x49, 0x50, 0x10, 0x10, 0x00, 0x19, 0xe9, 0x00, 0x00},
 		{ /*0x4a, 0x1d, 0x70, 0xcf, 0xa6, 0xe5, 0xb8, 0xe8, 0x56, 0x32, 0x0b, 0xde, 0x08, 0x00,*/ 0x45, 0x00, 0x00, 0x34, 0xaf, 0x96, 0x40, 0x00, 0x40, 0x06, 0xee, 0x04, 0x0a, 0x01, 0x0a, 0x4c, 0xa4, 0x43, 0xe4, 0x98, 0xe1, 0xa1, 0x00, 0x50, 0x4d, 0xa6, 0xae, 0x36, 0xfe, 0xab, 0x0c, 0x49, 0x80, 0x11, 0x10, 0x00, 0x9a, 0xcb, 0x00, 0x00, 0x01, 0x01, 0x08, 0x0a, 0x1b, 0x51, 0x10, 0xe6, 0xb3, 0xa1, 0x66, 0x2b},
 		{ /*0xb8, 0xe8, 0x56, 0x32, 0x0b, 0xde, 0x4a, 0x1d, 0x70, 0xcf, 0xa6, 0xe5, 0x08, 0x00,*/ 0x45, 0x20, 0x00, 0x28, 0x00, 0x00, 0x40, 0x00, 0x30, 0x06, 0xad, 0x87, 0xa4, 0x43, 0xe4, 0x98, 0x0a, 0x01, 0x0a, 0x4c, 0x00, 0x50, 0xe1, 0xa1, 0xfe, 0xab, 0x0c, 0x49, 0x13, 0x1c, 0x26, 0x5c, 0x50, 0x04, 0x00, 0x00, 0xec, 0x58, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+	}
+	InvalidTCPFlow = [][]byte{
+		{ /*0x4a, 0x1d, 0x70, 0xcf, 0xa6, 0xe5, 0xb8, 0xe8, 0x56, 0x32, 0x0b, 0xde, 0x08, 0x00,*/ 0x45, 0x00, 0x00, 0x40, 0xf4, 0x1f, 0x44, 0x00, 0x40, 0x06, 0xa9, 0x6f, 0x0a, 0x01, 0x0a, 0x4c, 0xa4, 0x43, 0xe4, 0x98, 0xe1, 0xa1, 0x00, 0x50, 0x4d, 0xa6, 0xac, 0x48, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x02, 0xff, 0xff, 0x6b, 0x6c, 0x00, 0x00, 0x02, 0x04, 0x05, 0xb4, 0x01, 0x03, 0x03, 0x05, 0x01, 0x01, 0x08, 0x0a, 0x1b, 0x4f, 0x37, 0x38, 0x00, 0x00, 0x00, 0x00, 0x04, 0x02, 0x00, 0x00, 0x4a, 0x1d, 0x70, 0xcf},
 	}
 }
 
@@ -461,6 +467,154 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 	})
 }
 
+func TestConnectionTrackerStateLocalContainer(t *testing.T) {
+	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
+		Convey("Given I create a two processing unit instances", func() {
+			puInfo1, puInfo2, enforcer, err1, err2 := setupProcessingUnitsInDatapathAndEnforce()
+
+			So(puInfo1, ShouldNotBeNil)
+			So(puInfo2, ShouldNotBeNil)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+			i := 0 /*first packet in TCPFLOW slice is a syn packet*/
+			Convey("When i pass a syn packet through the enforcer", func() {
+				packetSlice := selectPacket(i, t)
+				tcpPacket := packetSlice[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
+				//After sending syn packet
+				CheckAfterAppSynPacket(enforcer, tcpPacket)
+				So(err, ShouldBeNil)
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+				//Check after processing networksyn packet
+				CheckAfterNetSynPacket(enforcer, tcpPacket, outPacket)
+
+			})
+			Convey("When i pass a SYN and SYN ACK packet through the enforcer", func() {
+				i := 0
+				tcpPacket := selectPacket(i, t)[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				outPacket.Print(0)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+				//Now lets send the synack packet from the server in response
+				i++
+				tcpPacket = selectPacket(i, t)[1]
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output = make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err = packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				outPacketcopy, _ := packet.New(0, output, "0")
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+				CheckAfterNetSynAckPacket(t, enforcer, outPacketcopy, outPacket)
+
+			})
+
+			Convey("When i pass a SYN and SYNACK and another ACK packet through the enforcer", func() {
+				i := 0
+				tcpPacket := selectPacket(i, t)[1]
+				err := enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output := make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err := packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+				//Now lets send the synack packet from the server in response
+				i++
+				tcpPacket = selectPacket(i, t)[1]
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err, ShouldBeNil)
+
+				output = make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err = packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+				i++
+				tcpPacket = selectPacket(i, t)[1]
+				err = enforcer.processApplicationTCPPackets(tcpPacket)
+				CheckAfterAppAckPacket(enforcer, tcpPacket)
+				So(err, ShouldBeNil)
+				output = make([]byte, len(tcpPacket.GetBytes()))
+				copy(output, tcpPacket.GetBytes())
+
+				outPacket, err = packet.New(0, output, "0")
+				So(err, ShouldBeNil)
+				CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket)
+				err = enforcer.processNetworkTCPPackets(outPacket)
+				So(err, ShouldBeNil)
+
+			})
+		})
+	})
+}
+
+func CheckAfterAppSynPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
+	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynSend)
+	So(err, ShouldBeNil)
+
+}
+
+func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
+
+	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynReceived)
+
+}
+
+func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
+	tcpData := tcpPacket.ReadTCPData()
+	claims, _ := enforcer.tokenEngine.Decode(false, tcpData, nil)
+	netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+	So(err, ShouldBeNil)
+	So(netconn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckReceived)
+	if !reflect.DeepEqual(netconn.(*connection.TCPConnection).Auth.LocalContext, claims.RMT) {
+		t.Error("Token parsing Failed")
+	}
+}
+
+func CheckAfterAppAckPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
+	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPAckSend)
+}
+
+func CheckBeforeNetAckPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
+
+	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(err, ShouldBeNil)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckSend)
+
+}
+
 func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 	SIP := net.IPv4zero
@@ -797,4 +951,68 @@ func TestContextFromIP(t *testing.T) {
 		})
 
 	})
+}
+
+func TestInvalidPacket(t *testing.T) {
+	// collector := &collector.DefaultCollector{}
+	// secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+	// enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+
+	Convey("When I receive an invalid packet", t, func() {
+		puInfo1, puInfo2, enforcer, err1, err2 := setupProcessingUnitsInDatapathAndEnforce()
+
+		So(puInfo1, ShouldNotBeNil)
+		So(puInfo2, ShouldNotBeNil)
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+
+		for _, p := range InvalidTCPFlow {
+			tcpPacket, err := packet.New(0, p, "0")
+			So(err, ShouldBeNil)
+			err = enforcer.processApplicationTCPPackets(tcpPacket)
+			So(err, ShouldBeNil)
+			output := make([]byte, len(tcpPacket.GetBytes()))
+			copy(output, tcpPacket.GetBytes())
+			outpacket, err := packet.New(0, output, "0")
+			So(err, ShouldBeNil)
+			//Detach the data and parse token should fail
+			err = outpacket.TCPDataDetach(binary.BigEndian.Uint16([]byte{0x0, p[32]})/4 - 20)
+			So(err, ShouldBeNil)
+			err = enforcer.processNetworkTCPPackets(outpacket)
+			So(err, ShouldNotBeNil)
+		}
+	})
+}
+
+func selectPacket(i int, t *testing.T) [2]*packet.Packet {
+	input := make([]byte, len(TCPFlow[i]))
+	start := make([]byte, len(TCPFlow[i]))
+	copy(input, TCPFlow[i])
+	copy(start, TCPFlow[i])
+	oldPacket, err := packet.New(0, start, "0")
+	if err == nil && oldPacket != nil {
+		oldPacket.UpdateIPChecksum()
+		oldPacket.UpdateTCPChecksum()
+	}
+	tcpPacket, err := packet.New(0, input, "0")
+	if err == nil && tcpPacket != nil {
+		tcpPacket.UpdateIPChecksum()
+		tcpPacket.UpdateTCPChecksum()
+	}
+	if debug {
+		fmt.Println("Input packet", i)
+		tcpPacket.Print(0)
+	}
+
+	So(err, ShouldBeNil)
+	So(tcpPacket, ShouldNotBeNil)
+	SIP := tcpPacket.SourceAddress
+	if reflect.DeepEqual(SIP, net.IPv4zero) {
+		SIP = tcpPacket.SourceAddress
+	}
+	if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
+		!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+		t.Error("Invalid Test Packet")
+	}
+	return [2](*packet.Packet){oldPacket, tcpPacket}
 }
