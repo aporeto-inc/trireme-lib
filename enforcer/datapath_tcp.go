@@ -143,7 +143,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
 			zap.String("flow", p.L4FlowHash()),
 		)
 
-		return fmt.Errorf("No context found")
+		return fmt.Errorf("No context found in app processing")
 	}
 
 	// Only happens for TCP Ack packets after we are done processing - let them go
@@ -669,7 +669,7 @@ func (d *Datapath) appRetrieveState(tcpPacket *packet.Packet) (*PUContext, *conn
 			zap.String("port", contextPort),
 			zap.Error(cerr),
 		)
-		return nil, nil, fmt.Errorf("No Context")
+		return nil, nil, fmt.Errorf("No Context in App Processing")
 	}
 
 	// Find the connection state
@@ -702,7 +702,7 @@ func (d *Datapath) appRetrieveState(tcpPacket *packet.Packet) (*PUContext, *conn
 		return context, conn.(*connection.TCPConnection), nil
 	}
 
-	return nil, nil, fmt.Errorf("Uknown flags")
+	return nil, nil, nil
 }
 
 // netRetrieveState retrieves the state information for Syn and Ack packets.
@@ -739,7 +739,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *connection.T
 		conn.(*connection.TCPConnection).SetPacketInfo(hash, packet.TCPFlagsToStr(p.TCPFlags))
 		return cachedContext, conn.(*connection.TCPConnection), nil
 	}
-	return nil, nil, fmt.Errorf("Unknow flags ")
+	return nil, nil, nil
 }
 
 // netRetrieveSynAckState retrieves context and connection state for SynAck

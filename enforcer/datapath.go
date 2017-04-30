@@ -295,6 +295,9 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 
 	ip, ok := puInfo.Runtime.DefaultIPAddress()
 	if !ok {
+		if d.mode == constants.LocalContainer {
+			return fmt.Errorf("No IP provided for Local Container")
+		}
 		ip = DefaultNetwork
 	}
 
