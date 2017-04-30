@@ -258,7 +258,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 // processApplicationSynAckPacket processes an application SynAck packet
 func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
-	// Process the packet if I am the right state. I should have either received a Syn packet or
+	// Process the packet at the right state. I should have either received a Syn packet or
 	// I could have send a SynAck and this is a duplicate request since my response was lost.
 	if conn.GetState() == connection.TCPSynReceived || conn.GetState() == connection.TCPSynAckSend {
 
@@ -281,7 +281,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		return nil, nil
 	}
 
-	zap.L().Debug("Invalid SynAck state in App ",
+	zap.L().Error("Invalid SynAck state while receiving SynAck packet",
 		zap.String("context", string(conn.Auth.LocalContext)),
 		zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
 		zap.String("state", fmt.Sprintf("%v", conn.GetState())),
@@ -302,6 +302,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
+		// Since we adjust sequence numbers let's make sure we haven't made a mistake
 		if len(token) != int(d.ackSize) {
 			return nil, fmt.Errorf("Protocol Error %d", len(token))
 		}
@@ -370,15 +371,12 @@ func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PU
 func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (interface{}, error) {
 
 	// Decode the JWT token using the context key
-	// We need to add here to key renewal option where we decode with keys N, N-1
-	// TBD
 	claims, err := d.parsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 
-	// If the token signature is not valid
-	// We must drop the connection and we drop the Syn packet. The source will
+	// If the token signature is not valid or there are no claims
+	// we must drop the connection and we drop the Syn packet. The source will
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
-
 		d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidToken)
 		return nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
@@ -425,7 +423,6 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.
 		// harm here.
 		d.networkConnectionTracker.AddOrUpdate(hash, conn)
 
-		context.AcceptRcvRules.PrintPolicyDB()
 		// Accept the connection
 		return action, nil
 	}
@@ -461,7 +458,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 	conn.Auth.RemotePublicKey = cert
 	conn.Auth.RemoteContext = claims.LCL
 	conn.Auth.RemoteContextID = remoteContextID
-
 	tcpPacket.ConnectionMetadata = &conn.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
@@ -486,7 +482,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
 
-	// First validate that there are no reject rules
 	if index, _ := context.RejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, remoteContextID, context, collector.PolicyDrop)
 		return nil, fmt.Errorf("Dropping because of reject rule on transmitter")
@@ -510,7 +505,6 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 	if conn.GetState() == connection.TCPSynAckSend || conn.GetState() == connection.TCPSynReceived {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-
 			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat)
 			return nil, fmt.Errorf("TCP Authentication Option not found")
 		}
@@ -520,7 +514,7 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 			return nil, fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 		}
 
-		// Remove any of our data
+		// Remove any of our data - adjust the sequence numbers
 		tcpPacket.IncreaseTCPSeq(d.ackSize)
 
 		if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
@@ -532,33 +526,15 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 
 		tcpPacket.UpdateTCPChecksum()
 
-		conn.SetState(connection.TCPAckProcessed)
 		// We accept the packet as a new flow
 		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context)
 
+		// We are done - clean state and get out of the way
 		if err := d.networkConnectionTracker.Remove(hash); err != nil {
 			zap.L().Warn("Failed to clean up cache state from network connection tracker", zap.Error(err))
 		}
 
 		// Accept the packet
-		return nil, nil
-	}
-
-	// Catch the first request packets
-	if conn.GetState() == connection.TCPAckProcessed {
-
-		zap.L().Error("Invalid state reached - TCPAckProcessed Deprecated",
-			zap.String("state", fmt.Sprintf("%v", conn.GetState())),
-			zap.String("context", context.ManagementID),
-			zap.String("net-conn", hash),
-		)
-
-		// Safe to delete the state
-		if err := d.networkConnectionTracker.Remove(hash); err != nil {
-			zap.L().Warn("Failed to clean up cache state from network connection tracker", zap.Error(err))
-		}
-
-		// Packet can be forwarded
 		return nil, nil
 	}
 

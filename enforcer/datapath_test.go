@@ -725,3 +725,76 @@ func TestDoCreatePU(t *testing.T) {
 		})
 	})
 }
+
+func TestContextFromIP(t *testing.T) {
+
+	Convey("Given an initialized enforcer for Linux Processes", t, func() {
+		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+
+		context := &PUContext{
+			ID: "SomePU",
+			IP: "10.1.1.1",
+		}
+
+		Convey("If I try to get the context based on the PU IP, it should succeed ", func() {
+			enforcer.puFromIP.AddOrUpdate("10.1.1.1", context)
+
+			ctx, err := enforcer.contextFromIP(true, "10.1.1.1", "", "")
+			So(err, ShouldBeNil)
+			So(ctx, ShouldNotBeNil)
+			So(ctx, ShouldEqual, context)
+		})
+
+		Convey("If I try to get context based on IP and its  not there and its a local container it should fail ", func() {
+			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", "")
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If I try to get context based on IP and a remote container, it should try the default ", func() {
+			enforcer.puFromIP.AddOrUpdate(DefaultNetwork, context)
+			enforcer.mode = constants.LocalServer
+
+			ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "", "")
+			So(err, ShouldBeNil)
+			So(ctx, ShouldNotBeNil)
+			So(ctx, ShouldEqual, context)
+		})
+
+		Convey("If there is no IP match, it should try the mark for app packets ", func() {
+			enforcer.puFromMark.AddOrUpdate("100", context)
+			enforcer.mode = constants.LocalServer
+
+			Convey("If the mark exists", func() {
+				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", "")
+				So(err, ShouldBeNil)
+				So(ctx, ShouldNotBeNil)
+				So(ctx, ShouldEqual, context)
+			})
+
+			Convey("If the mark doesn't exist", func() {
+				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", "")
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If there is no IP match, it should try the port for net packets ", func() {
+			enforcer.puFromPort.AddOrUpdate("8000", context)
+			enforcer.mode = constants.LocalServer
+
+			Convey("If the port exists", func() {
+				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", "8000")
+				So(err, ShouldBeNil)
+				So(ctx, ShouldNotBeNil)
+				So(ctx, ShouldEqual, context)
+			})
+
+			Convey("If the port doesn't exist", func() {
+				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", "9000")
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
+}
