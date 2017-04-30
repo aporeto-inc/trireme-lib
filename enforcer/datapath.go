@@ -207,6 +207,9 @@ func (d *Datapath) Unenforce(contextID string) error {
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}
 
+	puContext.(*PUContext).Lock()
+	defer puContext.(*PUContext).Unlock()
+
 	pu := puContext.(*PUContext)
 	if err := d.puFromIP.Remove(pu.IP); err != nil {
 		zap.L().Warn("Unable to remove cache entry during unenforcement",
@@ -330,6 +333,9 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 }
 
 func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
+
+	puContext.Lock()
+	defer puContext.Unlock()
 
 	puContext.AcceptRcvRules, puContext.RejectRcvRules = createRuleDBs(containerInfo.Policy.ReceiverRules())
 

@@ -236,7 +236,9 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 	// Create a token
+	context.Lock()
 	tcpData := d.createPacketToken(false, context, &conn.Auth)
+	context.Unlock()
 	// Track the connection/port cache
 	hash := tcpPacket.L4FlowHash()
 	conn.SetState(connection.TCPSynSend)
@@ -268,7 +270,9 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 		// Create a token
+		context.Lock()
 		tcpData := d.createPacketToken(false, context, &conn.Auth)
+		context.Unlock()
 
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
@@ -298,7 +302,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
+		context.Lock()
 		token := d.createPacketToken(true, context, &conn.Auth)
+		context.Unlock()
 
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
@@ -369,7 +375,8 @@ func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PU
 
 // processNetworkSynPacket processes a syn packet arriving from the network
 func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (interface{}, error) {
-
+	context.Lock()
+	defer context.Unlock()
 	// Decode the JWT token using the context key
 	claims, err := d.parsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 
@@ -433,6 +440,8 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.
 
 // processNetworkSynAckPacket processes a SynAck packet arriving from the network
 func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (interface{}, error) {
+	context.Lock()
+	defer context.Unlock()
 
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
@@ -498,6 +507,8 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 
 // processNetworkAckPacket processes an Ack packet arriving from the network
 func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (interface{}, error) {
+	context.Lock()
+	defer context.Unlock()
 
 	hash := tcpPacket.L4FlowHash()
 
