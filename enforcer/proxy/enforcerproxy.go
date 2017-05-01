@@ -44,7 +44,6 @@ var ErrInitFailed = errors.New("Failed remote Init")
 type proxyInfo struct {
 	MutualAuth        bool
 	Secrets           tokens.Secrets
-	publicKeyToken    []byte
 	serverID          string
 	validity          time.Duration
 	prochdl           processmon.ProcessManager
