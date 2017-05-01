@@ -17,8 +17,8 @@ type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
 	AddOrUpdate(u interface{}, value interface{})
 	Get(u interface{}) (i interface{}, err error)
+	GetReset(u interface{}) (i interface{}, err error)
 	Remove(u interface{}) (err error)
-	DumpStore()
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 }
 
@@ -70,10 +70,9 @@ func NewCacheWithExpirationNotifier(lifetime time.Duration, expirer ExpirationNo
 	}
 }
 
-// Add stores an entry into the cache and updates the timestamp
-func (c *Cache) Add(u interface{}, value interface{}) (err error) {
+// setupExpirationTimer sets up an expiration for this key
+func (c *Cache) setupExpirationTimer(u interface{}) (timer *time.Timer) {
 
-	var timer *time.Timer
 	if c.lifetime != -1 {
 		timer = time.AfterFunc(c.lifetime, func() {
 			if err := c.removeNotify(u, true); err != nil {
@@ -82,7 +81,11 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 		})
 	}
 
-	t := time.Now()
+	return
+}
+
+// Add stores an entry into the cache and updates the timestamp
+func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 
 	c.Lock()
 	defer c.Unlock()
@@ -91,8 +94,8 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 
 		c.data[u] = entry{
 			value:     value,
-			timestamp: t,
-			timer:     timer,
+			timestamp: time.Now(),
+			timer:     c.setupExpirationTimer(u),
 			expirer:   c.expirer,
 		}
 		return nil
@@ -103,17 +106,6 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 
 // Update changes the value of an entry into the cache and updates the timestamp
 func (c *Cache) Update(u interface{}, value interface{}) (err error) {
-
-	var timer *time.Timer
-	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() {
-			if err := c.removeNotify(u, true); err != nil {
-				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
-			}
-		})
-	}
-
-	t := time.Now()
 
 	c.Lock()
 	defer c.Unlock()
@@ -126,8 +118,8 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 
 		c.data[u] = entry{
 			value:     value,
-			timestamp: t,
-			timer:     timer,
+			timestamp: time.Now(),
+			timer:     c.setupExpirationTimer(u),
 			expirer:   c.expirer,
 		}
 
@@ -141,17 +133,6 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 // if needed. If an update happens the timestamp is also updated.
 func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 
-	var timer *time.Timer
-	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() {
-			if err := c.removeNotify(u, true); err != nil {
-				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
-			}
-		})
-	}
-
-	t := time.Now()
-
 	c.Lock()
 	defer c.Unlock()
 
@@ -163,25 +144,45 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 
 	c.data[u] = entry{
 		value:     value,
-		timestamp: t,
-		timer:     timer,
+		timestamp: time.Now(),
+		timer:     c.setupExpirationTimer(u),
 		expirer:   c.expirer,
 	}
 
 }
 
-// Get retrieves the entry from the cache
-func (c *Cache) Get(u interface{}) (i interface{}, err error) {
+// getReset retrieves the entry from the cache, updates the timer if one exists and requested
+func (c *Cache) getReset(u interface{}, resetTimer bool) (i interface{}, err error) {
 
 	c.Lock()
 	defer c.Unlock()
 
-	if _, ok := c.data[u]; !ok {
+	data, ok := c.data[u]
+	if !ok {
 
 		return nil, fmt.Errorf("Item does not exist")
 	}
 
+	if resetTimer {
+		if data.timer != nil {
+			data.timer.Stop()
+			data.timer = c.setupExpirationTimer(u)
+		}
+	}
+
 	return c.data[u].value, nil
+}
+
+// Get retrieves the entry from the cache
+func (c *Cache) Get(u interface{}) (i interface{}, err error) {
+
+	return c.getReset(u, false)
+}
+
+// GetReset retrieves the entry from the cache, updates the timer if one exists
+func (c *Cache) GetReset(u interface{}) (i interface{}, err error) {
+
+	return c.getReset(u, true)
 }
 
 // removeNotify removes the entry from the cache and optionally notifies.
@@ -205,7 +206,6 @@ func (c *Cache) removeNotify(u interface{}, notify bool) (err error) {
 	}
 
 	delete(c.data, u)
-
 	return nil
 }
 
@@ -227,17 +227,6 @@ func (c *Cache) SizeOf() int {
 // LockedModify  locks the data store
 func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error) {
 
-	var timer *time.Timer
-	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() {
-			if err := c.removeNotify(u, true); err != nil {
-				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
-			}
-		})
-	}
-
-	t := time.Now()
-
 	c.Lock()
 	defer c.Unlock()
 
@@ -251,26 +240,10 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 	}
 
 	e.value = add(e.value, increment)
-	e.timer = timer
-	e.timestamp = t
+	e.timer = c.setupExpirationTimer(u)
+	e.timestamp = time.Now()
 	e.expirer = c.expirer
 
 	c.data[u] = e
-
 	return e.value, nil
-
-}
-
-// DumpStore prints the whole data store for debuggin
-func (c *Cache) DumpStore() {
-
-	zap.L().Warn("Dumping store is deprecated.")
-	// This is not good.
-	// for u := range c.data {
-	// 	log.WithFields(log.Fields{
-	// 		"package": "cache",
-	// 		"cache":   c,
-	// 		"data":    u,
-	// 	}).Debug("Current data of the cache")
-	// }
 }
