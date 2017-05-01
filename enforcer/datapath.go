@@ -52,6 +52,7 @@ type Datapath struct {
 	puFromIP       cache.DataStore
 	puFromMark     cache.DataStore
 	puFromPort     cache.DataStore
+
 	// Key=FlowHash Value=Connection. Created on syn packet from network with regular flow hash
 	networkConnectionTracker cache.DataStore
 	// Key=FlowHash Value=Connection. Created on syn packet from application with regular flow hash

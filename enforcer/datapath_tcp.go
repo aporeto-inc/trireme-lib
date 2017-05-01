@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -563,6 +564,10 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 // createPacketToken creates the authentication token
 func (d *Datapath) createPacketToken(ackToken bool, context *PUContext, auth *connection.AuthInfo) []byte {
 
+	if !ackToken && context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
+		return context.synToken
+	}
+
 	claims := &tokens.ConnectionClaims{
 		LCL: auth.LocalContext,
 		RMT: auth.RemoteContext,
@@ -572,7 +577,11 @@ func (d *Datapath) createPacketToken(ackToken bool, context *PUContext, auth *co
 		claims.T = context.Identity
 	}
 
-	return d.tokenEngine.CreateAndSign(ackToken, claims)
+	context.synToken = d.tokenEngine.CreateAndSign(ackToken, claims)
+	context.synExpiration = time.Now().Add(time.Millisecond * 500)
+
+	return context.synToken
+
 }
 
 // parsePacketToken parses the packet token and populates the right state.
