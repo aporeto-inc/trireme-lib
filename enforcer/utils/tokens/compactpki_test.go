@@ -132,7 +132,7 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("I should ge the righ ack size", func() {
-			So(p.AckSize(), ShouldEqual, 336)
+			So(p.AckSize(), ShouldEqual, 375)
 		})
 
 		Convey("When I verify the received public key, it should succeed", func() {
@@ -148,7 +148,7 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("When I try to get the decoding key with the ack", func() {
-			key, err := p.DecodingKey("server", txKey, nil)
+			key, err := p.DecodingKey("server", cert.PublicKey, nil)
 			So(err, ShouldBeNil)
 			So(key.(*ecdsa.PublicKey), ShouldResemble, cert.PublicKey.(*ecdsa.PublicKey))
 		})
