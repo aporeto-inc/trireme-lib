@@ -72,6 +72,10 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 		},
 	}
 
+	if s.Secrets.Type() == tokens.PKICompactType {
+		request.Payload.(*rpcwrapper.InitRequestPayload).Token = s.Secrets.TransmittedKey()
+	}
+
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
 		return fmt.Errorf("Failed to initialize remote enforcer: status %s, error: %s", resp.Status, err.Error())
 	}

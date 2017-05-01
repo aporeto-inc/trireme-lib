@@ -80,21 +80,37 @@ func processDaemonArgs(arguments map[string]interface{}, processor enforcer.Pack
 		if arguments["--usePKI"].(bool) {
 			keyFile := arguments["--keyFile"].(string)
 			certFile := arguments["--certFile"].(string)
-			caCertFile := arguments["--caCert"].(string)
+			caCertFile := arguments["--caCertFile"].(string)
+			caCertKeyFile := arguments["--caKeyFile"].(string)
 			zap.L().Info("Setting up trireme with PKI",
 				zap.String("key", keyFile),
 				zap.String("cert", certFile),
 				zap.String("ca", caCertFile),
+				zap.String("ca", caCertKeyFile),
 			)
-			t, m = TriremeWithPKI(keyFile, certFile, caCertFile, targetNetworks, &customExtractor, remote, KillContainerOnError)
+			t, m = HybridTriremeWithCompactPKI(keyFile, certFile, caCertFile, caCertKeyFile, targetNetworks, &customExtractor, remote, KillContainerOnError)
 		} else {
 			zap.L().Info("Setting up trireme with PSK")
 			t, m = TriremeWithPSK(targetNetworks, &customExtractor, remote, KillContainerOnError)
 		}
 	} else { // Hybrid mode
-		t, m, rm = HybridTriremeWithPSK(targetNetworks, &customExtractor, KillContainerOnError)
-		if rm == nil {
-			zap.L().Fatal("Failed to create remote monitor for hybrid")
+		if arguments["--usePKI"].(bool) {
+			keyFile := arguments["--keyFile"].(string)
+			certFile := arguments["--certFile"].(string)
+			caCertFile := arguments["--caCertFile"].(string)
+			caCertKeyFile := arguments["--caKeyFile"].(string)
+			zap.L().Info("Setting up trireme with Compact PKI",
+				zap.String("key", keyFile),
+				zap.String("cert", certFile),
+				zap.String("ca", caCertFile),
+				zap.String("ca", caCertKeyFile),
+			)
+			t, m = HybridTriremeWithCompactPKI(keyFile, certFile, caCertFile, caCertKeyFile, targetNetworks, &customExtractor, true, KillContainerOnError)
+		} else {
+			t, m, rm = HybridTriremeWithPSK(targetNetworks, &customExtractor, KillContainerOnError)
+			if rm == nil {
+				zap.L().Fatal("Failed to create remote monitor for hybrid")
+			}
 		}
 	}
 
