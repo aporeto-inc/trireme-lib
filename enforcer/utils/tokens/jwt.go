@@ -1,11 +1,12 @@
 package tokens
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 	"strings"
 	"time"
 
+	"github.com/aporeto-inc/trireme/cache"
 	"go.uber.org/zap"
 
 	"github.com/dgrijalva/jwt-go"
@@ -28,6 +29,8 @@ type JWTConfig struct {
 	signMethod jwt.SigningMethod
 	// secrets is the secrets used for signing and verifying the JWT
 	secrets Secrets
+	// cache test
+	tokenCache cache.DataStore
 }
 
 // NewJWT creates a new JWT token processor
@@ -47,10 +50,13 @@ func NewJWT(validity time.Duration, issuer string, secrets Secrets) (*JWTConfig,
 		return nil, fmt.Errorf("Secrets can not be nil")
 	}
 
-	if secrets.Type() == PKIType || secrets.Type() == PKICompactType {
+	switch secrets.Type() {
+	case PKIType, PKICompactType:
 		signMethod = jwt.SigningMethodES256
-	} else {
+	case PSKType:
 		signMethod = jwt.SigningMethodHS256
+	default:
+		signMethod = jwt.SigningMethodNone
 	}
 
 	return &JWTConfig{
@@ -58,6 +64,7 @@ func NewJWT(validity time.Duration, issuer string, secrets Secrets) (*JWTConfig,
 		Issuer:         issuer,
 		signMethod:     signMethod,
 		secrets:        secrets,
+		tokenCache:     cache.NewCacheWithExpiration(time.Millisecond * 500),
 	}, nil
 }
 
@@ -85,15 +92,16 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) []byte {
 	// again for Ack packets to reduce overhead
 	if !isAck {
 		txKey := c.secrets.TransmittedKey()
-		tokenLength := len(strtoken) + len(txKey) + 1
+		tokenLength := len(strtoken) + len(txKey) + 1 + 2
 
 		token := make([]byte, tokenLength)
+		binary.BigEndian.PutUint16(token[0:2], uint16(len(strtoken)))
 
-		copy(token, []byte(strtoken))
-		copy(token[len(strtoken):], []byte("%"))
+		copy(token[2:], []byte(strtoken))
+		copy(token[2+len(strtoken):], []byte("%"))
 
 		if len(txKey) > 0 {
-			copy(token[len(strtoken)+1:], txKey)
+			copy(token[len(strtoken)+3:], txKey)
 		}
 
 		return token
@@ -120,20 +128,26 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*
 	// Decode function. If certificates are distributed out of band we
 	// will look in the certPool for the certificate
 	if !isAck {
-		buffer := bytes.NewBuffer(data)
-		token, err = buffer.ReadBytes([]byte("%")[0])
-		if err != nil {
+
+		tokenLength := int(binary.BigEndian.Uint16(data[0:2]))
+		if len(data) <= tokenLength+3 {
 			return nil, nil
 		}
 
+		token = data[2 : 2+tokenLength]
+
+		certBytes := data[tokenLength+3:]
+
 		if len(token) < len(data) {
-			ackCert, err = c.secrets.VerifyPublicKey(data[len(token):])
+			ackCert, err = c.secrets.VerifyPublicKey(certBytes)
 			if err != nil {
 				return nil, nil
 			}
 		}
-		token = token[:len(token)-1]
+	}
 
+	if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
+		return cachedClaims.(*ConnectionClaims), ackCert
 	}
 
 	// Parse the JWT token with the public key recovered
@@ -148,6 +162,8 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*
 		zap.L().Error("ParseWithClaim failed", zap.Error(err))
 		return nil, nil
 	}
+
+	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)
 
 	return jwtClaims.ConnectionClaims, ackCert
 }

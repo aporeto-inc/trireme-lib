@@ -355,66 +355,6 @@ func TestRawChecksums(t *testing.T) {
 	}
 }
 
-func TestNonTagPayload(t *testing.T) {
-	/*
-		t.Parallel()
-		pkt := getTestPacket(t, synBadTCPChecksum)
-		pkt.TCPDataAttach([]byte("hello, world"))
-		labelsRead := pkt.ReadPayloadTags()
-		if len(labelsRead) != 0 {
-			t.Error("Non-label data returned as labels")
-		}
-	*/
-}
-
-func TestPayloadAddRemove(t *testing.T) {
-
-	/*
-		t.Parallel()
-		pkt := getTestPacket(t, synGoodTCPChecksum)
-		ipChecksum := pkt.computeIPChecksum()
-		TCPChecksum := pkt.computeTCPChecksum()
-		pktLen := pkt.length
-
-		// Repeatedly adding and removing same payload should leave packet unmodified
-		for i := 0; i < 5; i++ {
-
-			pkt.TCPDataAttach([]byte("Hello, world!"))
-			if !pkt.VerifyIPChecksum() {
-				t.Error("Packet IP checksum failed after attaching data")
-			}
-
-			if !pkt.VerifyTCPChecksum() {
-				t.Error("Packet TCP checksum failed after attaching data")
-			}
-
-			pkt.TCPDataDetach()
-			if !pkt.VerifyIPChecksum() {
-				t.Error("Packet IP checksum failed after detaching data")
-			}
-
-			if !pkt.VerifyTCPChecksum() {
-				t.Error("Packet TCP checksum failed after detaching data")
-			}
-		}
-
-		ipChecksum2 := pkt.computeIPChecksum()
-		TCPChecksum2 := pkt.computeTCPChecksum()
-
-		if pkt.length != pktLen {
-			t.Error("Packet length changed after several rounds of add/remove data")
-		}
-
-		if ipChecksum != ipChecksum2 {
-			t.Error("IP checksum changed after several rounds of add/remove data")
-		}
-
-		if TCPChecksum != TCPChecksum2 {
-			t.Error("TCP checksum changed after several rounds of add/remove data")
-		}
-	*/
-}
-
 func getTestPacket(t *testing.T, id SamplePacketName) *Packet {
 
 	tmp := make([]byte, len(testPackets[id]))

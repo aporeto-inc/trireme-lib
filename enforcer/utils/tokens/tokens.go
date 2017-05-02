@@ -28,6 +28,8 @@ const (
 	PSKType
 	// PKICompactType is for asymetric signing using compact JWTs on the wire
 	PKICompactType
+	// PKINull is for debugging
+	PKINull
 )
 
 const (

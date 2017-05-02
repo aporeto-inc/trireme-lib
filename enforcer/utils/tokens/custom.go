@@ -99,7 +99,7 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 }
 
 // Decode decodes a string into the data structures for a custom token
-func (c *CustomTokenConfig) Decode(isAck bool, data []byte, cert *x509.Certificate) (*ConnectionClaims, *x509.Certificate) {
+func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*ConnectionClaims, interface{}) {
 	claims := &ConnectionClaims{}
 
 	if len(data) < minBufferLength {

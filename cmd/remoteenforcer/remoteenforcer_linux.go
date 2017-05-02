@@ -187,6 +187,24 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			constants.RemoteContainer,
 			s.procMountPoint,
 		)
+	case tokens.PKINull:
+		// Compact PKI Parameters
+		fmt.Println("INSTANTIATIING WITH NULL ")
+		secrets, err := tokens.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
+		if err != nil {
+			return fmt.Errorf("Failed to initialize secrets")
+		}
+		s.Enforcer = enforcer.New(
+			payload.MutualAuth,
+			payload.FqConfig,
+			s.statsclient.collector,
+			s.Service,
+			secrets,
+			payload.ServerID,
+			payload.Validity,
+			constants.RemoteContainer,
+			s.procMountPoint,
+		)
 	}
 
 	s.Enforcer.Start()

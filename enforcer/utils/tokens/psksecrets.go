@@ -37,7 +37,7 @@ func (p *PSKSecrets) VerifyPublicKey(pkey []byte) (interface{}, error) {
 
 // AckSize returns the expected size of ack packets.
 func (p *PSKSecrets) AckSize() uint32 {
-	return uint32(332)
+	return uint32(128)
 }
 
 // AuthPEM returns the Certificate Authority PEM.

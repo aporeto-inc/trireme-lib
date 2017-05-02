@@ -167,6 +167,6 @@ func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
 // initConnection creates the state information for a new connection
 func initConnection(s *AuthInfo) {
 
-	nonse, _ := crypto.GenerateRandomBytes(32)
+	nonse, _ := crypto.GenerateRandomBytes(16)
 	s.LocalContext = nonse
 }

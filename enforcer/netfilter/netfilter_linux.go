@@ -201,7 +201,7 @@ func processPacket(packetID C.int, mark C.int, data *C.uchar, len C.int, newData
 
 	// Create a new packet and associated the pointers
 	p := NFPacket{
-		Buffer:      local,
+		Buffer:      local ,
 		Xbuffer:     newData,
 		ID:          int(packetID),
 		Mark:        strconv.Itoa(int(mark)),

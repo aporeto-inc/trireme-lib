@@ -238,7 +238,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// Create a token
 	context.Lock()
-	tcpData := d.createPacketToken(false, context, &conn.Auth)
+	tcpData := d.createSynPacketToken(false, context, &conn.Auth)
 	context.Unlock()
 	// Track the connection/port cache
 	hash := tcpPacket.L4FlowHash()
@@ -564,10 +564,6 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 // createPacketToken creates the authentication token
 func (d *Datapath) createPacketToken(ackToken bool, context *PUContext, auth *connection.AuthInfo) []byte {
 
-	if !ackToken && context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
-		return context.synToken
-	}
-
 	claims := &tokens.ConnectionClaims{
 		LCL: auth.LocalContext,
 		RMT: auth.RemoteContext,
@@ -577,8 +573,25 @@ func (d *Datapath) createPacketToken(ackToken bool, context *PUContext, auth *co
 		claims.T = context.Identity
 	}
 
+	return d.tokenEngine.CreateAndSign(ackToken, claims)
+
+}
+
+// createSynPacketToken creates the authentication token
+func (d *Datapath) createSynPacketToken(ackToken bool, context *PUContext, auth *connection.AuthInfo) []byte {
+
+	if context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
+		return context.synToken
+	}
+
+	claims := &tokens.ConnectionClaims{
+		LCL: auth.LocalContext,
+		RMT: auth.RemoteContext,
+		T:   context.Identity,
+	}
+
 	context.synToken = d.tokenEngine.CreateAndSign(ackToken, claims)
-	context.synExpiration = time.Now().Add(time.Millisecond * 500)
+	context.synExpiration = time.Now().Add(time.Millisecond * 5000)
 
 	return context.synToken
 
