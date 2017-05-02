@@ -1,11 +1,8 @@
 package tokens
 
 import (
-	"crypto/ecdsa"
-	"crypto/x509"
 	"fmt"
 
-	"github.com/aporeto-inc/trireme/enforcer/utils/pkiverifier"
 	"github.com/dgrijalva/jwt-go"
 )
 
@@ -14,15 +11,10 @@ type NullPKI struct {
 	PrivateKeyPEM []byte
 	PublicKeyPEM  []byte
 	AuthorityPEM  []byte
-	privateKey    *ecdsa.PrivateKey
-	publicKey     *x509.Certificate
-	certPool      *x509.CertPool
-	txKey         []byte
-	verifier      *pkiverifier.PKIConfiguration
 }
 
 // NewNullPKI creates new secrets for PKI implementation based on compact encoding
-func NewNullPKI(keyPEM, certPEM, caPEM, txKey []byte) (*NullPKI, error) {
+func NewNullPKI(keyPEM, certPEM, caPEM []byte) (*NullPKI, error) {
 
 	fmt.Println("I was called with null  ")
 
