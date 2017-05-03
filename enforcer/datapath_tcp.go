@@ -47,41 +47,34 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) error {
 	var conn *connection.TCPConnection
 	var err error
 
-	zap.L().Debug("Processing network packet",
-		zap.String("flow", p.L4FlowHash()),
-		zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-	)
-
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
-	if p.TCPFlags == packet.TCPSynAckMask {
+	if p.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 		context, conn, err = d.netRetrieveSynAckState(p)
+		if err != nil {
+			return err
+		}
+		if context == nil {
+			return nil
+		}
 	} else {
 		context, conn, err = d.netRetrieveState(p)
-	}
-
-	if err != nil {
-		zap.L().Debug("Packet rejected",
-			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-			zap.Error(err),
-		)
-		return err
-	}
-
-	// if no connection for Ack packets accept them. We are done processing
-	if conn == nil {
-		zap.L().Debug("Ack packet - ignore connection state ",
-			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-		)
-		return nil
+		if err != nil {
+			zap.L().Debug("Packet rejected",
+				zap.String("flow", p.L4FlowHash()),
+				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
+				zap.Error(err),
+			)
+			return err
+		}
 	}
 
 	// Lock the connection context. No packets from the same connection
 	// can be processed at the same time
-	conn.Lock()
-	defer conn.Unlock()
+	if conn != nil {
+		conn.Lock()
+		defer conn.Unlock()
+	}
 
 	d.netTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
@@ -147,18 +140,11 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
 		return fmt.Errorf("No context found in app processing")
 	}
 
-	// Only happens for TCP Ack packets after we are done processing - let them go
-	if conn == nil {
-		zap.L().Debug("Ignoring data ack packet ",
-			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-		)
-		return nil
-	}
-
 	// Lock the connection context to prevent concurrent packet processing
-	conn.Lock()
-	defer conn.Unlock()
+	if conn != nil {
+		conn.Lock()
+		defer conn.Unlock()
+	}
 
 	d.appTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
@@ -211,6 +197,10 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
 
 // processApplicationTCPPacket processes a TCP packet and dispatches it to other methods based on the flags
 func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
+
+	if conn == nil {
+		return nil, nil
+	}
 
 	// State machine based on the flags
 	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
@@ -356,6 +346,10 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 // processNetworkTCPPacket processes a network TCP packet and dispatches it to different methods based on the flags
 func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
+
+	if conn == nil {
+		return nil, nil
+	}
 
 	// Update connection state in the internal state machine tracker
 	switch tcpPacket.TCPFlags {
