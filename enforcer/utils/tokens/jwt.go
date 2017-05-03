@@ -91,17 +91,27 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) []byte {
 	// Copy the certificate if needed. Note that we don't send the certificate
 	// again for Ack packets to reduce overhead
 	if !isAck {
+
+		nonceLength := len(claims.LCL)
+
 		txKey := c.secrets.TransmittedKey()
-		tokenLength := len(strtoken) + len(txKey) + 1 + 2
+
+		tokenLength := len(strtoken) + len(txKey) + 2 + len(claims.LCL)
 
 		token := make([]byte, tokenLength)
-		binary.BigEndian.PutUint16(token[0:2], uint16(len(strtoken)))
 
-		copy(token[2:], []byte(strtoken))
-		copy(token[2+len(strtoken):], []byte("%"))
+		// Offset of public key
+		binary.BigEndian.PutUint16(token[0:2], uint16(len(strtoken)+nonceLength))
 
+		// Attach the nonse
+		copy(token[2:], claims.LCL)
+
+		// Copy the JWT tokenn
+		copy(token[2+nonceLength:], []byte(strtoken))
+
+		// Copy the public key
 		if len(txKey) > 0 {
-			copy(token[len(strtoken)+3:], txKey)
+			copy(token[nonceLength+len(strtoken)+2:], txKey)
 		}
 
 		return token
@@ -130,13 +140,16 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (*
 	if !isAck {
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:2]))
-		if len(data) <= tokenLength+3 {
+		// Fix constant
+		if len(data) <= tokenLength+18 {
 			return nil, nil
 		}
 
-		token = data[2 : 2+tokenLength]
+		nonce = data[2 : 16+2]
 
-		certBytes := data[tokenLength+3:]
+		token = data[18 : 18+tokenLength]
+
+		certBytes := data[tokenLength+18:]
 
 		if len(token) < len(data) {
 			ackCert, err = c.secrets.VerifyPublicKey(certBytes)
