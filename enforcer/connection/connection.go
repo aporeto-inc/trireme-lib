@@ -110,7 +110,7 @@ func (c *TCPConnection) SetReported(flowState bool) {
 		repeatedReporting = true
 	}
 	state := ""
-	if repeatedReporting && c.flowLastReporting != flowState {
+	if repeatedReporting {
 		state = fmt.Sprintf("%t %t", c.flowLastReporting, flowState)
 		zap.L().Error("Connection reported multiple times",
 			zap.String("state", state))
