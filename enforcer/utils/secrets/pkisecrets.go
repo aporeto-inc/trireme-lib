@@ -22,10 +22,10 @@ type PKISecrets struct {
 }
 
 // NewPKISecrets creates new secrets for PKI implementations
-func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) *PKISecrets {
+func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) (*PKISecrets, error) {
 	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("Invalid certificates")
 	}
 
 	p := &PKISecrets{
@@ -38,7 +38,7 @@ func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.Pu
 		certPool:         caCertPool,
 	}
 
-	return p
+	return p, nil
 }
 
 // Type implements the interface Secrets

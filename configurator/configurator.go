@@ -217,7 +217,11 @@ func NewSecretsFromPSK(key []byte) secrets.Secrets {
 
 // NewSecretsFromPKI creates secrets from a PKI
 func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) secrets.Secrets {
-	return secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	secrets, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	if err != nil {
+		return nil
+	}
+	return secrets
 }
 
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -299,7 +303,10 @@ func NewPKITriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	publicKeyAdder := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	publicKeyAdder, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	if err != nil {
+		return nil, nil, nil
+	}
 
 	var triremeInstance trireme.Trireme
 
