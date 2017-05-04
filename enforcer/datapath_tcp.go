@@ -708,7 +708,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *connection.T
 
 	// Find the connection state
 	switch p.TCPFlags & packet.TCPSynAckMask {
-	case packet.TCPSynMask: //Processing SYN packet from Application
+	case packet.TCPSynMask: //Processing SYN packet from Network
 		hash := p.L4FlowHash()
 		conn, err := d.networkConnectionTracker.Get(hash)
 		if err != nil {

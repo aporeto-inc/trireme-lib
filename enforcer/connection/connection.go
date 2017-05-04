@@ -37,6 +37,12 @@ const (
 
 	// TCPAckProcessed is the state that the negotiation has been completed
 	TCPAckProcessed
+
+	// RejectReported represents that flow was reported as rejected
+	RejectReported bool = true
+
+	// AcceptReported represents that flow was reported as accepted
+	AcceptReported bool = false
 )
 
 // AuthInfo keeps authentication information about a connection
