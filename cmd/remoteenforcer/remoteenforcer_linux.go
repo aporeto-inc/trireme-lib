@@ -145,7 +145,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	case secrets.PKIType:
 		// PKI params
 		zap.L().Info("Using PKI Secrets")
-		secrets, err  := secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
+		secrets, err := secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
 		}
