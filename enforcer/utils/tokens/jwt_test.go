@@ -243,13 +243,13 @@ func TestNegativeConditions(t *testing.T) {
 
 		Convey("Test a token with a bad public key", func() {
 			token, _, err1 := jwtConfig.CreateAndSign(false, &defaultClaims)
+			So(err1, ShouldBeNil)
 			token[len(token)-1] = 0
 			token[len(token)-2] = 0
 			token[len(token)-3] = 0
 			token[len(token)-4] = 0
 			_, _, _, err2 := jwtConfig.Decode(false, token, nil)
 			So(err2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
 		})
 
 		Convey("Test an ack token with a bad key", func() {
