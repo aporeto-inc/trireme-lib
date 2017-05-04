@@ -156,7 +156,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		}
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:noncePosition]))
-		// Data must be enought to accomodate the token
+		// Data must be enought to accommodate the token
 		if len(data) < tokenPosition+tokenLength+1 {
 			return nil, nil, nil, fmt.Errorf("bad token length")
 		}

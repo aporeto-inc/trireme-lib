@@ -193,7 +193,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	case secrets.PKINull:
 		// Null Encryption
 		zap.L().Info("Using Null Secrets")
-		secrets, err := secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM )
+		secrets, err := secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
 		}
