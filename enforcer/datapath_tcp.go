@@ -114,8 +114,11 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) error {
 	}
 
 	// Accept the packet
+
+	p.UpdateTCPChecksum()
 	d.netTCP.OutgoingPackets++
 	p.Print(packet.PacketStageOutgoing)
+
 	return nil
 }
 
@@ -195,6 +198,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
 	}
 
 	// Accept the packet
+	p.UpdateTCPChecksum()
 	d.appTCP.OutgoingPackets++
 	p.Print(packet.PacketStageOutgoing)
 	return nil
@@ -248,12 +252,9 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
 	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
-	if err := tcpPacket.TCPDataAttach(tcpOptions, tcpData); err != nil {
-		return nil, err
-	}
 
-	tcpPacket.UpdateTCPChecksum()
-	return nil, nil
+	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
+
 }
 
 // processApplicationSynAckPacket processes an application SynAck packet
@@ -280,12 +281,8 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
 		tcpPacket.DecreaseTCPAck(d.ackSize)
-		if err := tcpPacket.TCPDataAttach(tcpOptions, tcpData); err != nil {
-			return nil, err
-		}
 
-		tcpPacket.UpdateTCPChecksum()
-		return nil, nil
+		return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 	}
 
 	zap.L().Error("Invalid SynAck state while receiving SynAck packet",
@@ -324,7 +321,6 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
 			return nil, err
 		}
-		tcpPacket.UpdateTCPChecksum()
 
 		conn.SetState(connection.TCPAckSend)
 
@@ -420,7 +416,6 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.
 	}
 
 	tcpPacket.DropDetachedBytes()
-	tcpPacket.UpdateTCPChecksum()
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
@@ -489,7 +484,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 	}
 
 	tcpPacket.DropDetachedBytes()
-	tcpPacket.UpdateTCPChecksum()
 
 	// We can now verify the reverse policy. The system requires that policy
 	// is matched in both directions. We have to make this optional as it can
@@ -538,8 +532,6 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 		}
 
 		tcpPacket.DropDetachedBytes()
-
-		tcpPacket.UpdateTCPChecksum()
 
 		// We accept the packet as a new flow
 		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context)
