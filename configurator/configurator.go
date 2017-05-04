@@ -16,7 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 
 	"github.com/aporeto-inc/trireme/enforcer/proxy"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
@@ -37,7 +37,7 @@ func NewTriremeLinuxProcess(
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
-	secrets tokens.Secrets) trireme.Trireme {
+	secrets secrets.Secrets) trireme.Trireme {
 
 	if eventCollector == nil {
 		zap.L().Warn("Using a default collector for events")
@@ -75,7 +75,7 @@ func NewLocalTriremeDocker(
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
-	secrets tokens.Secrets,
+	secrets secrets.Secrets,
 	impl constants.ImplementationType) trireme.Trireme {
 
 	if eventCollector == nil {
@@ -113,7 +113,7 @@ func NewDistributedTriremeDocker(serverID string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
-	secrets tokens.Secrets,
+	secrets secrets.Secrets,
 	impl constants.ImplementationType) trireme.Trireme {
 
 	if eventCollector == nil {
@@ -150,7 +150,7 @@ func NewHybridTrireme(
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
-	secrets tokens.Secrets,
+	secrets secrets.Secrets,
 ) trireme.Trireme {
 
 	if eventCollector == nil {
@@ -211,13 +211,17 @@ func NewHybridTrireme(
 }
 
 // NewSecretsFromPSK creates secrets from a pre-shared key
-func NewSecretsFromPSK(key []byte) tokens.Secrets {
-	return tokens.NewPSKSecrets(key)
+func NewSecretsFromPSK(key []byte) secrets.Secrets {
+	return secrets.NewPSKSecrets(key)
 }
 
 // NewSecretsFromPKI creates secrets from a PKI
-func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) tokens.Secrets {
-	return tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) secrets.Secrets {
+	secrets, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	if err != nil {
+		return nil
+	}
+	return secrets
 }
 
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
@@ -299,7 +303,10 @@ func NewPKITriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	publicKeyAdder := tokens.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	publicKeyAdder, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	if err != nil {
+		return nil, nil, nil
+	}
 
 	var triremeInstance trireme.Trireme
 
@@ -421,7 +428,7 @@ func NewCompactPKIWithDocker(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	publicKeyAdder, err := tokens.NewCompactPKI(keyPEM, certPEM, caCertPEM, token)
+	publicKeyAdder, err := secrets.NewCompactPKI(keyPEM, certPEM, caCertPEM, token)
 	if err != nil {
 		zap.L().Fatal("Failed to initialize tokens engine")
 	}

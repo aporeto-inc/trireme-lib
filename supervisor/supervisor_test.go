@@ -8,7 +8,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/policy"
 	mock_supervisor "github.com/aporeto-inc/trireme/supervisor/mock"
 
@@ -49,7 +49,7 @@ func TestNewSupervisor(t *testing.T) {
 	Convey("When I try to instantiate a new supervisor ", t, func() {
 
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 		mode := constants.LocalContainer
 		implementation := constants.IPTables
@@ -89,7 +89,7 @@ func TestSupervise(t *testing.T) {
 
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
@@ -155,7 +155,7 @@ func TestUnsupervise(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
@@ -190,7 +190,7 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := tokens.NewPSKSecrets([]byte("test password"))
+		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)

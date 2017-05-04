@@ -15,7 +15,7 @@ import (
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/processmon"
 )
@@ -43,7 +43,7 @@ var ErrInitFailed = errors.New("Failed remote Init")
 //proxyInfo is the struct used to hold state about active enforcers in the system
 type proxyInfo struct {
 	MutualAuth        bool
-	Secrets           tokens.Secrets
+	Secrets           secrets.Secrets
 	serverID          string
 	validity          time.Duration
 	prochdl           processmon.ProcessManager
@@ -72,7 +72,7 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 		},
 	}
 
-	if s.Secrets.Type() == tokens.PKICompactType {
+	if s.Secrets.Type() == secrets.PKICompactType {
 		request.Payload.(*rpcwrapper.InitRequestPayload).Token = s.Secrets.TransmittedKey()
 	}
 
@@ -167,7 +167,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *enforcer.FilterQueue,
 	collector collector.EventCollector,
 	service enforcer.PacketProcessor,
-	secrets tokens.Secrets,
+	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
@@ -211,7 +211,7 @@ func NewProxyEnforcer(mutualAuth bool,
 // NewDefaultProxyEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer
 func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
-	secrets tokens.Secrets,
+	secrets secrets.Secrets,
 	rpchdl rpcwrapper.RPCClient,
 	procMountPoint string,
 ) enforcer.PolicyEnforcer {

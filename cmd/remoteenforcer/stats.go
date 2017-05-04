@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultStatsIntervalMiliseconds = 250
+	defaultStatsIntervalMiliseconds = 1000
 	envStatsChannelPath             = "STATSCHANNEL_PATH"
 	envStatsSecret                  = "STATS_SECRET"
 	statsContextID                  = "UNUSED"
@@ -70,6 +70,10 @@ func (s *StatsClient) SendStats() {
 		case <-ticker.C:
 
 			s.collector.Lock()
+			if len(s.collector.Flows) == 0 {
+				s.collector.Unlock()
+				break
+			}
 			collected := s.collector.Flows
 			s.collector.Flows = map[string]*collector.FlowRecord{}
 			s.collector.Unlock()

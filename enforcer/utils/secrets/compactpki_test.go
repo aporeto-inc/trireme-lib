@@ -1,4 +1,4 @@
-package tokens
+package secrets
 
 import (
 	"crypto/ecdsa"
@@ -86,13 +86,13 @@ func TestNewCompactPKI(t *testing.T) {
 	})
 
 	Convey("When I create a new compact PKI with invalid certs, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(keyPEM)[:20], []byte(certPEM)[:30], []byte(caPool), txKey)
+		p, err := NewCompactPKI([]byte(privateKeyPEM)[:20], []byte(publicPEM)[:30], []byte(caPEM), txKey)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
 
 	Convey("When I create a new compact PKI with invalid CA, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool)[:10], txKey)
+		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM)[:10], txKey)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
@@ -132,7 +132,7 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("I should ge the righ ack size", func() {
-			So(p.AckSize(), ShouldEqual, 375)
+			So(p.AckSize(), ShouldEqual, 322)
 		})
 
 		Convey("When I verify the received public key, it should succeed", func() {

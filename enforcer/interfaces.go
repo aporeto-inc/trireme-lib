@@ -2,6 +2,7 @@ package enforcer
 
 import (
 	"sync"
+	"time"
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
@@ -65,5 +66,7 @@ type PUContext struct {
 	Mark           string
 	Ports          []string
 	PUType         constants.PUType
+	synToken       []byte
+	synExpiration  time.Time
 	sync.Mutex
 }

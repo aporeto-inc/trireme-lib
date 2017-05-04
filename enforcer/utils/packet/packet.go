@@ -257,83 +257,36 @@ func (p *Packet) FixupIPHdrOnDataModify(old, new uint16) {
 	binary.BigEndian.PutUint16(p.Buffer[ipChecksumPos:ipChecksumPos+2], p.ipChecksum)
 }
 
-// FixTCPCsum fixes the checksum if seq/ack are increased
-func (p *Packet) FixTCPCsum(old, new uint32) {
-
-	a := uint32(-p.TCPChecksum)
-	a += uint32(uint32Delta(new, old))
-
-	for (a >> 16) != 0 {
-		a = (a & 0xffff) + (a >> 16)
-	}
-
-	p.TCPChecksum = -uint16(a)
-	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
-}
-
 // IncreaseTCPSeq increases TCP seq number by incr
 func (p *Packet) IncreaseTCPSeq(incr uint32) {
 
-	oldTCPSeq := p.TCPSeq
 	p.TCPSeq = p.TCPSeq + incr
 	binary.BigEndian.PutUint32(p.Buffer[tcpSeqPos:tcpSeqPos+4], p.TCPSeq)
-	p.FixTCPCsum(oldTCPSeq, p.TCPSeq)
 }
 
 // DecreaseTCPSeq decreases TCP seq number by decr
 func (p *Packet) DecreaseTCPSeq(decr uint32) {
 
-	oldTCPSeq := p.TCPSeq
 	p.TCPSeq = p.TCPSeq - decr
 	binary.BigEndian.PutUint32(p.Buffer[tcpSeqPos:tcpSeqPos+4], p.TCPSeq)
-	p.FixTCPCsum(oldTCPSeq, p.TCPSeq)
 }
 
 // IncreaseTCPAck increases TCP ack number by incr
 func (p *Packet) IncreaseTCPAck(incr uint32) {
 
-	oldTCPAck := p.TCPAck
 	p.TCPAck = p.TCPAck + incr
 	binary.BigEndian.PutUint32(p.Buffer[tcpAckPos:tcpAckPos+4], p.TCPAck)
-	p.FixTCPCsum(oldTCPAck, p.TCPAck)
 }
 
 // DecreaseTCPAck decreases TCP ack number by decr
 func (p *Packet) DecreaseTCPAck(decr uint32) {
 
-	oldTCPAck := p.TCPAck
 	p.TCPAck = p.TCPAck - decr
 	binary.BigEndian.PutUint32(p.Buffer[tcpAckPos:tcpAckPos+4], p.TCPAck)
-	p.FixTCPCsum(oldTCPAck, p.TCPAck)
-}
-
-// computeTCPChecksumDelta
-func (p *Packet) computeTCPChecksumDelta(tcpOptions []byte, tcpOptionLen uint16, tcpData []byte, tcpDataLen uint16) (delta uint32) {
-
-	delta = 0
-	// Adjust with the payload checksum
-	delta += uint32(checksumDelta(append(tcpOptions, tcpData...)))
-	delta = delta&0xffff + (delta>>16)&0xffff
-	// Adjust with the length modification
-	delta += uint32(tcpDataLen + tcpOptionLen)
-	delta = delta&0xffff + (delta>>16)&0xffff
-	// Adjust for options removed
-	delta += (uint32(tcpOptionLen/4) << 12)
-	delta = delta&0xffff + (delta>>16)&0xffff
-	for (delta >> 16) != 0 {
-		delta = (delta & 0xffff) + (delta >> 16)
-	}
-
-	return
 }
 
 // FixupTCPHdrOnTCPDataDetach modifies the TCP header fields and checksum
 func (p *Packet) FixupTCPHdrOnTCPDataDetach(dataLength uint16, optionLength uint16) {
-	// Update TCP checksum
-	a := uint32(-p.TCPChecksum) - p.computeTCPChecksumDelta(p.tcpOptions[:optionLength], optionLength, p.tcpData[:dataLength], dataLength)
-	a = a + (a >> 16)
-	p.TCPChecksum = -uint16(a)
-	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
 
 	// Update DataOffset
 	p.tcpDataOffset = p.tcpDataOffset - uint8(optionLength/4)
@@ -394,11 +347,6 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 
 	numberOfOptions := len(tcpOptions) / 4
-	// TCP checksum fixup. Start with old checksum
-	delta := p.computeTCPChecksumDelta(tcpOptions, uint16(len(tcpOptions)), tcpData, uint16(len(tcpData)))
-	a := uint32(-p.TCPChecksum) + delta
-	a = a + (a >> 16)
-	p.TCPChecksum = -uint16(a)
 
 	// Modify the fields
 	p.tcpDataOffset = p.tcpDataOffset + uint8(numberOfOptions)
@@ -409,19 +357,12 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 // tcpDataAttach splits the p.Buffer into p.Buffer (header + some options), p.tcpOptions (optionLength) and p.TCPData (dataLength)
 func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 
-	optionLength := len(options)
-
-	if p.TCPDataStartBytes() != p.IPTotalLength && optionLength != 0 {
-		return fmt.Errorf("Cannot insert options with existing data: optionLength=%d, IPTotalLength=%d", optionLength, p.IPTotalLength)
+	if p.TCPDataStartBytes() != p.IPTotalLength && len(options) != 0 {
+		return fmt.Errorf("Cannot insert options with existing data: optionLength=%d, IPTotalLength=%d", len(options), p.IPTotalLength)
 	}
 
 	p.tcpOptions = append(p.tcpOptions, options...)
-
-	dataLength := len(data)
-
-	if dataLength != 0 {
-		p.tcpData = append(p.tcpData, data...)
-	}
+	p.tcpData = data
 
 	return
 }
@@ -462,12 +403,4 @@ func (p *Packet) SourcePortHash(stage uint64) string {
 		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
 	}
 	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort))
-}
-
-// DestinationPortHash calculates a hash based on dest ip/port, src port for net packet and src ip/port, dest port for app packet.
-func (p *Packet) DestinationPortHash(stage uint64) string {
-	if stage == PacketTypeNetwork {
-		return p.L4FlowHash()
-	}
-	return p.L4ReverseFlowHash()
 }

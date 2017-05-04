@@ -1,4 +1,4 @@
-package tokens
+package secrets
 
 // PSKSecrets holds the shared key.
 type PSKSecrets struct {
@@ -11,7 +11,7 @@ func NewPSKSecrets(psk []byte) *PSKSecrets {
 }
 
 // Type implements the Secrets interface.
-func (p *PSKSecrets) Type() SecretsType {
+func (p *PSKSecrets) Type() PrivateSecretsType {
 	return PSKType
 }
 
@@ -37,7 +37,7 @@ func (p *PSKSecrets) VerifyPublicKey(pkey []byte) (interface{}, error) {
 
 // AckSize returns the expected size of ack packets.
 func (p *PSKSecrets) AckSize() uint32 {
-	return uint32(332)
+	return uint32(279)
 }
 
 // AuthPEM returns the Certificate Authority PEM.

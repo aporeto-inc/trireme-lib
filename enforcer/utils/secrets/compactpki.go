@@ -1,4 +1,4 @@
-package tokens
+package secrets
 
 import (
 	"crypto/ecdsa"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/aporeto-inc/trireme/enforcer/utils/pkiverifier"
+	"go.uber.org/zap"
 )
 
 // CompactPKI holds all PKI information
@@ -23,6 +24,8 @@ type CompactPKI struct {
 
 // NewCompactPKI creates new secrets for PKI implementation based on compact encoding
 func NewCompactPKI(keyPEM, certPEM, caPEM, txKey []byte) (*CompactPKI, error) {
+
+	zap.L().Debug("Initializing with Compact PKI")
 
 	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
@@ -53,7 +56,7 @@ func NewCompactPKI(keyPEM, certPEM, caPEM, txKey []byte) (*CompactPKI, error) {
 }
 
 // Type implements the interface Secrets
-func (p *CompactPKI) Type() SecretsType {
+func (p *CompactPKI) Type() PrivateSecretsType {
 	return PKICompactType
 }
 
@@ -93,7 +96,7 @@ func (p *CompactPKI) TransmittedKey() []byte {
 
 // AckSize returns the default size of an ACK packet
 func (p *CompactPKI) AckSize() uint32 {
-	return uint32(375)
+	return uint32(322)
 }
 
 // AuthPEM returns the Certificate Authority PEM

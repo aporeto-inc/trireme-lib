@@ -11,7 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	. "github.com/smartystreets/goconvey/convey"
@@ -64,7 +64,7 @@ func TestInvalidContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		tcpPacket, err := packet.New(0, TCPFlow[0], "0")
@@ -88,7 +88,7 @@ func TestInvalidIPContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
@@ -115,7 +115,7 @@ func TestInvalidTokenContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
 
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 
 		ip := policy.NewIPMap(map[string]string{
@@ -184,7 +184,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
 	puInfo2.Policy.AddReceiverRules(&tagSelector)
 
-	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 
 	collector := &collector.DefaultCollector{}
 	enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
@@ -592,7 +592,8 @@ func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Pac
 
 func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
 	tcpData := tcpPacket.ReadTCPData()
-	claims, _ := enforcer.tokenEngine.Decode(false, tcpData, nil)
+	claims, _, _, nerr := enforcer.tokenEngine.Decode(false, tcpData, nil)
+	So(nerr, ShouldBeNil)
 	netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 	So(err, ShouldBeNil)
 	So(netconn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckReceived)
@@ -739,7 +740,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 func TestCacheState(t *testing.T) {
 
-	secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 	collector := &collector.DefaultCollector{}
 	enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 	contextID := "123"
@@ -779,7 +780,7 @@ func TestCacheState(t *testing.T) {
 func TestDoCreatePU(t *testing.T) {
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.mode = constants.LocalServer
@@ -808,7 +809,7 @@ func TestDoCreatePU(t *testing.T) {
 	})
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.mode = constants.LocalServer
@@ -829,7 +830,7 @@ func TestDoCreatePU(t *testing.T) {
 	})
 
 	Convey("Given an initialized enforcer for local Linux Containers", t, func() {
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 
@@ -860,7 +861,7 @@ func TestDoCreatePU(t *testing.T) {
 	})
 
 	Convey("Given an initialized enforcer for remote Linux Containers", t, func() {
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.mode = constants.RemoteContainer
@@ -883,7 +884,7 @@ func TestDoCreatePU(t *testing.T) {
 func TestContextFromIP(t *testing.T) {
 
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
-		secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 
@@ -955,7 +956,7 @@ func TestContextFromIP(t *testing.T) {
 
 func TestInvalidPacket(t *testing.T) {
 	// collector := &collector.DefaultCollector{}
-	// secret := tokens.NewPSKSecrets([]byte("Dummy Test Password"))
+	// secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 	// enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 
 	Convey("When I receive an invalid packet", t, func() {

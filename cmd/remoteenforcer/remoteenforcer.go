@@ -9,7 +9,6 @@ import (
 
 // Server is a fake implementation for building on darwin.
 type Server struct {
-	statsclient *StatsClient
 }
 
 // EnforcerExit is a fake implementation for building on darwin.

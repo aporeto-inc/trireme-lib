@@ -197,8 +197,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		}
 	} else {
 		zap.L().Error("Cannot determine namespace of new container",
-			zap.String("hostError", hoststaterr.Error()),
-			zap.String("netError", pidstaterr.Error()),
+			zap.Error(hoststaterr),
+			zap.Error(pidstaterr),
 		)
 	}
 	_, staterr := os.Stat(netnspath)
