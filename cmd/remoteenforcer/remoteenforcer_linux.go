@@ -144,6 +144,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	switch payload.SecretType {
 	case secrets.PKIType:
 		// PKI params
+		zap.L().Info("Using PKI Secrets")
 		secrets := secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
@@ -158,6 +159,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		)
 	case secrets.PSKType:
 		// PSK params
+		zap.L().Info("Using PSK Secrets")
 		secrets := secrets.NewPSKSecrets(payload.PrivatePEM)
 		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
@@ -172,6 +174,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		)
 	case secrets.PKICompactType:
 		// Compact PKI Parameters
+		zap.L().Info("Using PKI Compact Secrets")
 		secrets, err := secrets.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
@@ -188,7 +191,8 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			s.procMountPoint,
 		)
 	case secrets.PKINull:
-		// Null Encryption 
+		// Null Encryption
+		zap.L().Info("Using Null Secrets")
 		secrets, err := secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM )
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")

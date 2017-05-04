@@ -23,7 +23,6 @@ type PKISecrets struct {
 
 // NewPKISecrets creates new secrets for PKI implementations
 func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) *PKISecrets {
-
 	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
 		return nil
