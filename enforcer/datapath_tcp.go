@@ -270,7 +270,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 
 		// Create a token
 		context.Lock()
-		tcpData, err := d.createSynPacketToken(context, &conn.Auth)
+		tcpData, err := d.createSynAckPacketToken(context, &conn.Auth)
 		context.Unlock()
 
 		if err != nil {
@@ -586,7 +586,6 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *connection.Aut
 	if context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
 		// Randomize the nonce and send it
 		auth.LocalContext, err = d.tokenEngine.Randomize(context.synToken)
-
 		if err == nil {
 			return context.synToken, nil
 		}
@@ -602,6 +601,23 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *connection.Aut
 	}
 
 	context.synExpiration = time.Now().Add(time.Millisecond * 500)
+
+	return context.synToken, nil
+
+}
+
+// createSynAckPacketToken  creates the authentication token for SynAck packets
+// We need to sign the received token. No caching possible here
+func (d *Datapath) createSynAckPacketToken(context *PUContext, auth *connection.AuthInfo) (token []byte, err error) {
+
+	claims := &tokens.ConnectionClaims{
+		T:   context.Identity,
+		RMT: auth.RemoteContext,
+	}
+
+	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
+		return []byte{}, nil
+	}
 
 	return context.synToken, nil
 

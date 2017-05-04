@@ -7,7 +7,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/crypto"
 )
 
 var (
@@ -160,13 +159,6 @@ func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
 		flowReported: trackFlowReporting,
 		logs:         make([]string, 0),
 	}
-	initConnection(&c.Auth)
+
 	return c
-}
-
-// initConnection creates the state information for a new connection
-func initConnection(s *AuthInfo) {
-
-	nonse, _ := crypto.GenerateRandomBytes(16)
-	s.LocalContext = nonse
 }
