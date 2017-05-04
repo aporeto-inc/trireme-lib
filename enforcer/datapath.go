@@ -14,6 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/connection"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
@@ -91,7 +92,7 @@ func New(
 	filterQueue *FilterQueue,
 	collector collector.EventCollector,
 	service PacketProcessor,
-	secrets tokens.Secrets,
+	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
 	mode constants.ModeType,
@@ -154,7 +155,7 @@ func NewWithDefaults(
 	serverID string,
 	collector collector.EventCollector,
 	service PacketProcessor,
-	secrets tokens.Secrets,
+	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
 ) PolicyEnforcer {

@@ -94,6 +94,11 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) error {
 	if err != nil {
 		d.netTCP.AuthDropPackets++
 		p.Print(packet.PacketFailureAuth)
+		zap.L().Debug("Rejecting packet ",
+			zap.String("flow", p.L4FlowHash()),
+			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
+			zap.Error(err),
+		)
 		return fmt.Errorf("Packet processing failed for network packet: %s", err.Error())
 	}
 
@@ -228,8 +233,11 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// Create a token
 	context.Lock()
-	tcpData := d.createSynPacketToken(false, context, &conn.Auth)
+	tcpData, err := d.createSynPacketToken(context, &conn.Auth)
 	context.Unlock()
+	if err != nil {
+		return nil, err
+	}
 	// Track the connection/port cache
 	hash := tcpPacket.L4FlowHash()
 	conn.SetState(connection.TCPSynSend)
@@ -262,8 +270,12 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 
 		// Create a token
 		context.Lock()
-		tcpData := d.createPacketToken(false, context, &conn.Auth)
+		tcpData, err := d.createSynPacketToken(context, &conn.Auth)
 		context.Unlock()
+
+		if err != nil {
+			return nil, err
+		}
 
 		// Attach the tags to the packet
 		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
@@ -294,8 +306,11 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
 		context.Lock()
-		token := d.createPacketToken(true, context, &conn.Auth)
+		token, err := d.createAckPacketToken(context, &conn.Auth)
 		context.Unlock()
+		if err != nil {
+			return nil, err
+		}
 
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
@@ -347,6 +362,11 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 // processNetworkTCPPacket processes a network TCP packet and dispatches it to different methods based on the flags
 func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
+	zap.L().Debug("Processing network packet ",
+		zap.String("flow", tcpPacket.L4FlowHash()),
+		zap.String("Flags", packet.TCPFlagsToStr(tcpPacket.TCPFlags)),
+	)
+
 	if conn == nil {
 		return nil, nil
 	}
@@ -385,7 +405,6 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *connection.
 
 	txLabel, ok := claims.T.Get(TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); !ok || err != nil {
-
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
 		return nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
@@ -444,28 +463,18 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 		return nil, fmt.Errorf("SynAck packet dropped because of missing token")
 	}
 
-	// Validate the certificate and parse the token
-	claims, cert := d.tokenEngine.Decode(false, tcpData, nil)
-	if claims == nil {
+	claims, err := d.parsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
+	// // Validate the certificate and parse the token
+	// claims, nonce, cert, err := d.tokenEngine.Decode(false, tcpData, nil)
+	if err != nil || claims == nil {
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken)
 		return nil, fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
 	}
 
-	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T.Get(TransmitterLabel)
-	if !ok {
-		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.InvalidContext)
-		return nil, fmt.Errorf("No remote context %v", claims.T)
-	}
-
-	// Stash connection
-	conn.Auth.RemotePublicKey = cert
-	conn.Auth.RemoteContext = claims.LCL
-	conn.Auth.RemoteContextID = remoteContextID
 	tcpPacket.ConnectionMetadata = &conn.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, remoteContextID, context, collector.InvalidFormat)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat)
 		return nil, fmt.Errorf("TCP Authentication Option not found")
 	}
 
@@ -475,7 +484,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 	tcpPacket.IncreaseTCPAck(d.ackSize)
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, remoteContextID, context, collector.InvalidFormat)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat)
 		return nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
 
@@ -487,7 +496,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 	// become a very strong condition
 
 	if index, _ := context.RejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, remoteContextID, context, collector.PolicyDrop)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop)
 		return nil, fmt.Errorf("Dropping because of reject rule on transmitter")
 	}
 
@@ -496,7 +505,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *connecti
 		return action, nil
 	}
 
-	d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, remoteContextID, context, collector.PolicyDrop)
+	d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop)
 	return nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
@@ -555,39 +564,46 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 	return nil, fmt.Errorf("Ack packet dropped - Invalid State: %v", conn.GetState())
 }
 
-// createPacketToken creates the authentication token
-func (d *Datapath) createPacketToken(ackToken bool, context *PUContext, auth *connection.AuthInfo) []byte {
+// createacketToken creates the authentication token
+func (d *Datapath) createAckPacketToken(context *PUContext, auth *connection.AuthInfo) ([]byte, error) {
 
 	claims := &tokens.ConnectionClaims{
 		LCL: auth.LocalContext,
 		RMT: auth.RemoteContext,
 	}
 
-	if !ackToken {
-		claims.T = context.Identity
+	token, _, err := d.tokenEngine.CreateAndSign(true, claims)
+	if err != nil {
+		return []byte{}, err
 	}
 
-	return d.tokenEngine.CreateAndSign(ackToken, claims)
-
+	return token, nil
 }
 
 // createSynPacketToken creates the authentication token
-func (d *Datapath) createSynPacketToken(ackToken bool, context *PUContext, auth *connection.AuthInfo) []byte {
+func (d *Datapath) createSynPacketToken(context *PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
 	if context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
-		return context.synToken
+		// Randomize the nonce and send it
+		auth.LocalContext, err = d.tokenEngine.Randomize(context.synToken)
+
+		if err == nil {
+			return context.synToken, nil
+		}
+		// If there is an error, let's try to create a new one
 	}
 
 	claims := &tokens.ConnectionClaims{
-		LCL: auth.LocalContext,
-		RMT: auth.RemoteContext,
-		T:   context.Identity,
+		T: context.Identity,
 	}
 
-	context.synToken = d.tokenEngine.CreateAndSign(ackToken, claims)
-	context.synExpiration = time.Now().Add(time.Millisecond * 5000)
+	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
+		return []byte{}, nil
+	}
 
-	return context.synToken
+	context.synExpiration = time.Now().Add(time.Millisecond * 500)
+
+	return context.synToken, nil
 
 }
 
@@ -596,9 +612,9 @@ func (d *Datapath) createSynPacketToken(ackToken bool, context *PUContext, auth 
 func (d *Datapath) parsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, cert := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
-	if claims == nil {
-		return nil, fmt.Errorf("Cannot decode the token")
+	claims, nonce, cert, err := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
+	if err != nil {
+		return nil, err
 	}
 
 	// We always a need a valid remote context ID
@@ -608,7 +624,7 @@ func (d *Datapath) parsePacketToken(auth *connection.AuthInfo, data []byte) (*to
 	}
 
 	auth.RemotePublicKey = cert
-	auth.RemoteContext = claims.LCL
+	auth.RemoteContext = nonce
 	auth.RemoteContextID = remoteContextID
 
 	return claims, nil
@@ -619,9 +635,9 @@ func (d *Datapath) parsePacketToken(auth *connection.AuthInfo, data []byte) (*to
 func (d *Datapath) parseAckToken(connection *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, _ := d.tokenEngine.Decode(true, data, connection.RemotePublicKey)
-	if claims == nil {
-		return nil, fmt.Errorf("Cannot decode the token")
+	claims, _, _, err := d.tokenEngine.Decode(true, data, connection.RemotePublicKey)
+	if err != nil {
+		return nil, err
 	}
 
 	// Compare the incoming random context with the stored context

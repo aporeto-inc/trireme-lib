@@ -5,7 +5,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -39,15 +39,15 @@ type Response struct {
 
 //InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
-	FqConfig   *enforcer.FilterQueue `json:",omitempty"`
-	MutualAuth bool                  `json:",omitempty"`
-	Validity   time.Duration         `json:",omitempty"`
-	SecretType tokens.SecretsType    `json:",omitempty"`
-	ServerID   string                `json:",omitempty"`
-	CAPEM      []byte                `json:",omitempty"`
-	PublicPEM  []byte                `json:",omitempty"`
-	PrivatePEM []byte                `json:",omitempty"`
-	Token      []byte                `json:",omitempty"`
+	FqConfig   *enforcer.FilterQueue      `json:",omitempty"`
+	MutualAuth bool                       `json:",omitempty"`
+	Validity   time.Duration              `json:",omitempty"`
+	SecretType secrets.PrivateSecretsType `json:",omitempty"`
+	ServerID   string                     `json:",omitempty"`
+	CAPEM      []byte                     `json:",omitempty"`
+	PublicPEM  []byte                     `json:",omitempty"`
+	PrivatePEM []byte                     `json:",omitempty"`
+	Token      []byte                     `json:",omitempty"`
 }
 
 //InitSupervisorPayload for supervisor init request

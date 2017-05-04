@@ -29,7 +29,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 )
@@ -142,9 +142,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 
 	payload := req.Payload.(rpcwrapper.InitRequestPayload)
 	switch payload.SecretType {
-	case tokens.PKIType:
+	case secrets.PKIType:
 		// PKI params
-		secrets := tokens.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
+		secrets := secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
 			payload.FqConfig,
@@ -156,9 +156,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			constants.RemoteContainer,
 			s.procMountPoint,
 		)
-	case tokens.PSKType:
+	case secrets.PSKType:
 		// PSK params
-		secrets := tokens.NewPSKSecrets(payload.PrivatePEM)
+		secrets := secrets.NewPSKSecrets(payload.PrivatePEM)
 		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
 			payload.FqConfig,
@@ -170,9 +170,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			constants.RemoteContainer,
 			s.procMountPoint,
 		)
-	case tokens.PKICompactType:
+	case secrets.PKICompactType:
 		// Compact PKI Parameters
-		secrets, err := tokens.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
+		secrets, err := secrets.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
 		}
@@ -187,10 +187,9 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			constants.RemoteContainer,
 			s.procMountPoint,
 		)
-	case tokens.PKINull:
-		// Compact PKI Parameters
-		fmt.Println("INSTANTIATIING WITH NULL ")
-		secrets, err := tokens.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
+	case secrets.PKINull:
+		// Null Encryption 
+		secrets, err := secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM )
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
 		}

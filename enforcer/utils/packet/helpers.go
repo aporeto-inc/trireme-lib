@@ -124,8 +124,10 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buf = append(buf, p.tcpOptions...)
 
 	if len(buf)%2 != 0 {
-		buf = append(buf, p.tcpData[0])
-		return multiBufCheckSum(buf, p.tcpData[1:])
+		if len(p.tcpData) > 0 {
+			buf = append(buf, p.tcpData[0])
+			return multiBufCheckSum(buf, p.tcpData[1:])
+		}
 	}
 
 	return multiBufCheckSum(buf, p.tcpData)

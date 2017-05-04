@@ -73,7 +73,7 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 	buffer := make([]byte, minBufferLength)
 
 	// Copy the random part
-	copy(buffer[lclIndex:lclIndex+sizeOfRandom], claims.LCL)
+	//  copy(buffer[lclIndex:lclIndex+sizeOfRandom], claims.LCL)
 	copy(buffer[rmtIndex:rmtIndex+sizeOfRandom], claims.RMT)
 
 	// If not an ACK packet copy the tags
@@ -116,7 +116,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interfa
 		return nil, nil
 	}
 
-	claims.LCL = data[lclIndex : lclIndex+sizeOfRandom]
+	// claims.LCL = data[lclIndex : lclIndex+sizeOfRandom]
 	claims.RMT = data[rmtIndex : rmtIndex+sizeOfRandom]
 
 	if !isAck {
