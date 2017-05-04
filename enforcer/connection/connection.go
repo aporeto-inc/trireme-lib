@@ -126,7 +126,7 @@ func (c *TCPConnection) SetReported(flowState bool) {
 	if repeatedReporting {
 		reported = reported + " (ERROR duplicate reporting) " + state
 	}
-	if flowState == RejectReported {
+	if flowState {
 		reported = reported + " dropped: "
 	} else {
 		reported = reported + " accepted: "
