@@ -41,11 +41,21 @@ const (
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
-func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) error {
+func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
+
+	zap.L().Debug("Processing network packet ",
+		zap.String("flow", p.L4FlowHash()),
+		zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
+	)
+
+	defer zap.L().Debug("Finished Processing network packet ",
+		zap.String("flow", p.L4FlowHash()),
+		zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
+		zap.Error(err),
+	)
 
 	var context *PUContext
 	var conn *connection.TCPConnection
-	var err error
 
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
@@ -114,20 +124,25 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) error {
 	}
 
 	// Accept the packet
-
-	p.UpdateTCPChecksum()
 	d.netTCP.OutgoingPackets++
+	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 
 	return nil
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
+func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 
 	zap.L().Debug("Processing application packet ",
 		zap.String("flow", p.L4FlowHash()),
 		zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
+	)
+
+	defer zap.L().Debug("Finished Processing application packet ",
+		zap.String("flow", p.L4FlowHash()),
+		zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
+		zap.Error(err),
 	)
 
 	context, conn, err := d.appRetrieveState(p)
@@ -181,11 +196,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
 		return fmt.Errorf("Processing failed for application packet: %s", err.Error())
 	}
 
-	zap.L().Debug("Finished processing ",
-		zap.String("flow", p.L4FlowHash()),
-		zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-	)
-
 	p.Print(packet.PacketStageService)
 
 	if d.service != nil {
@@ -198,8 +208,8 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) error {
 	}
 
 	// Accept the packet
-	p.UpdateTCPChecksum()
 	d.appTCP.OutgoingPackets++
+	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 	return nil
 }
@@ -357,11 +367,6 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 // processNetworkTCPPacket processes a network TCP packet and dispatches it to different methods based on the flags
 func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
-
-	zap.L().Debug("Processing network packet ",
-		zap.String("flow", tcpPacket.L4FlowHash()),
-		zap.String("Flags", packet.TCPFlagsToStr(tcpPacket.TCPFlags)),
-	)
 
 	if conn == nil {
 		return nil, nil
