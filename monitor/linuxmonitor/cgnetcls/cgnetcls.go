@@ -14,9 +14,9 @@ import (
 	"sync/atomic"
 	"syscall"
 
-	"go.uber.org/zap"
-
 	"github.com/kardianos/osext"
+
+	"go.uber.org/zap"
 )
 
 const (
