@@ -36,6 +36,9 @@ const (
 
 	// TCPAckProcessed is the state that the negotiation has been completed
 	TCPAckProcessed
+)
+
+const (
 
 	// RejectReported represents that flow was reported as rejected
 	RejectReported bool = true
@@ -63,6 +66,11 @@ type TCPConnection struct {
 	flowLastReporting bool
 	flowReported      bool
 	logs              []string
+
+	// ServiceData allows services to associate state with a connection
+	ServiceData interface{}
+	// ServiceConnection indicates that this connection is handled by a service
+	ServiceConnection bool
 
 	sync.Mutex
 }

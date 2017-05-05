@@ -65,6 +65,10 @@ func (p *CompactPKI) EncodingKey() interface{} {
 	return p.privateKey
 }
 
+func (p *CompactPKI) PublicKey() interface{} {
+	return p.publicKey
+}
+
 // DecodingKey returns the public key
 func (p *CompactPKI) DecodingKey(server string, ackKey interface{}, prevKey interface{}) (interface{}, error) {
 
