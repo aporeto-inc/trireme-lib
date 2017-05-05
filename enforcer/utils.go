@@ -27,14 +27,18 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnec
 	})
 }
 
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *PUContext) {
-
-	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowAccept, "NA")
+func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *PUContext) {
+	if conn != nil {
+		conn.SetReported(connection.RejectReported)
+	}
+	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
 }
 
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
-
-	d.reportFlow(p, connection, sourceID, destID, context, collector.FlowReject, mode)
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
+	if conn != nil {
+		conn.SetReported(connection.AcceptReported)
+	}
+	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
 }
 
 // createRuleDBs creates the database of rules from the policy

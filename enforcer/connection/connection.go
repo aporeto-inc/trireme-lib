@@ -36,6 +36,12 @@ const (
 
 	// TCPAckProcessed is the state that the negotiation has been completed
 	TCPAckProcessed
+
+	// RejectReported represents that flow was reported as rejected
+	RejectReported bool = true
+
+	// AcceptReported represents that flow was reported as accepted
+	AcceptReported bool = false
 )
 
 // AuthInfo keeps authentication information about a connection
@@ -54,8 +60,9 @@ type TCPConnection struct {
 	Auth  AuthInfo
 
 	// Debugging Information
-	flowReported bool
-	logs         []string
+	flowLastReporting bool
+	flowReported      bool
+	logs              []string
 
 	sync.Mutex
 }
@@ -93,7 +100,7 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 }
 
 // SetReported is used to track if a flow is reported
-func (c *TCPConnection) SetReported(dropped bool) {
+func (c *TCPConnection) SetReported(flowState bool) {
 
 	repeatedReporting := false
 	if !c.flowReported {
@@ -101,6 +108,13 @@ func (c *TCPConnection) SetReported(dropped bool) {
 	} else {
 		repeatedReporting = true
 	}
+	state := ""
+	if repeatedReporting {
+		state = fmt.Sprintf("%t %t", c.flowLastReporting, flowState)
+		zap.L().Error("Connection reported multiple times",
+			zap.String("state", state))
+	}
+	c.flowLastReporting = flowState
 
 	if TraceLogging == 0 {
 		return
@@ -109,9 +123,9 @@ func (c *TCPConnection) SetReported(dropped bool) {
 	// Logging information
 	reported := "flow-reported:"
 	if repeatedReporting {
-		reported = reported + " (ERROR duplicate reporting)"
+		reported = reported + " (ERROR duplicate reporting) " + state
 	}
-	if dropped {
+	if flowState {
 		reported = reported + " dropped: "
 	} else {
 		reported = reported + " accepted: "
