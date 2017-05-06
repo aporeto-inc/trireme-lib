@@ -54,6 +54,7 @@ type Server struct {
 	Enforcer       enforcer.PolicyEnforcer
 	Supervisor     supervisor.Supervisor
 	Service        enforcer.PacketProcessor
+	secrets        secrets.Secrets
 }
 
 var cmdLock sync.Mutex
@@ -145,8 +146,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	case secrets.PKIType:
 		// PKI params
 		zap.L().Info("Using PKI Secrets")
-		secrets, err := secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
-		s.Service.Initialize(secrets)
+		s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
 		}
@@ -155,7 +155,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			payload.FqConfig,
 			s.statsclient.collector,
 			s.Service,
-			secrets,
+			s.secrets,
 			payload.ServerID,
 			payload.Validity,
 			constants.RemoteContainer,
@@ -164,14 +164,13 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	case secrets.PSKType:
 		// PSK params
 		zap.L().Info("Using PSK Secrets")
-		secrets := secrets.NewPSKSecrets(payload.PrivatePEM)
-		s.Service.Initialize(secrets)
+		s.secrets = secrets.NewPSKSecrets(payload.PrivatePEM)
 		s.Enforcer = enforcer.New(
 			payload.MutualAuth,
 			payload.FqConfig,
 			s.statsclient.collector,
 			s.Service,
-			secrets,
+			s.secrets,
 			payload.ServerID,
 			payload.Validity,
 			constants.RemoteContainer,
@@ -180,8 +179,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	case secrets.PKICompactType:
 		// Compact PKI Parameters
 		zap.L().Info("Using PKI Compact Secrets")
-		secrets, err := secrets.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
-		s.Service.Initialize(secrets)
+		s.secrets, err = secrets.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
 		}
@@ -190,7 +188,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			payload.FqConfig,
 			s.statsclient.collector,
 			s.Service,
-			secrets,
+			s.secrets,
 			payload.ServerID,
 			payload.Validity,
 			constants.RemoteContainer,
@@ -199,8 +197,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	case secrets.PKINull:
 		// Null Encryption
 		zap.L().Info("Using Null Secrets")
-		secrets, err := secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
-		s.Service.Initialize(secrets)
+		s.secrets, err = secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize secrets")
 		}
@@ -209,7 +206,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			payload.FqConfig,
 			s.statsclient.collector,
 			s.Service,
-			secrets,
+			s.secrets,
 			payload.ServerID,
 			payload.Validity,
 			constants.RemoteContainer,
@@ -257,6 +254,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 	}
 
 	s.Supervisor.Start()
+
+	s.Service.Initialize(s.secrets)
 
 	resp.Status = ""
 

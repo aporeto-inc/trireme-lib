@@ -29,7 +29,6 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 	if conn != nil {
 		conn.SetReported(connection.RejectReported)
 	}
-	fmt.Println("ACCEPTED ")
 	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
 }
 
