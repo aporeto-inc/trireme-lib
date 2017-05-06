@@ -122,15 +122,9 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buf[pseudoHeaderLen+17] = 0
 
 	buf = append(buf, p.tcpOptions...)
+	buf = append(buf, p.tcpData...)
 
-	if len(buf)%2 != 0 {
-		if len(p.tcpData) > 0 {
-			buf = append(buf, p.tcpData[0])
-			return multiBufCheckSum(buf, p.tcpData[1:])
-		}
-	}
-
-	return multiBufCheckSum(buf, p.tcpData)
+	return checksum(buf)
 }
 
 // incCsum16 implements rfc1624, equation 3.
@@ -170,37 +164,4 @@ func checksum(buf []byte) uint16 {
 	sum := checksumDelta(buf)
 	csum := ^sum
 	return csum
-}
-
-// Computes a checksum over two given slices. Allows to avoid packet copies
-// First buffer must be aligned to 16-bit words
-func multiBufCheckSum(buf1, buf2 []byte) uint16 {
-
-	sum := multiBufCheckSumDelta(buf1, buf2)
-	csum := ^sum
-	return csum
-}
-
-// Computes a sum of 16 bit numbers across two buffers. Avoid copies .
-// First buffer aligned to 16-bits
-func multiBufCheckSumDelta(buf1, buf2 []byte) uint16 {
-
-	sum := uint32(0)
-
-	for ; len(buf1) >= 2; buf1 = buf1[2:] {
-		sum += uint32(buf1[0])<<8 | uint32(buf1[1])
-	}
-
-	for ; len(buf2) >= 2; buf2 = buf2[2:] {
-		sum += uint32(buf2[0])<<8 | uint32(buf2[1])
-	}
-
-	if len(buf2) > 0 {
-		sum += uint32(buf2[0]) << 8
-	}
-
-	for sum > 0xffff {
-		sum = (sum >> 16) + (sum & 0xffff)
-	}
-	return uint16(sum)
 }
