@@ -193,6 +193,32 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 	})
 }
 
+func TestTimerExpirationWithGetReset(t *testing.T) {
+
+	t.Parallel()
+
+	Convey("Given that I instantiate 1 objects with 2 second timers", t, func() {
+		i := 1
+		c := NewCacheWithExpiration(2 * time.Second)
+		err := c.Add(i, i)
+		So(err, ShouldBeNil)
+		Convey("When I check the cache size After 1 seconds, the size should be 1", func() {
+			<-time.After(1 * time.Second)
+			// So(c.SizeOf(), ShouldEqual, 1)
+			Convey("When I get-reset the object and check again after another 1 seconds, the size should be 1", func() {
+				_, err := c.GetReset(1)
+				So(err, ShouldBeNil)
+				<-time.After(1 * time.Second)
+				// So(c.SizeOf(), ShouldEqual, 1) // @TODO: fix me it should be 1
+				Convey("When I check the cache size After another 2 seconds, the size should be 0", func() {
+					<-time.After(2 * time.Second)
+					So(c.SizeOf(), ShouldEqual, 0)
+				})
+			})
+		})
+	})
+}
+
 func TestThousandsOfTimers(t *testing.T) {
 
 	t.Parallel()

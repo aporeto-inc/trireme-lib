@@ -193,7 +193,7 @@ func NewWithDefaults(
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	puContext, err := d.contextTracker.Get(contextID)
+	puContext, err := d.contextTracker.GetReset(contextID)
 	if err != nil {
 		return d.doCreatePU(contextID, puInfo)
 	}
@@ -204,7 +204,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 // Unenforce removes the configuration for the given PU
 func (d *Datapath) Unenforce(contextID string) error {
 
-	puContext, err := d.contextTracker.Get(contextID)
+	puContext, err := d.contextTracker.GetReset(contextID)
 	if err != nil {
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}

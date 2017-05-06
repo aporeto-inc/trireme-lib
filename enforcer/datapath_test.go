@@ -576,7 +576,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 }
 
 func CheckAfterAppSynPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
-	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	appConn, err := enforcer.appConnectionTracker.GetReset(tcpPacket.L4FlowHash())
 	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynSend)
 	So(err, ShouldBeNil)
 
@@ -584,7 +584,7 @@ func CheckAfterAppSynPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
 
 func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
 
-	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	appConn, err := enforcer.networkConnectionTracker.GetReset(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
 	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynReceived)
 
@@ -603,14 +603,14 @@ func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outP
 }
 
 func CheckAfterAppAckPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
-	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	appConn, err := enforcer.appConnectionTracker.GetReset(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
 	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPAckSend)
 }
 
 func CheckBeforeNetAckPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
 
-	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	appConn, err := enforcer.networkConnectionTracker.GetReset(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
 	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckSend)
 
@@ -794,7 +794,7 @@ func TestDoCreatePU(t *testing.T) {
 
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
-				_, err := enforcer.contextTracker.Get(contextID)
+				_, err := enforcer.contextTracker.GetReset(contextID)
 				So(err, ShouldBeNil)
 				_, err1 := enforcer.puFromMark.Get("100")
 				So(err1, ShouldBeNil)
@@ -821,7 +821,7 @@ func TestDoCreatePU(t *testing.T) {
 
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
-				_, err := enforcer.contextTracker.Get(contextID)
+				_, err := enforcer.contextTracker.GetReset(contextID)
 				So(err, ShouldBeNil)
 				_, err4 := enforcer.puFromIP.Get(DefaultNetwork)
 				So(err4, ShouldNotBeNil)
