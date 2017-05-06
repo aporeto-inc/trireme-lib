@@ -727,7 +727,7 @@ func (d *Datapath) appRetrieveState(tcpPacket *packet.Packet) (*PUContext, *conn
 		hash := tcpPacket.L4FlowHash()
 		conn, err := d.appConnectionTracker.Get(hash)
 		if err != nil {
-			conn = connection.NewTCPConnection(false)
+			conn = connection.NewTCPConnection()
 		}
 		conn.(*connection.TCPConnection).SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 		return context, conn.(*connection.TCPConnection), nil
@@ -779,7 +779,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *connection.T
 		hash := p.L4FlowHash()
 		conn, err := d.networkConnectionTracker.Get(hash)
 		if err != nil {
-			conn = connection.NewTCPConnection(true)
+			conn = connection.NewTCPConnection()
 		}
 		conn.(*connection.TCPConnection).SetPacketInfo(hash, packet.TCPFlagsToStr(p.TCPFlags))
 		return cachedContext, conn.(*connection.TCPConnection), nil
@@ -806,7 +806,8 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *connection.T
 // Dealing with all variations of NAT here since we want to maintain support
 // for mixed environments of Linux processes and containers
 func (d *Datapath) netRetrieveSynAckState(p *packet.Packet) (*PUContext, *connection.TCPConnection, error) {
-	cachedContext, err := d.sourcePortCache.Get(p.SourcePortHash(packet.PacketTypeNetwork))
+	hash := p.SourcePortHash(packet.PacketTypeNetwork)
+	cachedContext, err := d.sourcePortCache.Get(hash)
 	if err != nil {
 		zap.L().Debug("Ingroning SynAck packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -814,7 +815,7 @@ func (d *Datapath) netRetrieveSynAckState(p *packet.Packet) (*PUContext, *connec
 		return nil, nil, nil
 	}
 
-	cachedConn, err := d.sourcePortConnectionCache.Get(p.SourcePortHash(packet.PacketTypeNetwork))
+	cachedConn, err := d.sourcePortConnectionCache.Get(hash)
 	if err != nil {
 		zap.L().Debug("No connection for SynAck packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -822,6 +823,7 @@ func (d *Datapath) netRetrieveSynAckState(p *packet.Packet) (*PUContext, *connec
 		return nil, nil, fmt.Errorf("No Synack Connection")
 	}
 
+	cachedConn.(*connection.TCPConnection).SetPacketInfo(hash, packet.TCPFlagsToStr(p.TCPFlags))
 	return cachedContext.(*PUContext), cachedConn.(*connection.TCPConnection), nil
 }
 

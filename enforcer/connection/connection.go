@@ -163,7 +163,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 		logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
 	}
 	// Logging information
-	if c.flowReported == 0 {
+	if c.flowReported == 0 && len(c.logs) > 1 {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()),
 			zap.String("logs", logStr))
@@ -175,11 +175,11 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 }
 
 // NewTCPConnection returns a TCPConnection information struct
-func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
+func NewTCPConnection() *TCPConnection {
 
 	c := &TCPConnection{
 		state: TCPSynSend,
-		logs:  []string{},
+		logs:  []string{"Initialized"},
 	}
 
 	return c
