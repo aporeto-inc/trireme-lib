@@ -1,6 +1,8 @@
 package enforcer
 
 import (
+	"fmt"
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
@@ -9,10 +11,6 @@ import (
 )
 
 func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
-
-	if connection != nil {
-		connection.SetReported(true)
-	}
 
 	d.collector.CollectFlowEvent(&collector.FlowRecord{
 		ContextID:       context.ID,
@@ -31,6 +29,7 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 	if conn != nil {
 		conn.SetReported(connection.RejectReported)
 	}
+	fmt.Println("ACCEPTED ")
 	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
 }
 
@@ -38,6 +37,7 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 	if conn != nil {
 		conn.SetReported(connection.AcceptReported)
 	}
+	fmt.Println("REJECTED", mode)
 	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
 }
 

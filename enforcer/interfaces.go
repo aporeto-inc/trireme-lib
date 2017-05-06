@@ -8,6 +8,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 )
@@ -40,6 +41,8 @@ type PublicKeyAdder interface {
 
 // PacketProcessor is an interface implemented to stitch into our enforcer
 type PacketProcessor interface {
+	// Initialize  initializes the secrets of the processor
+	Initialize(s secrets.Secrets)
 
 	// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
 	PreProcessTCPAppPacket(p *packet.Packet, context *PUContext, conn *connection.TCPConnection) bool

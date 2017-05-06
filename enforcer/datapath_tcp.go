@@ -307,6 +307,10 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 // processApplicationAckPacket processes an application ack packet
 func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
+	if conn.GetState() == connection.TCPData {
+		return nil, nil
+	}
+
 	// Only process in SynAckReceived state
 	if conn.GetState() == connection.TCPSynAckReceived || conn.GetState() == connection.TCPSynSend {
 		// Create a new token that includes the source and destinatio nonse
@@ -361,6 +365,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 				)
 			}
 		}
+
 		conn.SetState(connection.TCPData)
 		return nil, nil
 	}
@@ -545,6 +550,8 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 		// We accept the packet as a new flow
 		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context)
 
+		conn.SetState(connection.TCPData)
+
 		// We are done - clean state and get out of the way
 		if !conn.ServiceConnection {
 			if err := d.networkConnectionTracker.Remove(hash); err != nil {
@@ -553,6 +560,10 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 		}
 
 		// Accept the packet
+		return nil, nil, nil
+	}
+
+	if conn.ServiceConnection {
 		return nil, nil, nil
 	}
 
@@ -722,11 +733,16 @@ func (d *Datapath) appRetrieveState(tcpPacket *packet.Packet) (*PUContext, *conn
 		return context, conn.(*connection.TCPConnection), nil
 
 	case packet.TCPAckMask:
+		var conn interface{}
+		var err error
 		hash := tcpPacket.L4FlowHash()
-		conn, err := d.appConnectionTracker.Get(hash)
-		if err != nil {
-			return context, nil, nil
+
+		if conn, err = d.appConnectionTracker.Get(hash); err != nil {
+			if conn, err = d.networkConnectionTracker.Get(tcpPacket.L4ReverseFlowHash()); err != nil {
+				return context, nil, nil
+			}
 		}
+
 		conn.(*connection.TCPConnection).SetPacketInfo(hash, packet.TCPFlagsToStr(tcpPacket.TCPFlags))
 		return context, conn.(*connection.TCPConnection), nil
 
@@ -769,11 +785,16 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *connection.T
 		return cachedContext, conn.(*connection.TCPConnection), nil
 
 	case packet.TCPAckMask:
+		var err error
+		var conn interface{}
+
 		hash := p.L4FlowHash()
-		conn, err := d.networkConnectionTracker.Get(hash)
-		if err != nil {
-			return nil, nil, nil
+		if conn, err = d.networkConnectionTracker.Get(hash); err != nil {
+			if conn, err = d.appConnectionTracker.Get(p.L4ReverseFlowHash()); err != nil {
+				return nil, nil, nil
+			}
 		}
+
 		conn.(*connection.TCPConnection).SetPacketInfo(hash, packet.TCPFlagsToStr(p.TCPFlags))
 		return cachedContext, conn.(*connection.TCPConnection), nil
 	}

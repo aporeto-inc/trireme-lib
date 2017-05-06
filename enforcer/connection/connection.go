@@ -67,7 +67,7 @@ type TCPConnection struct {
 
 	// Debugging Information
 	flowLastReporting bool
-	flowReported      bool
+	flowReported      int
 	logs              []string
 
 	// ServiceData allows services to associate state with a connection
@@ -113,18 +113,15 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 // SetReported is used to track if a flow is reported
 func (c *TCPConnection) SetReported(flowState bool) {
 
-	repeatedReporting := false
-	if !c.flowReported {
-		c.flowReported = true
-	} else {
-		repeatedReporting = true
-	}
+	c.flowReported++
+
 	state := ""
-	if repeatedReporting {
+	if c.flowReported > 1 {
 		state = fmt.Sprintf("%t %t", c.flowLastReporting, flowState)
 		zap.L().Error("Connection reported multiple times",
 			zap.String("state", state))
 	}
+
 	c.flowLastReporting = flowState
 
 	if TraceLogging == 0 {
@@ -133,9 +130,10 @@ func (c *TCPConnection) SetReported(flowState bool) {
 
 	// Logging information
 	reported := "flow-reported:"
-	if repeatedReporting {
+	if c.flowReported > 1 {
 		reported = reported + " (ERROR duplicate reporting) " + state
 	}
+
 	if flowState {
 		reported = reported + " dropped: "
 	} else {
@@ -165,7 +163,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 		logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
 	}
 	// Logging information
-	if !c.flowReported {
+	if c.flowReported == 0 {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()),
 			zap.String("logs", logStr))
@@ -180,9 +178,8 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
 
 	c := &TCPConnection{
-		state:        TCPSynSend,
-		flowReported: trackFlowReporting,
-		logs:         make([]string, 0),
+		state: TCPSynSend,
+		logs:  []string{},
 	}
 
 	return c
