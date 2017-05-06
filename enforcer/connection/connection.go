@@ -36,6 +36,9 @@ const (
 
 	// TCPAckProcessed is the state that the negotiation has been completed
 	TCPAckProcessed
+
+	// TCPData indicates that the packets are now data packets
+	TCPData
 )
 
 const (

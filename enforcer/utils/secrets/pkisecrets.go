@@ -51,6 +51,11 @@ func (p *PKISecrets) EncodingKey() interface{} {
 	return p.privateKey
 }
 
+// PublicKey returns the public key
+func (p *PKISecrets) PublicKey() interface{} {
+	return p.publicKey
+}
+
 // DecodingKey returns the public key
 func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert interface{}) (interface{}, error) {
 

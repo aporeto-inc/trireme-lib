@@ -65,6 +65,7 @@ func (p *CompactPKI) EncodingKey() interface{} {
 	return p.privateKey
 }
 
+// PublicKey returns the public key
 func (p *CompactPKI) PublicKey() interface{} {
 	return p.publicKey
 }

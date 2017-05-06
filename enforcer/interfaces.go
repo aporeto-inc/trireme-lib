@@ -7,6 +7,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
+	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/policy"
 )
@@ -41,16 +42,16 @@ type PublicKeyAdder interface {
 type PacketProcessor interface {
 
 	// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
-	PreProcessTCPAppPacket(pkt interface{}, context *PUContext, conn *connection.TCPConnection) bool
+	PreProcessTCPAppPacket(p *packet.Packet, context *PUContext, conn *connection.TCPConnection) bool
 
 	// PostProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
-	PostProcessTCPAppPacket(pkt interface{}, action interface{}, context *PUContext, conn *connection.TCPConnection) bool
+	PostProcessTCPAppPacket(p *packet.Packet, action interface{}, context *PUContext, conn *connection.TCPConnection) bool
 
 	// PreProcessTCPNetPacket will be called for network packets and return value of false means drop packet
-	PreProcessTCPNetPacket(pkt interface{}, context *PUContext, conn *connection.TCPConnection) bool
+	PreProcessTCPNetPacket(p *packet.Packet, context *PUContext, conn *connection.TCPConnection) bool
 
 	// PostProcessTCPNetPacket will be called for network packets and return value of false means drop packet
-	PostProcessTCPNetPacket(pkt interface{}, action interface{}, claims *tokens.ConnectionClaims, context *PUContext, conn *connection.TCPConnection) bool
+	PostProcessTCPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *PUContext, conn *connection.TCPConnection) bool
 }
 
 // PUContext holds data indexed by the PU ID

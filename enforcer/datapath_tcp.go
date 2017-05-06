@@ -329,26 +329,29 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 	// Catch the first request packet
 	if conn.GetState() == connection.TCPAckSend {
-		//Delete the state at this point .. There is a small chance that both packets are lost
-		// and the other side will send us SYNACK again .. TBD if we need to change this
-		if err := d.appConnectionTracker.Remove(tcpPacket.L4FlowHash()); err != nil {
-			zap.L().Warn("Failed to clean up cache state", zap.Error(err))
-		}
-		//Remove the sourceport cache entry here
-		if err := d.sourcePortCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
-			zap.L().Warn("Failed to clean up cache state",
-				zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
-				zap.Error(err),
-			)
-		}
 
-		if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
-			zap.L().Warn("Failed to clean up cache state for connections",
-				zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
-				zap.Error(err),
-			)
-		}
+		if !conn.ServiceConnection {
+			//Delete the state at this point .. There is a small chance that both packets are lost
+			// and the other side will send us SYNACK again .. TBD if we need to change this
+			if err := d.appConnectionTracker.Remove(tcpPacket.L4FlowHash()); err != nil {
+				zap.L().Warn("Failed to clean up cache state", zap.Error(err))
+			}
+			//Remove the sourceport cache entry here
+			if err := d.sourcePortCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
+				zap.L().Warn("Failed to clean up cache state",
+					zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
+					zap.Error(err),
+				)
+			}
 
+			if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
+				zap.L().Warn("Failed to clean up cache state for connections",
+					zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
+					zap.Error(err),
+				)
+			}
+		}
+		conn.SetState(connection.TCPData)
 		return nil, nil
 	}
 
@@ -538,8 +541,10 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *connection.
 		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context)
 
 		// We are done - clean state and get out of the way
-		if err := d.networkConnectionTracker.Remove(hash); err != nil {
-			zap.L().Warn("Failed to clean up cache state from network connection tracker", zap.Error(err))
+		if !conn.ServiceConnection {
+			if err := d.networkConnectionTracker.Remove(hash); err != nil {
+				zap.L().Warn("Failed to clean up cache state from network connection tracker", zap.Error(err))
+			}
 		}
 
 		// Accept the packet
