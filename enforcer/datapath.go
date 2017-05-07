@@ -45,6 +45,7 @@ type Datapath struct {
 	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
 	service        PacketProcessor
+	secrets        secrets.Secrets
 	procMountPoint string
 
 	// Internal structures and caches
@@ -127,13 +128,14 @@ func New(
 
 		networkConnectionTracker:  cache.NewCacheWithExpirationNotifier(time.Second*60, connection.TCPConnectionExpirationNotifier),
 		appConnectionTracker:      cache.NewCacheWithExpirationNotifier(time.Second*60, connection.TCPConnectionExpirationNotifier),
-		sourcePortCache:           cache.NewCacheWithExpiration(time.Second * 60),
-		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 60),
+		sourcePortCache:           cache.NewCacheWithExpiration(time.Second * 20),
+		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 20),
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
 		collector:                 collector,
 		tokenEngine:               tokenEngine,
+		secrets:                   secrets,
 		net:                       InterfaceStats{},
 		app:                       InterfaceStats{},
 		netTCP:                    PacketStats{},
@@ -256,6 +258,8 @@ func (d *Datapath) GetFilterQueue() *FilterQueue {
 func (d *Datapath) Start() error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
+
+	d.service.Initialize(d.secrets)
 
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()

@@ -105,25 +105,15 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 // GetReset  changes the value of an entry into the cache and updates the timestamp
 func (c *Cache) GetReset(u interface{}) (interface{}, error) {
 
-	var timer *time.Timer
-	if c.lifetime != -1 {
-		timer = time.AfterFunc(c.lifetime, func() {
-			if err := c.removeNotify(u, true); err != nil {
-				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
-			}
-		})
-	}
-
 	c.Lock()
 	defer c.Unlock()
 
 	if line, ok := c.data[u]; ok {
 
-		if c.data[u].timer != nil {
-			c.data[u].timer.Stop()
+		if c.lifetime != -1 && line.timer != nil {
+			line.timer.Reset(c.lifetime)
 		}
 
-		line.timer = timer
 		return line.value, nil
 	}
 
