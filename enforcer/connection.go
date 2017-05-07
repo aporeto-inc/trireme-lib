@@ -1,4 +1,4 @@
-package connection
+package enforcer
 
 import (
 	"fmt"
@@ -74,6 +74,8 @@ type TCPConnection struct {
 	ServiceData interface{}
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
+
+	Context *PUContext
 
 	sync.Mutex
 }

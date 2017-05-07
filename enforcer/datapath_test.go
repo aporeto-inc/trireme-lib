@@ -9,7 +9,6 @@ import (
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -576,17 +575,17 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 }
 
 func CheckAfterAppSynPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
-	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
-	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynSend)
+	appConn, err := enforcer.appOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
+	So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPSynSend)
 	So(err, ShouldBeNil)
 
 }
 
 func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
 
-	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	appConn, err := enforcer.netOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
-	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynReceived)
+	So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPSynReceived)
 
 }
 
@@ -596,23 +595,23 @@ func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outP
 	So(nerr, ShouldBeNil)
 	netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 	So(err, ShouldBeNil)
-	So(netconn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckReceived)
-	if !reflect.DeepEqual(netconn.(*connection.TCPConnection).Auth.LocalContext, claims.RMT) {
+	So(netconn.(*TCPConnection).GetState(), ShouldEqual, TCPSynAckReceived)
+	if !reflect.DeepEqual(netconn.(*TCPConnection).Auth.LocalContext, claims.RMT) {
 		t.Error("Token parsing Failed")
 	}
 }
 
 func CheckAfterAppAckPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
-	appConn, err := enforcer.appConnectionTracker.Get(tcpPacket.L4FlowHash())
+	appConn, err := enforcer.appOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
-	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPAckSend)
+	So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPAckSend)
 }
 
 func CheckBeforeNetAckPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
 
-	appConn, err := enforcer.networkConnectionTracker.Get(tcpPacket.L4FlowHash())
+	appConn, err := enforcer.netOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
-	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, TCPSynAckSend)
+	So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPSynAckSend)
 
 }
 
@@ -683,7 +682,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 							Convey("When I pass an application packet with SYN flag for packet "+string(i), func() {
 								Convey("Then I expect src port cache to be populated "+string(i), func() {
 									fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-									cs, es := enforcer.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+									cs, es := enforcer.sourcePortConnectionCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 									So(cs, ShouldNotBeNil)
 									So(es, ShouldBeNil)
 								})
@@ -698,7 +697,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 								Convey("When I pass any application packets with ACK flag for packet "+string(i), func() {
 									Convey("Then I expect src port cache to be NOT populated "+string(i), func() {
 										fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-										cs, es := enforcer.sourcePortCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+										cs, es := enforcer.sourcePortConnectionCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 										So(cs, ShouldBeNil)
 										So(es, ShouldNotBeNil)
 									})
@@ -725,7 +724,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 						if outPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 							Convey("When I pass a network packet with SYN/ACK flag for packet "+string(i), func() {
 								Convey("Then I expect src port cache to be populated "+string(i), func() {
-									cs, es := enforcer.sourcePortCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+									cs, es := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 									So(cs, ShouldNotBeNil)
 									So(es, ShouldBeNil)
 								})

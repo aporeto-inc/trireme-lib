@@ -113,15 +113,14 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		})
 
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		})
