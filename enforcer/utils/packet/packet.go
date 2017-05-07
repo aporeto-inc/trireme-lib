@@ -137,6 +137,11 @@ func (p *Packet) TCPDataStartBytes() uint16 {
 	return p.l4BeginPos + uint16(p.tcpDataOffset)*4
 }
 
+// GetIPLength returns the IP length
+func (p *Packet) GetIPLength() uint16 {
+	return p.IPTotalLength
+}
+
 // Print is a print helper function
 func (p *Packet) Print(context uint64) {
 
