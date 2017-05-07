@@ -725,7 +725,7 @@ func (d *Datapath) appRetrieveState(tcpPacket *packet.Packet) (*PUContext, *conn
 	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask: //Processing SYN packet from Application
 		hash := tcpPacket.L4FlowHash()
-		conn, err := d.appConnectionTracker.Get(hash)
+		conn, err := d.appConnectionTracker.GetReset(hash)
 		if err != nil {
 			conn = connection.NewTCPConnection()
 		}
@@ -737,7 +737,7 @@ func (d *Datapath) appRetrieveState(tcpPacket *packet.Packet) (*PUContext, *conn
 		var err error
 		hash := tcpPacket.L4FlowHash()
 
-		if conn, err = d.appConnectionTracker.Get(hash); err != nil {
+		if conn, err = d.appConnectionTracker.GetReset(hash); err != nil {
 			if conn, err = d.networkConnectionTracker.Get(tcpPacket.L4ReverseFlowHash()); err != nil {
 				return context, nil, nil
 			}
@@ -790,7 +790,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *connection.T
 
 		hash := p.L4FlowHash()
 		if conn, err = d.networkConnectionTracker.Get(hash); err != nil {
-			if conn, err = d.appConnectionTracker.Get(p.L4ReverseFlowHash()); err != nil {
+			if conn, err = d.appConnectionTracker.GetReset(p.L4ReverseFlowHash()); err != nil {
 				return nil, nil, nil
 			}
 		}

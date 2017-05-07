@@ -17,6 +17,7 @@ type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
 	AddOrUpdate(u interface{}, value interface{})
 	Get(u interface{}) (i interface{}, err error)
+	GetReset(u interface{}) (interface{}, error)
 	Remove(u interface{}) (err error)
 	DumpStore()
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
@@ -101,6 +102,34 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 	return fmt.Errorf("Item Exists - Use update")
 }
 
+// GetReset  changes the value of an entry into the cache and updates the timestamp
+func (c *Cache) GetReset(u interface{}) (interface{}, error) {
+
+	var timer *time.Timer
+	if c.lifetime != -1 {
+		timer = time.AfterFunc(c.lifetime, func() {
+			if err := c.removeNotify(u, true); err != nil {
+				zap.L().Warn("Failed to remove item", zap.String("key", fmt.Sprintf("%v", u)))
+			}
+		})
+	}
+
+	c.Lock()
+	defer c.Unlock()
+
+	if line, ok := c.data[u]; ok {
+
+		if c.data[u].timer != nil {
+			c.data[u].timer.Stop()
+		}
+
+		line.timer = timer
+		return line.value, nil
+	}
+
+	return nil, fmt.Errorf("Cannot read item - it doesn't exist")
+}
+
 // Update changes the value of an entry into the cache and updates the timestamp
 func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 
@@ -177,7 +206,6 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 	defer c.Unlock()
 
 	if _, ok := c.data[u]; !ok {
-
 		return nil, fmt.Errorf("Item does not exist")
 	}
 
