@@ -351,22 +351,14 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	// Catch the first request packet
 	if conn.GetState() == TCPAckSend {
 
-		if !conn.ServiceConnection {
-			//Delete the state at this point .. There is a small chance that both packets are lost
-			// and the other side will send us SYNACK again .. TBD if we need to change this
-			if err := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash()); err != nil {
-				zap.L().Warn("Failed to clean up cache state for connections",
-					zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
-					zap.Error(err),
-				)
-			}
-
-			if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
-				zap.L().Warn("Failed to clean up cache state for connections",
-					zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
-					zap.Error(err),
-				)
-			}
+		// Once we have seen the end of the TCP SynAck sequence we have enough state
+		// We can delete the source port cache to avoid any connection re-use issues
+		// Flow caches will use a time out
+		if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
+			zap.L().Warn("Failed to clean up cache state for connections",
+				zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
+				zap.Error(err),
+			)
 		}
 
 		conn.SetState(TCPData)

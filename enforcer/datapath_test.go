@@ -230,6 +230,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 						tcpPacket.UpdateIPChecksum()
 						tcpPacket.UpdateTCPChecksum()
 					}
+
 					if debug {
 						fmt.Println("Input packet", i)
 						tcpPacket.Print(0)
