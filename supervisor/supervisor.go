@@ -95,9 +95,6 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 // it invokes the various handlers that process the parameter policy.
 func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 
-	s.Lock()
-	defer s.Unlock()
-
 	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
 		return fmt.Errorf("Runtime, Policy and ContainerInfo should not be nil")
 	}
@@ -117,9 +114,6 @@ func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error
 // remove operations will print errors by they don't return error. We want to force
 // as much cleanup as possible to avoid stale state
 func (s *Config) Unsupervise(contextID string) error {
-
-	s.Lock()
-	defer s.Unlock()
 
 	version, err := s.versionTracker.Get(contextID)
 
@@ -143,16 +137,15 @@ func (s *Config) Unsupervise(contextID string) error {
 // Start starts the supervisor
 func (s *Config) Start() error {
 
-	s.Lock()
-	defer s.Unlock()
-
 	if err := s.impl.Start(); err != nil {
 		return fmt.Errorf("Filter of marked packets was not set")
 	}
 
-	if err := s.impl.SetTargetNetworks(s.triremeNetworks); err != nil {
+	s.Lock()
+	if err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks); err != nil {
 		return err
 	}
+	s.Unlock()
 
 	zap.L().Debug("Started the supervisor")
 
@@ -162,9 +155,6 @@ func (s *Config) Start() error {
 // Stop stops the supervisor
 func (s *Config) Stop() error {
 
-	s.Lock()
-	defer s.Unlock()
-
 	if err := s.impl.Stop(); err != nil {
 		return fmt.Errorf("Failed to stop the implementer: %s", err)
 	}
@@ -173,16 +163,17 @@ func (s *Config) Stop() error {
 }
 
 // SetTargetNetworks sets the target networks of the supervisor
-func (s *Config) SetTargetNetworks(networks []string) error {
+func (s *Config) SetTargetNetworks(currentNetworks, networks []string) error {
 
 	s.Lock()
 	defer s.Unlock()
 
-	s.triremeNetworks = networks
-
-	if err := s.impl.SetTargetNetworks(networks); err != nil {
+	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
 		return err
 	}
+
+	s.triremeNetworks = networks
+
 	return nil
 }
 

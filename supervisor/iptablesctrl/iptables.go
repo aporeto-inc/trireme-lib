@@ -287,11 +287,16 @@ func (i *Instance) Start() error {
 }
 
 // SetTargetNetworks updates ths target networks for SynAck packets
-func (i *Instance) SetTargetNetworks(networks []string) error {
-	if err := i.CleanCaptureSynAckPackets(networks); err != nil {
-		return fmt.Errorf("Failed to clean synack networks")
+func (i *Instance) SetTargetNetworks(current, networks []string) error {
+
+	// Cleanup old ACLs
+	if len(current) > 0 {
+		if err := i.CleanCaptureSynAckPackets(current); err != nil {
+			return fmt.Errorf("Failed to clean synack networks")
+		}
 	}
 
+	// Insert new ACLs
 	if err := i.captureTargetSynAckPackets(i.appPacketIPTableSection, i.netPacketIPTableSection, networks); err != nil {
 		return fmt.Errorf("Failed to update synack networks")
 	}

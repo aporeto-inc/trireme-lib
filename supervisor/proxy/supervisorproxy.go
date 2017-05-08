@@ -75,7 +75,7 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 	return nil
 }
 
-// SetTargetNetworks sets the target networks
+// SetTargetNetworks sets the target networks in case of an  update
 func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 	for contextID, done := range s.initDone {
 		if done {

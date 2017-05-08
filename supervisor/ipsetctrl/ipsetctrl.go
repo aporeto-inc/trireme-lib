@@ -229,7 +229,7 @@ func (i *Instance) Stop() error {
 }
 
 // SetTargetNetworks sets the target networks
-func (i *Instance) SetTargetNetworks(networks []string) error {
+func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	return nil
 }
 

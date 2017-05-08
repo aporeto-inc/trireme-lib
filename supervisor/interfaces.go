@@ -34,7 +34,7 @@ type Implementor interface {
 	DeleteRules(version int, context string, ipAddresses *policy.IPMap, port string, mark string) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
-	SetTargetNetworks([]string) error
+	SetTargetNetworks([]string, []string) error
 
 	// Start initializes any defaults
 	Start() error

@@ -158,7 +158,7 @@ func TestUnsupervise(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
+		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
@@ -193,12 +193,13 @@ func TestStart(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
+		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Start().Return(nil)
+			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
 			err := s.Start()
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
