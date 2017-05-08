@@ -19,7 +19,6 @@ type DataStore interface {
 	Get(u interface{}) (i interface{}, err error)
 	GetReset(u interface{}) (interface{}, error)
 	Remove(u interface{}) (err error)
-	DumpStore()
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 }
 
@@ -277,18 +276,4 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 
 	return e.value, nil
 
-}
-
-// DumpStore prints the whole data store for debuggin
-func (c *Cache) DumpStore() {
-
-	zap.L().Warn("Dumping store is deprecated.")
-	// This is not good.
-	// for u := range c.data {
-	// 	log.WithFields(log.Fields{
-	// 		"package": "cache",
-	// 		"cache":   c,
-	// 		"data":    u,
-	// 	}).Debug("Current data of the cache")
-	// }
 }

@@ -461,32 +461,6 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 	return nil
 }
 
-// CaptureSYNACKPackets install rules to capture all SynAck packets
-func (i *Instance) CaptureSYNACKPackets() error {
-
-	err := i.ipt.Insert(
-		i.appAckPacketIPTableContext,
-		i.appPacketIPTableSection, 1,
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
-
-	if err != nil {
-		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
-	}
-
-	err = i.ipt.Insert(
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection, 1,
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
-
-	if err != nil {
-		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())
-	}
-
-	return nil
-}
-
 // captureTargetSynAckPackets install rules to capture all SynAck packets in the chain
 func (i *Instance) captureTargetSynAckPackets(appChain, netChain string, networks []string) error {
 	for _, net := range networks {

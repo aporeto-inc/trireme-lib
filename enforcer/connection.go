@@ -68,15 +68,17 @@ type TCPConnection struct {
 	Auth  AuthInfo
 
 	// Debugging Information
-
 	flowReported int
 	logs         []string
 
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
 
+	// Context is the PUContext that is associated with this connection
+	// Minimizes the number of caches and lookups
 	Context *PUContext
 
+	// Debugging information - pushed to the end for compact structure
 	flowLastReporting bool
 
 	// ServiceConnection indicates that this connection is handled by a service

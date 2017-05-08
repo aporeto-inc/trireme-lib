@@ -759,18 +759,25 @@ func TestAddExclusionACLs(t *testing.T) {
 	})
 }
 
-func TestCaptureSynAckPackets(t *testing.T) {
+func TestCaptureTargetSynAckPackets(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
 		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
+		networks := []string{"172.17.0.0/16", "192.168.100.0/24"}
+
 		Convey("When I add the capture for the SynAck packets", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return nil
+				if chain == "INPUT" || chain == "OUTPUT" {
+					if matchSpec("172.17.0.0/16", rulespec) == nil || matchSpec("192.168.100.0/24", rulespec) == nil {
+						return nil
+					}
+				}
+				return fmt.Errorf("Failed")
 			})
 
-			err := i.CaptureSYNACKPackets()
+			err := i.captureTargetSynAckPackets("OUTPUT", "INPUT", networks)
 			Convey("I should get no error if iptables succeeds", func() {
 				So(err, ShouldBeNil)
 			})
@@ -783,7 +790,7 @@ func TestCaptureSynAckPackets(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.CaptureSYNACKPackets()
+			err := i.captureTargetSynAckPackets("OUTPUT", "INPUT", networks)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -796,7 +803,7 @@ func TestCaptureSynAckPackets(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.CaptureSYNACKPackets()
+			err := i.captureTargetSynAckPackets("OUTPUT", "INPUT", networks)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
