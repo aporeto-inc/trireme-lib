@@ -9,10 +9,11 @@ import (
 )
 
 type mockedMethods struct {
-	SuperviseMock   func(string, *policy.PUInfo) error
-	UnsuperviseMock func(string) error
-	StartMock       func() error
-	StopMock        func() error
+	SuperviseMock         func(string, *policy.PUInfo) error
+	UnsuperviseMock       func(string) error
+	StartMock             func() error
+	StopMock              func() error
+	SetTargetNetworksMock func([]string) error
 }
 
 // TestSupervisorLauncher is a mock
@@ -52,12 +53,19 @@ func (m *testSupervisorLauncher) currentMocks(t *testing.T) *mockedMethods {
 func (m *testSupervisorLauncher) MockSupervise(t *testing.T, impl func(string, *policy.PUInfo) error) {
 	m.currentMocks(t).SuperviseMock = impl
 }
+
 func (m *testSupervisorLauncher) MockUnsupervise(t *testing.T, impl func(string) error) {
 	m.currentMocks(t).UnsuperviseMock = impl
 }
+
 func (m *testSupervisorLauncher) MockStart(t *testing.T, impl func() error) {
 	m.currentMocks(t).StartMock = impl
 }
+
+func (m *testSupervisorLauncher) MockSetTargetNetworks(t *testing.T, impl func([]string) error) {
+	m.currentMocks(t).SetTargetNetworksMock = impl
+}
+
 func (m *testSupervisorLauncher) MockStop(t *testing.T, impl func() error) {
 	m.currentMocks(t).StopMock = impl
 }
@@ -79,6 +87,14 @@ func (m *testSupervisorLauncher) Unsupervise(contextID string) error {
 }
 
 func (m *testSupervisorLauncher) Start() error {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.StartMock != nil {
+		return mock.StartMock()
+
+	}
+	return nil
+}
+
+func (m *testSupervisorLauncher) SetTargetNetworks(networls []string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.StartMock != nil {
 		return mock.StartMock()
 

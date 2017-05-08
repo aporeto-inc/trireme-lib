@@ -17,9 +17,10 @@ type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
 	AddOrUpdate(u interface{}, value interface{})
 	Get(u interface{}) (i interface{}, err error)
+	GetReset(u interface{}, duration time.Duration) (interface{}, error)
 	Remove(u interface{}) (err error)
-	DumpStore()
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
+	SetTimeOut(u interface{}, timeout time.Duration) (err error)
 }
 
 // Cache is the structure that involves the map of entries. The cache
@@ -101,6 +102,28 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 	return fmt.Errorf("Item Exists - Use update")
 }
 
+// GetReset  changes the value of an entry into the cache and updates the timestamp
+func (c *Cache) GetReset(u interface{}, duration time.Duration) (interface{}, error) {
+
+	c.Lock()
+	defer c.Unlock()
+
+	if line, ok := c.data[u]; ok {
+
+		if c.lifetime != -1 && line.timer != nil {
+			if duration > 0 {
+				line.timer.Reset(duration)
+			} else {
+				line.timer.Reset(c.lifetime)
+			}
+		}
+
+		return line.value, nil
+	}
+
+	return nil, fmt.Errorf("Cannot read item - it doesn't exist")
+}
+
 // Update changes the value of an entry into the cache and updates the timestamp
 func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 
@@ -170,6 +193,20 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 
 }
 
+// SetTimeOut sets the time out of an entry to a new value
+func (c *Cache) SetTimeOut(u interface{}, timeout time.Duration) (err error) {
+	c.Lock()
+	defer c.Unlock()
+
+	if _, ok := c.data[u]; !ok {
+		return fmt.Errorf("Item is deleted already")
+	}
+
+	c.data[u].timer.Reset(timeout)
+
+	return nil
+}
+
 // Get retrieves the entry from the cache
 func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 
@@ -177,7 +214,6 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 	defer c.Unlock()
 
 	if _, ok := c.data[u]; !ok {
-
 		return nil, fmt.Errorf("Item does not exist")
 	}
 
@@ -259,18 +295,4 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 
 	return e.value, nil
 
-}
-
-// DumpStore prints the whole data store for debuggin
-func (c *Cache) DumpStore() {
-
-	zap.L().Warn("Dumping store is deprecated.")
-	// This is not good.
-	// for u := range c.data {
-	// 	log.WithFields(log.Fields{
-	// 		"package": "cache",
-	// 		"cache":   c,
-	// 		"data":    u,
-	// 	}).Debug("Current data of the cache")
-	// }
 }

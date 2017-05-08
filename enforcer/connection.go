@@ -1,8 +1,9 @@
-package connection
+package enforcer
 
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -37,6 +38,12 @@ const (
 	// TCPAckProcessed is the state that the negotiation has been completed
 	TCPAckProcessed
 
+	// TCPData indicates that the packets are now data packets
+	TCPData
+)
+
+const (
+
 	// RejectReported represents that flow was reported as rejected
 	RejectReported bool = true
 
@@ -56,15 +63,30 @@ type AuthInfo struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
+	sync.Mutex
+
 	state TCPFlowState
 	Auth  AuthInfo
 
 	// Debugging Information
-	flowLastReporting bool
-	flowReported      bool
-	logs              []string
+	flowReported int
+	logs         []string
 
-	sync.Mutex
+	// ServiceData allows services to associate state with a connection
+	ServiceData interface{}
+
+	// Context is the PUContext that is associated with this connection
+	// Minimizes the number of caches and lookups
+	Context *PUContext
+
+	// TimeOut signals the timeout to be used by the state machines
+	TimeOut time.Duration
+
+	// Debugging information - pushed to the end for compact structure
+	flowLastReporting bool
+
+	// ServiceConnection indicates that this connection is handled by a service
+	ServiceConnection bool
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -102,18 +124,15 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 // SetReported is used to track if a flow is reported
 func (c *TCPConnection) SetReported(flowState bool) {
 
-	repeatedReporting := false
-	if !c.flowReported {
-		c.flowReported = true
-	} else {
-		repeatedReporting = true
-	}
+	c.flowReported++
+
 	state := ""
-	if repeatedReporting {
+	if c.flowReported > 1 {
 		state = fmt.Sprintf("%t %t", c.flowLastReporting, flowState)
 		zap.L().Error("Connection reported multiple times",
 			zap.String("state", state))
 	}
+
 	c.flowLastReporting = flowState
 
 	if TraceLogging == 0 {
@@ -122,9 +141,10 @@ func (c *TCPConnection) SetReported(flowState bool) {
 
 	// Logging information
 	reported := "flow-reported:"
-	if repeatedReporting {
+	if c.flowReported > 1 {
 		reported = reported + " (ERROR duplicate reporting) " + state
 	}
+
 	if flowState {
 		reported = reported + " dropped: "
 	} else {
@@ -154,7 +174,7 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 		logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
 	}
 	// Logging information
-	if !c.flowReported {
+	if c.flowReported == 0 && len(c.logs) > 1 {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()),
 			zap.String("logs", logStr))
@@ -166,12 +186,11 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 }
 
 // NewTCPConnection returns a TCPConnection information struct
-func NewTCPConnection(trackFlowReporting bool) *TCPConnection {
+func NewTCPConnection() *TCPConnection {
 
 	c := &TCPConnection{
-		state:        TCPSynSend,
-		flowReported: trackFlowReporting,
-		logs:         make([]string, 0),
+		state: TCPSynSend,
+		logs:  []string{"Initialized"},
 	}
 
 	return c

@@ -4,6 +4,7 @@ package secrets
 type Secrets interface {
 	Type() PrivateSecretsType
 	EncodingKey() interface{}
+	PublicKey() interface{}
 	DecodingKey(server string, ackCert, prevCert interface{}) (interface{}, error)
 	TransmittedKey() []byte
 	VerifyPublicKey(pkey []byte) (interface{}, error)

@@ -58,6 +58,7 @@ func NewTriremeLinuxProcess(
 		enforcers[constants.LinuxProcessPU],
 		constants.LocalServer,
 		constants.IPTables,
+		[]string{},
 	)
 
 	if err != nil {
@@ -97,6 +98,7 @@ func NewLocalTriremeDocker(
 		enforcers[constants.ContainerPU],
 		constants.LocalContainer,
 		impl,
+		[]string{},
 	)
 
 	if err != nil {
@@ -189,6 +191,7 @@ func NewHybridTrireme(
 		processEnforcer,
 		constants.LocalServer,
 		constants.IPTables,
+		[]string{},
 	)
 
 	if perr != nil {

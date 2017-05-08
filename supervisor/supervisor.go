@@ -3,6 +3,7 @@ package supervisor
 import (
 	"fmt"
 	"strconv"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -37,13 +38,17 @@ type Config struct {
 	Mark        int
 	excludedIPs []string
 	impl        Implementor
+
+	triremeNetworks []string
+
+	sync.Mutex
 }
 
 // NewSupervisor will create a new connection supervisor that uses IPTables
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, mode constants.ModeType, implementation constants.ImplementationType) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, mode constants.ModeType, implementation constants.ImplementationType, networks []string) (*Config, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -68,6 +73,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
 		Mark:              filterQueue.MarkValue,
 		excludedIPs:       []string{},
+		triremeNetworks:   networks,
 	}
 
 	var err error
@@ -135,6 +141,12 @@ func (s *Config) Start() error {
 		return fmt.Errorf("Filter of marked packets was not set")
 	}
 
+	s.Lock()
+	if err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks); err != nil {
+		return err
+	}
+	s.Unlock()
+
 	zap.L().Debug("Started the supervisor")
 
 	return nil
@@ -146,6 +158,21 @@ func (s *Config) Stop() error {
 	if err := s.impl.Stop(); err != nil {
 		return fmt.Errorf("Failed to stop the implementer: %s", err)
 	}
+
+	return nil
+}
+
+// SetTargetNetworks sets the target networks of the supervisor
+func (s *Config) SetTargetNetworks(networks []string) error {
+
+	s.Lock()
+	defer s.Unlock()
+
+	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
+		return err
+	}
+
+	s.triremeNetworks = networks
 
 	return nil
 }

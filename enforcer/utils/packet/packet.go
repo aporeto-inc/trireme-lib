@@ -137,6 +137,11 @@ func (p *Packet) TCPDataStartBytes() uint16 {
 	return p.l4BeginPos + uint16(p.tcpDataOffset)*4
 }
 
+// GetIPLength returns the IP length
+func (p *Packet) GetIPLength() uint16 {
+	return p.IPTotalLength
+}
+
 // Print is a print helper function
 func (p *Packet) Print(context uint64) {
 
@@ -403,4 +408,9 @@ func (p *Packet) SourcePortHash(stage uint64) string {
 		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
 	}
 	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort))
+}
+
+// ID returns the IP ID of the packet
+func (p *Packet) ID() string {
+	return strconv.Itoa(int(p.ipID))
 }
