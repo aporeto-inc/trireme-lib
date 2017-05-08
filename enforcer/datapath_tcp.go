@@ -792,11 +792,11 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 		if err != nil {
 			return nil, nil, fmt.Errorf("Net state not found")
 		}
-		if uerr := updateTimer(d.netReplyConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
+		if uerr := updateTimer(d.netOrigConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
 			return nil, nil, uerr
 		}
 	} else {
-		if uerr := updateTimer(d.netOrigConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
+		if uerr := updateTimer(d.netReplyConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
 			return nil, nil, err
 		}
 	}
