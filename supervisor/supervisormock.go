@@ -30,7 +30,7 @@ type TestSupervisor interface {
 	Supervisor
 	MockSupervise(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnsupervise(t *testing.T, impl func(contextID string) error)
-	MockStart(t *testing.T, impl func() error)
+	MockStart(t *testing.T, impl func(networks []string) error)
 	MockStop(t *testing.T, impl func() error)
 	MockAddExcludedIPs(t *testing.T, impl func(ips []string) error)
 }

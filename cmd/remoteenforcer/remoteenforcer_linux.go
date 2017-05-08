@@ -235,28 +235,32 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
-	switch payload.CaptureMethod {
-	case rpcwrapper.IPSets:
-		//TO DO
-		return fmt.Errorf("IPSets not supported yet")
-	default:
-
-		supervisorHandle, err := supervisor.NewSupervisor(
-			s.statsclient.collector,
-			s.Enforcer,
-			constants.RemoteContainer,
-			constants.IPTables,
-		)
-		if err != nil {
-			zap.L().Error("Failed to instantiate the iptables supervisor", zap.Error(err))
-			return err
+	if s.Supervisor == nil {
+		switch payload.CaptureMethod {
+		case rpcwrapper.IPSets:
+			//TO DO
+			return fmt.Errorf("IPSets not supported yet")
+		default:
+			supervisorHandle, err := supervisor.NewSupervisor(
+				s.statsclient.collector,
+				s.Enforcer,
+				constants.RemoteContainer,
+				constants.IPTables,
+				payload.TriremeNetworks,
+			)
+			if err != nil {
+				zap.L().Error("Failed to instantiate the iptables supervisor", zap.Error(err))
+				return err
+			}
+			s.Supervisor = supervisorHandle
 		}
-		s.Supervisor = supervisorHandle
+
+		s.Supervisor.Start()
+
+		s.Service.Initialize(s.secrets, s.Enforcer.GetFilterQueue())
+	} else {
+		s.Supervisor.SetTargetNetworks(payload.TriremeNetworks)
 	}
-
-	s.Supervisor.Start()
-
-	s.Service.Initialize(s.secrets, s.Enforcer.GetFilterQueue())
 
 	resp.Status = ""
 

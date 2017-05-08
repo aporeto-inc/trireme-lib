@@ -55,7 +55,7 @@ func TestNewSupervisor(t *testing.T) {
 		implementation := constants.IPTables
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, mode, implementation)
+			s, err := NewSupervisor(c, e, mode, implementation, []string{})
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -65,7 +65,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, mode, implementation)
+			s, err := NewSupervisor(nil, e, mode, implementation, []string{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -73,7 +73,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, mode, implementation)
+			s, err := NewSupervisor(c, nil, mode, implementation, []string{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -92,7 +92,7 @@ func TestSupervise(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables)
+		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 

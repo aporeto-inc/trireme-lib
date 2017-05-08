@@ -16,6 +16,9 @@ type Supervisor interface {
 
 	// Stop stops the Supervisor.
 	Stop() error
+
+	// SetTargetNetworks sets the target networks of the supervisor
+	SetTargetNetworks([]string) error
 }
 
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc
@@ -29,6 +32,9 @@ type Implementor interface {
 
 	// DeleteRules
 	DeleteRules(version int, context string, ipAddresses *policy.IPMap, port string, mark string) error
+
+	// SetTargetNetworks sets the target networks of the supervisor
+	SetTargetNetworks([]string) error
 
 	// Start initializes any defaults
 	Start() error
