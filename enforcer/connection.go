@@ -62,22 +62,25 @@ type AuthInfo struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
+	sync.Mutex
+
 	state TCPFlowState
 	Auth  AuthInfo
 
 	// Debugging Information
-	flowLastReporting bool
-	flowReported      int
-	logs              []string
+
+	flowReported int
+	logs         []string
 
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
-	// ServiceConnection indicates that this connection is handled by a service
-	ServiceConnection bool
 
 	Context *PUContext
 
-	sync.Mutex
+	flowLastReporting bool
+
+	// ServiceConnection indicates that this connection is handled by a service
+	ServiceConnection bool
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element

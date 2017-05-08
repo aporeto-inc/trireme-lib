@@ -410,6 +410,7 @@ func (p *Packet) SourcePortHash(stage uint64) string {
 	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort))
 }
 
+// ID returns the IP ID of the packet
 func (p *Packet) ID() string {
 	return strconv.Itoa(int(p.ipID))
 }
