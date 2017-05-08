@@ -41,7 +41,7 @@ type PublicKeyAdder interface {
 // PacketProcessor is an interface implemented to stitch into our enforcer
 type PacketProcessor interface {
 	// Initialize  initializes the secrets of the processor
-	Initialize(s secrets.Secrets)
+	Initialize(s secrets.Secrets, fq *FilterQueue)
 
 	// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
 	PreProcessTCPAppPacket(p *packet.Packet, context *PUContext, conn *TCPConnection) bool

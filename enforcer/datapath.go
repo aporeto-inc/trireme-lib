@@ -263,7 +263,7 @@ func (d *Datapath) Start() error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
 
-	d.service.Initialize(d.secrets)
+	d.service.Initialize(d.secrets, d.filterQueue)
 
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()

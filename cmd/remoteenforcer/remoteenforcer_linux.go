@@ -241,7 +241,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		return fmt.Errorf("IPSets not supported yet")
 	default:
 
-		supervisorHandle, err := supervisor.NewSupervisor(s.statsclient.collector,
+		supervisorHandle, err := supervisor.NewSupervisor(
+			s.statsclient.collector,
 			s.Enforcer,
 			constants.RemoteContainer,
 			constants.IPTables,
@@ -255,7 +256,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 
 	s.Supervisor.Start()
 
-	s.Service.Initialize(s.secrets)
+	s.Service.Initialize(s.secrets, s.Enforcer.GetFilterQueue())
 
 	resp.Status = ""
 
