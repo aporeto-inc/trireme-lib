@@ -220,7 +220,7 @@ func TestGetReset(t *testing.T) {
 					So(d.(string), ShouldResemble, "test")
 
 					Convey("If I wait for another second, the data should be gone", func() {
-						<-time.After(1000 * time.Millisecond)
+						<-time.After(1200 * time.Millisecond)
 						val, err := c.Get("test")
 						So(err, ShouldNotBeNil)
 						So(val, ShouldBeNil)
