@@ -163,7 +163,7 @@ func (s *Config) Stop() error {
 }
 
 // SetTargetNetworks sets the target networks of the supervisor
-func (s *Config) SetTargetNetworks(currentNetworks, networks []string) error {
+func (s *Config) SetTargetNetworks(networks []string) error {
 
 	s.Lock()
 	defer s.Unlock()
