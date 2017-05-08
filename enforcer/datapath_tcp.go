@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -67,12 +68,8 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 		}
 	}
 
-	// Lock the connection context. No packets from the same connection
-	// can be processed at the same time
-	if conn != nil {
-		conn.Lock()
-		defer conn.Unlock()
-	}
+	conn.Lock()
+	defer conn.Unlock()
 
 	d.netTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
@@ -690,6 +687,8 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 	return options
 }
 
+// appSynRetrieveState retrieves state for the the application Syn packet.
+// It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
 	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
@@ -697,7 +696,7 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 		return nil, nil, fmt.Errorf("No Context in App Processing")
 	}
 
-	conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash())
+	conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
 	if err != nil {
 		conn = NewTCPConnection()
 
@@ -709,14 +708,23 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	return context, conn.(*TCPConnection), nil
 }
 
+// appRetrieveState retrieves the state for the rest of the application packets. It
+// returns an error if it cannot find the state
 func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 	hash := p.L4FlowHash()
 
-	conn, err := d.appReplyConnectionTracker.GetReset(hash)
+	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
-		conn, err = d.appOrigConnectionTracker.GetReset(hash)
+		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
 			return nil, nil, fmt.Errorf("App state not found")
+		}
+		if uerr := updateTimer(d.appOrigConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
+			return nil, nil, uerr
+		}
+	} else {
+		if uerr := updateTimer(d.appReplyConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
+			return nil, nil, uerr
 		}
 	}
 
@@ -730,6 +738,8 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	return context, conn.(*TCPConnection), nil
 }
 
+// netSynRetrieveState retrieves the state for the Syn packets on the network.
+// Obviously if no state is found, it generates a new connection record.
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
 	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
@@ -737,7 +747,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 		return nil, nil, fmt.Errorf("No Context in App Processing")
 	}
 
-	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash())
+	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
 	if err != nil {
 		conn = NewTCPConnection()
 	}
@@ -749,9 +759,11 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	return context, conn.(*TCPConnection), nil
 }
 
+// netSynAckRetrieveState retrieves the state for SynAck packets at the network
+// It relies on the source port cache for that
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
-	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork))
+	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		zap.L().Debug("No connection for SynAck packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -769,14 +781,23 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPCon
 	return context, conn.(*TCPConnection), nil
 }
 
+// netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
+
 	hash := p.L4FlowHash()
 
-	conn, err := d.netReplyConnectionTracker.GetReset(hash)
+	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
-		conn, err = d.netOrigConnectionTracker.GetReset(hash)
+		conn, err = d.netOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Net state not found")
+		}
+		if uerr := updateTimer(d.netReplyConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
+			return nil, nil, uerr
+		}
+	} else {
+		if uerr := updateTimer(d.netOrigConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
+			return nil, nil, err
 		}
 	}
 
@@ -788,6 +809,14 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	}
 
 	return context, conn.(*TCPConnection), nil
+}
+
+// updateTimer updates the timers for the service connections
+func updateTimer(c cache.DataStore, hash string, conn *TCPConnection) error {
+	if conn.ServiceConnection && conn.TimeOut > 0 {
+		return c.SetTimeOut(hash, conn.TimeOut)
+	}
+	return nil
 }
 
 // contextFromIP returns the PU context from the default IP if remote. Otherwise

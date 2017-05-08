@@ -3,6 +3,7 @@ package enforcer
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -77,6 +78,9 @@ type TCPConnection struct {
 	// Context is the PUContext that is associated with this connection
 	// Minimizes the number of caches and lookups
 	Context *PUContext
+
+	// TimeOut signals the timeout to be used by the state machines
+	TimeOut time.Duration
 
 	// Debugging information - pushed to the end for compact structure
 	flowLastReporting bool

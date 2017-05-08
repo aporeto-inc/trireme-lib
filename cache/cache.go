@@ -17,9 +17,10 @@ type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
 	AddOrUpdate(u interface{}, value interface{})
 	Get(u interface{}) (i interface{}, err error)
-	GetReset(u interface{}) (interface{}, error)
+	GetReset(u interface{}, duration time.Duration) (interface{}, error)
 	Remove(u interface{}) (err error)
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
+	SetTimeOut(u interface{}, timeout time.Duration) (err error)
 }
 
 // Cache is the structure that involves the map of entries. The cache
@@ -102,7 +103,7 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 }
 
 // GetReset  changes the value of an entry into the cache and updates the timestamp
-func (c *Cache) GetReset(u interface{}) (interface{}, error) {
+func (c *Cache) GetReset(u interface{}, duration time.Duration) (interface{}, error) {
 
 	c.Lock()
 	defer c.Unlock()
@@ -110,7 +111,11 @@ func (c *Cache) GetReset(u interface{}) (interface{}, error) {
 	if line, ok := c.data[u]; ok {
 
 		if c.lifetime != -1 && line.timer != nil {
-			line.timer.Reset(c.lifetime)
+			if duration > 0 {
+				line.timer.Reset(duration)
+			} else {
+				line.timer.Reset(c.lifetime)
+			}
 		}
 
 		return line.value, nil
@@ -186,6 +191,20 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 		expirer:   c.expirer,
 	}
 
+}
+
+// SetTimeOut sets the time out of an entry to a new value
+func (c *Cache) SetTimeOut(u interface{}, timeout time.Duration) (err error) {
+	c.Lock()
+	defer c.Unlock()
+
+	if _, ok := c.data[u]; !ok {
+		return fmt.Errorf("Item is deleted already")
+	}
+
+	c.data[u].timer.Reset(timeout)
+
+	return nil
 }
 
 // Get retrieves the entry from the cache

@@ -129,7 +129,7 @@ func New(
 
 		contextTracker: cache.NewCache(),
 
-		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 20),
+		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 60),
 		appOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
 		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
