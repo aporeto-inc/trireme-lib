@@ -203,19 +203,25 @@ func TestGetReset(t *testing.T) {
 		So(err, ShouldBeNil)
 		Convey("When I check the cache after 1 second, the element should be there", func() {
 			<-time.After(1 * time.Second)
-			_, ok := c.data["test"]
-			So(ok, ShouldBeTrue)
+			d, err := c.Get("test")
+			So(err, ShouldBeNil)
+			So(d.(string), ShouldResemble, "test")
+
 			Convey("When I retrieve the data with get reset", func() {
+
 				val, err := c.GetReset("test")
 				So(err, ShouldBeNil)
 				So(val.(string), ShouldResemble, "test")
-				Convey("If I wait 1500ms, the data should still be there ", func() {
-					<-time.After(1500 * time.Millisecond)
-					_, ok := c.data["test"]
-					So(ok, ShouldBeTrue)
+
+				Convey("If I wait 1100, the data should still be there ", func() {
+					<-time.After(1100 * time.Millisecond)
+					d, err := c.Get("test")
+					So(err, ShouldBeNil)
+					So(d.(string), ShouldResemble, "test")
+
 					Convey("If I wait for another second, the data should be gone", func() {
 						<-time.After(1000 * time.Millisecond)
-						val, err := c.GetReset("test")
+						val, err := c.Get("test")
 						So(err, ShouldNotBeNil)
 						So(val, ShouldBeNil)
 					})
