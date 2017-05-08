@@ -405,11 +405,12 @@ func (p *Packet) L4ReverseFlowHash() string {
 // SourcePortHash calculates a hash based on dest ip/port for net packet and src ip/port for app packet.
 func (p *Packet) SourcePortHash(stage uint64) string {
 	if stage == PacketTypeNetwork {
-		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort))
+		return p.DestinationAddress.String() + ":" + strconv.Itoa(int(p.DestinationPort)) + ":" + strconv.Itoa(int(p.SourcePort))
 	}
-	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort))
+	return p.SourceAddress.String() + ":" + strconv.Itoa(int(p.SourcePort)) + ":" + strconv.Itoa(int(p.DestinationPort))
 }
 
+// ID returns the packet ID
 func (p *Packet) ID() string {
 	return strconv.Itoa(int(p.ipID))
 }
