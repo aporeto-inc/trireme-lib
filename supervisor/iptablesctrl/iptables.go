@@ -58,7 +58,7 @@ func NewInstance(networkQueues, applicationQueues string, mark int, mode constan
 		i.appPacketIPTableSection = "OUTPUT" //nolint
 		i.appCgroupIPTableSection = "OUTPUT" //nolint
 		i.netPacketIPTableSection = "INPUT"  //nolint
-		i.appSynAckIPTableSection = "INPUT"  //nolint
+		i.appSynAckIPTableSection = "OUTPUT" //nolint
 	} else {
 		i.appPacketIPTableSection = "PREROUTING"  //nolint
 		i.appCgroupIPTableSection = "OUTPUT"      //nolint
@@ -281,14 +281,25 @@ func (i *Instance) Start() error {
 		}
 	}
 
-	// Explicit rule to capture all SynAck packets
-	if i.mode != constants.LocalContainer {
-		if err := i.CaptureSYNACKPackets(); err != nil {
-			return fmt.Errorf("Cannot install rule to match syn ack packets for local services: %s", err)
+	zap.L().Debug("Started the iptables controller")
+
+	return nil
+}
+
+// SetTargetNetworks updates ths target networks for SynAck packets
+func (i *Instance) SetTargetNetworks(current, networks []string) error {
+
+	// Cleanup old ACLs
+	if len(current) > 0 {
+		if err := i.CleanCaptureSynAckPackets(current); err != nil {
+			return fmt.Errorf("Failed to clean synack networks")
 		}
 	}
 
-	zap.L().Debug("Started the iptables controller")
+	// Insert new ACLs
+	if err := i.captureTargetSynAckPackets(i.appPacketIPTableSection, i.netPacketIPTableSection, networks); err != nil {
+		return fmt.Errorf("Failed to update synack networks")
+	}
 
 	return nil
 }

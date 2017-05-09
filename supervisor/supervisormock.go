@@ -23,6 +23,9 @@ type mockedMethods struct {
 
 	//AddExcludedIP adds exlcluded iplist
 	AddExcludedIPsMock func(iplist []string) error
+
+	// SetTargetNetworksMock  adds the SetTargetNetworks implementation
+	SetTargetNetworksMock func(networks []string) error
 }
 
 // TestSupervisor is a test implementation for IptablesProvider
@@ -33,6 +36,7 @@ type TestSupervisor interface {
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
 	MockAddExcludedIPs(t *testing.T, impl func(ips []string) error)
+	MockSetTargetNetworks(t *testing.T, impl func(networks []string) error)
 }
 
 // A TestSupervisorInst is an empty TransactionalManipulator that can be easily mocked.
@@ -79,6 +83,12 @@ func (m *TestSupervisorInst) MockStop(t *testing.T, impl func() error) {
 	m.currentMocks(t).stopMock = impl
 }
 
+// MockSetTargetNetworks mocks the SetTargetNetworks method
+func (m *TestSupervisorInst) MockSetTargetNetworks(t *testing.T, impl func(networks []string) error) {
+
+	m.currentMocks(t).SetTargetNetworksMock = impl
+}
+
 // Supervise is a test implementation of the Supervise interface
 func (m *TestSupervisorInst) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
@@ -122,6 +132,16 @@ func (m *TestSupervisorInst) Stop() error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.stopMock != nil {
 		return mock.stopMock()
+	}
+
+	return nil
+}
+
+// SetTargetNetworks is a test implementation of the SetTargetNetworks interface method
+func (m *TestSupervisorInst) SetTargetNetworks(networks []string) error {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.SetTargetNetworksMock != nil {
+		return mock.SetTargetNetworksMock(networks)
 	}
 
 	return nil

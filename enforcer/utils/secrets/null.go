@@ -30,6 +30,11 @@ func (p *NullPKI) EncodingKey() interface{} {
 	return jwt.UnsafeAllowNoneSignatureType
 }
 
+// PublicKey returns nil in this case
+func (p *NullPKI) PublicKey() interface{} {
+	return nil
+}
+
 // DecodingKey returns the public key
 func (p *NullPKI) DecodingKey(server string, ackKey interface{}, prevKey interface{}) (interface{}, error) {
 

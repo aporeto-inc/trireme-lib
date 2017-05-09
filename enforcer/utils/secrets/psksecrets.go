@@ -20,6 +20,11 @@ func (p *PSKSecrets) EncodingKey() interface{} {
 	return p.SharedKey
 }
 
+// PublicKey returns the public key
+func (p *PSKSecrets) PublicKey() interface{} {
+	return p.SharedKey
+}
+
 // DecodingKey returns the preshared key.
 func (p *PSKSecrets) DecodingKey(server string, ackCert, prevCert interface{}) (interface{}, error) {
 	return p.SharedKey, nil

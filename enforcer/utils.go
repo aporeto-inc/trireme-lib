@@ -1,18 +1,15 @@
 package enforcer
 
 import (
+	"fmt"
+
 	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
-
-	if connection != nil {
-		connection.SetReported(true)
-	}
+func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
 
 	d.collector.CollectFlowEvent(&collector.FlowRecord{
 		ContextID:       context.ID,
@@ -27,17 +24,18 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnec
 	})
 }
 
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *PUContext) {
+func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext) {
 	if conn != nil {
-		conn.SetReported(connection.RejectReported)
+		conn.SetReported(RejectReported)
 	}
 	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
 }
 
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
 	if conn != nil {
-		conn.SetReported(connection.AcceptReported)
+		conn.SetReported(AcceptReported)
 	}
+	fmt.Println("REJECTED", mode)
 	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
 }
 

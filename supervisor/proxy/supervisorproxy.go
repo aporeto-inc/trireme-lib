@@ -75,6 +75,26 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 	return nil
 }
 
+// SetTargetNetworks sets the target networks in case of an  update
+func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
+	for contextID, done := range s.initDone {
+		if done {
+			request := &rpcwrapper.Request{
+				Payload: &rpcwrapper.InitSupervisorPayload{
+					TriremeNetworks: networks,
+					CaptureMethod:   rpcwrapper.IPTables,
+				},
+			}
+
+			if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
+				return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Start This method does nothing and is implemented for completeness
 // THe work done is done in the InitRemoteSupervisor method in the remote enforcer
 func (s *ProxyInfo) Start() error {
@@ -120,7 +140,8 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitSupervisorPayload{
-			CaptureMethod: rpcwrapper.IPTables,
+			TriremeNetworks: puInfo.Policy.TriremeNetworks(),
+			CaptureMethod:   rpcwrapper.IPTables,
 		},
 	}
 

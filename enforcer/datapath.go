@@ -13,7 +13,6 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/connection"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -45,6 +44,7 @@ type Datapath struct {
 	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
 	service        PacketProcessor
+	secrets        secrets.Secrets
 	procMountPoint string
 
 	// Internal structures and caches
@@ -54,14 +54,18 @@ type Datapath struct {
 	puFromMark     cache.DataStore
 	puFromPort     cache.DataStore
 
-	// Key=FlowHash Value=Connection. Created on syn packet from network with regular flow hash
-	networkConnectionTracker cache.DataStore
-	// Key=FlowHash Value=Connection. Created on syn packet from application with regular flow hash
-	appConnectionTracker cache.DataStore
-
-	// key=sourceIP+Port , value=context : Created just for the SynAck packets to retrieve context
-	sourcePortCache           cache.DataStore
+	// Hash based on source IP/Port to capture SynAck packets with possible NAT.
+	// When a new connection is created, we has the source IP/port. A return
+	// poacket might come with a different source IP NAT is done later.
+	// If we don't receife a return SynAck in 20 seconds, it expires
 	sourcePortConnectionCache cache.DataStore
+
+	// Hash on full five-tuple and return the connection
+	// These are auto-expired connections after 60 seconds of inactivity.
+	appOrigConnectionTracker  cache.DataStore
+	appReplyConnectionTracker cache.DataStore
+	netOrigConnectionTracker  cache.DataStore
+	netReplyConnectionTracker cache.DataStore
 
 	// stats
 	net    InterfaceStats
@@ -125,15 +129,17 @@ func New(
 
 		contextTracker: cache.NewCache(),
 
-		networkConnectionTracker:  cache.NewCacheWithExpirationNotifier(time.Second*60, connection.TCPConnectionExpirationNotifier),
-		appConnectionTracker:      cache.NewCacheWithExpirationNotifier(time.Second*60, connection.TCPConnectionExpirationNotifier),
-		sourcePortCache:           cache.NewCacheWithExpiration(time.Second * 60),
 		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 60),
+		appOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
+		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
+		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
+		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
 		collector:                 collector,
 		tokenEngine:               tokenEngine,
+		secrets:                   secrets,
 		net:                       InterfaceStats{},
 		app:                       InterfaceStats{},
 		netTCP:                    PacketStats{},
@@ -256,6 +262,8 @@ func (d *Datapath) GetFilterQueue() *FilterQueue {
 func (d *Datapath) Start() error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
+
+	d.service.Initialize(d.secrets, d.filterQueue)
 
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()

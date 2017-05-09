@@ -228,6 +228,11 @@ func (i *Instance) Stop() error {
 	return i.cleanACLs()
 }
 
+// SetTargetNetworks sets the target networks
+func (i *Instance) SetTargetNetworks(current, networks []string) error {
+	return nil
+}
+
 func (i *Instance) cleanACLs() error {
 
 	zap.L().Debug("Cleaning all IPTables")

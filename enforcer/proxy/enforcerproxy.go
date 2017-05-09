@@ -140,16 +140,7 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 // GetFilterQueue returns the current FilterQueueConfig.
 func (s *proxyInfo) GetFilterQueue() *enforcer.FilterQueue {
 
-	fqConfig := &enforcer.FilterQueue{
-		NetworkQueue:              enforcer.DefaultNetworkQueue,
-		NetworkQueueSize:          enforcer.DefaultQueueSize,
-		NumberOfNetworkQueues:     enforcer.DefaultNumberOfQueues,
-		ApplicationQueue:          enforcer.DefaultApplicationQueue,
-		ApplicationQueueSize:      enforcer.DefaultQueueSize,
-		NumberOfApplicationQueues: enforcer.DefaultNumberOfQueues,
-		MarkValue:                 enforcer.DefaultMarkValue,
-	}
-	return fqConfig
+	return s.filterQueue
 }
 
 // Start starts the the remote enforcer proxy.

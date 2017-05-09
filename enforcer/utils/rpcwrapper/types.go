@@ -52,7 +52,8 @@ type InitRequestPayload struct {
 
 //InitSupervisorPayload for supervisor init request
 type InitSupervisorPayload struct {
-	CaptureMethod CaptureType `json:",omitempty"`
+	TriremeNetworks []string    `json:",omitempty"`
+	CaptureMethod   CaptureType `json:",omitempty"`
 }
 
 // EnforcePayload Payload for enforce request

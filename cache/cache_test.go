@@ -193,6 +193,110 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 	})
 }
 
+func TestGetReset(t *testing.T) {
+
+	t.Parallel()
+
+	Convey("Given that I instantiate 1 object with a 2 second timer", t, func() {
+		c := NewCacheWithExpiration(2 * time.Second)
+		err := c.Add("test", "test")
+		So(err, ShouldBeNil)
+		Convey("When I check the cache after 1 second, the element should be there", func() {
+			<-time.After(1 * time.Second)
+			d, err := c.Get("test")
+			So(err, ShouldBeNil)
+			So(d.(string), ShouldResemble, "test")
+
+			Convey("When I retrieve the data with get reset", func() {
+
+				val, err := c.GetReset("test", 0)
+				So(err, ShouldBeNil)
+				So(val.(string), ShouldResemble, "test")
+
+				Convey("If I wait 1100, the data should still be there ", func() {
+					<-time.After(1100 * time.Millisecond)
+					d, err := c.Get("test")
+					So(err, ShouldBeNil)
+					So(d.(string), ShouldResemble, "test")
+
+					Convey("If I wait for another second, the data should be gone", func() {
+						<-time.After(1200 * time.Millisecond)
+						val, err := c.Get("test")
+						So(err, ShouldNotBeNil)
+						So(val, ShouldBeNil)
+					})
+				})
+			})
+		})
+	})
+}
+
+func TestSetTimeOut(t *testing.T) {
+
+	t.Parallel()
+
+	Convey("Given that I instantiate 1 object with a 2 second timer", t, func() {
+		c := NewCacheWithExpiration(2 * time.Second)
+		err := c.Add("test", "test")
+		So(err, ShouldBeNil)
+		Convey("When I check the cache after 1 second, the element should be there", func() {
+			<-time.After(1 * time.Second)
+			d, err := c.Get("test")
+			So(err, ShouldBeNil)
+			So(d.(string), ShouldResemble, "test")
+
+			Convey("When I reset the timer to two more seconds", func() {
+
+				err := c.SetTimeOut("test", 2*time.Second)
+				So(err, ShouldBeNil)
+
+				Convey("If I wait 1100, the data should still be there ", func() {
+					<-time.After(1100 * time.Millisecond)
+					d, err := c.Get("test")
+					So(err, ShouldBeNil)
+					So(d.(string), ShouldResemble, "test")
+
+					Convey("If I wait for another second, the data should be gone", func() {
+						<-time.After(1000 * time.Millisecond)
+						val, err := c.Get("test")
+						So(err, ShouldNotBeNil)
+						So(val, ShouldBeNil)
+					})
+				})
+			})
+		})
+	})
+}
+
+func TestCacheWithExpirationNotifier(t *testing.T) {
+
+	t.Parallel()
+
+	finished := make(chan bool)
+
+	Convey("Given a cache with an expiration notitifier ", t, func() {
+		c := NewCacheWithExpirationNotifier(2*time.Second, func(s DataStore, id interface{}, item interface{}) {
+			if id.(string) == "test" && item.(string) == "test" {
+				finished <- true
+			} else {
+				finished <- false
+			}
+		})
+
+		Convey("When I add an element", func() {
+			oldtime := time.Now()
+			err := c.Add("test", "test")
+			So(err, ShouldBeNil)
+			Convey("I should receive a notification", func() {
+				r := <-finished
+				Duration := time.Since(oldtime)
+				So(r, ShouldBeTrue)
+				So(Duration.Seconds(), ShouldBeGreaterThanOrEqualTo, 2.0)
+			})
+		})
+	})
+}
+
 func TestThousandsOfTimers(t *testing.T) {
 
 	t.Parallel()

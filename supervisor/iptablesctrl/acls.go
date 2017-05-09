@@ -113,15 +113,14 @@ func (i *Instance) trapRules(appChain string, netChain string, network string, a
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		})
 
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", appQueue,
 		})
@@ -163,7 +162,7 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 	}
 
 	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
-		return fmt.Errorf("Failed to add  netchain %s of context %s : %s", netChain, i.netPacketIPTableContext, err.Error())
+		return fmt.Errorf("Failed to add  netChain %s of context %s : %s", netChain, i.netPacketIPTableContext, err.Error())
 	}
 
 	return nil
@@ -462,51 +461,59 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 	return nil
 }
 
-// CaptureSYNACKPackets install rules to capture all SynAck packets
-func (i *Instance) CaptureSYNACKPackets() error {
+// captureTargetSynAckPackets install rules to capture all SynAck packets in the chain
+func (i *Instance) captureTargetSynAckPackets(appChain, netChain string, networks []string) error {
+	for _, net := range networks {
 
-	err := i.ipt.Insert(
-		i.appAckPacketIPTableContext,
-		i.appPacketIPTableSection, 1,
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
+		err := i.ipt.Insert(
+			i.appAckPacketIPTableContext,
+			appChain, 1,
+			"-d", net,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
 
-	if err != nil {
-		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+		if err != nil {
+			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+		}
+
+		err = i.ipt.Insert(
+			i.netPacketIPTableContext,
+			netChain, 1,
+			"-s", net,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
+
+		if err != nil {
+			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())
+		}
+
 	}
-
-	err = i.ipt.Insert(
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection, 1,
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
-
-	if err != nil {
-		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())
-	}
-
 	return nil
 }
 
 // CleanCaptureSynAckPackets cleans the capture rules for SynAck packets
-func (i *Instance) CleanCaptureSynAckPackets() error {
+func (i *Instance) CleanCaptureSynAckPackets(networks []string) error {
 
-	if err := i.ipt.Delete(
-		i.appAckPacketIPTableContext,
-		i.appPacketIPTableSection,
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues); err != nil {
+	for _, net := range networks {
+		if err := i.ipt.Delete(
+			i.appAckPacketIPTableContext,
+			i.appPacketIPTableSection,
+			"-d", net,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues); err != nil {
 
-		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
-	}
+			zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
+		}
 
-	if err := i.ipt.Delete(
-		i.netPacketIPTableContext,
-		i.netPacketIPTableSection,
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues); err != nil {
+		if err := i.ipt.Delete(
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-s", net,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues); err != nil {
 
-		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
+			zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
+		}
 	}
 
 	return nil
@@ -567,7 +574,7 @@ func (i *Instance) cleanACLs() error {
 	}
 
 	if i.mode == constants.LocalServer {
-		if err := i.CleanCaptureSynAckPackets(); err != nil {
+		if err := i.CleanAllSynAckPacketCaptures(); err != nil {
 			zap.L().Warn("Can not clear the SynAck ACLs", zap.Error(err))
 		}
 	}
@@ -633,25 +640,25 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, chainPrefix 
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) addExclusionACLs(appchain, netchain string, ip string, exclusions []string) error {
+func (i *Instance) addExclusionACLs(appChain, netChain string, ip string, exclusions []string) error {
 
 	for _, e := range exclusions {
 		if err := i.ipt.Insert(
-			i.appAckPacketIPTableContext, appchain, 1,
+			i.appAckPacketIPTableContext, appChain, 1,
 			"-s", ip,
 			"-d", e,
 			"-j", "ACCEPT",
 		); err != nil {
-			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, appchain, e, err.Error())
+			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, appChain, e, err.Error())
 		}
 
 		if err := i.ipt.Insert(
-			i.netPacketIPTableContext, netchain, 1,
+			i.netPacketIPTableContext, netChain, 1,
 			"-s", e,
 			"-d", ip,
 			"-j", "ACCEPT",
 		); err != nil {
-			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, netchain, e, err.Error())
+			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, netChain, e, err.Error())
 		}
 	}
 

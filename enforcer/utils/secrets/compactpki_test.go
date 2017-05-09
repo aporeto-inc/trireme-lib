@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"crypto/ecdsa"
+	"crypto/x509"
 	"testing"
 
 	"github.com/aporeto-inc/trireme/crypto"
@@ -131,8 +132,12 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 			So(p.EncodingPEM(), ShouldResemble, []byte(privateKeyPEM))
 		})
 
-		Convey("I should ge the righ ack size", func() {
+		Convey("I should ge the right ack size", func() {
 			So(p.AckSize(), ShouldEqual, 322)
+		})
+
+		Convey("I should get the right public key, ", func() {
+			So(p.PublicKey().(*x509.Certificate), ShouldResemble, cert)
 		})
 
 		Convey("When I verify the received public key, it should succeed", func() {
