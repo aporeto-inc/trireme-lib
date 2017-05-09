@@ -516,7 +516,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 // processNetworkAckPacket processes an Ack packet arriving from the network
 func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
-	if conn.GetState() == TCPData {
+	if conn.GetState() == TCPData || conn.GetState() == TCPAckSend {
 		return nil, nil, nil
 	}
 
