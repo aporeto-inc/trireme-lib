@@ -2,9 +2,11 @@ package enforcer
 
 // Go libraries
 import (
+	"encoding/hex"
 	"fmt"
+	"strconv"
 
-	"github.com/aporeto-inc/trireme/enforcer/netfilter"
+	nfqueue "github.com/aporeto-inc/nfqueue-go"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"go.uber.org/zap"
 )
@@ -12,28 +14,28 @@ import (
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startNetworkInterceptor() {
-	var err error
+	// var err error
 
 	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 		d.netStop[i] = make(chan bool)
 	}
 
-	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
+	// nfq := make([]*nfqueue.NfQueue, d.filterQueue.NumberOfNetworkQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 
 		// Initialize all the queues
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
-		if err != nil {
-			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
-		}
+		// nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, nfqueue.NfDefaultPacketSize)
+		// if err != nil {
+		// 	zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+		// }
 
 		go func(j uint16) {
 			for {
 				select {
-				case packet := <-nfq[j].Packets:
-					d.processNetworkPacketsFromNFQ(packet)
+				// case packet := <-nfq[j].NotificationChannel:
+				// 	d.processNetworkPacketsFromNFQ(packet)
 				case <-d.netStop[j]:
 					return
 				}
@@ -54,10 +56,10 @@ func (d *Datapath) startApplicationInterceptor() {
 		d.appStop[i] = make(chan bool)
 	}
 
-	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
+	nfq := make([]*nfqueue.NfQueue, d.filterQueue.NumberOfApplicationQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize)
+		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, nfqueue.NfDefaultPacketSize)
 
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
@@ -66,7 +68,7 @@ func (d *Datapath) startApplicationInterceptor() {
 		go func(j uint16) {
 			for {
 				select {
-				case packet := <-nfq[j].Packets:
+				case packet := <-nfq[j].NotificationChannel:
 					d.processApplicationPacketsFromNFQ(packet)
 				case <-d.appStop[j]:
 					return
@@ -77,12 +79,12 @@ func (d *Datapath) startApplicationInterceptor() {
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
-func (d *Datapath) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
+func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	d.net.IncomingPackets++
 
 	// Parse the packet - drop if parsing fails
-	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, p.Mark)
+	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(int(p.Mark)))
 
 	if err != nil {
 		d.net.CreateDropPackets++
@@ -94,40 +96,40 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 		err = fmt.Errorf("Invalid IP Protocol %d", netPacket.IPProto)
 	}
 
-	if err != nil {
-		netfilter.SetVerdict(&netfilter.Verdict{
-			V:           netfilter.NfDrop,
-			Buffer:      netPacket.Buffer,
-			Payload:     nil,
-			Options:     nil,
-			Xbuffer:     p.Xbuffer,
-			ID:          p.ID,
-			QueueHandle: p.QueueHandle,
-		}, d.filterQueue.MarkValue)
-		return
-	}
+	// if err != nil {
+	// 	netfilter.SetVerdict(&netfilter.Verdict{
+	// 		V:           netfilter.NfDrop,
+	// 		Buffer:      netPacket.Buffer,
+	// 		Payload:     nil,
+	// 		Options:     nil,
+	// 		Xbuffer:     p.Xbuffer,
+	// 		ID:          p.ID,
+	// 		QueueHandle: p.QueueHandle,
+	// 	}, d.filterQueue.MarkValue)
+	// 	return
+	// }
 
-	// Accept the packet
-	netfilter.SetVerdict(&netfilter.Verdict{
-		V:           netfilter.NfAccept,
-		Buffer:      netPacket.Buffer,
-		Payload:     netPacket.GetTCPData(),
-		Options:     netPacket.GetTCPOptions(),
-		Xbuffer:     p.Xbuffer,
-		ID:          p.ID,
-		QueueHandle: p.QueueHandle,
-	}, d.filterQueue.MarkValue)
+	// // Accept the packet
+	// netfilter.SetVerdict(&netfilter.Verdict{
+	// 	V:           netfilter.NfAccept,
+	// 	Buffer:      netPacket.Buffer,
+	// 	Payload:     netPacket.GetTCPData(),
+	// 	Options:     netPacket.GetTCPOptions(),
+	// 	Xbuffer:     p.Xbuffer,
+	// 	ID:          p.ID,
+	// 	QueueHandle: p.QueueHandle,
+	// }, d.filterQueue.MarkValue)
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
+func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	d.app.IncomingPackets++
 
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
 	// lots of things at the ingress to the network
-	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, p.Mark)
+	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, strconv.Itoa(int(p.Mark)))
 
 	if err != nil {
 		d.app.CreateDropPackets++
@@ -139,28 +141,34 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
 		err = fmt.Errorf("Invalid IP Protocol %d", appPacket.IPProto)
 	}
 
-	if err != nil {
-		netfilter.SetVerdict(&netfilter.Verdict{
-			V:           netfilter.NfDrop,
-			Buffer:      appPacket.Buffer,
-			Payload:     nil,
-			Options:     nil,
-			Xbuffer:     p.Xbuffer,
-			ID:          p.ID,
-			QueueHandle: p.QueueHandle,
-		}, d.filterQueue.MarkValue)
-		return
-	}
-
-	// Accept the packet
-	netfilter.SetVerdict(&netfilter.Verdict{
-		V:           netfilter.NfAccept,
-		Buffer:      appPacket.Buffer,
-		Payload:     appPacket.GetTCPData(),
-		Options:     appPacket.GetTCPOptions(),
-		Xbuffer:     p.Xbuffer,
-		ID:          p.ID,
-		QueueHandle: p.QueueHandle,
-	}, d.filterQueue.MarkValue)
+	// if err != nil {
+	// 	netfilter.SetVerdict(&netfilter.Verdict{
+	// 		V:           netfilter.NfDrop,
+	// 		Buffer:      appPacket.Buffer,
+	// 		Payload:     nil,
+	// 		Options:     nil,
+	// 		Xbuffer:     p.Xbuffer,
+	// 		ID:          p.ID,
+	// 		QueueHandle: p.QueueHandle,
+	// 	}, d.filterQueue.MarkValue)
+	// 	return
+	// }
+	fmt.Println("#########")
+	fmt.Println(hex.Dump(appPacket.Buffer))
+	fmt.Println("#########")
+	fmt.Println(hex.Dump(appPacket.GetTCPOptions()))
+	fmt.Println("#########")
+	fmt.Println(hex.Dump(appPacket.GetTCPData()))
+	fmt.Println("#########")
+	// // Accept the packet
+	// netfilter.SetVerdict(&netfilter.Verdict{
+	// 	V:           netfilter.NfAccept,
+	// 	Buffer:      appPacket.Buffer,
+	// 	Payload:     appPacket.GetTCPData(),
+	// 	Options:     appPacket.GetTCPOptions(),
+	// 	Xbuffer:     p.Xbuffer,
+	// 	ID:          p.ID,
+	// 	QueueHandle: p.QueueHandle,
+	// }, d.filterQueue.MarkValue)
 
 }
