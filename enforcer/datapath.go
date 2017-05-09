@@ -262,8 +262,9 @@ func (d *Datapath) GetFilterQueue() *FilterQueue {
 func (d *Datapath) Start() error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
-
-	d.service.Initialize(d.secrets, d.filterQueue)
+	if d.service != nil {
+		d.service.Initialize(d.secrets, d.filterQueue)
+	}
 
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()

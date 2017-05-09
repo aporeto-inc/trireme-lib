@@ -2,6 +2,7 @@ package enforcer
 
 // Go libraries
 import (
+	"encoding/hex"
 	"fmt"
 
 	"github.com/aporeto-inc/trireme/enforcer/netfilter"
@@ -127,6 +128,11 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
 	// lots of things at the ingress to the network
+	fmt.Println("#####")
+	fmt.Println(hex.Dump(p.Buffer))
+	fmt.Println("#####")
+	fmt.Println((p.ID))
+	fmt.Println("#####")
 	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, p.Mark)
 
 	if err != nil {
