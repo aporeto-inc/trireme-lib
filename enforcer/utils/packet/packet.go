@@ -27,7 +27,7 @@ var (
 )
 
 func init() {
-	PacketLogLevel = 0
+	PacketLogLevel = 1
 	debugContext = 0
 	debugContextApp = 0 //PacketStageIncoming
 	debugContextNet = 0 //PacketStageOutgoing
