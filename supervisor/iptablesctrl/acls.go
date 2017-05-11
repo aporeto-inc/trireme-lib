@@ -462,58 +462,59 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 }
 
 // captureTargetSynAckPackets install rules to capture all SynAck packets in the chain
-func (i *Instance) captureTargetSynAckPackets(appChain, netChain string, networks []string) error {
-	for _, net := range networks {
+func (i *Instance) captureTargetSynAckPackets(appChain, netChain string) error {
 
-		err := i.ipt.Insert(
-			i.appAckPacketIPTableContext,
-			appChain, 1,
-			"-d", net,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
+	err := i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		appChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues)
 
-		if err != nil {
-			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
-		}
-
-		err = i.ipt.Insert(
-			i.netPacketIPTableContext,
-			netChain, 1,
-			"-s", net,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
-
-		if err != nil {
-			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())
-		}
-
+	if err != nil {
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues)
+
+	if err != nil {
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
 	return nil
+
 }
 
 // CleanCaptureSynAckPackets cleans the capture rules for SynAck packets
-func (i *Instance) CleanCaptureSynAckPackets(networks []string) error {
+func (i *Instance) CleanCaptureSynAckPackets() error {
 
-	for _, net := range networks {
-		if err := i.ipt.Delete(
-			i.appAckPacketIPTableContext,
-			i.appPacketIPTableSection,
-			"-d", net,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues); err != nil {
+	if err := i.ipt.Delete(
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.applicationQueues); err != nil {
 
-			zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
-		}
+		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
+	}
 
-		if err := i.ipt.Delete(
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-s", net,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues); err != nil {
+	if err := i.ipt.Delete(
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.networkQueues); err != nil {
 
-			zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
-		}
+		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
+	}
+
+	if err := i.ipset.DestroyAll(); err != nil {
+		zap.L().Debug("Failed to clear targetIPset", zap.Error(err))
 	}
 
 	return nil
