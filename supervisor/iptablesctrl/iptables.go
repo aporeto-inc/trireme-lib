@@ -326,5 +326,9 @@ func (i *Instance) Stop() error {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
 
+	if err := i.ipset.DestroyAll(); err != nil {
+		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
+	}
+
 	return nil
 }
