@@ -873,3 +873,51 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateTargetNetworks(t *testing.T) {
+	Convey("Given an iptables controller,", t, func() {
+		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		iptables := provider.NewTestIptablesProvider()
+		i.ipt = iptables
+		ipsets := provider.NewTestIpsetProvider()
+		i.ipset = ipsets
+
+		Convey("When I create the target networks for the first time and ipset succeeds, it should succeed", func() {
+
+			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
+				if name == targetNetworkSet {
+					testset := provider.NewTestIpset()
+					testset.MockAdd(t, func(entry string, timeout int) error {
+						if entry == "10.1.1.0/24" || entry == "20.1.1.0/24" || entry == "30.1.1.0/24" {
+							return nil
+						}
+						return fmt.Errorf("Error")
+					})
+
+					testset.MockDel(t, func(entry string) error {
+						if entry == "10.1.1.0/24" {
+							return nil
+						}
+						return fmt.Errorf("Error")
+					})
+
+					return testset, nil
+				}
+				return nil, fmt.Errorf("Wrong set")
+			})
+
+			err := i.createTargetSet([]string{"10.1.1.0/24", "20.1.1.0/24"})
+			So(err, ShouldBeNil)
+
+			Convey("When I update the target network and I delete an entry", func() {
+				err := i.updateTargetNetworks([]string{"10.1.1.0/24", "20.1.1.0/24"}, []string{"20.1.1.0/24"})
+				So(err, ShouldBeNil)
+			})
+
+			Convey("When I update the target network and I add an entry", func() {
+				err := i.updateTargetNetworks([]string{"10.1.1.0/24", "20.1.1.0/24"}, []string{"30.1.1.0/24"})
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+}
