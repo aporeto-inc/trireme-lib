@@ -14,18 +14,17 @@ import (
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startNetworkInterceptor() {
 	var err error
-	nfqueue.Init()
 	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 		d.netStop[i] = make(chan bool)
 	}
 
-	nfq := make([]*nfqueue.NfQueue, d.filterQueue.NumberOfNetworkQueues)
+	nfq := make([]nfqueue.Verdict, d.filterQueue.NumberOfNetworkQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 
 		// Initialize all the queues
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, nfqueue.NfDefaultPacketSize)
+		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, nfqueue.NfDefaultPacketSize, nil)
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
@@ -33,7 +32,7 @@ func (d *Datapath) startNetworkInterceptor() {
 		go func(j uint16) {
 			for {
 				select {
-				case packet := <-nfq[j].NotificationChannel:
+				case packet := <-nfq[j].GetNotificationChannel():
 					d.processNetworkPacketsFromNFQ(packet)
 				case <-d.netStop[j]:
 					return
@@ -49,16 +48,15 @@ func (d *Datapath) startNetworkInterceptor() {
 func (d *Datapath) startApplicationInterceptor() {
 
 	var err error
-	nfqueue.Init()
 	d.appStop = make([]chan bool, d.filterQueue.NumberOfApplicationQueues)
 	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
 		d.appStop[i] = make(chan bool)
 	}
 
-	nfq := make([]*nfqueue.NfQueue, d.filterQueue.NumberOfApplicationQueues)
+	nfq := make([]nfqueue.Verdict, d.filterQueue.NumberOfApplicationQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, nfqueue.NfDefaultPacketSize)
+		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, nfqueue.NfDefaultPacketSize, nil)
 
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
@@ -67,7 +65,7 @@ func (d *Datapath) startApplicationInterceptor() {
 		go func(j uint16) {
 			for {
 				select {
-				case packet := <-nfq[j].NotificationChannel:
+				case packet := <-nfq[j].GetNotificationChannel():
 					d.processApplicationPacketsFromNFQ(packet)
 				case <-d.appStop[j]:
 					return
