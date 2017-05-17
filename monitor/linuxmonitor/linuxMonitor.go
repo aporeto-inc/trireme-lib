@@ -2,12 +2,12 @@ package linuxmonitor
 
 import (
 	"crypto/md5"
+	"debug/elf"
 	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -125,24 +125,11 @@ func findFQFN() string {
 
 // libs returns the list of dynamic library dependencies of an executable
 func libs(binpath string) []string {
-	cmd := "objdump"
-	cmdargs := []string{
-		"-p",
-		binpath,
-	}
-
-	out, err := exec.Command(cmd, cmdargs...).Output()
+	f, err := elf.Open(binpath)
 	if err != nil {
 		return []string{}
 	}
-
-	libraries := []string{}
-	for _, line := range strings.Split(string(out), "\n") {
-		if strings.Contains(line, "NEEDED") {
-			libraries = append(libraries, strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "NEEDED")))
-		}
-	}
-
+	libraries, _ := f.ImportedLibraries()
 	return libraries
 }
 

@@ -259,6 +259,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		if s.Service != nil {
 			s.Service.Initialize(s.secrets, s.Enforcer.GetFilterQueue())
 		}
+
 	} else {
 		s.Supervisor.SetTargetNetworks(payload.TriremeNetworks)
 	}
