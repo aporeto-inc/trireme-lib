@@ -153,6 +153,7 @@ func NewHybridTrireme(
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets,
+	networks []string,
 ) trireme.Trireme {
 
 	if eventCollector == nil {
@@ -191,7 +192,7 @@ func NewHybridTrireme(
 		processEnforcer,
 		constants.LocalServer,
 		constants.IPTables,
-		[]string{},
+		networks,
 	)
 
 	if perr != nil {
@@ -350,6 +351,7 @@ func NewPKITriremeWithDockerMonitor(
 // compatibility. Will be removed
 func NewPSKHybridTriremeWithMonitor(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -372,6 +374,7 @@ func NewPSKHybridTriremeWithMonitor(
 		processor,
 		eventCollector,
 		secrets,
+		networks,
 	)
 
 	monitorDocker := dockermonitor.NewDockerMonitor(
@@ -405,6 +408,79 @@ func NewPSKHybridTriremeWithMonitor(
 
 }
 
+// NewHybridCompactPKIWithDocker is an example of configuring Trireme to use the compact PKI
+// secrets method. The calling module must provide a policy engine implementation and
+// private/public key pair and parent certificate and key.
+// All certificates are passed in PEM format. If a certificate pool is provided
+// certificates will not be transmitted on the wire.
+// This is an example use - certificates must be properly protected
+func NewHybridCompactPKIWithDocker(
+	serverID string,
+	networks []string,
+	resolver trireme.PolicyResolver,
+	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
+	syncAtStart bool,
+	keyPEM []byte,
+	certPEM []byte,
+	caCertPEM []byte,
+	token []byte,
+	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	remoteEnforcer bool,
+	killContainerError bool,
+) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
+
+	if eventCollector == nil {
+		zap.L().Warn("Using a default collector for events")
+		eventCollector = &collector.DefaultCollector{}
+	}
+
+	secrets, err := secrets.NewCompactPKI(keyPEM, certPEM, caCertPEM, token)
+	if err != nil {
+		zap.L().Fatal("Failed to initialize tokens engine")
+	}
+
+	triremeInstance := NewHybridTrireme(
+		serverID,
+		resolver,
+		processor,
+		eventCollector,
+		secrets,
+		networks,
+	)
+
+	monitorDocker := dockermonitor.NewDockerMonitor(
+		constants.DefaultDockerSocketType,
+		constants.DefaultDockerSocket,
+		triremeInstance,
+		dockerMetadataExtractor,
+		eventCollector,
+		syncAtStart,
+		nil,
+		killContainerError,
+	)
+
+	// use rpcmonitor no need to return it since no other consumer for it
+	rpcmon, err := rpcmonitor.NewRPCMonitor(
+		rpcmonitor.DefaultRPCAddress,
+		triremeInstance,
+		eventCollector,
+	)
+
+	if err != nil {
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+	}
+
+	// configure a LinuxServices processor for the rpc monitor
+	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
+	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+	}
+
+	return triremeInstance, monitorDocker, rpcmon
+
+}
+
 // NewCompactPKIWithDocker is an example of configuring Trireme to use the compact PKI
 // secrets method. The calling module must provide a policy engine implementation and
 // private/public key pair and parent certificate and key.
@@ -413,6 +489,7 @@ func NewPSKHybridTriremeWithMonitor(
 // This is an example use - certificates must be properly protected
 func NewCompactPKIWithDocker(
 	serverID string,
+	networks []string,
 	resolver trireme.PolicyResolver,
 	processor enforcer.PacketProcessor,
 	eventCollector collector.EventCollector,
@@ -431,32 +508,21 @@ func NewCompactPKIWithDocker(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	publicKeyAdder, err := secrets.NewCompactPKI(keyPEM, certPEM, caCertPEM, token)
+	secrets, err := secrets.NewCompactPKI(keyPEM, certPEM, caCertPEM, token)
 	if err != nil {
 		zap.L().Fatal("Failed to initialize tokens engine")
 	}
 
-	var triremeInstance trireme.Trireme
+	triremeInstance := NewDistributedTriremeDocker(
+		serverID,
+		resolver,
+		processor,
+		eventCollector,
+		secrets,
+		constants.IPTables,
+	)
 
-	if remoteEnforcer {
-		triremeInstance = NewDistributedTriremeDocker(
-			serverID,
-			resolver,
-			processor,
-			eventCollector,
-			publicKeyAdder,
-			constants.IPTables)
-	} else {
-		triremeInstance = NewLocalTriremeDocker(
-			serverID,
-			resolver,
-			processor,
-			eventCollector,
-			publicKeyAdder,
-			constants.IPTables)
-	}
-
-	monitorInstance := dockermonitor.NewDockerMonitor(
+	monitorDocker := dockermonitor.NewDockerMonitor(
 		constants.DefaultDockerSocketType,
 		constants.DefaultDockerSocket,
 		triremeInstance,
@@ -464,8 +530,9 @@ func NewCompactPKIWithDocker(
 		eventCollector,
 		syncAtStart,
 		nil,
-		killContainerError)
+		killContainerError,
+	)
 
-	return triremeInstance, monitorInstance
+	return triremeInstance, monitorDocker
 
 }
