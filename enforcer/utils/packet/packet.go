@@ -414,3 +414,10 @@ func (p *Packet) SourcePortHash(stage uint64) string {
 func (p *Packet) ID() string {
 	return strconv.Itoa(int(p.ipID))
 }
+
+func (p *Packet) TCPOptionLength() int {
+	return len(p.tcpOptions)
+}
+func (p *Packet) TCPDataLength() int {
+	return len(p.tcpData)
+}
