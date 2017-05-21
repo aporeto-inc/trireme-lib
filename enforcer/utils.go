@@ -54,6 +54,5 @@ func createRuleDBs(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *look
 			continue
 		}
 	}
-
 	return acceptRules, rejectRules
 }
