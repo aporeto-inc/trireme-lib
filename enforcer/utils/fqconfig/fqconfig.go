@@ -216,7 +216,7 @@ func (f *FilterQueue) GetApplicationQueueSvcStr() string {
 // Change in parameters after the isolator is started has no effect
 const (
 	// DefaultQueueSeperation specifies if we should use separate queues for packet types
-	DefaultQueueSeperation = false
+	DefaultQueueSeperation = true
 	// DefaultNumberOfQueues  is the default number of queues used in NFQUEUE
 	DefaultNumberOfQueues = 4
 	// DefaultQueueStart represents the queue number to start
