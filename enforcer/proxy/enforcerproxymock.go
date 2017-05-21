@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
 type mockedMethods struct {
 	EnforceMock        func(contextID string, puInfo *policy.PUInfo) error
 	UnenforceMock      func(contextID string) error
-	GetFilterQueueMock func() *enforcer.FilterQueue
+	GetFilterQueueMock func() fqconfig.FilterQueueImpl
 	StartMock          func() error
 	StopMock           func() error
 }
@@ -21,7 +22,7 @@ type TestEnforcerLauncher interface {
 	enforcer.PolicyEnforcer
 	MockEnforce(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnenforce(t *testing.T, impl func(contextID string) error)
-	MockGetFilterQueue(t *testing.T, impl func() *enforcer.FilterQueue)
+	MockGetFilterQueue(t *testing.T, impl func() fqconfig.FilterQueueImpl)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
 }
@@ -61,7 +62,7 @@ func (m *testEnforcerLauncher) MockEnforce(t *testing.T, impl func(contextID str
 func (m *testEnforcerLauncher) MockUnenforce(t *testing.T, impl func(contextID string) error) {
 	m.currentMocks(t).UnenforceMock = impl
 }
-func (m *testEnforcerLauncher) MockGetFilterQueue(t *testing.T, impl func() *enforcer.FilterQueue) {
+func (m *testEnforcerLauncher) MockGetFilterQueue(t *testing.T, impl func() fqconfig.FilterQueueImpl) {
 	m.currentMocks(t).GetFilterQueueMock = impl
 }
 func (m *testEnforcerLauncher) MockStart(t *testing.T, impl func() error) {
@@ -85,7 +86,7 @@ func (m *testEnforcerLauncher) Unenforce(contextID string) error {
 	}
 	return nil
 }
-func (m *testEnforcerLauncher) GetFilterQueue() *enforcer.FilterQueue {
+func (m *testEnforcerLauncher) GetFilterQueue() fqconfig.FilterQueueImpl {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.GetFilterQueueMock != nil {
 		return mock.GetFilterQueueMock()
 

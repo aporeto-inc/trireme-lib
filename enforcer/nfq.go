@@ -14,17 +14,17 @@ import (
 func (d *Datapath) startNetworkInterceptor() {
 	var err error
 
-	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
-	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+	d.netStop = make([]chan bool, d.filterQueue.GetNumNetworkQueues())
+	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 		d.netStop[i] = make(chan bool)
 	}
 
-	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfNetworkQueues)
+	nfq := make([]*netfilter.NFQueue, d.filterQueue.GetNumNetworkQueues())
 
-	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 
 		// Initialize all the queues
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, netfilter.NfDefaultPacketSize)
+		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.GetNetworkQueueStart()+i, d.filterQueue.GetNetworkQueueSize(), netfilter.NfDefaultPacketSize)
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
@@ -49,15 +49,15 @@ func (d *Datapath) startApplicationInterceptor() {
 
 	var err error
 
-	d.appStop = make([]chan bool, d.filterQueue.NumberOfApplicationQueues)
-	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+	d.appStop = make([]chan bool, d.filterQueue.GetNumApplicationQueues())
+	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
 		d.appStop[i] = make(chan bool)
 	}
 
-	nfq := make([]*netfilter.NFQueue, d.filterQueue.NumberOfApplicationQueues)
+	nfq := make([]*netfilter.NFQueue, d.filterQueue.GetNumApplicationQueues())
 
-	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, netfilter.NfDefaultPacketSize)
+	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
+		nfq[i], err = netfilter.NewNFQueue(d.filterQueue.GetApplicationQueueStart()+i, d.filterQueue.GetApplicationQueueSize(), netfilter.NfDefaultPacketSize)
 
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
@@ -103,7 +103,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 			Xbuffer:     p.Xbuffer,
 			ID:          p.ID,
 			QueueHandle: p.QueueHandle,
-		}, d.filterQueue.MarkValue)
+		}, d.filterQueue.GetMarkValue())
 		return
 	}
 
@@ -116,7 +116,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *netfilter.NFPacket) {
 		Xbuffer:     p.Xbuffer,
 		ID:          p.ID,
 		QueueHandle: p.QueueHandle,
-	}, d.filterQueue.MarkValue)
+	}, d.filterQueue.GetMarkValue())
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
@@ -148,7 +148,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
 			Xbuffer:     p.Xbuffer,
 			ID:          p.ID,
 			QueueHandle: p.QueueHandle,
-		}, d.filterQueue.MarkValue)
+		}, d.filterQueue.GetMarkValue())
 		return
 	}
 
@@ -161,6 +161,6 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *netfilter.NFPacket) {
 		Xbuffer:     p.Xbuffer,
 		ID:          p.ID,
 		QueueHandle: p.QueueHandle,
-	}, d.filterQueue.MarkValue)
+	}, d.filterQueue.GetMarkValue())
 
 }

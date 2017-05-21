@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/policy"
 )
@@ -39,7 +39,7 @@ type Response struct {
 
 //InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
-	FqConfig   *enforcer.FilterQueue      `json:",omitempty"`
+	FqConfig   fqconfig.FilterQueueImpl   `json:",omitempty"`
 	MutualAuth bool                       `json:",omitempty"`
 	Validity   time.Duration              `json:",omitempty"`
 	SecretType secrets.PrivateSecretsType `json:",omitempty"`

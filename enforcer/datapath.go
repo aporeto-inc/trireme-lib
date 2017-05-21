@@ -13,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -40,7 +41,7 @@ type PacketStats struct {
 type Datapath struct {
 
 	// Configuration parameters
-	filterQueue    *FilterQueue
+	filterQueue    fqconfig.FilterQueueImpl
 	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
 	service        PacketProcessor
@@ -93,7 +94,7 @@ type Datapath struct {
 // Only required parameters must be provided. Rest a pre-populated with defaults.
 func New(
 	mutualAuth bool,
-	filterQueue *FilterQueue,
+	filterQueue fqconfig.FilterQueueImpl,
 	collector collector.EventCollector,
 	service PacketProcessor,
 	secrets secrets.Secrets,
@@ -171,15 +172,7 @@ func NewWithDefaults(
 	}
 
 	mutualAuthorization := false
-	fqConfig := &FilterQueue{
-		NetworkQueue:              DefaultNetworkQueue,
-		NetworkQueueSize:          DefaultQueueSize,
-		NumberOfNetworkQueues:     DefaultNumberOfQueues,
-		ApplicationQueue:          DefaultApplicationQueue,
-		ApplicationQueueSize:      DefaultQueueSize,
-		NumberOfApplicationQueues: DefaultNumberOfQueues,
-		MarkValue:                 DefaultMarkValue,
-	}
+	fqConfig := fqconfig.NewFilterQueueWithDefaults()
 
 	validity := time.Hour * 8760
 
@@ -253,7 +246,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 }
 
 // GetFilterQueue returns the filter queues used by the data path
-func (d *Datapath) GetFilterQueue() *FilterQueue {
+func (d *Datapath) GetFilterQueue() fqconfig.FilterQueueImpl {
 
 	return d.filterQueue
 }
@@ -278,11 +271,11 @@ func (d *Datapath) Stop() error {
 
 	zap.L().Debug("Stoping enforcer")
 
-	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
 		d.appStop[i] <- true
 	}
 
-	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 		d.netStop[i] <- true
 	}
 
