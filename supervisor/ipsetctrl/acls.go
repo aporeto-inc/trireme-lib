@@ -275,34 +275,32 @@ func (i *Instance) deleteIpsetOption(ip string) error {
 func (i *Instance) setupTrapRules(set string) error {
 
 	rules := [][]string{
-		// Application Syn and Syn/Ack in RAW
+		// Application Syn
 		{
 			i.appPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
 			"-m", "set", "--match-set", containerSet, "src",
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues,
 		},
 
 		// Application Matching Trireme SRC and DST. Established connections.
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
-			"-m", "set", "--match-set", containerSet, "src",
 			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-m", "set", "--match-set", containerSet, "src",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "ACCEPT",
 		},
-
-		// Application Matching Trireme SRC and DST. SYN, SYNACK connections.
+		// Application Matching Trireme SRC and DST. everything but SYN packets
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", containerSet, "src",
 			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues,
 		},
-
 		// Default Drop from Trireme to Network
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
@@ -316,11 +314,17 @@ func (i *Instance) setupTrapRules(set string) error {
 			i.netPacketIPTableContext, i.netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", containerSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues,
+		},
+		{
+			i.netPacketIPTableContext, i.netPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
+			"-m", "set", "--match-set", containerSet, "dst",
 			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.networkQueues,
 		},
-
 		// Default Drop from Network to Trireme.
 		{
 			i.netPacketIPTableContext, i.netPacketIPTableSection,
