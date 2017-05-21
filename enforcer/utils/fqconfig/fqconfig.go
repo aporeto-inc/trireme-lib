@@ -77,12 +77,12 @@ type FilterQueueImpl interface {
 func NewFilterQueueWithDefaults() FilterQueueImpl {
 	return NewFilterQueue(
 		DefaultQueueSeperation,
-		DefaultQueueStart,
-		DefaultQueueSize,
-		DefaultNumberOfQueues,
-		DefaultQueueSize,
-		DefaultNumberOfQueues,
 		DefaultMarkValue,
+		DefaultQueueStart,
+		DefaultNumberOfQueues,
+		DefaultNumberOfQueues,
+		DefaultQueueSize,
+		DefaultQueueSize,
 	)
 }
 
@@ -90,40 +90,38 @@ func NewFilterQueueWithDefaults() FilterQueueImpl {
 func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNetworkQueues, NumberOfApplicationQueues uint16, NetworkQueueSize, ApplicationQueueSize uint32) FilterQueueImpl {
 
 	fq := &FilterQueue{
-		queueSeparation:           queueSeparation,
-		markValue:                 MarkValue,
-		networkQueue:              QueueStart + NumberOfApplicationQueues,
-		numberOfNetworkQueues:     NumberOfNetworkQueues,
-		networkQueueSize:          NetworkQueueSize,
-		applicationQueue:          QueueStart,
-		numberOfApplicationQueues: NumberOfApplicationQueues,
-		applicationQueueSize:      ApplicationQueueSize,
+		queueSeparation:      queueSeparation,
+		markValue:            MarkValue,
+		networkQueueSize:     NetworkQueueSize,
+		applicationQueueSize: ApplicationQueueSize,
 	}
 
 	if queueSeparation {
 
-		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+fq.numberOfNetworkQueues-1))
-		fq.networkQueuesAckStr = strconv.Itoa(int(fq.networkQueue+1*fq.numberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.networkQueue+2*fq.numberOfNetworkQueues-1))
-		fq.networkQueuesSvcStr = strconv.Itoa(int(fq.networkQueue+2*fq.numberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.networkQueue+3*fq.numberOfNetworkQueues-1))
-
-		fq.applicationQueuesSynStr = strconv.Itoa(int(fq.applicationQueue)) + ":" + strconv.Itoa(int(fq.applicationQueue+fq.numberOfApplicationQueues-1))
-		fq.applicationQueuesAckStr = strconv.Itoa(int(fq.applicationQueue+1*fq.numberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+2*fq.numberOfApplicationQueues-1))
-		fq.applicationQueuesSvcStr = strconv.Itoa(int(fq.applicationQueue+2*fq.numberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+3*fq.numberOfApplicationQueues-1))
-
-		// We use 3 times the number of queues if queue separation is requested
 		fq.applicationQueue = QueueStart
-		fq.numberOfApplicationQueues = fq.numberOfApplicationQueues * 3
+		fq.applicationQueuesSynStr = strconv.Itoa(int(fq.applicationQueue)) + ":" + strconv.Itoa(int(fq.applicationQueue+NumberOfApplicationQueues-1))
+		fq.applicationQueuesAckStr = strconv.Itoa(int(fq.applicationQueue+1*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+2*NumberOfApplicationQueues-1))
+		fq.applicationQueuesSvcStr = strconv.Itoa(int(fq.applicationQueue+2*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+3*NumberOfApplicationQueues-1))
+		fq.numberOfApplicationQueues = NumberOfApplicationQueues * 3
+
 		fq.networkQueue = QueueStart + fq.numberOfApplicationQueues
-		fq.numberOfNetworkQueues = fq.numberOfNetworkQueues * 3
+		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+NumberOfNetworkQueues-1))
+		fq.networkQueuesAckStr = strconv.Itoa(int(fq.networkQueue+1*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.networkQueue+2*NumberOfNetworkQueues-1))
+		fq.networkQueuesSvcStr = strconv.Itoa(int(fq.networkQueue+2*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.networkQueue+3*NumberOfNetworkQueues-1))
+		fq.numberOfNetworkQueues = NumberOfNetworkQueues * 3
 	} else {
 
-		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+fq.numberOfNetworkQueues-1))
-		fq.networkQueuesAckStr = fq.networkQueuesSynStr
-		fq.networkQueuesSvcStr = fq.networkQueuesSynStr
-
-		fq.applicationQueuesSynStr = strconv.Itoa(int(fq.applicationQueue)) + ":" + strconv.Itoa(int(fq.applicationQueue+fq.numberOfApplicationQueues-1))
+		fq.applicationQueue = QueueStart
+		fq.applicationQueuesSynStr = strconv.Itoa(int(fq.applicationQueue)) + ":" + strconv.Itoa(int(fq.applicationQueue+NumberOfApplicationQueues-1))
 		fq.applicationQueuesAckStr = fq.applicationQueuesSynStr
 		fq.applicationQueuesSvcStr = fq.applicationQueuesSynStr
+		fq.numberOfApplicationQueues = NumberOfApplicationQueues
+
+		fq.networkQueue = QueueStart + fq.numberOfApplicationQueues
+		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+NumberOfNetworkQueues-1))
+		fq.networkQueuesAckStr = fq.networkQueuesSynStr
+		fq.networkQueuesSvcStr = fq.networkQueuesSynStr
+		fq.numberOfNetworkQueues = NumberOfNetworkQueues
 	}
 	return fq
 }
