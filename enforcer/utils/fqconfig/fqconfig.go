@@ -22,11 +22,9 @@ type FilterQueue struct {
 	networkQueueSize uint32
 
 	// Strings for programming NFQ
-	networkQueuesStr        string
 	networkQueuesSynStr     string
 	networkQueuesAckStr     string
 	networkQueuesSvcStr     string
-	applicationQueuesStr    string
 	applicationQueuesSynStr string
 	applicationQueuesAckStr string
 	applicationQueuesSvcStr string
