@@ -101,11 +101,6 @@ func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNet
 	}
 
 	if queueSeparation {
-		// We use 4 times the number of queues if queue separation is requested
-		fq.applicationQueue = QueueStart
-		fq.numberOfApplicationQueues = fq.numberOfApplicationQueues * 3
-		fq.networkQueue = QueueStart + fq.numberOfApplicationQueues
-		fq.numberOfNetworkQueues = fq.numberOfNetworkQueues * 3
 
 		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+fq.numberOfNetworkQueues-1))
 		fq.networkQueuesAckStr = strconv.Itoa(int(fq.networkQueue+1*fq.numberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.networkQueue+2*fq.numberOfNetworkQueues-1))
@@ -114,6 +109,12 @@ func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNet
 		fq.applicationQueuesSynStr = strconv.Itoa(int(fq.applicationQueue)) + ":" + strconv.Itoa(int(fq.applicationQueue+fq.numberOfApplicationQueues-1))
 		fq.applicationQueuesAckStr = strconv.Itoa(int(fq.applicationQueue+1*fq.numberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+2*fq.numberOfApplicationQueues-1))
 		fq.applicationQueuesSvcStr = strconv.Itoa(int(fq.applicationQueue+2*fq.numberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+3*fq.numberOfApplicationQueues-1))
+
+		// We use 3 times the number of queues if queue separation is requested
+		fq.applicationQueue = QueueStart
+		fq.numberOfApplicationQueues = fq.numberOfApplicationQueues * 3
+		fq.networkQueue = QueueStart + fq.numberOfApplicationQueues
+		fq.numberOfNetworkQueues = fq.numberOfNetworkQueues * 3
 	} else {
 
 		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+fq.numberOfNetworkQueues-1))
