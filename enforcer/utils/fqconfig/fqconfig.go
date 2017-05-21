@@ -183,11 +183,6 @@ func (f *FilterQueue) GetNetworkQueueSvcStr() string {
 	return f.networkQueuesSynStr
 }
 
-// GetApplicationQueueStr returns a queue id string to be used by iptables action
-func (f *FilterQueue) GetApplicationQueueStr() string {
-	return f.applicationQueuesStr
-}
-
 // GetApplicationQueueSynStr returns a queue id string to be used by iptables action
 func (f *FilterQueue) GetApplicationQueueSynStr() string {
 	return f.applicationQueuesSynStr
