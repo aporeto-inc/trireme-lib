@@ -80,7 +80,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(appChain string, netChain string, network string, appQueue string, netQueue string) [][]string {
+func (i *Instance) trapRules(appChain string, netChain string, network string) [][]string {
 
 	rules := [][]string{}
 
@@ -211,7 +211,7 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, ne
 
 	for _, network := range networks {
 
-		err := i.processRulesFromList(i.trapRules(appChain, netChain, network, i.fqc.GetApplicationQueueStr(), i.fqc.GetNetworkQueueStr()), "Append")
+		err := i.processRulesFromList(i.trapRules(appChain, netChain, network), "Append")
 		if err != nil {
 			return err
 		}
