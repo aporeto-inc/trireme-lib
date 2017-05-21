@@ -315,7 +315,7 @@ func (i *Instance) setupTrapRules(set string) error {
 			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", containerSet, "dst",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues,
+			"-j", "NFQUEUE", "--queue-balance", i.networkQueues,
 		},
 		{
 			i.netPacketIPTableContext, i.netPacketIPTableSection,
