@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
@@ -18,9 +19,7 @@ const (
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
-	networkQueues              string
-	applicationQueues          string
-	mark                       int
+	fqc                        fqconfig.FilterQueueImpl
 	ipt                        provider.IptablesProvider
 	ips                        provider.IpsetProvider
 	targetSet                  provider.Ipset
@@ -34,7 +33,7 @@ type Instance struct {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(networkQueues, applicationQueues string, mark int, remote bool, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc fqconfig.FilterQueueImpl, remote bool, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -44,11 +43,9 @@ func NewInstance(networkQueues, applicationQueues string, mark int, remote bool,
 	ips := provider.NewGoIPsetProvider()
 
 	i := &Instance{
-		networkQueues:     networkQueues,
-		applicationQueues: applicationQueues,
-		mark:              mark,
-		ipt:               ipt,
-		ips:               ips,
+		fqc: fqc,
+		ipt: ipt,
+		ips: ips,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",

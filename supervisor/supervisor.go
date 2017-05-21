@@ -73,9 +73,9 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	var err error
 	switch implementation {
 	case constants.IPSets:
-		s.impl, err = ipsetctrl.NewInstance(s.filterQueue.GetNetworkQueueStr(), s.filterQueue.GetApplicationQueueStr(), s.filterQueue.GetMarkValue(), false, mode)
+		s.impl, err = ipsetctrl.NewInstance(s.filterQueue, false, mode)
 	default:
-		s.impl, err = iptablesctrl.NewInstance(s.filterQueue.GetNetworkQueueStr(), s.filterQueue.GetApplicationQueueStr(), s.filterQueue.GetMarkValue(), mode)
+		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode)
 	}
 
 	if err != nil {
