@@ -231,7 +231,7 @@ func SetVerdict(v *Verdict, mark int) int {
 
 	// Drop any bad packets immediately
 	if v.V == NfDrop {
-		verdict := C.SetVerdict(v.QueueHandle, C.int(v.ID), C.int(v.V), 0 , 0 , v.Xbuffer)
+		verdict := C.SetVerdict(v.QueueHandle, C.int(v.ID), C.int(v.V), 0, 0, v.Xbuffer)
 		return int(verdict)
 	}
 
