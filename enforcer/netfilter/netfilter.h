@@ -83,8 +83,11 @@ static inline void Run(struct nfq_handle *h, int fd)
 }
 
 // SetVerdict use the nfq API to set the verdict
-static inline int SetVerdict(struct nfq_q_handle *qh, int id, int verdict , int buffer_length , unsigned char *buffer ) {
-    return nfq_set_verdict(qh, id , verdict  , buffer_length, buffer );
+static inline int SetVerdict(struct nfq_q_handle *qh, int id, int verdict , int mark , int buffer_length , unsigned char *buffer ) {
+  int status;
+  status = nfq_set_verdict2(qh, id , verdict  , mark, buffer_length, buffer );
+  free(buffer);
+  return status;
 }
 
 #endif
