@@ -4,8 +4,7 @@ import "sync"
 
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
-	//puPolicyMutex is a mutex to prevent access to same policy object from multiple threads
-	puPolicyMutex *sync.Mutex
+
 	// ManagementID is provided for the policy implementations as a means of
 	// holding a policy identifier related to the implementation
 	ManagementID string
@@ -18,9 +17,9 @@ type PUPolicy struct {
 	// the data center
 	networkACLs *IPRuleList
 	// identity is the set of key value pairs that must be send over the wire.
-	identity *TagsMap
-	// annotations are key/value pairs  that should be used for accounting reasons
-	annotations *TagsMap
+	identity []string
+	// annotations are key/value pairs  that should be used for logging reasons
+	annotations []string
 	// transmitterRules is the set of rules that implement the label matching at the Transmitter
 	transmitterRules *TagSelectorList
 	// teceiverRules is the set of rules that implement matching at the Receiver
@@ -35,6 +34,8 @@ type PUPolicy struct {
 	// to pass additional instructions to a plugin. Plugin and policy must be
 	// coordinated to implement the interface
 	Extensions interface{}
+
+	sync.Mutex
 }
 
 // NewPUPolicy generates a new ContainerPolicyInfo
@@ -44,7 +45,8 @@ func NewPUPolicy(
 	ingress,
 	egress *IPRuleList,
 	txtags, rxtags *TagSelectorList,
-	identity, annotations *TagsMap,
+	identity []string,
+	annotations []string,
 	ips *IPMap,
 	triremeNetworks []string,
 	excludedNetworks []string,
@@ -63,16 +65,15 @@ func NewPUPolicy(
 		rxtags = NewTagSelectorList(nil)
 	}
 	if identity == nil {
-		identity = NewTagsMap(nil)
+		identity = []string{}
 	}
 	if annotations == nil {
-		annotations = NewTagsMap(nil)
+		annotations = []string{}
 	}
 	if ips == nil {
 		ips = NewIPMap(nil)
 	}
 	return &PUPolicy{
-		puPolicyMutex:    &sync.Mutex{},
 		ManagementID:     id,
 		TriremeAction:    action,
 		applicationACLs:  ingress,
@@ -96,8 +97,8 @@ func NewPUPolicyWithDefaults() *PUPolicy {
 
 // Clone returns a copy of the policy
 func (p *PUPolicy) Clone() *PUPolicy {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	np := NewPUPolicy(
 		p.ManagementID,
@@ -106,8 +107,8 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.networkACLs.Clone(),
 		p.transmitterRules.Clone(),
 		p.receiverRules.Clone(),
-		p.identity.Clone(),
-		p.annotations.Clone(),
+		p.identity,
+		p.annotations,
 		p.ips.Clone(),
 		p.triremeNetworks,
 		p.excludedNetworks,
@@ -119,96 +120,96 @@ func (p *PUPolicy) Clone() *PUPolicy {
 
 // ApplicationACLs returns a copy of IPRuleList
 func (p *PUPolicy) ApplicationACLs() *IPRuleList {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	return p.applicationACLs.Clone()
 }
 
 // NetworkACLs returns a copy of IPRuleList
 func (p *PUPolicy) NetworkACLs() *IPRuleList {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	return p.networkACLs.Clone()
 }
 
 // ReceiverRules returns a copy of TagSelectorList
 func (p *PUPolicy) ReceiverRules() *TagSelectorList {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	return p.receiverRules.Clone()
 }
 
 // AddReceiverRules adds a receiver rule
 func (p *PUPolicy) AddReceiverRules(t *TagSelector) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	p.receiverRules.TagSelectors = append(p.receiverRules.TagSelectors, *t.Clone())
 }
 
 // TransmitterRules returns a copy of TagSelectorList
 func (p *PUPolicy) TransmitterRules() *TagSelectorList {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	return p.transmitterRules.Clone()
 }
 
 // AddTransmitterRules adds a transmitter rule
 func (p *PUPolicy) AddTransmitterRules(t *TagSelector) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	p.transmitterRules.TagSelectors = append(p.transmitterRules.TagSelectors, *t.Clone())
 }
 
 // Identity returns a copy of the Identity
-func (p *PUPolicy) Identity() *TagsMap {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+func (p *PUPolicy) Identity() []string {
+	p.Lock()
+	defer p.Unlock()
 
-	return p.identity.Clone()
+	return p.identity
 }
 
 // Annotations returns a copy of the annotations
-func (p *PUPolicy) Annotations() *TagsMap {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+func (p *PUPolicy) Annotations() []string {
+	p.Lock()
+	defer p.Unlock()
 
-	return p.annotations.Clone()
+	return p.annotations
 }
 
 // AddIdentityTag adds a policy tag
-func (p *PUPolicy) AddIdentityTag(k, v string) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+func (p *PUPolicy) AddIdentityTag(tag string) {
+	p.Lock()
+	defer p.Unlock()
 
-	p.identity.Tags[k] = v
+	p.identity = append(p.identity, tag )
 }
 
 // IPAddresses returns all the IP addresses for the processing unit
 func (p *PUPolicy) IPAddresses() *IPMap {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	return p.ips.Clone()
 }
 
 // SetIPAddresses sets the IP addresses for the processing unit
 func (p *PUPolicy) SetIPAddresses(l *IPMap) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	p.ips = l.Clone()
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit
 func (p *PUPolicy) DefaultIPAddress() (string, bool) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	if ip, ok := p.ips.IPs[DefaultNamespace]; ok {
 		return ip, true
@@ -223,8 +224,8 @@ func (p *PUPolicy) TriremeNetworks() []string {
 
 // UpdateTriremeNetworks updates the set of networks for trireme
 func (p *PUPolicy) UpdateTriremeNetworks(networks []string) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	p.triremeNetworks = []string{}
 	p.triremeNetworks = append(p.triremeNetworks, networks...)
@@ -237,8 +238,8 @@ func (p *PUPolicy) ExcludedNetworks() []string {
 
 // UpdateExcludedNetworks updates the list of excluded networks.
 func (p *PUPolicy) UpdateExcludedNetworks(networks []string) {
-	p.puPolicyMutex.Lock()
-	defer p.puPolicyMutex.Unlock()
+	p.Lock()
+	defer p.Unlock()
 
 	p.excludedNetworks = []string{}
 	p.excludedNetworks = append(p.excludedNetworks, networks...)

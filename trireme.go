@@ -145,18 +145,6 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 
 }
 
-// addTransmitterLabel adds the TransmitterLabel as a fixed label in the policy.
-// The ManagementID part of the policy is used as the TransmitterLabel.
-// If the Policy didn't set the ManagementID, we use the Local contextID as the
-// default TransmitterLabel.
-func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
-
-	if containerInfo.Policy.ManagementID == "" {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
-	} else {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
-	}
-}
 
 // MustEnforce returns true if the Policy should go Through the Enforcer/Supervisor.
 // Return false if:
@@ -220,8 +208,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	policyInfo = policyInfo.Clone()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
-
-	addTransmitterLabel(contextID, containerInfo)
 
 	if !mustEnforce(contextID, containerInfo) {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
@@ -346,8 +332,6 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtimeInfo.(*policy.PURuntime))
 
-	addTransmitterLabel(contextID, containerInfo)
-
 	if !mustEnforce(contextID, containerInfo) {
 		return nil
 	}
@@ -370,7 +354,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	t.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: ip,
-		Tags:      containerInfo.Runtime.Tags(),
+		Tags:      newPolicy.Annotations(),
 		Event:     collector.ContainerUpdate,
 	})
 

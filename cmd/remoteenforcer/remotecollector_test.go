@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -33,7 +32,7 @@ func TestCollectFlowEvent(t *testing.T) {
 				DestinationIP:   "2.2.2.2",
 				DestinationPort: 80,
 				Count:           0,
-				Tags:            &policy.TagsMap{},
+				Tags:            []string{},
 			}
 			c.CollectFlowEvent(r)
 
@@ -52,7 +51,7 @@ func TestCollectFlowEvent(t *testing.T) {
 					DestinationIP:   "2.2.2.2",
 					DestinationPort: 80,
 					Count:           10,
-					Tags:            &policy.TagsMap{},
+					Tags:            []string{},
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
@@ -71,7 +70,7 @@ func TestCollectFlowEvent(t *testing.T) {
 					DestinationIP:   "4.4.4.4",
 					DestinationPort: 80,
 					Count:           33,
-					Tags:            &policy.TagsMap{},
+					Tags:            []string{},
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {

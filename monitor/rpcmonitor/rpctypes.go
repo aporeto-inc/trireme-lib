@@ -28,7 +28,7 @@ type EventInfo struct {
 	Name string
 
 	// Tags represents the set of MetadataTags associated with this PUID.
-	Tags map[string]string
+	Tags []string
 
 	// The PID is the PID on the system where this Processing Unit is running.
 	PID string

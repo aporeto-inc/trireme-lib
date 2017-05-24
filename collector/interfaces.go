@@ -1,7 +1,5 @@
 package collector
 
-import "github.com/aporeto-inc/trireme/policy"
-
 const (
 	// FlowReject indicates that a flow was rejected
 	FlowReject = "reject"
@@ -62,7 +60,7 @@ type FlowRecord struct {
 	SourceIP        string
 	DestinationIP   string
 	DestinationPort uint16
-	Tags            *policy.TagsMap
+	Tags            []string
 	Action          string
 	Mode            string
 }
@@ -71,6 +69,6 @@ type FlowRecord struct {
 type ContainerRecord struct {
 	ContextID string
 	IPAddress string
-	Tags      *policy.TagsMap
+	Tags      []string
 	Event     string
 }

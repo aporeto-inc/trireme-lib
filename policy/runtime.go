@@ -19,8 +19,8 @@ type PURuntime struct {
 	name string
 	// IPAddress is the IP Address of the container
 	ips *IPMap
-	// Tags is a map of the metadata of the container
-	tags *TagsMap
+	// Tags is a the metadata of the container
+	tags []string
 	// options
 	options *TagsMap
 }
@@ -35,18 +35,18 @@ type PURuntimeJSON struct {
 	Name string
 	// IPAddress is the IP Address of the container
 	IPAddresses *IPMap
-	// Tags is a map of the metadata of the container
-	Tags *TagsMap
+	// Tags is a list of the metadata of the container
+	Tags []string
 	// Options is a map of the options of the container
 	Options *TagsMap
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType constants.PUType, options *TagsMap) *PURuntime {
+func NewPURuntime(name string, pid int, tags []string, ips *IPMap, puType constants.PUType, options *TagsMap) *PURuntime {
 
 	t := tags
 	if t == nil {
-		t = NewTagsMap(nil)
+		t = []string{}
 	}
 
 	i := ips
@@ -81,7 +81,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone(), r.puType, r.options)
+	return NewPURuntime(r.name, r.pid, r.tags , r.ips.Clone(), r.puType, r.options)
 }
 
 // MarshalJSON Marshals this struct.
@@ -162,21 +162,12 @@ func (r *PURuntime) SetIPAddresses(ipa *IPMap) {
 	r.ips = ipa.Clone()
 }
 
-//Tag returns a specific tag for the processing unit
-func (r *PURuntime) Tag(key string) (string, bool) {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
-
-	tag, ok := r.tags.Get(key)
-	return tag, ok
-}
-
 //Tags returns tags for the processing unit
-func (r *PURuntime) Tags() *TagsMap {
+func (r *PURuntime) Tags() []string {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return r.tags.Clone()
+	return r.tags 
 }
 
 // Options returns tags for the processing unit
