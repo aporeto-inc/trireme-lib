@@ -281,18 +281,25 @@ func (i *Instance) setupTrapRules(set string) error {
 			"-m", "set", "--match-set", set, "dst",
 			"-m", "set", "--match-set", containerSet, "src",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues,
+			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues, // i.applicationQueuesSyn
 		},
-
-		// Application Matching Trireme SRC and DST. Established connections.
+		// Application SynAck
+		{
+			i.appPacketIPTableContext, i.appPacketIPTableSection,
+			"-m", "set", "--match-set", set, "dst",
+			"-m", "set", "--match-set", containerSet, "src",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues, // i.applicationQueuesSynAck
+		},
+		// Application Accept Syn/Syn-Ack
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
 			"-m", "set", "--match-set", containerSet, "src",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+			"-p", "tcp", "--tcp-flags", "SYN", "SYN",
 			"-j", "ACCEPT",
 		},
-		// Application Matching Trireme SRC and DST. everything but SYN packets
+		// Application Matching Trireme SRC and DST. everything but SYN/SYN-ACK packets
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", containerSet, "src",
@@ -309,13 +316,22 @@ func (i *Instance) setupTrapRules(set string) error {
 			"-j", "DROP",
 		},
 
-		// Network Matching Trireme SRC and DST.
+		// Network Matching Trireme SRC and DST. Syn incoming
 		{
 			i.netPacketIPTableContext, i.netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
 			"-m", "set", "--match-set", containerSet, "dst",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-			"-j", "NFQUEUE", "--queue-balance", i.networkQueues,
+			"-j", "NFQUEUE", "--queue-balance", i.networkQueues, // i.networkQueuesSyn
+		},
+
+		// Network Matching Trireme SRC and DST. SynAck incoming
+		{
+			i.netPacketIPTableContext, i.netPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
+			"-m", "set", "--match-set", containerSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.networkQueues, // i.networkQueuesSynAck
 		},
 		{
 			i.netPacketIPTableContext, i.netPacketIPTableSection,
