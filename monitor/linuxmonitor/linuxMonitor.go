@@ -38,7 +38,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		cgnetcls.CgroupNameTag: event.PUID,
 	})
 
-	runtimeTags := make([]string, len(event.Tags))
+	runtimeTags := []string{}
 
 	for _, t := range event.Tags {
 		runtimeTags = append(runtimeTags, "@usr:"+t)
@@ -53,7 +53,9 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		runtimeTags = append(runtimeTags, "@sys:"+u)
 	}
 
-	runtimeTags = append(runtimeTags, "@sys:hostname="+findFQFN())
+	if fqdn := findFQFN(); len(fqdn) > 0 {
+		runtimeTags = append(runtimeTags, "@sys:hostname="+findFQFN())
+	}
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
 		runtimeTags = append(runtimeTags, "@sys:filechecksum="+hex.EncodeToString(fileMd5))
@@ -171,15 +173,25 @@ func processInfo(pidString string) []string {
 		return userdata
 	}
 
+	set := map[string]bool{}
+
 	for _, uid := range uids {
-		userdata = append(userdata, "uid:"+strconv.Itoa(int(uid)))
+		tag := "uid=" + strconv.Itoa(int(uid))
+		if _, ok := set[tag]; !ok {
+			userdata = append(userdata, tag)
+			set[tag] = true
+		}
 	}
 
 	for _, gid := range groups {
-		userdata = append(userdata, "gid:"+strconv.Itoa(int(gid)))
+		tag := "gid=" + strconv.Itoa(int(gid))
+		if _, ok := set[tag]; !ok {
+			userdata = append(userdata, tag)
+			set[tag] = true
+		}
 	}
 
-	userdata = append(userdata, "username:"+username)
+	userdata = append(userdata, "username="+username)
 
 	return userdata
 }
