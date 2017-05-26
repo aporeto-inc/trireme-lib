@@ -45,10 +45,10 @@ const (
 type EventCollector interface {
 
 	// CollectFlowEvent collect a  flow event.
-	CollectFlowEvent(record *FlowRecord)
+	CollectFlowEvent(r *FlowRecord)
 
 	// CollectContainerEvent collects a container events
-	CollectContainerEvent(record *ContainerRecord)
+	CollectContainerEvent(r *ContainerRecord)
 }
 
 // FlowRecord describes a flow record for statistis
