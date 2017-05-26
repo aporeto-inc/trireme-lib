@@ -45,12 +45,12 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-
 	s.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: "127.0.0.1",
-		Tags:      eventInfo.Tags,
-		Event:     collector.ContainerCreate,
+		ContextID:    contextID,
+		ManagementID: "N/A",
+		IPAddress:    "127.0.0.1",
+		Tags:         eventInfo.Tags,
+		Event:        collector.ContainerCreate,
 	})
 
 	// Send the event upstream
@@ -74,8 +74,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	if err = s.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
-
-	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
 	// Send the event upstream
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventStart)
@@ -116,13 +114,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			return err
 
 		}
-
-		s.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: defaultIP,
-			Tags:      runtimeInfo.Tags(),
-			Event:     collector.ContainerStart,
-		})
 	}
 
 	// Store the state in the context store for future access

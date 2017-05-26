@@ -67,8 +67,9 @@ type FlowRecord struct {
 
 // ContainerRecord is a statistics record for a container
 type ContainerRecord struct {
-	ContextID string
-	IPAddress string
-	Tags      []string
-	Event     string
+	ContextID    string
+	ManagementID string
+	IPAddress    string
+	Tags         []string
+	Event        string
 }

@@ -148,7 +148,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 
 		Clause: []policy.KeyValueOperator{
 			{
-				Key:      "TransmitterLabel",
+				Key:      "AporetoContextID",
 				Value:    []string{"value"},
 				Operator: policy.Equal,
 			},
@@ -172,6 +172,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP1})
 	puInfo1.Policy.SetIPAddresses(ipl1)
 	puInfo1.Policy.AddReceiverRules(&tagSelector)
+	puInfo1.Policy.AddIdentityTag("AporetoContextID=value")
 
 	// Create processing unit 2
 	puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
@@ -180,6 +181,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP2})
 	puInfo2.Policy.SetIPAddresses(ipl2)
 	puInfo2.Policy.AddReceiverRules(&tagSelector)
+	puInfo2.Policy.AddIdentityTag("AporetoContextID=value")
 
 	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 
