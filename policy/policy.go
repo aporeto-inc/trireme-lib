@@ -171,7 +171,7 @@ func (p *PUPolicy) Identity() []string {
 	p.Lock()
 	defer p.Unlock()
 
-	return p.identity
+	return append([]string(nil), p.identity...)
 }
 
 // Annotations returns a copy of the annotations
@@ -179,7 +179,7 @@ func (p *PUPolicy) Annotations() []string {
 	p.Lock()
 	defer p.Unlock()
 
-	return p.annotations
+	return append([]string(nil), p.annotations...)
 }
 
 // AddIdentityTag adds a policy tag
@@ -187,7 +187,7 @@ func (p *PUPolicy) AddIdentityTag(tag string) {
 	p.Lock()
 	defer p.Unlock()
 
-	p.identity = append(p.identity, tag )
+	p.identity = append(p.identity, tag)
 }
 
 // IPAddresses returns all the IP addresses for the processing unit

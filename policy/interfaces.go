@@ -21,7 +21,7 @@ type RuntimeReader interface {
 	Name() string
 
 	// Tags returns a copy of the list of the tags.
-	Tags() []string 
+	Tags() []string
 
 	// Options returns a copy of the list of options.
 	Options() *TagsMap
@@ -54,10 +54,10 @@ type InfoInteractor interface {
 	TransmitterRules() *TagSelectorList
 
 	// Identity  returns a copy of the identity
-	Indentity() *TagsMap
+	Indentity() []string
 
 	// Annotations returns a copy of the Annotations
-	Annotations() *TagsMap
+	Annotations() []string
 
 	// DefaultIPAddress returns the default IP address for the processing unit
 	DefaultIPAddress() (string, bool)
