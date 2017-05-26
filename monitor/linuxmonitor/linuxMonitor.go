@@ -40,7 +40,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 
 	runtimeTags := make([]string, len(event.Tags))
 
-	for _, t  := range event.Tags {
+	for _, t := range event.Tags {
 		runtimeTags = append(runtimeTags, "@usr:"+t)
 		if strings.HasPrefix(t, cgnetcls.PortTag) {
 			options.Tags[cgnetcls.PortTag] = t[len(cgnetcls.PortTag)+1:]
@@ -50,18 +50,18 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 	userdata := processInfo(event.PID)
 
 	for _, u := range userdata {
-		runtimeTags = append(runtimeTags, "@sys:"+u )
+		runtimeTags = append(runtimeTags, "@sys:"+u)
 	}
 
-  runtimeTags = append(runtimeTags, "@sys:hostname=" + findFQFN())
+	runtimeTags = append(runtimeTags, "@sys:hostname="+findFQFN())
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
-		runtimeTags = append(runtimeTags, "@sys:filechecksum=" + hex.EncodeToString(fileMd5))
+		runtimeTags = append(runtimeTags, "@sys:filechecksum="+hex.EncodeToString(fileMd5))
 	}
 
 	depends := libs(event.Name)
 	for _, lib := range depends {
-		runtimeTags  = append(runtimeTags, "@sys:lib=" + lib )
+		runtimeTags = append(runtimeTags, "@sys:lib="+lib)
 	}
 
 	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)

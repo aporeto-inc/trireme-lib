@@ -3,7 +3,8 @@ package lookup
 import (
 	"fmt"
 	"sort"
-  "strings"
+	"strings"
+
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/policy"
@@ -139,12 +140,12 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 
 }
 
-func (m *PolicyDB) KeyValueFromString( tag string) (key,value string ) {
+func (m *PolicyDB) keyValueFromString(tag string) (key, value string) {
 
 	parts := strings.SplitN(tag, "=", 2)
 
 	if len(parts) != 2 {
-		return "",""
+		return "", ""
 	}
 
 	return parts[0], parts[1]
@@ -158,8 +159,8 @@ func (m *PolicyDB) Search(tags []string) (int, interface{}) {
 	skip := make([]bool, m.numberOfPolicies+1)
 
 	// Disable all policies that fail the not key exists
-	for _, t := range tags  {
-		k, _  := m.KeyValueFromString(t)
+	for _, t := range tags {
+		k, _ := m.keyValueFromString(t)
 		for _, policy := range m.notStarTable[k] {
 			skip[policy.index] = true
 		}
@@ -168,7 +169,7 @@ func (m *PolicyDB) Search(tags []string) (int, interface{}) {
 	// Go through the list of tags
 	for _, t := range tags {
 
-		k,v := m.KeyValueFromString(t)
+		k, v := m.keyValueFromString(t)
 		// Search for matches of k=v
 		if index, action := searchInMapTabe(m.equalMapTable[k][v], count, skip); index >= 0 {
 			return index, action

@@ -247,7 +247,7 @@ func TestFuncSearch(t *testing.T) {
 			})
 
 			Convey("Given that I search for a single matching that matches the NOT Or rlues, it should return the right index,", func() {
-				tags  := []string{"app=web", "env=prod"}
+				tags := []string{"app=web", "env=prod"}
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index5)
 				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)

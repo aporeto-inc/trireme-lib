@@ -76,7 +76,7 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 
 	// If not an ACK packet copy the tags
 	if !isAck {
-		for _, v := range claims.T  {
+		for _, v := range claims.T {
 			buffer = append(buffer, []byte(v+" ")...)
 		}
 	}
@@ -123,7 +123,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interfa
 			tag, err := buffer.ReadBytes([]byte(" ")[0])
 
 			if err == nil {
-				claims.T = append(claims.T, string(tag[:len(tag)-1]) )
+				claims.T = append(claims.T, string(tag[:len(tag)-1]))
 				continue
 			}
 

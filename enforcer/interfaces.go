@@ -61,7 +61,7 @@ type PUContext struct {
 	ID             string
 	ManagementID   string
 	Identity       []string
-	Annotations    []string 
+	Annotations    []string
 	AcceptTxtRules *lookup.PolicyDB
 	RejectTxtRules *lookup.PolicyDB
 	AcceptRcvRules *lookup.PolicyDB

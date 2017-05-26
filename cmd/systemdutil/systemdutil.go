@@ -141,7 +141,7 @@ func createMetadata(servicename string, command string, ports string, metadata [
 		}
 	}
 
-  metadata = append(metadata, "port="+ports)
+	metadata = append(metadata, "port="+ports)
 	metadata = append(metadata, "execpath="+command)
 
 	name := command
@@ -149,7 +149,7 @@ func createMetadata(servicename string, command string, ports string, metadata [
 		name = servicename
 	}
 
-	return name, metadata , nil
+	return name, metadata, nil
 }
 
 // HandleCgroupStop handles the deletion of a cgroup

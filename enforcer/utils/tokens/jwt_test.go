@@ -179,7 +179,7 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 			So(err2, ShouldBeNil)
 			So(err1, ShouldBeNil)
 			So(recoveredClaims, ShouldNotBeNil)
-			So(len(recoveredClaims.T), ShouldEqual, 2  )
+			So(len(recoveredClaims.T), ShouldEqual, 2)
 			So(recoveredClaims.T, ShouldContain, "label1=value1")
 			So(recoveredClaims.T, ShouldContain, "label2=value2")
 			So(string(recoveredClaims.RMT), ShouldEqual, rmt)

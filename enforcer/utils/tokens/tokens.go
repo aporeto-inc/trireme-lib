@@ -3,8 +3,8 @@ package tokens
 // ConnectionClaims captures all the claim information
 type ConnectionClaims struct {
 	// ID is the ID of the transmitter
-	ID string 
-  // T is the set of tags associated with the claims
+	ID string
+	// T is the set of tags associated with the claims
 	T []string
 	// RMT is the nonce of the remote that has to be signed in the JWT
 	RMT []byte

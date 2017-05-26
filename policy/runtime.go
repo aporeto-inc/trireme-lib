@@ -81,7 +81,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags , r.ips.Clone(), r.puType, r.options)
+	return NewPURuntime(r.name, r.pid, r.tags, r.ips.Clone(), r.puType, r.options)
 }
 
 // MarshalJSON Marshals this struct.
@@ -167,7 +167,7 @@ func (r *PURuntime) Tags() []string {
 	r.puRuntimeMutex.Lock()
 	defer r.puRuntimeMutex.Unlock()
 
-	return r.tags 
+	return r.tags
 }
 
 // Options returns tags for the processing unit

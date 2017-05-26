@@ -273,7 +273,7 @@ func TestSimpleUpdate(t *testing.T) {
 	// Generate a new Policy ...
 	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
 	tags := []string{}
-	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tags , nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tags, nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
 
