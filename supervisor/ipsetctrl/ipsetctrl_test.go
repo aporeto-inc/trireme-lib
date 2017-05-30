@@ -82,8 +82,8 @@ func TestSetPrefix(t *testing.T) {
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net := i.setPrefix("Context")
 			Convey("I should get the right names", func() {
-				So(app, ShouldResemble, "TRIREME-App-Context-")
-				So(net, ShouldResemble, "TRIREME-Net-Context-")
+				So(app, ShouldResemble, "App-Context-")
+				So(net, ShouldResemble, "Net-Context-")
 			})
 		})
 	})
