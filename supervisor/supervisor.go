@@ -237,6 +237,6 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 
 func add(a, b interface{}) interface{} {
 	entry := a.(*cacheData)
-	entry.version += b.(int)
+	entry.version = (entry.version + b.(int)) % 16
 	return entry
 }
