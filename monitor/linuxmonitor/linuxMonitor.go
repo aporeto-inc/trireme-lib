@@ -41,6 +41,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 	runtimeTags := []string{}
 
 	for _, t := range event.Tags {
+		fmt.Println("TAG found", t)
 		runtimeTags = append(runtimeTags, "@usr:"+t)
 		if strings.HasPrefix(t, cgnetcls.PortTag) {
 			options.Tags[cgnetcls.PortTag] = t[len(cgnetcls.PortTag)+1:]
