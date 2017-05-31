@@ -10,6 +10,9 @@ type Monitor interface {
 
 	// Stop Stops the monitor.
 	Stop() error
+
+	// Sync forces a Sync of all existing PUs.
+	Sync() error
 }
 
 // A ProcessingUnitsHandler is responsible for monitoring creation and deletion of ProcessingUnits.

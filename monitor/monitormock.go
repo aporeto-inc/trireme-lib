@@ -8,6 +8,7 @@ import (
 type mockedMethods struct {
 	startMock func() error
 	stopMock  func() error
+	syncMock  func() error
 }
 
 // TestMonitor us
@@ -15,6 +16,7 @@ type TestMonitor interface {
 	Monitor
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
+	MockSync(t *testing.T, impl func() error)
 }
 
 // A testManipulator is an empty TransactionalManipulator that can be easily mocked.
@@ -42,6 +44,11 @@ func (m *testMonitor) MockStop(t *testing.T, impl func() error) {
 	m.currentMocks(t).stopMock = impl
 }
 
+func (m *testMonitor) MockSync(t *testing.T, impl func() error) {
+
+	m.currentMocks(t).syncMock = impl
+}
+
 func (m *testMonitor) Start() error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.startMock != nil {
@@ -55,6 +62,15 @@ func (m *testMonitor) Stop() error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.stopMock != nil {
 		return mock.stopMock()
+	}
+
+	return nil
+}
+
+func (m *testMonitor) Sync() error {
+
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.syncMock != nil {
+		return mock.syncMock()
 	}
 
 	return nil
