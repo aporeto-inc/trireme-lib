@@ -10,6 +10,9 @@ import (
 	"go.uber.org/zap"
 )
 
+func errorCallback(err error, data interface{}) {
+	zap.L.Error("Error while processing packets on queue", zap.Error(err))
+}
 func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
 }
@@ -32,7 +35,7 @@ func (d *Datapath) startNetworkInterceptor() {
 	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
 
 		// Initialize all the queues
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, nfqueue.NfDefaultPacketSize, networkCallback, d)
+		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
@@ -64,7 +67,7 @@ func (d *Datapath) startApplicationInterceptor() {
 	nfq := make([]nfqueue.Verdict, d.filterQueue.NumberOfApplicationQueues)
 
 	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, nfqueue.NfDefaultPacketSize, appCallBack, d)
+		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
 
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
