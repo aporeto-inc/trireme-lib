@@ -203,8 +203,12 @@ func (d *dockerMonitor) Start() error {
 	if pingerr != nil {
 		return fmt.Errorf("Docker daemon not running")
 	}
+
 	// Starting the eventListener First.
-	go d.eventListener()
+	// We use a channel in order to wait for the eventListener to be ready
+	listenerReady := make(chan struct{})
+	go d.eventListener(listenerReady)
+	<-listenerReady
 
 	//Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
@@ -263,13 +267,16 @@ func (d *dockerMonitor) eventProcessor() {
 // eventListener listens to Docker events from the daemon and passes to
 // to the processor through a buffered channel. This minimizes the chances
 // that we will miss events because the processor is delayed
-func (d *dockerMonitor) eventListener() {
+func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 
 	options := types.EventsOptions{}
 	options.Filters = filters.NewArgs()
 	options.Filters.Add("type", "container")
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
+
+	// Once the buffered event channel was returned by Docker we return the ready status.
+	listenerReady <- struct{}{}
 
 	for {
 		select {
@@ -337,13 +344,16 @@ func (d *dockerMonitor) syncContainers() error {
 		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
 		if err != nil {
-			zap.L().Error("Error Syncing existing Container", zap.Error(err))
+			zap.L().Error("Error Syncing existing Container 1", zap.Error(err))
 			continue
 		}
 
 		if err := d.startDockerContainer(&container); err != nil {
-			zap.L().Error("Error Syncing existing Container", zap.Error(err))
+			zap.L().Error("Error Syncing existing Container 2", zap.Error(err))
 		}
+
+		zap.L().Info("Successfully synced container: %s", zap.String("ID", container.ID))
+
 	}
 
 	return nil
