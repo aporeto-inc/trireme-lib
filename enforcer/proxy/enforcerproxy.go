@@ -122,6 +122,8 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
 	if err != nil {
+		//We can't talk to the enforcer. Kill it and restart it
+		s.prochdl.KillProcess(contextID)
 		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
 		return ErrEnforceFailed
 	}
