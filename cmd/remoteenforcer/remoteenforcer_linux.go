@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"golang.org/x/sys/unix"
 
@@ -314,11 +313,7 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		resp.Status = err.Error()
 		return err
 	}
-	go func() {
-		//Temp code to cause us to exit
-		time.Sleep(1 * time.Second)
-		syscall.Kill(syscall.Getpid(), syscall.SIGINT)
-	}()
+
 	return nil
 
 }
@@ -384,7 +379,9 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	if puInfo == nil {
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
-
+	if s.Enforcer == nil {
+		zap.L().Fatal("Enforcer not inited")
+	}
 	if err := s.Enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err
