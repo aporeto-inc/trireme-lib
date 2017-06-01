@@ -14,7 +14,7 @@ func errorCallback(err error, data interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
 func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
-	d.(*Datapath).processNetworkPacketsFromNFQ(packet) 
+	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
 }
 
 func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
@@ -40,17 +40,6 @@ func (d *Datapath) startNetworkInterceptor() {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
 
-		go func(j uint16) {
-			for {
-				select {
-				case packet := <-nfq[j].GetNotificationChannel():
-					d.processNetworkPacketsFromNFQ(packet)
-				case <-d.netStop[j]:
-					return
-				}
-			}
-		}(i)
-
 	}
 }
 
@@ -73,16 +62,6 @@ func (d *Datapath) startApplicationInterceptor() {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
 
-		go func(j uint16) {
-			for {
-				select {
-				case packet := <-nfq[j].GetNotificationChannel():
-					d.processApplicationPacketsFromNFQ(packet)
-				case <-d.appStop[j]:
-					return
-				}
-			}
-		}(i)
 	}
 }
 
