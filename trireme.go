@@ -353,6 +353,11 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
+		if err != nil {
+			//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
+			zap.L().Debug("We lost communication with enforcer lets restart")
+			t.doHandleCreate(contextID)
+		}
 		return fmt.Errorf("Enforcer failed to update PU policy: context=%s error=%s", contextID, err)
 	}
 
