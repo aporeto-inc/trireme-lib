@@ -415,9 +415,12 @@ func (p *Packet) ID() string {
 	return strconv.Itoa(int(p.ipID))
 }
 
+//TCPOptionLength returns the length of tcpoptions
 func (p *Packet) TCPOptionLength() int {
 	return len(p.tcpOptions)
 }
+
+//TCPDataLength -- returns the length of tcp options
 func (p *Packet) TCPDataLength() int {
 	return len(p.tcpData)
 }

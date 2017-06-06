@@ -42,10 +42,11 @@ func (d *Datapath) startNetworkInterceptor() {
 		go func(j uint16) {
 			for {
 				select {
-				//case packet := <-nfq[j].Packets:
-				//d.processNetworkPacketsFromNFQ(packet)
+
 				case <-d.netStop[j]:
 					return
+				default:
+					//Do Nothing
 				}
 			}
 		}(i)
@@ -78,6 +79,8 @@ func (d *Datapath) startApplicationInterceptor() {
 				//d.processNetworkPacketsFromNFQ(packet)
 				case <-d.appStop[j]:
 					return
+				default:
+					//Do Nothing
 				}
 			}
 		}(i)
