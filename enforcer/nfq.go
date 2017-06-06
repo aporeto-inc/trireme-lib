@@ -39,6 +39,16 @@ func (d *Datapath) startNetworkInterceptor() {
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
+		go func(j uint16) {
+			for {
+				select {
+				//case packet := <-nfq[j].Packets:
+				//d.processNetworkPacketsFromNFQ(packet)
+				case <-d.netStop[j]:
+					return
+				}
+			}
+		}(i)
 
 	}
 }
@@ -61,6 +71,16 @@ func (d *Datapath) startApplicationInterceptor() {
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
+		go func(j uint16) {
+			for {
+				select {
+				//case packet := <-nfq[j].Packets:
+				//d.processNetworkPacketsFromNFQ(packet)
+				case <-d.appStop[j]:
+					return
+				}
+			}
+		}(i)
 
 	}
 }
