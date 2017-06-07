@@ -27,6 +27,9 @@ type PacketManipulator interface {
 	SetTCPSyn() error
 	SetTCPSynAck() error
 	SetTCPAck() error
+	GetTCPSyn() bool
+	GetTCPFin() bool
+	GetTCPAck() bool
 	NewTCPPayload(newPayload string) error
 	GetTCPChecksum() uint16
 	ToBytes() [][]byte
@@ -37,12 +40,13 @@ type PacketManipulator interface {
 
 // PacketFlowManipulator is an interface to ..
 type PacketFlowManipulator interface {
-	GenerateTCPFlow(bytePacket [][]byte) [][]byte
+	GenerateTCPFlow(bytePacket [][]byte) []PacketManipulator
 	GenerateTCPFlowPayload(newPayload string) [][]byte
 	//GenerateInvalidTCPFlow() [][]byte
-	GetSynPackets() [][]byte
+	GetSynPackets() []PacketManipulator
 	GetSynAckPackets() [][]byte
 	GetAckPackets() [][]byte
+	GetNthPacket(index int) PacketManipulator
 }
 
 // Packet is a type to ...
@@ -53,6 +57,9 @@ type Packet struct {
 
 //PacketFlow is a type to ...
 type PacketFlow struct {
-	GeneratedFlow [][]byte
-	TemplateFlow  [][]byte
+	SIP   string
+	DIP   string
+	SPort layers.TCPPort
+	DPort layers.TCPPort
+	Flow  []PacketManipulator
 }

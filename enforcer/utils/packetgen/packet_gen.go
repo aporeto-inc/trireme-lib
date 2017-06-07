@@ -147,6 +147,21 @@ func (p *Packet) SetTCPAck() error {
 	return nil
 }
 
+func (p *Packet) GetTCPSyn() bool {
+
+	return p.TCPLayer.SYN
+}
+
+func (p *Packet) GetTCPAck() bool {
+
+	return p.TCPLayer.ACK
+}
+
+func (p *Packet) GetTCPFin() bool {
+
+	return p.TCPLayer.FIN
+}
+
 //Add new payload to TCP layer
 func (p *Packet) NewTCPPayload(newPayload string) error {
 	opts := gopacket.SerializeOptions{
@@ -189,7 +204,6 @@ func (p *Packet) DisplayTCPPacket() {
 //Convert it into bytes
 func (p *Packet) ToBytes() [][]byte {
 
-	//Ethernet layer with type IPv4
 	ethernetLayer := layers.Ethernet{
 		SrcMAC:       net.HardwareAddr{0xFF, 0xAA, 0xFA, 0xAA, 0xFF, 0xAA},
 		DstMAC:       net.HardwareAddr{0xBD, 0xBD, 0xBD, 0xBD, 0xBD, 0xBD},
@@ -204,7 +218,6 @@ func (p *Packet) ToBytes() [][]byte {
 	//serializing the layers to create a packet
 	packetBuf := gopacket.NewSerializeBuffer()
 	err = gopacket.SerializeLayers(packetBuf, opts, &ethernetLayer, p.IPLayer, p.TCPLayer)
-
 	bytes1 := packetBuf.Bytes()
 	bytes1WithoutEthernet := bytes1[14:]
 	var finalBytes [][]byte
@@ -212,24 +225,93 @@ func (p *Packet) ToBytes() [][]byte {
 
 	return finalBytes
 }
-func NewPacketFlow(p PacketManipulator) PacketFlowManipulator {
-	p.GetIPPacket()
-	p.GetTCPPacket()
-	return &PacketFlow{}
+
+func NewTCPPacketFlow(sip string, dip string, sport layers.TCPPort, dport layers.TCPPort) PacketFlowManipulator {
+	pf := &PacketFlow{
+		SIP:   sip,
+		DIP:   dip,
+		SPort: sport,
+		DPort: dport,
+		Flow:  make([]PacketManipulator, 0),
+	}
+	return pf
 }
-func (p *PacketFlow) GenerateTCPFlow(bytePacket [][]byte) [][]byte {
-	return nil
+
+func (p *PacketFlow) GenerateTCPFlow(bytePacket [][]byte) []PacketManipulator {
+
+	// Create TCP Syn Packet
+	np := NewPacket()
+	np.AddIPLayer(p.SIP, p.DIP)
+	np.AddTCPLayer(p.SPort, p.DPort)
+	np.SetTCPSyn()
+	np.ChangeTCPSequenceNumber(0)
+	np.ChangeTCPAcknowledgementNumber(0)
+	packet, ok := np.(*Packet)
+	if !ok {
+		return nil
+	}
+	//fmt.Println(packet.IPLayer)
+	p.Flow = append(p.Flow, packet)
+
+	// Create TCP SynAck Packet
+	np2 := NewPacket()
+	np2.AddIPLayer(p.DIP, p.SIP)
+	np2.AddTCPLayer(p.DPort, p.SPort)
+	np2.SetTCPSynAck()
+	np2.ChangeTCPSequenceNumber(0)
+	np2.ChangeTCPAcknowledgementNumber(packet.TCPLayer.Seq + 1)
+	packet2, ok := np2.(*Packet)
+	if !ok {
+		return nil
+	}
+	//fmt.Println(packet2.IPLayer)
+	p.Flow = append(p.Flow, packet2)
+
+	// Create TCP Ack Packet
+	np3 := NewPacket()
+	np3.AddIPLayer(p.SIP, p.DIP)
+	np3.AddTCPLayer(p.SPort, p.DPort)
+	np3.SetTCPAck()
+	np3.ChangeTCPSequenceNumber(packet2.TCPLayer.Ack)
+	np3.ChangeTCPAcknowledgementNumber(packet2.TCPLayer.Seq + 1)
+	packet3, ok := np3.(*Packet)
+	if !ok {
+		return nil
+	}
+	//fmt.Println(packet3.IPLayer)
+	p.Flow = append(p.Flow, packet3)
+	//fmt.Println(p.Flow[2].ToBytes())
+
+	return p.Flow
+
 }
 func (p *PacketFlow) GenerateTCPFlowPayload(newPayload string) [][]byte {
 	return nil
 }
 
-func (p *PacketFlow) GetSynPackets() [][]byte {
-	return nil
+func (p *PacketFlow) GetSynPackets() []PacketManipulator {
+	var synPackets []PacketManipulator
+	for j := 0; j < len(p.Flow); j++ {
+		if p.Flow[j].GetTCPSyn() == true && p.Flow[j].GetTCPAck() == false && p.Flow[j].GetTCPFin() == false {
+			synPackets = append(synPackets, p.Flow[j])
+		}
+	}
+	return synPackets
 }
 func (p *PacketFlow) GetSynAckPackets() [][]byte {
 	return nil
 }
 func (p *PacketFlow) GetAckPackets() [][]byte {
 	return nil
+}
+
+func (p *PacketFlow) GetNthPacket(index int) PacketManipulator {
+	for i := 0; i < len(p.Flow); i++ {
+		if index == i {
+			return p.Flow[i]
+		} else {
+			return nil
+		}
+	}
+	panic("Index out of range")
 }
