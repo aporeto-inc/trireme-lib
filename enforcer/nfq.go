@@ -40,7 +40,7 @@ func (d *Datapath) startNetworkInterceptor() {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
 		go func(j uint16) {
-			for _ = range d.netStop[j] {
+			for range d.netStop[j] {
 				return
 			}
 		}(i)
@@ -67,7 +67,7 @@ func (d *Datapath) startApplicationInterceptor() {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
 		go func(j uint16) {
-			for _ = range d.appStop[j] {
+			for range d.appStop[j] {
 				return
 			}
 
