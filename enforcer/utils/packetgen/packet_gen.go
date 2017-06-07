@@ -4,10 +4,10 @@ import "github.com/google/gopacket/layers"
 
 // PacketManipulator is an interface for packet manipulations
 type PacketManipulator interface {
-	NewIPPacket(srcIPstr string, dstIPstr string) error
+	AddIPLayer(srcIPstr string, dstIPstr string) error
 	GetIPChecksum() uint16
 
-	NewTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error
+	AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error
 	ChangeTCPSequenceNumber(seqNum uint32) error
 	ChangeTCPAcknowledgementNumber(ackNum uint32) error
 	ChangeTCPWindow(window uint16) error
@@ -22,7 +22,19 @@ func NewPacket() PacketManipulator {
 	return &Packet{}
 }
 
-func (p *Packet) NewIPPacket(srcIPstr string, dstIPstr string) error {
+func NewIPPacket(sip, dip string) PacketManipulator {
+	p := NewPacket()
+	p.AddIPLayer(sip, dip)
+	return p
+}
+
+func NewIPTCPPacket(sip, dip, sport, dport string) PacketManipulator {
+	p := NewIPPacket(sip, dip)
+	// p.AddTCPLayer(sport, dport)
+	return p
+}
+
+func (p *Packet) AddIPLayer(srcIPstr string, dstIPstr string) error {
 	return nil
 }
 
@@ -30,7 +42,7 @@ func (p *Packet) GetIPChecksum() uint16 {
 	return 0
 }
 
-func (p *Packet) NewTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error {
+func (p *Packet) AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error {
 	return nil
 }
 
