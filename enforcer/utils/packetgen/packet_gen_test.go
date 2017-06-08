@@ -5,24 +5,52 @@
 //Test cases are created only for generated packets, not for packets on the wire
 package packetgen
 
-import (
-	"testing"
-)
+import "testing"
 
 //. "github.com/smartystreets/goconvey/convey"
 
+// func SetTCPSyn(pBytes []byte) []byte {
+// 	// TCPOffset = pBytes[IPOffset] + TCPHeaderLength
+// 	// TCPSynOffset = TCPOffset + 4
+// 	// pBytes[TCPSynOffset] |= TCPSynFlag
+// 	return pBytes
 func init() {
 	// fmt.Println()
 	//fmt.Println(NewPacket().AddIPLayer("122.1.1.1.", "122.2.3.4"))
 	// p := NewPacket()
+	// p.AddEthernetLayer("aa:aa:fa:aa:ff:aa", "aa:aa:fa:aa:ff:ff")
 	// p.AddIPLayer("164.67.228.152", "10.1.10.76")
-	// p.AddTCPLayer(666,80)
-	// //fmt.Println(p.CreatePacketBuffer())
-	// pf:=NewTCPPacketFlow("192.168.1.1","192.168.2.2",80,666)
+	// p.AddTCPLayer(666, 80)
+	// // //fmt.Println(p.CreatePacketBuffer())
+	// pf := NewTCPPacketFlow("aa:aa:fa:aa:ff:aa", "aa:aa:fa:aa:ff:ff", "192.168.1.1", "192.168.2.2", 666, 80)
 	//
-	// fmt.Println(pf.GenerateTCPFlow(nil))
+	// pf.GenerateTCPFlow(PacketFlowTypeGoodFlow)
+	// //pf.GetNthPacket(0).NewTCPPayload("Aporeto's Confidential")
+	// fmt.Println(pf.GetNthPacket(0).ToBytes())
+	// // pfSyn, ok := pf.GetSynPackets()
+	// if ok {
+	// 	fmt.Printf("Packet Flow:\n%+v\n", pfSyn)
+	// } else {
+	// 	fmt.Println("Packet Flow: None")
+	// }
+	//
+	// for i := 0; i < pfSyn.GetNumPackets(); i++ {
+	// 	p, ok := pf.GetNthPacket(i)
+	// 	if ok {
+	// 		fmt.Printf("Packet Bytes: %v\n", p.ToBytes())
+	// 		p.SetTCPSyn()
+	// 	}
+	// }
+	//
+	// for i := 0; i < len(PacketFlowBytes); i++ {
+	// 	pBytes := PacketFlowBytes[i]
+	// 	if ok {
+	// 		fmt.Printf("Packet Bytes: %v\n", pBytes)
+	// 		SetTCPSyn(pBytes)
+	// 	}
+	// }
 	//  fmt.Printf("%X",pf.GetNthPacket(2).ToBytes())
-	//fmt.Println(pf.GetSynPackets()[0].ToBytes())
+	//fmt.Println(pf.GetSynPackets().ToBytes())
 	//p.SetTCPSequenceNumber(2345)
 	//p.DisplayTCPPacket()
 	// layer.SrcIPstr = "164.67.228.152"
@@ -38,6 +66,7 @@ func init() {
 	// //TCPFlow = layer.GenerateTCPFlowPayload("Aporeto Confidential")
 
 }
+
 //
 //func TestSample(t *testing.T) {}
 //
