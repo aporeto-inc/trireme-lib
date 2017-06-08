@@ -26,14 +26,14 @@ func (p *Packet) AddEthernetLayer(srcMACstr string, dstMACstr string) error {
 
 	var srcMAC, dstMAC net.HardwareAddr
 
-	//Ethernet address of the source
+	//MAC address of the source
 	srcMAC, _ = net.ParseMAC(srcMACstr)
 
 	if srcMAC == nil {
 		return fmt.Errorf("No source MAC given")
 	}
 
-	//Ethernet address of the destination
+	//MAC address of the destination
 	dstMAC, _ = net.ParseMAC(dstMACstr)
 
 	if dstMAC == nil {
@@ -48,6 +48,12 @@ func (p *Packet) AddEthernetLayer(srcMACstr string, dstMACstr string) error {
 	}
 
 	return nil
+}
+
+//GetEthernetPacket returns the ethernet layer created
+func (p *Packet) GetEthernetPacket() layers.Ethernet {
+
+	return *p.EthernetLayer
 }
 
 //AddIPLayer creates an IP layer
@@ -140,6 +146,24 @@ func (p *Packet) AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) err
 func (p *Packet) GetTCPPacket() layers.TCP {
 
 	return *p.TCPLayer
+}
+
+//GetTCPSequenceNumber returns TCP Sequence number
+func (p *Packet) GetTCPSequenceNumber() uint32 {
+
+	return p.TCPLayer.Seq
+}
+
+//GetTCPAcknowledgementNumber returns TCP Acknowledgement number
+func (p *Packet) GetTCPAcknowledgementNumber() uint32 {
+
+	return p.TCPLayer.Ack
+}
+
+//GetTCPWindow returns TCP Window
+func (p *Packet) GetTCPWindow() uint16 {
+
+	return p.TCPLayer.Window
 }
 
 //GetTCPSyn returns TCP SYN flag
@@ -239,8 +263,8 @@ func (p *Packet) NewTCPPayload(newPayload string) error {
 }
 
 //ToBytes creates a packet buffer and converts it into a complete packet with ethernet, IP and TCP (with options)
-func (p *Packet) ToBytes() [][]byte {
-
+func (p *Packet) ToBytes() []byte {
+	//fmt.Println(p.TCPLayer)
 	//Options can be set
 	opts := gopacket.SerializeOptions{
 		FixLengths:       true, //fix lengths based on the payload (data)
@@ -251,14 +275,14 @@ func (p *Packet) ToBytes() [][]byte {
 
 	//Creating a packet buffer by serializing the ethernet, IP and TCP layers/packets
 	packetBuf := gopacket.NewSerializeBuffer()
-	gopacket.SerializeLayers(packetBuf, opts, p.EthernetLayer, p.IPLayer, p.TCPLayer)
-
+	tcpPayload := gopacket.Payload(p.TCPLayer.Payload)
+	gopacket.SerializeLayers(packetBuf, opts, p.EthernetLayer, p.IPLayer, p.TCPLayer, tcpPayload)
 	//Converting into bytes and removing the ethernet from the layers
 	bytes := packetBuf.Bytes()
 	bytesWithoutEthernet := bytes[:]
 
-	var finalBytes [][]byte
-	finalBytes = append(finalBytes, bytesWithoutEthernet)
+	var finalBytes []byte
+	finalBytes = append(finalBytes, bytesWithoutEthernet...)
 
 	return finalBytes
 }
@@ -266,57 +290,59 @@ func (p *Packet) ToBytes() [][]byte {
 //NewTCPPacketFlow returns PacketFlow struct which implements PacketFlowManipulator
 func NewTCPPacketFlow(smac string, dmac string, sip string, dip string, sport layers.TCPPort, dport layers.TCPPort) PacketFlowManipulator {
 
-	initialTuplules := &PacketFlow{
-		SMAC:  smac,
-		DMAC:  dmac,
-		SIP:   sip,
-		DIP:   dip,
-		SPort: sport,
-		DPort: dport,
+	initialTupules := &PacketFlow{
+		sMAC:  smac,
+		dMAC:  dmac,
+		sIP:   sip,
+		dIP:   dip,
+		sPort: sport,
+		dPort: dport,
 		Flow:  make([]PacketManipulator, 0),
 	}
 
-	return initialTuplules
+	return initialTupules
 }
 
 //GenerateTCPFlow returns an array of PacketFlowManipulator interface
-func (p *PacketFlow) GenerateTCPFlow(bytePacket [][]byte) PacketFlowManipulator {
+func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator {
 
-	//Create a SYN packet to initialize the flow
-	firstPacket := NewPacket()
-	firstPacket.AddEthernetLayer(p.SMAC, p.DMAC)
-	firstPacket.AddIPLayer(p.SIP, p.DIP)
-	firstPacket.AddTCPLayer(p.SPort, p.DPort)
-	firstPacket.SetTCPSyn()
-	firstPacket.SetTCPSequenceNumber(0)
-	firstPacket.SetTCPAcknowledgementNumber(0)
-	synPacket, _ := firstPacket.(*Packet)
+	if pt == 0 {
+		//Create a SYN packet to initialize the flow
+		firstPacket := NewPacket()
+		firstPacket.AddEthernetLayer(p.sMAC, p.dMAC)
+		firstPacket.AddIPLayer(p.sIP, p.dIP)
+		firstPacket.AddTCPLayer(p.sPort, p.dPort)
+		firstPacket.SetTCPSyn()
+		firstPacket.SetTCPSequenceNumber(0)
+		firstPacket.SetTCPAcknowledgementNumber(0)
+		synPacket, _ := firstPacket.(*Packet)
 
-	p.Flow = append(p.Flow, synPacket)
+		p.Flow = append(p.Flow, synPacket)
 
-	//Create a SynAck packet
-	secondPacket := NewPacket()
-	secondPacket.AddEthernetLayer(p.SMAC, p.DMAC)
-	secondPacket.AddIPLayer(p.DIP, p.SIP)
-	secondPacket.AddTCPLayer(p.DPort, p.SPort)
-	secondPacket.SetTCPSynAck()
-	secondPacket.SetTCPSequenceNumber(0)
-	secondPacket.SetTCPAcknowledgementNumber(synPacket.TCPLayer.Seq + 1)
-	synackPacket, _ := secondPacket.(*Packet)
+		//Create a SynAck packet
+		secondPacket := NewPacket()
+		secondPacket.AddEthernetLayer(p.sMAC, p.dMAC)
+		secondPacket.AddIPLayer(p.dIP, p.sIP)
+		secondPacket.AddTCPLayer(p.dPort, p.sPort)
+		secondPacket.SetTCPSynAck()
+		secondPacket.SetTCPSequenceNumber(0)
+		secondPacket.SetTCPAcknowledgementNumber(synPacket.TCPLayer.Seq + 1)
+		synackPacket, _ := secondPacket.(*Packet)
 
-	p.Flow = append(p.Flow, synackPacket)
+		p.Flow = append(p.Flow, synackPacket)
 
-	//Create an Ack Packet
-	thirdPacket := NewPacket()
-	thirdPacket.AddEthernetLayer(p.SMAC, p.DMAC)
-	thirdPacket.AddIPLayer(p.SIP, p.DIP)
-	thirdPacket.AddTCPLayer(p.SPort, p.DPort)
-	thirdPacket.SetTCPAck()
-	thirdPacket.SetTCPSequenceNumber(synackPacket.TCPLayer.Ack)
-	thirdPacket.SetTCPAcknowledgementNumber(synackPacket.TCPLayer.Seq + 1)
-	ackPacket, _ := thirdPacket.(*Packet)
+		//Create an Ack Packet
+		thirdPacket := NewPacket()
+		thirdPacket.AddEthernetLayer(p.sMAC, p.dMAC)
+		thirdPacket.AddIPLayer(p.sIP, p.dIP)
+		thirdPacket.AddTCPLayer(p.sPort, p.dPort)
+		thirdPacket.SetTCPAck()
+		thirdPacket.SetTCPSequenceNumber(synackPacket.TCPLayer.Ack)
+		thirdPacket.SetTCPAcknowledgementNumber(synackPacket.TCPLayer.Seq + 1)
+		ackPacket, _ := thirdPacket.(*Packet)
 
-	p.Flow = append(p.Flow, ackPacket)
+		p.Flow = append(p.Flow, ackPacket)
+	}
 
 	return p
 }
@@ -327,20 +353,22 @@ func (p *PacketFlow) GenerateTCPFlowPayload(newPayload string) PacketFlowManipul
 	return nil
 }
 
-//AddPacket adds the packet to Flow field of PacketFlowManipulator interface
-func (p *PacketFlow) AddPacket(pm PacketManipulator) {
+//AppendPacket adds the packet to Flow field of PacketFlowManipulator interface
+func (p *PacketFlow) AppendPacket(pm PacketManipulator) int {
 
 	p.Flow = append(p.Flow, pm)
+
+	return p.GetNumPackets()
 }
 
 //GetMatchPackets implicitly returns the matching packets requested by the user
-func (p *PacketFlow) GetMatchPackets(syn, ack, fin bool) PacketFlowManipulator {
+func (p *PacketFlow) getMatchPackets(syn, ack, fin bool) PacketFlowManipulator {
 
-	packetsInFlow := NewTCPPacketFlow(p.SMAC, p.DMAC, p.SIP, p.DIP, p.SPort, p.DPort)
+	packetsInFlow := NewTCPPacketFlow(p.sMAC, p.dMAC, p.sIP, p.dIP, p.sPort, p.dPort)
 
 	for j := 0; j < len(p.Flow); j++ {
 		if p.Flow[j].GetTCPSyn() == syn && p.Flow[j].GetTCPAck() == ack && p.Flow[j].GetTCPFin() == fin {
-			packetsInFlow.AddPacket(p.Flow[j])
+			packetsInFlow.AppendPacket(p.Flow[j])
 		}
 	}
 
@@ -350,19 +378,19 @@ func (p *PacketFlow) GetMatchPackets(syn, ack, fin bool) PacketFlowManipulator {
 //GetSynPackets returns the SYN packets
 func (p *PacketFlow) GetSynPackets() PacketFlowManipulator {
 
-	return p.GetMatchPackets(true, false, false)
+	return p.getMatchPackets(true, false, false)
 }
 
 //GetSynAckPackets returns the SynAck packets
 func (p *PacketFlow) GetSynAckPackets() PacketFlowManipulator {
 
-	return p.GetMatchPackets(true, true, false)
+	return p.getMatchPackets(true, true, false)
 }
 
 //GetAckPackets returns the Ack Packets
 func (p *PacketFlow) GetAckPackets() PacketFlowManipulator {
 
-	return p.GetMatchPackets(false, true, false)
+	return p.getMatchPackets(false, true, false)
 }
 
 //GetNthPacket returns the packet requested by the user from the array

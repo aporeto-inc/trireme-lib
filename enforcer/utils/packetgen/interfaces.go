@@ -2,9 +2,25 @@ package packetgen
 
 import "github.com/google/gopacket/layers"
 
+//PacketFlowType ...
+type PacketFlowType uint8
+
+const (
+	//PacketFlowTypeGoodFlow returns a good flow
+	PacketFlowTypeGoodFlow PacketFlowType = iota
+	// PacketFlowTypeGoodLongFlow                     //Capture and create new template
+	// PacketFlowTypeInvalidMissingSyn                //use existing TemplateFlow
+	// PacketFlowTypeInvalidMissingSynAck
+	// PacketFlowTypeInvalidMissingFirstAck
+	// PacketFlowTypeInvalidOutOfOrder
+	// PacketFlowTypeInvalidIncomplete //Syn only,synack....
+)
+
 //EthernetPacketManipulator is used to create/manipulate Ethernet packet
 type EthernetPacketManipulator interface {
 	AddEthernetLayer(srcMACstr string, dstMACstr string) error
+	GetEthernetPacket() layers.Ethernet
+	//P1 - GetEthernetPayload() return IP Packet manipulator
 }
 
 //IPPacketManipulator is used to create/manipulate IP packet
@@ -12,16 +28,21 @@ type IPPacketManipulator interface {
 	AddIPLayer(srcIPstr string, dstIPstr string) error
 	GetIPPacket() layers.IPv4
 	GetIPChecksum() uint16
+	//P1 - GetIPPayload() return TCP Packet manipulator
 }
 
 //TCPPacketManipulator is used to create/manipulate TCP packet
 type TCPPacketManipulator interface {
 	AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error
 	GetTCPPacket() layers.TCP
+	GetTCPSequenceNumber() uint32
+	GetTCPAcknowledgementNumber() uint32
+	GetTCPWindow() uint16
 	GetTCPSyn() bool
 	GetTCPAck() bool
 	GetTCPFin() bool
 	GetTCPChecksum() uint16
+	//P1 - GetTCPDataOffset() return uint8
 
 	SetTCPSequenceNumber(seqNum uint32) error
 	SetTCPAcknowledgementNumber(ackNum uint32) error
@@ -29,13 +50,14 @@ type TCPPacketManipulator interface {
 	SetTCPSyn()
 	SetTCPSynAck()
 	SetTCPAck()
+	//P1 - SetTCPDataOffset(uint4) error
 
 	NewTCPPayload(newPayload string) error
 }
 
 //PacketHelper is a helper for the packets
 type PacketHelper interface {
-	ToBytes() [][]byte
+	ToBytes() []byte
 }
 
 // PacketManipulator is an interface for packet manipulations
@@ -48,16 +70,17 @@ type PacketManipulator interface {
 
 // PacketFlowManipulator is an interface to packet flow manipulations
 type PacketFlowManipulator interface {
-	GenerateTCPFlow(bytePacket [][]byte) PacketFlowManipulator
-	GenerateTCPFlowPayload(newPayload string) PacketFlowManipulator
-	//GenerateInvalidTCPFlow() [][]byte
-	GetMatchPackets(syn, ack, fin bool) PacketFlowManipulator
+	GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator
+	//P1 - GetSynPacket() PacketManipulator
+	//P1 - GetSynAckPacket() PacketManipulator
+	//P1 - GetAckPacket() PacketManipulator
 	GetSynPackets() PacketFlowManipulator
 	GetSynAckPackets() PacketFlowManipulator
 	GetAckPackets() PacketFlowManipulator
 	GetNthPacket(index int) PacketManipulator
 	GetNumPackets() int
-	AddPacket(p PacketManipulator)
+	AppendPacket(p PacketManipulator) int
+	//P1 - AddNthPacket(index,PacketManipulator) error
 }
 
 //Packet is a type to packet
@@ -69,11 +92,11 @@ type Packet struct {
 
 //PacketFlow is a type to packet flows
 type PacketFlow struct {
-	SMAC  string
-	DMAC  string
-	SIP   string
-	DIP   string
-	SPort layers.TCPPort
-	DPort layers.TCPPort
+	sMAC  string
+	dMAC  string
+	sIP   string
+	dIP   string
+	sPort layers.TCPPort
+	dPort layers.TCPPort
 	Flow  []PacketManipulator
 }
