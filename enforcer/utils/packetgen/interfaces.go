@@ -2,11 +2,16 @@ package packetgen
 
 import "github.com/google/gopacket/layers"
 
+//EthernetPacketManipulator is used to create/manipulate Ethernet packet
+type EthernetPacketManipulator interface {
+	AddEthernetLayer(srcMACstr string, dstMACstr string) error
+}
+
 //IPPacketManipulator is used to create/manipulate IP packet
 type IPPacketManipulator interface {
 	AddIPLayer(srcIPstr string, dstIPstr string) error
-	GetIPChecksum() uint16
 	GetIPPacket() layers.IPv4
+	GetIPChecksum() uint16
 }
 
 //TCPPacketManipulator is used to create/manipulate TCP packet
@@ -14,8 +19,8 @@ type TCPPacketManipulator interface {
 	AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error
 	GetTCPPacket() layers.TCP
 	GetTCPSyn() bool
-	GetTCPFin() bool
 	GetTCPAck() bool
+	GetTCPFin() bool
 	GetTCPChecksum() uint16
 
 	SetTCPSequenceNumber(seqNum uint32) error
@@ -35,6 +40,7 @@ type PacketHelper interface {
 
 // PacketManipulator is an interface for packet manipulations
 type PacketManipulator interface {
+	EthernetPacketManipulator
 	IPPacketManipulator
 	TCPPacketManipulator
 	PacketHelper
@@ -45,21 +51,26 @@ type PacketFlowManipulator interface {
 	GenerateTCPFlow(bytePacket [][]byte) PacketFlowManipulator
 	GenerateTCPFlowPayload(newPayload string) PacketFlowManipulator
 	//GenerateInvalidTCPFlow() [][]byte
+	GetMatchPackets(syn, ack, fin bool) PacketFlowManipulator
 	GetSynPackets() PacketFlowManipulator
 	GetSynAckPackets() PacketFlowManipulator
 	GetAckPackets() PacketFlowManipulator
 	GetNthPacket(index int) PacketManipulator
+	GetNumPackets() int
 	AddPacket(p PacketManipulator)
 }
 
 //Packet is a type to packet
 type Packet struct {
-	IPLayer  *layers.IPv4
-	TCPLayer *layers.TCP
+	EthernetLayer *layers.Ethernet
+	IPLayer       *layers.IPv4
+	TCPLayer      *layers.TCP
 }
 
 //PacketFlow is a type to packet flows
 type PacketFlow struct {
+	SMAC  string
+	DMAC  string
 	SIP   string
 	DIP   string
 	SPort layers.TCPPort
