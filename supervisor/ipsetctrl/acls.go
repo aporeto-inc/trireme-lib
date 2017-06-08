@@ -275,34 +275,39 @@ func (i *Instance) deleteIpsetOption(ip string) error {
 func (i *Instance) setupTrapRules(set string) error {
 
 	rules := [][]string{
-		// Application Syn and Syn/Ack in RAW
+		// Application Syn
 		{
 			i.appPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
 			"-m", "set", "--match-set", containerSet, "src",
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
-			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues, // i.applicationQueuesSyn
 		},
-
-		// Application Matching Trireme SRC and DST. Established connections.
+		// Application SynAck
+		{
+			i.appPacketIPTableContext, i.appPacketIPTableSection,
+			"-m", "set", "--match-set", set, "dst",
+			"-m", "set", "--match-set", containerSet, "src",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues, // i.applicationQueuesSynAck
+		},
+		// Application Accept Syn/Syn-Ack
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
-			"-m", "set", "--match-set", containerSet, "src",
 			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp", "--tcp-flags", "FIN,SYN,RST,PSH,URG", "SYN",
+			"-m", "set", "--match-set", containerSet, "src",
+			"-p", "tcp", "--tcp-flags", "SYN", "SYN",
 			"-j", "ACCEPT",
 		},
-
-		// Application Matching Trireme SRC and DST. SYN, SYNACK connections.
+		// Application Matching Trireme SRC and DST. everything but SYN/SYN-ACK packets
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", containerSet, "src",
 			"-m", "set", "--match-set", set, "dst",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-p", "tcp",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.applicationQueues,
 		},
-
 		// Default Drop from Trireme to Network
 		{
 			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
@@ -311,7 +316,23 @@ func (i *Instance) setupTrapRules(set string) error {
 			"-j", "DROP",
 		},
 
-		// Network Matching Trireme SRC and DST.
+		// Network Matching Trireme SRC and DST. Syn incoming
+		{
+			i.netPacketIPTableContext, i.netPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
+			"-m", "set", "--match-set", containerSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", i.networkQueues, // i.networkQueuesSyn
+		},
+
+		// Network Matching Trireme SRC and DST. SynAck incoming
+		{
+			i.netPacketIPTableContext, i.netPacketIPTableSection,
+			"-m", "set", "--match-set", set, "src",
+			"-m", "set", "--match-set", containerSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.networkQueues, // i.networkQueuesSynAck
+		},
 		{
 			i.netPacketIPTableContext, i.netPacketIPTableSection,
 			"-m", "set", "--match-set", set, "src",
@@ -320,7 +341,6 @@ func (i *Instance) setupTrapRules(set string) error {
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.networkQueues,
 		},
-
 		// Default Drop from Network to Trireme.
 		{
 			i.netPacketIPTableContext, i.netPacketIPTableSection,
