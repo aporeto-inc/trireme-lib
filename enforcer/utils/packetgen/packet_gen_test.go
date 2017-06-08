@@ -6,31 +6,24 @@
 package packetgen
 
 import (
-	"fmt"
 	"testing"
 )
 
 //. "github.com/smartystreets/goconvey/convey"
 
-var (
-	TCPFlow        [][]byte
-	InvalidTCPFlow [][]byte
-	layer          PacketFlow
-	TCPPacket	Packet
-)
-
 func init() {
-fmt.Println()
+	// fmt.Println()
 	//fmt.Println(NewPacket().AddIPLayer("122.1.1.1.", "122.2.3.4"))
-	p:=NewPacket()
-	p.AddIPLayer("164.67.228.152", "10.1.10.76")
-	p.AddTCPLayer(666,80)
-	//fmt.Println(p.CreatePacketBuffer())
-	pf:=NewTCPPacketFlow("192.168.1.1","192.168.2.2",80,666)
-	pf.GenerateTCPFlow(nil)
-	//fmt.Println(pf.GetNthPacket(0).ToBytes())
-	fmt.Println(pf.GetSynPackets()[0].ToBytes())
-	//p.ChangeTCPSequenceNumber(2345)
+	// p := NewPacket()
+	// p.AddIPLayer("164.67.228.152", "10.1.10.76")
+	// p.AddTCPLayer(666,80)
+	// //fmt.Println(p.CreatePacketBuffer())
+	// pf:=NewTCPPacketFlow("192.168.1.1","192.168.2.2",80,666)
+	//
+	// fmt.Println(pf.GenerateTCPFlow(nil))
+	//  fmt.Printf("%X",pf.GetNthPacket(2).ToBytes())
+	//fmt.Println(pf.GetSynPackets()[0].ToBytes())
+	//p.SetTCPSequenceNumber(2345)
 	//p.DisplayTCPPacket()
 	// layer.SrcIPstr = "164.67.228.152"
 	// layer.DstIPstr = "10.1.10.76"
@@ -46,7 +39,7 @@ fmt.Println()
 
 }
 //
-func TestSample(t *testing.T) {}
+//func TestSample(t *testing.T) {}
 //
 // //check th enumber of tcp layers generated
 // func TestCount(t *testing.T) {
@@ -113,22 +106,22 @@ func TestSample(t *testing.T) {}
 //
 // }
 
-// func TestTypeInterface(t *testing.T) {
-// 	t.Parallel()
-//
-// 	var PktInterface Pkt = (*Packet)(nil)
-//
-// 	if PktInterface != (*Packet)(nil) {
-//
-// 		t.Error("Packet struct does not implement Pkt Interface")
-//
-// 	}
-//
-// 	var PktFlowInterface PktFlow = (*PacketFlow)(nil)
-// 	if PktFlowInterface != (*PacketFlow)(nil) {
-//
-// 		t.Error("PacketFlow struct does not implement PktFlow Interface")
-//
-// 	}
-//
-// }
+func TestTypeInterface(t *testing.T) {
+	t.Parallel()
+
+	var PktInterface PacketManipulator = (*Packet)(nil)
+
+	if PktInterface != (*Packet)(nil) {
+
+		t.Error("Packet struct does not implement Pkt Interface")
+
+	}
+
+	var PktFlowInterface PacketFlowManipulator = (*PacketFlow)(nil)
+	if PktFlowInterface != (*PacketFlow)(nil) {
+
+		t.Error("PacketFlow struct does not implement PktFlow Interface")
+
+	}
+
+}

@@ -2,60 +2,63 @@ package packetgen
 
 import "github.com/google/gopacket/layers"
 
-// type Pkt interface {
-// 	GenerateIPPacket(srcIPstr string, dstIPstr string) layers.IPv4
-// 	GenerateTCPPacket(ip *layers.IPv4, srcPort layers.TCPPort, dstPort layers.TCPPort) layers.TCP
-// 	ChangeSequenceNumber(seqNum uint32) layers.TCP
-// 	ChangeAcknowledgementNumber(ackNum uint32) layers.TCP
-// 	ChangeWindow(window uint16) layers.TCP
-// 	SetSynTrue() layers.TCP
-// 	SetSynAckTrue() layers.TCP
-// 	SetAckTrue() layers.TCP
-// 	ChangePayload(newPayload string) layers.TCP
-// 	GetChecksum() uint16
-// }
-
-// PacketManipulator is an interface for packet manipulations
-type PacketManipulator interface {
+//IPPacketManipulator is used to create/manipulate IP packet
+type IPPacketManipulator interface {
 	AddIPLayer(srcIPstr string, dstIPstr string) error
 	GetIPChecksum() uint16
+	GetIPPacket() layers.IPv4
+}
 
+//TCPPacketManipulator is used to create/manipulate TCP packet
+type TCPPacketManipulator interface {
 	AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error
-	ChangeTCPSequenceNumber(seqNum uint32) error
-	ChangeTCPAcknowledgementNumber(ackNum uint32) error
-	ChangeTCPWindow(window uint16) error
-	SetTCPSyn() error
-	SetTCPSynAck() error
-	SetTCPAck() error
+	GetTCPPacket() layers.TCP
 	GetTCPSyn() bool
 	GetTCPFin() bool
 	GetTCPAck() bool
-	NewTCPPayload(newPayload string) error
 	GetTCPChecksum() uint16
+
+	SetTCPSequenceNumber(seqNum uint32) error
+	SetTCPAcknowledgementNumber(ackNum uint32) error
+	SetTCPWindow(window uint16) error
+	SetTCPSyn()
+	SetTCPSynAck()
+	SetTCPAck()
+
+	NewTCPPayload(newPayload string) error
+}
+
+//PacketHelper is a helper for the packets
+type PacketHelper interface {
 	ToBytes() [][]byte
-	GetIPPacket() layers.IPv4
-	GetTCPPacket() layers.TCP
-	DisplayTCPPacket()
 }
 
-// PacketFlowManipulator is an interface to ..
+// PacketManipulator is an interface for packet manipulations
+type PacketManipulator interface {
+	IPPacketManipulator
+	TCPPacketManipulator
+	PacketHelper
+}
+
+// PacketFlowManipulator is an interface to packet flow manipulations
 type PacketFlowManipulator interface {
-	GenerateTCPFlow(bytePacket [][]byte) []PacketManipulator
-	GenerateTCPFlowPayload(newPayload string) [][]byte
+	GenerateTCPFlow(bytePacket [][]byte) PacketFlowManipulator
+	GenerateTCPFlowPayload(newPayload string) PacketFlowManipulator
 	//GenerateInvalidTCPFlow() [][]byte
-	GetSynPackets() []PacketManipulator
-	GetSynAckPackets() [][]byte
-	GetAckPackets() [][]byte
+	GetSynPackets() PacketFlowManipulator
+	GetSynAckPackets() PacketFlowManipulator
+	GetAckPackets() PacketFlowManipulator
 	GetNthPacket(index int) PacketManipulator
+	AddPacket(p PacketManipulator)
 }
 
-// Packet is a type to ...
+//Packet is a type to packet
 type Packet struct {
 	IPLayer  *layers.IPv4
 	TCPLayer *layers.TCP
 }
 
-//PacketFlow is a type to ...
+//PacketFlow is a type to packet flows
 type PacketFlow struct {
 	SIP   string
 	DIP   string
