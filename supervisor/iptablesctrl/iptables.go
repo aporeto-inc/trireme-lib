@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	chainPrefix    = "TRIREME-"
+	chainPrefix    = ""
 	appChainPrefix = chainPrefix + "App-"
 	netChainPrefix = chainPrefix + "Net-"
 )

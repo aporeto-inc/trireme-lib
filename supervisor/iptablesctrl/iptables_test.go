@@ -51,8 +51,8 @@ func TestChainName(t *testing.T) {
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net := i.chainName("Context", 1)
 			Convey("I should get the right names", func() {
-				So(app, ShouldResemble, "TRIREME-App-Context-1")
-				So(net, ShouldResemble, "TRIREME-Net-Context-1")
+				So(app, ShouldResemble, "App-Context-1")
+				So(net, ShouldResemble, "Net-Context-1")
 			})
 		})
 	})
@@ -345,40 +345,40 @@ func TestUpdateRules(t *testing.T) {
 
 		Convey("I try to update with a valid default IP address ", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				if matchSpec("TRIREME-App-Context-0", rulespec) == nil || matchSpec("TRIREME-Net-Context-0", rulespec) == nil {
+				if matchSpec("App-Context-0", rulespec) == nil || matchSpec("Net-Context-0", rulespec) == nil {
 					return nil
 				}
 				return fmt.Errorf("Error")
 			})
 			iptables.MockClearChain(t, func(table string, chain string) error {
-				if chain == "TRIREME-App-Context-0" || chain == "TRIREME-Net-Context-0" {
+				if chain == "App-Context-0" || chain == "Net-Context-0" {
 					return nil
 				}
 				return fmt.Errorf("Error")
 			})
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
-				if chain == "TRIREME-App-Context-0" || chain == "TRIREME-Net-Context-0" {
+				if chain == "App-Context-0" || chain == "Net-Context-0" {
 					return nil
 				}
 				return fmt.Errorf("Error")
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if chain == "TRIREME-App-Context-1" || chain == "TRIREME-Net-Context-1" {
+				if chain == "App-Context-1" || chain == "Net-Context-1" {
 					return nil
 				}
-				if matchSpec("TRIREME-App-Context-1", rulespec) == nil || matchSpec("TRIREME-Net-Context-1", rulespec) == nil {
+				if matchSpec("App-Context-1", rulespec) == nil || matchSpec("Net-Context-1", rulespec) == nil {
 					return nil
 				}
 				return fmt.Errorf("Error")
 			})
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				if chain == "TRIREME-App-Context-1" || chain == "TRIREME-Net-Context-1" {
+				if chain == "App-Context-1" || chain == "Net-Context-1" {
 					return nil
 				}
 				return fmt.Errorf("Error")
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
-				if chain == "TRIREME-App-Context-1" || chain == "TRIREME-Net-Context-1" {
+				if chain == "App-Context-1" || chain == "Net-Context-1" {
 					return nil
 				}
 				return fmt.Errorf("Error")

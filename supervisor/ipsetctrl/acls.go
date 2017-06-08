@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	appChainPrefix = "TRIREME-App-"
-	netChainPrefix = "TRIREME-Net-"
+	appChainPrefix = "App-"
+	netChainPrefix = "Net-"
 	allowPrefix    = "A-"
 	rejectPrefix   = "R-"
 )
