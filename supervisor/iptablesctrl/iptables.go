@@ -199,7 +199,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	appChain, netChain := i.chainName(contextID, version)
 
-	oldAppChain, oldNetChain := i.chainName(contextID, version-1)
+	oldAppChain, oldNetChain := i.chainName(contextID, version^1)
 
 	//Add a new chain for this update and map all rules there
 	if err := i.addContainerChain(appChain, netChain); err != nil {
