@@ -1,8 +1,8 @@
-//Package packetgen is a Packet Generator library
-//This is a beta version which returns only TCP 3-way handshake
-//Updates are coming soon
+//Package packetgen "PacketGen" is a Packet Generator library
+//Current version: V1.0, Updates are coming soon
 package packetgen
 
+//Go libraries
 import (
 	"fmt"
 	"net"
@@ -264,8 +264,7 @@ func (p *Packet) NewTCPPayload(newPayload string) error {
 
 //ToBytes creates a packet buffer and converts it into a complete packet with ethernet, IP and TCP (with options)
 func (p *Packet) ToBytes() []byte {
-	//fmt.Println(p.TCPLayer)
-	//Options can be set
+
 	opts := gopacket.SerializeOptions{
 		FixLengths:       true, //fix lengths based on the payload (data)
 		ComputeChecksums: true, //compute checksum based on the payload during serialization
@@ -279,7 +278,7 @@ func (p *Packet) ToBytes() []byte {
 	gopacket.SerializeLayers(packetBuf, opts, p.EthernetLayer, p.IPLayer, p.TCPLayer, tcpPayload)
 	//Converting into bytes and removing the ethernet from the layers
 	bytes := packetBuf.Bytes()
-	bytesWithoutEthernet := bytes[:]
+	bytesWithoutEthernet := bytes[14:]
 
 	var finalBytes []byte
 	finalBytes = append(finalBytes, bytesWithoutEthernet...)
@@ -373,6 +372,24 @@ func (p *PacketFlow) getMatchPackets(syn, ack, fin bool) PacketFlowManipulator {
 	}
 
 	return packetsInFlow
+}
+
+//GetFirstSynPacket return first Syn packet from the flow
+func (p *PacketFlow) GetFirstSynPacket() PacketManipulator {
+
+	return p.GetSynPackets().GetNthPacket(0)
+}
+
+//GetFirstSynAckPacket return first SynAck packet from the flow
+func (p *PacketFlow) GetFirstSynAckPacket() PacketManipulator {
+
+	return p.GetSynAckPackets().GetNthPacket(0)
+}
+
+//GetFirstAckPacket return first Ack packet from the flow
+func (p *PacketFlow) GetFirstAckPacket() PacketManipulator {
+
+	return p.GetAckPackets().GetNthPacket(0)
 }
 
 //GetSynPackets returns the SYN packets

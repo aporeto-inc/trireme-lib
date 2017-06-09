@@ -1,12 +1,11 @@
-//Packet generator test for TCP and IP
-//Change values of TCP header fields
-//Still in beta version
-//Updates are coming soon for more options to IP, hopefully ethernet too
-//Test cases are created only for generated packets, not for packets on the wire
+//PacketGen tester
+//Still in beta version, Currently used for debugging
+//Updates are coming soon with more test cases
 package packetgen
 
 import "testing"
 
+//TestTypeInterface: to check if the type implements interface
 func TestTypeInterface(t *testing.T) {
 	t.Parallel()
 
