@@ -996,3 +996,25 @@ func selectPacket(i int, t *testing.T) [2]*packet.Packet {
 	}
 	return [2](*packet.Packet){oldPacket, tcpPacket}
 }
+
+func TestFlowReportingGoodFlow(t *testing.T) {
+	// Run a flow
+	// Make sure reporting was done
+	// Make sure reporting was done only once
+}
+
+func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
+
+}
+
+func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
+
+}
+
+func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
+
+}
+
+func TestFlowReportingManyPacketsInFlow(t *testing.T) {
+
+}
