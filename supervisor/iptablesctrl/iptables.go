@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	chainPrefix    = "TRIREME-"
-	appChainPrefix = chainPrefix + "App-"
-	netChainPrefix = chainPrefix + "Net-"
+	chainPrefix      = "TRIREME-"
+	appChainPrefix   = chainPrefix + "App-"
+	netChainPrefix   = chainPrefix + "Net-"
+	targetNetworkSet = "TargetNetSet"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -25,6 +26,8 @@ type Instance struct {
 	applicationQueues          string
 	mark                       int
 	ipt                        provider.IptablesProvider
+	ipset                      provider.IpsetProvider
+	targetSet                  provider.Ipset
 	appPacketIPTableContext    string
 	appAckPacketIPTableContext string
 	appPacketIPTableSection    string
@@ -43,11 +46,17 @@ func NewInstance(networkQueues, applicationQueues string, mark int, mode constan
 		return nil, fmt.Errorf("Cannot initialize IPtables provider")
 	}
 
+	ips := provider.NewGoIPsetProvider()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot initialize ipsets")
+	}
+
 	i := &Instance{
 		networkQueues:     networkQueues,
 		applicationQueues: applicationQueues,
 		mark:              mark,
 		ipt:               ipt,
+		ipset:             ips,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
@@ -291,13 +300,16 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 
 	// Cleanup old ACLs
 	if len(current) > 0 {
-		if err := i.CleanCaptureSynAckPackets(current); err != nil {
-			return fmt.Errorf("Failed to clean synack networks")
-		}
+		return i.updateTargetNetworks(current, networks)
 	}
 
-	// Insert new ACLs
-	if err := i.captureTargetSynAckPackets(i.appPacketIPTableSection, i.netPacketIPTableSection, networks); err != nil {
+	// Create the target network set
+	if err := i.createTargetSet(networks); err != nil {
+		return err
+	}
+
+	// Insert the ACLS that point to the target networks
+	if err := i.captureTargetSynAckPackets(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("Failed to update synack networks")
 	}
 
@@ -312,6 +324,10 @@ func (i *Instance) Stop() error {
 	// Clean any previous ACLs that we have installed
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
+	}
+
+	if err := i.ipset.DestroyAll(); err != nil {
+		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 	}
 
 	return nil
