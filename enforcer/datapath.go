@@ -115,6 +115,20 @@ func New(
 		if err := cmd.Run(); err != nil {
 			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
+
+	}
+
+	sysctlCmd, err := exec.LookPath("sysctl")
+	if err != nil {
+		zap.L().Error("sysctl command must be installed", zap.Error(err))
+	}
+	cmd := exec.Command(sysctlCmd, "-w", "net.core.rmem_max=63553920")
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("Failed to set rmem", zap.Error(err))
+	}
+	cmd = exec.Command(sysctlCmd, "-w", "net.core.wmem_max=63553920")
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("Failed to set wmem", zap.Error(err))
 	}
 
 	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
