@@ -17,7 +17,7 @@ type mockedMethodsPolicyEnforcer struct {
 	unenforceMock func(ip string) error
 
 	// GetFilterQueue returns the current FilterQueueConfig.
-	getFilterQueueMock func() fqconfig.FilterQueueImpl
+	getFilterQueueMock func() *fqconfig.FilterQueue
 
 	// Start starts the Supervisor.
 	startMock func() error
@@ -36,7 +36,7 @@ type TestPolicyEnforcer interface {
 	PolicyEnforcer
 	MockEnforce(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnenforce(t *testing.T, impl func(ip string) error)
-	MockGetFilterQueue(t *testing.T, impl func() fqconfig.FilterQueueImpl)
+	MockGetFilterQueue(t *testing.T, impl func() *fqconfig.FilterQueue)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
 }
@@ -87,7 +87,7 @@ func (m *testPolicyEnforcer) MockUnenforce(t *testing.T, impl func(ip string) er
 	m.currentMocksPolicyEnforcer(t).unenforceMock = impl
 }
 
-func (m *testPolicyEnforcer) MockGetFilterQueue(t *testing.T, impl func() fqconfig.FilterQueueImpl) {
+func (m *testPolicyEnforcer) MockGetFilterQueue(t *testing.T, impl func() *fqconfig.FilterQueue) {
 
 	m.currentMocksPolicyEnforcer(t).getFilterQueueMock = impl
 }
@@ -120,7 +120,7 @@ func (m *testPolicyEnforcer) Unenforce(ip string) error {
 	return nil
 }
 
-func (m *testPolicyEnforcer) GetFilterQueue() fqconfig.FilterQueueImpl {
+func (m *testPolicyEnforcer) GetFilterQueue() *fqconfig.FilterQueue {
 
 	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.getFilterQueueMock != nil {
 		return mock.getFilterQueueMock()

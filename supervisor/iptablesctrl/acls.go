@@ -128,7 +128,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string) [
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-d", network,
-			"-p", "tcp",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		})
@@ -143,7 +143,7 @@ func (i *Instance) trapRules(appChain string, netChain string, network string) [
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-s", network,
-			"-p", "tcp",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 		})
@@ -475,7 +475,7 @@ func (i *Instance) captureTargetSynAckPackets(appChain, netChain string, network
 			appChain, 1,
 			"-d", net,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueAckStr())
+			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
 
 		if err != nil {
 			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
@@ -486,7 +486,7 @@ func (i *Instance) captureTargetSynAckPackets(appChain, netChain string, network
 			netChain, 1,
 			"-s", net,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueAckStr())
+			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
 
 		if err != nil {
 			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())

@@ -19,7 +19,7 @@ const (
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
-	fqc                        fqconfig.FilterQueueImpl
+	fqc                        *fqconfig.FilterQueue
 	ipt                        provider.IptablesProvider
 	ips                        provider.IpsetProvider
 	targetSet                  provider.Ipset
@@ -33,7 +33,7 @@ type Instance struct {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc fqconfig.FilterQueueImpl, remote bool, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, remote bool, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {

@@ -22,7 +22,7 @@ const (
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
-	fqc                        fqconfig.FilterQueueImpl
+	fqc                        *fqconfig.FilterQueue
 	ipt                        provider.IptablesProvider
 	appPacketIPTableContext    string
 	appAckPacketIPTableContext string
@@ -35,7 +35,7 @@ type Instance struct {
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc fqconfig.FilterQueueImpl, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -196,7 +196,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	appChain, netChain := i.chainName(contextID, version)
 
-	oldAppChain, oldNetChain := i.chainName(contextID, version-1)
+	oldAppChain, oldNetChain := i.chainName(contextID, version^1)
 
 	//Add a new chain for this update and map all rules there
 	if err := i.addContainerChain(appChain, netChain); err != nil {

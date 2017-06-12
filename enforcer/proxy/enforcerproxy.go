@@ -50,7 +50,7 @@ type proxyInfo struct {
 	prochdl           processmon.ProcessManager
 	rpchdl            rpcwrapper.RPCClient
 	initDone          map[string]bool
-	filterQueue       fqconfig.FilterQueueImpl
+	filterQueue       *fqconfig.FilterQueue
 	commandArg        string
 	statsServerSecret string
 	procMountPoint    string
@@ -139,7 +139,7 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 }
 
 // GetFilterQueue returns the current FilterQueueConfig.
-func (s *proxyInfo) GetFilterQueue() fqconfig.FilterQueueImpl {
+func (s *proxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 
 	return s.filterQueue
 }
@@ -156,7 +156,7 @@ func (s *proxyInfo) Stop() error {
 
 //NewProxyEnforcer creates a new proxy to remote enforcers
 func NewProxyEnforcer(mutualAuth bool,
-	filterQueue fqconfig.FilterQueueImpl,
+	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
 	service enforcer.PacketProcessor,
 	secrets secrets.Secrets,

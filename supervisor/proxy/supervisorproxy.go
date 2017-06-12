@@ -21,7 +21,7 @@ import (
 type ProxyInfo struct {
 	versionTracker cache.DataStore
 	collector      collector.EventCollector
-	filterQueue    fqconfig.FilterQueueImpl
+	filterQueue    *fqconfig.FilterQueue
 	ExcludedIPs    []string
 	prochdl        processmon.ProcessManager
 	rpchdl         rpcwrapper.RPCClient

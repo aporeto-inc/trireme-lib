@@ -39,7 +39,7 @@ type Response struct {
 
 //InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
-	FqConfig   fqconfig.FilterQueueImpl   `json:",omitempty"`
+	FqConfig   *fqconfig.FilterQueue      `json:",omitempty"`
 	MutualAuth bool                       `json:",omitempty"`
 	Validity   time.Duration              `json:",omitempty"`
 	SecretType secrets.PrivateSecretsType `json:",omitempty"`

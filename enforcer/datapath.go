@@ -41,7 +41,7 @@ type PacketStats struct {
 type Datapath struct {
 
 	// Configuration parameters
-	filterQueue    fqconfig.FilterQueueImpl
+	filterQueue    *fqconfig.FilterQueue
 	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
 	service        PacketProcessor
@@ -94,7 +94,7 @@ type Datapath struct {
 // Only required parameters must be provided. Rest a pre-populated with defaults.
 func New(
 	mutualAuth bool,
-	filterQueue fqconfig.FilterQueueImpl,
+	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
 	service PacketProcessor,
 	secrets secrets.Secrets,
@@ -116,6 +116,22 @@ func New(
 		if err := cmd.Run(); err != nil {
 			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
+
+	}
+
+	sysctlCmd, err := exec.LookPath("sysctl")
+	if err != nil {
+		zap.L().Error("sysctl command must be installed", zap.Error(err))
+	}
+
+	cmd := exec.Command(sysctlCmd, "-w", "net.core.rmem_max=63553920")
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("Failed to set rmem", zap.Error(err))
+	}
+
+	cmd = exec.Command(sysctlCmd, "-w", "net.core.wmem_max=63553920")
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("Failed to set wmem", zap.Error(err))
 	}
 
 	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
@@ -123,6 +139,7 @@ func New(
 		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
 	}
 
+	fmt.Printf("Initializing remote with fq %+v", filterQueue)
 	d := &Datapath{
 		puFromIP:   cache.NewCache(),
 		puFromMark: cache.NewCache(),
@@ -246,7 +263,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 }
 
 // GetFilterQueue returns the filter queues used by the data path
-func (d *Datapath) GetFilterQueue() fqconfig.FilterQueueImpl {
+func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 
 	return d.filterQueue
 }
@@ -255,7 +272,6 @@ func (d *Datapath) GetFilterQueue() fqconfig.FilterQueueImpl {
 func (d *Datapath) Start() error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
-
 	if d.service != nil {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}

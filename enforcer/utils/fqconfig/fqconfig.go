@@ -4,77 +4,42 @@ import "strconv"
 
 // FilterQueue captures all the configuration parameters of the NFQUEUEs
 type FilterQueue struct {
-	// queueSeparation specifies if we should use separate queues per packet type
-	queueSeparation bool
+	// QueueSeparation specifies if we should use separate queues per packet type
+	QueueSeparation bool
 	// MarkValue is the default mark to set in packets in the RAW chain
-	markValue int
-	// Network Queue is the queue number of the base queue for network packets
-	networkQueue uint16
+	MarkValue int
+	// NetworkQueue is the queue number of the base queue for network packets
+	NetworkQueue uint16
 	// NumberOfApplicationQueues is the number of queues that must be allocated
-	numberOfApplicationQueues uint16
-	// NumberOfNetworkQueues is the number of network queues allocated
-	numberOfNetworkQueues uint16
+	NumberOfApplicationQueues uint16
+	// numberOfNetworkQueues is the number of network queues allocated
+	NumberOfNetworkQueues uint16
 	// ApplicationQueue is the queue number of the first application queue
-	applicationQueue uint16
+	ApplicationQueue uint16
 	// ApplicationQueueSize is the size of the application queue
-	applicationQueueSize uint32
+	ApplicationQueueSize uint32
 	// NetworkQueueSize is the size of the network queue
-	networkQueueSize uint32
-
-	// Strings for programming NFQ
-	networkQueuesSynStr     string
-	networkQueuesAckStr     string
-	networkQueuesSvcStr     string
-	applicationQueuesSynStr string
-	applicationQueuesAckStr string
-	applicationQueuesSvcStr string
-}
-
-// FilterQueueImpl is the interface for filter queue configs
-type FilterQueueImpl interface {
-
-	// GetMarkValue returns a mark value to be used by iptables action
-	GetMarkValue() int
-
-	// GetNetworkQueueStart returns start of network queues to be used by iptables action
-	GetNetworkQueueStart() uint16
-
-	// GetNumNetworkQueues returns number of network queues to be used by iptables action
-	GetNumNetworkQueues() uint16
-
-	// GetNetworkQueueSize returns size of network queues to be used by iptables action
-	GetNetworkQueueSize() uint32
-
-	// GetApplicationQueueStart returns start of application queues to be used by iptables action
-	GetApplicationQueueStart() uint16
-
-	// GetNumApplicationQueues returns number of application queues to be used by iptables action
-	GetNumApplicationQueues() uint16
-
-	// GetApplicationQueueSize returns size of application queues to be used by iptables action
-	GetApplicationQueueSize() uint32
-
-	// GetNetworkQueueSynStr returns a queue id string to be used by iptables action
-	GetNetworkQueueSynStr() string
-
-	// GetNetworkQueueAckStr returns a queue id string to be used by iptables action
-	GetNetworkQueueAckStr() string
-
-	// GetNetworkQueueSvcStr returns a queue id string to be used by iptables action
-	GetNetworkQueueSvcStr() string
-
-	// GetApplicationQueueSynStr returns a queue id string to be used by iptables action
-	GetApplicationQueueSynStr() string
-
-	// GetApplicationQueueAckStr returns a queue id string to be used by iptables action
-	GetApplicationQueueAckStr() string
-
-	// GetApplicationQueueSvcStr returns a queue id string to be used by iptables action
-	GetApplicationQueueSvcStr() string
+	NetworkQueueSize uint32
+	// NetworkQueuesSynStr is the queue string for network syn
+	NetworkQueuesSynStr string
+	// NetworkQueuesAckStr is the queue string for network ack
+	NetworkQueuesAckStr string
+	// NetworkQueuesSynAckStr is the queue string for network synack packets
+	NetworkQueuesSynAckStr string
+	// NetworkQueuesSvcStr is the queue string for services
+	NetworkQueuesSvcStr string
+	// ApplicationQueuesSynStr is the queue string for application syn packets
+	ApplicationQueuesSynStr string
+	// ApplicationQueuesAckStr is the queue string for application ack packets
+	ApplicationQueuesAckStr string
+	// ApplicationQueuesSvcStr is the queue string for application service packets
+	ApplicationQueuesSvcStr string
+	// ApplicationQueuesSynAckStr is the queue string for application synack packets
+	ApplicationQueuesSynAckStr string
 }
 
 // NewFilterQueueWithDefaults return a default filter queue config
-func NewFilterQueueWithDefaults() FilterQueueImpl {
+func NewFilterQueueWithDefaults() *FilterQueue {
 	return NewFilterQueue(
 		DefaultQueueSeperation,
 		DefaultMarkValue,
@@ -87,120 +52,125 @@ func NewFilterQueueWithDefaults() FilterQueueImpl {
 }
 
 // NewFilterQueue returns an instance of FilterQueue
-func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNetworkQueues, NumberOfApplicationQueues uint16, NetworkQueueSize, ApplicationQueueSize uint32) FilterQueueImpl {
+func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNetworkQueues, NumberOfApplicationQueues uint16, NetworkQueueSize, ApplicationQueueSize uint32) *FilterQueue {
 
 	fq := &FilterQueue{
-		queueSeparation:      queueSeparation,
-		markValue:            MarkValue,
-		networkQueueSize:     NetworkQueueSize,
-		applicationQueueSize: ApplicationQueueSize,
+		QueueSeparation:      queueSeparation,
+		MarkValue:            MarkValue,
+		NetworkQueueSize:     NetworkQueueSize,
+		ApplicationQueueSize: ApplicationQueueSize,
 	}
 
 	if queueSeparation {
 
-		fq.applicationQueue = QueueStart
-		fq.applicationQueuesSynStr = strconv.Itoa(int(fq.applicationQueue)) + ":" + strconv.Itoa(int(fq.applicationQueue+NumberOfApplicationQueues-1))
-		fq.applicationQueuesAckStr = strconv.Itoa(int(fq.applicationQueue+1*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+2*NumberOfApplicationQueues-1))
-		fq.applicationQueuesSvcStr = strconv.Itoa(int(fq.applicationQueue+2*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.applicationQueue+3*NumberOfApplicationQueues-1))
-		fq.numberOfApplicationQueues = NumberOfApplicationQueues * 3
+		fq.ApplicationQueue = QueueStart
+		fq.ApplicationQueuesSynStr = strconv.Itoa(int(fq.ApplicationQueue)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+NumberOfApplicationQueues-1))
+		fq.ApplicationQueuesAckStr = strconv.Itoa(int(fq.ApplicationQueue+1*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+2*NumberOfApplicationQueues-1))
+		fq.ApplicationQueuesSynAckStr = strconv.Itoa(int(fq.ApplicationQueue+2*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+3*NumberOfApplicationQueues-1))
+		fq.ApplicationQueuesSvcStr = strconv.Itoa(int(fq.ApplicationQueue+3*NumberOfApplicationQueues)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+4*NumberOfApplicationQueues-1))
+		fq.NumberOfApplicationQueues = NumberOfApplicationQueues * 4
 
-		fq.networkQueue = QueueStart + fq.numberOfApplicationQueues
-		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+NumberOfNetworkQueues-1))
-		fq.networkQueuesAckStr = strconv.Itoa(int(fq.networkQueue+1*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.networkQueue+2*NumberOfNetworkQueues-1))
-		fq.networkQueuesSvcStr = strconv.Itoa(int(fq.networkQueue+2*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.networkQueue+3*NumberOfNetworkQueues-1))
-		fq.numberOfNetworkQueues = NumberOfNetworkQueues * 3
+		fq.NetworkQueue = QueueStart + fq.NumberOfApplicationQueues
+		fq.NetworkQueuesSynStr = strconv.Itoa(int(fq.NetworkQueue)) + ":" + strconv.Itoa(int(fq.NetworkQueue+NumberOfNetworkQueues-1))
+		fq.NetworkQueuesAckStr = strconv.Itoa(int(fq.NetworkQueue+1*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.NetworkQueue+2*NumberOfNetworkQueues-1))
+		fq.NetworkQueuesSynAckStr = strconv.Itoa(int(fq.NetworkQueue+2*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.NetworkQueue+3*NumberOfNetworkQueues-1))
+		fq.NetworkQueuesSvcStr = strconv.Itoa(int(fq.NetworkQueue+3*NumberOfNetworkQueues)) + ":" + strconv.Itoa(int(fq.NetworkQueue+4*NumberOfNetworkQueues-1))
+		fq.NumberOfNetworkQueues = NumberOfNetworkQueues * 4
 	} else {
 
-		fq.applicationQueue = QueueStart
-		fq.applicationQueuesSynStr = strconv.Itoa(int(fq.applicationQueue)) + ":" + strconv.Itoa(int(fq.applicationQueue+NumberOfApplicationQueues-1))
-		fq.applicationQueuesAckStr = fq.applicationQueuesSynStr
-		fq.applicationQueuesSvcStr = fq.applicationQueuesSynStr
-		fq.numberOfApplicationQueues = NumberOfApplicationQueues
+		fq.ApplicationQueue = QueueStart
+		fq.ApplicationQueuesSynStr = strconv.Itoa(int(fq.ApplicationQueue)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+NumberOfApplicationQueues-1))
+		fq.ApplicationQueuesAckStr = fq.ApplicationQueuesSynStr
+		fq.ApplicationQueuesSvcStr = fq.ApplicationQueuesSynStr
+		fq.ApplicationQueuesSynAckStr = fq.ApplicationQueuesSynStr
+		fq.NumberOfApplicationQueues = NumberOfApplicationQueues
 
-		fq.networkQueue = QueueStart + fq.numberOfApplicationQueues
-		fq.networkQueuesSynStr = strconv.Itoa(int(fq.networkQueue)) + ":" + strconv.Itoa(int(fq.networkQueue+NumberOfNetworkQueues-1))
-		fq.networkQueuesAckStr = fq.networkQueuesSynStr
-		fq.networkQueuesSvcStr = fq.networkQueuesSynStr
-		fq.numberOfNetworkQueues = NumberOfNetworkQueues
+		fq.NetworkQueue = QueueStart + fq.NumberOfApplicationQueues
+		fq.NetworkQueuesSynStr = strconv.Itoa(int(fq.NetworkQueue)) + ":" + strconv.Itoa(int(fq.NetworkQueue+NumberOfNetworkQueues-1))
+		fq.NetworkQueuesAckStr = fq.NetworkQueuesSynStr
+		fq.NetworkQueuesSynAckStr = fq.NetworkQueuesSynStr
+		fq.NetworkQueuesSvcStr = fq.NetworkQueuesSynStr
+		fq.NumberOfNetworkQueues = NumberOfNetworkQueues
 	}
+
 	return fq
 }
 
 // GetMarkValue returns a mark value to be used by iptables action
 func (f *FilterQueue) GetMarkValue() int {
-	return f.markValue
+	return f.MarkValue
 }
 
 // GetNetworkQueueStart returns start of network queues to be used by iptables action
 func (f *FilterQueue) GetNetworkQueueStart() uint16 {
-	return f.networkQueue
+	return f.NetworkQueue
 }
 
 // GetNumNetworkQueues returns number of network queues to be used by iptables action
 func (f *FilterQueue) GetNumNetworkQueues() uint16 {
-	return f.numberOfNetworkQueues
+	return f.NumberOfNetworkQueues
 }
 
 // GetNetworkQueueSize returns size of network queues to be used by iptables action
 func (f *FilterQueue) GetNetworkQueueSize() uint32 {
-	return f.networkQueueSize
+	return f.NetworkQueueSize
 }
 
 // GetApplicationQueueStart returns start of application queues to be used by iptables action
 func (f *FilterQueue) GetApplicationQueueStart() uint16 {
-	return f.applicationQueue
+	return f.ApplicationQueue
 }
 
 // GetNumApplicationQueues returns number of application queues to be used by iptables action
 func (f *FilterQueue) GetNumApplicationQueues() uint16 {
-	return f.numberOfApplicationQueues
+	return f.NumberOfApplicationQueues
 }
 
 // GetApplicationQueueSize returns size of application queues to be used by iptables action
 func (f *FilterQueue) GetApplicationQueueSize() uint32 {
-	return f.applicationQueueSize
+	return f.ApplicationQueueSize
 }
 
 // GetNetworkQueueSynStr returns a queue id string to be used by iptables action
 func (f *FilterQueue) GetNetworkQueueSynStr() string {
-	return f.networkQueuesSynStr
+	return f.NetworkQueuesSynStr
 }
 
 // GetNetworkQueueAckStr returns a queue id string to be used by iptables action
 func (f *FilterQueue) GetNetworkQueueAckStr() string {
-	if f.queueSeparation {
-		return f.networkQueuesAckStr
-	}
-	return f.networkQueuesSynStr
+	return f.NetworkQueuesAckStr
+}
+
+// GetNetworkQueueSynAckStr returns a queue id string to be used by iptables action
+func (f *FilterQueue) GetNetworkQueueSynAckStr() string {
+	return f.NetworkQueuesSynAckStr
 }
 
 // GetNetworkQueueSvcStr returns a queue id string to be used by iptables action
 func (f *FilterQueue) GetNetworkQueueSvcStr() string {
-	if f.queueSeparation {
-		return f.networkQueuesSvcStr
-	}
-	return f.networkQueuesSynStr
+	return f.NetworkQueuesSvcStr
 }
 
 // GetApplicationQueueSynStr returns a queue id string to be used by iptables action
 func (f *FilterQueue) GetApplicationQueueSynStr() string {
-	return f.applicationQueuesSynStr
+	return f.ApplicationQueuesSynStr
 }
 
 // GetApplicationQueueAckStr returns a queue id string to be used by iptables action
 func (f *FilterQueue) GetApplicationQueueAckStr() string {
-	if f.queueSeparation {
-		return f.applicationQueuesAckStr
-	}
-	return f.applicationQueuesSynStr
+	return f.ApplicationQueuesAckStr
+}
+
+// GetApplicationQueueSynAckStr returns a queue id string to be used by iptables action
+func (f *FilterQueue) GetApplicationQueueSynAckStr() string {
+
+	return f.ApplicationQueuesSynAckStr
 }
 
 // GetApplicationQueueSvcStr returns a queue id string to be used by iptables action
 func (f *FilterQueue) GetApplicationQueueSvcStr() string {
-	if f.queueSeparation {
-		return f.applicationQueuesSvcStr
-	}
-	return f.applicationQueuesSynStr
+
+	return f.ApplicationQueuesSvcStr
 }
 
 // Default parameters for the NFQUEUE configuration. Parameters can be

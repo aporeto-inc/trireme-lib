@@ -231,7 +231,7 @@ func SetVerdict(v *Verdict, mark int) int {
 
 	// Drop any bad packets immediately
 	if v.V == NfDrop {
-		verdict := C.nfq_set_verdict(v.QueueHandle, C.u_int32_t(v.ID), C.u_int32_t(v.V), 0, v.Xbuffer)
+		verdict := C.SetVerdict(v.QueueHandle, C.int(v.ID), C.int(v.V), 0, 0, v.Xbuffer)
 		return int(verdict)
 	}
 
@@ -260,7 +260,7 @@ func SetVerdict(v *Verdict, mark int) int {
 		length++
 	}
 
-	verdict := C.nfq_set_verdict2(v.QueueHandle, C.u_int32_t(v.ID), C.u_int32_t(v.V), C.u_int32_t(mark), C.u_int32_t(length), v.Xbuffer)
+	verdict := C.SetVerdict(v.QueueHandle, C.int(v.ID), C.int(v.V), C.int(mark), C.int(length), v.Xbuffer)
 
 	return int(verdict)
 }
