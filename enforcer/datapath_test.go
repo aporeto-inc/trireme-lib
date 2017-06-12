@@ -132,7 +132,7 @@ func TestInvalidTokenContext(t *testing.T) {
 			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
 			err2 := enforcer.processNetworkTCPPackets(tcpPacket)
 
-			Convey("Then I should see an error for missing IP", func() {
+			Convey("Then I should see an error for missing Token", func() {
 
 				So(err, ShouldBeNil)
 				So(err1, ShouldNotBeNil)
