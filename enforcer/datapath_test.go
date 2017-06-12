@@ -100,7 +100,7 @@ func TestInvalidTokenContext(t *testing.T) {
 
 		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
 
-		Convey("When I run a TCP Syn packet through an invalid existing context (missing token)", func() {
+		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
 
 			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
 			err2 := enforcer.processNetworkTCPPackets(tcpPacket)
