@@ -5,10 +5,6 @@ package packetgen
 
 import "testing"
 
-var (
-	PacketFlows PacketFlowManipulator
-)
-
 //TestTypeInterface: to check if the type implements interface
 func TestTypeInterface(t *testing.T) {
 	t.Parallel()
