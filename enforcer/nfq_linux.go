@@ -27,17 +27,17 @@ func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startNetworkInterceptor() {
 	var err error
-	d.netStop = make([]chan bool, d.filterQueue.NumberOfNetworkQueues)
-	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+	d.netStop = make([]chan bool, d.filterQueue.GetNumNetworkQueues())
+	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 		d.netStop[i] = make(chan bool)
 	}
 
-	nfq := make([]nfqueue.Verdict, d.filterQueue.NumberOfNetworkQueues)
+	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumNetworkQueues())
 
-	for i := uint16(0); i < d.filterQueue.NumberOfNetworkQueues; i++ {
+	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 
 		// Initialize all the queues
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.NetworkQueue+i, d.filterQueue.NetworkQueueSize, nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
+		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetNetworkQueueStart()+i, d.filterQueue.GetNetworkQueueSize(), nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
 		}
@@ -55,15 +55,15 @@ func (d *Datapath) startNetworkInterceptor() {
 func (d *Datapath) startApplicationInterceptor() {
 
 	var err error
-	d.appStop = make([]chan bool, d.filterQueue.NumberOfApplicationQueues)
-	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
+	d.appStop = make([]chan bool, d.filterQueue.GetNumApplicationQueues())
+	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
 		d.appStop[i] = make(chan bool)
 	}
 
-	nfq := make([]nfqueue.Verdict, d.filterQueue.NumberOfApplicationQueues)
+	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumApplicationQueues())
 
-	for i := uint16(0); i < d.filterQueue.NumberOfApplicationQueues; i++ {
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.ApplicationQueue+i, d.filterQueue.ApplicationQueueSize, nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
+	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
+		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetApplicationQueueStart()+i, d.filterQueue.GetApplicationQueueSize(), nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
 
 		if err != nil {
 			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))

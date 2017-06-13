@@ -93,6 +93,8 @@ func TestSupervise(t *testing.T) {
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
+		So(s, ShouldNotBeNil)
+
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
@@ -159,6 +161,8 @@ func TestUnsupervise(t *testing.T) {
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		So(s, ShouldNotBeNil)
+
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
@@ -194,6 +198,8 @@ func TestStart(t *testing.T) {
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		So(s, ShouldNotBeNil)
+
 		impl := mock_supervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 

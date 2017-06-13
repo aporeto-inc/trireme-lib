@@ -6,6 +6,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
@@ -22,7 +23,7 @@ type PolicyEnforcer interface {
 	Unenforce(contextID string) error
 
 	// GetFilterQueue returns the current FilterQueueConfig.
-	GetFilterQueue() *FilterQueue
+	GetFilterQueue() *fqconfig.FilterQueue
 
 	// Start starts the PolicyEnforcer.
 	Start() error
@@ -41,7 +42,7 @@ type PublicKeyAdder interface {
 // PacketProcessor is an interface implemented to stitch into our enforcer
 type PacketProcessor interface {
 	// Initialize  initializes the secrets of the processor
-	Initialize(s secrets.Secrets, fq *FilterQueue)
+	Initialize(s secrets.Secrets, fq *fqconfig.FilterQueue)
 
 	// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
 	PreProcessTCPAppPacket(p *packet.Packet, context *PUContext, conn *TCPConnection) bool
