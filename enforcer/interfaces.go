@@ -56,6 +56,16 @@ type PacketProcessor interface {
 	PostProcessTCPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *PUContext, conn *TCPConnection) bool
 }
 
+//Reporting is an interface for using mock
+type Reporting interface {
+	//reportFlow will be called when the flow is either accepted or rejected
+	reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string)
+	//reportAcceptedFlow will be called when the flow is accepted
+	reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext)
+	//reportRejectedFlow will be called when the flow is rejected
+	reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string)
+}
+
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
 	ID             string

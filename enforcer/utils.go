@@ -9,6 +9,11 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
+func NewDatapath() Reporting {
+
+	return &Datapath{}
+}
+
 func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
 
 	d.collector.CollectFlowEvent(&collector.FlowRecord{
@@ -28,6 +33,7 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sou
 	if conn != nil {
 		conn.SetReported(RejectReported)
 	}
+	fmt.Println("ReportFlow")
 	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
 }
 
