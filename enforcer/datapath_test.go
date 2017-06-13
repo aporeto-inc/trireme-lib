@@ -30,8 +30,8 @@ func TestInvalidContext(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 
-		PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+		PacketFlow := packetgen.NewTemplateFlow()
+		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
 
@@ -60,8 +60,8 @@ func TestInvalidIPContext(t *testing.T) {
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
-		PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+		PacketFlow := packetgen.NewTemplateFlow()
+		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
 
@@ -87,8 +87,8 @@ func TestInvalidTokenContext(t *testing.T) {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 
-		PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+		PacketFlow := packetgen.NewTemplateFlow()
+		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 		ip := policy.NewIPMap(map[string]string{
 			"brige": PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String(),
@@ -129,8 +129,8 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 		Action: policy.Accept,
 	}
 
-	PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-	PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+	PacketFlow := packetgen.NewTemplateFlow()
+	PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 	iteration = iteration + 1
 	puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
@@ -188,8 +188,8 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
-				PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+				PacketFlow := packetgen.NewTemplateFlow()
+				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 				for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
@@ -282,8 +282,8 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 
 				firstSynAckProcessed := false
 
-				PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+				PacketFlow := packetgen.NewTemplateFlow()
+				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 				for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
@@ -376,8 +376,8 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
-				PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+				PacketFlow := packetgen.NewTemplateFlow()
+				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 				for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
@@ -602,8 +602,8 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 				firstAckPacketReceived := false
 
-				PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+				PacketFlow := packetgen.NewTemplateFlow()
+				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 				for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
@@ -811,8 +811,8 @@ func TestDoCreatePU(t *testing.T) {
 				So(err, ShouldNotBeNil)
 			})
 		})
-		PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+		PacketFlow := packetgen.NewTemplateFlow()
+		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 		for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 			//PacketFlowInBytes = append(PacketFlowInBytes, PacketFlow.GetNthPacket(i).ToBytes())
@@ -962,8 +962,8 @@ func TestInvalidPacket(t *testing.T) {
 }
 
 func selectPacket(i int, t *testing.T) [2]*packet.Packet {
-	PacketFlow := packetgen.NewTCPPacketFlow("ff:aa:ff:aa:ff:aa", "aa:ff:aa:ff:aa:ff", "192.168.1.1", "10.1.10.76", 666, 80)
-	PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlow)
+	PacketFlow := packetgen.NewTemplateFlow()
+	PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 	start := PacketFlow.GetNthPacket(i).ToBytes()
 	input := PacketFlow.GetNthPacket(i).ToBytes()
