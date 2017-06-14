@@ -153,7 +153,8 @@ func NewDockerMonitor(
 	cli, err := initDockerClient(socketType, socketAddress)
 
 	if err != nil {
-		zap.L().Fatal("Unable to initialize Docker client", zap.Error(err))
+		zap.L().Debug("Unable to initialize Docker client", zap.Error(err))
+		return nil
 	}
 
 	d := &dockerMonitor{
