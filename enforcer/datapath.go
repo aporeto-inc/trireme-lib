@@ -266,8 +266,8 @@ func (d *Datapath) Start() error {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}
 
-	d.startApplicationInterceptor()
-	d.startNetworkInterceptor()
+	// d.startApplicationInterceptor()
+	// d.startNetworkInterceptor()
 
 	return nil
 }

@@ -9,6 +9,16 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
+<<<<<<< Updated upstream
+=======
+func NewDatapathReportFlow() Reporting {
+
+	dpf := &Datapath{}
+
+	return dpf
+}
+
+>>>>>>> Stashed changes
 func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
 
 	d.collector.CollectFlowEvent(&collector.FlowRecord{

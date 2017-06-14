@@ -123,7 +123,7 @@ func (c *TCPConnection) SetState(state TCPFlowState) {
 
 // SetReported is used to track if a flow is reported
 func (c *TCPConnection) SetReported(flowState bool) {
-
+	fmt.Println("ReportedSet")
 	c.flowReported++
 
 	state := ""
