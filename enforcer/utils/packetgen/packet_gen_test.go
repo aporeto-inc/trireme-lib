@@ -13,15 +13,32 @@ func TestTypeInterface(t *testing.T) {
 
 	if PktInterface != (*Packet)(nil) {
 
-		t.Error("Packet struct does not implement Pkt Interface")
-
+		t.Error("Packet struct does not implement PacketManipulator Interface")
 	}
 
 	var PktFlowInterface PacketFlowManipulator = (*PacketFlow)(nil)
 	if PktFlowInterface != (*PacketFlow)(nil) {
 
-		t.Error("PacketFlow struct does not implement PktFlow Interface")
-
+		t.Error("PacketFlow struct does not implement PacketFlowManipulator Interface")
 	}
-
 }
+
+//
+// func TestForSynPacketInGoodFlow(t *testing.T) {
+// 	t.Parallel()
+//
+// 	if PacketFlows.GetNthPacket(0).GetTCPPacket().SYN != true {
+//
+// 		t.Error("Not a SYN Packet")
+// 	}
+// }
+
+//
+// func TestForConnectionEstablishment(t *testing.T) {
+// 	t.Parallel()
+//
+// 	if PacketFlows.GetFirstAckPacket().GetTCPPacket().Seq != PacketFlows.GetFirstAckPacket().GetTCPPacket().Ack {
+//
+// 		t.Error("Connection establishment failure")
+// 	}
+// }
