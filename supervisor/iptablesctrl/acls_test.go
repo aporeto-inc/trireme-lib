@@ -7,6 +7,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
@@ -23,7 +24,7 @@ func matchSpec(term string, rulespec []string) error {
 func TestAddContainerChain(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -82,7 +83,7 @@ func TestAddContainerChain(t *testing.T) {
 func TestAddChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller for LocalContainer", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -138,7 +139,7 @@ func TestAddChainRules(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller for LocalServer", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalServer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -184,7 +185,7 @@ func TestAddChainRules(t *testing.T) {
 func TestAddPacketTrap(t *testing.T) {
 
 	Convey("Given an iptables controller, when I test addPacketTrap for Local Container", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -240,7 +241,7 @@ func TestAddPacketTrap(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller, when I test addPacketTrap for Local Server", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalServer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -286,7 +287,7 @@ func TestAddPacketTrap(t *testing.T) {
 func TestAddAppACLs(t *testing.T) {
 
 	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -431,7 +432,7 @@ func TestAddAppACLs(t *testing.T) {
 func TestAddNetAcls(t *testing.T) {
 
 	Convey("Given an iptables controller ", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -576,7 +577,7 @@ func TestAddNetAcls(t *testing.T) {
 func TestDeleteChainRules(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -607,7 +608,7 @@ func TestDeleteChainRules(t *testing.T) {
 func TestDeleteAllContainerChains(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -657,7 +658,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 func TestAcceptMarkedPackets(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -689,7 +690,7 @@ func TestAcceptMarkedPackets(t *testing.T) {
 func TestRemoveMarkRule(t *testing.T) {
 
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -716,7 +717,7 @@ func TestRemoveMarkRule(t *testing.T) {
 
 func TestAddExclusionACLs(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -761,7 +762,7 @@ func TestAddExclusionACLs(t *testing.T) {
 
 func TestCaptureTargetSynAckPackets(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -814,7 +815,7 @@ func TestCaptureTargetSynAckPackets(t *testing.T) {
 
 func TestClearCaptureSynAckPackets(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
