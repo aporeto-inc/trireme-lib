@@ -101,9 +101,7 @@ func TestSystemdRPCMetadataExtractor(t *testing.T) {
 				Name: "./testdata/curl",
 				PID:  "1234",
 				PUID: "/1234",
-				Tags: map[string]string{
-					"app": "web",
-				},
+				Tags: []string{"app=web"},
 			}
 
 			pu, err := SystemdRPCMetadataExtractor(event)

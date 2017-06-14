@@ -148,7 +148,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 
 		Clause: []policy.KeyValueOperator{
 			{
-				Key:      TransmitterLabel,
+				Key:      "AporetoContextID",
 				Value:    []string{"value"},
 				Operator: policy.Equal,
 			},
@@ -171,8 +171,8 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	puInfo1.Runtime.SetIPAddresses(ip1)
 	ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP1})
 	puInfo1.Policy.SetIPAddresses(ipl1)
-	puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
 	puInfo1.Policy.AddReceiverRules(&tagSelector)
+	puInfo1.Policy.AddIdentityTag("AporetoContextID=value")
 
 	// Create processing unit 2
 	puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
@@ -180,8 +180,8 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	puInfo2.Runtime.SetIPAddresses(ip2)
 	ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP2})
 	puInfo2.Policy.SetIPAddresses(ipl2)
-	puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
 	puInfo2.Policy.AddReceiverRules(&tagSelector)
+	puInfo2.Policy.AddIdentityTag("AporetoContextID=value")
 
 	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 
@@ -682,7 +682,6 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPSynMask {
 							Convey("When I pass an application packet with SYN flag for packet "+string(i), func() {
 								Convey("Then I expect src port cache to be populated "+string(i), func() {
-									fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 									cs, es := enforcer.sourcePortConnectionCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 									So(cs, ShouldNotBeNil)
 									So(es, ShouldBeNil)
@@ -697,7 +696,6 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 							} else {
 								Convey("When I pass any application packets with ACK flag for packet "+string(i), func() {
 									Convey("Then I expect src port cache to be NOT populated "+string(i), func() {
-										fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 										cs, es := enforcer.sourcePortConnectionCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 										So(cs, ShouldBeNil)
 										So(es, ShouldNotBeNil)

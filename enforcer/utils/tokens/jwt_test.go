@@ -7,16 +7,12 @@ import (
 
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/policy"
 	jwt "github.com/dgrijalva/jwt-go"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (
-	tags = policy.NewTagsMap(map[string]string{
-		"label1": "value1",
-		"label2": "value2",
-	})
+	tags = []string{"label1=value1", "label2=value2"}
 
 	rmt           = "1234567890123456"
 	lcl           = "098765432109876"
@@ -143,8 +139,8 @@ func TestCreateAndVerifyPSK(t *testing.T) {
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
 			So(recoveredClaims, ShouldNotBeNil)
-			So(recoveredClaims.T.Tags["label1"], ShouldEqual, defaultClaims.T.Tags["label1"])
-			So(recoveredClaims.T.Tags["label2"], ShouldEqual, defaultClaims.T.Tags["label2"])
+			So(recoveredClaims.T, ShouldContain, "label1=value1")
+			So(recoveredClaims.T, ShouldContain, "label2=value2")
 			So(string(recoveredClaims.RMT), ShouldEqual, rmt)
 			So(recoveredNonce, ShouldResemble, nonce)
 		})
@@ -183,8 +179,9 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 			So(err2, ShouldBeNil)
 			So(err1, ShouldBeNil)
 			So(recoveredClaims, ShouldNotBeNil)
-			So(recoveredClaims.T.Tags["label1"], ShouldEqual, defaultClaims.T.Tags["label1"])
-			So(recoveredClaims.T.Tags["label2"], ShouldEqual, defaultClaims.T.Tags["label2"])
+			So(len(recoveredClaims.T), ShouldEqual, 2)
+			So(recoveredClaims.T, ShouldContain, "label1=value1")
+			So(recoveredClaims.T, ShouldContain, "label2=value2")
 			So(string(recoveredClaims.RMT), ShouldEqual, rmt)
 			So(string(recoveredClaims.LCL), ShouldEqual, "")
 			So(nonce, ShouldResemble, recoveredNonce)
@@ -203,10 +200,10 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 			So(err4, ShouldBeNil)
 			So(recoveredClaims1, ShouldNotBeNil)
 			So(recoveredClaims2, ShouldNotBeNil)
-			So(recoveredClaims1.T.Tags["label1"], ShouldEqual, defaultClaims.T.Tags["label1"])
-			So(recoveredClaims1.T.Tags["label2"], ShouldEqual, defaultClaims.T.Tags["label2"])
-			So(recoveredClaims2.T.Tags["label1"], ShouldEqual, defaultClaims.T.Tags["label1"])
-			So(recoveredClaims2.T.Tags["label2"], ShouldEqual, defaultClaims.T.Tags["label2"])
+			So(recoveredClaims1.T, ShouldContain, "label1=value1")
+			So(recoveredClaims1.T, ShouldContain, "label2=value2")
+			So(recoveredClaims2.T, ShouldContain, "label1=value1")
+			So(recoveredClaims2.T, ShouldContain, "label2=value2")
 			So(string(recoveredClaims1.RMT), ShouldEqual, rmt)
 			So(string(recoveredClaims1.LCL), ShouldEqual, "")
 			So(string(recoveredClaims2.RMT), ShouldEqual, rmt)

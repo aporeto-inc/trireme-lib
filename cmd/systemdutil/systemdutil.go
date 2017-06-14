@@ -123,9 +123,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 }
 
 // createMetadata extracts the relevant metadata
-func createMetadata(servicename string, command string, ports string, metadata []string) (string, map[string]string, error) {
-
-	metadatamap := map[string]string{}
+func createMetadata(servicename string, command string, ports string, metadata []string) (string, []string, error) {
 
 	for _, element := range metadata {
 		keyvalue := strings.Split(element, "=")
@@ -141,20 +139,17 @@ func createMetadata(servicename string, command string, ports string, metadata [
 		if keyvalue[0] == "port" || keyvalue[0] == "execpath" {
 			return "", nil, fmt.Errorf("Metadata key cannot be port or execpath ")
 		}
-
-		metadatamap[keyvalue[0]] = keyvalue[1]
 	}
 
-	metadatamap["port"] = ports
-
-	metadatamap["execpath"] = command
+	metadata = append(metadata, "port="+ports)
+	metadata = append(metadata, "execpath="+command)
 
 	name := command
 	if servicename != "" {
 		name = servicename
 	}
 
-	return name, metadatamap, nil
+	return name, metadata, nil
 }
 
 // HandleCgroupStop handles the deletion of a cgroup

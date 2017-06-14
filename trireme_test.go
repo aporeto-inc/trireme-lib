@@ -272,8 +272,8 @@ func TestSimpleUpdate(t *testing.T) {
 
 	// Generate a new Policy ...
 	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
-	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
-	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+	tags := []string{}
+	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tags, nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
 
@@ -328,36 +328,4 @@ func TestStop(t *testing.T) {
 		t.Errorf("Failed to start trireme")
 	}
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
-}
-
-func TestTransmitterLabel(t *testing.T) {
-
-	// If management ID is set, use it as the TransmitterLabel
-
-	mgmtID := "mgmt"
-	contextID := "Context"
-	containerInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
-	containerInfo.Policy.ManagementID = mgmtID
-	addTransmitterLabel(contextID, containerInfo)
-	label, ok := containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
-	if !ok {
-		t.Errorf("Expecting Transmitter label to be set but it is missing")
-	}
-	if label != mgmtID {
-		t.Errorf("Expecting Transmitter label to be set to MgmtID: %s , but was set to: %s", mgmtID, label)
-	}
-
-	// If management ID is not set, use contextID as the TransmitterLabel
-
-	contextID = "Context"
-	containerInfo = policy.NewPUInfo(contextID, constants.ContainerPU)
-	addTransmitterLabel(contextID, containerInfo)
-	label, ok = containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
-	if !ok {
-		t.Errorf("Expecting Transmitter label to be set but it is missing")
-	}
-	if label != contextID {
-		t.Errorf("Expecting Transmitter label to be set to ContextID: %s , but was set to: %s", contextID, label)
-	}
-
 }

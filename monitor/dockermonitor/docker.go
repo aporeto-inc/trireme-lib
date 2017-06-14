@@ -100,13 +100,13 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
-	tags := policy.NewTagsMap(map[string]string{
-		"@sys:image": info.Config.Image,
-		"@sys:name":  info.Name,
-	})
+	tags := []string{
+		"@sys:image=" + info.Config.Image,
+		"@sys:name=" + info.Name,
+	}
 
 	for k, v := range info.Config.Labels {
-		tags.Add("@usr:"+k, v)
+		tags = append(tags, "@usr:"+k+"="+v)
 	}
 
 	ipa := policy.NewIPMap(map[string]string{
@@ -463,10 +463,11 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 			}
 
 			d.collector.CollectContainerEvent(&collector.ContainerRecord{
-				ContextID: contextID,
-				IPAddress: "N/A",
-				Tags:      nil,
-				Event:     collector.ContainerFailed,
+				ContextID:    contextID,
+				ManagementID: "N/A",
+				IPAddress:    "N/A",
+				Tags:         nil,
+				Event:        collector.ContainerFailed,
 			})
 			return fmt.Errorf("Cannot read container information. Killing container. ")
 		}

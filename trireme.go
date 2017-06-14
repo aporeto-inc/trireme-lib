@@ -145,19 +145,6 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 
 }
 
-// addTransmitterLabel adds the TransmitterLabel as a fixed label in the policy.
-// The ManagementID part of the policy is used as the TransmitterLabel.
-// If the Policy didn't set the ManagementID, we use the Local contextID as the
-// default TransmitterLabel.
-func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
-
-	if containerInfo.Policy.ManagementID == "" {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
-	} else {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
-	}
-}
-
 // MustEnforce returns true if the Policy should go Through the Enforcer/Supervisor.
 // Return false if:
 //   - PU is in host namespace.
@@ -178,39 +165,27 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	cachedElement, err := t.cache.Get(contextID)
 	if err != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
+			ContextID:    contextID,
+			ManagementID: t.serverID,
+			IPAddress:    "N/A",
+			Tags:         nil,
+			Event:        collector.ContainerFailed,
 		})
-
 		return fmt.Errorf("Couldn't get the runtimeInfo from the cache %s", err)
 	}
 
 	runtimeInfo := cachedElement.(*policy.PURuntime)
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
-
-	if err != nil {
+	if err != nil || policyInfo == nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
+			ContextID:    contextID,
+			ManagementID: t.serverID,
+			IPAddress:    "N/A",
+			Tags:         nil,
+			Event:        collector.ContainerFailed,
 		})
-
 		return fmt.Errorf("Policy Error for this context: %s. Container killed. %s", contextID, err)
-	}
-
-	if policyInfo == nil {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
-		})
-
-		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
 	}
 
 	ip, _ := policyInfo.DefaultIPAddress()
@@ -220,24 +195,24 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 
-	addTransmitterLabel(contextID, containerInfo)
-
 	if !mustEnforce(contextID, containerInfo) {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerIgnored,
+			ContextID:    contextID,
+			ManagementID: policyInfo.ManagementID,
+			IPAddress:    ip,
+			Tags:         policyInfo.Annotations(),
+			Event:        collector.ContainerIgnored,
 		})
 		return nil
 	}
 
 	if err := t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerFailed,
+			ContextID:    contextID,
+			ManagementID: policyInfo.ManagementID,
+			IPAddress:    ip,
+			Tags:         policyInfo.Annotations(),
+			Event:        collector.ContainerFailed,
 		})
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
@@ -251,20 +226,21 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		}
 
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerFailed,
+			ContextID:    contextID,
+			ManagementID: policyInfo.ManagementID,
+			IPAddress:    ip,
+			Tags:         policyInfo.Annotations(),
+			Event:        collector.ContainerFailed,
 		})
-
 		return fmt.Errorf("Not able to setup supervisor: %s", err)
 	}
 
 	t.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: ip,
-		Tags:      containerInfo.Policy.Annotations(),
-		Event:     collector.ContainerStart,
+		ContextID:    contextID,
+		ManagementID: policyInfo.ManagementID,
+		IPAddress:    ip,
+		Tags:         containerInfo.Policy.Annotations(),
+		Event:        collector.ContainerStart,
 	})
 
 	return nil
@@ -276,12 +252,12 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 	if err != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.UnknownContainerDelete,
+			ContextID:    contextID,
+			ManagementID: t.serverID,
+			IPAddress:    "N/A",
+			Tags:         nil,
+			Event:        collector.UnknownContainerDelete,
 		})
-
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s: %s", contextID, err)
 	}
 
@@ -299,20 +275,22 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 	if errS != nil || errE != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: ip,
-			Tags:      nil,
-			Event:     collector.ContainerDelete,
+			ContextID:    contextID,
+			ManagementID: t.serverID,
+			IPAddress:    ip,
+			Tags:         nil,
+			Event:        collector.ContainerDelete,
 		})
 
 		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
 	}
 
 	t.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: ip,
-		Tags:      nil,
-		Event:     collector.ContainerDelete,
+		ContextID:    contextID,
+		ManagementID: t.serverID,
+		IPAddress:    ip,
+		Tags:         nil,
+		Event:        collector.ContainerDelete,
 	})
 
 	return nil
@@ -342,8 +320,6 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtimeInfo.(*policy.PURuntime))
 
-	addTransmitterLabel(contextID, containerInfo)
-
 	if !mustEnforce(contextID, containerInfo) {
 		return nil
 	}
@@ -366,7 +342,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	t.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: ip,
-		Tags:      containerInfo.Runtime.Tags(),
+		Tags:      newPolicy.Annotations(),
 		Event:     collector.ContainerUpdate,
 	})
 

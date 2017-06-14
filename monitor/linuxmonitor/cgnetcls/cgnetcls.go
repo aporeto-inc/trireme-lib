@@ -27,7 +27,7 @@ const (
 	// CgroupMarkTag is the tag for the cgroup mark
 	CgroupMarkTag = "@cgroup_mark"
 	// PortTag is the tag for a port
-	PortTag = "@usr:port"
+	PortTag = "port"
 
 	markFile             = "/net_cls.classid"
 	procs                = "/cgroup.procs"

@@ -405,9 +405,8 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
 
-	txLabel, ok := claims.T.Get(TransmitterLabel)
-	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); !ok || err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
+	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+		d.reportRejectedFlow(tcpPacket, conn, claims.ID, context.ManagementID, context, collector.InvalidFormat)
 		return nil, nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
 
@@ -417,7 +416,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
+		d.reportRejectedFlow(tcpPacket, conn, claims.ID, context.ManagementID, context, collector.InvalidFormat)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 	}
 
@@ -425,12 +424,12 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.Add(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	claims.T = append(claims.T, PortNumberLabelString+"="+strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	// Validate against reject rules first - We always process reject with higher priority
 	if index, _ := context.RejectRcvRules.Search(claims.T); index >= 0 {
 		// Reject the connection
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop)
+		d.reportRejectedFlow(tcpPacket, conn, claims.ID, context.ManagementID, context, collector.PolicyDrop)
 		return nil, nil, fmt.Errorf("Connection rejected because of policy %+v", claims.T)
 	}
 
@@ -450,7 +449,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		return action, claims, nil
 	}
 
-	d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop)
+	d.reportRejectedFlow(tcpPacket, conn, claims.ID, context.ManagementID, context, collector.PolicyDrop)
 	return nil, nil, fmt.Errorf("No matched tags - reject %+v", claims.T)
 }
 
@@ -601,7 +600,8 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T: context.Identity,
+		ID: context.ManagementID,
+		T:  context.Identity,
 	}
 
 	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
@@ -619,6 +619,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 func (d *Datapath) createSynAckPacketToken(context *PUContext, auth *AuthInfo) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
+		ID:  context.ManagementID,
 		T:   context.Identity,
 		RMT: auth.RemoteContext,
 	}
@@ -641,15 +642,9 @@ func (d *Datapath) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.Connec
 		return nil, err
 	}
 
-	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T.Get(TransmitterLabel)
-	if !ok {
-		return nil, fmt.Errorf("No Transmitter Label ")
-	}
-
 	auth.RemotePublicKey = cert
 	auth.RemoteContext = nonce
-	auth.RemoteContextID = remoteContextID
+	auth.RemoteContextID = claims.ID
 
 	return claims, nil
 }

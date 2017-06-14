@@ -229,26 +229,29 @@ func (d *Datapath) Unenforce(contextID string) error {
 	defer puContext.(*PUContext).Unlock()
 
 	pu := puContext.(*PUContext)
-	if err := d.puFromIP.Remove(pu.IP); err != nil {
-		zap.L().Warn("Unable to remove cache entry during unenforcement",
-			zap.String("IP", pu.IP),
-			zap.Error(err),
-		)
-	}
 
-	if err := d.puFromIP.Remove(pu.Mark); err != nil {
-		zap.L().Warn("Unable to remove cache entry during unenforcement",
-			zap.String("Mark", pu.Mark),
-			zap.Error(err),
-		)
-	}
-
-	for _, port := range pu.Ports {
-		if err := d.puFromIP.Remove(port); err != nil {
+	if pu.PUType != constants.LinuxProcessPU {
+		if err := d.puFromIP.Remove(pu.IP); err != nil {
 			zap.L().Warn("Unable to remove cache entry during unenforcement",
-				zap.String("Port", port),
+				zap.String("IP", pu.IP),
 				zap.Error(err),
 			)
+		}
+	} else {
+		if err := d.puFromMark.Remove(pu.Mark); err != nil {
+			zap.L().Warn("Unable to remove cache entry during unenforcement",
+				zap.String("Mark", pu.Mark),
+				zap.Error(err),
+			)
+		}
+
+		for _, port := range pu.Ports {
+			if err := d.puFromPort.Remove(port); err != nil {
+				zap.L().Warn("Unable to remove cache entry during unenforcement",
+					zap.String("Port", port),
+					zap.Error(err),
+				)
+			}
 		}
 	}
 
