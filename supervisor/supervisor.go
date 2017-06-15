@@ -2,7 +2,6 @@ package supervisor
 
 import (
 	"fmt"
-	"strconv"
 	"sync"
 
 	"go.uber.org/zap"
@@ -11,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/ipsetctrl"
@@ -31,13 +31,9 @@ type Config struct {
 
 	versionTracker cache.DataStore
 	collector      collector.EventCollector
-
-	networkQueues     string
-	applicationQueues string
-
-	Mark        int
-	excludedIPs []string
-	impl        Implementor
+	filterQueue    *fqconfig.FilterQueue
+	excludedIPs    []string
+	impl           Implementor
 
 	triremeNetworks []string
 
@@ -65,23 +61,21 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	}
 
 	s := &Config{
-		mode:              mode,
-		impl:              nil,
-		versionTracker:    cache.NewCache(),
-		collector:         collector,
-		networkQueues:     strconv.Itoa(int(filterQueue.NetworkQueue)) + ":" + strconv.Itoa(int(filterQueue.NetworkQueue+filterQueue.NumberOfNetworkQueues-1)),
-		applicationQueues: strconv.Itoa(int(filterQueue.ApplicationQueue)) + ":" + strconv.Itoa(int(filterQueue.ApplicationQueue+filterQueue.NumberOfApplicationQueues-1)),
-		Mark:              filterQueue.MarkValue,
-		excludedIPs:       []string{},
-		triremeNetworks:   networks,
+		mode:            mode,
+		impl:            nil,
+		versionTracker:  cache.NewCache(),
+		collector:       collector,
+		filterQueue:     filterQueue,
+		excludedIPs:     []string{},
+		triremeNetworks: networks,
 	}
 
 	var err error
 	switch implementation {
 	case constants.IPSets:
-		s.impl, err = ipsetctrl.NewInstance(s.networkQueues, s.applicationQueues, s.Mark, false, mode)
+		s.impl, err = ipsetctrl.NewInstance(s.filterQueue, false, mode)
 	default:
-		s.impl, err = iptablesctrl.NewInstance(s.networkQueues, s.applicationQueues, s.Mark, mode)
+		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode)
 	}
 
 	if err != nil {

@@ -1,8 +1,6 @@
 package enforcer
 
 import (
-	"fmt"
-
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -35,7 +33,6 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sou
 	if conn != nil {
 		conn.SetReported(AcceptReported)
 	}
-	fmt.Println("REJECTED", mode)
 	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
 }
 
@@ -54,6 +51,5 @@ func createRuleDBs(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *look
 			continue
 		}
 	}
-
 	return acceptRules, rejectRules
 }
