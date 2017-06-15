@@ -497,6 +497,42 @@ func (p *PacketFlow) GetAckPackets() PacketFlowManipulator {
 	return p.getMatchPackets(false, true, false)
 }
 
+//GetUptoFirstSynAckPacket will return packets upto first SynAck packet
+func (p *PacketFlow) GetUptoFirstSynAckPacket() PacketFlowManipulator {
+
+	packetsInFlow := NewPacketFlow(p.sMAC, p.dMAC, p.sIP, p.dIP, p.sPort, p.dPort)
+	flag := false
+
+	for j := 0; j < len(p.flow); j++ {
+		if !flag {
+			packetsInFlow.AppendPacket(p.flow[j])
+			if p.flow[j].GetTCPSyn() == true && p.flow[j].GetTCPAck() == true && p.flow[j].GetTCPFin() == false {
+				flag = true
+			}
+		}
+	}
+
+	return packetsInFlow
+}
+
+//GetUptoFirstAckPacket will return packets upto first Ack packet
+func (p *PacketFlow) GetUptoFirstAckPacket() PacketFlowManipulator {
+
+	packetsInFlow := NewPacketFlow(p.sMAC, p.dMAC, p.sIP, p.dIP, p.sPort, p.dPort)
+	flag := false
+
+	for j := 0; j < len(p.flow); j++ {
+		if !flag {
+			packetsInFlow.AppendPacket(p.flow[j])
+			if p.flow[j].GetTCPSyn() == false && p.flow[j].GetTCPAck() == true && p.flow[j].GetTCPFin() == false {
+				flag = true
+			}
+		}
+	}
+
+	return packetsInFlow
+}
+
 //GetNthPacket returns the packet requested by the user from the array
 func (p *PacketFlow) GetNthPacket(index int) PacketManipulator {
 
@@ -506,7 +542,7 @@ func (p *PacketFlow) GetNthPacket(index int) PacketManipulator {
 		}
 	}
 
-	panic("Index out of range")
+	return nil
 }
 
 //GetNumPackets returns an array of packets

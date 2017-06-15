@@ -1,7 +1,9 @@
 package packetgen
 
-import "github.com/google/gopacket/layers"
-import "github.com/google/gopacket"
+import (
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+)
 
 //PacketFlowType type  for different types of flows
 type PacketFlowType uint8
@@ -102,6 +104,10 @@ type PacketFlowManipulator interface {
 	GetSynAckPackets() PacketFlowManipulator
 	//Used to return all the TCP Ack packets from the flow
 	GetAckPackets() PacketFlowManipulator
+	//Used to return all the packets upto first TCP SynAck packet from the flow
+	GetUptoFirstSynAckPacket() PacketFlowManipulator
+	//Used to return all the packets upto first TCP Ack packet from the flow
+	GetUptoFirstAckPacket() PacketFlowManipulator
 	//Used to return Nth packet from the flow
 	GetNthPacket(index int) PacketManipulator
 	//Used to return length of the flow
