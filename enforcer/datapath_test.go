@@ -638,16 +638,12 @@ func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outP
 
 	claims, _, _, nerr := enforcer.tokenEngine.Decode(false, tcpData, nil)
 
-	//nonce, _ := enforcer.tokenEngine.RetrieveNonce(tcpData)
-
-	//fmt.Println(nonce)
-
 	So(nerr, ShouldBeNil)
+
 	netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 	So(err, ShouldBeNil)
 	So(netconn.(*TCPConnection).GetState(), ShouldEqual, TCPSynAckReceived)
-	fmt.Println(netconn.(*TCPConnection).Auth.LocalContext)
-	fmt.Println(netconn.(*TCPConnection).Auth.RemoteContext)
+
 	if !reflect.DeepEqual(netconn.(*TCPConnection).Auth.LocalContext, claims.RMT) {
 		t.Error("Token parsing Failed")
 	}
@@ -1645,6 +1641,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 					var isAckPacket bool
 					var countSynAckPacket int
 					var checkAfterAppAckFlag, checkBeforeNetAckFlag bool
+					var connSynAck [][]byte
 
 					for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
@@ -1712,6 +1709,11 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 						So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 						So(errp, ShouldBeNil)
 
+						if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+							connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
+						}
+
 						if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false && !checkBeforeNetAckFlag {
 							CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, checkBeforeNetAckFlag)
 							checkBeforeNetAckFlag = true
@@ -1736,6 +1738,12 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							t.FailNow()
 						}
 					}
+					for j := 0; j < len(connSynAck)-1; j++ {
+						for k := 0; k < len(connSynAck[j]); k++ {
+							So(connSynAck[j][k], ShouldEqual, connSynAck[j+1][k])
+						}
+					}
+
 				})
 			})
 		})
@@ -1777,12 +1785,12 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 
 				Convey("Then I expect the flow to be reported only once with states intact", func() {
 
-					PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
-					PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
+					PacketFlow := packetgen.NewTemplateFlow()
+					PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 					var isAckPacket bool
 					var checkAfterAppAckFlag, checkBeforeNetAckFlag bool
-
+					var connSynAck [][]byte
 					for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
 						if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
@@ -1841,6 +1849,12 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 						outPacket, errp := packet.New(0, output, "0")
 						So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 						So(errp, ShouldBeNil)
+
+						if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+							connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
+						}
+
 						if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false && !checkBeforeNetAckFlag {
 							CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, checkBeforeNetAckFlag)
 							checkBeforeNetAckFlag = true
@@ -1864,7 +1878,11 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							t.Errorf("Packet %d Input and output packet do not match", i)
 							t.FailNow()
 						}
-
+					}
+					for j := 0; j < len(connSynAck)-1; j++ {
+						for k := 0; k < len(connSynAck[j]); k++ {
+							So(connSynAck[j][k], ShouldEqual, connSynAck[j+1][k])
+						}
 					}
 				})
 			})
