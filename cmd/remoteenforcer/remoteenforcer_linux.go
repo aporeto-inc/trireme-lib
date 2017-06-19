@@ -256,7 +256,6 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		}
 
 		s.Supervisor.Start()
-
 		if s.Service != nil {
 			s.Service.Initialize(s.secrets, s.Enforcer.GetFilterQueue())
 		}

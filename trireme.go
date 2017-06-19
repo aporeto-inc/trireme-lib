@@ -178,7 +178,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	// Retrieve the container runtime information from the cache
 	cachedElement, err := t.cache.Get(contextID)
 	if err != nil {
-
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: "N/A",
@@ -231,19 +230,16 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			Tags:      policyInfo.Annotations(),
 			Event:     collector.ContainerIgnored,
 		})
-
 		return nil
 	}
 
 	if err := t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
-
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: ip,
 			Tags:      policyInfo.Annotations(),
 			Event:     collector.ContainerFailed,
 		})
-
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 

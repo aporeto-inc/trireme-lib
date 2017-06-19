@@ -38,11 +38,13 @@ type PUPolicy struct {
 }
 
 // NewPUPolicy generates a new ContainerPolicyInfo
+// appACLs are the ACLs for packet coming from the Application/PU to the Network.
+// netACLs are the ACLs for packet coming from the Network to the Application/PU.
 func NewPUPolicy(
 	id string,
 	action PUAction,
-	ingress,
-	egress *IPRuleList,
+	appACLs,
+	netACLs *IPRuleList,
 	txtags, rxtags *TagSelectorList,
 	identity, annotations *TagsMap,
 	ips *IPMap,
@@ -50,11 +52,11 @@ func NewPUPolicy(
 	excludedNetworks []string,
 	e interface{}) *PUPolicy {
 
-	if ingress == nil {
-		ingress = NewIPRuleList(nil)
+	if appACLs == nil {
+		appACLs = NewIPRuleList(nil)
 	}
-	if egress == nil {
-		egress = NewIPRuleList(nil)
+	if netACLs == nil {
+		netACLs = NewIPRuleList(nil)
 	}
 	if txtags == nil {
 		txtags = NewTagSelectorList(nil)
@@ -75,8 +77,8 @@ func NewPUPolicy(
 		puPolicyMutex:    &sync.Mutex{},
 		ManagementID:     id,
 		TriremeAction:    action,
-		applicationACLs:  ingress,
-		networkACLs:      egress,
+		applicationACLs:  appACLs,
+		networkACLs:      netACLs,
 		transmitterRules: txtags,
 		receiverRules:    rxtags,
 		identity:         identity,

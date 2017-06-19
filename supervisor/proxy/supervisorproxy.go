@@ -4,11 +4,11 @@ package supervisorproxy
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 
 	"github.com/aporeto-inc/trireme/policy"
@@ -19,14 +19,13 @@ import (
 //it mirrors what is stored by the supervisor and also information to talk with the
 // remote enforcer
 type ProxyInfo struct {
-	versionTracker    cache.DataStore
-	collector         collector.EventCollector
-	networkQueues     string
-	applicationQueues string
-	ExcludedIPs       []string
-	prochdl           processmon.ProcessManager
-	rpchdl            rpcwrapper.RPCClient
-	initDone          map[string]bool
+	versionTracker cache.DataStore
+	collector      collector.EventCollector
+	filterQueue    *fqconfig.FilterQueue
+	ExcludedIPs    []string
+	prochdl        processmon.ProcessManager
+	rpchdl         rpcwrapper.RPCClient
+	initDone       map[string]bool
 }
 
 //Supervise Calls Supervise on the remote supervisor
@@ -121,14 +120,13 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	}
 
 	s := &ProxyInfo{
-		versionTracker:    cache.NewCache(),
-		collector:         collector,
-		networkQueues:     strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().NetworkQueue+enforcer.GetFilterQueue().NumberOfNetworkQueues-1)),
-		applicationQueues: strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue)) + ":" + strconv.Itoa(int(enforcer.GetFilterQueue().ApplicationQueue+enforcer.GetFilterQueue().NumberOfApplicationQueues-1)),
-		prochdl:           processmon.GetProcessManagerHdl(),
-		rpchdl:            rpchdl,
-		initDone:          make(map[string]bool),
-		ExcludedIPs:       []string{},
+		versionTracker: cache.NewCache(),
+		collector:      collector,
+		filterQueue:    enforcer.GetFilterQueue(),
+		prochdl:        processmon.GetProcessManagerHdl(),
+		rpchdl:         rpchdl,
+		initDone:       make(map[string]bool),
+		ExcludedIPs:    []string{},
 	}
 
 	return s, nil
