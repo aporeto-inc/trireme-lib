@@ -41,7 +41,7 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 var ErrInitFailed = errors.New("Failed remote Init")
 
 //proxyInfo is the struct used to hold state about active enforcers in the system
-type proxyInfo struct {
+type ProxyInfo struct {
 	MutualAuth        bool
 	Secrets           secrets.Secrets
 	serverID          string
@@ -56,7 +56,7 @@ type proxyInfo struct {
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
-func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
+func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
 	request := &rpcwrapper.Request{
@@ -86,7 +86,7 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 }
 
 //Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
-func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
+func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
 
@@ -132,7 +132,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 }
 
 // Unenforce stops enforcing policy for the given contexID.
-func (s *proxyInfo) Unenforce(contextID string) error {
+func (s *ProxyInfo) Unenforce(contextID string) error {
 
 	delete(s.initDone, contextID)
 
@@ -140,18 +140,18 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 }
 
 // GetFilterQueue returns the current FilterQueueConfig.
-func (s *proxyInfo) GetFilterQueue() *enforcer.FilterQueue {
+func (s *ProxyInfo) GetFilterQueue() *enforcer.FilterQueue {
 
 	return s.filterQueue
 }
 
 // Start starts the the remote enforcer proxy.
-func (s *proxyInfo) Start() error {
+func (s *ProxyInfo) Start() error {
 	return nil
 }
 
 // Stop stops the remote enforcer.
-func (s *proxyInfo) Stop() error {
+func (s *ProxyInfo) Stop() error {
 	return nil
 }
 
@@ -176,7 +176,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		statsServersecret = time.Now().String()
 	}
 
-	proxydata := &proxyInfo{
+	proxydata := &ProxyInfo{
 		MutualAuth:        mutualAuth,
 		Secrets:           secrets,
 		serverID:          serverID,

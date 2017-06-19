@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/proxy"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -24,11 +25,10 @@ type trireme struct {
 	collector   collector.EventCollector
 	stop        chan bool
 	requests    chan *triremeRequest
-	mode        constants.TriremeMode
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector, mode constants.TriremeMode) Trireme {
+func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
 
 	trireme := &trireme{
 		serverID:    serverID,
@@ -39,7 +39,6 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[consta
 		collector:   eventCollector,
 		stop:        make(chan bool),
 		requests:    make(chan *triremeRequest),
-		mode:        mode,
 	}
 
 	return trireme
@@ -358,12 +357,20 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		if err != nil {
 			//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 			zap.L().Debug("We lost communication with enforcer lets restart")
-			if containerInfo.Runtime.PUType() == constants.ContainerPU && t.mode == constants.HybridMode {
+
+			if containerInfo.Runtime.PUType() == constants.ContainerPU {
 				//The unsupervise and unenforce functions just make changes to the proxy structures
 				//and do not depend on the remote instance running and can be called here
-				t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
-				t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID)
-				t.doHandleCreate(contextID)
+				switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
+				case *enforcerproxy.ProxyInfo:
+					//do nothing
+				default:
+					t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
+					t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID)
+					t.doHandleCreate(contextID)
+
+				}
+
 			}
 		}
 		return fmt.Errorf("Enforcer failed to update PU policy: context=%s error=%s", contextID, err)
