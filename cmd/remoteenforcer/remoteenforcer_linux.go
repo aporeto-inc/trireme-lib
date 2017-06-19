@@ -378,7 +378,9 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	if puInfo == nil {
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
-
+	if s.Enforcer == nil {
+		zap.L().Fatal("Enforcer not inited")
+	}
 	if err := s.Enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err
