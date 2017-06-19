@@ -41,7 +41,7 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 // ErrInitFailed exported
 var ErrInitFailed = errors.New("Failed remote Init")
 
-//proxyInfo is the struct used to hold state about active enforcers in the system
+//ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
 	MutualAuth        bool
 	Secrets           secrets.Secrets
@@ -86,7 +86,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	return nil
 }
 
-//Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
+//Enforce method makes a RPC call for the remote enforcer enforce emthod
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))

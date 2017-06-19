@@ -359,11 +359,11 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 				//and do not depend on the remote instance running and can be called here
 				switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
 				case *enforcerproxy.ProxyInfo:
-					//do nothing
-				default:
 					t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
 					t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID)
 					t.doHandleCreate(contextID)
+				default:
+					//do nothing
 
 				}
 
