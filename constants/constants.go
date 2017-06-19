@@ -43,12 +43,6 @@ const (
 	LinuxProcessPU
 )
 
-// type TriremeMode int
-
-// const (
-// 	HybridMode TriremeMode = iota
-// 	LocalMode
-// )
 const (
 	// DefaultRemoteArg is the default arguments for a remote enforcer
 	DefaultRemoteArg = "enforce"
