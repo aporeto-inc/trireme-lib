@@ -141,7 +141,7 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 }
 
 // GetFilterQueue returns the current FilterQueueConfig.
-func (s *proxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
+func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
 }
 
