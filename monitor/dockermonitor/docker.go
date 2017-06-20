@@ -351,6 +351,7 @@ func (d *dockerMonitor) syncContainers() error {
 
 		if err := d.startDockerContainer(&container); err != nil {
 			zap.L().Error("Error Syncing existing Container during start handling", zap.Error(err))
+			continue
 		}
 
 		zap.L().Info("Successfully synced container: ", zap.String("ID", container.ID))
