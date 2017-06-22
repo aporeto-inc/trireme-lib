@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/proxy"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -349,6 +350,25 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
+		if err != nil {
+			//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
+			zap.L().Debug("We lost communication with enforcer lets restart")
+
+			if containerInfo.Runtime.PUType() == constants.ContainerPU {
+				//The unsupervise and unenforce functions just make changes to the proxy structures
+				//and do not depend on the remote instance running and can be called here
+				switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
+				case *enforcerproxy.ProxyInfo:
+					t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
+					t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID)
+					t.doHandleCreate(contextID)
+				default:
+					//do nothing
+
+				}
+
+			}
+		}
 		return fmt.Errorf("Enforcer failed to update PU policy: context=%s error=%s", contextID, err)
 	}
 
