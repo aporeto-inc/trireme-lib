@@ -345,15 +345,16 @@ func (d *dockerMonitor) syncContainers() error {
 		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
 		if err != nil {
-			zap.L().Error("Error Syncing existing Container 1", zap.Error(err))
+			zap.L().Error("Error Syncing existing Container during inspect", zap.Error(err))
 			continue
 		}
 
 		if err := d.startDockerContainer(&container); err != nil {
-			zap.L().Error("Error Syncing existing Container 2", zap.Error(err))
+			zap.L().Error("Error Syncing existing Container during start handling", zap.Error(err))
+			continue
 		}
 
-		zap.L().Info("Successfully synced container: %s", zap.String("ID", container.ID))
+		zap.L().Info("Successfully synced container: ", zap.String("ID", container.ID))
 
 	}
 

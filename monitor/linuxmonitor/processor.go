@@ -125,11 +125,10 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			Tags:      runtimeInfo.Tags(),
 			Event:     collector.ContainerStart,
 		})
-	}
-
-	// Store the state in the context store for future access
-	if err := s.contextStore.StoreContext(contextID, eventInfo); err != nil {
-		return err
+		// Store the state in the context store for future access
+		if err := s.contextStore.StoreContext(contextID, eventInfo); err != nil {
+			return err
+		}
 	}
 
 	return status

@@ -41,8 +41,8 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 // ErrInitFailed exported
 var ErrInitFailed = errors.New("Failed remote Init")
 
-//proxyInfo is the struct used to hold state about active enforcers in the system
-type proxyInfo struct {
+//ProxyInfo is the struct used to hold state about active enforcers in the system
+type ProxyInfo struct {
 	MutualAuth        bool
 	Secrets           secrets.Secrets
 	serverID          string
@@ -57,7 +57,7 @@ type proxyInfo struct {
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
-func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
+func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
 	request := &rpcwrapper.Request{
@@ -86,8 +86,8 @@ func (s *proxyInfo) InitRemoteEnforcer(contextID string) error {
 	return nil
 }
 
-//Enforcer: Enforce method makes a RPC call for the remote enforcer enforce emthod
-func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
+//Enforce method makes a RPC call for the remote enforcer enforce emthod
+func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
 
@@ -123,6 +123,8 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
 	if err != nil {
+		//We can't talk to the enforcer. Kill it and restart it
+		s.prochdl.KillProcess(contextID)
 		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
 		return ErrEnforceFailed
 	}
@@ -131,7 +133,7 @@ func (s *proxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 }
 
 // Unenforce stops enforcing policy for the given contexID.
-func (s *proxyInfo) Unenforce(contextID string) error {
+func (s *ProxyInfo) Unenforce(contextID string) error {
 
 	delete(s.initDone, contextID)
 
@@ -139,18 +141,17 @@ func (s *proxyInfo) Unenforce(contextID string) error {
 }
 
 // GetFilterQueue returns the current FilterQueueConfig.
-func (s *proxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
-
+func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
 }
 
 // Start starts the the remote enforcer proxy.
-func (s *proxyInfo) Start() error {
+func (s *ProxyInfo) Start() error {
 	return nil
 }
 
 // Stop stops the remote enforcer.
-func (s *proxyInfo) Stop() error {
+func (s *ProxyInfo) Stop() error {
 	return nil
 }
 
@@ -175,7 +176,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		statsServersecret = time.Now().String()
 	}
 
-	proxydata := &proxyInfo{
+	proxydata := &ProxyInfo{
 		MutualAuth:        mutualAuth,
 		Secrets:           secrets,
 		serverID:          serverID,
