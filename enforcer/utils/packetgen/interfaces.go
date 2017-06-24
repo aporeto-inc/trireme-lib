@@ -13,6 +13,10 @@ const (
 	PacketFlowTypeGenerateGoodFlow PacketFlowType = iota
 	//PacketFlowTypeGoodFlowTemplate will have a good flow from a hardcoded template
 	PacketFlowTypeGoodFlowTemplate
+	//PacketFlowTypeMultipleGoodFlow will have two flows
+	PacketFlowTypeMultipleGoodFlow
+	//PacketFlowTypeMultipleIntervenedFlow will have two flows intervened to eachothers
+	PacketFlowTypeMultipleIntervenedFlow
 )
 
 //EthernetPacketManipulator interface is used to create/manipulate Ethernet packet

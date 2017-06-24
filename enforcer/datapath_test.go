@@ -126,8 +126,7 @@ type myMatcher struct {
 func (m *myMatcher) Matches(x interface{}) bool {
 	f1 := m.x.(*collector.FlowRecord)
 	f2 := x.(*collector.FlowRecord)
-	fmt.Println(f1)
-	fmt.Println(f2)
+
 	if f1.DestinationIP == f2.DestinationIP && f1.SourceIP == f2.SourceIP && f1.DestinationPort == f2.DestinationPort && f1.Action == f2.Action && f1.Count == f2.Count {
 
 		return true
@@ -3477,7 +3476,6 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
-	//packetDiffers := false
 
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
@@ -3490,13 +3488,14 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
 
-			Convey("When I pass multiple packets with delay of Syn and SynAck packets", func() {
+			Convey("When I pass multiple packets with delay of Syn after ack", func() {
 
-				Convey("Then I expect the flow to be reported only once with states intact", func() {
+				Convey("Then I expect the flow to be reported only once ", func() {
+
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 
-							var flowRecord, flowRecord2 collector.FlowRecord
+							var flowRecord collector.FlowRecord
 
 							flowRecord.Count = 0
 							flowRecord.SourceIP = "10.1.10.76"
@@ -3504,14 +3503,8 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							flowRecord.DestinationPort = 80
 							flowRecord.Action = "accept"
 
-							flowRecord2.Count = 0
-							flowRecord2.SourceIP = "164.67.228.152"
-							flowRecord2.DestinationIP = "10.1.10.76"
-							flowRecord2.DestinationPort = 57761
-							flowRecord2.Action = "reject"
-
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord2)).Times(1)
+
 							fmt.Println("This is Container")
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -3529,9 +3522,9 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							flowRecord.DestinationPort = 80
 							flowRecord.Action = "accept"
 
-							//mockCollector.EXPECT().CollectFlowEvent(gomock.Any()).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 							fmt.Println("This is Server")
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3542,9 +3535,8 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 						var isAckPacket bool
-						var checkAfterAppAckFlag, checkBeforeNetAckFlag bool
-						var connSynAck [][]byte
-						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
+						//var checkAfterAppAckFlag, checkBeforeNetAckFlag bool
+						for i := 0; i < 3; i++ {
 
 							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
 							if err == nil && oldPacket != nil {
@@ -3572,17 +3564,15 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 								t.Error("Invalid Test Packet")
 							}
-
-							enforcer.processApplicationTCPPackets(tcpPacket)
-							//So(err, ShouldBeNil)
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
-								CheckAfterAppSynPacket(enforcer, tcpPacket)
-							}
-
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !checkAfterAppAckFlag {
-								CheckAfterAppAckPacket(enforcer, tcpPacket)
-								checkAfterAppAckFlag = true
-
+							//fmt.Println("Process TCP is called ", i)
+							if isAckPacket {
+								fmt.Println("Duplicate SYN")
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								fmt.Println(err)
+								So(err, ShouldNotBeNil)
+							} else {
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								So(err, ShouldBeNil)
 							}
 
 							if debug {
@@ -3597,23 +3587,18 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
-								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
-								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
-							}
-
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false && !checkBeforeNetAckFlag {
-								CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, checkBeforeNetAckFlag)
-								checkBeforeNetAckFlag = true
-							}
-
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && isAckPacket {
+								fmt.Println("This is network (A)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
+								fmt.Println("DuplicateSYNreceived")
 								So(err, ShouldNotBeNil)
+								fmt.Println(err)
 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true && isAckPacket {
+								fmt.Println("This is network (B)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 							} else {
+								fmt.Println("This is network (C)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
 							}
@@ -3623,24 +3608,12 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 								outPacket.Print(0)
 							}
 
-							// if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
-							// 	packetDiffers = true
-							// 	fmt.Println("Error: packets dont match")
-							// 	fmt.Println("Input Packet")
-							// 	oldPacket.Print(0)
-							// 	fmt.Println("Output Packet")
-							// 	outPacket.Print(0)
-							// 	t.Errorf("Packet %d Input and output packet do not match", i)
-							// 	t.FailNow()
-							// }
+							if isAckPacket {
+								break
+							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
 								i = -1
 								isAckPacket = true
-							}
-						}
-						for j := 0; j < len(connSynAck)-1; j++ {
-							for k := 0; k < len(connSynAck[j]); k++ {
-								//So(connSynAck[j][k], ShouldEqual, connSynAck[j+1][k])
 							}
 						}
 					}

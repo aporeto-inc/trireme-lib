@@ -338,9 +338,10 @@ func (p *Packet) DecodePacket() PacketManipulator {
 		newTCPPacket.Seq = tcp.Seq
 		newTCPPacket.Ack = tcp.Ack
 		newTCPPacket.SYN = tcp.SYN
-		newTCPPacket.ACK = tcp.ACK
+		newTCPPacket.FIN = tcp.FIN
 		newTCPPacket.RST = tcp.RST
 		newTCPPacket.PSH = tcp.PSH
+		newTCPPacket.ACK = tcp.ACK
 		newTCPPacket.URG = tcp.ECE
 		newTCPPacket.CWR = tcp.CWR
 		newTCPPacket.NS = tcp.NS
@@ -428,8 +429,35 @@ func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator {
 		}
 
 		return p
-	}
+	} else if pt == 2 {
 
+		for i := 0; i < len(PacketFlowTemplate2); i++ {
+
+			//Create a Packet type variable to store decoded packet
+			newPacket := NewPacket()
+			packet := gopacket.NewPacket(PacketFlowTemplate2[i], layers.LayerTypeEthernet, gopacket.Default)
+			newPacket.AddPacket(packet)
+
+			p.flow = append(p.flow, newPacket.DecodePacket())
+
+		}
+
+		return p
+	} else if pt == 3 {
+
+		for i := 0; i < len(PacketFlowTemplate3); i++ {
+
+			//Create a Packet type variable to store decoded packet
+			newPacket := NewPacket()
+			packet := gopacket.NewPacket(PacketFlowTemplate3[i], layers.LayerTypeEthernet, gopacket.Default)
+			newPacket.AddPacket(packet)
+
+			p.flow = append(p.flow, newPacket.DecodePacket())
+
+		}
+
+		return p
+	}
 	return nil
 }
 
@@ -542,7 +570,7 @@ func (p *PacketFlow) GetNthPacket(index int) PacketManipulator {
 		}
 	}
 
-	return nil
+	panic("Index out of range")
 }
 
 //GetNumPackets returns an array of packets
