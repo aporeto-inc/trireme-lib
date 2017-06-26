@@ -21,7 +21,7 @@ type UidProcessor struct {
 	puHandler         monitor.ProcessingUnitsHandler
 	metadataExtractor rpcmonitor.RPCMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
-	contextstore      contextstore.ContextStore
+	contextStore      contextstore.ContextStore
 }
 
 //NewUidProcessor -- create a new uidprocessor
