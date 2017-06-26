@@ -2,8 +2,10 @@ package packetgen
 
 //PacketFlowTemplate1 is a good hardcoded template
 var PacketFlowTemplate1 [][]byte
+
 //PacketFlowTemplate2 has a two complete TCP flow
 var PacketFlowTemplate2 [][]byte
+
 //PacketFlowTemplate3 has a two intervened TCP flows
 var PacketFlowTemplate3 [][]byte
 
