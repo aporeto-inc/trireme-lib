@@ -35,6 +35,6 @@ func UidMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 
 	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 	runtimeIps := policy.NewIPMap(map[string]string{"bridge": "0.0.0.0/0"})
-	runtimePID, err := strconv.Atoi(event.PID)
+	runtimePID, _ := strconv.Atoi(event.PID)
 	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
 }

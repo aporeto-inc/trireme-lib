@@ -15,6 +15,10 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 )
 
+const (
+	storePath = "/var/run/trireme/uids"
+)
+
 //UidProcessor -- strcuture to hold provivate info for this processor
 type UidProcessor struct {
 	collector         collector.EventCollector
@@ -31,7 +35,7 @@ func NewUidProcessor(collector collector.EventCollector, puHandler monitor.Proce
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
 		netcls:            cgnetcls.NewCgroupNetController(releasePath),
-		contextstore:      contextstore.NewContextStore(),
+		contextStore:      contextstore.NewContextStore(storePath),
 	}
 }
 
@@ -148,7 +152,7 @@ func (s *UidProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID = contextID[strings.LastIndex(contextID, "/"):]
 
-	contextStoreHdl := contextstore.NewContextStore("/var/run/trireme")
+	contextStoreHdl := contextstore.NewContextStore(storePath)
 
 	s.netcls.Deletebasepath(contextID)
 
