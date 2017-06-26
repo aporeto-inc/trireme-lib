@@ -22,11 +22,11 @@ const (
 // NewContextStore returns a handle to a new context store
 // The store is maintained in a file hierarchy so if the context id
 // already exists calling a storecontext with new id will cause an overwrite
-func NewContextStore() ContextStore {
+func NewContextStore(basePath string) ContextStore {
 
-	_, err := os.Stat(storebasePath)
+	_, err := os.Stat(basePath)
 	if os.IsNotExist(err) {
-		if err := os.MkdirAll(storebasePath, 0700); err != nil {
+		if err := os.MkdirAll(basePath, 0700); err != nil {
 			zap.L().Fatal("Failed to create context store directory", zap.Error(err))
 		}
 	}
@@ -37,8 +37,8 @@ func NewContextStore() ContextStore {
 // NewCustomContextStore will start a context store with custom paths. Mainly
 // used for testing when root access is not available and /var/run cannot be accessed
 func NewCustomContextStore(basePath string) ContextStore {
-	storebasePath = basePath
-	return NewContextStore()
+	//storebasePath = basePath
+	return NewContextStore(basePath)
 }
 
 // Store context writes to the store the eventInfo which can be used as a event to trireme

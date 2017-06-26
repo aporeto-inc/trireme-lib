@@ -1,4 +1,4 @@
-package linuxmonitor
+package uidmonitor
 
 import (
 	"errors"
@@ -12,57 +12,36 @@ import (
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme/policy"
 )
 
-// LinuxProcessor captures all the monitor processor information
-// It implements the MonitorProcessor interface of the rpc monitor
-type LinuxProcessor struct {
+//UidProcessor -- strcuture to hold provivate info for this processor
+type UidProcessor struct {
 	collector         collector.EventCollector
 	puHandler         monitor.ProcessingUnitsHandler
 	metadataExtractor rpcmonitor.RPCMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
-	contextStore      contextstore.ContextStore
+	contextstore      contextstore.ContextStore
 }
 
-// NewLinuxProcessor initializes a processor
-func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
-
-	return &LinuxProcessor{
+//NewUidProcessor -- create a new uidprocessor
+func NewUidProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractorm, releasePath string) *UidProcessor {
+	return &UserProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
 		netcls:            cgnetcls.NewCgroupNetController(releasePath),
-		contextStore:      contextstore.NewContextStore("/var/run/trireme/"),
+		contextstore:      contextstore.NewContextStore(),
 	}
 }
 
-// Create handles create events
-func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
+//Create -- handles the create event -- we don't expect this event
+func (s *UidProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 
-	contextID, err := generateContextID(eventInfo)
-	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
-	}
-
-	tagsMap := policy.NewTagsMap(eventInfo.Tags)
-
-	s.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: "127.0.0.1",
-		Tags:      tagsMap,
-		Event:     collector.ContainerCreate,
-	})
-
-	// Send the event upstream
-	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
-	return <-errChan
+	return fmt.Errorf("Received Create :: UidMonitor::Event Not Supported")
 }
 
-// Start handles start events
-func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
-
+//Start -- handle the start event
+func (s *UidProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return err
@@ -78,7 +57,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
-
 	// Send the event upstream
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 
@@ -134,8 +112,8 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	return status
 }
 
-// Stop handles a stop event
-func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
+//Stop -- handles the stop event
+func (s *UidProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
@@ -153,11 +131,11 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	status := <-errChan
 
 	return status
+
 }
 
-// Destroy handles a destroy event
-func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
-
+//Destroy -- handles destroy event
+func (s *UidProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
@@ -196,16 +174,10 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	return nil
 }
 
-// Pause handles a pause event
-func (s *LinuxProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
+//Pause -- handles the pause event -- does not makes sense for this monitor
+func (s *UidProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 
-	contextID, err := generateContextID(eventInfo)
-	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
-	}
-
-	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
-	return <-errChan
+	return fmt.Errorf("Event Not Supported")
 }
 
 // generateContextID creates the contextID from the event information
