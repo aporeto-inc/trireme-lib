@@ -83,6 +83,8 @@ type Datapath struct {
 
 	// ack size
 	ackSize uint32
+	// to keep track of the packets that are dropped
+	numOfPacketsDropped int
 
 	mutualAuthorization bool
 
