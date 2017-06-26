@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	storePath = "/var/run/trireme/uids"
+	storePath = "/var/run/trireme/uids/"
 )
 
 //UidProcessor -- strcuture to hold provivate info for this processor
