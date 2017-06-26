@@ -254,6 +254,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// Track the connection/port cache
 	hash := tcpPacket.L4FlowHash()
 	conn.SetState(TCPSynSend)
+	conn.SetTCPSequenceNum(tcpPacket.TCPSeq)
 
 	// conntrack
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
@@ -441,6 +442,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		// Update the connection state and store the Nonse send to us by the host.
 		// We use the nonse in the subsequent packets to achieve randomization.
 		conn.SetState(TCPSynReceived)
+		conn.SetTCPSequenceNum(tcpPacket.TCPSeq)
 
 		// conntrack
 		d.netOrigConnectionTracker.AddOrUpdate(hash, conn)
@@ -688,6 +690,7 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 }
 
 // appSynRetrieveState retrieves state for the the application Syn packet.
+// If duplicate SYN found it will report error
 // It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
@@ -700,12 +703,17 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	if err != nil {
 		conn = NewTCPConnection()
 
+		conn.(*TCPConnection).Lock()
+		conn.(*TCPConnection).Context = context
+		conn.(*TCPConnection).Unlock()
+
+		return context, conn.(*TCPConnection), nil
+	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
+		d.numOfPacketsDropped++
+		return nil, nil, fmt.Errorf("Connection already exists")
 	}
 
-	conn.(*TCPConnection).Lock()
-	conn.(*TCPConnection).Context = context
-	conn.(*TCPConnection).Unlock()
-	return context, conn.(*TCPConnection), nil
+	return nil, nil, nil
 }
 
 // appRetrieveState retrieves the state for the rest of the application packets. It
@@ -739,6 +747,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 }
 
 // netSynRetrieveState retrieves the state for the Syn packets on the network.
+// If duplicate SYN found it will report error
 // Obviously if no state is found, it generates a new connection record.
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
@@ -750,13 +759,17 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
 	if err != nil {
 		conn = NewTCPConnection()
+
+		conn.(*TCPConnection).Lock()
+		conn.(*TCPConnection).Context = context
+		conn.(*TCPConnection).Unlock()
+
+		return context, conn.(*TCPConnection), nil
+	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
+		return nil, nil, fmt.Errorf("Connection already exists: SYN with same sequence number")
 	}
 
-	conn.(*TCPConnection).Lock()
-	conn.(*TCPConnection).Context = context
-	conn.(*TCPConnection).Unlock()
-
-	return context, conn.(*TCPConnection), nil
+	return nil, nil, nil
 }
 
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
