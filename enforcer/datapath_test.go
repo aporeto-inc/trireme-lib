@@ -200,97 +200,96 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 		}
 
 		return puInfo1, puInfo2, enforcer, err1, err2, nil, nil
-	} else {
-		tagSelector := policy.TagSelector{
-
-			Clause: []policy.KeyValueOperator{
-				{
-					Key:      TransmitterLabel,
-					Value:    []string{"value"},
-					Operator: policy.Equal,
-				},
-			},
-			Action: policy.Accept,
-		}
-		PacketFlow := packetgen.NewTemplateFlow()
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleIntervenedFlow)
-
-		iteration = iteration + 1
-		puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
-		puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
-		puID3 := "SomeProcessingUnitId" + string(iteration) + "3"
-		puID4 := "SomeProcessingUnitId" + string(iteration) + "4"
-
-		var puIP1, puIP2, puIP3, puIP4 string
-
-		for j := 0; j < PacketFlow.GetNumPackets(); j++ {
-			if PacketFlow.GetNthPacket(j).GetIPPacket().SrcIP.String() == "10.1.10.76" || PacketFlow.GetNthPacket(j).GetIPPacket().DstIP.String() == "10.1.10.76" {
-				puIP1 = "10.1.10.76"     // + strconv.Itoa(iteration)
-				puIP2 = "164.67.228.152" // + strconv.Itoa(iteration)
-			} else {
-				puIP3 = "192.168.1.2"     // + strconv.Itoa(iteration)
-				puIP4 = "174.143.213.184" // + strconv.Itoa(iteration)
-			}
-		}
-		serverID := "SomeServerId"
-
-		// Create ProcessingUnit 1
-		puInfo1 := policy.NewPUInfo(puID1, constants.ContainerPU)
-
-		ip1 := policy.NewIPMap(map[string]string{})
-		ip1.Add("bridge", puIP1)
-		puInfo1.Runtime.SetIPAddresses(ip1)
-		ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP1})
-		puInfo1.Policy.SetIPAddresses(ipl1)
-		puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
-		puInfo1.Policy.AddReceiverRules(&tagSelector)
-
-		// Create processing unit 2
-		puInfo2 := policy.NewPUInfo(puID2, constants.ContainerPU)
-		ip2 := policy.NewIPMap(map[string]string{"bridge": puIP2})
-		puInfo2.Runtime.SetIPAddresses(ip2)
-		ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP2})
-		puInfo2.Policy.SetIPAddresses(ipl2)
-		puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
-		puInfo2.Policy.AddReceiverRules(&tagSelector)
-
-		// Create processing unit 3
-		puInfo3 := policy.NewPUInfo(puID3, constants.ContainerPU)
-		ip3 := policy.NewIPMap(map[string]string{"bridge": puIP3})
-		puInfo3.Runtime.SetIPAddresses(ip3)
-		ipl3 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP3})
-		puInfo3.Policy.SetIPAddresses(ipl3)
-		puInfo3.Policy.AddIdentityTag(TransmitterLabel, "value")
-		puInfo3.Policy.AddReceiverRules(&tagSelector)
-
-		// Create processing unit 4
-		puInfo4 := policy.NewPUInfo(puID4, constants.ContainerPU)
-		ip4 := policy.NewIPMap(map[string]string{"bridge": puIP4})
-		puInfo4.Runtime.SetIPAddresses(ip4)
-		ipl4 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP4})
-		puInfo4.Policy.SetIPAddresses(ipl4)
-		puInfo4.Policy.AddIdentityTag(TransmitterLabel, "value")
-		puInfo4.Policy.AddReceiverRules(&tagSelector)
-
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-		if collectors != nil {
-
-			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc").(*Datapath)
-			err1 = enforcer.Enforce(puID1, puInfo1)
-			err2 = enforcer.Enforce(puID2, puInfo2)
-			err3 = enforcer.Enforce(puID3, puInfo3)
-			err4 = enforcer.Enforce(puID4, puInfo4)
-		} else {
-			collector := &collector.DefaultCollector{}
-			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc").(*Datapath)
-			err1 = enforcer.Enforce(puID1, puInfo1)
-			err2 = enforcer.Enforce(puID2, puInfo2)
-			err3 = enforcer.Enforce(puID3, puInfo3)
-			err4 = enforcer.Enforce(puID4, puInfo4)
-		}
-
-		return puInfo1, puInfo2, enforcer, err1, err2, err3, err4
 	}
+	tagSelector := policy.TagSelector{
+
+		Clause: []policy.KeyValueOperator{
+			{
+				Key:      TransmitterLabel,
+				Value:    []string{"value"},
+				Operator: policy.Equal,
+			},
+		},
+		Action: policy.Accept,
+	}
+	PacketFlow := packetgen.NewTemplateFlow()
+	PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleIntervenedFlow)
+
+	iteration = iteration + 1
+	puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
+	puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
+	puID3 := "SomeProcessingUnitId" + string(iteration) + "3"
+	puID4 := "SomeProcessingUnitId" + string(iteration) + "4"
+
+	var puIP1, puIP2, puIP3, puIP4 string
+
+	for j := 0; j < PacketFlow.GetNumPackets(); j++ {
+		if PacketFlow.GetNthPacket(j).GetIPPacket().SrcIP.String() == "10.1.10.76" || PacketFlow.GetNthPacket(j).GetIPPacket().DstIP.String() == "10.1.10.76" {
+			puIP1 = "10.1.10.76"     // + strconv.Itoa(iteration)
+			puIP2 = "164.67.228.152" // + strconv.Itoa(iteration)
+		} else {
+			puIP3 = "192.168.1.2"     // + strconv.Itoa(iteration)
+			puIP4 = "174.143.213.184" // + strconv.Itoa(iteration)
+		}
+	}
+	serverID := "SomeServerId"
+
+	// Create ProcessingUnit 1
+	puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
+
+	ip1 := policy.NewIPMap(map[string]string{})
+	ip1.Add("bridge", puIP1)
+	puInfo1.Runtime.SetIPAddresses(ip1)
+	ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP1})
+	puInfo1.Policy.SetIPAddresses(ipl1)
+	puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo1.Policy.AddReceiverRules(&tagSelector)
+
+	// Create processing unit 2
+	puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+	ip2 := policy.NewIPMap(map[string]string{"bridge": puIP2})
+	puInfo2.Runtime.SetIPAddresses(ip2)
+	ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP2})
+	puInfo2.Policy.SetIPAddresses(ipl2)
+	puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo2.Policy.AddReceiverRules(&tagSelector)
+
+	// Create processing unit 3
+	puInfo3 := policy.NewPUInfo(puID3, constants.ContainerPU)
+	ip3 := policy.NewIPMap(map[string]string{"bridge": puIP3})
+	puInfo3.Runtime.SetIPAddresses(ip3)
+	ipl3 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP3})
+	puInfo3.Policy.SetIPAddresses(ipl3)
+	puInfo3.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo3.Policy.AddReceiverRules(&tagSelector)
+
+	// Create processing unit 4
+	puInfo4 := policy.NewPUInfo(puID4, constants.ContainerPU)
+	ip4 := policy.NewIPMap(map[string]string{"bridge": puIP4})
+	puInfo4.Runtime.SetIPAddresses(ip4)
+	ipl4 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP4})
+	puInfo4.Policy.SetIPAddresses(ipl4)
+	puInfo4.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo4.Policy.AddReceiverRules(&tagSelector)
+
+	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+	if collectors != nil {
+
+		enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc").(*Datapath)
+		err1 = enforcer.Enforce(puID1, puInfo1)
+		err2 = enforcer.Enforce(puID2, puInfo2)
+		err3 = enforcer.Enforce(puID3, puInfo3)
+		err4 = enforcer.Enforce(puID4, puInfo4)
+	} else {
+		collector := &collector.DefaultCollector{}
+		enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc").(*Datapath)
+		err1 = enforcer.Enforce(puID1, puInfo1)
+		err2 = enforcer.Enforce(puID2, puInfo2)
+		err3 = enforcer.Enforce(puID3, puInfo3)
+		err4 = enforcer.Enforce(puID4, puInfo4)
+	}
+
+	return puInfo1, puInfo2, enforcer, err1, err2, err3, err4
 }
 
 func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
@@ -2338,7 +2337,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 								t.Error("Invalid Test Packet")
 							}
 
-							err = enforcer.processApplicationTCPPackets(tcpPacket)
+							enforcer.processApplicationTCPPackets(tcpPacket)
 
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
 								CheckAfterAppSynPacket(enforcer, tcpPacket)
