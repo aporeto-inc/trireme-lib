@@ -65,8 +65,7 @@ type TCPConnection struct {
 	sync.Mutex
 
 	state TCPFlowState
-
-	Auth AuthInfo
+	Auth  AuthInfo
 
 	// Debugging Information
 	flowReported int
@@ -87,6 +86,7 @@ type TCPConnection struct {
 
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
+
 	// sequenceNum will store the syn packet sequence number
 	sequenceNum uint32
 }
@@ -187,8 +187,9 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 	}
 }
 
-//SetTCPSequenceNum will add Sequence number to struct
+// SetTCPSequenceNum will add Sequence number to struct
 func (c *TCPConnection) SetTCPSequenceNum(snum uint32) {
+
 	c.sequenceNum = snum
 }
 

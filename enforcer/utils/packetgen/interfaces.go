@@ -93,7 +93,6 @@ type PacketManipulator interface {
 //PacketFlowManipulator is an interface for packet flow manipulations
 //Used to create/manipulate packet flows
 type PacketFlowManipulator interface {
-
 	//Used to create a flow of TCP packets
 	GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator
 	//Used to return first TCP Syn packet

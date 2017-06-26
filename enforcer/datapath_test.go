@@ -31,12 +31,9 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc").(*Datapath)
-
 		PacketFlow := packetgen.NewTemplateFlow()
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
 		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
@@ -66,7 +63,6 @@ func TestInvalidIPContext(t *testing.T) {
 
 		PacketFlow := packetgen.NewTemplateFlow()
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
-
 		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
@@ -93,7 +89,6 @@ func TestInvalidTokenContext(t *testing.T) {
 
 		PacketFlow := packetgen.NewTemplateFlow()
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
 		ip := policy.NewIPMap(map[string]string{
 			"brige": PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String(),
 		})
@@ -163,7 +158,6 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 			Action: policy.Accept,
 		}
 		PacketFlow := packetgen.NewTemplateFlow()
-
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
 		iteration = iteration + 1
@@ -196,22 +190,17 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		if collectors != nil {
 			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc").(*Datapath)
-
 			err1 = enforcer.Enforce(puID1, puInfo1)
-
 			err2 = enforcer.Enforce(puID2, puInfo2)
 		} else {
 			collector := &collector.DefaultCollector{}
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc").(*Datapath)
-
 			err1 = enforcer.Enforce(puID1, puInfo1)
-
 			err2 = enforcer.Enforce(puID2, puInfo2)
 		}
+
 		return puInfo1, puInfo2, enforcer, err1, err2, nil, nil
-
 	} else {
-
 		tagSelector := policy.TagSelector{
 
 			Clause: []policy.KeyValueOperator{
@@ -287,24 +276,16 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 		if collectors != nil {
 
 			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc").(*Datapath)
-
 			err1 = enforcer.Enforce(puID1, puInfo1)
-
 			err2 = enforcer.Enforce(puID2, puInfo2)
-
 			err3 = enforcer.Enforce(puID3, puInfo3)
-
 			err4 = enforcer.Enforce(puID4, puInfo4)
 		} else {
 			collector := &collector.DefaultCollector{}
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc").(*Datapath)
-
 			err1 = enforcer.Enforce(puID1, puInfo1)
-
 			err2 = enforcer.Enforce(puID2, puInfo2)
-
 			err3 = enforcer.Enforce(puID3, puInfo3)
-
 			err4 = enforcer.Enforce(puID4, puInfo4)
 		}
 

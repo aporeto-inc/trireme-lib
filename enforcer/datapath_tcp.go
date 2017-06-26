@@ -35,7 +35,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
 	// Retrieve connection state of SynAck packets and
 	// skip processing for SynAck packets that we don't have state
-
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
 		context, conn, err = d.netSynRetrieveState(p)
@@ -45,10 +44,8 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				zap.Error(err),
 			)
-
 			return err
 		}
-
 	case packet.TCPSynAckMask:
 		context, conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
@@ -256,17 +253,15 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	}
 	// Track the connection/port cache
 	hash := tcpPacket.L4FlowHash()
-
 	conn.SetState(TCPSynSend)
 	conn.SetTCPSequenceNum(tcpPacket.TCPSeq)
-	// conntrack
 
+	// conntrack
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
 
 	// Old trackers
 	// d.appConnectionTracker.AddOrUpdate(hash, conn)
 	// d.sourcePortCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), context)
-
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
@@ -337,7 +332,6 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 		// Since we adjust sequence numbers let's make sure we haven't made a mistake
 		if len(token) != int(d.ackSize) {
-
 			return nil, fmt.Errorf("Protocol Error %d", len(token))
 		}
 
@@ -358,7 +352,6 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Once we have seen the end of the TCP SynAck sequence we have enough state
 		// We can delete the source port cache to avoid any connection re-use issues
 		// Flow caches will use a time out
-
 		if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
 			zap.L().Warn("Failed to clean up cache state for connections",
 				zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
@@ -384,7 +377,6 @@ func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PU
 	switch tcpPacket.TCPFlags {
 
 	case packet.TCPSynMask & packet.TCPSynAckMask:
-
 		return d.processNetworkSynPacket(context, conn, tcpPacket)
 
 	case packet.TCPAckMask:
@@ -426,7 +418,6 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 	}
@@ -450,14 +441,13 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		hash := tcpPacket.L4FlowHash()
 		// Update the connection state and store the Nonse send to us by the host.
 		// We use the nonse in the subsequent packets to achieve randomization.
-
 		conn.SetState(TCPSynReceived)
 		conn.SetTCPSequenceNum(tcpPacket.TCPSeq)
 
 		// conntrack
 		d.netOrigConnectionTracker.AddOrUpdate(hash, conn)
-
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
+
 		// Accept the connection
 		return action, claims, nil
 	}
@@ -472,7 +462,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	defer context.Unlock()
 
 	tcpData := tcpPacket.ReadTCPData()
-
 	if len(tcpData) == 0 {
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of missing token")
@@ -711,9 +700,7 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	}
 
 	conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
-
 	if err != nil {
-
 		conn = NewTCPConnection()
 
 		conn.(*TCPConnection).Lock()
@@ -722,7 +709,6 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 		return context, conn.(*TCPConnection), nil
 	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
-
 		return nil, nil, fmt.Errorf("Connection already exists")
 	}
 
@@ -735,12 +721,10 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	hash := p.L4FlowHash()
 
 	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
-
 	if err != nil {
 		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
 			return nil, nil, fmt.Errorf("App state not found")
-
 		}
 		if uerr := updateTimer(d.appOrigConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
 			return nil, nil, uerr
@@ -755,7 +739,6 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	defer conn.(*TCPConnection).Unlock()
 	context := conn.(*TCPConnection).Context
 	if context == nil {
-
 		return nil, nil, fmt.Errorf("No context found")
 	}
 
@@ -773,9 +756,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	}
 
 	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
-
 	if err != nil {
-
 		conn = NewTCPConnection()
 
 		conn.(*TCPConnection).Lock()
@@ -784,9 +765,9 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 		return context, conn.(*TCPConnection), nil
 	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
-
 		return nil, nil, fmt.Errorf("Connection already exists: SYN with same sequence number")
 	}
+
 	return nil, nil, nil
 }
 
@@ -795,7 +776,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
 	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
-
 	if err != nil {
 		zap.L().Debug("No connection for SynAck packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -809,8 +789,8 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPCon
 	if context == nil {
 		return nil, nil, fmt.Errorf("No context found")
 	}
-	return context, conn.(*TCPConnection), nil
 
+	return context, conn.(*TCPConnection), nil
 }
 
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that

@@ -22,13 +22,3 @@ func TestTypeInterface(t *testing.T) {
 		t.Error("PacketFlow struct does not implement PacketFlowManipulator Interface")
 	}
 }
-
-//
-// func TestForConnectionEstablishment(t *testing.T) {
-// 	t.Parallel()
-//
-// 	if PacketFlows.GetFirstAckPacket().GetTCPPacket().Seq != PacketFlows.GetFirstAckPacket().GetTCPPacket().Ack {
-//
-// 		t.Error("Connection establishment failure")
-// 	}
-// }
