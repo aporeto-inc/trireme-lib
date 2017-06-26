@@ -10,7 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func UidRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
+func UidMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 	if event.Name == "" {
 		return nil, fmt.Errorf("EventInfo PUName is empty")
 	}
