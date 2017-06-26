@@ -5,9 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/aporeto-inc/trireme/cache"
+	"go.uber.org/zap"
 )
 
 var (
@@ -32,7 +31,7 @@ const (
 	// TCPSynAckReceived is the state where the SynAck has been received
 	TCPSynAckReceived
 
-	// TCPAckSend indicates that the ack packets has been send
+	// TCPAckSend indicates that the ack packets has been sent
 	TCPAckSend
 
 	// TCPAckProcessed is the state that the negotiation has been completed
@@ -66,7 +65,8 @@ type TCPConnection struct {
 	sync.Mutex
 
 	state TCPFlowState
-	Auth  AuthInfo
+
+	Auth AuthInfo
 
 	// Debugging Information
 	flowReported int
@@ -87,6 +87,8 @@ type TCPConnection struct {
 
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
+	// sequenceNum will store the syn packet sequence number
+	sequenceNum uint32
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -183,6 +185,11 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 			zap.String("connection", c.String()),
 			zap.String("logs", logStr))
 	}
+}
+
+//SetTCPSequenceNum will add Sequence number to struct
+func (c *TCPConnection) SetTCPSequenceNum(snum uint32) {
+	c.sequenceNum = snum
 }
 
 // NewTCPConnection returns a TCPConnection information struct

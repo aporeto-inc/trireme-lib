@@ -1,13 +1,22 @@
 package packetgen
 
-import "github.com/google/gopacket/layers"
+import (
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+)
 
 //PacketFlowType type  for different types of flows
 type PacketFlowType uint8
 
 const (
-	//PacketFlowTypeGoodFlow returns a good flow
-	PacketFlowTypeGoodFlow PacketFlowType = iota
+	//PacketFlowTypeGenerateGoodFlow is used to generate a good floe
+	PacketFlowTypeGenerateGoodFlow PacketFlowType = iota
+	//PacketFlowTypeGoodFlowTemplate will have a good flow from a hardcoded template
+	PacketFlowTypeGoodFlowTemplate
+	//PacketFlowTypeMultipleGoodFlow will have two flows
+	PacketFlowTypeMultipleGoodFlow
+	//PacketFlowTypeMultipleIntervenedFlow will have two flows intervened to eachothers
+	PacketFlowTypeMultipleIntervenedFlow
 )
 
 //EthernetPacketManipulator interface is used to create/manipulate Ethernet packet
@@ -68,6 +77,8 @@ type TCPPacketManipulator interface {
 //Optional: not needed for actual usage
 type PacketHelper interface {
 	ToBytes() []byte
+	AddPacket(packet gopacket.Packet)
+	DecodePacket() PacketManipulator
 }
 
 //PacketManipulator is an interface for packet manipulations
@@ -82,7 +93,8 @@ type PacketManipulator interface {
 //PacketFlowManipulator is an interface for packet flow manipulations
 //Used to create/manipulate packet flows
 type PacketFlowManipulator interface {
-	//Ued to create a flow of TCP packets
+
+	//Used to create a flow of TCP packets
 	GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator
 	//Used to return first TCP Syn packet
 	GetFirstSynPacket() PacketManipulator
@@ -96,6 +108,10 @@ type PacketFlowManipulator interface {
 	GetSynAckPackets() PacketFlowManipulator
 	//Used to return all the TCP Ack packets from the flow
 	GetAckPackets() PacketFlowManipulator
+	//Used to return all the packets upto first TCP SynAck packet from the flow
+	GetUptoFirstSynAckPacket() PacketFlowManipulator
+	//Used to return all the packets upto first TCP Ack packet from the flow
+	GetUptoFirstAckPacket() PacketFlowManipulator
 	//Used to return Nth packet from the flow
 	GetNthPacket(index int) PacketManipulator
 	//Used to return length of the flow
@@ -106,19 +122,17 @@ type PacketFlowManipulator interface {
 
 //Packet is a custom type which holds the packets and implements PacketManipulator
 type Packet struct {
-	EthernetLayer *layers.Ethernet
-	IPLayer       *layers.IPv4
-	TCPLayer      *layers.TCP
+	ethernetLayer *layers.Ethernet
+	ipLayer       *layers.IPv4
+	tcpLayer      *layers.TCP
+	packet        gopacket.Packet
 }
 
 //PacketFlow is a custom type which holds the packet attributes and the flow
 //Implements PacketFlowManipulator interface
 type PacketFlow struct {
-	sMAC  string
-	dMAC  string
-	sIP   string
-	dIP   string
-	sPort layers.TCPPort
-	dPort layers.TCPPort
-	Flow  []PacketManipulator
+	sMAC, dMAC   string
+	sIP, dIP     string
+	sPort, dPort layers.TCPPort
+	flow         []PacketManipulator
 }
