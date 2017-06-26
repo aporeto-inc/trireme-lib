@@ -1791,7 +1791,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 							err = enforcer.processNetworkTCPPackets(outPacket)
 							So(err, ShouldBeNil)
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								CheckAfterNetSynAckPacket(t, enforcer, outPacketcopy, outPacket)
 							}
 
@@ -1917,7 +1917,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 							err = enforcer.processApplicationTCPPackets(tcpPacket)
 							So(err, ShouldBeNil)
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								CheckAfterAppAckPacket(enforcer, tcpPacket)
 							}
 
@@ -1932,7 +1932,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 							outPacket, errp := packet.New(0, output, "0")
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, false)
 							}
 							err = enforcer.processNetworkTCPPackets(outPacket)
@@ -2299,12 +2299,12 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 
 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() == true && countSynAckPacket <= 1 {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && countSynAckPacket <= 1 {
 								i = i - 1
 								countSynAckPacket++
 							}
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
 								i = i - 1
 								isAckPacket = true
 							}
@@ -2339,11 +2339,11 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 
 							enforcer.processApplicationTCPPackets(tcpPacket)
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 								CheckAfterAppSynPacket(enforcer, tcpPacket)
 							}
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !checkAfterAppAckFlag {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !checkAfterAppAckFlag {
 								CheckAfterAppAckPacket(enforcer, tcpPacket)
 								checkAfterAppAckFlag = true
 
@@ -2361,13 +2361,13 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								if isChecked {
 									//time.Sleep(time.Millisecond * 61000)
 									netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
@@ -2375,11 +2375,11 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 								}
 								isChecked = true
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false && !checkBeforeNetAckFlag {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() && !checkBeforeNetAckFlag {
 								CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, checkBeforeNetAckFlag)
 								checkBeforeNetAckFlag = true
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && isSynPacket {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isSynPacket {
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 							} else {
@@ -2475,7 +2475,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 // 						var connSynAck [][]byte
 // 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 //
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
+// 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
 // 								i = 0
 // 								isAckPacket = true
 // 							}
@@ -2522,7 +2522,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 // 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 // 							So(errp, ShouldBeNil)
 //
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 // 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 // 								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
 // 							}
@@ -2602,12 +2602,12 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 
 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() == true && countSynAckPacket <= 1 {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && countSynAckPacket <= 1 {
 								i = i - 1
 								countSynAckPacket++
 							}
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
 								i = i - 1
 								isAckPacket = true
 							}
@@ -2654,13 +2654,13 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								if isChecked {
 									time.Sleep(time.Millisecond * 100)
 									netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
@@ -2920,7 +2920,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 								t.Error("Invalid Test Packet")
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 
 								So(err, ShouldBeNil)
@@ -2938,16 +2938,16 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 							//outPacketcopy, _ := packet.New(0, output, "0")
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 							}
 
-							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							// if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 							// 	CheckAfterNetSynAckPacket(t, enforcer, outPacketcopy, outPacket)
 							// }
 
@@ -3072,20 +3072,20 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 								t.Error("Invalid Test Packet")
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 								So(err, ShouldBeNil)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 								So(err, ShouldBeNil)
 
 							}
 
-							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 							// 	CheckAfterAppAckPacket(enforcer, tcpPacket)
 							// }
 
@@ -3101,22 +3101,22 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 							//
-							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false {
+							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 							// 	CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, false)
 							// }
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
@@ -3245,14 +3245,14 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 								t.Error("Invalid Test Packet")
 							}
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 								So(err, ShouldBeNil)
 
 							}
 
-							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 							// 	CheckAfterAppAckPacket(enforcer, tcpPacket)
 							// }
 
@@ -3268,16 +3268,16 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 							//
-							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false {
+							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 							// 	CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, false)
 							// }
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
@@ -3406,14 +3406,14 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 								t.Error("Invalid Test Packet")
 							}
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 								So(err, ShouldNotBeNil)
 
 							}
 
-							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 							// 	CheckAfterAppAckPacket(enforcer, tcpPacket)
 							// }
 
@@ -3429,21 +3429,21 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 							//
-							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false {
+							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 							// 	CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, false)
 							// }
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldBeNil)
 
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
@@ -3574,7 +3574,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 								t.Error("Invalid Test Packet")
 							}
 							//fmt.Println("Process TCP is called ", i)
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && isAckPacket {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
 								fmt.Println("This is App (A)", i)
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 								So(err, ShouldNotBeNil)
@@ -3596,13 +3596,13 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 							So(errp, ShouldBeNil)
 
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && isAckPacket {
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
 								fmt.Println("This is network (A)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								fmt.Println("DuplicateSYNreceived")
 								So(err, ShouldNotBeNil)
 								fmt.Println(err)
-							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true && isAckPacket {
+							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
 								fmt.Println("This is network (B)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
@@ -3620,7 +3620,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							if isAckPacket {
 								break
 							}
-							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
 								i = -1
 								isAckPacket = true
 							}
@@ -3721,18 +3721,18 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 							if isAckPacket && isAckPacketAgain && isCheckOver && isSynAckPacket {
 // 								break
 // 							}
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
+// 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
 // 								i = 0
 // 								isAckPacket = true
-// 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isSynAckPacket && isAckPacket {
+// 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isSynAckPacket && isAckPacket {
 //
 // 								i = 2
 // 								isSynAckPacket = true
-// 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && isSynAckPacket && isAckPacket && !isAckPacketAgain {
+// 							} else if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckPacket && isAckPacket && !isAckPacketAgain {
 //
 // 								i = 1
 // 								isAckPacketAgain = true
-// 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && isSynAckPacket && isAckPacket && isAckPacketAgain && !isCheckOver {
+// 							} else if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckPacket && isAckPacket && isAckPacketAgain && !isCheckOver {
 // 								i = 2
 // 								isCheckOver = true
 // 							}
@@ -3764,7 +3764,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 								t.Error("Invalid Test Packet")
 // 							}
 // 							fmt.Println("This is all packet", i)
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true && isSynAckPacket && isAckPacket && isAckPacketAgain {
+// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckPacket && isAckPacket && isAckPacketAgain {
 // 								fmt.Println("This is app packet (A)", i)
 // 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 // 								So(err, ShouldNotBeNil)
@@ -3774,11 +3774,11 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 								fmt.Println("This is app packet (B)", i)
 // 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 //
-// 								// if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+// 								// if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 // 								// 	CheckAfterAppSynPacket(enforcer, tcpPacket)
 // 								// }
 // 								//
-// 								// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !checkAfterAppAckFlag {
+// 								// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !checkAfterAppAckFlag {
 // 								// 	CheckAfterAppAckPacket(enforcer, tcpPacket)
 // 								// 	checkAfterAppAckFlag = true
 // 								//
@@ -3798,27 +3798,27 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 // 							So(errp, ShouldBeNil)
 //
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 // 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 // 								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
 // 							}
 // 							//
-// 							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false && !checkBeforeNetAckFlag {
+// 							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() && !checkBeforeNetAckFlag {
 // 							// 	CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, checkBeforeNetAckFlag)
 // 							// 	checkBeforeNetAckFlag = true
 // 							// }
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true && isSynAckPacket && isAckPacket && isAckPacketAgain {
+// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckPacket && isAckPacket && isAckPacketAgain {
 // 								fmt.Println("This is network packet (A)", i)
 // 								err = enforcer.processNetworkTCPPackets(tcpPacket)
 // 								So(err, ShouldNotBeNil)
 //
 // 							} else {
 // 								fmt.Println("This is network packet (B)", i)
-// 								if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && !newConnection {
+// 								if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && !newConnection {
 // 									err = enforcer.processNetworkTCPPackets(outPacket)
 // 									So(err, ShouldBeNil)
 // 									newConnection = true
-// 								} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && newConnection {
+// 								} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && newConnection {
 // 									err = enforcer.processNetworkTCPPackets(outPacket)
 // 									So(err, ShouldNotBeNil)
 // 								} else {
@@ -3930,10 +3930,10 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 							if isDone {
 // 								break
 // 							}
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isAckPacket {
+// 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
 // 								i = 0
 // 								isAckPacket = true
-// 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !isSynAckPacket && isAckPacket {
+// 							} else if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isSynAckPacket && isAckPacket {
 // 								i = 2
 // 								isSynAckPacket = true
 // 							}
@@ -3965,15 +3965,15 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 								t.Error("Invalid Test Packet")
 // 							}
 // 							fmt.Println("This is all App packet", i)
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && isAckPacket && isSynAckPacket {
+// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket && isSynAckPacket {
 // 								fmt.Println("This is App packet (A)", i)
 // 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 //
-// 								// if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false {
+// 								// if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 // 								// 	CheckAfterAppSynPacket(enforcer, tcpPacket)
 // 								// }
 // 								//
-// 								// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && !checkAfterAppAckFlag {
+// 								// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !checkAfterAppAckFlag {
 // 								// 	CheckAfterAppAckPacket(enforcer, tcpPacket)
 // 								// 	checkAfterAppAckFlag = true
 // 								//
@@ -3998,16 +3998,16 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
 // 							So(errp, ShouldBeNil)
 //
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == true {
+// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 // 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 // 								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
 // 							}
 // 							//
-// 							// if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && PacketFlow.GetNthPacket(i).GetTCPFin() == false && !checkBeforeNetAckFlag {
+// 							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() && !checkBeforeNetAckFlag {
 // 							// 	CheckBeforeNetAckPacket(enforcer, tcpPacket, outPacket, checkBeforeNetAckFlag)
 // 							// 	checkBeforeNetAckFlag = true
 // 							// }
-// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() == true && PacketFlow.GetNthPacket(i).GetTCPAck() == false && isAckPacket {
+// 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
 // 								i = 2
 // 								fmt.Println("This is Network packet (A)", i)
 // 								tcpPacket, err = packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
@@ -4026,7 +4026,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 // 								err = enforcer.processNetworkTCPPackets(outPacket)
 //
 // 								So(err, ShouldNotBeNil)
-// 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() == false && PacketFlow.GetNthPacket(i).GetTCPAck() == true && isSynAckPacket && isAckPacket && !isDone {
+// 							} else if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckPacket && isAckPacket && !isDone {
 // 								i = 0
 //
 // 								fmt.Println("This is Network packet (B)", i)

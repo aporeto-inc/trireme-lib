@@ -534,7 +534,7 @@ func (p *PacketFlow) GetUptoFirstSynAckPacket() PacketFlowManipulator {
 	for j := 0; j < len(p.flow); j++ {
 		if !flag {
 			packetsInFlow.AppendPacket(p.flow[j])
-			if p.flow[j].GetTCPSyn() == true && p.flow[j].GetTCPAck() == true && p.flow[j].GetTCPFin() == false {
+			if p.flow[j].GetTCPSyn() && p.flow[j].GetTCPAck() && !p.flow[j].GetTCPFin() {
 				flag = true
 			}
 		}
@@ -552,7 +552,7 @@ func (p *PacketFlow) GetUptoFirstAckPacket() PacketFlowManipulator {
 	for j := 0; j < len(p.flow); j++ {
 		if !flag {
 			packetsInFlow.AppendPacket(p.flow[j])
-			if p.flow[j].GetTCPSyn() == false && p.flow[j].GetTCPAck() == true && p.flow[j].GetTCPFin() == false {
+			if !p.flow[j].GetTCPSyn() && p.flow[j].GetTCPAck() && !p.flow[j].GetTCPFin() {
 				flag = true
 			}
 		}
