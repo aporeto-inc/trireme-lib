@@ -25,8 +25,8 @@ type UidProcessor struct {
 }
 
 //NewUidProcessor -- create a new uidprocessor
-func NewUidProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractorm, releasePath string) *UidProcessor {
-	return &UserProcessor{
+func NewUidProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UidProcessor {
+	return &UidProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
