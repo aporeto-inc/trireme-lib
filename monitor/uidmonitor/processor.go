@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 )
 
 //UidProcessor -- strcuture to hold provivate info for this processor
