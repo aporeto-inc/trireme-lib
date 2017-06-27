@@ -7,13 +7,14 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap"
+	"sync/atomic"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"go.uber.org/zap"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -53,7 +54,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			)
-			return nil
+			return err
 		}
 
 	default:
@@ -151,7 +152,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			)
-			return nil
+			return err
 		}
 	default:
 		context, conn, err = d.appRetrieveState(p)
@@ -728,6 +729,11 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 		}
 	}
 
+	if packet.TCPFlagsToStr(p.TCPFlags) == ".A..S." {
+		if conn.(*TCPConnection).GetState() != TCPSynReceived {
+			return nil, nil, fmt.Errorf("Already received this packet")
+		}
+	}
 	conn.(*TCPConnection).Lock()
 	defer conn.(*TCPConnection).Unlock()
 	context := conn.(*TCPConnection).Context
@@ -771,6 +777,9 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPCon
 		return nil, nil, fmt.Errorf("No Synack Connection")
 	}
 
+	if conn.(*TCPConnection).GetState() != TCPSynSend {
+		return nil, nil, fmt.Errorf("Already received this packet")
+	}
 	conn.(*TCPConnection).Lock()
 	defer conn.(*TCPConnection).Unlock()
 	context := conn.(*TCPConnection).Context
