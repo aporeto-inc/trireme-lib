@@ -94,11 +94,11 @@ func (s *store) RemoveContext(contextID string) error {
 // Destroy will clean up the entire state for all services in the system
 func (s *store) DestroyStore() error {
 
-	if _, err := os.Stat(s.storebasepath); os.IsNotExist(err) {
+	if _, err := os.Stat(s.storebasePath); os.IsNotExist(err) {
 		return fmt.Errorf("Store Not Initialized")
 	}
 
-	return os.RemoveAll(s.storebasepath)
+	return os.RemoveAll(s.storebasePath)
 }
 
 // WalkStore retrieves all the context store information and returns it in a channel
@@ -106,7 +106,7 @@ func (s *store) WalkStore() (chan string, error) {
 
 	contextChannel := make(chan string, 1)
 
-	files, err := ioutil.ReadDir(s.storebasepath)
+	files, err := ioutil.ReadDir(s.storebasePath)
 	if err != nil {
 		close(contextChannel)
 		return contextChannel, fmt.Errorf("Store is empty")
