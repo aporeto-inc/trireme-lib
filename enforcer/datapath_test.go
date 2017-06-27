@@ -31,7 +31,7 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		PacketFlow := packetgen.NewTemplateFlow()
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
@@ -300,8 +300,9 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
-
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 			Convey("When I pass multiple packets through the enforcer", func() {
 
 				for k := 0; k < 2; k++ {
@@ -408,7 +409,9 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 
 		Convey("Given I create a two processing unit instances", func() {
 
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
@@ -594,13 +597,15 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 
 		Convey("Given I create a two processing unit instances", func() {
 
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
-
 			Convey("When I pass multiple packets through the enforcer", func() {
 
 				PacketFlow := packetgen.NewTemplateFlow()
@@ -666,7 +671,9 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
-		puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+		var puInfo1, puInfo2 *policy.PUInfo
+		var enforcer *Datapath
+		var err1, err2 error
 		Convey("Given I create a two processing unit instances", func() {
 
 			for k := 0; k < 2; k++ {
@@ -1018,13 +1025,15 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 
 		Convey("Given I create a two processing unit instances", func() {
 
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
 			So(err2, ShouldBeNil)
-
 			Convey("When I pass multiple packets through the enforcer", func() {
 
 				firstAckPacketReceived := false
@@ -1357,7 +1366,9 @@ func TestInvalidPacket(t *testing.T) {
 	// collector := &collector.DefaultCollector{}
 	// secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 	// enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
-	puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+	var puInfo1, puInfo2 *policy.PUInfo
+	var enforcer *Datapath
+	var err1, err2 error
 
 	Convey("When I receive an invalid packet", t, func() {
 
@@ -1553,13 +1564,9 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass SYN packet through the enforcer", func() {
 
@@ -1692,13 +1699,9 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass upto SYNACK packet through the enforcer", func() {
 
@@ -1835,13 +1838,9 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass upto ACK packet through the enforcer", func() {
 
@@ -1978,13 +1977,9 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
@@ -2115,15 +2110,9 @@ func TestFlowReportingMultipleFlows(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, err3, err4 := setupProcessingUnitsInDatapathAndEnforce(nil, true, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
-			So(err3, ShouldBeNil)
-			So(err4, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass multiple flows (2 in this case) through the enforcer", func() {
 
@@ -2240,13 +2229,9 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass multiple packets with replay attacks through the enforcer", func() {
 
@@ -2292,7 +2277,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 						PacketFlow := packetgen.NewTemplateFlow()
 						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
-						var isAckPacket, isChecked, isSynPacket bool
+						var isAckPacket, isChecked, isSynPacket, isSynAckPacket, isSynAckNetPacket bool
 						var countSynAckPacket int
 						var checkAfterAppAckFlag, checkBeforeNetAckFlag bool
 						var connSynAck [][]byte
@@ -2336,9 +2321,24 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
 								t.Error("Invalid Test Packet")
 							}
-
-							enforcer.processApplicationTCPPackets(tcpPacket)
-
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isSynPacket {
+								fmt.Println("This a app (A)", i)
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								So(err, ShouldNotBeNil)
+							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckPacket {
+								fmt.Println("This a app (B)", i)
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								So(err, ShouldNotBeNil)
+							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
+								fmt.Println("This a app (C)", i)
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								isSynAckPacket = true
+								So(err, ShouldBeNil)
+							} else {
+								fmt.Println("This a app (D)", i)
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								So(err, ShouldBeNil)
+							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() {
 								CheckAfterAppSynPacket(enforcer, tcpPacket)
 							}
@@ -2380,9 +2380,20 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 								checkBeforeNetAckFlag = true
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isSynPacket {
+								fmt.Println("This is net (A)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
+							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isSynAckNetPacket {
+								fmt.Println("This a net (B)", i)
+								err = enforcer.processNetworkTCPPackets(outPacket)
+								So(err, ShouldNotBeNil)
+							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
+								fmt.Println("This a net (C)", i)
+								err = enforcer.processNetworkTCPPackets(outPacket)
+								isSynAckNetPacket = true
+								So(err, ShouldBeNil)
 							} else {
+								fmt.Println("This is net (C)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								isSynPacket = true
 								So(err, ShouldBeNil)
@@ -2564,13 +2575,9 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass multiple packets through the enforcer", func() {
 
@@ -2702,13 +2709,9 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass SYN packet without a  token through the enforcer", func() {
 
@@ -2839,13 +2842,9 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass upto SynAck packet with no token for SynAck through the enforcer", func() {
 
@@ -2991,13 +2990,9 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass upto ACK packet with no token for Ack through the enforcer", func() {
 
@@ -3163,13 +3158,9 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass upto SynAck with no token for Syn through the enforcer", func() {
 
@@ -3248,7 +3239,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
-								So(err, ShouldBeNil)
+								So(err, ShouldNotBeNil)
 
 							}
 
@@ -3280,7 +3271,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
-								So(err, ShouldBeNil)
+								So(err, ShouldNotBeNil)
 
 							}
 
@@ -3324,13 +3315,9 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass upto ACK packet with no token for Syn and SynAck through the enforcer", func() {
 
@@ -3440,7 +3427,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								err = enforcer.processNetworkTCPPackets(outPacket)
-								So(err, ShouldBeNil)
+								So(err, ShouldNotBeNil)
 
 							}
 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
@@ -3489,13 +3476,9 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
 		Convey("Given I create a two processing unit instances", func() {
-
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
-
-			So(puInfo1, ShouldNotBeNil)
-			So(puInfo2, ShouldNotBeNil)
-			So(err1, ShouldBeNil)
-			So(err2, ShouldBeNil)
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
 
 			Convey("When I pass multiple packets with delay of Syn after ack", func() {
 
@@ -3618,6 +3601,160 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							}
 
 							if isAckPacket {
+								break
+							}
+							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
+								i = -1
+								isAckPacket = true
+							}
+						}
+					}
+				})
+			})
+		})
+	})
+}
+
+func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+
+	SIP := net.IPv4zero
+
+	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
+
+		Convey("Given I create a two processing unit instances", func() {
+			var puInfo1, puInfo2 *policy.PUInfo
+			var enforcer *Datapath
+			var err1, err2 error
+
+			Convey("When I pass multiple packets with delay SynAck twice after Ack", func() {
+
+				Convey("Then I expect the flow to be reported only once ", func() {
+
+					for k := 0; k < 2; k++ {
+						if k == 0 {
+
+							var flowRecord collector.FlowRecord
+
+							flowRecord.Count = 0
+							flowRecord.SourceIP = "10.1.10.76"
+							flowRecord.DestinationIP = "164.67.228.152"
+							flowRecord.DestinationPort = 80
+							flowRecord.Action = "accept"
+
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+
+							fmt.Println("This is Container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							So(puInfo1, ShouldNotBeNil)
+							So(puInfo2, ShouldNotBeNil)
+							So(err1, ShouldBeNil)
+							So(err2, ShouldBeNil)
+
+						} else if k == 1 {
+
+							var flowRecord collector.FlowRecord
+
+							flowRecord.Count = 0
+							flowRecord.SourceIP = "10.1.10.76"
+							flowRecord.DestinationIP = "164.67.228.152"
+							flowRecord.DestinationPort = 80
+							flowRecord.Action = "accept"
+
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+							fmt.Println("This is Server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							So(puInfo1, ShouldNotBeNil)
+							So(puInfo2, ShouldNotBeNil)
+							So(err1, ShouldBeNil)
+							So(err2, ShouldBeNil)
+
+						}
+						PacketFlow := packetgen.NewTemplateFlow()
+						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+
+						var isAckPacket bool
+						//var checkAfterAppAckFlag, checkBeforeNetAckFlag bool
+						for i := 0; i < 3; i++ {
+
+							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							if err == nil && oldPacket != nil {
+								oldPacket.UpdateIPChecksum()
+								oldPacket.UpdateTCPChecksum()
+							}
+							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							if err == nil && tcpPacket != nil {
+								tcpPacket.UpdateIPChecksum()
+								tcpPacket.UpdateTCPChecksum()
+
+							}
+							if debug {
+								fmt.Println("Input packet", i)
+								tcpPacket.Print(0)
+							}
+
+							So(err, ShouldBeNil)
+							So(tcpPacket, ShouldNotBeNil)
+
+							if reflect.DeepEqual(SIP, net.IPv4zero) {
+								SIP = tcpPacket.SourceAddress
+							}
+							if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
+								!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+								t.Error("Invalid Test Packet")
+							}
+							//fmt.Println("Process TCP is called ", i)
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
+								fmt.Println("This is App (A)", i)
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								So(err, ShouldNotBeNil)
+							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
+								fmt.Println("This is App (B)", i)
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								So(err, ShouldNotBeNil)
+							} else {
+								fmt.Println("This is App (C)", i)
+								err = enforcer.processApplicationTCPPackets(tcpPacket)
+								So(err, ShouldBeNil)
+							}
+
+							if debug {
+								fmt.Println("Intermediate packet", i)
+								tcpPacket.Print(0)
+							}
+
+							output := make([]byte, len(tcpPacket.GetBytes()))
+							copy(output, tcpPacket.GetBytes())
+
+							outPacket, errp := packet.New(0, output, "0")
+							So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+							So(errp, ShouldBeNil)
+
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
+								fmt.Println("This is network (A)", i)
+								err = enforcer.processNetworkTCPPackets(outPacket)
+								fmt.Println("DuplicateSYNreceived")
+								So(err, ShouldNotBeNil)
+								fmt.Println(err)
+							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
+								fmt.Println("This is network (B)", i)
+								err = enforcer.processNetworkTCPPackets(outPacket)
+								So(err, ShouldNotBeNil)
+							} else {
+								fmt.Println("This is network (C)", i)
+								err = enforcer.processNetworkTCPPackets(outPacket)
+								So(err, ShouldBeNil)
+							}
+
+							if debug {
+								fmt.Println("Output packet", i)
+								outPacket.Print(0)
+							}
+							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
 								break
 							}
 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !isAckPacket {
