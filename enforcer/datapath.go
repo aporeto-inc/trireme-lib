@@ -73,6 +73,7 @@ type Datapath struct {
 	app    InterfaceStats
 	netTCP PacketStats
 	appTCP PacketStats
+
 	// to keep track of the packets that are dropped
 	numOfPacketsDropped uint32
 	// mode captures the mode of the enforcer
