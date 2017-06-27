@@ -73,7 +73,8 @@ type Datapath struct {
 	app    InterfaceStats
 	netTCP PacketStats
 	appTCP PacketStats
-
+	// to keep track of the packets that are dropped
+	numOfPacketsDropped uint32
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
 
@@ -82,9 +83,7 @@ type Datapath struct {
 	appStop []chan bool
 
 	// ack size
-	ackSize uint32
-	// to keep track of the packets that are dropped
-	numOfPacketsDropped uint32
+	ackSize             uint32
 	mutualAuthorization bool
 
 	sync.Mutex
