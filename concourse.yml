@@ -22,7 +22,6 @@ run:
     
     cd go/src/github.com/aporeto-inc/trireme
     git branch
-    make package
     commit_sha=$(git rev-parse HEAD)
     cd -
 
