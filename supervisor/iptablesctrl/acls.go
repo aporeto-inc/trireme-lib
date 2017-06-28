@@ -289,7 +289,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 	if err := i.ipt.Append(
 		i.appAckPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
-		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED", "!", "--tcp-flags", "SYN", "SYN",
 		"-j", "ACCEPT"); err != nil {
 
 		return fmt.Errorf("Failed to add default tcp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
@@ -372,7 +372,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 	if err := i.ipt.Append(
 		i.netPacketIPTableContext, chain,
 		"-s", "0.0.0.0/0",
-		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED", "!", "--tcp-flags", "SYN", "SYN",
 		"-j", "ACCEPT",
 	); err != nil {
 
