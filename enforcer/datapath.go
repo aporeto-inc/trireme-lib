@@ -104,7 +104,7 @@ func New(
 	procMountPoint string,
 ) PolicyEnforcer {
 
-	if mode == constants.RemoteContainer || mode == constants.LocalServer {
+	if mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
 
 		sysctlCmd, err := exec.LookPath("sysctl")
