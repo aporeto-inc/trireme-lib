@@ -56,7 +56,7 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 			return nil, fmt.Errorf("Failed to clean up rpc socket")
 		}
 	}
-
+	fmt.Println("Hello")
 	if puHandler == nil {
 		return nil, fmt.Errorf("PU Handler required")
 	}
@@ -75,6 +75,7 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 	// Registering the monitorRPCServer as an RPC Server.
 	r.rpcServer = rpc.NewServer()
 	err := r.rpcServer.Register(r.monitorServer)
+
 	if err != nil {
 		zap.L().Fatal("Format of service MonitorServer isn't correct", zap.Error(err))
 	}

@@ -72,11 +72,13 @@ func TestNewRPCMonitor(t *testing.T) {
 		})
 
 		Convey("If we start with an RPC address that exists", func() {
-			os.Create("/tmp/testfile") // nolint : errcheck
-			_, err := NewRPCMonitor("/tmp/testfile", &CustomPolicyResolver{}, nil)
+			os.Create("./testfile") // nolint : errcheck
+			contextStorePath = "./base"
+			_, err := NewRPCMonitor("./testfile", &CustomPolicyResolver{}, nil)
+			//fmt.Println("Hello")
 			Convey("I should get no error and the file is removed", func() {
 				So(err, ShouldBeNil)
-				_, ferr := os.Stat("/tmp/testfile")
+				_, ferr := os.Stat("./testfile")
 				So(ferr, ShouldNotBeNil)
 			})
 		})
