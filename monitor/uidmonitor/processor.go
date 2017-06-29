@@ -19,8 +19,8 @@ const (
 	storePath = "/var/run/trireme/uids/"
 )
 
-//UidProcessor -- strcuture to hold provivate info for this processor
-type UidProcessor struct {
+//UIDProcessor -- strcuture to hold provivate info for this processor
+type UIDProcessor struct {
 	collector         collector.EventCollector
 	puHandler         monitor.ProcessingUnitsHandler
 	metadataExtractor rpcmonitor.RPCMetadataExtractor
@@ -28,9 +28,9 @@ type UidProcessor struct {
 	contextStore      contextstore.ContextStore
 }
 
-//NewUidProcessor -- create a new uidprocessor
-func NewUidProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UidProcessor {
-	return &UidProcessor{
+//NewUIDProcessor -- create a new uidprocessor
+func NewUIDProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UIDProcessor {
+	return &UIDProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
@@ -40,13 +40,13 @@ func NewUidProcessor(collector collector.EventCollector, puHandler monitor.Proce
 }
 
 //Create -- handles the create event -- we don't expect this event
-func (s *UidProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 
 	return fmt.Errorf("Received Create :: UidMonitor::Event Not Supported")
 }
 
 //Start -- handle the start event
-func (s *UidProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return err
@@ -118,7 +118,7 @@ func (s *UidProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 //Stop -- handles the stop event
-func (s *UidProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
@@ -140,7 +140,7 @@ func (s *UidProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 //Destroy -- handles destroy event
-func (s *UidProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
@@ -180,7 +180,7 @@ func (s *UidProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 //Pause -- handles the pause event -- does not makes sense for this monitor
-func (s *UidProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 
 	return fmt.Errorf("Event Not Supported")
 }
