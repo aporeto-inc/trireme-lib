@@ -32,7 +32,9 @@ func TestStoreContext(t *testing.T) {
 		t.Errorf("Failed to store context data %s", err.Error())
 		t.SkipNow()
 	} else {
-		readdata, _ := ioutil.ReadFile(storebasePath + testcontextID + eventInfoFile)
+
+		readdata, _ := ioutil.ReadFile("./base/" + testcontextID + eventInfoFile)
+
 		if strings.TrimSpace(string(readdata)) != string(marshaldata) {
 			t.Errorf("Data corrupted in stores")
 			t.SkipNow()
