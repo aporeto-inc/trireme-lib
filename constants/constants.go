@@ -41,7 +41,7 @@ const (
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
-	//UidLoginPU -- PU representing a user session
+	//UIDLoginPU -- PU representing a user session
 	UIDLoginPU
 )
 
