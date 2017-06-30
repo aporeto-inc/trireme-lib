@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -661,6 +662,7 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, ip string, exclus
 			i.netPacketIPTableContext, netChain, 1,
 			"-s", e,
 			"-d", ip,
+			"-p", "tcp", "!", "--tcp-option", strconv.Itoa(int(packet.TCPAuthenticationOption)),
 			"-j", "ACCEPT",
 		); err != nil {
 			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, netChain, e, err.Error())
