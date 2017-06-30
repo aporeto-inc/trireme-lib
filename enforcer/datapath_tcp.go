@@ -373,9 +373,9 @@ func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PU
 	}
 
 	// Update connection state in the internal state machine tracker
-	switch tcpPacket.TCPFlags {
+	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
 
-	case packet.TCPSynMask & packet.TCPSynAckMask:
+	case packet.TCPSynMask:
 		return d.processNetworkSynPacket(context, conn, tcpPacket)
 
 	case packet.TCPAckMask:
