@@ -72,12 +72,12 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	conn.Lock()
 	defer conn.Unlock()
 
-	d.netTCP.IncomingPackets++
+	atomic.AddUint32(&d.netTCP.IncomingPackets, 1)
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
 		if !d.service.PreProcessTCPNetPacket(p, context, conn) {
-			d.netTCP.ServicePreDropPackets++
+			atomic.AddUint32(&d.netTCP.ServicePreDropPackets, 1)
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("Pre service processing failed for network packet")
 		}
@@ -88,7 +88,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, claims, err := d.processNetworkTCPPacket(p, context, conn)
 	if err != nil {
-		d.netTCP.AuthDropPackets++
+		atomic.AddUint32(&d.netTCP.AuthDropPackets, 1)
 		p.Print(packet.PacketFailureAuth)
 		zap.L().Debug("Rejecting packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -103,14 +103,14 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPNetPacket(p, action, claims, context, conn) {
-			d.netTCP.ServicePostDropPackets++
+			atomic.AddUint32(&d.netTCP.ServicePostDropPackets, 1)
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("PostPost service processing failed for network packet")
 		}
 	}
 
 	// Accept the packet
-	d.netTCP.OutgoingPackets++
+	atomic.AddUint32(&d.netTCP.OutgoingPackets, 1)
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 
@@ -169,13 +169,13 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	conn.Lock()
 	defer conn.Unlock()
 
-	d.appTCP.IncomingPackets++
+	atomic.AddUint32(&d.appTCP.IncomingPackets, 1)
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPAppPacket(p, context, conn) {
-			d.appTCP.ServicePreDropPackets++
+			atomic.AddUint32(&d.appTCP.ServicePreDropPackets, 1)
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("Pre service processing failed for application packet")
 		}
@@ -191,7 +191,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			zap.Error(err),
 		)
-		d.appTCP.AuthDropPackets++
+		atomic.AddUint32(&d.appTCP.AuthDropPackets, 1)
 		p.Print(packet.PacketFailureAuth)
 		return fmt.Errorf("Processing failed for application packet: %s", err.Error())
 	}
@@ -201,14 +201,14 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPAppPacket(p, action, context, conn) {
-			d.appTCP.ServicePostDropPackets++
+			atomic.AddUint32(&d.appTCP.ServicePostDropPackets, 1)
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("Post service processing failed for application packet")
 		}
 	}
 
 	// Accept the packet
-	d.appTCP.OutgoingPackets++
+	atomic.AddUint32(&d.appTCP.OutgoingPackets, 1)
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 	return nil
@@ -375,9 +375,9 @@ func (d *Datapath) processNetworkTCPPacket(tcpPacket *packet.Packet, context *PU
 	}
 
 	// Update connection state in the internal state machine tracker
-	switch tcpPacket.TCPFlags {
+	switch tcpPacket.TCPFlags & packet.TCPSynAckMask {
 
-	case packet.TCPSynMask & packet.TCPSynAckMask:
+	case packet.TCPSynMask:
 		return d.processNetworkSynPacket(context, conn, tcpPacket)
 
 	case packet.TCPAckMask:
