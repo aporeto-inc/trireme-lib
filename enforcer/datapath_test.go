@@ -1080,6 +1080,11 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
+						So(puInfo1, ShouldNotBeNil)
+						So(puInfo2, ShouldNotBeNil)
+						So(enforcer, ShouldNotBeNil)
+						So(err1, ShouldBeNil)
+						So(err2, ShouldBeNil)
 
 					} else if k == 1 {
 						tagSelector := policy.TagSelector{

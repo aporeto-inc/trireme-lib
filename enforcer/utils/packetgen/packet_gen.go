@@ -489,21 +489,8 @@ func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator {
 
 		return p
 
-	} else if pt == 4 {
-
-		for i := 0; i < len(PacketFlowTemplate4); i++ {
-
-			//Create a Packet type variable to store decoded packet
-			newPacket := NewPacket()
-			packet := gopacket.NewPacket(PacketFlowTemplate4[i], layers.LayerTypeEthernet, gopacket.Default)
-			newPacket.AddPacket(packet)
-			fmt.Println(packet)
-			p.flow = append(p.flow, newPacket.DecodePacket())
-
-		}
-
-		return p
 	}
+
 	return nil
 }
 
