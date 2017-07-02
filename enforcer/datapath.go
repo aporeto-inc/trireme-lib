@@ -84,7 +84,8 @@ type Datapath struct {
 	appStop []chan bool
 
 	// ack size
-	ackSize             uint32
+	ackSize uint32
+
 	mutualAuthorization bool
 
 	sync.Mutex
