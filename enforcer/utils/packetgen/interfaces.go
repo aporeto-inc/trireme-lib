@@ -17,8 +17,6 @@ const (
 	PacketFlowTypeMultipleGoodFlow
 	//PacketFlowTypeMultipleIntervenedFlow will have two flows intervened to eachothers
 	PacketFlowTypeMultipleIntervenedFlow
-	//PacketFlowTypeWithRandomFlagsSet will have a FIN flag inbetween
-	PacketFlowTypeWithRandomFlagsSet
 )
 
 //EthernetPacketManipulator interface is used to create/manipulate Ethernet packet

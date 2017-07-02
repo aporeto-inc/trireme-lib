@@ -488,9 +488,7 @@ func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator {
 		}
 
 		return p
-
 	}
-
 	return nil
 }
 
