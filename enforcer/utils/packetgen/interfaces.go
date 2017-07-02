@@ -69,6 +69,18 @@ type TCPPacketManipulator interface {
 	SetTCPSynAck()
 	//Used to set TCP Ack flag to true
 	SetTCPAck()
+	//Used to set TCP Cwr flag to true
+	SetTCPCwr()
+	//Used to set TCP Ece flag to true
+	SetTCPEce()
+	//Used to set TCP Urg flag to true
+	SetTCPUrg()
+	//Used to set TCP Psh flag to true
+	SetTCPPsh()
+	//Used to set TCP Rst flag to true
+	SetTCPRst()
+	//Used to set TCP Fin flag to true
+	SetTCPFin()
 	//Used to add TCP Payload
 	NewTCPPayload(newPayload string) error
 }

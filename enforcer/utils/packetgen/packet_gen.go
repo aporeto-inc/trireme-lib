@@ -250,6 +250,36 @@ func (p *Packet) SetTCPAck() {
 	p.tcpLayer.FIN = false
 }
 
+//SetTCPCwr changes the TCP CWR flag to true
+func (p *Packet) SetTCPCwr() {
+	p.tcpLayer.CWR = true
+}
+
+//SetTCPEce changes the TCP ECE flag to true
+func (p *Packet) SetTCPEce() {
+	p.tcpLayer.ECE = true
+}
+
+//SetTCPUrg changes the TCP URG flag to true
+func (p *Packet) SetTCPUrg() {
+	p.tcpLayer.URG = true
+}
+
+//SetTCPPsh changes the TCP PSH flag to true
+func (p *Packet) SetTCPPsh() {
+	p.tcpLayer.PSH = true
+}
+
+//SetTCPRst changes the TCP RST flag to true
+func (p *Packet) SetTCPRst() {
+	p.tcpLayer.RST = true
+}
+
+//SetTCPFin changes the TCP FIN flag to true
+func (p *Packet) SetTCPFin() {
+	p.tcpLayer.FIN = true
+}
+
 //NewTCPPayload adds new payload to TCP layer
 func (p *Packet) NewTCPPayload(newPayload string) error {
 
@@ -342,7 +372,8 @@ func (p *Packet) DecodePacket() PacketManipulator {
 		newTCPPacket.RST = tcp.RST
 		newTCPPacket.PSH = tcp.PSH
 		newTCPPacket.ACK = tcp.ACK
-		newTCPPacket.URG = tcp.ECE
+		newTCPPacket.URG = tcp.URG
+		newTCPPacket.ECE = tcp.ECE
 		newTCPPacket.CWR = tcp.CWR
 		newTCPPacket.NS = tcp.NS
 		newTCPPacket.Checksum = tcp.Checksum
