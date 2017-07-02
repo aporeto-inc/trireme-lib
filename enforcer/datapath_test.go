@@ -2421,7 +2421,6 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
-	packetDiffers := false
 
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
 
@@ -2556,17 +2555,6 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							if debug {
 								fmt.Println("Output packet", i)
 								outPacket.Print(0)
-							}
-
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
-								packetDiffers = true
-								fmt.Println("Error: packets dont match")
-								fmt.Println("Input Packet")
-								oldPacket.Print(0)
-								fmt.Println("Output Packet")
-								outPacket.Print(0)
-								t.Errorf("Packet %d Input and output packet do not match", i)
-								t.FailNow()
 							}
 						}
 					}
