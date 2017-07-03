@@ -230,6 +230,15 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 	fmt.Println("ip: ", ip)
 	fmt.Println("rules: ", rules)
 
+	if err := i.ipt.Insert(
+		i.appPacketIPTableSection, chain, 0,
+		"-p", "TCP", "-m", "state", "--state", "NEW",
+		"comment", "--comment", "Christophe test",
+		"-j", "nflog", "--nflog-group", "10", "--nglog-prefix", "Chris",
+	); err != nil {
+		return fmt.Errorf("Failed to add nflog rule for table %s, chain %s, with  %s", i.appPacketIPTableSection, chain, err.Error())
+	}
+
 	for _, rule := range rules.Rules {
 		if rule.Protocol == "UDP" || rule.Protocol == "TCP" {
 			switch rule.Action {
@@ -240,6 +249,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"-d", rule.Address,
 					"--dport", rule.Port,
 					"-j", "ACCEPT",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
@@ -250,6 +260,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"-d", rule.Address,
 					"--dport", rule.Port,
 					"-j", "DROP",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
@@ -264,6 +275,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"-p", rule.Protocol,
 					"-d", rule.Address,
 					"-j", "ACCEPT",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
@@ -273,6 +285,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 					"-p", rule.Protocol,
 					"-d", rule.Address,
 					"-j", "DROP",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
@@ -287,6 +300,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 		i.appAckPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
 		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
+		"comment", "--comment", "Christophe test",
 		"-j", "ACCEPT"); err != nil {
 
 		return fmt.Errorf("Failed to add default udp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
@@ -296,6 +310,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 		i.appAckPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+		"comment", "--comment", "Christophe test",
 		"-j", "ACCEPT"); err != nil {
 
 		return fmt.Errorf("Failed to add default tcp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
@@ -305,6 +320,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 	if err := i.ipt.Append(
 		i.appAckPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
+		"comment", "--comment", "Christophe test",
 		"-j", "DROP"); err != nil {
 
 		return fmt.Errorf("Failed to add default drop acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
@@ -333,6 +349,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"-s", rule.Address,
 					"--dport", rule.Port,
 					"-j", "ACCEPT",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 
 					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
@@ -344,6 +361,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"-s", rule.Address,
 					"--dport", rule.Port,
 					"-j", "DROP",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 
 					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
@@ -359,6 +377,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"-p", rule.Protocol,
 					"-s", rule.Address,
 					"-j", "ACCEPT",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 
 					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
@@ -369,6 +388,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 					"-p", rule.Protocol,
 					"-s", rule.Address,
 					"-j", "DROP",
+					"comment", "--comment", "Christophe test",
 				); err != nil {
 
 					return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
@@ -385,6 +405,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		"-s", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT",
+		"comment", "--comment", "Christophe test",
 	); err != nil {
 
 		return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
@@ -395,6 +416,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		"-s", "0.0.0.0/0",
 		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT",
+		"comment", "--comment", "Christophe test",
 	); err != nil {
 
 		return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
@@ -405,6 +427,7 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 		i.netPacketIPTableContext, chain,
 		"-s", "0.0.0.0/0",
 		"-j", "DROP",
+		"comment", "--comment", "Christophe test",
 	); err != nil {
 
 		return fmt.Errorf("Failed to add net acl rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, chain, err.Error())
