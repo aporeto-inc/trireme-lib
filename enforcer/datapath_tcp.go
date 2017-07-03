@@ -265,7 +265,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
 	// sequence numbers between the TCP stacks automatically match
-	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
+	// tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
 
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 
@@ -293,8 +293,8 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		}
 
 		// Attach the tags to the packet
-		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
-		tcpPacket.DecreaseTCPAck(d.ackSize)
+		// tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
+		// tcpPacket.DecreaseTCPAck(d.ackSize)
 
 		return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 	}
@@ -335,7 +335,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		}
 
 		// Attach the tags to the packet
-		tcpPacket.DecreaseTCPSeq(d.ackSize)
+		// tcpPacket.DecreaseTCPSeq(d.ackSize)
 		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
 			return nil, err
 		}
@@ -394,6 +394,15 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 
 	context.Lock()
 	defer context.Unlock()
+
+	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+		fmt.Println("No auth option .. let's check ACLS ")
+		if tcpPacket.SourceAddress.String() == "172.17.0.1" {
+			return nil, nil, nil
+		}
+		return nil, nil, fmt.Errorf("Drop it")
+	}
+
 	// Decode the JWT token using the context key
 	claims, err = d.parsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 
@@ -413,8 +422,8 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
-	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
-	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
+	// tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
+	// tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
@@ -459,6 +468,14 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	context.Lock()
 	defer context.Unlock()
 
+	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+		fmt.Println("No auth option .. let's check ACLS ")
+		if tcpPacket.SourceAddress.String() == "172.17.0.1" {
+			return nil, nil, nil
+		}
+		return nil, nil, fmt.Errorf("Drop it")
+	}
+
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
 		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken)
@@ -481,9 +498,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	}
 
 	// Remove any of our data
-	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
-	tcpPacket.IncreaseTCPSeq(tcpDataLen - 1)
-	tcpPacket.IncreaseTCPAck(d.ackSize)
+	// tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
+	// tcpPacket.IncreaseTCPSeq(tcpDataLen - 1)
+	// tcpPacket.IncreaseTCPAck(d.ackSize)
 
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat)
@@ -539,7 +556,7 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 		}
 
 		// Remove any of our data - adjust the sequence numbers
-		tcpPacket.IncreaseTCPSeq(d.ackSize)
+		// tcpPacket.IncreaseTCPSeq(d.ackSize)
 
 		if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat)

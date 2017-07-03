@@ -121,14 +121,14 @@ func (i *Instance) trapRules(appChain string, netChain string, network string) [
 		// Application Packets - SYN
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
-			"-d", network,
+			//"-d", network,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
 		})
 		// Application Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
-			"-d", network,
+			//"-d", network,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
@@ -136,14 +136,14 @@ func (i *Instance) trapRules(appChain string, netChain string, network string) [
 		// Network Packets - SYN
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
-			"-s", network,
+			//"-s", network,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
 		})
 		// Network Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
-			"-s", network,
+			//"-s", network,
 			"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
@@ -231,7 +231,7 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 			case policy.Accept:
 				if err := i.ipt.Append(
 					i.appAckPacketIPTableContext, chain,
-					"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+					"-p", rule.Protocol, //"-m", "state", "--state", "NEW",
 					"-d", rule.Address,
 					"--dport", rule.Port,
 					"-j", "ACCEPT",
@@ -469,31 +469,29 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // captureTargetSynAckPackets install rules to capture all SynAck packets in the chain
 func (i *Instance) captureTargetSynAckPackets(appChain, netChain string, networks []string) error {
-	for _, net := range networks {
 
-		err := i.ipt.Insert(
-			i.appAckPacketIPTableContext,
-			appChain, 1,
-			"-d", net,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
+	err := i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		appChain, 1,
+		//"-d", net,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
 
-		if err != nil {
-			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
-		}
-
-		err = i.ipt.Insert(
-			i.netPacketIPTableContext,
-			netChain, 1,
-			"-s", net,
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-			"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
-
-		if err != nil {
-			return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())
-		}
-
+	if err != nil {
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		//"-s", net,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
+
+	if err != nil {
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err.Error())
+	}
+
 	return nil
 }
 
