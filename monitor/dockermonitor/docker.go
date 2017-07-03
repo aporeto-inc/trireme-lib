@@ -2,9 +2,11 @@ package dockermonitor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,6 +18,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -47,6 +51,9 @@ const (
 
 	// DockerClientVersion is the version sent out as the client
 	DockerClientVersion = "v1.23"
+
+	// DockerHostMode is the string of the network mode that indicates a host namespace
+	DockerHostMode = "host"
 )
 
 // A DockerEventHandler is type of docker event handler functions.
@@ -113,6 +120,10 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 		"bridge": info.NetworkSettings.IPAddress,
 	})
 
+	if info.HostConfig.NetworkMode == DockerHostMode {
+		return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.LinuxProcessPU, nil), nil
+	}
+
 	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.ContainerPU, nil), nil
 }
 
@@ -128,6 +139,8 @@ type dockerMonitor struct {
 
 	collector collector.EventCollector
 	puHandler monitor.ProcessingUnitsHandler
+
+	netcls cgnetcls.Cgroupnetcls
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
 	killContainerOnPolicyError bool
 	syncAtStart                bool
@@ -169,6 +182,7 @@ func NewDockerMonitor(
 		syncAtStart:                syncAtStart,
 		syncHandler:                s,
 		killContainerOnPolicyError: killContainerOnPolicyError,
+		netcls: cgnetcls.NewDockerCgroupNetController(),
 	}
 
 	// Add handlers for the events that we know how to process
@@ -361,17 +375,82 @@ func (d *dockerMonitor) syncContainers() error {
 	return nil
 }
 
+// configHostMode configures the parameters for a Host Mode container. I will use the
+// net_cls approach of Linux processes to isolate the container.
+func (d *dockerMonitor) configHostMode(runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) {
+
+	// Create the options needed to activate
+	options := policy.NewTagsMap(map[string]string{
+		cgnetcls.PortTag:       "0",
+		cgnetcls.CgroupNameTag: strconv.Itoa(dockerInfo.State.Pid),
+	})
+
+	ports := ""
+
+	for p := range dockerInfo.Config.ExposedPorts {
+		if p.Proto() == "tcp" {
+			if ports == "" {
+				ports = p.Port()
+			} else {
+				ports = ports + "," + p.Port()
+			}
+		}
+	}
+
+	if len(ports) > 0 {
+		options.Tags[cgnetcls.PortTag] = ports
+	}
+
+	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+
+	runtimeInfo.SetOptions(options)
+
+	// Handle it like a Linux process PU
+	runtimeInfo.SetPUType(constants.LinuxProcessPU)
+
+}
+
+// setupHostMode sets up the net_cls cgroup for the host mode
+func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) error {
+
+	if err := d.netcls.Creategroup(contextID); err != nil {
+		return err
+	}
+
+	markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
+	if !ok {
+		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+		return errors.New("Mark value not found")
+	}
+
+	mark, _ := strconv.ParseUint(markval, 10, 32)
+	if err := d.netcls.AssignMark(contextID, mark); err != nil {
+		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+		return err
+	}
+
+	if err := d.netcls.AddProcess(contextID, dockerInfo.State.Pid); err != nil {
+		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+	}
+
+	return nil
+}
+
 func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
 
 	timeout := time.Second * 0
 
 	if !dockerInfo.State.Running {
-
 		return nil
 	}
 
 	contextID, err := contextIDFromDockerID(dockerInfo.ID)
-
 	if err != nil {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
@@ -379,6 +458,10 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
 	if err != nil {
 		return fmt.Errorf("Error getting some of the Docker primitives: %s", err)
+	}
+
+	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
+		d.configHostMode(runtimeInfo, dockerInfo)
 	}
 
 	if err := d.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
@@ -395,6 +478,12 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 			return fmt.Errorf("Policy cound't be set - container was killed")
 		}
 		return fmt.Errorf("Policy cound't be set - container was kept alive per policy")
+	}
+
+	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
+		if err := d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
+			return fmt.Errorf("Failed to setup host mode ")
+		}
 	}
 
 	return nil
@@ -474,11 +563,6 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 		return fmt.Errorf("Cannot read container information. Container still alive per policy. ")
 	}
 
-	if info.HostConfig.NetworkMode == "host" {
-		zap.L().Warn("Ignore host namespace container: do nothing", zap.String("contextID", contextID))
-		return nil
-	}
-
 	return d.startDockerContainer(&info)
 }
 
@@ -493,14 +577,28 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 	dockerID := event.ID
 	contextID, err := contextIDFromDockerID(dockerID)
-
 	if err != nil {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
 	// Send the event upstream
 	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
-	return <-errChan
+
+	err = <-errChan
+	if err != nil {
+		zap.L().Error("Failed to handle delete event",
+			zap.Error(err),
+		)
+	}
+
+	if err := d.netcls.DeleteCgroup(contextID); err != nil {
+		zap.L().Warn("Failed to clean netcls group",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
+	}
+
+	return nil
 }
 
 // handlePauseEvent generates a create event type.

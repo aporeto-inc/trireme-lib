@@ -60,6 +60,12 @@ func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	return &netCls{}
 }
 
+//NewDockerCgroupNetController returns a handle to call functions on the cgroup net_cls controller
+func NewDockerCgroupNetController() Cgroupnetcls {
+
+	return &netCls{}
+}
+
 // MarkVal returns a new Mark
 func MarkVal() uint64 {
 	return 0
