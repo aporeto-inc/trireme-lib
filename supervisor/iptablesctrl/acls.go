@@ -225,6 +225,11 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, ne
 // by an application. The allow rules are inserted with highest priority.
 func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList) error {
 
+	zap.L().Warn("*********\naddAppACLs")
+	fmt.Println("chain: ", chain)
+	fmt.Println("ip: ", ip)
+	fmt.Println("rules: ", rules)
+
 	for _, rule := range rules.Rules {
 		if rule.Protocol == "UDP" || rule.Protocol == "TCP" {
 			switch rule.Action {
@@ -311,6 +316,11 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 // addNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the highest priority since they are direct allows.
 func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error {
+
+	zap.L().Warn("*********\naddNetACLs")
+	fmt.Println("chain: ", chain)
+	fmt.Println("ip: ", ip)
+	fmt.Println("rules: ", rules)
 
 	for _, rule := range rules.Rules {
 
