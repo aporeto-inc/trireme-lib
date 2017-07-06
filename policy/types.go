@@ -24,10 +24,8 @@ const (
 	Accept FlowAction = 0x1
 	// Reject is the reject  action
 	Reject FlowAction = 0x2
-	// Log intstructs the data to log informat
-	Log FlowAction = 0x4
 	// Encrypt instructs data to be encrypted
-	Encrypt FlowAction = 0x8
+	Encrypt FlowAction = 0x4
 )
 
 const (
@@ -51,6 +49,7 @@ type IPRule struct {
 	Port     string
 	Protocol string
 	Action   FlowAction
+	Log      bool
 }
 
 // IPRuleList is a list of IP rules
