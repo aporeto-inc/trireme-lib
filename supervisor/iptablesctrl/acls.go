@@ -384,14 +384,14 @@ func (i *Instance) addNetACLs(chain, ip, contextID string, rules *policy.IPRuleL
 
 	// Logs
 	if err := i.ipt.Insert(
-		i.appAckPacketIPTableContext, chain, 1,
+		i.netPacketIPTableContext, chain, 1,
 		"-p", "tcp",
 		"-s", "0.0.0.0/0",
 		"-m", "state", "--state", "NEW",
 		"-j", "NFLOG", "--nflog-group", "11", "--nflog-prefix", contextID,
 		"-m", "comment", "--comment", "Chris in addNetACLs",
 	); err != nil {
-		return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+		return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
 	}
 
 	// Accept established connections
