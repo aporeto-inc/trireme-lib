@@ -54,7 +54,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 	}
 
 	if mode != constants.LocalServer {
-		logger, err := nflog.NewNFLogger(10, 0, nflog.IPSource)
+		logger, err := nflog.NewNFLogger(11, 10, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("Cannot initialize nflogger: %s", err)
 		}

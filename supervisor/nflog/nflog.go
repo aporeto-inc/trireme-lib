@@ -210,7 +210,7 @@ func (n *nfLog) processPacket(payload []byte, prefix []byte, seq uint32) Packet 
 
 	if seq != 0 && seq != n.seq {
 		n.errors++
-		zap.L().Warn("nflog: missing packets detected", zap.Int("missing", seq-n.seq), zap.Int("current", seq), zap.Int("previous", n.seq))
+		zap.L().Warn("nflog: missing packets detected", zap.Uint32("missing", seq-n.seq), zap.Uint32("current", seq), zap.Uint32("previous", n.seq))
 	}
 	n.seq = seq + 1
 	if ipversion != n.ipVersion {
@@ -248,40 +248,41 @@ func (n *nfLog) makeGroup(group, size int) error {
 
 	gh, err := C._nflog_bind_group(n.h, C.int(group))
 	if gh == nil || err != nil {
-		return fmt.Error("nflog: nflog_bind_group failed: %s", nflogError(err))
+		return fmt.Errorf("nflog: nflog_bind_group failed: %s", nflogError(err))
 	}
 	n.gh = gh
 
 	// Set the maximum amount of logs in buffer for this group
 	if rc, err := C.nflog_set_qthresh(gh, MaxQueueLogs); rc < 0 || err != nil {
-		return fmt.Error("nflog: nflog_set_qthresh failed: %s", nflogError(err))
+		return fmt.Errorf("nflog: nflog_set_qthresh failed: %s", nflogError(err))
 	}
 
 	// Set local sequence numbering to detect missing packets
 	if rc, err := C.nflog_set_flags(gh, C.NFULNL_CFG_F_SEQ); rc < 0 || err != nil {
-		return fmt.Error("nflog: nflog_set_flags failed: %s", nflogError(err))
+		return fmt.Errorf("nflog: nflog_set_flags failed: %s", nflogError(err))
 	}
 
 	// Set buffer size large
 	if rc, err := C.nflog_set_nlbufsiz(gh, NflogBufferSize); rc < 0 || err != nil {
-		return fmt.Error("nflog: nflog_set_nlbufsiz failed: %s", nflogError(err))
+		return fmt.Errorf("nflog: nflog_set_nlbufsiz failed: %s", nflogError(err))
 	}
 
 	// Set recv buffer large - this produces ENOBUFS when too small
 	if rc, err := C.nfnl_rcvbufsiz(C.nflog_nfnlh(n.h), NfRecvBufferSize); rc < 0 || err != nil {
-		return fmt.Error("nflog: nfnl_rcvbufsiz failed: %s", nflogError(err))
-	}
-	if rc < NfRecvBufferSize {
-		return fmt.Error("nflog: nfnl_rcvbufsiz: Failed to set buffer to %d got %d", NfRecvBufferSize, rc)
+		return fmt.Errorf("nflog: nfnl_rcvbufsiz failed: %s", nflogError(err))
+	} else {
+		if rc < NfRecvBufferSize {
+			return fmt.Errorf("nflog: nfnl_rcvbufsiz: Failed to set buffer to %d got %d", NfRecvBufferSize, rc)
+		}
 	}
 
 	// Set timeout
 	if rc, err := C.nflog_set_timeout(gh, NflogTimeout); rc < 0 || err != nil {
-		return fmt.Error("nflog: nflog_set_timeout failed: %s", nflogError(err))
+		return fmt.Errorf("nflog: nflog_set_timeout failed: %s", nflogError(err))
 	}
 
 	if rc, err := C.nflog_set_mode(gh, C.NFULNL_COPY_PACKET, (C.uint)(size)); rc < 0 || err != nil {
-		return fmt.Error("nflog: nflog_set_mode failed: %s", nflogError(err))
+		return fmt.Errorf("nflog: nflog_set_mode failed: %s", nflogError(err))
 	}
 
 	// Register the callback now we are set up

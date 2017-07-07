@@ -30,7 +30,7 @@ type nfLogger struct {
 }
 
 // NewNFLogger returns a new NFLogger.
-func NewNFLogger(ipv4group, ipv6group int, direction IPDirection) (NFLogger, error) {
+func NewNFLogger(ipv4groupSource, ipv4groupDest, ipv6groupSource, ipv6groupDest int) (NFLogger, error) {
 
 	logger := &nfLogger{
 		engineStop:       make(chan struct{}),
@@ -43,19 +43,33 @@ func NewNFLogger(ipv4group, ipv6group int, direction IPDirection) (NFLogger, err
 		logger.packetsToProcess <- make([]Packet, 0, 128)
 	}
 
-	if ipv4group != 0 {
-		l, err := newNfLog(ipv4group, 4, direction, 32, logger.packetsToProcess, logger.processedPackets)
+	configure := func(group int, ipType byte, direction IPDirection, prefixLen int) error {
+		if group == 0 {
+			return nil
+		}
+		l, err := newNfLog(group, ipType, direction, prefixLen, logger.packetsToProcess, logger.processedPackets)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		logger.nfloggers = append(logger.nfloggers, l)
+
+		return nil
 	}
-	if ipv6group != 0 {
-		l, err := newNfLog(ipv6group, 6, direction, 64, logger.packetsToProcess, logger.processedPackets)
-		if err != nil {
-			return nil, err
-		}
-		logger.nfloggers = append(logger.nfloggers, l)
+
+	if err := configure(ipv4groupSource, 4, IPSource, 32); err != nil {
+		return nil, err
+	}
+
+	if err := configure(ipv4groupDest, 4, IPDest, 32); err != nil {
+		return nil, err
+	}
+
+	if err := configure(ipv6groupSource, 6, IPSource, 64); err != nil {
+		return nil, err
+	}
+
+	if err := configure(ipv6groupDest, 6, IPDest, 64); err != nil {
+		return nil, err
 	}
 
 	return logger, nil
@@ -83,6 +97,19 @@ func (a *nfLogger) Stop() {
 	close(a.engineStop)
 	a.engineWg.Wait()
 }
+
+// type FlowRecord struct {
+// 	ContextID       string
+// 	Count           int
+// 	SourceID        string
+// 	DestinationID   string
+// 	SourceIP        string
+// 	DestinationIP   string
+// 	DestinationPort uint16
+// 	Tags            *policy.TagsMap
+// 	Action          string
+// 	Mode            string
+// }
 
 func (a *nfLogger) listen() {
 
