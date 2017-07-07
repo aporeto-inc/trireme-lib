@@ -10,11 +10,13 @@
 package nflog
 
 import (
-	"log"
+	"fmt"
 	"net"
 	"reflect"
 	"syscall"
 	"unsafe"
+
+	"go.uber.org/zap"
 )
 
 /*
@@ -23,6 +25,7 @@ import (
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <stdlib.h>
+#include <string.h>
 #include <libnfnetlink/libnfnetlink.h>
 #include <libnetfilter_log/libnetfilter_log.h>
 #include <inttypes.h>
@@ -32,6 +35,8 @@ typedef struct {
 	char *payload;
 	int payload_len;
 	u_int32_t seq;
+    char *prefix;
+    int prefix_len;
 } packet;
 
 // Max number of packets to collect at once
@@ -52,6 +57,9 @@ static int _processPacket(struct nflog_g_handle *gh, struct nfgenmsg *nfmsg, str
 	packet *p = &ps->pkt[ps->index++];
 	p->payload = 0;
 	p->payload_len = nflog_get_payload(nfd, &p->payload);
+    p->prefix = 0;
+    p->prefix = nflog_get_prefix(nfd);
+    p->prefix_len = strlen(p->prefix);
 	p->seq = 0;
 	nflog_get_seq(nfd, &p->seq);
 	return 0;
@@ -113,14 +121,14 @@ type nfLog struct {
 // McastGroup is that specified in ip[6]tables
 // IPv6 is a flag to say if it is IPv6 or not
 // Direction is to monitor the source address or the dest address
-func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits int, packetsToProcess, processedPackets chan []Packet) *nfLog {
+func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits int, packetsToProcess, processedPackets chan []Packet) (*nfLog, error) {
 
 	h, err := C.nflog_open()
 	if h == nil || err != nil {
-		log.Fatalf("Failed to open NFLOG: %s", nflogError(err))
+		return nil, fmt.Errorf("Failed to open NFLOG: %s", nflogError(err))
 	}
 	if rc, err := C.nflog_bind_pf(h, C.AF_INET); rc < 0 || err != nil {
-		log.Fatalf("nflog_bind_pf failed: %s", nflogError(err))
+		return nil, fmt.Errorf("nflog_bind_pf failed: %s", nflogError(err))
 	}
 
 	n := &nfLog{
@@ -141,14 +149,17 @@ func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits in
 	case 6:
 		n.ipPacket = IP6Packet
 	default:
-		log.Fatalf("Bad IP version %d", IPVersion)
+		return nil, fmt.Errorf("nflog: bad IP version %d", IPVersion)
 	}
 	addrBits := 8 * n.ipPacket.AddrLen
 	n.useMask = maskBits < addrBits
 	n.mask = net.CIDRMask(maskBits, addrBits)
-	n.makeGroup(mcastGroup, n.ipPacket.HeaderSize)
 
-	return n
+	if err := n.makeGroup(mcastGroup, n.ipPacket.HeaderSize); err != nil {
+		return nil, err
+	}
+
+	return n, nil
 }
 
 // Receive data from nflog stored in n.packets
@@ -156,11 +167,14 @@ func (n *nfLog) processPackets(addPackets []Packet) []Packet {
 
 	np := int(n.packets.index)
 	if np >= C.MAX_PACKETS {
-		log.Printf("Packets buffer overflowed")
+		zap.L().Warn("nflog: packets buffer overflowed")
 	}
 
-	var packet []byte
-	sliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&packet)))
+	var payload []byte
+	payloadSliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&payload)))
+
+	var prefix []byte
+	prefixSliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&prefix)))
 
 	for i := 0; i < np; i++ {
 		p := &n.packets.pkt[i]
@@ -168,49 +182,52 @@ func (n *nfLog) processPackets(addPackets []Packet) []Packet {
 		// Get the packet into a []byte
 		// NB if the C data goes away then BAD things will happen!
 		// So don't keep slices from this after returning from this function
-		sliceHeader.Cap = int(p.payload_len)
-		sliceHeader.Len = int(p.payload_len)
-		sliceHeader.Data = uintptr(unsafe.Pointer(p.payload))
+		payloadSliceHeader.Cap = int(p.payload_len)
+		payloadSliceHeader.Len = int(p.payload_len)
+		payloadSliceHeader.Data = uintptr(unsafe.Pointer(p.payload))
+
+		prefixSliceHeader.Cap = int(p.prefix_len)
+		prefixSliceHeader.Len = int(p.prefix_len)
+		prefixSliceHeader.Data = uintptr(unsafe.Pointer(p.prefix))
 
 		// Process the packet
-		newPacket := n.processPacket(packet, uint32(p.seq))
+		newPacket := n.processPacket(payload, prefix, uint32(p.seq))
 		if newPacket.Length >= 0 {
 			addPackets = append(addPackets, newPacket)
 		}
 	}
-	sliceHeader = nil
-	packet = nil
+	payloadSliceHeader = nil
+	prefixSliceHeader = nil
+	payload = nil
 	return addPackets
 }
 
 // Process a packet
-func (n *nfLog) processPacket(packet []byte, seq uint32) Packet {
+func (n *nfLog) processPacket(payload []byte, prefix []byte, seq uint32) Packet {
 
 	// Peek the IP Version out of the header
-	ipversion := packet[IPVersion] >> IPVersionShift & IPVersionMask
+	ipversion := payload[IPVersion] >> IPVersionShift & IPVersionMask
 
 	if seq != 0 && seq != n.seq {
 		n.errors++
-		log.Printf("%d missing packets detected, %d to %d", seq-n.seq, seq, n.seq)
+		zap.L().Warn("nflog: missing packets detected", zap.Int("missing", seq-n.seq), zap.Int("current", seq), zap.Int("previous", n.seq))
 	}
 	n.seq = seq + 1
 	if ipversion != n.ipVersion {
 		n.errors++
-		log.Printf("Bad IP version: %d", ipversion)
 		return Packet{Length: -1}
 	}
 	i := n.ipPacket
-	if len(packet) < i.HeaderSize {
+	if len(payload) < i.HeaderSize {
 		n.errors++
-		log.Printf("Short IPv%d packet %d/%d bytes", ipversion, len(packet), i.HeaderSize)
 		return Packet{Length: -1}
 	}
 
 	var addr net.IP
 	if n.direction {
-		addr = i.Src(packet)
+		addr = i.Src(payload)
 	} else {
-		addr = i.Dst(packet)
+		addr = i.Dst(payload)
 	}
 
 	// Mask the address
@@ -219,52 +236,52 @@ func (n *nfLog) processPacket(packet []byte, seq uint32) Packet {
 	}
 
 	return Packet{
+		Prefix:    string(prefix),
 		Direction: n.direction,
 		Addr:      string(addr),
-		Length:    i.Length(packet),
+		Length:    i.Length(payload),
 	}
 }
 
 // Connects to the group specified with the size
-func (n *nfLog) makeGroup(group, size int) {
+func (n *nfLog) makeGroup(group, size int) error {
 
 	gh, err := C._nflog_bind_group(n.h, C.int(group))
 	if gh == nil || err != nil {
-		log.Fatalf("nflog_bind_group failed: %s", nflogError(err))
+		return fmt.Error("nflog: nflog_bind_group failed: %s", nflogError(err))
 	}
 	n.gh = gh
 
 	// Set the maximum amount of logs in buffer for this group
 	if rc, err := C.nflog_set_qthresh(gh, MaxQueueLogs); rc < 0 || err != nil {
-		log.Fatalf("nflog_set_qthresh failed: %s", nflogError(err))
+		return fmt.Error("nflog: nflog_set_qthresh failed: %s", nflogError(err))
 	}
 
 	// Set local sequence numbering to detect missing packets
 	if rc, err := C.nflog_set_flags(gh, C.NFULNL_CFG_F_SEQ); rc < 0 || err != nil {
-		log.Fatalf("nflog_set_flags failed: %s", nflogError(err))
+		return fmt.Error("nflog: nflog_set_flags failed: %s", nflogError(err))
 	}
 
 	// Set buffer size large
 	if rc, err := C.nflog_set_nlbufsiz(gh, NflogBufferSize); rc < 0 || err != nil {
-		log.Fatalf("nflog_set_nlbufsiz: %s", nflogError(err))
+		return fmt.Error("nflog: nflog_set_nlbufsiz failed: %s", nflogError(err))
 	}
 
 	// Set recv buffer large - this produces ENOBUFS when too small
 	if rc, err := C.nfnl_rcvbufsiz(C.nflog_nfnlh(n.h), NfRecvBufferSize); rc < 0 || err != nil {
-		log.Fatalf("nfnl_rcvbufsiz: %s", err)
-	} else {
-		if rc < NfRecvBufferSize {
-			log.Fatalf("nfnl_rcvbufsiz: Failed to set buffer to %d got %d", NfRecvBufferSize, rc)
-		}
+		return fmt.Error("nflog: nfnl_rcvbufsiz failed: %s", nflogError(err))
+	}
+	if rc < NfRecvBufferSize {
+		return fmt.Error("nflog: nfnl_rcvbufsiz: Failed to set buffer to %d got %d", NfRecvBufferSize, rc)
 	}
 
 	// Set timeout
 	if rc, err := C.nflog_set_timeout(gh, NflogTimeout); rc < 0 || err != nil {
-		log.Fatalf("nflog_set_timeout: %s", nflogError(err))
+		return fmt.Error("nflog: nflog_set_timeout failed: %s", nflogError(err))
 	}
 
 	if rc, err := C.nflog_set_mode(gh, C.NFULNL_COPY_PACKET, (C.uint)(size)); rc < 0 || err != nil {
-		log.Fatalf("nflog_set_mode failed: %s", nflogError(err))
+		return fmt.Error("nflog: nflog_set_mode failed: %s", nflogError(err))
 	}
 
 	// Register the callback now we are set up
@@ -273,6 +290,8 @@ func (n *nfLog) makeGroup(group, size int) {
 	// it isn't a good idea for C to hold pointers to go objects
 	// which might move
 	C._callback_register(gh, n.packets)
+
+	return nil
 }
 
 // Receive packets in a loop until quit
@@ -280,7 +299,7 @@ func (n *nfLog) start() {
 	buflen := C.size_t(RecvBufferSize)
 	pbuf := C.malloc(buflen)
 	if pbuf == nil {
-		log.Fatal("No memory for malloc")
+		panic("nflog: no memory for malloc")
 	}
 	defer C.free(pbuf)
 
@@ -293,7 +312,7 @@ func (n *nfLog) start() {
 		}
 
 		if nr < 0 || err != nil {
-			log.Printf("Recv failed: %s", err)
+			zap.L().Warn("nflog: recv failed %s", zap.Error(err))
 			n.errors++
 			continue
 		}
@@ -312,7 +331,7 @@ func (n *nfLog) stop() {
 	close(n.quit)
 
 	if rc, err := C.nflog_close(n.h); rc < 0 || err != nil {
-		log.Printf("nflog_close failed: %s", nflogError(nil))
+		zap.L().Warn("nflog: nflog_close failed %s", zap.Error(nflogError(err)))
 	}
 
 	C.free(unsafe.Pointer(n.packets))

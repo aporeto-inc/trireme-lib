@@ -45,11 +45,12 @@ const (
 
 // IPRule holds IP rules to external services
 type IPRule struct {
-	Address  string
-	Port     string
-	Protocol string
-	Action   FlowAction
-	Log      bool
+	Address   string
+	Port      string
+	Protocol  string
+	Action    FlowAction
+	Log       bool
+	LogPrefix string
 }
 
 // IPRuleList is a list of IP rules

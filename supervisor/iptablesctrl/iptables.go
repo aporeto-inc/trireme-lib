@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 
+	"github.com/aporeto-inc/trireme/supervisor/nflog"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -32,6 +33,7 @@ type Instance struct {
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
 	mode                       constants.ModeType
+	nflogger                   nflog.NFLogger
 }
 
 // NewInstance creates a new iptables controller instance
@@ -39,7 +41,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize IPtables provider")
+		return nil, fmt.Errorf("Cannot initialize IPtables provider: %s", err)
 	}
 
 	i := &Instance{
@@ -49,6 +51,15 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
 		mode: mode,
+	}
+
+	if mode != constants.LocalServer {
+		logger, err := nflog.NewNFLogger(10, 0, nflog.IPSource)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot initialize nflogger: %s", err)
+		}
+
+		i.nflogger = logger
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
@@ -131,11 +142,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, containerInfo.ContextID, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, containerInfo.ContextID, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
@@ -207,11 +218,11 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, containerInfo.ContextID, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, containerInfo.ContextID, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
@@ -280,6 +291,10 @@ func (i *Instance) Start() error {
 
 	zap.L().Debug("Started the iptables controller")
 
+	if i.nflogger != nil {
+		go i.nflogger.Start()
+	}
+
 	return nil
 }
 
@@ -305,6 +320,10 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 func (i *Instance) Stop() error {
 
 	zap.L().Debug("Stop the supervisor")
+
+	if i.nflogger != nil {
+		i.nflogger.Stop()
+	}
 
 	// Clean any previous ACLs that we have installed
 	if err := i.cleanACLs(); err != nil {

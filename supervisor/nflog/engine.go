@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -28,7 +30,7 @@ type nfLogger struct {
 }
 
 // NewNFLogger returns a new NFLogger.
-func NewNFLogger(ipv4group, ipv6group int, direction IPDirection) NFLogger {
+func NewNFLogger(ipv4group, ipv6group int, direction IPDirection) (NFLogger, error) {
 
 	logger := &nfLogger{
 		engineStop:       make(chan struct{}),
@@ -42,13 +44,21 @@ func NewNFLogger(ipv4group, ipv6group int, direction IPDirection) NFLogger {
 	}
 
 	if ipv4group != 0 {
-		logger.nfloggers = append(logger.nfloggers, newNfLog(ipv4group, 4, direction, 32, logger.packetsToProcess, logger.processedPackets))
+		l, err := newNfLog(ipv4group, 4, direction, 32, logger.packetsToProcess, logger.processedPackets)
+		if err != nil {
+			return nil, err
+		}
+		logger.nfloggers = append(logger.nfloggers, l)
 	}
 	if ipv6group != 0 {
-		logger.nfloggers = append(logger.nfloggers, newNfLog(ipv6group, 6, direction, 64, logger.packetsToProcess, logger.processedPackets))
+		l, err := newNfLog(ipv6group, 6, direction, 64, logger.packetsToProcess, logger.processedPackets)
+		if err != nil {
+			return nil, err
+		}
+		logger.nfloggers = append(logger.nfloggers, l)
 	}
 
-	return logger
+	return logger, nil
 }
 
 // Start starts the NFlogger.
@@ -82,7 +92,7 @@ func (a *nfLogger) listen() {
 		select {
 		case ps := <-a.processedPackets:
 			for _, p := range ps {
-				fmt.Printf("IP message %s Addr %s Size %d", p.Direction, net.IP(p.Addr), p.Length)
+				zap.L().Warn(fmt.Sprintf("IP message %s Addr %s Size %d Prefix %s", p.Direction, net.IP(p.Addr), p.Length, p.Prefix))
 			}
 			a.packetsToProcess <- ps
 

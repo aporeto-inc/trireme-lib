@@ -223,21 +223,24 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, ne
 
 // addAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addAppACLs(chain, ip, contextID string, rules *policy.IPRuleList) error {
+func (i *Instance) addAppACLs(chain, ip string, rules *policy.IPRuleList) error {
 
 	for _, rule := range rules.Rules {
 
 		if rule.Protocol == "UDP" || rule.Protocol == "TCP" {
 
 			if rule.Log {
-				if err := i.ipt.Insert(
-					i.appAckPacketIPTableContext, chain, 1,
+				args := []string{
 					"-p", rule.Protocol,
 					"-d", rule.Address,
 					"--dport", rule.Port,
 					"-m", "state", "--state", "NEW",
-					"-j", "NFLOG", "--nflog-group", "10", "--nflog-prefix", contextID,
-				); err != nil {
+					"-j", "NFLOG", "--nflog-group", "10",
+				}
+				if rule.LogPrefix != "" {
+					args = append(args, "--nflog-prefix", rule.LogPrefix)
+				}
+				if err := i.ipt.Insert(i.appAckPacketIPTableContext, chain, 1, args...); err != nil {
 					return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 			}
@@ -269,13 +272,18 @@ func (i *Instance) addAppACLs(chain, ip, contextID string, rules *policy.IPRuleL
 		} else {
 
 			if rule.Log {
-				if err := i.ipt.Insert(
-					i.appAckPacketIPTableContext, chain, 1,
+				args := []string{
 					"-p", rule.Protocol,
 					"-d", rule.Address,
 					"-m", "state", "--state", "NEW",
-					"-j", "NFLOG", "--nflog-group", "10", "--nflog-prefix", contextID,
-				); err != nil {
+					"-j", "NFLOG", "--nflog-group", "10",
+				}
+
+				if rule.LogPrefix != "" {
+					args = append(args, "--nflog-prefix", rule.LogPrefix)
+				}
+
+				if err := i.ipt.Insert(i.appAckPacketIPTableContext, chain, 1, args...); err != nil {
 					return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 			}
@@ -338,21 +346,26 @@ func (i *Instance) addAppACLs(chain, ip, contextID string, rules *policy.IPRuleL
 
 // addNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the highest priority since they are direct allows.
-func (i *Instance) addNetACLs(chain, ip, contextID string, rules *policy.IPRuleList) error {
+func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error {
 
 	for _, rule := range rules.Rules {
 
 		if rule.Protocol == "UDP" || rule.Protocol == "TCP" {
 
 			if rule.Log {
-				if err := i.ipt.Insert(
-					i.netPacketIPTableContext, chain, 1,
+				args := []string{
 					"-p", rule.Protocol,
 					"-s", rule.Address,
 					"--dport", rule.Port,
 					"-m", "state", "--state", "NEW",
-					"-j", "NFLOG", "--nflog-group", "11", "--nflog-prefix", contextID,
-				); err != nil {
+					"-j", "NFLOG", "--nflog-group", "11",
+				}
+
+				if rule.LogPrefix != "" {
+					args = append(args, "--nflog-prefix", rule.LogPrefix)
+				}
+
+				if err := i.ipt.Insert(i.netPacketIPTableContext, chain, 1, args...); err != nil {
 					return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
 				}
 			}
@@ -386,13 +399,19 @@ func (i *Instance) addNetACLs(chain, ip, contextID string, rules *policy.IPRuleL
 		} else {
 
 			if rule.Log {
-				if err := i.ipt.Insert(
-					i.netPacketIPTableContext, chain, 1,
+
+				args := []string{
 					"-p", rule.Protocol,
 					"-s", rule.Address,
 					"-m", "state", "--state", "NEW",
-					"-j", "NFLOG", "--nflog-group", "11", "--nflog-prefix", contextID,
-				); err != nil {
+					"-j", "NFLOG", "--nflog-group", "11",
+				}
+
+				if rule.LogPrefix != "" {
+					args = append(args, "--nflog-prefix", rule.LogPrefix)
+				}
+
+				if err := i.ipt.Insert(i.netPacketIPTableContext, chain, 1, args...); err != nil {
 					return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
 				}
 			}

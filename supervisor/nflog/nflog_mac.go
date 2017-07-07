@@ -6,10 +6,9 @@ package nflog
 type nfLog struct {
 }
 
-func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits int, packetsInput, packetsOutput chan []Packet) *nfLog {
-	return nil
+func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits int, packetsInput, packetsOutput chan []Packet) (*nfLog, error) {
+	return nil, nil
 }
 
 func (n *nfLog) start() {}
-
-func (n *nfLog) stop() {}
+func (n *nfLog) stop()  {}
