@@ -100,19 +100,19 @@ func nflogError(err error) error {
 type nfLog struct {
 	packetsToProcess chan []Packet
 	processedPackets chan []Packet
+	quit             chan struct{}
 	direction        IPDirection
-	errors           int64
-	fd               C.int
+	ipVersion        byte
+	useMask          bool
+	mask             net.IPMask
 	gh               *C.struct_nflog_g_handle
 	h                *C.struct_nflog_handle
 	ipPacket         *IPPacketInfo
-	ipVersion        byte
-	mask             net.IPMask
-	mcastGroup       int
 	packets          *C.packets
-	quit             chan struct{}
-	useMask          bool
+	mcastGroup       int
 	seq              uint32
+	fd               C.int
+	errors           int64
 }
 
 // Create a new NfLog
@@ -176,7 +176,7 @@ func (n *nfLog) processPackets(addPackets []Packet) []Packet {
 	prefixSliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&prefix))) // nolint: gotype
 
 	for i := 0; i < np; i++ {
-		p := &n.packets.pkt[i]
+		p := &n.packets.pkt[i] // nolint: gotype
 
 		// Get the packet into a []byte
 		// NB if the C data goes away then BAD things will happen!
