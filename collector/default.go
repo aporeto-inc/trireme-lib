@@ -6,14 +6,10 @@ import "strconv"
 type DefaultCollector struct{}
 
 // CollectFlowEvent is part of the EventCollector interface.
-func (d *DefaultCollector) CollectFlowEvent(record *FlowRecord) {
-	return
-}
+func (d *DefaultCollector) CollectFlowEvent(record *FlowRecord) {}
 
 // CollectContainerEvent is part of the EventCollector interface.
-func (d *DefaultCollector) CollectContainerEvent(record *ContainerRecord) {
-	return
-}
+func (d *DefaultCollector) CollectContainerEvent(record *ContainerRecord) {}
 
 // StatsFlowHash is a has function to hash flows
 func StatsFlowHash(r *FlowRecord) string {

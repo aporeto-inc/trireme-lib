@@ -11,7 +11,6 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 
-	"github.com/aporeto-inc/trireme/supervisor/nflog"
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
@@ -37,7 +36,6 @@ type Instance struct {
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
 	mode                       constants.ModeType
-	nflogger                   nflog.NFLogger
 }
 
 // NewInstance creates a new iptables controller instance
@@ -54,8 +52,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
-		mode:     mode,
-		nflogger: nflog.NewNFLogger(11, 10, 0, 0),
+		mode: mode,
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
@@ -285,8 +282,6 @@ func (i *Instance) Start() error {
 		}
 	}
 
-	go i.nflogger.Start()
-
 	zap.L().Debug("Started the iptables controller")
 
 	return nil
@@ -314,8 +309,6 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 func (i *Instance) Stop() error {
 
 	zap.L().Debug("Stop the supervisor")
-
-	i.nflogger.Stop()
 
 	// Clean any previous ACLs that we have installed
 	if err := i.cleanACLs(); err != nil {

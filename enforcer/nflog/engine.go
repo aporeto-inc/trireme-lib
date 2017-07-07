@@ -3,27 +3,21 @@ package nflog
 // this code is a librarification the https://github.com/ncw/go-nflog-acctd
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/policy"
 
 	"go.uber.org/zap"
 )
 
-const (
-	// PacketsQueueSize TODO
-	PacketsQueueSize = 8
-)
+const packetsQueueSize = 8
 
-// Globals
-var (
-	Version        = "0.1"
-	DefaultMapSize = 1024
-)
+type puInfoFunc func(string) string
 
 type nfLogger struct {
+	getPUInfo        puInfoFunc
 	engineWg         sync.WaitGroup
 	engineStop       chan struct{}
 	processedPackets chan []Packet
@@ -33,23 +27,26 @@ type nfLogger struct {
 	ipv4groupDest    int
 	ipv6groupSource  int
 	ipv6groupDest    int
+	collector        collector.EventCollector
 }
 
 // NewNFLogger returns a new NFLogger.
-func NewNFLogger(ipv4groupSource, ipv4groupDest, ipv6groupSource, ipv6groupDest int) NFLogger {
+func NewNFLogger(ipv4groupSource, ipv4groupDest, ipv6groupSource, ipv6groupDest int, getPUInfo puInfoFunc, collector collector.EventCollector) NFLogger {
 
 	logger := &nfLogger{
 		engineStop:       make(chan struct{}),
-		processedPackets: make(chan []Packet, PacketsQueueSize),
-		packetsToProcess: make(chan []Packet, PacketsQueueSize),
+		processedPackets: make(chan []Packet, packetsQueueSize),
+		packetsToProcess: make(chan []Packet, packetsQueueSize),
 		nfloggers:        []*nfLog{},
 		ipv4groupSource:  ipv4groupSource,
 		ipv4groupDest:    ipv4groupDest,
 		ipv6groupSource:  ipv6groupSource,
 		ipv6groupDest:    ipv6groupDest,
+		getPUInfo:        getPUInfo,
+		collector:        collector,
 	}
 
-	for i := 0; i < PacketsQueueSize; i++ {
+	for i := 0; i < packetsQueueSize; i++ {
 		logger.packetsToProcess <- make([]Packet, 0, 128)
 	}
 
@@ -112,23 +109,32 @@ func (a *nfLogger) listen() {
 				parts := strings.SplitN(p.Prefix, ":", 2)
 				contextID, extSrvID := parts[0], parts[1]
 
-				record := collector.FlowRecord{
-					ContextID: contextID,
-					// Tags:            context.Annotations,
-					Action:          "accept",
-					Mode:            "NA",
+				puID := a.getPUInfo(contextID)
+				if puID == "" {
+					zap.L().Error("nflog: unable to find pu ID associated given contexID", zap.String("contextID", contextID))
+					continue
+				}
+
+				record := &collector.FlowRecord{
+					ContextID:       contextID,
+					Action:          "log", // TODO: we don't what to send here.
 					SourceIP:        p.SourceAddr.String(),
 					DestinationIP:   p.DestinationAddr.String(),
-					DestinationPort: 0,
+					DestinationPort: 0, // TODO: we need to find this.
+					Tags:            policy.NewTagsMap(nil),
 				}
 
 				if p.Direction == IPSource {
+					record.Mode = "extsrc"
 					record.SourceID = extSrvID
+					record.DestinationID = puID
 				} else {
+					record.Mode = "extdst"
+					record.SourceID = puID
 					record.DestinationID = extSrvID
 				}
 
-				zap.L().Warn(fmt.Sprintf("LOG SourceIP %s DestIP %s SourceID %s DestinationID %s", record.SourceIP, record.DestinationIP, record.SourceID, record.DestinationID))
+				a.collector.CollectFlowEvent(record)
 			}
 			a.packetsToProcess <- ps
 

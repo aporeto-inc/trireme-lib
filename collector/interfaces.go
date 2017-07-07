@@ -1,6 +1,10 @@
 package collector
 
-import "github.com/aporeto-inc/trireme/policy"
+import (
+	"fmt"
+
+	"github.com/aporeto-inc/trireme/policy"
+)
 
 const (
 	// FlowReject indicates that a flow was rejected
@@ -65,6 +69,20 @@ type FlowRecord struct {
 	Tags            *policy.TagsMap
 	Action          string
 	Mode            string
+}
+
+func (f *FlowRecord) String() string {
+	return fmt.Sprintf("<flowrecord contextID:%s count:%d sourceID:%s destinationID:%s sourceIP: %s destinationIP:%s destinationPort:%d action:%s mode:%s>",
+		f.ContextID,
+		f.Count,
+		f.SourceID,
+		f.DestinationID,
+		f.SourceIP,
+		f.DestinationIP,
+		f.DestinationPort,
+		f.Action,
+		f.Mode,
+	)
 }
 
 // ContainerRecord is a statistics record for a container

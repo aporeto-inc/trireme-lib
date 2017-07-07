@@ -13,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/nflog"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
@@ -46,6 +47,7 @@ type Datapath struct {
 	collector      collector.EventCollector
 	service        PacketProcessor
 	secrets        secrets.Secrets
+	nflogger       nflog.NFLogger
 	procMountPoint string
 
 	// Internal structures and caches
@@ -174,6 +176,8 @@ func New(
 		zap.L().Fatal("Unable to create enforcer")
 	}
 
+	d.nflogger = nflog.NewNFLogger(11, 10, 0, 0, d.puInfoDelegate, collector)
+
 	return d
 }
 
@@ -282,6 +286,8 @@ func (d *Datapath) Start() error {
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()
 
+	go d.nflogger.Start()
+
 	return nil
 }
 
@@ -289,6 +295,8 @@ func (d *Datapath) Start() error {
 func (d *Datapath) Stop() error {
 
 	zap.L().Debug("Stoping enforcer")
+
+	d.nflogger.Stop()
 
 	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
 		d.appStop[i] <- true
@@ -370,4 +378,19 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
 	return nil
+}
+
+func (d *Datapath) puInfoDelegate(contextID string) (ID string) {
+
+	item, err := d.contextTracker.Get(contextID)
+	if err != nil {
+		return ""
+	}
+
+	ctx := item.(*PUContext)
+	ctx.Lock()
+	ID = ctx.ManagementID
+	ctx.Unlock()
+
+	return
 }
