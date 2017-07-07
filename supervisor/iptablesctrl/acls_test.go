@@ -304,7 +304,7 @@ func TestAddAppACLs(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.addAppACLs("chain", "", &policy.IPRuleList{})
+			err := i.addAppACLs("chain", "", "", &policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -318,7 +318,7 @@ func TestAddAppACLs(t *testing.T) {
 				return nil
 			})
 
-			err := i.addAppACLs("chain", "", &policy.IPRuleList{})
+			err := i.addAppACLs("chain", "", "", &policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -354,7 +354,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addAppACLs("chain", "", rules)
+			err := i.addAppACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -387,7 +387,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addAppACLs("chain", "", rules)
+			err := i.addAppACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -420,7 +420,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addAppACLs("chain", "", rules)
+			err := i.addAppACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -449,7 +449,7 @@ func TestAddNetAcls(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.addNetACLs("chain", "", &policy.IPRuleList{})
+			err := i.addNetACLs("chain", "", "", &policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -463,7 +463,7 @@ func TestAddNetAcls(t *testing.T) {
 				return nil
 			})
 
-			err := i.addNetACLs("chain", "", &policy.IPRuleList{})
+			err := i.addNetACLs("chain", "", "", &policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -499,7 +499,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addNetACLs("chain", "", rules)
+			err := i.addNetACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -532,7 +532,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addNetACLs("chain", "", rules)
+			err := i.addNetACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -565,7 +565,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addNetACLs("chain", "", rules)
+			err := i.addNetACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})

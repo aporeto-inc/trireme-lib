@@ -222,23 +222,21 @@ func (n *nfLog) processPacket(payload []byte, prefix []byte, seq uint32) Packet 
 		return Packet{Length: -1}
 	}
 
-	var addr net.IP
-	if n.direction {
-		addr = i.Src(payload)
-	} else {
-		addr = i.Dst(payload)
-	}
+	srcAddr := i.Src(payload)
+	destAddr := i.Dst(payload)
 
 	// Mask the address
 	if n.useMask {
-		addr = addr.Mask(n.mask)
+		srcAddr = srcAddr.Mask(n.mask)
+		destAddr = destAddr.Mask(n.mask)
 	}
 
 	return Packet{
-		Prefix:    string(prefix),
-		Direction: n.direction,
-		Addr:      string(addr),
-		Length:    i.Length(payload),
+		Prefix:          string(prefix),
+		SourceAddr:      srcAddr,
+		DestinationAddr: destAddr,
+		Length:          i.Length(payload),
+		Direction:       n.direction,
 	}
 }
 

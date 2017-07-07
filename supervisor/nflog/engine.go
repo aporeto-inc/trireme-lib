@@ -4,8 +4,10 @@ package nflog
 
 import (
 	"fmt"
-	"net"
+	"strings"
 	"sync"
+
+	"github.com/aporeto-inc/trireme/collector"
 
 	"go.uber.org/zap"
 )
@@ -106,7 +108,27 @@ func (a *nfLogger) listen() {
 		select {
 		case ps := <-a.processedPackets:
 			for _, p := range ps {
-				zap.L().Warn(fmt.Sprintf("IP message %s Addr %s Size %d Prefix %s", p.Direction, net.IP(p.Addr), p.Length, p.Prefix))
+
+				parts := strings.SplitN(p.Prefix, ":", 2)
+				contextID, extSrvID := parts[0], parts[1]
+
+				record := collector.FlowRecord{
+					ContextID: contextID,
+					// Tags:            context.Annotations,
+					Action:          "accept",
+					Mode:            "NA",
+					SourceIP:        p.SourceAddr.String(),
+					DestinationIP:   p.DestinationAddr.String(),
+					DestinationPort: 0,
+				}
+
+				if p.Direction == IPSource {
+					record.SourceID = extSrvID
+				} else {
+					record.DestinationID = extSrvID
+				}
+
+				zap.L().Warn(fmt.Sprintf("LOG SourceIP %s DestIP %s SourceID %s DestinationID %s", record.SourceIP, record.DestinationIP, record.SourceID, record.DestinationID))
 			}
 			a.packetsToProcess <- ps
 
