@@ -27,52 +27,31 @@ type nfLogger struct {
 	processedPackets chan []Packet
 	packetsToProcess chan []Packet
 	nfloggers        []*nfLog
+	ipv4groupSource  int
+	ipv4groupDest    int
+	ipv6groupSource  int
+	ipv6groupDest    int
 }
 
 // NewNFLogger returns a new NFLogger.
-func NewNFLogger(ipv4groupSource, ipv4groupDest, ipv6groupSource, ipv6groupDest int) (NFLogger, error) {
+func NewNFLogger(ipv4groupSource, ipv4groupDest, ipv6groupSource, ipv6groupDest int) NFLogger {
 
 	logger := &nfLogger{
 		engineStop:       make(chan struct{}),
 		processedPackets: make(chan []Packet, PacketsQueueSize),
 		packetsToProcess: make(chan []Packet, PacketsQueueSize),
 		nfloggers:        []*nfLog{},
+		ipv4groupSource:  ipv4groupSource,
+		ipv4groupDest:    ipv4groupDest,
+		ipv6groupSource:  ipv6groupSource,
+		ipv6groupDest:    ipv6groupDest,
 	}
 
 	for i := 0; i < PacketsQueueSize; i++ {
 		logger.packetsToProcess <- make([]Packet, 0, 128)
 	}
 
-	configure := func(group int, ipType byte, direction IPDirection, prefixLen int) error {
-		if group == 0 {
-			return nil
-		}
-		l, err := newNfLog(group, ipType, direction, prefixLen, logger.packetsToProcess, logger.processedPackets)
-		if err != nil {
-			return err
-		}
-		logger.nfloggers = append(logger.nfloggers, l)
-
-		return nil
-	}
-
-	if err := configure(ipv4groupSource, 4, IPSource, 32); err != nil {
-		return nil, err
-	}
-
-	if err := configure(ipv4groupDest, 4, IPDest, 32); err != nil {
-		return nil, err
-	}
-
-	if err := configure(ipv6groupSource, 6, IPSource, 64); err != nil {
-		return nil, err
-	}
-
-	if err := configure(ipv6groupDest, 6, IPDest, 64); err != nil {
-		return nil, err
-	}
-
-	return logger, nil
+	return logger
 }
 
 // Start starts the NFlogger.
@@ -80,9 +59,10 @@ func (a *nfLogger) Start() {
 
 	a.engineWg.Add(1)
 
-	for _, logger := range a.nfloggers {
-		go logger.start()
-	}
+	a.connectNFLogInstance(a.ipv4groupSource, 4, IPSource, 32)
+	a.connectNFLogInstance(a.ipv4groupDest, 4, IPDest, 32)
+	a.connectNFLogInstance(a.ipv6groupSource, 6, IPSource, 64)
+	a.connectNFLogInstance(a.ipv6groupDest, 6, IPDest, 64)
 
 	a.listen()
 }
@@ -98,18 +78,25 @@ func (a *nfLogger) Stop() {
 	a.engineWg.Wait()
 }
 
-// type FlowRecord struct {
-// 	ContextID       string
-// 	Count           int
-// 	SourceID        string
-// 	DestinationID   string
-// 	SourceIP        string
-// 	DestinationIP   string
-// 	DestinationPort uint16
-// 	Tags            *policy.TagsMap
-// 	Action          string
-// 	Mode            string
-// }
+func (a *nfLogger) connectNFLogInstance(group int, ipType byte, direction IPDirection, prefixLen int) {
+	if group == 0 {
+		return
+	}
+
+	l, err := newNfLog(group, ipType, direction, prefixLen, a.packetsToProcess, a.processedPackets)
+	if err != nil {
+		zap.L().Error("nflog: unable to connect to nflog",
+			zap.Int("group", group),
+			zap.Bool("iptype", bool(direction)),
+			zap.Int("prefix-length", prefixLen),
+			zap.Error(err),
+		)
+		return
+	}
+
+	a.nfloggers = append(a.nfloggers, l)
+	go l.start()
+}
 
 func (a *nfLogger) listen() {
 

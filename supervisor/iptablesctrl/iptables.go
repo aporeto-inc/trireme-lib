@@ -54,14 +54,8 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
-		mode: mode,
-	}
-
-	logger, err := nflog.NewNFLogger(11, 10, 0, 0)
-	if err != nil {
-		zap.L().Error("Unable to start nflogger. Logging is disabled for this instance.", zap.Error(err))
-	} else {
-		i.nflogger = logger
+		mode:     mode,
+		nflogger: nflog.NewNFLogger(11, 10, 0, 0),
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
@@ -291,11 +285,9 @@ func (i *Instance) Start() error {
 		}
 	}
 
-	zap.L().Debug("Started the iptables controller")
+	go i.nflogger.Start()
 
-	if i.nflogger != nil {
-		go i.nflogger.Start()
-	}
+	zap.L().Debug("Started the iptables controller")
 
 	return nil
 }
@@ -323,9 +315,7 @@ func (i *Instance) Stop() error {
 
 	zap.L().Debug("Stop the supervisor")
 
-	if i.nflogger != nil {
-		i.nflogger.Stop()
-	}
+	i.nflogger.Stop()
 
 	// Clean any previous ACLs that we have installed
 	if err := i.cleanACLs(); err != nil {

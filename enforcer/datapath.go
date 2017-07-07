@@ -124,7 +124,25 @@ func New(
 		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
 	}
 
-	fmt.Printf("Initializing remote with fq %+v", filterQueue)
+	zap.L().Debug("Initializing remote enforcer",
+		zap.Int("mark-value", filterQueue.MarkValue),
+		zap.Bool("queue-separation", filterQueue.QueueSeparation),
+		zap.Uint16("net-queue", filterQueue.NetworkQueue),
+		zap.Uint16("net-queue-num", filterQueue.NumberOfNetworkQueues),
+		zap.Uint32("net-queue-size", filterQueue.NetworkQueueSize),
+		zap.String("net-queue-syn-str", filterQueue.NetworkQueuesSynStr),
+		zap.String("net-queue-ack-str", filterQueue.NetworkQueuesAckStr),
+		zap.String("net-queue-synack-str", filterQueue.NetworkQueuesSynAckStr),
+		zap.String("net-queue-svc-str", filterQueue.NetworkQueuesSvcStr),
+		zap.Uint16("app-queue", filterQueue.ApplicationQueue),
+		zap.Uint16("app-queue-num", filterQueue.NumberOfApplicationQueues),
+		zap.Uint32("app-queue-size", filterQueue.ApplicationQueueSize),
+		zap.String("app-queue-syn-str", filterQueue.ApplicationQueuesSynStr),
+		zap.String("app-queue-ack-str", filterQueue.ApplicationQueuesAckStr),
+		zap.String("app-queue-synack-str", filterQueue.ApplicationQueuesSynAckStr),
+		zap.String("app-queue-svc-str", filterQueue.ApplicationQueuesSvcStr),
+	)
+
 	d := &Datapath{
 		puFromIP:   cache.NewCache(),
 		puFromMark: cache.NewCache(),
