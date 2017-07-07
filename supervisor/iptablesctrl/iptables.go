@@ -16,9 +16,13 @@ import (
 )
 
 const (
-	chainPrefix    = "TRIREME-"
-	appChainPrefix = chainPrefix + "App-"
-	netChainPrefix = chainPrefix + "Net-"
+	chainPrefix               = "TRIREME-"
+	appChainPrefix            = chainPrefix + "App-"
+	netChainPrefix            = chainPrefix + "Net-"
+	ipTableSectionOutput      = "OUTPUT"
+	ipTableSectionInput       = "INPUT"
+	ipTableSectionPreRouting  = "PREROUTING"
+	ipTableSectionPostRouting = "POSTROUTING"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -53,25 +57,23 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		mode: mode,
 	}
 
-	if mode != constants.LocalServer {
-		logger, err := nflog.NewNFLogger(11, 10, 0, 0)
-		if err != nil {
-			return nil, fmt.Errorf("Cannot initialize nflogger: %s", err)
-		}
-
+	logger, err := nflog.NewNFLogger(11, 10, 0, 0)
+	if err != nil {
+		zap.L().Error("Unable to start nflogger. Logging is disabled for this instance.", zap.Error(err))
+	} else {
 		i.nflogger = logger
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
-		i.appPacketIPTableSection = "OUTPUT" //nolint
-		i.appCgroupIPTableSection = "OUTPUT" //nolint
-		i.netPacketIPTableSection = "INPUT"  //nolint
-		i.appSynAckIPTableSection = "OUTPUT" //nolint
+		i.appPacketIPTableSection = ipTableSectionOutput
+		i.appCgroupIPTableSection = ipTableSectionOutput
+		i.netPacketIPTableSection = ipTableSectionInput
+		i.appSynAckIPTableSection = ipTableSectionOutput
 	} else {
-		i.appPacketIPTableSection = "PREROUTING"  //nolint
-		i.appCgroupIPTableSection = "OUTPUT"      //nolint
-		i.netPacketIPTableSection = "POSTROUTING" //nolint
-		i.appSynAckIPTableSection = "INPUT"       //nolint
+		i.appPacketIPTableSection = ipTableSectionPreRouting
+		i.appCgroupIPTableSection = ipTableSectionOutput
+		i.netPacketIPTableSection = ipTableSectionPostRouting
+		i.appSynAckIPTableSection = ipTableSectionInput
 	}
 
 	return i, nil
