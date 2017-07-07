@@ -226,7 +226,11 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, ne
 func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList) error {
 
 	for _, rule := range rules.Rules {
-		if rule.Protocol == "UDP" || rule.Protocol == "TCP" {
+
+		proto := strings.ToLower(rule.Protocol)
+
+		if proto == "udp" || proto == "tcp" {
+
 			switch rule.Action {
 			case policy.Accept:
 				if err := i.ipt.Append(
@@ -314,7 +318,10 @@ func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error 
 
 	for _, rule := range rules.Rules {
 
-		if rule.Protocol == "UDP" || rule.Protocol == "TCP" {
+		proto := strings.ToLower(rule.Protocol)
+
+		if proto == "udp" || proto == "tcp" {
+
 			switch rule.Action {
 			case policy.Accept:
 				if err := i.ipt.Append(
