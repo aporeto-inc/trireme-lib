@@ -14,7 +14,7 @@ import (
 
 const packetsQueueSize = 8
 
-type puInfoFunc func(string) string
+type puInfoFunc func(string) (string, *policy.TagsMap)
 
 type nfLogger struct {
 	getPUInfo        puInfoFunc
@@ -109,7 +109,7 @@ func (a *nfLogger) listen() {
 				parts := strings.SplitN(p.Prefix, ":", 2)
 				contextID, extSrvID := parts[0], parts[1]
 
-				puID := a.getPUInfo(contextID)
+				puID, tags := a.getPUInfo(contextID)
 				if puID == "" {
 					zap.L().Error("nflog: unable to find pu ID associated given contexID", zap.String("contextID", contextID))
 					continue
@@ -117,11 +117,11 @@ func (a *nfLogger) listen() {
 
 				record := &collector.FlowRecord{
 					ContextID:       contextID,
-					Action:          "log", // TODO: we don't what to send here.
+					Action:          "log",
 					SourceIP:        p.SourceAddr.String(),
 					DestinationIP:   p.DestinationAddr.String(),
 					DestinationPort: 0, // TODO: we need to find this.
-					Tags:            policy.NewTagsMap(nil),
+					Tags:            tags,
 				}
 
 				if p.Direction == IPSource {

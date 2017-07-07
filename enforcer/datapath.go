@@ -380,16 +380,17 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 	return nil
 }
 
-func (d *Datapath) puInfoDelegate(contextID string) (ID string) {
+func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagsMap) {
 
 	item, err := d.contextTracker.Get(contextID)
 	if err != nil {
-		return ""
+		return
 	}
 
 	ctx := item.(*PUContext)
 	ctx.Lock()
 	ID = ctx.ManagementID
+	tags = policy.NewTagsMap(ctx.Annotations.Tags)
 	ctx.Unlock()
 
 	return
