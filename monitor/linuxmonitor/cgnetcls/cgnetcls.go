@@ -49,6 +49,10 @@ type netCls struct {
 // To add a new process to this cgroup we need to write to the cgroup file
 func (s *netCls) Creategroup(cgroupname string) error {
 
+	if !strings.HasPrefix(cgroupname, "/") {
+		cgroupname = "/" + cgroupname
+	}
+
 	//Create the directory structure
 	_, err := os.Stat(basePath + procs)
 	if os.IsNotExist(err) {
@@ -60,24 +64,26 @@ func (s *netCls) Creategroup(cgroupname string) error {
 
 	//Write to the notify on release file and release agent files
 
-	err = ioutil.WriteFile(basePath+releaseAgentConfFile, []byte(s.ReleaseAgentPath), 0644)
-	if err != nil {
-		return fmt.Errorf("Failed to register a release agent error %s", err.Error())
-	}
+	if s.ReleaseAgentPath != "" {
+		err = ioutil.WriteFile(basePath+releaseAgentConfFile, []byte(s.ReleaseAgentPath), 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to register a release agent error %s", err.Error())
+		}
 
-	err = ioutil.WriteFile(basePath+notifyOnReleaseFile, []byte("1"), 0644)
-	if err != nil {
-		return fmt.Errorf("Failed to write to the notify file %s", err.Error())
-	}
+		err = ioutil.WriteFile(basePath+notifyOnReleaseFile, []byte("1"), 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+		}
 
-	err = ioutil.WriteFile(basePath+TriremeBasePath+notifyOnReleaseFile, []byte("1"), 0644)
-	if err != nil {
-		return fmt.Errorf("Failed to write to the notify file %s", err.Error())
-	}
+		err = ioutil.WriteFile(basePath+TriremeBasePath+notifyOnReleaseFile, []byte("1"), 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+		}
 
-	err = ioutil.WriteFile(basePath+TriremeBasePath+cgroupname+notifyOnReleaseFile, []byte("1"), 0644)
-	if err != nil {
-		return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+		err = ioutil.WriteFile(basePath+TriremeBasePath+cgroupname+notifyOnReleaseFile, []byte("1"), 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+		}
 	}
 
 	return nil
@@ -86,6 +92,10 @@ func (s *netCls) Creategroup(cgroupname string) error {
 
 //AssignMark writes the mark value to net_cls.classid file.
 func (s *netCls) AssignMark(cgroupname string, mark uint64) error {
+
+	if !strings.HasPrefix(cgroupname, "/") {
+		cgroupname = "/" + cgroupname
+	}
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
@@ -104,6 +114,10 @@ func (s *netCls) AssignMark(cgroupname string, mark uint64) error {
 
 // AddProcess adds the process to the net_cls group
 func (s *netCls) AddProcess(cgroupname string, pid int) error {
+
+	if !strings.HasPrefix(cgroupname, "/") {
+		cgroupname = "/" + cgroupname
+	}
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
@@ -125,6 +139,10 @@ func (s *netCls) AddProcess(cgroupname string, pid int) error {
 //RemoveProcess removes the process from the cgroup by writing the pid to the
 //top of net_cls cgroup cgroup.procs
 func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
+
+	if !strings.HasPrefix(cgroupname, "/") {
+		cgroupname = "/" + cgroupname
+	}
 
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
@@ -148,6 +166,10 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 // Before we try deletion
 func (s *netCls) DeleteCgroup(cgroupname string) error {
 
+	if !strings.HasPrefix(cgroupname, "/") {
+		cgroupname = "/" + cgroupname
+	}
+
 	_, err := os.Stat(basePath + TriremeBasePath + cgroupname)
 	if os.IsNotExist(err) {
 		zap.L().Debug("Group already deleted", zap.Error(err))
@@ -164,6 +186,10 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 
 //Deletebasepath removes the base aporeto directory which comes as a separate event when we are not managing any processes
 func (s *netCls) Deletebasepath(cgroupName string) bool {
+
+	if !strings.HasPrefix(cgroupName, "/") {
+		cgroupName = "/" + cgroupName
+	}
 
 	if cgroupName == TriremeBasePath {
 		os.Remove(basePath + cgroupName)
@@ -203,6 +229,18 @@ func mountCgroupController() {
 
 	}
 
+}
+
+// NewDockerCgroupNetController returns a handle to call functions on the cgroup net_cls controller
+func NewDockerCgroupNetController() Cgroupnetcls {
+
+	controller := &netCls{
+		markchan:         make(chan uint64),
+		ReleaseAgentPath: "",
+	}
+
+	mountCgroupController()
+	return controller
 }
 
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
