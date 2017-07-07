@@ -81,11 +81,11 @@ static struct nflog_g_handle *_nflog_bind_group(struct nflog_handle *h, int num)
 import "C"
 
 const (
-	RecvBufferSize   = 4 * 1024 * 1024
-	NflogBufferSize  = 128 * 1024 // Must be <= 128k (checked in kernel source)
-	NfRecvBufferSize = 16 * 1024 * 1024
-	NflogTimeout     = 100 // Timeout before sending data in 1/100th second
-	MaxQueueLogs     = C.MAX_PACKETS - 1
+	recvBufferSize   = 4 * 1024 * 1024
+	nflogBufferSize  = 128 * 1024 // Must be <= 128k (checked in kernel source)
+	nfrecvBufferSize = 16 * 1024 * 1024
+	nflogTimeout     = 100 // Timeout before sending data in 1/100th second
+	maxQueueLogs     = C.MAX_PACKETS - 1
 )
 
 // Current nflog error
@@ -100,7 +100,6 @@ func nflogError(err error) error {
 type nfLog struct {
 	packetsToProcess chan []Packet
 	processedPackets chan []Packet
-	addPackets       []Packet
 	direction        IPDirection
 	errors           int64
 	fd               C.int
@@ -112,8 +111,8 @@ type nfLog struct {
 	mcastGroup       int
 	packets          *C.packets
 	quit             chan struct{}
-	seq              uint32
 	useMask          bool
+	seq              uint32
 }
 
 // Create a new NfLog
@@ -165,16 +164,16 @@ func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits in
 // Receive data from nflog stored in n.packets
 func (n *nfLog) processPackets(addPackets []Packet) []Packet {
 
-	np := int(n.packets.index)
+	np := int(n.packets.index) // nolint: gotype
 	if np >= C.MAX_PACKETS {
 		zap.L().Warn("nflog: packets buffer overflowed")
 	}
 
 	var payload []byte
-	payloadSliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&payload)))
+	payloadSliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&payload))) // nolint: gotype
 
 	var prefix []byte
-	prefixSliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&prefix)))
+	prefixSliceHeader := (*reflect.SliceHeader)((unsafe.Pointer(&prefix))) // nolint: gotype
 
 	for i := 0; i < np; i++ {
 		p := &n.packets.pkt[i]
@@ -252,36 +251,39 @@ func (n *nfLog) makeGroup(group, size int) error {
 	}
 	n.gh = gh
 
+	var rc C.int
+	var urc C.uint
+
 	// Set the maximum amount of logs in buffer for this group
-	if rc, err := C.nflog_set_qthresh(gh, MaxQueueLogs); rc < 0 || err != nil {
+	if rc, err = C.nflog_set_qthresh(gh, maxQueueLogs); rc < 0 || err != nil {
 		return fmt.Errorf("nflog: nflog_set_qthresh failed: %s", nflogError(err))
 	}
 
 	// Set local sequence numbering to detect missing packets
-	if rc, err := C.nflog_set_flags(gh, C.NFULNL_CFG_F_SEQ); rc < 0 || err != nil {
+	if rc, err = C.nflog_set_flags(gh, C.NFULNL_CFG_F_SEQ); rc < 0 || err != nil {
 		return fmt.Errorf("nflog: nflog_set_flags failed: %s", nflogError(err))
 	}
 
 	// Set buffer size large
-	if rc, err := C.nflog_set_nlbufsiz(gh, NflogBufferSize); rc < 0 || err != nil {
+	if rc, err = C.nflog_set_nlbufsiz(gh, nflogBufferSize); rc < 0 || err != nil {
 		return fmt.Errorf("nflog: nflog_set_nlbufsiz failed: %s", nflogError(err))
 	}
 
 	// Set recv buffer large - this produces ENOBUFS when too small
-	if rc, err := C.nfnl_rcvbufsiz(C.nflog_nfnlh(n.h), NfRecvBufferSize); rc < 0 || err != nil {
+	urc, err = C.nfnl_rcvbufsiz(C.nflog_nfnlh(n.h), nfrecvBufferSize)
+	if err != nil {
 		return fmt.Errorf("nflog: nfnl_rcvbufsiz failed: %s", nflogError(err))
-	} else {
-		if rc < NfRecvBufferSize {
-			return fmt.Errorf("nflog: nfnl_rcvbufsiz: Failed to set buffer to %d got %d", NfRecvBufferSize, rc)
-		}
+	}
+	if urc < nfrecvBufferSize {
+		return fmt.Errorf("nflog: nfnl_rcvbufsiz: Failed to set buffer to %d got %d", nfrecvBufferSize, urc)
 	}
 
 	// Set timeout
-	if rc, err := C.nflog_set_timeout(gh, NflogTimeout); rc < 0 || err != nil {
+	if rc, err = C.nflog_set_timeout(gh, nflogTimeout); rc < 0 || err != nil {
 		return fmt.Errorf("nflog: nflog_set_timeout failed: %s", nflogError(err))
 	}
 
-	if rc, err := C.nflog_set_mode(gh, C.NFULNL_COPY_PACKET, (C.uint)(size)); rc < 0 || err != nil {
+	if rc, err = C.nflog_set_mode(gh, C.NFULNL_COPY_PACKET, (C.uint)(size)); rc < 0 || err != nil {
 		return fmt.Errorf("nflog: nflog_set_mode failed: %s", nflogError(err))
 	}
 
@@ -297,7 +299,7 @@ func (n *nfLog) makeGroup(group, size int) error {
 
 // Receive packets in a loop until quit
 func (n *nfLog) start() {
-	buflen := C.size_t(RecvBufferSize)
+	buflen := C.size_t(recvBufferSize)
 	pbuf := C.malloc(buflen)
 	if pbuf == nil {
 		panic("nflog: no memory for malloc")
@@ -320,7 +322,7 @@ func (n *nfLog) start() {
 
 		// Handle messages in packet reusing memory
 		ps := <-n.packetsToProcess
-		n.packets.index = 0
+		n.packets.index = 0 // nolint: gotype
 		C.nflog_handle_packet(n.h, (*C.char)(pbuf), (C.int)(nr))
 		n.processedPackets <- n.processPackets(ps[:0])
 	}
