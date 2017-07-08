@@ -19,6 +19,19 @@ const (
 // FlowAction is the action that can be applied to a flow.
 type FlowAction int
 
+func (f FlowAction) String() string {
+	switch f {
+	case Accept:
+		return "accept"
+	case Reject:
+		return "reject"
+	case Encrypt:
+		return "encrypt"
+	}
+
+	return "unknown"
+}
+
 const (
 	// Accept is the accept action
 	Accept FlowAction = 0x1
