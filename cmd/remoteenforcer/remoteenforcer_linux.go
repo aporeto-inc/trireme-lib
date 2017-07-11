@@ -115,7 +115,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			zap.Error(err),
 		)
 		resp.Status = err.Error()
-		return errors.New(resp.Status)
+		//return errors.New(resp.Status)
 	}
 
 	netnsString := strings.TrimSpace(string(netns))
@@ -126,7 +126,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			zap.Error(err),
 		)
 		resp.Status = "Not running in a namespace"
-		return errors.New(resp.Status)
+		//return errors.New(resp.Status)
 	}
 
 	zap.L().Debug("Remote enforcer launched",
@@ -378,7 +378,9 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 	if puInfo == nil {
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
-
+	if s.Enforcer == nil {
+		zap.L().Fatal("Enforcer not inited")
+	}
 	if err := s.Enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err

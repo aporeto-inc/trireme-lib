@@ -1,0 +1,28 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: gcr.io/aporetodev/domingo
+
+inputs:
+- name: src
+  path: go/src/github.com/aporeto-inc/trireme
+
+outputs:
+- name: docker
+- name: build
+
+run:
+  path: sh
+  args:
+  - -ec
+  - |
+    PS4='${LINENO}: '
+    
+    cd go/src/github.com/aporeto-inc/trireme
+    git branch
+    commit_sha=$(git rev-parse HEAD)
+    cd -
+
+    echo $commit_sha > build/src_sha

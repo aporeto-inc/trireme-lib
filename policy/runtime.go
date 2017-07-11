@@ -121,6 +121,11 @@ func (r *PURuntime) SetPid(pid int) {
 	r.pid = pid
 }
 
+// SetPUType sets the PU Type
+func (r *PURuntime) SetPUType(puType constants.PUType) {
+	r.puType = puType
+}
+
 // SetOptions sets the Options
 func (r *PURuntime) SetOptions(options *TagsMap) {
 	r.options = options
