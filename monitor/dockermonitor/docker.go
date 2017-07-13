@@ -105,6 +105,7 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 	return dockerClient, nil
 }
 
+// defaultDockerMetadataExtractor is the default metadata extractor for Docker
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
 	tags := policy.NewTagsMap(map[string]string{
@@ -121,10 +122,41 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 	})
 
 	if info.HostConfig.NetworkMode == DockerHostMode {
-		return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.LinuxProcessPU, nil), nil
+		return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.LinuxProcessPU, hostModeOptions(info)), nil
 	}
 
 	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.ContainerPU, nil), nil
+}
+
+// hostModeOptions creates the default options for a host-mode container. This is done
+// based on the policy and the metadata extractor logic and can very by implementation
+func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.TagsMap {
+
+	// Create the options needed to activate
+	options := policy.NewTagsMap(map[string]string{
+		cgnetcls.PortTag:       "0",
+		cgnetcls.CgroupNameTag: strconv.Itoa(dockerInfo.State.Pid),
+	})
+
+	ports := ""
+
+	for p := range dockerInfo.Config.ExposedPorts {
+		if p.Proto() == "tcp" {
+			if ports == "" {
+				ports = p.Port()
+			} else {
+				ports = ports + "," + p.Port()
+			}
+		}
+	}
+
+	if len(ports) > 0 {
+		options.Tags[cgnetcls.PortTag] = ports
+	}
+
+	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+
+	return options
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events
@@ -375,41 +407,6 @@ func (d *dockerMonitor) syncContainers() error {
 	return nil
 }
 
-// configHostMode configures the parameters for a Host Mode container. I will use the
-// net_cls approach of Linux processes to isolate the container.
-func (d *dockerMonitor) configHostMode(runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) {
-
-	// Create the options needed to activate
-	options := policy.NewTagsMap(map[string]string{
-		cgnetcls.PortTag:       "0",
-		cgnetcls.CgroupNameTag: strconv.Itoa(dockerInfo.State.Pid),
-	})
-
-	ports := ""
-
-	for p := range dockerInfo.Config.ExposedPorts {
-		if p.Proto() == "tcp" {
-			if ports == "" {
-				ports = p.Port()
-			} else {
-				ports = ports + "," + p.Port()
-			}
-		}
-	}
-
-	if len(ports) > 0 {
-		options.Tags[cgnetcls.PortTag] = ports
-	}
-
-	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
-
-	runtimeInfo.SetOptions(options)
-
-	// Handle it like a Linux process PU
-	runtimeInfo.SetPUType(constants.LinuxProcessPU)
-
-}
-
 // setupHostMode sets up the net_cls cgroup for the host mode
 func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) error {
 
@@ -458,10 +455,6 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
 	if err != nil {
 		return fmt.Errorf("Error getting some of the Docker primitives: %s", err)
-	}
-
-	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
-		d.configHostMode(runtimeInfo, dockerInfo)
 	}
 
 	if err := d.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
