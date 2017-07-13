@@ -154,7 +154,7 @@ func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits in
 	n.useMask = maskBits < addrBits
 	n.mask = net.CIDRMask(maskBits, addrBits)
 
-	if err := n.makeGroup(mcastGroup, n.ipPacket.HeaderSize); err != nil {
+	if err := n.makeGroup(mcastGroup, n.ipPacket.CopyPacketSize); err != nil {
 		return nil, err
 	}
 
@@ -222,6 +222,8 @@ func (n *nfLog) processPacket(payload []byte, prefix []byte, seq uint32) Packet 
 		return Packet{Length: -1}
 	}
 
+	length := i.IPHeaderLength(payload)
+
 	srcAddr := i.Src(payload)
 	destAddr := i.Dst(payload)
 
@@ -231,11 +233,25 @@ func (n *nfLog) processPacket(payload []byte, prefix []byte, seq uint32) Packet 
 		destAddr = destAddr.Mask(n.mask)
 	}
 
+	// Retrieve ports
+	var srcPort int
+	var destPort int
+	if length == i.HeaderSize {
+		srcPort = i.SrcPort(payload)
+		destPort = i.DstPort(payload)
+	} else {
+		// 07/13/2017: We don't want to manage packets that have IP options
+		srcPort = -1
+		destPort = -1
+	}
+
 	return Packet{
 		Prefix:          string(prefix),
 		SourceAddr:      srcAddr,
+		SourcePort:      srcPort,
 		DestinationAddr: destAddr,
-		Length:          i.Length(payload),
+		DestinationPort: destPort,
+		Length:          length,
 		Direction:       n.direction,
 	}
 }

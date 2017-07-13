@@ -11,6 +11,8 @@ type Packet struct {
 	Prefix          string
 	Direction       IPDirection
 	SourceAddr      net.IP
+	SourcePort      int
 	DestinationAddr net.IP
+	DestinationPort int
 	Length          int
 }
