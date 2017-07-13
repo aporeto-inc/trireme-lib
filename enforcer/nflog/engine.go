@@ -120,7 +120,7 @@ func (a *nfLogger) listen() {
 					Action:          action,
 					SourceIP:        p.SourceAddr.String(),
 					DestinationIP:   p.DestinationAddr.String(),
-					DestinationPort: 0, // TODO: we need to find this.
+					DestinationPort: uint16(p.DestinationPort),
 					Tags:            tags,
 				}
 
