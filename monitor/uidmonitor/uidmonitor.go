@@ -33,7 +33,9 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 	if _, ok := runtimeTags.Tags[cgnetcls.PortTag]; ok {
 		options.Tags[cgnetcls.PortTag] = runtimeTags.Tags[cgnetcls.PortTag]
 	}
-
+	if _, ok := runtimeTags.Tags["@usr:originaluser"]; ok {
+		options.Tags["USER"] = runtimeTags.Tags["@usr:originaluser"]
+	}
 	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 	runtimeIps := policy.NewIPMap(map[string]string{"bridge": "0.0.0.0/0"})
 	runtimePID, _ := strconv.Atoi(event.PID)
