@@ -108,18 +108,18 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 // defaultDockerMetadataExtractor is the default metadata extractor for Docker
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
-	tags := policy.NewTagsMap(map[string]string{
+	tags := policy.ExtendedMap{
 		"@sys:image": info.Config.Image,
 		"@sys:name":  info.Name,
-	})
-
-	for k, v := range info.Config.Labels {
-		tags.Add("@usr:"+k, v)
 	}
 
-	ipa := policy.NewIPMap(map[string]string{
+	for k, v := range info.Config.Labels {
+		tags["@usr:"+k] = v
+	}
+
+	ipa := policy.ExtendedMap{
 		"bridge": info.NetworkSettings.IPAddress,
-	})
+	}
 
 	if info.HostConfig.NetworkMode == DockerHostMode {
 		return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.LinuxProcessPU, hostModeOptions(info)), nil
@@ -130,13 +130,13 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 
 // hostModeOptions creates the default options for a host-mode container. This is done
 // based on the policy and the metadata extractor logic and can very by implementation
-func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.TagsMap {
+func hostModeOptions(dockerInfo *types.ContainerJSON) policy.ExtendedMap {
 
 	// Create the options needed to activate
-	options := policy.NewTagsMap(map[string]string{
+	options := policy.ExtendedMap{
 		cgnetcls.PortTag:       "0",
 		cgnetcls.CgroupNameTag: strconv.Itoa(dockerInfo.State.Pid),
-	})
+	}
 
 	ports := ""
 
@@ -151,10 +151,10 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.TagsMap {
 	}
 
 	if len(ports) > 0 {
-		options.Tags[cgnetcls.PortTag] = ports
+		options[cgnetcls.PortTag] = ports
 	}
 
-	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
 	return options
 }

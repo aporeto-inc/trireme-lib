@@ -223,9 +223,9 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, ne
 
 // addAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList) error {
+func (i *Instance) addAppACLs(chain string, ip string, rules policy.IPRuleList) error {
 
-	for _, rule := range rules.Rules {
+	for _, rule := range rules {
 
 		proto := strings.ToLower(rule.Protocol)
 
@@ -314,9 +314,9 @@ func (i *Instance) addAppACLs(chain string, ip string, rules *policy.IPRuleList)
 
 // addNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the highest priority since they are direct allows.
-func (i *Instance) addNetACLs(chain, ip string, rules *policy.IPRuleList) error {
+func (i *Instance) addNetACLs(chain, ip string, rules policy.IPRuleList) error {
 
-	for _, rule := range rules.Rules {
+	for _, rule := range rules {
 
 		proto := strings.ToLower(rule.Protocol)
 

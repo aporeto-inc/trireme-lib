@@ -96,7 +96,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	// policyrules.DefaultIPAddress()
 
 	// Supporting only one ip
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
+	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
@@ -147,7 +147,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap, port string, mark string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string) error {
 	var ipAddress string
 	var ok bool
 
@@ -157,7 +157,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 			return fmt.Errorf("Provided map of IP addresses is nil")
 		}
 
-		ipAddress, ok = i.defaultIP(ipAddresses.IPs)
+		ipAddress, ok = i.defaultIP(ipAddresses)
 		if !ok {
 			return fmt.Errorf("No ip address found ")
 		}
@@ -189,7 +189,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Supporting only one ip
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
+	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}

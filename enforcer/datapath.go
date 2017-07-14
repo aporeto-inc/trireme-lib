@@ -264,6 +264,7 @@ func (d *Datapath) Start() error {
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()
 
+	fmt.Println("Finished stopping enforcer")
 	return nil
 }
 
@@ -312,7 +313,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 
 	pu := &PUContext{
 		ID:           contextID,
-		ManagementID: puInfo.Policy.ManagementID,
+		ManagementID: puInfo.Policy.ManagementID(),
 		PUType:       puInfo.Runtime.PUType(),
 		IP:           ip,
 	}

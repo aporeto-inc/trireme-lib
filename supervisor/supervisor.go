@@ -19,7 +19,7 @@ import (
 
 type cacheData struct {
 	version int
-	ips     *policy.IPMap
+	ips     policy.ExtendedMap
 	mark    string
 	port    string
 }

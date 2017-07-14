@@ -13,7 +13,6 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme/policy"
 )
 
 // LinuxProcessor captures all the monitor processor information
@@ -46,12 +45,10 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	tagsMap := policy.NewTagsMap(eventInfo.Tags)
-
 	s.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: "127.0.0.1",
-		Tags:      tagsMap,
+		Tags:      eventInfo.Tags,
 		Event:     collector.ContainerCreate,
 	})
 

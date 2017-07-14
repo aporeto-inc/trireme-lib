@@ -1,5 +1,7 @@
 package policy
 
+import "strings"
+
 // This file defines types and accessor methods for these types
 
 // Operator defines the operation between your key and value.
@@ -54,89 +56,15 @@ type IPRule struct {
 }
 
 // IPRuleList is a list of IP rules
-type IPRuleList struct {
-	Rules []IPRule
-}
+type IPRuleList []IPRule
 
-// NewIPRuleList returns a new IP rule list
-func NewIPRuleList(rules []IPRule) *IPRuleList {
-	rl := &IPRuleList{
-		Rules: []IPRule{},
+// Copy creates a clone of the IP rule list
+func (l IPRuleList) Copy() IPRuleList {
+	list := make(IPRuleList, len(l))
+	for i, v := range l {
+		list[i] = v
 	}
-	rl.Rules = append(rl.Rules, rules...)
-
-	return rl
-}
-
-// Clone creates a clone of the IP rule list
-func (l *IPRuleList) Clone() *IPRuleList {
-	return NewIPRuleList(l.Rules)
-}
-
-// An IPMap is a map of Key:Values used for IP Addresses.
-type IPMap struct {
-	IPs map[string]string
-}
-
-// NewIPMap returns a new instance of IPMap
-func NewIPMap(ips map[string]string) *IPMap {
-	ipm := &IPMap{
-		IPs: map[string]string{},
-	}
-	for k, v := range ips {
-		ipm.IPs[k] = v
-	}
-	return ipm
-}
-
-// Clone returns a copy of the map
-func (i *IPMap) Clone() *IPMap {
-	return NewIPMap(i.IPs)
-}
-
-// Add adds a key value pair
-func (i *IPMap) Add(k, v string) {
-	i.IPs[k] = v
-}
-
-// Get returns the value of a given key
-func (i *IPMap) Get(k string) (string, bool) {
-	v, ok := i.IPs[k]
-	return v, ok
-}
-
-// A TagsMap is a map of Key:Values used as tags.
-type TagsMap struct {
-	Tags map[string]string
-}
-
-// NewTagsMap returns a new instance of TagsMap
-func NewTagsMap(tags map[string]string) *TagsMap {
-	tm := &TagsMap{
-		Tags: map[string]string{},
-	}
-	if tags != nil {
-		for k, v := range tags {
-			tm.Tags[k] = v
-		}
-	}
-	return tm
-}
-
-// Clone returns a copy of the map
-func (t *TagsMap) Clone() *TagsMap {
-	return NewTagsMap(t.Tags)
-}
-
-// Get returns the value of a given key
-func (t *TagsMap) Get(k string) (string, bool) {
-	v, ok := t.Tags[k]
-	return v, ok
-}
-
-// Add adds a key value pair
-func (t *TagsMap) Add(k, v string) {
-	t.Tags[k] = v
+	return list
 }
 
 // KeyValueOperator describes an individual matching rule
@@ -146,64 +74,89 @@ type KeyValueOperator struct {
 	Operator Operator
 }
 
-// NewKeyValueOperator returns an empty KeyValueOperator
-func NewKeyValueOperator(k string, o Operator, kvos []string) *KeyValueOperator {
-	kvo := &KeyValueOperator{
-		Key:      k,
-		Operator: o,
-		Value:    []string{},
-	}
-
-	kvo.Value = append(kvo.Value, kvos...)
-
-	return kvo
-}
-
-// Clone returns a copy of the KeyValueOperator
-func (k *KeyValueOperator) Clone() *KeyValueOperator {
-	return NewKeyValueOperator(k.Key, k.Operator, k.Value)
-}
-
 // TagSelector info describes a tag selector key Operator value
 type TagSelector struct {
 	Clause []KeyValueOperator
 	Action FlowAction
 }
 
-// NewTagSelector return a new TagSelector
-func NewTagSelector(clauses []KeyValueOperator, a FlowAction) *TagSelector {
-	ts := &TagSelector{
-		Clause: []KeyValueOperator{},
-		Action: a,
+// TagSelectorList defines a list of TagSelectors
+type TagSelectorList []TagSelector
+
+// Copy  returns a copy of the TagSelectorList
+func (t TagSelectorList) Copy() TagSelectorList {
+	list := make(TagSelectorList, len(t))
+
+	for i, v := range t {
+		list[i] = v
 	}
-	for _, c := range clauses {
-		ts.Clause = append(ts.Clause, *c.Clone())
-	}
-	return ts
+
+	return list
 }
 
-// Clone returns a copy of the TagSelector
-func (t *TagSelector) Clone() *TagSelector {
-	return NewTagSelector(t.Clause, t.Action)
-}
+// ExtendedMap is a common map with additional functions
+type ExtendedMap map[string]string
 
-// TagSelectorList defines a list of TagSelector
-type TagSelectorList struct {
-	TagSelectors []TagSelector
-}
-
-// NewTagSelectorList return a new TagSelectorList
-func NewTagSelectorList(tss []TagSelector) *TagSelectorList {
-	tsl := &TagSelectorList{
-		TagSelectors: []TagSelector{},
+// Copy copies an ExtendedMap
+func (s ExtendedMap) Copy() ExtendedMap {
+	c := ExtendedMap{}
+	for k, v := range s {
+		c[k] = v
 	}
-	for _, ts := range tss {
-		tsl.TagSelectors = append(tsl.TagSelectors, *ts.Clone())
-	}
-	return tsl
+	return c
 }
 
-// Clone returns a copy of the TagSelectorList
-func (t *TagSelectorList) Clone() *TagSelectorList {
-	return NewTagSelectorList(t.TagSelectors)
+// Get does a lookup in the map
+func (s ExtendedMap) Get(key string) (string, bool) {
+	value, ok := s[key]
+	return value, ok
+}
+
+// TagStore stores the tags - it allows duplicate key values
+type TagStore []string
+
+// NewTagStore creates a new TagStore
+func NewTagStore() TagStore {
+	return TagStore{}
+}
+
+// GetSlice returns the tagstore as a slice
+func (t TagStore) GetSlice() []string {
+	return t
+}
+
+// Copy copies an ExtendedMap
+func (t TagStore) Copy() TagStore {
+
+	c := make(TagStore, len(t))
+
+	copy(c, t)
+
+	return c
+}
+
+// Get does a lookup in the list of tags
+func (t TagStore) Get(key string) (string, bool) {
+
+	for _, kv := range t {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) != 2 {
+			return "", false
+		}
+		if key == parts[0] {
+			return parts[1], true
+		}
+	}
+
+	return "", false
+}
+
+// AppendKeyValue appends a key and value to the tag store
+func (t TagStore) AppendKeyValue(key, value string) {
+	t = append(t, key+"="+value)
+}
+
+// AppendTag appends a tag to the store
+func (t TagStore) AppendTag(tag string) {
+	t = append(t, tag)
 }

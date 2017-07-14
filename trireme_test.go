@@ -271,8 +271,8 @@ func TestSimpleUpdate(t *testing.T) {
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 	// Generate a new Policy ...
-	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
-	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
+	ipl := policy.ExtendedMap{policy.DefaultNamespace: "127.0.0.1"}
+	tagsMap := policy.ExtendedMap{enforcer.TransmitterLabel: contextID}
 	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
 	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }

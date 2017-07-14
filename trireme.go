@@ -152,10 +152,10 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 // default TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
-	if containerInfo.Policy.ManagementID == "" {
+	if containerInfo.Policy.ManagementID() == "" {
 		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
 	} else {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
+		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID())
 	}
 }
 
@@ -165,7 +165,7 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 //   - Policy got the AllowAll tag.
 func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 
-	if containerInfo.Policy.TriremeAction == policy.AllowAll {
+	if containerInfo.Policy.TriremeAction() == policy.AllowAll {
 		zap.L().Debug("PUPolicy with AllowAll Action. Not policing", zap.String("contextID", contextID))
 		return false
 	}
@@ -215,9 +215,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	ip, _ := policyInfo.DefaultIPAddress()
-
-	// Create a copy as we are going to modify it locally
-	policyInfo = policyInfo.Clone()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 

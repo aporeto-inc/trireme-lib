@@ -425,7 +425,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.Add(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	// Validate against reject rules first - We always process reject with higher priority
 	if index, _ := context.RejectRcvRules.Search(claims.T); index >= 0 {
@@ -813,6 +813,9 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 
 // updateTimer updates the timers for the service connections
 func updateTimer(c cache.DataStore, hash string, conn *TCPConnection) error {
+	conn.Lock()
+	defer conn.Unlock()
+
 	if conn.ServiceConnection && conn.TimeOut > 0 {
 		return c.SetTimeOut(hash, conn.TimeOut)
 	}
