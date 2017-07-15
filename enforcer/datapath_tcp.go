@@ -797,7 +797,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 		}
 	} else {
 		if uerr := updateTimer(d.netReplyConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
-			return nil, nil, err
+			return nil, nil, uerr
 		}
 	}
 
