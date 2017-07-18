@@ -27,6 +27,7 @@ func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startNetworkInterceptor() {
 	var err error
+	
 	d.netStop = make([]chan bool, d.filterQueue.GetNumNetworkQueues())
 	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 		d.netStop[i] = make(chan bool)
