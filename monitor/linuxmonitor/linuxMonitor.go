@@ -65,6 +65,10 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		options.Tags[cgnetcls.PortTag] = runtimeTags.Tags[cgnetcls.PortTag]
 	}
 
+	if _, ok := runtimeTags.Tags["@usr:originaluser"]; ok {
+		options.Tags["USER"] = runtimeTags.Tags["@usr:originaluser"]
+	}
+	fmt.Println("options.Tags", options.Tags["USER"])
 	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
 	runtimeIps := policy.NewIPMap(map[string]string{"bridge": "0.0.0.0/0"})

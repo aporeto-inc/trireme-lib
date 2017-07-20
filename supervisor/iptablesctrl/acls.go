@@ -254,6 +254,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string, uid string) error {
 
 	if i.mode == constants.LocalServer {
+		fmt.Println("addChainRules UID", uid)
 		if uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Append")
 		} else {
