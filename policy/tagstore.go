@@ -1,7 +1,7 @@
 package policy
 
 import (
-  "strings"
+	"strings"
 )
 
 // TagStore stores the tags - it allows duplicate key values
@@ -46,7 +46,7 @@ func (t *TagStore) Get(key string) (string, bool) {
 	for _, kv := range t.Tags {
 		parts := strings.SplitN(kv, "=", 2)
 		if len(parts) != 2 {
-			continue 
+			continue
 		}
 		if key == parts[0] {
 			return parts[1], true
