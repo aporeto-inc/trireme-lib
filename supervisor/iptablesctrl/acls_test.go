@@ -877,7 +877,7 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 
 func TestUpdateTargetNetworks(t *testing.T) {
 	Convey("Given an iptables controller,", t, func() {
-		i, _ := NewInstance("0:1", "2:3", 0x1000, constants.LocalContainer)
+		i, _ := NewInstance(&fqconfig.FilterQueue{}, constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
