@@ -6,56 +6,6 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func CreateTestPolicy() *PUPolicy {
-	appACL := IPRule{
-		Action:   Accept,
-		Address:  "10.0.0.0/8",
-		Protocol: "tcp",
-		Port:     "80",
-	}
-
-	netACL := IPRule{
-		Action:   Accept,
-		Address:  "20.0.0.0/8",
-		Protocol: "tcp",
-		Port:     "80",
-	}
-
-	clause := KeyValueOperator{
-		Key:      "app",
-		Value:    []string{"web"},
-		Operator: Equal,
-	}
-
-	txtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Accept}}
-	rxtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Reject}}
-
-	identity := NewTagStore()
-	identity.AppendKeyValue("image", "nginx")
-
-	annotations := NewTagStore()
-	annotations.AppendKeyValue("image", "nginx")
-	annotations.AppendKeyValue("server", "local")
-
-	ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
-	triremeNetworks := []string{"10.1.1.0/24"}
-	excludedNetworks := []string{"10.1.1.1"}
-
-	return NewPUPolicy(
-		"id1",
-		AllowAll,
-		IPRuleList{appACL},
-		IPRuleList{netACL},
-		txtags,
-		rxtags,
-		identity,
-		annotations,
-		ips,
-		triremeNetworks,
-		excludedNetworks,
-	)
-}
-
 func TestNewPolicy(t *testing.T) {
 	Convey("Given that I instantiate a new policy", t, func() {
 
