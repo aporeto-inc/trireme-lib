@@ -152,7 +152,7 @@ func (m *PolicyDB) keyValueFromString(tag string) (key, value string) {
 }
 
 //Search searches for a set of tags in the database to find a policy match
-func (m *PolicyDB) Search(tags policy.TagStore) (int, interface{}) {
+func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	count := make([]int, m.numberOfPolicies+1)
 

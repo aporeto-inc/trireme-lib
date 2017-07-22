@@ -2,9 +2,9 @@ package policy
 
 import (
 	"encoding/json"
-	"sync"
 
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/sasha-s/go-deadlock"
 )
 
 // PURuntime holds all data related to the status of the container run time
@@ -18,11 +18,11 @@ type PURuntime struct {
 	// IPAddress is the IP Address of the container
 	ips ExtendedMap
 	// Tags is a map of the metadata of the container
-	tags TagStore
+	tags *TagStore
 	// options
 	options ExtendedMap
 
-	sync.Mutex
+	deadlock.Mutex
 }
 
 // PURuntimeJSON is a Json representation of PURuntime
@@ -36,13 +36,13 @@ type PURuntimeJSON struct {
 	// IPAddress is the IP Address of the container
 	IPAddresses ExtendedMap
 	// Tags is a map of the metadata of the container
-	Tags TagStore
+	Tags *TagStore
 	// Options is a map of the options of the container
 	Options ExtendedMap
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags TagStore, ips ExtendedMap, puType constants.PUType, options ExtendedMap) *PURuntime {
+func NewPURuntime(name string, pid int, tags *TagStore, ips ExtendedMap, puType constants.PUType, options ExtendedMap) *PURuntime {
 
 	t := tags
 	if t == nil {
@@ -163,7 +163,7 @@ func (r *PURuntime) DefaultIPAddress() (string, bool) {
 	r.Lock()
 	defer r.Unlock()
 
-	ip, ok := r.ips["bridge"]
+	ip, ok := r.ips[DefaultNamespace]
 
 	return ip, ok
 }
@@ -194,7 +194,7 @@ func (r *PURuntime) Tag(key string) (string, bool) {
 }
 
 //Tags returns tags for the processing unit
-func (r *PURuntime) Tags() TagStore {
+func (r *PURuntime) Tags() *TagStore {
 	r.Lock()
 	defer r.Unlock()
 

@@ -24,7 +24,7 @@ type RuntimeReader interface {
 	Tag(string) (string, bool)
 
 	// Tags returns a copy of the list of the tags.
-	Tags() TagStore
+	Tags() *TagStore
 
 	// Options returns a copy of the list of options.
 	Options() ExtendedMap

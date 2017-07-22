@@ -275,7 +275,7 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		return nil, fmt.Errorf("EventInfo PUID is empty")
 	}
 
-	runtimeTags := event.Tags
+	runtimeTags := policy.NewTagStoreFromMap(event.Tags)
 	runtimeIps := event.IPs
 	runtimePID, err := strconv.Atoi(event.PID)
 	if err != nil {

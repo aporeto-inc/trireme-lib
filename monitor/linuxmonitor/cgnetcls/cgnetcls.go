@@ -45,6 +45,11 @@ type netCls struct {
 	ReleaseAgentPath string
 }
 
+//Initialize only ince
+func init() {
+	mountCgroupController()
+}
+
 // Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
 // To add a new process to this cgroup we need to write to the cgroup file
 func (s *netCls) Creategroup(cgroupname string) error {
@@ -239,7 +244,6 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 		ReleaseAgentPath: "",
 	}
 
-	mountCgroupController()
 	return controller
 }
 
@@ -254,7 +258,7 @@ func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	if releasePath != "" {
 		controller.ReleaseAgentPath = releasePath
 	}
-	mountCgroupController()
+
 	return controller
 }
 

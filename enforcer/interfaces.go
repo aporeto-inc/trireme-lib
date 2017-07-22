@@ -61,8 +61,8 @@ type PacketProcessor interface {
 type PUContext struct {
 	ID             string
 	ManagementID   string
-	Identity       policy.TagStore
-	Annotations    policy.TagStore
+	Identity       *policy.TagStore
+	Annotations    *policy.TagStore
 	AcceptTxtRules *lookup.PolicyDB
 	RejectTxtRules *lookup.PolicyDB
 	AcceptRcvRules *lookup.PolicyDB

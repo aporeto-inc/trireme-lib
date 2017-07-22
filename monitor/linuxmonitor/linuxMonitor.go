@@ -33,27 +33,27 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		return nil, fmt.Errorf("EventInfo PUID is empty")
 	}
 
-	runtimeTags := policy.ExtendedMap{}
+	runtimeTags := policy.NewTagStore()
 
 	for k, v := range event.Tags {
-		runtimeTags["@usr:"+k] = v
+		runtimeTags.AppendKeyValue("@usr:"+k, v)
 	}
 
 	userdata := processInfo(event.PID)
 
 	for _, u := range userdata {
-		runtimeTags["@sys:"+u] = "true"
+		runtimeTags.AppendKeyValue("@sys:"+u, "true")
 	}
 
-	runtimeTags["@sys:hostname"] = findFQFN()
+	runtimeTags.AppendKeyValue("@sys:hostname", findFQFN())
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
-		runtimeTags["@sys:filechecksum"] = hex.EncodeToString(fileMd5)
+		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
 	}
 
 	depends := libs(event.Name)
 	for _, lib := range depends {
-		runtimeTags["@sys:lib:"+lib] = "true"
+		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
 	}
 
 	options := policy.ExtendedMap{
@@ -61,8 +61,9 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		cgnetcls.CgroupNameTag: event.PUID,
 	}
 
-	if _, ok := runtimeTags[cgnetcls.PortTag]; ok {
-		options[cgnetcls.PortTag] = runtimeTags[cgnetcls.PortTag]
+	ports, ok := runtimeTags.Get(cgnetcls.PortTag)
+	if ok {
+		options[cgnetcls.PortTag] = ports
 	}
 
 	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)

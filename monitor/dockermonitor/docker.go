@@ -108,13 +108,12 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 // defaultDockerMetadataExtractor is the default metadata extractor for Docker
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
-	tags := policy.ExtendedMap{
-		"@sys:image": info.Config.Image,
-		"@sys:name":  info.Name,
-	}
+	tags := policy.NewTagStore()
+	tags.AppendKeyValue("@sys:image", info.Config.Image)
+	tags.AppendKeyValue("@sys:name", info.Name)
 
 	for k, v := range info.Config.Labels {
-		tags["@usr:"+k] = v
+		tags.AppendKeyValue("@usr:"+k, v)
 	}
 
 	ipa := policy.ExtendedMap{

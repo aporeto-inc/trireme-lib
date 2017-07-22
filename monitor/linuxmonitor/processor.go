@@ -45,12 +45,12 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	s.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: "127.0.0.1",
-		Tags:      eventInfo.Tags,
-		Event:     collector.ContainerCreate,
-	})
+	// s.collector.CollectContainerEvent(&collector.ContainerRecord{
+	// 	ContextID: contextID,
+	// 	IPAddress: "127.0.0.1",
+	// 	Tags:      eventInfo.Tags,
+	// 	Event:     collector.ContainerCreate,
+	// })
 
 	// Send the event upstream
 	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventCreate)

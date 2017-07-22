@@ -62,7 +62,7 @@ type FlowRecord struct {
 	SourceIP        string
 	DestinationIP   string
 	DestinationPort uint16
-	Tags            policy.TagStore
+	Tags            *policy.TagStore
 	Action          string
 	Mode            string
 }
@@ -71,6 +71,6 @@ type FlowRecord struct {
 type ContainerRecord struct {
 	ContextID string
 	IPAddress string
-	Tags      policy.TagStore
+	Tags      *policy.TagStore
 	Event     string
 }

@@ -304,7 +304,7 @@ func TestAddAppACLs(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.addAppACLs("chain", "", &policy.IPRuleList{})
+			err := i.addAppACLs("chain", "", policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -318,7 +318,7 @@ func TestAddAppACLs(t *testing.T) {
 				return nil
 			})
 
-			err := i.addAppACLs("chain", "", &policy.IPRuleList{})
+			err := i.addAppACLs("chain", "", policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -326,7 +326,7 @@ func TestAddAppACLs(t *testing.T) {
 
 		Convey("When I add app ACLs with one reject and one accept rule and iptables succeeds", func() {
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
@@ -340,7 +340,7 @@ func TestAddAppACLs(t *testing.T) {
 					Protocol: "TCP",
 					Action:   policy.Accept,
 				},
-			})
+			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
@@ -362,7 +362,7 @@ func TestAddAppACLs(t *testing.T) {
 
 		Convey("When I add app ACLs with one reject and one accept and the accept fails", func() {
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
@@ -376,7 +376,7 @@ func TestAddAppACLs(t *testing.T) {
 					Protocol: "TCP",
 					Action:   policy.Accept,
 				},
-			})
+			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
@@ -395,7 +395,7 @@ func TestAddAppACLs(t *testing.T) {
 
 		Convey("When I add app ACLs with one reject and one accept and the reject rule fails", func() {
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
@@ -409,7 +409,7 @@ func TestAddAppACLs(t *testing.T) {
 					Protocol: "TCP",
 					Action:   policy.Accept,
 				},
-			})
+			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
@@ -449,7 +449,7 @@ func TestAddNetAcls(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.addNetACLs("chain", "", &policy.IPRuleList{})
+			err := i.addNetACLs("chain", "", policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -463,7 +463,7 @@ func TestAddNetAcls(t *testing.T) {
 				return nil
 			})
 
-			err := i.addNetACLs("chain", "", &policy.IPRuleList{})
+			err := i.addNetACLs("chain", "", policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -471,7 +471,7 @@ func TestAddNetAcls(t *testing.T) {
 
 		Convey("When I add net ACLs with one reject and one accept rule and iptables succeeds", func() {
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
@@ -485,7 +485,7 @@ func TestAddNetAcls(t *testing.T) {
 					Protocol: "TCP",
 					Action:   policy.Accept,
 				},
-			})
+			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
@@ -507,7 +507,7 @@ func TestAddNetAcls(t *testing.T) {
 
 		Convey("When I add net ACLs with one reject and one accept and the accept fails", func() {
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
@@ -521,7 +521,7 @@ func TestAddNetAcls(t *testing.T) {
 					Protocol: "TCP",
 					Action:   policy.Accept,
 				},
-			})
+			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
@@ -540,7 +540,7 @@ func TestAddNetAcls(t *testing.T) {
 
 		Convey("When I add net ACLs with one reject and one accept and the reject rule fails", func() {
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
@@ -554,7 +554,7 @@ func TestAddNetAcls(t *testing.T) {
 					Protocol: "TCP",
 					Action:   policy.Accept,
 				},
-			})
+			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {

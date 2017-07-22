@@ -1,6 +1,6 @@
 package policy
 
-import "sync"
+import "github.com/sasha-s/go-deadlock"
 
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
@@ -17,9 +17,9 @@ type PUPolicy struct {
 	// the data center
 	networkACLs IPRuleList
 	// identity is the set of key value pairs that must be send over the wire.
-	identity TagStore
+	identity *TagStore
 	// annotations are key/value pairs  that should be used for accounting reasons
-	annotations TagStore
+	annotations *TagStore
 	// transmitterRules is the set of rules that implement the label matching at the Transmitter
 	transmitterRules TagSelectorList
 	// teceiverRules is the set of rules that implement matching at the Receiver
@@ -31,8 +31,18 @@ type PUPolicy struct {
 	// excludedNetworks a list of networks that must be excluded
 	excludedNetworks []string
 
-	sync.Mutex
+	deadlock.Mutex
 }
+
+// PUAction defines the action types that applies for a specific PU as a whole.
+type PUAction int
+
+const (
+	// AllowAll allows everything for the specific PU.
+	AllowAll = 0x1
+	// Police filters on the PU based on the PolicyRules.
+	Police = 0x2
+)
 
 // NewPUPolicy generates a new ContainerPolicyInfo
 // appACLs are the ACLs for packet coming from the Application/PU to the Network.
@@ -43,7 +53,7 @@ func NewPUPolicy(
 	appACLs,
 	netACLs IPRuleList,
 	txtags, rxtags TagSelectorList,
-	identity, annotations TagStore,
+	identity, annotations *TagStore,
 	ips ExtendedMap,
 	triremeNetworks []string,
 	excludedNetworks []string) *PUPolicy {
@@ -62,11 +72,11 @@ func NewPUPolicy(
 	}
 
 	if identity == nil {
-		identity = TagStore{}
+		identity = NewTagStore()
 	}
 
 	if annotations == nil {
-		annotations = TagStore{}
+		annotations = NewTagStore()
 	}
 
 	if ips == nil {
@@ -100,8 +110,8 @@ func (p *PUPolicy) Clone() *PUPolicy {
 	defer p.Unlock()
 
 	np := NewPUPolicy(
-		p.ManagementID(),
-		p.TriremeAction(),
+		p.managementID,
+		p.triremeAction,
 		p.applicationACLs.Copy(),
 		p.networkACLs.Copy(),
 		p.transmitterRules.Copy(),
@@ -189,7 +199,7 @@ func (p *PUPolicy) AddTransmitterRules(t TagSelector) {
 }
 
 // Identity returns a copy of the Identity
-func (p *PUPolicy) Identity() TagStore {
+func (p *PUPolicy) Identity() *TagStore {
 	p.Lock()
 	defer p.Unlock()
 
@@ -197,7 +207,7 @@ func (p *PUPolicy) Identity() TagStore {
 }
 
 // Annotations returns a copy of the annotations
-func (p *PUPolicy) Annotations() TagStore {
+func (p *PUPolicy) Annotations() *TagStore {
 	p.Lock()
 	defer p.Unlock()
 
