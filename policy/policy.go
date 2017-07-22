@@ -1,6 +1,6 @@
 package policy
 
-import "github.com/sasha-s/go-deadlock"
+import "sync"
 
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
@@ -31,7 +31,7 @@ type PUPolicy struct {
 	// excludedNetworks a list of networks that must be excluded
 	excludedNetworks []string
 
-	deadlock.Mutex
+	sync.Mutex
 }
 
 // PUAction defines the action types that applies for a specific PU as a whole.

@@ -2,9 +2,9 @@ package policy
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/aporeto-inc/trireme/constants"
-	"github.com/sasha-s/go-deadlock"
 )
 
 // PURuntime holds all data related to the status of the container run time
@@ -22,7 +22,7 @@ type PURuntime struct {
 	// options
 	options ExtendedMap
 
-	deadlock.Mutex
+	sync.Mutex
 }
 
 // PURuntimeJSON is a Json representation of PURuntime
