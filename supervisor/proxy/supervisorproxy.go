@@ -41,8 +41,8 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	req := &rpcwrapper.Request{
 		Payload: &rpcwrapper.SuperviseRequestPayload{
 			ContextID:        contextID,
-			ManagementID:     puInfo.Policy.ManagementID,
-			TriremeAction:    puInfo.Policy.TriremeAction,
+			ManagementID:     puInfo.Policy.ManagementID(),
+			TriremeAction:    puInfo.Policy.TriremeAction(),
 			ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
 			NetworkACLs:      puInfo.Policy.NetworkACLs(),
 			PolicyIPs:        puInfo.Policy.IPAddresses(),

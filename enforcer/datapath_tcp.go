@@ -71,12 +71,10 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	conn.Lock()
 	defer conn.Unlock()
 
-	d.netTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
 		if !d.service.PreProcessTCPNetPacket(p, context, conn) {
-			d.netTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("Pre service processing failed for network packet")
 		}
@@ -87,7 +85,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, claims, err := d.processNetworkTCPPacket(p, context, conn)
 	if err != nil {
-		d.netTCP.AuthDropPackets++
 		p.Print(packet.PacketFailureAuth)
 		zap.L().Debug("Rejecting packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -102,14 +99,12 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPNetPacket(p, action, claims, context, conn) {
-			d.netTCP.ServicePostDropPackets++
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("PostPost service processing failed for network packet")
 		}
 	}
 
 	// Accept the packet
-	d.netTCP.OutgoingPackets++
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 
@@ -168,13 +163,11 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	conn.Lock()
 	defer conn.Unlock()
 
-	d.appTCP.IncomingPackets++
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPAppPacket(p, context, conn) {
-			d.appTCP.ServicePreDropPackets++
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("Pre service processing failed for application packet")
 		}
@@ -190,7 +183,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			zap.Error(err),
 		)
-		d.appTCP.AuthDropPackets++
 		p.Print(packet.PacketFailureAuth)
 		return fmt.Errorf("Processing failed for application packet: %s", err.Error())
 	}
@@ -200,14 +192,12 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPAppPacket(p, action, context, conn) {
-			d.appTCP.ServicePostDropPackets++
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("Post service processing failed for application packet")
 		}
 	}
 
 	// Accept the packet
-	d.appTCP.OutgoingPackets++
 	p.UpdateTCPChecksum()
 	p.Print(packet.PacketStageOutgoing)
 	return nil
@@ -425,7 +415,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.Add(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	// Validate against reject rules first - We always process reject with higher priority
 	if index, _ := context.RejectRcvRules.Search(claims.T); index >= 0 {
@@ -813,6 +803,9 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 
 // updateTimer updates the timers for the service connections
 func updateTimer(c cache.DataStore, hash string, conn *TCPConnection) error {
+	conn.Lock()
+	defer conn.Unlock()
+
 	if conn.ServiceConnection && conn.TimeOut > 0 {
 		return c.SetTimeOut(hash, conn.TimeOut)
 	}
