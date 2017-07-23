@@ -2,9 +2,11 @@ package dockermonitor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -16,6 +18,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -47,6 +51,9 @@ const (
 
 	// DockerClientVersion is the version sent out as the client
 	DockerClientVersion = "v1.23"
+
+	// DockerHostMode is the string of the network mode that indicates a host namespace
+	DockerHostMode = "host"
 )
 
 // A DockerEventHandler is type of docker event handler functions.
@@ -98,22 +105,57 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 	return dockerClient, nil
 }
 
+// defaultDockerMetadataExtractor is the default metadata extractor for Docker
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
-	tags := policy.NewTagsMap(map[string]string{
-		"@sys:image": info.Config.Image,
-		"@sys:name":  info.Name,
-	})
+	tags := policy.NewTagStore()
+	tags.AppendKeyValue("@sys:image", info.Config.Image)
+	tags.AppendKeyValue("@sys:name", info.Name)
 
 	for k, v := range info.Config.Labels {
-		tags.Add("@usr:"+k, v)
+		tags.AppendKeyValue("@usr:"+k, v)
 	}
 
-	ipa := policy.NewIPMap(map[string]string{
+	ipa := policy.ExtendedMap{
 		"bridge": info.NetworkSettings.IPAddress,
-	})
+	}
+
+	if info.HostConfig.NetworkMode == DockerHostMode {
+		return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.LinuxProcessPU, hostModeOptions(info)), nil
+	}
 
 	return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.ContainerPU, nil), nil
+}
+
+// hostModeOptions creates the default options for a host-mode container. This is done
+// based on the policy and the metadata extractor logic and can very by implementation
+func hostModeOptions(dockerInfo *types.ContainerJSON) policy.ExtendedMap {
+
+	// Create the options needed to activate
+	options := policy.ExtendedMap{
+		cgnetcls.PortTag:       "0",
+		cgnetcls.CgroupNameTag: strconv.Itoa(dockerInfo.State.Pid),
+	}
+
+	ports := ""
+
+	for p := range dockerInfo.Config.ExposedPorts {
+		if p.Proto() == "tcp" {
+			if ports == "" {
+				ports = p.Port()
+			} else {
+				ports = ports + "," + p.Port()
+			}
+		}
+	}
+
+	if len(ports) > 0 {
+		options[cgnetcls.PortTag] = ports
+	}
+
+	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+
+	return options
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events
@@ -128,6 +170,8 @@ type dockerMonitor struct {
 
 	collector collector.EventCollector
 	puHandler monitor.ProcessingUnitsHandler
+
+	netcls cgnetcls.Cgroupnetcls
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
 	killContainerOnPolicyError bool
 	syncAtStart                bool
@@ -169,6 +213,7 @@ func NewDockerMonitor(
 		syncAtStart:                syncAtStart,
 		syncHandler:                s,
 		killContainerOnPolicyError: killContainerOnPolicyError,
+		netcls: cgnetcls.NewDockerCgroupNetController(),
 	}
 
 	// Add handlers for the events that we know how to process
@@ -361,17 +406,47 @@ func (d *dockerMonitor) syncContainers() error {
 	return nil
 }
 
+// setupHostMode sets up the net_cls cgroup for the host mode
+func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) error {
+
+	if err := d.netcls.Creategroup(contextID); err != nil {
+		return err
+	}
+
+	markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
+	if !ok {
+		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+		return errors.New("Mark value not found")
+	}
+
+	mark, _ := strconv.ParseUint(markval, 10, 32)
+	if err := d.netcls.AssignMark(contextID, mark); err != nil {
+		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+		return err
+	}
+
+	if err := d.netcls.AddProcess(contextID, dockerInfo.State.Pid); err != nil {
+		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+	}
+
+	return nil
+}
+
 func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
 
 	timeout := time.Second * 0
 
 	if !dockerInfo.State.Running {
-
 		return nil
 	}
 
 	contextID, err := contextIDFromDockerID(dockerInfo.ID)
-
 	if err != nil {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
@@ -395,6 +470,12 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 			return fmt.Errorf("Policy cound't be set - container was killed")
 		}
 		return fmt.Errorf("Policy cound't be set - container was kept alive per policy")
+	}
+
+	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
+		if err := d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
+			return fmt.Errorf("Failed to setup host mode ")
+		}
 	}
 
 	return nil
@@ -474,11 +555,6 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 		return fmt.Errorf("Cannot read container information. Container still alive per policy. ")
 	}
 
-	if info.HostConfig.NetworkMode == "host" {
-		zap.L().Warn("Ignore host namespace container: do nothing", zap.String("contextID", contextID))
-		return nil
-	}
-
 	return d.startDockerContainer(&info)
 }
 
@@ -493,14 +569,28 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 	dockerID := event.ID
 	contextID, err := contextIDFromDockerID(dockerID)
-
 	if err != nil {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
 	// Send the event upstream
 	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
-	return <-errChan
+
+	err = <-errChan
+	if err != nil {
+		zap.L().Error("Failed to handle delete event",
+			zap.Error(err),
+		)
+	}
+
+	if err := d.netcls.DeleteCgroup(contextID); err != nil {
+		zap.L().Warn("Failed to clean netcls group",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
+	}
+
+	return nil
 }
 
 // handlePauseEvent generates a create event type.

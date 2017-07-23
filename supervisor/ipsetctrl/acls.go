@@ -17,7 +17,7 @@ const (
 )
 
 // createACLSets creates the sets for a given PU
-func (i *Instance) createACLSets(version string, set string, rules *policy.IPRuleList) error {
+func (i *Instance) createACLSets(version string, set string, rules policy.IPRuleList) error {
 
 	allowSet, err := i.ips.NewIpset(set+allowPrefix+version, "hash:net,port", &ipset.Params{})
 	if err != nil {
@@ -29,7 +29,7 @@ func (i *Instance) createACLSets(version string, set string, rules *policy.IPRul
 		return fmt.Errorf("Couldn't create IPSet for Trireme: %s", err.Error())
 	}
 
-	for _, rule := range rules.Rules {
+	for _, rule := range rules {
 		var err error
 		switch rule.Action {
 		case policy.Accept:
