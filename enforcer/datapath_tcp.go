@@ -232,12 +232,20 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 // processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
-	// Process as external service if the IP is found in the cache
+	// Let's check if it matches a specific external service - we can let those go
+	// We don't account for 0.0.0.0/0 external services though
+	if action, err := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort); err == nil && action&policy.Accept > 0 {
+		conn.SetState(TCPData)
+		return action, nil
+	}
+
+	// If we have an IP in the cache for the default match, the process here.
 	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err == nil {
-		action, perr := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
+		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.DestinationPort)
 		if perr != nil || action == policy.Reject {
 			return nil, fmt.Errorf("Drop it")
 		}
+		conn.SetState(TCPData)
 		return action, nil
 	}
 
@@ -478,8 +486,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 			return nil, nil, nil
 		}
 
-		// Never seen this IP before, let's parse them
-		action, perr := context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
+		// Never seen this IP before, let's parse them. We only look at the defaults
+		// in this case. The rest have  been processed at the Syn packet
+		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.SourcePort)
 		if perr != nil || action == policy.Reject {
 			return nil, nil, fmt.Errorf("Drop it")
 		}

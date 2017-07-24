@@ -44,7 +44,7 @@ func TestLookup(t *testing.T) {
 		c := NewACLCache()
 		err := c.AddRuleList(rules)
 		So(err, ShouldBeNil)
-		So(len(c.prefixMap), ShouldEqual, len(rules)-1)
+		So(len(c.prefixMap), ShouldEqual, len(rules)-2)
 
 		Convey("When I lookup for a matching address and a port range, I should get the right action", func() {
 			ip := net.ParseIP("172.17.0.1")
@@ -87,9 +87,8 @@ func TestLookup(t *testing.T) {
 		})
 
 		Convey("When I lookup for a matching the 0.0.0.0/0 ACL, it shoud return succes ", func() {
-			ip := net.ParseIP("23.24.23.24")
 			port := uint16(443)
-			a, err := c.GetMatchingAction(ip.To4(), port)
+			a, err := c.GetDefaultAction(port)
 			So(err, ShouldBeNil)
 			So(a, ShouldEqual, policy.Accept)
 		})
