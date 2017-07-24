@@ -11,21 +11,30 @@ import (
 var (
 	rules = policy.IPRuleList{
 		policy.IPRule{
-			Address: "172.17.0.0/16",
-			Port:    "400:500",
-			Action:  policy.Accept},
+			Address:  "172.17.0.0/16",
+			Port:     "400:500",
+			Protocol: "tcp",
+			Action:   policy.Accept},
 		policy.IPRule{
-			Address: "192.168.100.0/24",
-			Port:    "80",
-			Action:  policy.Accept},
+			Address:  "192.168.100.0/24",
+			Protocol: "tcp",
+			Port:     "80",
+			Action:   policy.Accept},
 		policy.IPRule{
-			Address: "10.1.1.1",
-			Port:    "80",
-			Action:  policy.Accept},
+			Address:  "10.1.1.1",
+			Protocol: "tcp",
+			Port:     "80",
+			Action:   policy.Accept},
 		policy.IPRule{
-			Address: "0.0.0.0/0",
-			Port:    "443",
-			Action:  policy.Accept},
+			Address:  "0.0.0.0/0",
+			Protocol: "tcp",
+			Port:     "443",
+			Action:   policy.Accept},
+		policy.IPRule{
+			Address:  "0.0.0.0/0",
+			Protocol: "udp",
+			Port:     "443",
+			Action:   policy.Accept},
 	}
 )
 
@@ -35,7 +44,7 @@ func TestLookup(t *testing.T) {
 		c := NewACLCache()
 		err := c.AddRuleList(rules)
 		So(err, ShouldBeNil)
-		So(len(c.prefixMap), ShouldEqual, len(rules))
+		So(len(c.prefixMap), ShouldEqual, len(rules)-1)
 
 		Convey("When I lookup for a matching address and a port range, I should get the right action", func() {
 			ip := net.ParseIP("172.17.0.1")

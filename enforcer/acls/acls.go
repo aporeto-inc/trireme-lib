@@ -77,9 +77,7 @@ func createPortAction(rule policy.IPRule) *PortAction {
 func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 	var subnet, mask uint32
 
-	proto := strings.ToLower(rule.Protocol)
-
-	if proto != "tcp" {
+	if strings.ToLower(rule.Protocol) != "tcp" {
 		return nil
 	}
 
@@ -115,7 +113,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 	}
 
 	subnet = subnet & mask
-	fmt.Printf("Adding rule mask %x subnet %x for address %s \n ", mask, subnet, rule.Address)
+
 	c.prefixMap[mask][subnet] = append(c.prefixMap[mask][subnet], a)
 
 	return nil
@@ -131,26 +129,22 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 		}
 	}
 
-	fmt.Println("Print the whole ACLs table now ")
-	c.dumptable()
-	fmt.Println("Finished  ")
-
 	return err
 }
 
 // GetMatchingAction gets the matching action
 func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (policy.FlowAction, error) {
-	c.dumptable()
+
 	addr := binary.BigEndian.Uint32(ip)
-
-	fmt.Printf("Matching address %x and port %d \n", addr, port)
-
+	// Iterate over all the bitmasks we have
 	for bitmask, pmap := range c.prefixMap {
-		fmt.Printf("Iterating %x , target %x\n", bitmask, addr&bitmask)
+
+		// Do a lookup as a hash to see if we have a match
 		if actionList, ok := pmap[addr&bitmask]; ok {
+
+			// Scan the ports - TODO: better algorithm needed hefe
 			for _, p := range actionList {
 				if port >= p.min && port <= p.max {
-					fmt.Println("I Found a match ")
 					return p.action, nil
 				}
 			}
@@ -158,15 +152,4 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (policy.FlowAction,
 	}
 
 	return policy.Reject, fmt.Errorf("No match")
-}
-
-func (c *ACLCache) dumptable() {
-	for bitmask, pmap := range c.prefixMap {
-		for actionlist, list := range pmap {
-			fmt.Printf("Bitmask %x actionlist %x  ", bitmask, actionlist)
-			for _, l := range list {
-				fmt.Println(l)
-			}
-		}
-	}
 }
