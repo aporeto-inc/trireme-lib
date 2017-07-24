@@ -233,7 +233,7 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
 	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err != nil {
-		fmt.Println("We know its not us .. let's just check acls  ")
+		fmt.Println("We know its not us .. let's just check acls for IP ", tcpPacket.DestinationAddress.String(), tcpPacket.DestinationPort)
 		action, perr := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
 		if perr != nil || action == policy.Reject {
 			fmt.Println("I didn't find a match at the syn packet .. so I will reject it  ")

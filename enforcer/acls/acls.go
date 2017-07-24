@@ -114,6 +114,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 		return fmt.Errorf("Invalid port")
 	}
 
+	subnet = subnet & mask
 	fmt.Printf("Adding rule mask %x subnet %x for address %s \n ", mask, subnet, rule.Address)
 	c.prefixMap[mask][subnet] = append(c.prefixMap[mask][subnet], a)
 
