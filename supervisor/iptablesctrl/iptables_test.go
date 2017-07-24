@@ -109,7 +109,7 @@ func TestConfigureRules(t *testing.T) {
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
-		rules := policy.NewIPRuleList([]policy.IPRule{
+		rules := policy.IPRuleList{
 			policy.IPRule{
 				Address:  "192.30.253.0/24",
 				Port:     "80",
@@ -123,12 +123,12 @@ func TestConfigureRules(t *testing.T) {
 				Protocol: "TCP",
 				Action:   policy.Accept,
 			},
-		})
+		}
 
 		Convey("With a set of policy rules and valid IP", func() {
 
-			ipl := policy.NewIPMap(map[string]string{})
-			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -136,7 +136,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -156,7 +156,7 @@ func TestConfigureRules(t *testing.T) {
 		})
 
 		Convey("With a set of policy rules and invalid IP", func() {
-			ipl := policy.NewIPMap(map[string]string{})
+			ipl := policy.ExtendedMap{}
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -164,7 +164,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -178,8 +178,8 @@ func TestConfigureRules(t *testing.T) {
 
 		Convey("With a set of policy rules and valid IP, where add container chain fails", func() {
 
-			ipl := policy.NewIPMap(map[string]string{})
-			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -187,7 +187,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -209,8 +209,8 @@ func TestConfigureRules(t *testing.T) {
 
 		Convey("With a set of policy rules and valid IP, where add ACLs fails", func() {
 
-			ipl := policy.NewIPMap(map[string]string{})
-			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -218,7 +218,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -253,9 +253,7 @@ func TestDeleteRules(t *testing.T) {
 		})
 
 		Convey("I try to delete with no default IP address ", func() {
-			err := i.DeleteRules(1, "context", &policy.IPMap{
-				IPs: map[string]string{},
-			}, "0", "0")
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0")
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -271,11 +269,7 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", &policy.IPMap{
-				IPs: map[string]string{
-					policy.DefaultNamespace: "172.17.0.2",
-				},
-			}, "0", "0")
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -290,7 +284,7 @@ func TestUpdateRules(t *testing.T) {
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
-		rules := policy.NewIPRuleList([]policy.IPRule{
+		rules := policy.IPRuleList{
 			policy.IPRule{
 				Address:  "192.30.253.0/24",
 				Port:     "80",
@@ -304,7 +298,7 @@ func TestUpdateRules(t *testing.T) {
 				Protocol: "TCP",
 				Action:   policy.Accept,
 			},
-		})
+		}
 
 		Convey("If I try to update with nil IP addreses", func() {
 			err := i.UpdateRules(1, "context", nil)
@@ -314,7 +308,7 @@ func TestUpdateRules(t *testing.T) {
 		})
 
 		Convey("If I try to update with no default IP address ", func() {
-			ipl := policy.NewIPMap(map[string]string{})
+			ipl := policy.ExtendedMap{}
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -322,7 +316,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -376,8 +370,8 @@ func TestUpdateRules(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			ipl := policy.NewIPMap(map[string]string{})
-			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -385,7 +379,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules

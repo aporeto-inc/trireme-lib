@@ -66,7 +66,7 @@ type FlowRecord struct {
 	SourceIP        string
 	DestinationIP   string
 	DestinationPort uint16
-	Tags            *policy.TagsMap
+	Tags            *policy.TagStore
 	Action          string
 	Mode            string
 }
@@ -89,6 +89,6 @@ func (f *FlowRecord) String() string {
 type ContainerRecord struct {
 	ContextID string
 	IPAddress string
-	Tags      *policy.TagsMap
+	Tags      *policy.TagStore
 	Event     string
 }

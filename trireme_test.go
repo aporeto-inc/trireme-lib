@@ -39,8 +39,8 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 			t.Errorf("Runtime given to Resolver is not the same. Received %v, expected %v", RuntimeReader, runtime)
 		}
 
-		ipaddrs := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
-		tpolicy := policy.NewPUPolicy("SomeId", policy.Police, nil, nil, nil, nil, nil, nil, ipaddrs, []string{"172.17.0.0/24"}, []string{}, nil)
+		ipaddrs := policy.ExtendedMap{policy.DefaultNamespace: "127.0.0.1"}
+		tpolicy := policy.NewPUPolicy("SomeId", policy.Police, nil, nil, nil, nil, nil, nil, ipaddrs, []string{"172.17.0.0/24"}, []string{})
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -263,17 +263,17 @@ func TestSimpleUpdate(t *testing.T) {
 	}
 	contextID := "123123"
 	runtime := policy.NewPURuntimeWithDefaults()
-	ipa := policy.NewIPMap(map[string]string{
+	ipa := policy.ExtendedMap{
 		"bridge": "10.10.10.10",
-	})
+	}
 	runtime.SetIPAddresses(ipa)
 
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 	// Generate a new Policy ...
-	ipl := policy.NewIPMap(map[string]string{policy.DefaultNamespace: "127.0.0.1"})
-	tagsMap := policy.NewTagsMap(map[string]string{enforcer.TransmitterLabel: contextID})
-	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+	ipl := policy.ExtendedMap{policy.DefaultNamespace: "127.0.0.1"}
+	tagsMap := policy.NewTagStoreFromMap(map[string]string{enforcer.TransmitterLabel: contextID})
+	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{})
 	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
 
@@ -335,9 +335,8 @@ func TestTransmitterLabel(t *testing.T) {
 	// If management ID is set, use it as the TransmitterLabel
 
 	mgmtID := "mgmt"
-	contextID := "Context"
+	contextID := "mgmt"
 	containerInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
-	containerInfo.Policy.ManagementID = mgmtID
 	addTransmitterLabel(contextID, containerInfo)
 	label, ok := containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
 	if !ok {
