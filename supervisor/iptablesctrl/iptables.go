@@ -15,10 +15,14 @@ import (
 )
 
 const (
-	chainPrefix      = "TRIREME-"
-	appChainPrefix   = chainPrefix + "App-"
-	netChainPrefix   = chainPrefix + "Net-"
-	targetNetworkSet = "TargetNetSet"
+	chainPrefix               = "TRIREME-"
+	appChainPrefix            = chainPrefix + "App-"
+	netChainPrefix            = chainPrefix + "Net-"
+	targetNetworkSet          = "TargetNetSet"
+	ipTableSectionOutput      = "OUTPUT"
+	ipTableSectionInput       = "INPUT"
+	ipTableSectionPreRouting  = "PREROUTING"
+	ipTableSectionPostRouting = "POSTROUTING"
 )
 
 // Instance  is the structure holding all information about a implementation
