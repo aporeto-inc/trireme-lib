@@ -232,16 +232,15 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 // processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
-	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err != nil {
-		fmt.Println("We know its not us .. let's just check acls for IP ", tcpPacket.DestinationAddress.String(), tcpPacket.DestinationPort)
+	// Process as external service if the IP is found in the cache
+	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err == nil {
 		action, perr := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
 		if perr != nil || action == policy.Reject {
-			fmt.Println("I didn't find a match at the syn packet .. so I will reject it  ")
 			return nil, fmt.Errorf("Drop it")
 		}
-		fmt.Println("We know this is external service and we have  match ")
 		return action, nil
 	}
+
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
@@ -397,10 +396,10 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	defer context.Unlock()
 
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-		fmt.Println("No auth option in syn packet  .. let's check ACLS ")
+
+		// If there is no auth option, attempt the ACLs
 		action, perr := context.NetworkACLS.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.DestinationPort)
 		if perr != nil || action == policy.Reject {
-			fmt.Println("I didn't find a match at the syn packet ")
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 		return action, nil, nil
@@ -472,26 +471,28 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	defer context.Unlock()
 
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-		_, ok := context.externalIPCache.Get(tcpPacket.SourceAddress.String())
-		if ok != nil {
-			fmt.Println("I matched in the cache -- i am done ")
+
+		// If there are no options and it is in the cache, ignore. We have processed it
+		_, lerr := context.externalIPCache.Get(tcpPacket.SourceAddress.String())
+		if lerr == nil {
 			return nil, nil, nil
 		}
 
-		fmt.Println("No auth option .. let's check ACLS ")
+		// Never seen this IP before, let's parse them
 		action, perr := context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
-		fmt.Println("Address ", tcpPacket.SourceAddress.String(), tcpPacket.SourceAddress)
 		if perr != nil || action == policy.Reject {
-			fmt.Println("I didn't find a match at the synack  packet ")
 			return nil, nil, fmt.Errorf("Drop it")
 		}
-		fmt.Println("I am forwarding the packet .. but I am dropping it  ")
+
+		// Since its the first time, we added in the cache and then drop it
+		// Stack will retransmit clean Syn packet
 		cerr := context.externalIPCache.Add(tcpPacket.SourceAddress.String(), true)
 		if cerr != nil {
-			return action, nil, nil
+			return action, nil, fmt.Errorf("Drop it")
 		}
+
 		conn.SetState(TCPData)
-		return action, nil, nil
+		return action, nil, fmt.Errorf("Drop it")
 	}
 
 	tcpData := tcpPacket.ReadTCPData()
