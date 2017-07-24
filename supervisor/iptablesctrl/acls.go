@@ -238,7 +238,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "10",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 					}
 				}
 
@@ -249,7 +249,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 					"--dport", rule.Port,
 					"-j", "ACCEPT",
 				); err != nil {
-					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 
 			case policy.Reject:
@@ -260,7 +260,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 					"--dport", rule.Port,
 					"-j", "DROP",
 				); err != nil {
-					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 
 				if rule.Log {
@@ -275,7 +275,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "10",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 					}
 				}
 
@@ -298,7 +298,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "10",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 					}
 				}
 
@@ -308,7 +308,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 					"-d", rule.Address,
 					"-j", "ACCEPT",
 				); err != nil {
-					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+					return fmt.Errorf("Failed to add acl rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 				}
 
 			case policy.Reject:
@@ -332,7 +332,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "10",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 					}
 				}
 			default:
@@ -370,7 +370,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 		"-j", "NFLOG", "--nflog-group", "10",
 		"--nflog-prefix", contextID+":default:reject",
 	); err != nil {
-		return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with  %s", i.appAckPacketIPTableContext, chain, err.Error())
+		return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 	}
 
 	// Drop everything else
@@ -409,7 +409,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "11",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with %s", i.netPacketIPTableContext, chain, err.Error())
 					}
 				}
 
@@ -447,7 +447,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "11",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with %s", i.netPacketIPTableContext, chain, err.Error())
 					}
 				}
 
@@ -469,7 +469,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "11",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with %s", i.netPacketIPTableContext, chain, err.Error())
 					}
 				}
 
@@ -504,7 +504,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-j", "NFLOG", "--nflog-group", "11",
 						"--nflog-prefix", contextID+":"+rule.LogPrefix+":"+rule.Action.String(),
 					); err != nil {
-						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
+						return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with %s", i.netPacketIPTableContext, chain, err.Error())
 					}
 				}
 			default:
@@ -543,7 +543,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 		"-j", "NFLOG", "--nflog-group", "11",
 		"--nflog-prefix", contextID+":default:reject",
 	); err != nil {
-		return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with  %s", i.netPacketIPTableContext, chain, err.Error())
+		return fmt.Errorf("Failed to add net log rule for table %s, chain %s, with %s", i.netPacketIPTableContext, chain, err.Error())
 	}
 
 	// Drop everything else
@@ -812,7 +812,7 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, ip string, exclus
 			"-d", e,
 			"-j", "ACCEPT",
 		); err != nil {
-			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, appChain, e, err.Error())
+			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with %s", i.appAckPacketIPTableContext, appChain, e, err.Error())
 		}
 
 		if err := i.ipt.Insert(
@@ -822,7 +822,7 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, ip string, exclus
 			"-p", "tcp", "!", "--tcp-option", strconv.Itoa(int(packet.TCPAuthenticationOption)),
 			"-j", "ACCEPT",
 		); err != nil {
-			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with  %s", i.appAckPacketIPTableContext, netChain, e, err.Error())
+			return fmt.Errorf("Failed to add exclusion rule for table %s, chain %s, ip %s with %s", i.appAckPacketIPTableContext, netChain, e, err.Error())
 		}
 	}
 

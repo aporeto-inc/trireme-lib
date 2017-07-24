@@ -301,6 +301,9 @@ func TestAddAppACLs(t *testing.T) {
 					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
 						return nil
 					}
+					if err := matchSpec("NFLOG", rulespec); err == nil {
+						return nil
+					}
 				}
 				return fmt.Errorf("Error")
 			})
@@ -446,6 +449,9 @@ func TestAddNetAcls(t *testing.T) {
 					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
 						return nil
 					}
+					if err := matchSpec("NFLOG", rulespec); err == nil {
+						return nil
+					}
 				}
 				return fmt.Errorf("Error")
 			})
@@ -489,6 +495,9 @@ func TestAddNetAcls(t *testing.T) {
 			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("NFLOG", rulespec) == nil {
+					return nil
+				}
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
 					return nil
 				}
@@ -525,6 +534,9 @@ func TestAddNetAcls(t *testing.T) {
 			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("NFLOG", rulespec) == nil {
+					return nil
+				}
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
 					return nil
 				}
@@ -558,6 +570,9 @@ func TestAddNetAcls(t *testing.T) {
 			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("NFLOG", rulespec) == nil {
+					return nil
+				}
 				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
 					return nil
 				}
