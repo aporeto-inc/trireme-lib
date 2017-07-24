@@ -484,15 +484,16 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 
-		// Since its the first time, we added in the cache and then drop it
-		// Stack will retransmit clean Syn packet
+		// Since its the first time, we added in the cache
+		// Stack will retransmit clean Syn packet if cache fails for some reason
 		cerr := context.externalIPCache.Add(tcpPacket.SourceAddress.String(), true)
 		if cerr != nil {
 			return action, nil, fmt.Errorf("Drop it")
 		}
 
+		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(TCPData)
-		return action, nil, fmt.Errorf("Drop it")
+		return action, nil, nil
 	}
 
 	tcpData := tcpPacket.ReadTCPData()
