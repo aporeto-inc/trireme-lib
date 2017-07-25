@@ -14,7 +14,7 @@ import (
 
 const packetsQueueSize = 8
 
-type puInfoFunc func(string) (string, *policy.TagsMap)
+type puInfoFunc func(string) (string, *policy.TagStore)
 
 type nfLogger struct {
 	getPUInfo        puInfoFunc

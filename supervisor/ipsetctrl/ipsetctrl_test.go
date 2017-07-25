@@ -104,7 +104,7 @@ func TestConfigureRules(t *testing.T) {
 			})
 		})
 
-		rules := policy.NewIPRuleList([]policy.IPRule{
+		rules := policy.IPRuleList{
 			policy.IPRule{
 				Address:  "192.30.253.0/24",
 				Port:     "80",
@@ -118,10 +118,10 @@ func TestConfigureRules(t *testing.T) {
 				Protocol: "TCP",
 				Action:   policy.Accept,
 			},
-		})
+		}
 
 		Convey("When I try to configure rules with no default IP ", func() {
-			ipl := policy.NewIPMap(map[string]string{})
+			ipl := policy.ExtendedMap{}
 			policyrules := policy.NewPUPolicy("Context",
 				policy.Police,
 				rules,
@@ -132,8 +132,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				ipl,
 				[]string{},
-				[]string{},
-				nil)
+				[]string{})
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
@@ -144,8 +143,8 @@ func TestConfigureRules(t *testing.T) {
 			})
 		})
 
-		ipl := policy.NewIPMap(map[string]string{})
-		ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+		ipl := policy.ExtendedMap{}
+		ipl[policy.DefaultNamespace] = "172.17.0.1"
 		policyrules := policy.NewPUPolicy("Context",
 			policy.Police,
 			rules,
@@ -157,7 +156,7 @@ func TestConfigureRules(t *testing.T) {
 			ipl,
 			[]string{},
 			[]string{},
-			nil)
+		)
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 		containerinfo.Policy = policyrules
@@ -237,16 +236,16 @@ func TestDeleteRules(t *testing.T) {
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 
 		Convey("When I delete the rules of a container", func() {
-			ipl := policy.NewIPMap(map[string]string{})
-			ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
-			err := i.DeleteRules(0, "context", policy.NewIPMap(ipl.IPs), "0", "0")
+			ipl := policy.ExtendedMap{}
+			ipl[policy.DefaultNamespace] = "172.17.0.1"
+			err := i.DeleteRules(0, "context", ipl, "0", "0")
 			Convey("It should return no errors", func() {
 				So(err, ShouldBeNil)
 			})
 		})
 
 		Convey("When I delete the rules with invalid map list", func() {
-			err := i.DeleteRules(0, "context", &policy.IPMap{}, "0", "0")
+			err := i.DeleteRules(0, "context", policy.ExtendedMap{}, "0", "0")
 			Convey("It should return an error ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -293,7 +292,7 @@ func TestUpdateRules(t *testing.T) {
 		})
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 
-		rules := policy.NewIPRuleList([]policy.IPRule{
+		rules := policy.IPRuleList{
 			policy.IPRule{
 				Address:  "192.30.253.0/24",
 				Port:     "80",
@@ -307,10 +306,9 @@ func TestUpdateRules(t *testing.T) {
 				Protocol: "TCP",
 				Action:   policy.Accept,
 			},
-		})
+		}
 
-		ipl := policy.NewIPMap(map[string]string{})
-		ipl.IPs[policy.DefaultNamespace] = "172.17.0.1"
+		ipl := policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.1"}
 		policyrules := policy.NewPUPolicy("Context",
 			policy.Police,
 			rules,
@@ -318,7 +316,7 @@ func TestUpdateRules(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			nil, ipl, []string{"172.17.0.0/24"}, []string{}, nil)
+			nil, ipl, []string{"172.17.0.0/24"}, []string{})
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 		containerinfo.Policy = policyrules
@@ -326,7 +324,7 @@ func TestUpdateRules(t *testing.T) {
 
 		Convey("When I update the rules of a container", func() {
 
-			err := i.DeleteRules(0, "context", policy.NewIPMap(ipl.IPs), "0", "0")
+			err := i.DeleteRules(0, "context", ipl, "0", "0")
 			Convey("It should return no errors", func() {
 				So(err, ShouldBeNil)
 			})

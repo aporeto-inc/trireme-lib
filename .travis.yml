@@ -11,6 +11,7 @@ addons:
        - libnetfilter-queue-dev
        - libnetfilter-log-dev
        - iptables
+       - ipset
 
 env:
   global:

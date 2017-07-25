@@ -107,8 +107,8 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.EnforcePayload{
 			ContextID:        contextID,
-			ManagementID:     puInfo.Policy.ManagementID,
-			TriremeAction:    puInfo.Policy.TriremeAction,
+			ManagementID:     puInfo.Policy.ManagementID(),
+			TriremeAction:    puInfo.Policy.TriremeAction(),
 			ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
 			NetworkACLs:      puInfo.Policy.NetworkACLs(),
 			PolicyIPs:        puInfo.Policy.IPAddresses(),
