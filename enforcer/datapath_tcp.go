@@ -356,7 +356,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 			tcpPacket.IPProto,
 			tcpPacket.SourcePort,
 			tcpPacket.DestinationPort,
-			DefaultConnMark,
+			constants.DefaultConnMark,
 		)
 
 		return nil, nil
@@ -614,7 +614,7 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 			tcpPacket.IPProto,
 			tcpPacket.SourcePort,
 			tcpPacket.DestinationPort,
-			DefaultConnMark,
+			constants.DefaultConnMark,
 		)
 
 		// Accept the packet

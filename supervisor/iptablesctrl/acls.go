@@ -465,8 +465,8 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 	return nil
 }
 
-// captureTargetSynAckPackets install rules to capture all SynAck packets in the chain
-func (i *Instance) captureTargetSynAckPackets(appChain, netChain string) error {
+// setGlobalRules installs the global rules
+func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	err := i.ipt.Insert(
 		i.appAckPacketIPTableContext,
@@ -493,7 +493,7 @@ func (i *Instance) captureTargetSynAckPackets(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appAckPacketIPTableContext,
 		appChain, 1,
-		"-m", "connmark", "--mark", "0xEEEE",
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT")
 
 	if err != nil {
@@ -503,7 +503,7 @@ func (i *Instance) captureTargetSynAckPackets(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
-		"-m", "connmark", "--mark", "0xEEEE",
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT")
 
 	if err != nil {
@@ -514,8 +514,8 @@ func (i *Instance) captureTargetSynAckPackets(appChain, netChain string) error {
 
 }
 
-// CleanCaptureSynAckPackets cleans the capture rules for SynAck packets
-func (i *Instance) CleanCaptureSynAckPackets() error {
+// CleanGlobalRules cleans the capture rules for SynAck packets
+func (i *Instance) CleanGlobalRules() error {
 
 	if err := i.ipt.Delete(
 		i.appAckPacketIPTableContext,
@@ -535,6 +535,25 @@ func (i *Instance) CleanCaptureSynAckPackets() error {
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueAckStr()); err != nil {
 
 		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
+	}
+
+	if err := i.ipt.Delete(
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"-j", "ACCEPT"); err != nil {
+
+		zap.L().Debug("Can not clear the global app mark rule", zap.Error(err))
+		return fmt.Errorf("Failed to add default allow for marked packets at app ")
+	}
+
+	if err := i.ipt.Delete(
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"-j", "ACCEPT"); err != nil {
+		zap.L().Debug("Can not clear the global net mark rule", zap.Error(err))
+
 	}
 
 	if err := i.ipset.DestroyAll(); err != nil {
