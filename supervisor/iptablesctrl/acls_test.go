@@ -2,6 +2,7 @@ package iptablesctrl
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/bvandewalle/go-ipset/ipset"
@@ -773,6 +774,9 @@ func TestSetGlobalRules(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if chain == "INPUT" || chain == "OUTPUT" {
 					if matchSpec("--match-set", rulespec) == nil && matchSpec(targetNetworkSet, rulespec) == nil {
+						return nil
+					}
+					if matchSpec("connmark", rulespec) == nil && matchSpec(strconv.Itoa(int(constants.DefaultConnMark)), rulespec) == nil {
 						return nil
 					}
 				}
