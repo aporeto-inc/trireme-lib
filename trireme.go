@@ -2,6 +2,7 @@ package trireme
 
 import (
 	"fmt"
+	"runtime"
 
 	"go.uber.org/zap"
 
@@ -413,6 +414,9 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 // run is the main function for running Trireme
 func (t *trireme) run() {
+
+	concurrency := runtime.NumCPU() - 1
+	sem := make(chan bool, concurrency)
 	for {
 		select {
 		case req := <-t.requests:
@@ -420,7 +424,13 @@ func (t *trireme) run() {
 				zap.Int("type", req.reqType),
 				zap.String("contextID", req.contextID),
 			)
-			req.returnChan <- t.handleRequest(req)
+
+			sem <- true
+			go func(req *triremeRequest) {
+				req.returnChan <- t.handleRequest(req)
+				<-sem
+			}(req)
+
 		case <-t.stop:
 			zap.L().Debug("Stopping trireme worker.")
 			return

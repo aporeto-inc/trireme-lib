@@ -291,15 +291,16 @@ func (d *dockerMonitor) eventProcessor() {
 			if event.Action != "" {
 				f, present := d.handlers[DockerEvent(event.Action)]
 				if present {
+					go func(event *events.Message) {
+						err := f(event)
 
-					err := f(event)
-
-					if err != nil {
-						zap.L().Error("Error while handling event",
-							zap.String("action", event.Action),
-							zap.Error(err),
-						)
-					}
+						if err != nil {
+							zap.L().Error("Error while handling event",
+								zap.String("action", event.Action),
+								zap.Error(err),
+							)
+						}
+					}(event)
 				} else {
 					zap.L().Debug("Docker event not handled.", zap.String("action", event.Action))
 				}
