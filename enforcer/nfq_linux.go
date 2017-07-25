@@ -17,12 +17,10 @@ func errorCallback(err error, data interface{}) {
 }
 func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
-	return true
 }
 
 func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processApplicationPacketsFromNFQ(packet)
-	return true
 }
 
 // startNetworkInterceptor will the process that processes  packets from the network
