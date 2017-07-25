@@ -130,7 +130,6 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			i.appAckPacketIPTableContext, appChain,
 			"-m", "set", "--match-set", targetNetworkSet, "dst",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		})
 		// Network Packets - SYN
@@ -145,7 +144,6 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			i.netPacketIPTableContext, netChain,
 			"-m", "set", "--match-set", targetNetworkSet, "src",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
-			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 		})
 	}
@@ -490,6 +488,26 @@ func (i *Instance) captureTargetSynAckPackets(appChain, netChain string) error {
 
 	if err != nil {
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
+	err = i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		appChain, 1,
+		"-m", "connmark", "--mark", "0xEEEE",
+		"-j", "ACCEPT")
+
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at app ")
+	}
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		"-m", "connmark", "--mark", "0xEEEE",
+		"-j", "ACCEPT")
+
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
 
 	return nil
