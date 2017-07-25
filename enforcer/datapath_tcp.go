@@ -350,14 +350,16 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 		conn.SetState(TCPAckSend)
 
-		d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.SourceAddress.String(),
-			tcpPacket.DestinationAddress.String(),
-			tcpPacket.IPProto,
-			tcpPacket.SourcePort,
-			tcpPacket.DestinationPort,
-			constants.DefaultConnMark,
-		)
+		if !conn.ServiceConnection {
+			d.conntrackHdl.ConntrackTableUpdateMark(
+				tcpPacket.SourceAddress.String(),
+				tcpPacket.DestinationAddress.String(),
+				tcpPacket.IPProto,
+				tcpPacket.SourcePort,
+				tcpPacket.DestinationPort,
+				constants.DefaultConnMark,
+			)
+		}
 
 		return nil, nil
 	}
@@ -608,14 +610,16 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 
 		conn.SetState(TCPData)
 
-		d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.SourceAddress.String(),
-			tcpPacket.DestinationAddress.String(),
-			tcpPacket.IPProto,
-			tcpPacket.SourcePort,
-			tcpPacket.DestinationPort,
-			constants.DefaultConnMark,
-		)
+		if !conn.ServiceConnection {
+			d.conntrackHdl.ConntrackTableUpdateMark(
+				tcpPacket.SourceAddress.String(),
+				tcpPacket.DestinationAddress.String(),
+				tcpPacket.IPProto,
+				tcpPacket.SourcePort,
+				tcpPacket.DestinationPort,
+				constants.DefaultConnMark,
+			)
+		}
 
 		// Accept the packet
 		return nil, nil, nil
