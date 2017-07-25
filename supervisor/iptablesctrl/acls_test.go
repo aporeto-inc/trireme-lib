@@ -761,7 +761,7 @@ func TestAddExclusionACLs(t *testing.T) {
 	})
 }
 
-func TestsetGlobalRules(t *testing.T) {
+func TestSetGlobalRules(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
