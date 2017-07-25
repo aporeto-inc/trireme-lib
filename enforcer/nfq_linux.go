@@ -15,14 +15,12 @@ import (
 func errorCallback(err error, data interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
-func networkCallback(packet *nfqueue.NFPacket, d interface{}) bool {
+func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
-	return true
 }
 
-func appCallBack(packet *nfqueue.NFPacket, d interface{}) bool {
+func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processApplicationPacketsFromNFQ(packet)
-	return true
 }
 
 // startNetworkInterceptor will the process that processes  packets from the network
