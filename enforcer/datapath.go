@@ -285,7 +285,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 		ManagementID:    puInfo.Policy.ManagementID(),
 		PUType:          puInfo.Runtime.PUType(),
 		IP:              ip,
-		externalIPCache: cache.NewCache(),
+		externalIPCache: cache.NewCacheWithExpiration(time.Second * 900),
 	}
 
 	// Cache PUs for retrieval based on packet information
