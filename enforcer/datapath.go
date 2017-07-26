@@ -9,6 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
@@ -52,6 +53,9 @@ type Datapath struct {
 	appReplyConnectionTracker cache.DataStore
 	netOrigConnectionTracker  cache.DataStore
 	netReplyConnectionTracker cache.DataStore
+
+	// connctrack handle
+	conntrackHdl conntrack.Conntrack
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
@@ -122,6 +126,7 @@ func New(
 		ackSize:                   secrets.AckSize(),
 		mode:                      mode,
 		procMountPoint:            procMountPoint,
+		conntrackHdl:              conntrack.NewHandle(),
 	}
 
 	if d.tokenEngine == nil {
@@ -293,7 +298,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 		ManagementID:    puInfo.Policy.ManagementID(),
 		PUType:          puInfo.Runtime.PUType(),
 		IP:              ip,
-		externalIPCache: cache.NewCache(),
+		externalIPCache: cache.NewCacheWithExpiration(time.Second * 900),
 	}
 
 	// Cache PUs for retrieval based on packet information

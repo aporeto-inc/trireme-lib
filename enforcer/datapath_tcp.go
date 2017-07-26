@@ -234,8 +234,10 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// Let's check if it matches a specific external service - we can let those go
 	// We don't account for 0.0.0.0/0 external services though
+	context.Lock()
 	if action, err := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort); err == nil && action&policy.Accept > 0 {
 		conn.SetState(TCPData)
+		context.Unlock()
 		return action, nil
 	}
 
@@ -243,11 +245,14 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err == nil {
 		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.DestinationPort)
 		if perr != nil || action == policy.Reject {
+			context.Unlock()
 			return nil, fmt.Errorf("Drop it")
 		}
 		conn.SetState(TCPData)
+		context.Unlock()
 		return action, nil
 	}
+	context.Unlock()
 
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
@@ -265,16 +270,9 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// conntrack
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
-
-	// Old trackers
-	// d.appConnectionTracker.AddOrUpdate(hash, conn)
-	// d.sourcePortCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), context)
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 
-	// Attach the tags to the packet. We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
-	// sequence numbers between the TCP stacks automatically match
-	// tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
-
+	// Attach the tags to the packet.
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 
 }
@@ -301,9 +299,6 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		}
 
 		// Attach the tags to the packet
-		// tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
-		// tcpPacket.DecreaseTCPAck(d.ackSize)
-
 		return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 	}
 
@@ -343,12 +338,22 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		}
 
 		// Attach the tags to the packet
-		// tcpPacket.DecreaseTCPSeq(d.ackSize)
 		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
 			return nil, err
 		}
 
 		conn.SetState(TCPAckSend)
+
+		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
+			d.conntrackHdl.ConntrackTableUpdateMark(
+				tcpPacket.SourceAddress.String(),
+				tcpPacket.DestinationAddress.String(),
+				tcpPacket.IPProto,
+				tcpPacket.SourcePort,
+				tcpPacket.DestinationPort,
+				constants.DefaultConnMark,
+			)
+		}
 
 		return nil, nil
 	}
@@ -432,9 +437,6 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
-	// tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
-	// tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
-
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
@@ -527,10 +529,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	}
 
 	// Remove any of our data
-	// tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
-	// tcpPacket.IncreaseTCPSeq(tcpDataLen - 1)
-	// tcpPacket.IncreaseTCPAck(d.ackSize)
-
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of invalid format")
@@ -585,8 +583,6 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 		}
 
 		// Remove any of our data - adjust the sequence numbers
-		// tcpPacket.IncreaseTCPSeq(d.ackSize)
-
 		if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat)
 			return nil, nil, fmt.Errorf("Ack packet dropped because of invalid format %v", err)
@@ -598,6 +594,17 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context)
 
 		conn.SetState(TCPData)
+
+		if !conn.ServiceConnection {
+			d.conntrackHdl.ConntrackTableUpdateMark(
+				tcpPacket.SourceAddress.String(),
+				tcpPacket.DestinationAddress.String(),
+				tcpPacket.IPProto,
+				tcpPacket.SourcePort,
+				tcpPacket.DestinationPort,
+				constants.DefaultConnMark,
+			)
+		}
 
 		// Accept the packet
 		return nil, nil, nil
