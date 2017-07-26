@@ -66,7 +66,9 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, &rpcwrapper.Response{}); err != nil {
+		s.Lock()
 		delete(s.initDone, contextID)
+		s.Unlock()
 		return fmt.Errorf("Failed to send supervise command: context=%s error=%s", contextID, err)
 	}
 

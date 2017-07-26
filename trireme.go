@@ -2,7 +2,6 @@ package trireme
 
 import (
 	"fmt"
-	"runtime"
 
 	"go.uber.org/zap"
 
@@ -415,7 +414,7 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 // run is the main function for running Trireme
 func (t *trireme) run() {
 
-	concurrency := runtime.NumCPU() - 1
+	concurrency := 10
 	sem := make(chan bool, concurrency)
 	for {
 		select {
