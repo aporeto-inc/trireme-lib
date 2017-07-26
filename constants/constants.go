@@ -46,4 +46,6 @@ const (
 const (
 	// DefaultRemoteArg is the default arguments for a remote enforcer
 	DefaultRemoteArg = "enforce"
+	// DefaultConnMark is the default conn mark for all data packets
+	DefaultConnMark = uint32(0xEEEE)
 )
