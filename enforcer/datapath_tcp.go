@@ -234,10 +234,12 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// Let's check if it matches a specific external service - we can let those go
 	// We don't account for 0.0.0.0/0 external services though
+	context.Lock()
 	if action, err := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort); err == nil && action&policy.Accept > 0 {
 		conn.SetState(TCPData)
 		return action, nil
 	}
+	context.Unlock()
 
 	// If we have an IP in the cache for the default match, the process here.
 	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err == nil {
@@ -350,7 +352,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 		conn.SetState(TCPAckSend)
 
-		if !conn.ServiceConnection {
+		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
 			d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
