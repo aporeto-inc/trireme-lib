@@ -241,7 +241,6 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 			portlist = "0"
 		}
 		uid, ok := containerInfo.Runtime.Options().Get("USER")
-		fmt.Println("UID", uid)
 		if !ok {
 			uid = ""
 		}
@@ -258,9 +257,13 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	} else {
 		mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
 		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
-		uid, _ := containerInfo.Runtime.Options().Get("USER")
+
 		if !ok {
 			port = "0"
+		}
+		uid, ok := containerInfo.Runtime.Options().Get("USER")
+		if !ok {
+			uid = ""
 		}
 		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark, uid); err != nil {
 			return err

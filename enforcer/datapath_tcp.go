@@ -50,14 +50,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			//Drop Data and let packet through.
 			//Don't create any state
 			//The option should always be present since our rules looks for this option
-			// fmt.Println("Sending SYN Packet Up")
-			// tcpDataLen := uint32(p.IPTotalLength - p.TCPDataStartBytes())
-			// fmt.Println("TCP DataLen", tcpDataLen)
-			// p.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
-			// p.TCPDataDetach(TCPAuthenticationOptionBaseLen)
-			// p.DropDetachedBytes()
-			// //Let the packet throught to the stack
-			// p.UpdateIPChecksum()
 			//context is destroyed here if we are a transient PU
 			//Verdict get set to pass
 			return nil
