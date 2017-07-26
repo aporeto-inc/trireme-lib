@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strconv"
 
-	nfqueue "github.com/aporeto-inc/nfqueue-go"
+	nfqueue "github.com/aporeto-inc/netlink-go/nfqueue"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"go.uber.org/zap"
 )
@@ -15,12 +15,14 @@ import (
 func errorCallback(err error, data interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
-func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
+func networkCallback(packet *nfqueue.NFPacket, d interface{}) bool {
 	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
+	return true
 }
 
-func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
+func appCallBack(packet *nfqueue.NFPacket, d interface{}) bool {
 	d.(*Datapath).processApplicationPacketsFromNFQ(packet)
+	return true
 }
 
 // startNetworkInterceptor will the process that processes  packets from the network
