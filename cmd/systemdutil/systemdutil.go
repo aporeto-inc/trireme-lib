@@ -63,12 +63,11 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 }
 
 // ExecuteCommandWithParameters executes the command with all the given parameters
-func ExecuteCommandWithParameters(command string, params []string, cgroup string, serviceName string, ports []string, labels []string) error {
+func ExecuteCommandWithParameters(command string, params []string, cgroup string, serviceName string, ports []string, tags []string) error {
 
 	var err error
 
 	stderrlogger := log.New(os.Stderr, "", 0)
-
 	if cgroup != "" {
 		if err = HandleCgroupStop(cgroup); err != nil {
 			err = fmt.Errorf("cannot connect to policy process %s. Resources not deleted", err)
@@ -90,7 +89,7 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		}
 	}
 
-	name, metadata, err := createMetadata(serviceName, command, ports, labels)
+	name, metadata, err := createMetadata(serviceName, command, ports, tags)
 
 	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
@@ -139,12 +138,12 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 }
 
 // createMetadata extracts the relevant metadata
-func createMetadata(servicename string, command string, ports []string, metadata []string) (string, map[string]string, error) {
+func createMetadata(serviceName string, command string, ports []string, tags []string) (string, map[string]string, error) {
 
-	metadatamap := map[string]string{}
+	metadata := map[string]string{}
 
-	for _, element := range metadata {
-		keyvalue := strings.Split(element, "=")
+	for _, tag := range tags {
+		keyvalue := strings.SplitN(tag, "=", 2)
 
 		if len(keyvalue) != 2 {
 			return "", nil, fmt.Errorf("Invalid metadata")
@@ -158,19 +157,18 @@ func createMetadata(servicename string, command string, ports []string, metadata
 			return "", nil, fmt.Errorf("Metadata key cannot be port or execpath ")
 		}
 
-		metadatamap[keyvalue[0]] = keyvalue[1]
+		metadata[keyvalue[0]] = keyvalue[1]
 	}
 
-	metadatamap["port"] = strings.Join(ports, ",")
-
-	metadatamap["execpath"] = command
+	metadata["port"] = strings.Join(ports, ",")
+	metadata["execpath"] = command
 
 	name := command
-	if servicename != "" {
-		name = servicename
+	if serviceName != "" {
+		name = serviceName
 	}
 
-	return name, metadatamap, nil
+	return name, metadata, nil
 }
 
 // HandleCgroupStop handles the deletion of a cgroup
