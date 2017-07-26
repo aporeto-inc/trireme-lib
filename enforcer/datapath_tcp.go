@@ -237,19 +237,22 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	context.Lock()
 	if action, err := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort); err == nil && action&policy.Accept > 0 {
 		conn.SetState(TCPData)
+		context.Unlock()
 		return action, nil
 	}
-	context.Unlock()
 
 	// If we have an IP in the cache for the default match, the process here.
 	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err == nil {
 		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.DestinationPort)
 		if perr != nil || action == policy.Reject {
+			context.Unlock()
 			return nil, fmt.Errorf("Drop it")
 		}
 		conn.SetState(TCPData)
+		context.Unlock()
 		return action, nil
 	}
+	context.Unlock()
 
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
