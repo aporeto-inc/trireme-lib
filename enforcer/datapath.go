@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/acls"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
@@ -280,10 +281,11 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	pu := &PUContext{
-		ID:           contextID,
-		ManagementID: puInfo.Policy.ManagementID(),
-		PUType:       puInfo.Runtime.PUType(),
-		IP:           ip,
+		ID:              contextID,
+		ManagementID:    puInfo.Policy.ManagementID(),
+		PUType:          puInfo.Runtime.PUType(),
+		IP:              ip,
+		externalIPCache: cache.NewCacheWithExpiration(time.Second * 900),
 	}
 
 	// Cache PUs for retrieval based on packet information
@@ -320,5 +322,11 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	return nil
+	puContext.ApplicationACLs = acls.NewACLCache()
+	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
+		return err
+	}
+
+	puContext.NetworkACLS = acls.NewACLCache()
+	return puContext.NetworkACLS.AddRuleList(containerInfo.Policy.NetworkACLs())
 }
