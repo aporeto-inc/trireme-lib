@@ -117,9 +117,9 @@ func TestInvalidTokenContext(t *testing.T) {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 
-		ip := policy.NewIPMap(map[string]string{
+		ip := policy.ExtendedMap{
 			"brige": "164.67.228.152",
-		})
+		}
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
@@ -166,22 +166,22 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 	// Create ProcessingUnit 1
 	puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
 
-	ip1 := policy.NewIPMap(map[string]string{})
-	ip1.Add("bridge", puIP1)
+	ip1 := policy.ExtendedMap{}
+	ip1["bridge"] = puIP1
 	puInfo1.Runtime.SetIPAddresses(ip1)
-	ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP1})
+	ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
 	puInfo1.Policy.SetIPAddresses(ipl1)
 	puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
-	puInfo1.Policy.AddReceiverRules(&tagSelector)
+	puInfo1.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 2
 	puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
-	ip2 := policy.NewIPMap(map[string]string{"bridge": puIP2})
+	ip2 := policy.ExtendedMap{"bridge": puIP2}
 	puInfo2.Runtime.SetIPAddresses(ip2)
-	ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP2})
+	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
 	puInfo2.Policy.SetIPAddresses(ipl2)
 	puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
-	puInfo2.Policy.AddReceiverRules(&tagSelector)
+	puInfo2.Policy.AddReceiverRules(tagSelector)
 
 	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 
@@ -753,9 +753,9 @@ func TestCacheState(t *testing.T) {
 		t.Errorf("Expected failure, no contextID in cache")
 	}
 
-	ip := policy.NewIPMap(map[string]string{"bridge": "127.0.0.1"})
+	ip := policy.ExtendedMap{"bridge": "127.0.0.1"}
 	puInfo.Runtime.SetIPAddresses(ip)
-	ipl := policy.NewIPMap(map[string]string{"bridge": "127.0.0.1"})
+	ipl := policy.ExtendedMap{"bridge": "127.0.0.1"}
 	puInfo.Policy.SetIPAddresses(ipl)
 
 	// Should  not fail:  IP is valid
@@ -786,8 +786,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
-		tags := &policy.TagsMap{}
-		tags.Tags = map[string]string{cgnetcls.CgroupMarkTag: "100", cgnetcls.PortTag: "80,90,100"}
+		tags := policy.ExtendedMap{cgnetcls.CgroupMarkTag: "100", cgnetcls.PortTag: "80,90,100"}
 		puInfo.Runtime.SetOptions(tags)
 		Convey("When I create a new PU", func() {
 			err := enforcer.doCreatePU(contextID, puInfo)
@@ -846,9 +845,9 @@ func TestDoCreatePU(t *testing.T) {
 		})
 
 		Convey("When I create a new PU with an IP", func() {
-			ip := policy.NewIPMap(map[string]string{
+			ip := policy.ExtendedMap{
 				"bridge": "164.67.228.152",
-			})
+			}
 			puInfo.Runtime.SetIPAddresses(ip)
 			err := enforcer.doCreatePU(contextID, puInfo)
 

@@ -81,18 +81,14 @@ func (d *Datapath) startApplicationInterceptor() {
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
 func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
-	d.net.IncomingPackets++
-
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(int(p.Mark)))
 
 	if err != nil {
-		d.net.CreateDropPackets++
 		netPacket.Print(packet.PacketFailureCreate)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processNetworkTCPPackets(netPacket)
 	} else {
-		d.net.ProtocolDropPackets++
 		err = fmt.Errorf("Invalid IP Protocol %d", netPacket.IPProto)
 	}
 	if err != nil {
@@ -117,20 +113,16 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
-	d.app.IncomingPackets++
-
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
 	// lots of things at the ingress to the network
 	appPacket, err := packet.New(packet.PacketTypeApplication, p.Buffer, strconv.Itoa(int(p.Mark)))
 
 	if err != nil {
-		d.app.CreateDropPackets++
 		appPacket.Print(packet.PacketFailureCreate)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processApplicationTCPPackets(appPacket)
 	} else {
-		d.app.ProtocolDropPackets++
 		err = fmt.Errorf("Invalid IP Protocol %d", appPacket.IPProto)
 	}
 

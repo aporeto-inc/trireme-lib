@@ -108,18 +108,17 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 // defaultDockerMetadataExtractor is the default metadata extractor for Docker
 func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
-	tags := policy.NewTagsMap(map[string]string{
-		"@sys:image": info.Config.Image,
-		"@sys:name":  info.Name,
-	})
+	tags := policy.NewTagStore()
+	tags.AppendKeyValue("@sys:image", info.Config.Image)
+	tags.AppendKeyValue("@sys:name", info.Name)
 
 	for k, v := range info.Config.Labels {
-		tags.Add("@usr:"+k, v)
+		tags.AppendKeyValue("@usr:"+k, v)
 	}
 
-	ipa := policy.NewIPMap(map[string]string{
+	ipa := policy.ExtendedMap{
 		"bridge": info.NetworkSettings.IPAddress,
-	})
+	}
 
 	if info.HostConfig.NetworkMode == DockerHostMode {
 		return policy.NewPURuntime(info.Name, info.State.Pid, tags, ipa, constants.LinuxProcessPU, hostModeOptions(info)), nil
@@ -130,13 +129,13 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 
 // hostModeOptions creates the default options for a host-mode container. This is done
 // based on the policy and the metadata extractor logic and can very by implementation
-func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.TagsMap {
+func hostModeOptions(dockerInfo *types.ContainerJSON) policy.ExtendedMap {
 
 	// Create the options needed to activate
-	options := policy.NewTagsMap(map[string]string{
+	options := policy.ExtendedMap{
 		cgnetcls.PortTag:       "0",
 		cgnetcls.CgroupNameTag: strconv.Itoa(dockerInfo.State.Pid),
-	})
+	}
 
 	ports := ""
 
@@ -151,10 +150,10 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.TagsMap {
 	}
 
 	if len(ports) > 0 {
-		options.Tags[cgnetcls.PortTag] = ports
+		options[cgnetcls.PortTag] = ports
 	}
 
-	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
 	return options
 }
@@ -292,15 +291,16 @@ func (d *dockerMonitor) eventProcessor() {
 			if event.Action != "" {
 				f, present := d.handlers[DockerEvent(event.Action)]
 				if present {
+					go func(event *events.Message) {
+						err := f(event)
 
-					err := f(event)
-
-					if err != nil {
-						zap.L().Error("Error while handling event",
-							zap.String("action", event.Action),
-							zap.Error(err),
-						)
-					}
+						if err != nil {
+							zap.L().Error("Error while handling event",
+								zap.String("action", event.Action),
+								zap.Error(err),
+							)
+						}
+					}(event)
 				} else {
 					zap.L().Debug("Docker event not handled.", zap.String("action", event.Action))
 				}

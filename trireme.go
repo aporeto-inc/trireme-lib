@@ -116,7 +116,7 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 	req := &triremeRequest{
 		contextID:  contextID,
 		reqType:    policyUpdate,
-		policyInfo: newPolicy.Clone(),
+		policyInfo: newPolicy,
 		returnChan: c,
 	}
 
@@ -152,10 +152,10 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 // default TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
-	if containerInfo.Policy.ManagementID == "" {
+	if containerInfo.Policy.ManagementID() == "" {
 		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
 	} else {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
+		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID())
 	}
 }
 
@@ -165,7 +165,7 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 //   - Policy got the AllowAll tag.
 func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 
-	if containerInfo.Policy.TriremeAction == policy.AllowAll {
+	if containerInfo.Policy.TriremeAction() == policy.AllowAll {
 		zap.L().Debug("PUPolicy with AllowAll Action. Not policing", zap.String("contextID", contextID))
 		return false
 	}
@@ -215,9 +215,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	ip, _ := policyInfo.DefaultIPAddress()
-
-	// Create a copy as we are going to modify it locally
-	policyInfo = policyInfo.Clone()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 
@@ -416,6 +413,9 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 // run is the main function for running Trireme
 func (t *trireme) run() {
+
+	concurrency := 10
+	sem := make(chan bool, concurrency)
 	for {
 		select {
 		case req := <-t.requests:
@@ -423,7 +423,13 @@ func (t *trireme) run() {
 				zap.Int("type", req.reqType),
 				zap.String("contextID", req.contextID),
 			)
-			req.returnChan <- t.handleRequest(req)
+
+			sem <- true
+			go func(req *triremeRequest) {
+				req.returnChan <- t.handleRequest(req)
+				<-sem
+			}(req)
+
 		case <-t.stop:
 			zap.L().Debug("Stopping trireme worker.")
 			return
