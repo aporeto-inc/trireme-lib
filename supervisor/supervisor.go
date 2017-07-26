@@ -162,6 +162,11 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 	s.Lock()
 	defer s.Unlock()
 
+	// If there are no target networks, capture all traffic
+	if len(networks) == 0 {
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+	}
+
 	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
 		return err
 	}
