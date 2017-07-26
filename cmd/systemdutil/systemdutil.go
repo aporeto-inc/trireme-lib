@@ -23,16 +23,54 @@ const (
 )
 
 // ExecuteCommand executes a command in a cgroup and programs Trireme
+// TODO : This method is deprecated and should be removed once there is no code using it.
 func ExecuteCommand(arguments map[string]interface{}) error {
+	if !arguments["run"].(bool) {
+		return fmt.Errorf("Bad arguments - no run command")
+	}
+
+	var command string
+	if value, ok := arguments["<command>"]; ok && value != nil {
+		command = value.(string)
+	}
+
+	var cgroup string
+	if value, ok := arguments["<cgroup>"]; ok && value != nil {
+		cgroup = value.(string)
+	}
+
+	var labels []string
+	if value, ok := arguments["--label"]; ok && value != nil {
+		labels = value.([]string)
+	}
+
+	var serviceName string
+	if value, ok := arguments["--service-name"]; ok && value != nil {
+		serviceName = value.(string)
+	}
+
+	var params []string
+	if value, ok := arguments["<params>"]; ok && value != nil {
+		params = append(params, value.([]string)...)
+	}
+
+	var ports []string
+	if value, ok := arguments["--ports"]; ok && value != nil {
+		ports = value.([]string)
+	}
+
+	return ExecuteCommandWithParameters(command, params, cgroup, serviceName, ports, labels)
+}
+
+// ExecuteCommandWithParameters executes the command with all the given parameters
+func ExecuteCommandWithParameters(command string, params []string, cgroup string, serviceName string, ports []string, labels []string) error {
 
 	var err error
 
 	stderrlogger := log.New(os.Stderr, "", 0)
 
-	if arguments["<cgroup>"] != nil && len(arguments["<cgroup>"].(string)) > 0 {
-		exitingCgroup := arguments["<cgroup>"].(string)
-
-		if err = HandleCgroupStop(exitingCgroup); err != nil {
+	if cgroup != "" {
+		if err = HandleCgroupStop(cgroup); err != nil {
 			err = fmt.Errorf("cannot connect to policy process %s. Resources not deleted", err)
 			stderrlogger.Print(err)
 			return err
@@ -41,15 +79,10 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return nil
 	}
 
-	if !arguments["run"].(bool) {
-		return fmt.Errorf("Bad arguments - no run command")
+	if len(ports) == 0 {
+		ports = append(ports, "0")
 	}
 
-	metadata := []string{}
-	servicename := ""
-	ports := "0"
-
-	command := arguments["<command>"].(string)
 	if !path.IsAbs(command) {
 		command, err = exec.LookPath(command)
 		if err != nil {
@@ -57,24 +90,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		}
 	}
 
-	if args, ok := arguments["--label"]; ok && args != nil {
-		metadata = args.([]string)
-	}
-
-	if args, ok := arguments["--service-name"]; ok && args != nil {
-		servicename = args.(string)
-	}
-
-	params := []string{command}
-	if args, ok := arguments["<params>"]; ok && args != nil {
-		params = append(params, args.([]string)...)
-	}
-
-	if args, ok := arguments["--ports"]; ok && args != nil {
-		ports = args.(string)
-	}
-
-	name, metadatamap, err := createMetadata(servicename, command, ports, metadata)
+	name, metadata, err := createMetadata(serviceName, command, ports, labels)
 
 	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
@@ -97,7 +113,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		PUType:    constants.LinuxProcessPU,
 		PUID:      "/" + strconv.Itoa(os.Getpid()),
 		Name:      name,
-		Tags:      metadatamap,
+		Tags:      metadata,
 		PID:       strconv.Itoa(os.Getpid()),
 		EventType: "start",
 	}
@@ -118,12 +134,12 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return err
 	}
 
-	return syscall.Exec(command, params, os.Environ())
+	return syscall.Exec(command, append([]string{command}, params...), os.Environ())
 
 }
 
 // createMetadata extracts the relevant metadata
-func createMetadata(servicename string, command string, ports string, metadata []string) (string, map[string]string, error) {
+func createMetadata(servicename string, command string, ports []string, metadata []string) (string, map[string]string, error) {
 
 	metadatamap := map[string]string{}
 
@@ -145,7 +161,7 @@ func createMetadata(servicename string, command string, ports string, metadata [
 		metadatamap[keyvalue[0]] = keyvalue[1]
 	}
 
-	metadatamap["port"] = ports
+	metadatamap["port"] = strings.Join(ports, ",")
 
 	metadatamap["execpath"] = command
 
