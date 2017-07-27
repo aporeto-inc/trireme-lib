@@ -6,6 +6,7 @@ package enforcerproxy
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -54,6 +55,8 @@ type ProxyInfo struct {
 	commandArg        string
 	statsServerSecret string
 	procMountPoint    string
+
+	sync.Mutex
 }
 
 //InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -81,6 +84,8 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 		return fmt.Errorf("Failed to initialize remote enforcer: status %s, error: %s", resp.Status, err.Error())
 	}
 
+	s.Lock()
+	defer s.Unlock()
 	s.initDone[contextID] = true
 
 	return nil
@@ -98,7 +103,13 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
 
+	doIt := false
+	s.Lock()
 	if _, ok := s.initDone[contextID]; !ok {
+		doIt = true
+	}
+	s.Unlock()
+	if doIt {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
 			return err
 		}
@@ -135,6 +146,8 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 // Unenforce stops enforcing policy for the given contexID.
 func (s *ProxyInfo) Unenforce(contextID string) error {
 
+	s.Lock()
+	defer s.Unlock()
 	delete(s.initDone, contextID)
 
 	return nil
