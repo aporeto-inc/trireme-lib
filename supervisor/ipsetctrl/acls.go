@@ -31,7 +31,7 @@ func (i *Instance) createACLSets(version string, set string, rules policy.IPRule
 
 	for _, rule := range rules {
 		var err error
-		switch rule.Action {
+		switch rule.Policy.Action {
 		case policy.Accept:
 			err = allowSet.Add(rule.Address+","+rule.Port, 0)
 		case policy.Reject:

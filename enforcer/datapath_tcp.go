@@ -232,25 +232,14 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 // processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
-	// Let's check if it matches a specific external service - we can let those go
-	// We don't account for 0.0.0.0/0 external services though
+	// if destination is in the cache, allow
 	context.Lock()
-	if action, err := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort); err == nil && action&policy.Accept > 0 {
-		conn.SetState(TCPData)
+	if policy, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))); err == nil {
+		fmt.Println("Found it in the cache .. let it go ")
 		context.Unlock()
-		return action, nil
-	}
-
-	// If we have an IP in the cache for the default match, the process here.
-	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err == nil {
-		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.DestinationPort)
-		if perr != nil || action == policy.Reject {
-			context.Unlock()
-			return nil, fmt.Errorf("Drop it")
-		}
-		conn.SetState(TCPData)
-		context.Unlock()
-		return action, nil
+		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
+		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+		return policy, nil
 	}
 	context.Unlock()
 
@@ -280,6 +269,23 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 // processApplicationSynAckPacket processes an application SynAck packet
 func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
+	fmt.Println("Received the SynAck packet ")
+	if conn.GetState() == TCPData && !conn.ServiceConnection {
+		fmt.Println("Got the SynAck and setting up contrack to send direct ")
+		d.conntrackHdl.ConntrackTableUpdateMark(
+			tcpPacket.DestinationAddress.String(),
+			tcpPacket.SourceAddress.String(),
+			tcpPacket.IPProto,
+			tcpPacket.DestinationPort,
+			tcpPacket.SourcePort,
+			constants.DefaultConnMark,
+		)
+
+		d.netOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
+		d.appReplyConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
+
+		return nil, nil
+	}
 	// Process the packet at the right state. I should have either received a Syn packet or
 	// I could have send a SynAck and this is a duplicate request since my response was lost.
 	if conn.GetState() == TCPSynReceived || conn.GetState() == TCPSynAckSend {
@@ -411,11 +417,17 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 
 		// If there is no auth option, attempt the ACLs
-		action, perr := context.NetworkACLS.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.DestinationPort)
-		if perr != nil || action == policy.Reject {
+		plc, perr := context.NetworkACLS.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.DestinationPort)
+		d.reportExternalServiceFlow(context, plc, false, tcpPacket)
+		if perr != nil || plc.Action == policy.Reject {
 			return nil, nil, fmt.Errorf("Drop it")
 		}
-		return action, nil, nil
+
+		conn.SetState(TCPData)
+		d.netOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
+		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
+
+		return plc, nil, nil
 	}
 
 	// Decode the JWT token using the context key
@@ -481,30 +493,46 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	defer context.Unlock()
 
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+		var plc *policy.FlowPolicy
+		var err error
+		// Defer all cleaning up functions
+		defer func() {
+			d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
+			d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+			d.conntrackHdl.ConntrackTableUpdateMark(
+				tcpPacket.DestinationAddress.String(),
+				tcpPacket.SourceAddress.String(),
+				tcpPacket.IPProto,
+				tcpPacket.DestinationPort,
+				tcpPacket.SourcePort,
+				constants.DefaultConnMark,
+			)
+			d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
+		}()
 
-		// If there are no options and it is in the cache, ignore. We have processed it
-		_, lerr := context.externalIPCache.Get(tcpPacket.SourceAddress.String())
-		if lerr == nil {
-			return nil, nil, nil
+		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+		if plci, err := context.externalIPCache.Get(flowHash); err == nil {
+			plc = plci.(*policy.FlowPolicy)
+			fmt.Println("In the cache .. accept it ")
+			return plc, nil, nil
 		}
 
-		// Never seen this IP before, let's parse them. We only look at the defaults
-		// in this case. The rest have  been processed at the Syn packet
-		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.SourcePort)
-		if perr != nil || action == policy.Reject {
+		// Never seen this IP before, let's parse them.
+		plc, err = context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
+		if err != nil || plc.Action&policy.Reject > 0 {
+			fmt.Println("Didn't match any actions")
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 
-		// Since its the first time, we added in the cache
-		// Stack will retransmit clean Syn packet if cache fails for some reason
-		cerr := context.externalIPCache.Add(tcpPacket.SourceAddress.String(), true)
-		if cerr != nil {
-			return action, nil, fmt.Errorf("Drop it")
+		// Added to the cache if we can accept it
+		if err := context.externalIPCache.Add(tcpPacket.SourceAddress.String()+":"+strconv.Itoa(int(tcpPacket.SourcePort)), plc); err != nil {
+			return nil, nil, fmt.Errorf("Drop it")
 		}
 
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(TCPData)
-		return action, nil, nil
+
+		return plc, nil, nil
 	}
 
 	tcpData := tcpPacket.ReadTCPData()
