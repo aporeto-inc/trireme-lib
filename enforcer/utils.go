@@ -19,6 +19,8 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourc
 		SourceIP:        p.SourceAddress.String(),
 		DestinationIP:   p.DestinationAddress.String(),
 		DestinationPort: p.DestinationPort,
+		// PolicyID: missing,
+		// Encrypted: missing,
 	})
 }
 

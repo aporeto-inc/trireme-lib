@@ -70,6 +70,7 @@ type FlowRecord struct {
 	Action          string // TODO: this should be a ActionType. It would simplify a lot of things.
 	Mode            string
 	PolicyID        string
+	Encrypted       bool
 }
 
 func (f *FlowRecord) String() string {
