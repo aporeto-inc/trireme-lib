@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -113,6 +114,7 @@ type nfLog struct {
 	seq              uint32
 	fd               C.int
 	errors           int64
+	hLock            sync.Mutex
 }
 
 // Create a new NfLog
@@ -140,6 +142,7 @@ func newNfLog(mcastGroup int, ipVersion byte, direction IPDirection, maskBits in
 		packets:          (*C.packets)(C.malloc(C.sizeof_packets)),
 		packetsToProcess: packetsToProcess,
 		processedPackets: processedPackets,
+		hLock:            sync.Mutex{},
 	}
 
 	switch ipVersion {
@@ -259,7 +262,9 @@ func (n *nfLog) processPacket(payload []byte, prefix []byte, seq uint32) Packet 
 // Connects to the group specified with the size
 func (n *nfLog) makeGroup(group, size int) error {
 
+	n.hLock.Lock()
 	gh, err := C._nflog_bind_group(n.h, C.int(group))
+	n.hLock.Unlock()
 	if gh == nil || err != nil {
 		return fmt.Errorf("nflog: nflog_bind_group failed: %s", nflogError(err))
 	}
@@ -284,7 +289,10 @@ func (n *nfLog) makeGroup(group, size int) error {
 	}
 
 	// Set recv buffer large - this produces ENOBUFS when too small
+	n.hLock.Lock()
 	urc, err = C.nfnl_rcvbufsiz(C.nflog_nfnlh(n.h), nfrecvBufferSize)
+	n.hLock.Unlock()
+
 	if err != nil {
 		return fmt.Errorf("nflog: nfnl_rcvbufsiz failed: %s", nflogError(err))
 	}
@@ -318,7 +326,11 @@ func (n *nfLog) start() {
 	if pbuf == nil {
 		panic("nflog: no memory for malloc")
 	}
-	defer C.free(pbuf)
+
+	defer func() {
+		C.free(pbuf)
+		C.free(unsafe.Pointer(n.packets))
+	}()
 
 	for {
 		nr, err := C.recv(n.fd, pbuf, buflen, 0)
@@ -337,7 +349,9 @@ func (n *nfLog) start() {
 		// Handle messages in packet reusing memory
 		ps := <-n.packetsToProcess
 		n.packets.index = 0 // nolint: gotype
+		n.hLock.Lock()
 		C.nflog_handle_packet(n.h, (*C.char)(pbuf), (C.int)(nr))
+		n.hLock.Unlock()
 		n.processedPackets <- n.processPackets(ps[:0])
 	}
 }
@@ -347,9 +361,9 @@ func (n *nfLog) stop() {
 
 	close(n.quit)
 
+	n.hLock.Lock()
 	if rc, err := C.nflog_close(n.h); rc < 0 || err != nil {
 		zap.L().Warn("nflog: nflog_close failed %s", zap.Error(nflogError(err)))
 	}
-
-	C.free(unsafe.Pointer(n.packets))
+	n.hLock.Unlock()
 }
