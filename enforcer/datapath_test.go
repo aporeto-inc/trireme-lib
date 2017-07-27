@@ -76,8 +76,8 @@ func TestInvalidContext(t *testing.T) {
 			Convey("Then I should see an error for non existing context", func() {
 
 				So(err, ShouldBeNil)
-				So(err1, ShouldNotBeNil)
-				So(err2, ShouldNotBeNil)
+				So(err1, ShouldBeNil)
+				So(err2, ShouldBeNil)
 			})
 		})
 	})
@@ -135,8 +135,8 @@ func TestInvalidTokenContext(t *testing.T) {
 			Convey("Then I should see an error for missing IP", func() {
 
 				So(err, ShouldBeNil)
-				So(err1, ShouldNotBeNil)
-				So(err2, ShouldNotBeNil)
+				So(err1, ShouldBeNil)
+				So(err2, ShouldBeNil)
 			})
 		})
 	})
