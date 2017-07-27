@@ -824,7 +824,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 		fmt.Println("Mode", d.mode)
 		if d.mode != constants.RemoteContainer {
 
-			context := &PUContext{
+			context = &PUContext{
 				PUType: constants.TransientPU,
 			}
 			//we will create the bare minimum needed to exercise our stack
