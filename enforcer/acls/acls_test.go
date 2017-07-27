@@ -14,27 +14,39 @@ var (
 			Address:  "172.17.0.0/16",
 			Port:     "400:500",
 			Protocol: "tcp",
-			Action:   policy.Accept},
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "1"},
+		},
 		policy.IPRule{
 			Address:  "192.168.100.0/24",
 			Protocol: "tcp",
 			Port:     "80",
-			Action:   policy.Accept},
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "2"},
+		},
 		policy.IPRule{
 			Address:  "10.1.1.1",
 			Protocol: "tcp",
 			Port:     "80",
-			Action:   policy.Accept},
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "3"}},
 		policy.IPRule{
 			Address:  "0.0.0.0/0",
 			Protocol: "tcp",
 			Port:     "443",
-			Action:   policy.Accept},
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "4"}},
 		policy.IPRule{
 			Address:  "0.0.0.0/0",
 			Protocol: "udp",
 			Port:     "443",
-			Action:   policy.Accept},
+			Policy: &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "5"}},
 	}
 )
 
@@ -51,7 +63,7 @@ func TestLookup(t *testing.T) {
 			port := uint16(401)
 			a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldBeNil)
-			So(a, ShouldEqual, policy.Accept)
+			So(a.Action, ShouldEqual, policy.Accept)
 		})
 
 		Convey("When I lookup for a matching address exact port, I should get the right action", func() {
@@ -59,7 +71,7 @@ func TestLookup(t *testing.T) {
 			port := uint16(80)
 			a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldBeNil)
-			So(a, ShouldEqual, policy.Accept)
+			So(a.Action, ShouldEqual, policy.Accept)
 		})
 
 		Convey("When I lookup for a non matching address . I should get reject", func() {
@@ -67,7 +79,7 @@ func TestLookup(t *testing.T) {
 			port := uint16(80)
 			a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldNotBeNil)
-			So(a, ShouldEqual, policy.Reject)
+			So(a.Action, ShouldEqual, policy.Reject)
 		})
 
 		Convey("When I lookup for a matching address but failed port, I should get reject", func() {
@@ -75,7 +87,7 @@ func TestLookup(t *testing.T) {
 			port := uint16(600)
 			a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldNotBeNil)
-			So(a, ShouldEqual, policy.Reject)
+			So(a.Action, ShouldEqual, policy.Reject)
 		})
 
 		Convey("When I lookup for a matching exact address exact port, I should get the right action", func() {
@@ -83,14 +95,8 @@ func TestLookup(t *testing.T) {
 			port := uint16(80)
 			a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldBeNil)
-			So(a, ShouldEqual, policy.Accept)
+			So(a.Action, ShouldEqual, policy.Accept)
 		})
 
-		Convey("When I lookup for a matching the 0.0.0.0/0 ACL, it shoud return succes ", func() {
-			port := uint16(443)
-			a, err := c.GetDefaultAction(port)
-			So(err, ShouldBeNil)
-			So(a, ShouldEqual, policy.Accept)
-		})
 	})
 }

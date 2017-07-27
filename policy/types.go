@@ -19,10 +19,10 @@ const (
 	KeyNotExists = "!*"
 )
 
-// FlowAction is the action that can be applied to a flow.
-type FlowAction int
+// ActionType   is the action that can be applied to a flow.
+type ActionType int
 
-func (f FlowAction) String() string {
+func (f ActionType) String() string {
 	switch f {
 	case Accept:
 		return "accept"
@@ -30,6 +30,8 @@ func (f FlowAction) String() string {
 		return "reject"
 	case Encrypt:
 		return "encrypt"
+	case Log:
+		return "log"
 	}
 
 	return "unknown"
@@ -37,21 +39,28 @@ func (f FlowAction) String() string {
 
 const (
 	// Accept is the accept action
-	Accept FlowAction = 0x1
+	Accept ActionType = 0x1
 	// Reject is the reject  action
-	Reject FlowAction = 0x2
+	Reject ActionType = 0x2
 	// Encrypt instructs data to be encrypted
-	Encrypt FlowAction = 0x4
+	Encrypt ActionType = 0x4
+	// Log instructs the datapath to log the IP addresses
+	Log ActionType = 0x8
 )
+
+// FlowPolicy captures the policy for a particular flow
+type FlowPolicy struct {
+	Action    ActionType
+	ServiceID string
+	PolicyID  string
+}
 
 // IPRule holds IP rules to external services
 type IPRule struct {
-	Address   string
-	Port      string
-	Protocol  string
-	Action    FlowAction
-	Log       bool
-	LogPrefix string
+	Address  string
+	Port     string
+	Protocol string
+	Policy   *FlowPolicy
 }
 
 // IPRuleList is a list of IP rules
@@ -76,7 +85,7 @@ type KeyValueOperator struct {
 // TagSelector info describes a tag selector key Operator value
 type TagSelector struct {
 	Clause []KeyValueOperator
-	Action FlowAction
+	Policy *FlowPolicy
 }
 
 // TagSelectorList defines a list of TagSelectors
