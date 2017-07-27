@@ -69,6 +69,7 @@ type FlowRecord struct {
 	Tags            *policy.TagStore
 	Action          string
 	Mode            string
+	PolicyID        string
 }
 
 func (f *FlowRecord) String() string {

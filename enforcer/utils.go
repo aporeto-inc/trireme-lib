@@ -1,8 +1,6 @@
 package enforcer
 
 import (
-	"fmt"
-
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -52,6 +50,7 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 		DestinationIP:   p.DestinationAddress.String(),
 		DestinationPort: p.DestinationPort,
 		Tags:            context.Annotations,
+		PolicyID:        flowpolicy.PolicyID,
 	}
 
 	if !app {
@@ -74,8 +73,6 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpoli
 		flowAction = collector.FlowReject
 	}
 
-	fmt.Println("Here is the reverse IPs and action ", p.DestinationAddress.String(), p.SourceAddress.String(), flowAction)
-
 	record := &collector.FlowRecord{
 		ContextID:       context.ID,
 		Action:          flowAction,
@@ -83,6 +80,7 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpoli
 		DestinationIP:   p.SourceAddress.String(),
 		DestinationPort: p.SourcePort,
 		Tags:            context.Annotations,
+		PolicyID:        flowpolicy.PolicyID,
 	}
 
 	if !app {
