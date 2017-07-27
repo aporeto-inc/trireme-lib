@@ -106,8 +106,8 @@ func (a *nfLogger) listen() {
 		case ps := <-a.processedPackets:
 			for _, p := range ps {
 
-				parts := strings.SplitN(p.Prefix, ":", 3)
-				contextID, extSrvID, action := parts[0], parts[1], parts[2]
+				parts := strings.SplitN(p.Prefix, ":", 4)
+				contextID, policyID, extSrvID, shortAction := parts[0], parts[1], parts[2], parts[3]
 
 				puID, tags := a.getPUInfo(contextID)
 				if puID == "" {
@@ -117,11 +117,17 @@ func (a *nfLogger) listen() {
 
 				record := &collector.FlowRecord{
 					ContextID:       contextID,
-					Action:          action,
 					SourceIP:        p.SourceAddr.String(),
 					DestinationIP:   p.DestinationAddr.String(),
 					DestinationPort: uint16(p.DestinationPort),
+					PolicyID:        policyID,
 					Tags:            tags,
+				}
+
+				if shortAction == "a" {
+					record.Action = "accept"
+				} else {
+					record.Action = "reject"
 				}
 
 				if p.Direction == IPSource {

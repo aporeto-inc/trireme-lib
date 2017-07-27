@@ -67,7 +67,7 @@ type FlowRecord struct {
 	DestinationIP   string
 	DestinationPort uint16
 	Tags            *policy.TagStore
-	Action          string
+	Action          string // TODO: this should be a ActionType. It would simplify a lot of things.
 	Mode            string
 	PolicyID        string
 }

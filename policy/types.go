@@ -20,7 +20,39 @@ const (
 )
 
 // ActionType   is the action that can be applied to a flow.
-type ActionType int
+type ActionType byte
+
+// Accepted returns if the action mask contains the Accepted mask.
+func (f ActionType) Accepted() bool {
+	return f&Accept > 0
+}
+
+// Rejected returns if the action mask contains the Rejected mask.
+func (f ActionType) Rejected() bool {
+	return f&Reject > 0
+}
+
+// Encrypted returns if the action mask contains the Encrypted mask.
+func (f ActionType) Encrypted() bool {
+	return f&Encrypt > 0
+}
+
+// Logged returns if the action mask contains the Logged mask.
+func (f ActionType) Logged() bool {
+	return f&Log > 0
+}
+
+// ShortAcceptedString returns if the action if accepted of rejected as a short string.
+func (f ActionType) ShortAcceptedString() string {
+	if f.Accepted() && !f.Rejected() {
+		return "a"
+	}
+
+	if !f.Accepted() && f.Rejected() {
+		return "r"
+	}
+	return "p"
+}
 
 func (f ActionType) String() string {
 	switch f {
