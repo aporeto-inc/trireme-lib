@@ -153,5 +153,5 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (*policy.FlowPolicy
 		}
 	}
 
-	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "Somewhere", ServiceID: "Somewhere"}, fmt.Errorf("No match")
+	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}, fmt.Errorf("No match")
 }
