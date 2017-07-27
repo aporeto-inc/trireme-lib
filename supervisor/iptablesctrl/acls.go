@@ -289,7 +289,6 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 				return fmt.Errorf("Failed to %s rule for table %s and chain %s with error %s ", methodType, cr[0], cr[1], err.Error())
 			}
 		case "Delete":
-			fmt.Println(cr)
 			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
 				zap.L().Warn("Failed to delete rule from chain", zap.Error(err))
 			}
