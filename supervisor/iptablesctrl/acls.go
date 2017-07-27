@@ -304,13 +304,10 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string, uid string) error {
 
 	if i.mode == constants.LocalServer {
-		fmt.Println("addChainRules UID", uid)
 		if uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Append")
-		} else {
-			fmt.Println("UID CHain Rules")
-			return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Append")
 		}
+		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Append")
 
 	}
 
@@ -520,9 +517,9 @@ func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Delete")
-		} else {
-			return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Delete")
 		}
+		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Delete")
+
 	}
 
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")

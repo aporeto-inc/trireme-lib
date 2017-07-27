@@ -43,7 +43,7 @@ const (
 	LinuxProcessPU
 	//UIDLoginPU -- PU representing a user session
 	UIDLoginPU
-	//Temporary PU -- placeholder to run processing. This should not
+	//TransientPU PU -- placeholder to run processing. This should not
 	//be inserted in any cache. This is valid only for processing a packet
 	TransientPU
 )
