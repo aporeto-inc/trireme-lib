@@ -789,7 +789,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 					fmt.Println("No context for ", p.Mark)
 				}
 				d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
-				//Return an error still we will process the syn sucessfully on retry and
+				//Return an error still we will process the syn successfully on retry and
 			}
 			return nil, nil, fmt.Errorf("App state not found")
 		}
@@ -827,8 +827,8 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 			context := &PUContext{
 				PUType: constants.TransientPU,
 			}
-			//we will create the bare minimum needed to excercise our stack
-			//We need this syn to look similiar to what we will pass on the retry
+			//we will create the bare minimum needed to exercise our stack
+			//We need this syn to look similar to what we will pass on the retry
 			//so we setup enought for us to identify this request in the later stages
 			fmt.Println("Created Transient PU")
 			return context, nil, nil

@@ -13,7 +13,7 @@ import (
 )
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string) [][]string {
-	str := [][]string{}
+	var str [][]string
 	if uid != "" {
 		str = [][]string{
 			{

@@ -238,14 +238,14 @@ func TestDeleteRules(t *testing.T) {
 		Convey("When I delete the rules of a container", func() {
 			ipl := policy.ExtendedMap{}
 			ipl[policy.DefaultNamespace] = "172.17.0.1"
-			err := i.DeleteRules(0, "context", ipl, "0", "0")
+			err := i.DeleteRules(0, "context", ipl, "0", "0", "")
 			Convey("It should return no errors", func() {
 				So(err, ShouldBeNil)
 			})
 		})
 
 		Convey("When I delete the rules with invalid map list", func() {
-			err := i.DeleteRules(0, "context", policy.ExtendedMap{}, "0", "0")
+			err := i.DeleteRules(0, "context", policy.ExtendedMap{}, "0", "0", "")
 			Convey("It should return an error ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -324,7 +324,7 @@ func TestUpdateRules(t *testing.T) {
 
 		Convey("When I update the rules of a container", func() {
 
-			err := i.DeleteRules(0, "context", ipl, "0", "0")
+			err := i.DeleteRules(0, "context", ipl, "0", "0", "")
 			Convey("It should return no errors", func() {
 				So(err, ShouldBeNil)
 			})

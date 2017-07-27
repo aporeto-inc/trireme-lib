@@ -188,6 +188,9 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 		port = "0"
 	}
 	uid, ok := containerInfo.Runtime.Options().Get("USER")
+	if !ok {
+		uid = ""
+	}
 	cacheEntry := &cacheData{
 		version: version,
 		ips:     containerInfo.Policy.IPAddresses(),
