@@ -33,45 +33,47 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		return nil, fmt.Errorf("EventInfo PUID is empty")
 	}
 
-	runtimeTags := policy.NewTagsMap(map[string]string{})
+	runtimeTags := policy.NewTagStore()
 
 	for k, v := range event.Tags {
-		runtimeTags.Tags["@usr:"+k] = v
+		runtimeTags.AppendKeyValue("@usr:"+k, v)
 	}
 
 	userdata := processInfo(event.PID)
 
 	for _, u := range userdata {
-		runtimeTags.Tags["@sys:"+u] = "true"
+		runtimeTags.AppendKeyValue("@sys:"+u, "true")
 	}
 
-	runtimeTags.Tags["@sys:hostname"] = findFQFN()
+	runtimeTags.AppendKeyValue("@sys:hostname", findFQFN())
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
-		runtimeTags.Tags["@sys:filechecksum"] = hex.EncodeToString(fileMd5)
+		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
 	}
 
 	depends := libs(event.Name)
 	for _, lib := range depends {
-		runtimeTags.Tags["@sys:lib:"+lib] = "true"
+		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
 	}
 
-	options := policy.NewTagsMap(map[string]string{
+	options := policy.ExtendedMap{
 		cgnetcls.PortTag:       "0",
 		cgnetcls.CgroupNameTag: event.PUID,
-	})
-
-	if _, ok := runtimeTags.Tags[cgnetcls.PortTag]; ok {
-		options.Tags[cgnetcls.PortTag] = runtimeTags.Tags[cgnetcls.PortTag]
 	}
 
-	if _, ok := runtimeTags.Tags["@usr:originaluser"]; ok {
-		options.Tags["USER"] = runtimeTags.Tags["@usr:originaluser"]
+	ports, ok := runtimeTags.Get(cgnetcls.PortTag)
+	if ok {
+		options[cgnetcls.PortTag] = ports
 	}
-	fmt.Println("options.Tags", options.Tags["USER"])
-	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
-	runtimeIps := policy.NewIPMap(map[string]string{"bridge": "0.0.0.0/0"})
+	user, ok := runtimeTags.Get("@usr:originaluser")
+	if ok {
+		fmt.Println("USER", user)
+		options["USER"] = user
+	}
+	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+
+	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
 	runtimePID, err := strconv.Atoi(event.PID)
 

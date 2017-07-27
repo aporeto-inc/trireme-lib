@@ -77,7 +77,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 	name, metadatamap, err := createMetadata(servicename, command, ports, metadata)
 	uid := os.Getuid()
 	metadatamap["originaluser"] = strconv.Itoa(uid)
-	fmt.Println("metadatamap[originaluser]", metadatamap["originaluser"])
+
 	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
 		stderrlogger.Print(err)

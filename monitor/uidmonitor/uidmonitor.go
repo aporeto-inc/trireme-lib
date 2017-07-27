@@ -19,25 +19,30 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 		return nil, fmt.Errorf("EventInfo PUID is empty")
 	}
 
-	runtimeTags := policy.NewTagsMap(map[string]string{})
+	runtimeTags := policy.NewTagStore()
 
 	for k, v := range event.Tags {
-		runtimeTags.Tags["@usr:"+k] = v
+		//runtimeTags.Tags["@usr:"+k] = v
+		runtimeTags.AppendKeyValue("@usr:"+k, v)
 	}
+
 	//Addd more thing here later
-	options := policy.NewTagsMap(map[string]string{
+	options := policy.ExtendedMap{
 		cgnetcls.PortTag:       "0",
 		cgnetcls.CgroupNameTag: event.PUID,
-	})
+	}
 
-	if _, ok := runtimeTags.Tags[cgnetcls.PortTag]; ok {
-		options.Tags[cgnetcls.PortTag] = runtimeTags.Tags[cgnetcls.PortTag]
+	ports, ok := runtimeTags.Get(cgnetcls.PortTag)
+	if ok {
+		options[cgnetcls.PortTag] = ports
 	}
-	if _, ok := runtimeTags.Tags["@usr:originaluser"]; ok {
-		options.Tags["USER"] = runtimeTags.Tags["@usr:originaluser"]
+	user, ok := runtimeTags.Get("@usr:originaluser")
+	if ok {
+		fmt.Println("USER", user)
+		options["USER"] = user
 	}
-	options.Tags[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
-	runtimeIps := policy.NewIPMap(map[string]string{"bridge": "0.0.0.0/0"})
+	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	runtimePID, _ := strconv.Atoi(event.PID)
 	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
 }

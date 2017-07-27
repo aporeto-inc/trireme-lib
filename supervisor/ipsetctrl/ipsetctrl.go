@@ -95,7 +95,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	}
 
 	// Currently processing only containers with one IP address
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
+	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
 		return fmt.Errorf("No ip address found")
 	}
@@ -112,12 +112,12 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap, port string, mark string, uid string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error {
 
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
-	ipAddress, ok := i.defaultIP(ipAddresses.IPs)
+	ipAddress, ok := i.defaultIP(ipAddresses)
 	if !ok {
 		return fmt.Errorf("No ip address found")
 	}
@@ -149,7 +149,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
+	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
 		return fmt.Errorf("No ip address found")
 	}
@@ -180,7 +180,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 }
 
-func (i *Instance) addAllRules(version int, appSetPrefix, netSetPrefix string, appACLs *policy.IPRuleList, netACLs *policy.IPRuleList, ip string) error {
+func (i *Instance) addAllRules(version int, appSetPrefix, netSetPrefix string, appACLs policy.IPRuleList, netACLs policy.IPRuleList, ip string) error {
 
 	versionstring := strconv.Itoa(version)
 
