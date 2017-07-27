@@ -47,14 +47,13 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			)
 			return err
 		}
-		fmt.Println("Context", context)
+
 		if context.PUType == constants.TransientPU {
 			//Drop Data and let packet through.
 			//Don't create any state
 			//The option should always be present since our rules looks for this option
 			//context is destroyed here if we are a transient PU
 			//Verdict get set to pass
-			fmt.Println("Passing syn for unknown port PU")
 			return nil
 		}
 	case packet.TCPSynAckMask:
@@ -151,7 +150,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			return err
 		}
 	case packet.TCPSynAckMask:
-		fmt.Println("Received Syn ack")
 		context, conn, err = d.appRetrieveState(p)
 		if err != nil {
 			zap.L().Debug("SynAckPacket Ingored",
@@ -785,9 +783,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				//We see a syn ack for which we have not recorded a syn
 				//Update the port for the context matching the mark this packet has comes with
 				context, _ := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
-				if context == nil {
-					fmt.Println("No context for ", p.Mark)
-				}
+
 				d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 				//Return an error still we will process the syn successfully on retry and
 			}
@@ -821,7 +817,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	if err != nil {
 		//This needs to hit only for local processes never for containers
 		//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
-		fmt.Println("Mode", d.mode)
 		if d.mode != constants.RemoteContainer {
 
 			context = &PUContext{
@@ -830,7 +825,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 			//we will create the bare minimum needed to exercise our stack
 			//We need this syn to look similar to what we will pass on the retry
 			//so we setup enought for us to identify this request in the later stages
-			fmt.Println("Created Transient PU")
 			return context, nil, nil
 		}
 
@@ -845,9 +839,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	conn.(*TCPConnection).Lock()
 	conn.(*TCPConnection).Context = context
 	conn.(*TCPConnection).Unlock()
-	if context == nil {
-		fmt.Println("Returning NIL COntext", p.Mark, p.DestinationPort)
-	}
 	return context, conn.(*TCPConnection), nil
 }
 
