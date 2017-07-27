@@ -109,14 +109,14 @@ func TestConfigureRules(t *testing.T) {
 				Address:  "192.30.253.0/24",
 				Port:     "80",
 				Protocol: "TCP",
-				Policy:   policy.FlowPolicy{Action: policy.Reject},
+				Policy:   &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
 				Address:  "192.30.253.0/24",
 				Port:     "443",
 				Protocol: "TCP",
-				Policy:   policy.FlowPolicy{Action: policy.Accept},
+				Policy:   &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
@@ -297,14 +297,14 @@ func TestUpdateRules(t *testing.T) {
 				Address:  "192.30.253.0/24",
 				Port:     "80",
 				Protocol: "TCP",
-				Policy:   policy.FlowPolicy{Action: policy.Reject},
+				Policy:   &policy.FlowPolicy{Action: policy.Reject},
 			},
 
 			policy.IPRule{
 				Address:  "192.30.253.0/24",
 				Port:     "443",
 				Protocol: "TCP",
-				Policy:   policy.FlowPolicy{Action: policy.Accept},
+				Policy:   &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
 
