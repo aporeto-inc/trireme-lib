@@ -45,8 +45,6 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 		flowAction = collector.FlowReject
 	}
 
-	fmt.Println("Here is the IPs and action ", p.DestinationAddress.String(), p.SourceAddress.String(), flowAction)
-
 	record := &collector.FlowRecord{
 		ContextID:       context.ID,
 		Action:          flowAction,
