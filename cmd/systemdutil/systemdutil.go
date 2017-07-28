@@ -22,8 +22,48 @@ const (
 	remoteMethodCall = "Server.HandleEvent"
 )
 
-// ExecuteCommand executes the command with all the given parameters
-func ExecuteCommand(command string, params []string, cgroup string, serviceName string, ports []string, tags []string) error {
+// ExecuteCommand executes a command in a cgroup and programs Trireme
+// TODO : This method is deprecated and should be removed once there is no code using it.
+func ExecuteCommand(arguments map[string]interface{}) error {
+	if !arguments["run"].(bool) {
+		return fmt.Errorf("Bad arguments - no run command")
+	}
+
+	var command string
+	if value, ok := arguments["<command>"]; ok && value != nil {
+		command = value.(string)
+	}
+
+	var cgroup string
+	if value, ok := arguments["<cgroup>"]; ok && value != nil {
+		cgroup = value.(string)
+	}
+
+	var labels []string
+	if value, ok := arguments["--label"]; ok && value != nil {
+		labels = value.([]string)
+	}
+
+	var serviceName string
+	if value, ok := arguments["--service-name"]; ok && value != nil {
+		serviceName = value.(string)
+	}
+
+	var params []string
+	if value, ok := arguments["<params>"]; ok && value != nil {
+		params = append(params, value.([]string)...)
+	}
+
+	var ports []string
+	if value, ok := arguments["--ports"]; ok && value != nil {
+		ports = value.([]string)
+	}
+
+	return ExecuteCommandWithParameters(command, params, cgroup, serviceName, ports, labels)
+}
+
+// ExecuteCommandWithParameters executes the command with all the given parameters
+func ExecuteCommandWithParameters(command string, params []string, cgroup string, serviceName string, ports []string, tags []string) error {
 
 	var err error
 
