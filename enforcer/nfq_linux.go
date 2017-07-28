@@ -15,6 +15,7 @@ import (
 func errorCallback(err error, data interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
+
 func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
 }
