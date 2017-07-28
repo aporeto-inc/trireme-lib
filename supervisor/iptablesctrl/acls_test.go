@@ -2,6 +2,7 @@ package iptablesctrl
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/bvandewalle/go-ipset/ipset"
@@ -761,7 +762,7 @@ func TestAddExclusionACLs(t *testing.T) {
 	})
 }
 
-func TestCaptureTargetSynAckPackets(t *testing.T) {
+func TestSetGlobalRules(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		iptables := provider.NewTestIptablesProvider()
@@ -773,6 +774,9 @@ func TestCaptureTargetSynAckPackets(t *testing.T) {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if chain == "INPUT" || chain == "OUTPUT" {
 					if matchSpec("--match-set", rulespec) == nil && matchSpec(targetNetworkSet, rulespec) == nil {
+						return nil
+					}
+					if matchSpec("connmark", rulespec) == nil && matchSpec(strconv.Itoa(int(constants.DefaultConnMark)), rulespec) == nil {
 						return nil
 					}
 				}
@@ -790,7 +794,7 @@ func TestCaptureTargetSynAckPackets(t *testing.T) {
 				return nil, fmt.Errorf("Wrong set")
 			})
 
-			err := i.captureTargetSynAckPackets("OUTPUT", "INPUT")
+			err := i.setGlobalRules("OUTPUT", "INPUT")
 			Convey("I should get no error if iptables succeeds", func() {
 				So(err, ShouldBeNil)
 			})
@@ -815,7 +819,7 @@ func TestCaptureTargetSynAckPackets(t *testing.T) {
 				return nil, fmt.Errorf("Wrong set")
 			})
 
-			err := i.captureTargetSynAckPackets("OUTPUT", "INPUT")
+			err := i.setGlobalRules("OUTPUT", "INPUT")
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -840,7 +844,7 @@ func TestCaptureTargetSynAckPackets(t *testing.T) {
 				return nil, fmt.Errorf("Wrong set")
 			})
 
-			err := i.captureTargetSynAckPackets("OUTPUT", "INPUT")
+			err := i.setGlobalRules("OUTPUT", "INPUT")
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -867,7 +871,7 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 
-			err := i.CleanCaptureSynAckPackets()
+			err := i.CleanGlobalRules()
 			Convey("I should get no error if iptables succeeds", func() {
 				So(err, ShouldBeNil)
 			})
