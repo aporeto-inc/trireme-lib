@@ -84,11 +84,11 @@ func (_mr *_MockProcessingUnitsHandlerRecorder) SetPURuntime(arg0, arg1 interfac
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetPURuntime", arg0, arg1)
 }
 
-func (_m *MockProcessingUnitsHandler) HandlePUEvent(contextID string, event monitor.Event) error {
+func (_m *MockProcessingUnitsHandler) HandlePUEvent(contextID string, event monitor.Event) <-chan error {
 
 	ret := _m.ctrl.Call(_m, "HandlePUEvent", contextID, event)
 
-	ret0, _ := ret[0].(error)
+	ret0, _ := ret[0].(<-chan error)
 	return ret0
 }
 
