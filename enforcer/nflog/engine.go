@@ -106,7 +106,7 @@ func (a *nfLogger) listen() {
 		case ps := <-a.processedPackets:
 			for _, p := range ps {
 
-				parts := strings.SplitN(p.Prefix[:len(p.Prefix)-2], ":", 3)
+				parts := strings.SplitN(p.Prefix[:len(p.Prefix)-1], ":", 3)
 				contextID, policyID, extSrvID := parts[0], parts[1], parts[2]
 				shortAction := string(p.Prefix[len(p.Prefix)-1])
 
