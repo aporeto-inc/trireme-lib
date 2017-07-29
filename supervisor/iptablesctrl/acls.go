@@ -366,7 +366,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 		"-d", "0.0.0.0/0",
 		"-m", "state", "--state", "NEW",
 		"-j", "NFLOG", "--nflog-group", "10",
-		"--nflog-prefix", contextID+":default:default:r",
+		"--nflog-prefix", contextID+":default:defaultr",
 	); err != nil {
 		return fmt.Errorf("Failed to add acl log rule for table %s, chain %s, with %s", i.appAckPacketIPTableContext, chain, err.Error())
 	}
