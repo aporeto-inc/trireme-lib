@@ -4,6 +4,7 @@ package supervisorproxy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
@@ -26,6 +27,8 @@ type ProxyInfo struct {
 	prochdl        processmon.ProcessManager
 	rpchdl         rpcwrapper.RPCClient
 	initDone       map[string]bool
+
+	sync.Mutex
 }
 
 //Supervise Calls Supervise on the remote supervisor
@@ -147,7 +150,9 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 		return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 	}
 
+	s.Lock()
 	s.initDone[contextID] = true
+	s.Unlock()
 
 	return nil
 

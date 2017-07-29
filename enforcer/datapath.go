@@ -112,11 +112,11 @@ func New(
 
 		contextTracker: cache.NewCache(),
 
-		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 60),
-		appOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
-		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
-		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
+		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 24),
+		appOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
+		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
+		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
+		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
