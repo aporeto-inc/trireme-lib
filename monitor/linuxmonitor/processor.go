@@ -45,16 +45,7 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	// s.collector.CollectContainerEvent(&collector.ContainerRecord{
-	// 	ContextID: contextID,
-	// 	IPAddress: "127.0.0.1",
-	// 	Tags:      eventInfo.Tags,
-	// 	Event:     collector.ContainerCreate,
-	// })
-
-	// Send the event upstream
-	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
-	return <-errChan
+	return s.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
 }
 
 // Start handles start events
@@ -76,10 +67,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
-	// Send the event upstream
-	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventStart)
-
-	status := <-errChan
+	status := s.puHandler.HandlePUEvent(contextID, monitor.EventStart)
 	if status == nil {
 		//It is okay to launch this so let us create a cgroup for it
 		err = s.netcls.Creategroup(eventInfo.PUID)
@@ -145,11 +133,7 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID = contextID[strings.LastIndex(contextID, "/"):]
 
-	// Send the event upstream
-	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
-	status := <-errChan
-
-	return status
+	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
 // Destroy handles a destroy event
@@ -171,9 +155,12 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	s.netcls.Deletebasepath(contextID)
 
 	// Send the event upstream
-	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
-
-	<-errChan
+	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
+		zap.L().Warn("Failed to clean trireme ",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
+	}
 
 	//let us remove the cgroup files now
 	if err := s.netcls.DeleteCgroup(contextID); err != nil {
@@ -201,8 +188,7 @@ func (s *LinuxProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	errChan := s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
-	return <-errChan
+	return s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
 }
 
 // generateContextID creates the contextID from the event information

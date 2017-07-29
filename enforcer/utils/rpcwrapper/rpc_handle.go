@@ -37,6 +37,8 @@ type RPCWrapper struct {
 // NewRPCWrapper creates a new rpcwrapper
 func NewRPCWrapper() *RPCWrapper {
 
+	RegisterTypes()
+
 	return &RPCWrapper{
 		rpcClientMap: cache.NewCache(),
 		contextList:  []string{},
@@ -44,14 +46,12 @@ func NewRPCWrapper() *RPCWrapper {
 }
 
 const (
-	maxRetries     = 1000
+	maxRetries     = 10000
 	envRetryString = "REMOTE_RPCRETRIES"
 )
 
 // NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
-
-	RegisterTypes()
 
 	max := maxRetries
 	retries := os.Getenv(envRetryString)
