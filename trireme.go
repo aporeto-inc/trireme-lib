@@ -413,9 +413,6 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 // run is the main function for running Trireme
 func (t *trireme) run() {
-
-	concurrency := 10
-	sem := make(chan bool, concurrency)
 	for {
 		select {
 		case req := <-t.requests:
@@ -423,13 +420,7 @@ func (t *trireme) run() {
 				zap.Int("type", req.reqType),
 				zap.String("contextID", req.contextID),
 			)
-
-			sem <- true
-			go func(req *triremeRequest) {
-				req.returnChan <- t.handleRequest(req)
-				<-sem
-			}(req)
-
+			req.returnChan <- t.handleRequest(req)
 		case <-t.stop:
 			zap.L().Debug("Stopping trireme worker.")
 			return
