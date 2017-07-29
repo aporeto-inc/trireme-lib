@@ -117,12 +117,16 @@ func (a *nfLogger) listen() {
 				}
 
 				record := &collector.FlowRecord{
-					ContextID:       contextID,
-					SourceIP:        p.SourceAddr.String(),
-					DestinationIP:   p.DestinationAddr.String(),
-					DestinationPort: uint16(p.DestinationPort),
-					PolicyID:        policyID,
-					Tags:            tags,
+					ContextID: contextID,
+					Source: &collector.EndPoint{
+						IP: p.SourceAddr.String(),
+					},
+					Destination: &collector.EndPoint{
+						IP:   p.DestinationAddr.String(),
+						Port: uint16(p.DestinationPort),
+					},
+					PolicyID: policyID,
+					Tags:     tags,
 				}
 
 				if shortAction == "a" {
@@ -132,13 +136,15 @@ func (a *nfLogger) listen() {
 				}
 
 				if p.Direction == IPSource {
-					record.Mode = "extsrc"
-					record.SourceID = extSrvID
-					record.DestinationID = puID
+					record.Source.Type = collector.Address
+					record.Source.ID = extSrvID
+					record.Destination.Type = collector.PU
+					record.Destination.ID = puID
 				} else {
-					record.Mode = "extdst"
-					record.SourceID = puID
-					record.DestinationID = extSrvID
+					record.Source.Type = collector.PU
+					record.Source.ID = puID
+					record.Destination.Type = collector.Address
+					record.Destination.ID = extSrvID
 				}
 
 				a.collector.CollectFlowEvent(record)

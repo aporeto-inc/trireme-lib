@@ -10,15 +10,22 @@ import (
 func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string, plc *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
-		ContextID:       context.ID,
-		DestinationID:   destID,
-		SourceID:        sourceID,
-		Tags:            context.Annotations,
-		Action:          action,
-		Mode:            mode,
-		SourceIP:        p.SourceAddress.String(),
-		DestinationIP:   p.DestinationAddress.String(),
-		DestinationPort: p.DestinationPort,
+		ContextID: context.ID,
+		Source: &collector.EndPoint{
+			ID:   sourceID,
+			IP:   p.SourceAddress.String(),
+			Port: p.SourcePort,
+			Type: collector.PU,
+		},
+		Destination: &collector.EndPoint{
+			ID:   destID,
+			IP:   p.DestinationAddress.String(),
+			Port: p.DestinationPort,
+			Type: collector.PU,
+		},
+		Tags:       context.Annotations,
+		Action:     action,
+		DropReason: mode,
 	}
 
 	if plc != nil {
@@ -46,29 +53,41 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sou
 
 func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
 
+	src := &collector.EndPoint{
+		IP:   p.SourceAddress.String(),
+		Port: p.SourcePort,
+	}
+
+	dst := &collector.EndPoint{
+		IP:   p.DestinationAddress.String(),
+		Port: p.DestinationPort,
+	}
+
 	flowAction := collector.FlowAccept
 	if flowpolicy == nil || flowpolicy.Action&policy.Accept == 0 {
 		flowAction = collector.FlowReject
 	}
 
-	record := &collector.FlowRecord{
-		ContextID:       context.ID,
-		Action:          flowAction,
-		SourceIP:        p.SourceAddress.String(),
-		DestinationIP:   p.DestinationAddress.String(),
-		DestinationPort: p.DestinationPort,
-		Tags:            context.Annotations,
-		PolicyID:        flowpolicy.PolicyID,
+	if app {
+		src.ID = context.ManagementID
+		src.Type = collector.PU
+		dst.ID = flowpolicy.ServiceID
+		dst.Type = collector.Address
+	} else {
+		src.ID = flowpolicy.ServiceID
+		src.Type = collector.Address
+		dst.ID = context.ManagementID
+		dst.Type = collector.PU
 	}
 
-	if !app {
-		record.Mode = "extsrc"
-		record.SourceID = flowpolicy.ServiceID
-		record.DestinationID = context.ManagementID
-	} else {
-		record.Mode = "extdst"
-		record.SourceID = context.ManagementID
-		record.DestinationID = flowpolicy.ServiceID
+	record := &collector.FlowRecord{
+		ContextID:   context.ID,
+		Source:      src,
+		Destination: dst,
+		DropReason:  collector.PolicyDrop,
+		Action:      flowAction,
+		Tags:        context.Annotations,
+		PolicyID:    flowpolicy.PolicyID,
 	}
 
 	d.collector.CollectFlowEvent(record)
@@ -76,29 +95,41 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 
 func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
 
+	src := &collector.EndPoint{
+		IP:   p.DestinationAddress.String(),
+		Port: p.DestinationPort,
+	}
+
+	dst := &collector.EndPoint{
+		IP:   p.SourceAddress.String(),
+		Port: p.SourcePort,
+	}
+
 	flowAction := collector.FlowAccept
 	if flowpolicy == nil || flowpolicy.Action&policy.Accept == 0 {
 		flowAction = collector.FlowReject
 	}
 
-	record := &collector.FlowRecord{
-		ContextID:       context.ID,
-		Action:          flowAction,
-		SourceIP:        p.DestinationAddress.String(),
-		DestinationIP:   p.SourceAddress.String(),
-		DestinationPort: p.SourcePort,
-		Tags:            context.Annotations,
-		PolicyID:        flowpolicy.PolicyID,
+	if app {
+		src.ID = context.ManagementID
+		src.Type = collector.PU
+		dst.ID = flowpolicy.ServiceID
+		dst.Type = collector.Address
+	} else {
+		src.ID = flowpolicy.ServiceID
+		src.Type = collector.Address
+		dst.ID = context.ManagementID
+		dst.Type = collector.PU
 	}
 
-	if !app {
-		record.Mode = "extsrc"
-		record.SourceID = flowpolicy.ServiceID
-		record.DestinationID = context.ManagementID
-	} else {
-		record.Mode = "extdst"
-		record.SourceID = context.ManagementID
-		record.DestinationID = flowpolicy.ServiceID
+	record := &collector.FlowRecord{
+		ContextID:   context.ID,
+		Source:      src,
+		Destination: dst,
+		DropReason:  collector.PolicyDrop,
+		Action:      flowAction,
+		Tags:        context.Annotations,
+		PolicyID:    flowpolicy.PolicyID,
 	}
 
 	d.collector.CollectFlowEvent(record)

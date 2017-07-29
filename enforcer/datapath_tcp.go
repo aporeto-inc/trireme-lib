@@ -270,17 +270,27 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
 	if conn.GetState() == TCPData && !conn.ServiceConnection {
-		d.conntrackHdl.ConntrackTableUpdateMark(
+		if err := d.conntrackHdl.ConntrackTableUpdateMark(
 			tcpPacket.DestinationAddress.String(),
 			tcpPacket.SourceAddress.String(),
 			tcpPacket.IPProto,
 			tcpPacket.DestinationPort,
 			tcpPacket.SourcePort,
 			constants.DefaultConnMark,
-		)
+		); err != nil {
+			zap.L().Error("Failed to update conntrack entry for flow",
+				zap.String("context", string(conn.Auth.LocalContext)),
+				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+				zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+			)
+		}
 
-		d.netOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
-		d.appReplyConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
+		err1 := d.netOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
+		err2 := d.appReplyConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
+
+		if err1 != nil || err2 != nil {
+			zap.L().Warn("Failed to remove cache entries")
+		}
 
 		return nil, nil
 	}
@@ -349,14 +359,20 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		conn.SetState(TCPAckSend)
 
 		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
-			d.conntrackHdl.ConntrackTableUpdateMark(
+			if err := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
 				tcpPacket.IPProto,
 				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
 				constants.DefaultConnMark,
-			)
+			); err != nil {
+				zap.L().Error("Failed to update conntrack table for flow",
+					zap.String("context", string(conn.Auth.LocalContext)),
+					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+					zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+				)
+			}
 		}
 
 		return nil, nil
@@ -436,7 +452,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
 		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidToken, nil)
-		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims, nil)
+		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
 
 	txLabel, ok := claims.T.Get(TransmitterLabel)
@@ -495,24 +511,29 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		var plc *policy.FlowPolicy
-		var err error
+
 		// Defer all cleaning up functions
 		defer func() {
-			d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
-			d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-			d.conntrackHdl.ConntrackTableUpdateMark(
+			lerr1 := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
+			lerr2 := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+			if lerr1 != nil || lerr2 != nil {
+				zap.L().Warn("Failed to clean cache")
+			}
+			if lerr := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.DestinationAddress.String(),
 				tcpPacket.SourceAddress.String(),
 				tcpPacket.IPProto,
 				tcpPacket.DestinationPort,
 				tcpPacket.SourcePort,
 				constants.DefaultConnMark,
-			)
+			); lerr != nil {
+				zap.L().Error("Failed to update conntrack table")
+			}
 			d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
 		}()
 
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
-		if plci, err := context.externalIPCache.Get(flowHash); err == nil {
+		if plci, perr := context.externalIPCache.Get(flowHash); perr == nil {
 			plc = plci.(*policy.FlowPolicy)
 			fmt.Println("In the cache .. accept it ")
 			return plc, nil, nil
@@ -526,7 +547,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		}
 
 		// Added to the cache if we can accept it
-		if err := context.externalIPCache.Add(tcpPacket.SourceAddress.String()+":"+strconv.Itoa(int(tcpPacket.SourcePort)), plc); err != nil {
+		if err = context.externalIPCache.Add(tcpPacket.SourceAddress.String()+":"+strconv.Itoa(int(tcpPacket.SourcePort)), plc); err != nil {
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 
@@ -625,14 +646,16 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 		conn.SetState(TCPData)
 
 		if !conn.ServiceConnection {
-			d.conntrackHdl.ConntrackTableUpdateMark(
+			if err := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
 				tcpPacket.IPProto,
 				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
 				constants.DefaultConnMark,
-			)
+			); err != nil {
+				zap.L().Error("Failed to update conntrack table after ack packet")
+			}
 		}
 
 		// Accept the packet

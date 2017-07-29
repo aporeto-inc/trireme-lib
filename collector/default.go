@@ -13,5 +13,5 @@ func (d *DefaultCollector) CollectContainerEvent(record *ContainerRecord) {}
 
 // StatsFlowHash is a has function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
-	return r.SourceID + ":" + r.DestinationID + ":" + strconv.Itoa(int(r.DestinationPort)) + ":" + r.Action + ":" + r.Mode
+	return r.Source.ID + ":" + r.Destination.ID + ":" + strconv.Itoa(int(r.Destination.Port)) + ":" + r.Action + ":" + r.DropReason
 }

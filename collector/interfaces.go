@@ -59,33 +59,48 @@ type EventCollector interface {
 	CollectContainerEvent(record *ContainerRecord)
 }
 
+// EndPointType is the type of an endpoint (PU or an external IP address )
+type EndPointType byte
+
+const (
+	// Address indicates that the endpoint is an external IP address
+	Address EndPointType = iota
+	// PU indicates that the endpoint is a PU
+	PU
+)
+
+// EndPoint is a structure that holds all the endpoint information
+type EndPoint struct {
+	ID   string
+	IP   string
+	Port uint16
+	Type EndPointType
+}
+
 // FlowRecord describes a flow record for statistis
 type FlowRecord struct {
-	ContextID       string
-	Count           int
-	SourceID        string
-	DestinationID   string
-	SourceIP        string
-	DestinationIP   string
-	DestinationPort uint16
-	Tags            *policy.TagStore
-	Action          string // TODO: this should be a ActionType. It would simplify a lot of things.
-	Mode            string
-	PolicyID        string
-	Encrypted       bool
+	ContextID   string
+	Count       int
+	Source      *EndPoint
+	Destination *EndPoint
+	Tags        *policy.TagStore
+	Action      string // TODO: this should be a ActionType. It would simplify a lot of things.
+	DropReason  string
+	PolicyID    string
+	Encrypted   bool
 }
 
 func (f *FlowRecord) String() string {
 	return fmt.Sprintf("<flowrecord contextID:%s count:%d sourceID:%s destinationID:%s sourceIP: %s destinationIP:%s destinationPort:%d action:%s mode:%s>",
 		f.ContextID,
 		f.Count,
-		f.SourceID,
-		f.DestinationID,
-		f.SourceIP,
-		f.DestinationIP,
-		f.DestinationPort,
+		f.Source.ID,
+		f.Destination.ID,
+		f.Source.IP,
+		f.Destination.IP,
+		f.Destination.Port,
 		f.Action,
-		f.Mode,
+		f.DropReason,
 	)
 }
 
