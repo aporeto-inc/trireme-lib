@@ -4,6 +4,7 @@ package supervisorproxy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
@@ -26,6 +27,8 @@ type ProxyInfo struct {
 	prochdl        processmon.ProcessManager
 	rpchdl         rpcwrapper.RPCClient
 	initDone       map[string]bool
+
+	sync.Mutex
 }
 
 //Supervise Calls Supervise on the remote supervisor

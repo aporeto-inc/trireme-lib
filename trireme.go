@@ -393,5 +393,5 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 	if s, ok := t.supervisors[kind]; ok {
 		return s
 	}
-
-	return ni
+	return nil
+}
