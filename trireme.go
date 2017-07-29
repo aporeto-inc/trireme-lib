@@ -394,5 +394,4 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 		return s
 	}
 
-	return nil
-}
+	return ni
