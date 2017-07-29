@@ -162,8 +162,8 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 	}
 
 	s.Lock()
-	defer s.Unlock()
 	s.initDone[contextID] = true
+	s.Unlock()
 
 	return nil
 

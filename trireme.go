@@ -23,25 +23,21 @@ type trireme struct {
 	enforcers   map[constants.PUType]enforcer.PolicyEnforcer
 	resolver    PolicyResolver
 	collector   collector.EventCollector
-	stop        chan bool
-	requests    chan *triremeRequest
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
 func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
 
-	trireme := &trireme{
+	t := &trireme{
 		serverID:    serverID,
 		cache:       cache.NewCache(),
 		supervisors: supervisors,
 		enforcers:   enforcers,
 		resolver:    resolver,
 		collector:   eventCollector,
-		stop:        make(chan bool),
-		requests:    make(chan *triremeRequest),
 	}
 
-	return trireme
+	return t
 }
 
 // Start starts the supervisor and the enforcer. It will also start to handling requests
@@ -62,9 +58,6 @@ func (t *trireme) Start() error {
 		}
 	}
 
-	// Starting main trireme routine
-	go t.run()
-
 	return nil
 }
 
@@ -84,15 +77,12 @@ func (t *trireme) Stop() error {
 		}
 	}
 
-	// send the stop signal for the trireme worker routine.
-	t.stop <- true
-
 	return nil
 }
 
 // HandlePUEvent implements the logic needed between all the Trireme components for
 // explicitly adding a new PU.
-func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) <-chan error {
+func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) error {
 
 	c := make(chan error, 1)
 
@@ -103,13 +93,11 @@ func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) <-chan er
 		returnChan: c,
 	}
 
-	t.requests <- req
-
-	return c
+	return t.handleRequest(req)
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
-func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
+func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 
 	c := make(chan error, 1)
 
@@ -120,9 +108,7 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-c
 		returnChan: c,
 	}
 
-	t.requests <- req
-
-	return c
+	return t.handleRequest(req)
 }
 
 // PURuntime returns the RuntimeInfo based on the contextID.
@@ -409,30 +395,4 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 	}
 
 	return nil
-}
-
-// run is the main function for running Trireme
-func (t *trireme) run() {
-
-	concurrency := 10
-	sem := make(chan bool, concurrency)
-	for {
-		select {
-		case req := <-t.requests:
-			zap.L().Debug("Handling Trireme Request",
-				zap.Int("type", req.reqType),
-				zap.String("contextID", req.contextID),
-			)
-
-			sem <- true
-			go func(req *triremeRequest) {
-				req.returnChan <- t.handleRequest(req)
-				<-sem
-			}(req)
-
-		case <-t.stop:
-			zap.L().Debug("Stopping trireme worker.")
-			return
-		}
-	}
 }
