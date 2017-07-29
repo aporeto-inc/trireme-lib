@@ -435,7 +435,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	// we must drop the connection and we drop the Syn packet. The source will
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
-		d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidToken, nil)
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidToken, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims, nil)
 	}
 
@@ -538,7 +538,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
-		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken, nil)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID, context, collector.MissingToken, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of missing token")
 	}
 
@@ -546,7 +546,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	// // Validate the certificate and parse the token
 	// claims, nonce, cert, err := d.tokenEngine.Decode(false, tcpData, nil)
 	if err != nil || claims == nil {
-		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken, nil)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID, context, collector.MissingToken, nil)
 		return nil, nil, fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
 	}
 
@@ -602,18 +602,18 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 	if conn.GetState() == TCPSynAckSend || conn.GetState() == TCPSynReceived {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat, nil)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
 		if _, err := d.parseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat, nil)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 		}
 
 		// Remove any of our data - adjust the sequence numbers
 		if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat, nil)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because of invalid format %v", err)
 		}
 

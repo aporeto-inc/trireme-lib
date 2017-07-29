@@ -45,6 +45,8 @@ const (
 	UnknownContainerDelete = "unknowncontainer"
 	// PolicyValid Normal flow accept
 	PolicyValid = "V"
+	// DefaultEndPoint  provides a string for unknown container sources
+	DefaultEndPoint = "default"
 )
 
 // EventCollector is the interface for collecting events.
