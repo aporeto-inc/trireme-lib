@@ -48,9 +48,7 @@ func TestCreate(t *testing.T) {
 			event := &rpcmonitor.EventInfo{
 				PUID: "1234",
 			}
-			errChan := make(chan error, 1)
-			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
-			errChan <- nil
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get no error,", func() {
 				err := p.Create(event)
 				So(err, ShouldBeNil)
@@ -92,10 +90,8 @@ func TestStop(t *testing.T) {
 			event := &rpcmonitor.EventInfo{
 				PUID: "/trireme/1234",
 			}
-			errChan := make(chan error, 1)
 
-			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
-			errChan <- nil
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get the status of the upstream function", func() {
 				err := p.Stop(event)
 				So(err, ShouldBeNil)
@@ -142,9 +138,7 @@ func TestDestroy(t *testing.T) {
 			mockcls.EXPECT().Deletebasepath(gomock.Any()).Return(true)
 			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
 
-			errChan := make(chan error, 1)
-			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
-			errChan <- nil
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get the status of the upstream function", func() {
 				err := p.Destroy(event)
 				So(err, ShouldBeNil)
@@ -177,9 +171,7 @@ func TestPause(t *testing.T) {
 				PUID: "/trireme/1234",
 			}
 
-			errChan := make(chan error, 1)
-			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
-			errChan <- nil
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get the status of the upstream function", func() {
 				err := p.Pause(event)
 				So(err, ShouldBeNil)
@@ -241,9 +233,8 @@ func TestStart(t *testing.T) {
 			}
 			Convey("I should get an error ", func() {
 				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
-				errChan := make(chan error, 1)
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
-				errChan <- fmt.Errorf("Error")
+
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
 				err := p.Start(event)
 				So(err, ShouldNotBeNil)
 			})
@@ -263,9 +254,7 @@ func TestStart(t *testing.T) {
 
 			Convey("I should get an error ", func() {
 				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
-				errChan := make(chan error, 1)
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
-				errChan <- nil
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(fmt.Errorf("error"))
 				err := p.Start(event)
@@ -287,14 +276,10 @@ func TestStart(t *testing.T) {
 
 			Convey("I should get an error ", func() {
 				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
-				errChan := make(chan error, 1)
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errChan)
-				errChan <- nil
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
 				mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
-				// mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
-				// mockcls.EXPECT().AddProcess(gomock.Any(), gomock.Any()).Return(nil)
 				err := p.Start(event)
 				So(err, ShouldNotBeNil)
 			})
