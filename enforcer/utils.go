@@ -7,9 +7,9 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
+func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string, plc *policy.FlowPolicy) {
 
-	d.collector.CollectFlowEvent(&collector.FlowRecord{
+	c := &collector.FlowRecord{
 		ContextID:       context.ID,
 		DestinationID:   destID,
 		SourceID:        sourceID,
@@ -19,23 +19,29 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourc
 		SourceIP:        p.SourceAddress.String(),
 		DestinationIP:   p.DestinationAddress.String(),
 		DestinationPort: p.DestinationPort,
-		// PolicyID: missing,
-		// Encrypted: missing,
-	})
+	}
+
+	if plc != nil {
+		c.PolicyID = plc.PolicyID
+		c.Encrypted = plc.Action.Encrypted()
+	}
+
+	d.collector.CollectFlowEvent(c)
+
 }
 
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext) {
+func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, plc *policy.FlowPolicy) {
 	if conn != nil {
 		conn.SetReported(RejectReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
+	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA", plc)
 }
 
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 	if conn != nil {
 		conn.SetReported(AcceptReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
+	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode, plc)
 }
 
 func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
