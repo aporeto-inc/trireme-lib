@@ -39,7 +39,6 @@ func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pro
 
 // Create handles create events
 func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
-
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
@@ -67,7 +66,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
-	if perr := s.puHandler.HandlePUEvent(contextID, monitor.EventStart); err != nil {
+	if perr := s.puHandler.HandlePUEvent(contextID, monitor.EventStart); perr != nil {
 		zap.L().Error("Failed to activate process", zap.Error(perr))
 		return perr
 	}
