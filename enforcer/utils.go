@@ -7,7 +7,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string, plc *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID,
@@ -24,7 +24,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourc
 			Type: collector.PU,
 		},
 		Tags:       context.Annotations,
-		Action:     action,
+		Action:     plc.Action,
 		DropReason: mode,
 	}
 
@@ -41,14 +41,14 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sou
 	if conn != nil {
 		conn.SetReported(RejectReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA", plc)
+	d.reportFlow(p, conn, sourceID, destID, context, "NA", plc)
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 	if conn != nil {
 		conn.SetReported(AcceptReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode, plc)
+	d.reportFlow(p, conn, sourceID, destID, context, mode, plc)
 }
 
 func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
@@ -63,9 +63,10 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 		Port: p.DestinationPort,
 	}
 
-	flowAction := collector.FlowAccept
-	if flowpolicy == nil || flowpolicy.Action&policy.Accept == 0 {
-		flowAction = collector.FlowReject
+	if flowpolicy == nil {
+		flowpolicy = &policy.FlowPolicy{
+			Action: policy.Reject,
+		}
 	}
 
 	if app {
@@ -85,7 +86,7 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 		Source:      src,
 		Destination: dst,
 		DropReason:  collector.PolicyDrop,
-		Action:      flowAction,
+		Action:      flowpolicy.Action,
 		Tags:        context.Annotations,
 		PolicyID:    flowpolicy.PolicyID,
 	}
@@ -105,9 +106,10 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpoli
 		Port: p.SourcePort,
 	}
 
-	flowAction := collector.FlowAccept
-	if flowpolicy == nil || flowpolicy.Action&policy.Accept == 0 {
-		flowAction = collector.FlowReject
+	if flowpolicy == nil {
+		flowpolicy = &policy.FlowPolicy{
+			Action: policy.Reject,
+		}
 	}
 
 	if app {
@@ -127,7 +129,7 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpoli
 		Source:      src,
 		Destination: dst,
 		DropReason:  collector.PolicyDrop,
-		Action:      flowAction,
+		Action:      flowpolicy.Action,
 		Tags:        context.Annotations,
 		PolicyID:    flowpolicy.PolicyID,
 	}

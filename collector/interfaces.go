@@ -84,7 +84,7 @@ type FlowRecord struct {
 	Source      *EndPoint
 	Destination *EndPoint
 	Tags        *policy.TagStore
-	Action      string // TODO: this should be a ActionType. It would simplify a lot of things.
+	Action      policy.ActionType
 	DropReason  string
 	PolicyID    string
 	Encrypted   bool
@@ -99,7 +99,7 @@ func (f *FlowRecord) String() string {
 		f.Source.IP,
 		f.Destination.IP,
 		f.Destination.Port,
-		f.Action,
+		f.Action.String(),
 		f.DropReason,
 	)
 }

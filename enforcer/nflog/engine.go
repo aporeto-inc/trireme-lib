@@ -130,9 +130,9 @@ func (a *nfLogger) listen() {
 				}
 
 				if shortAction == "a" {
-					record.Action = "accept"
+					record.Action = policy.Accept
 				} else {
-					record.Action = "reject"
+					record.Action = policy.Reject
 				}
 
 				if p.Direction == IPSource {
