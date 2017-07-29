@@ -51,6 +51,7 @@ func (f ActionType) ShortAcceptedString() string {
 	if !f.Accepted() && f.Rejected() {
 		return "r"
 	}
+
 	return "p"
 }
 
