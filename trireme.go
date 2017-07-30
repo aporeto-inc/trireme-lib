@@ -300,33 +300,31 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
-		if err != nil {
-			//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
-			zap.L().Debug("We lost communication with enforcer lets restart")
+		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
+		zap.L().Debug("We lost communication with enforcer lets restart")
 
-			if containerInfo.Runtime.PUType() == constants.ContainerPU {
-				//The unsupervise and unenforce functions just make changes to the proxy structures
-				//and do not depend on the remote instance running and can be called here
-				switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
-				case *enforcerproxy.ProxyInfo:
-					if err := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); err != nil {
-						return err
-					}
-
-					if err := t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID); err != nil {
-						return err
-					}
-
-					if err := t.doHandleCreate(contextID); err != nil {
-						return err
-					}
-				default:
-					//do nothing
-
+		if containerInfo.Runtime.PUType() == constants.ContainerPU {
+			//The unsupervise and unenforce functions just make changes to the proxy structures
+			//and do not depend on the remote instance running and can be called here
+			switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
+			case *enforcerproxy.ProxyInfo:
+				if lerr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); lerr != nil {
+					return err
 				}
 
+				if lerr := t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID); lerr != nil {
+					return err
+				}
+
+				if lerr := t.doHandleCreate(contextID); lerr != nil {
+					return err
+				}
+			default:
+				return err
 			}
+			return nil
 		}
+
 		return fmt.Errorf("Enforcer failed to update PU policy: context=%s error=%s", contextID, err)
 	}
 
