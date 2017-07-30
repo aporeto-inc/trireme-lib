@@ -31,7 +31,7 @@ type Trireme interface {
 type PolicyUpdater interface {
 
 	// UpdatePolicy updates the policy of the isolator for a container.
-	UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error
+	UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error
 }
 
 // A PolicyResolver is responsible of creating the Policies for a specific Processing Unit.
