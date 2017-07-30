@@ -286,7 +286,6 @@ func (t *trireme) doHandleDelete(contextID string) error {
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 
 	runtimeInfo, err := t.PURuntime(contextID)
-
 	if err != nil {
 		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)
 	}
@@ -301,8 +300,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
-		zap.L().Debug("We lost communication with enforcer lets restart")
-
+		zap.L().Warn("Re-initializing enforcers - connection lost")
 		if containerInfo.Runtime.PUType() == constants.ContainerPU {
 			//The unsupervise and unenforce functions just make changes to the proxy structures
 			//and do not depend on the remote instance running and can be called here
