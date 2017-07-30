@@ -39,7 +39,6 @@ func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pro
 
 // Create handles create events
 func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
-
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
@@ -67,56 +66,55 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
-	status := s.puHandler.HandlePUEvent(contextID, monitor.EventStart)
-	if status == nil {
-		//It is okay to launch this so let us create a cgroup for it
-		err = s.netcls.Creategroup(eventInfo.PUID)
-		if err != nil {
-			return err
-		}
-
-		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
-		if !ok {
-			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
-				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
-			}
-			return errors.New("Mark value not found")
-		}
-
-		mark, _ := strconv.ParseUint(markval, 10, 32)
-		err = s.netcls.AssignMark(eventInfo.PUID, mark)
-		if err != nil {
-			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
-				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
-			}
-			return err
-		}
-
-		pid, _ := strconv.Atoi(eventInfo.PID)
-		err = s.netcls.AddProcess(eventInfo.PUID, pid)
-		if err != nil {
-
-			if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
-				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
-			}
-
-			return err
-
-		}
-
-		s.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: defaultIP,
-			Tags:      runtimeInfo.Tags(),
-			Event:     collector.ContainerStart,
-		})
-		// Store the state in the context store for future access
-		if err := s.contextStore.StoreContext(contextID, eventInfo); err != nil {
-			return err
-		}
+	if perr := s.puHandler.HandlePUEvent(contextID, monitor.EventStart); perr != nil {
+		zap.L().Error("Failed to activate process", zap.Error(perr))
+		return perr
 	}
 
-	return status
+	//It is okay to launch this so let us create a cgroup for it
+	err = s.netcls.Creategroup(eventInfo.PUID)
+	if err != nil {
+		return err
+	}
+
+	markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
+	if !ok {
+		if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+		return errors.New("Mark value not found")
+	}
+
+	mark, _ := strconv.ParseUint(markval, 10, 32)
+	err = s.netcls.AssignMark(eventInfo.PUID, mark)
+	if err != nil {
+		if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+		return err
+	}
+
+	pid, _ := strconv.Atoi(eventInfo.PID)
+	err = s.netcls.AddProcess(eventInfo.PUID, pid)
+	if err != nil {
+
+		if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
+			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+		}
+
+		return err
+
+	}
+
+	s.collector.CollectContainerEvent(&collector.ContainerRecord{
+		ContextID: contextID,
+		IPAddress: defaultIP,
+		Tags:      runtimeInfo.Tags(),
+		Event:     collector.ContainerStart,
+	})
+
+	// Store the state in the context store for future access
+	return s.contextStore.StoreContext(contextID, eventInfo)
 }
 
 // Stop handles a stop event

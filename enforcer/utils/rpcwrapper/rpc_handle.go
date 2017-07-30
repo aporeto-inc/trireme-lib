@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"time"
 
 	"net/rpc"
@@ -32,6 +33,8 @@ type RPCHdl struct {
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
 	contextList  []string
+
+	sync.Mutex
 }
 
 // NewRPCWrapper creates a new rpcwrapper
@@ -71,7 +74,10 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 		client, err = rpc.DialHTTP("unix", channel)
 	}
 
+	r.Lock()
 	r.contextList = append(r.contextList, contextID)
+	r.Unlock()
+
 	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
 }
@@ -203,6 +209,8 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 // ContextList returns the list of active context managed by the rpcwrapper
 func (r *RPCWrapper) ContextList() []string {
+	r.Lock()
+	defer r.Unlock()
 	return r.contextList
 }
 
