@@ -516,7 +516,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 			lerr1 := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
 			lerr2 := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 			if lerr1 != nil || lerr2 != nil {
-				zap.L().Warn("Failed to clean cache")
+				zap.L().Debug("Failed to clean cache")
 			}
 			if lerr := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.DestinationAddress.String(),
