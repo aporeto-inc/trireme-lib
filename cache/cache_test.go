@@ -36,7 +36,7 @@ func TestElements(t *testing.T) {
 		// Test Write
 		Convey("Given that I add a new element in the cache, it should not have errors", func() {
 			err := c.Add(id, value)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I add the same element for a second time, I should get an error", func() {
@@ -48,7 +48,7 @@ func TestElements(t *testing.T) {
 		Convey("Given that I have an element in the cache, I should be able to read it", func() {
 			newvalue, err := c.Get(id)
 			So(value, ShouldEqual, newvalue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I try to read an element that is not there, I should get an error", func() {
@@ -60,10 +60,10 @@ func TestElements(t *testing.T) {
 		Convey("Given that I want to update the element, I should be able to do it", func() {
 
 			err := c.Update(id, secondValue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 			newvalue, err := c.Get(id)
 			So(newvalue, ShouldEqual, secondValue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I try to update an element that doesn't exist, I should get an error ", func() {
@@ -77,12 +77,12 @@ func TestElements(t *testing.T) {
 			c.AddOrUpdate(newid, secondValue)
 			newvalue, err := c.Get(newid)
 			So(newvalue, ShouldEqual, secondValue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I have an element in the cache, I should be able to delete it", func() {
 			err := c.Remove(id)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I try to delete the same element twice, I should not be able to do it", func() {
