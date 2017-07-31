@@ -130,14 +130,13 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 // AddRuleList adds a list of rules to the cache
 func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 
-	err = nil
 	for _, rule := range rules {
-		if lerr := c.AddRule(rule); lerr != nil {
-			err = lerr
+		if err = c.AddRule(rule); err != nil {
+			return
 		}
 	}
 
-	return err
+	return
 }
 
 // GetMatchingAction gets the matching action
