@@ -250,7 +250,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		if present {
 			if err := f(eventInfo); err != nil {
 				result.Error = err.Error()
-				return fmt.Errorf("Failed to Handle Event: %s ", err.Error())
+				return fmt.Errorf("Error")
 			}
 			return nil
 		}

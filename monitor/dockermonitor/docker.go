@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/dchest/siphash"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
@@ -163,8 +165,9 @@ type dockerMonitor struct {
 	dockerClient       *dockerClient.Client
 	metadataExtractor  DockerMetadataExtractor
 	handlers           map[DockerEvent]func(event *events.Message) error
-	eventnotifications chan *events.Message
-	stopprocessor      chan bool
+	eventnotifications []chan *events.Message
+	stopprocessor      []chan bool
+	numberOfQueues     int
 	stoplistener       chan bool
 	syncHandler        monitor.SynchronizationHandler
 
@@ -204,16 +207,23 @@ func NewDockerMonitor(
 	d := &dockerMonitor{
 		puHandler:                  p,
 		collector:                  l,
-		eventnotifications:         make(chan *events.Message, 1000),
 		handlers:                   make(map[DockerEvent]func(event *events.Message) error),
 		stoplistener:               make(chan bool),
-		stopprocessor:              make(chan bool),
 		metadataExtractor:          m,
 		dockerClient:               cli,
 		syncAtStart:                syncAtStart,
 		syncHandler:                s,
 		killContainerOnPolicyError: killContainerOnPolicyError,
 		netcls: cgnetcls.NewDockerCgroupNetController(),
+	}
+
+	d.numberOfQueues = runtime.NumCPU() * 8
+	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
+	d.stopprocessor = make([]chan bool, d.numberOfQueues)
+
+	for i := 0; i < d.numberOfQueues; i++ {
+		d.eventnotifications[i] = make(chan *events.Message, 1000)
+		d.stopprocessor[i] = make(chan bool)
 	}
 
 	// Add handlers for the events that we know how to process
@@ -233,6 +243,17 @@ func NewDockerMonitor(
 // under the section 'Docker Events'.
 func (d *dockerMonitor) addHandler(event DockerEvent, handler DockerEventHandler) {
 	d.handlers[event] = handler
+}
+
+// sendRequestToQueue sends a request to a channel based on a hash function
+func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
+
+	key0 := uint64(256203161)
+	key1 := uint64(982451653)
+
+	h := siphash.Hash(key0, key1, []byte(r.ID))
+
+	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
 
 // Start will start the DockerPolicy Enforcement.
@@ -266,7 +287,7 @@ func (d *dockerMonitor) Start() error {
 	}
 
 	// Processing the events received duringthe time of Sync.
-	go d.eventProcessor()
+	go d.eventProcessors()
 
 	return nil
 }
@@ -277,37 +298,40 @@ func (d *dockerMonitor) Stop() error {
 	zap.L().Debug("Stopping the docker monitor")
 
 	d.stoplistener <- true
-	d.stopprocessor <- true
+	for i := 0; i < d.numberOfQueues; i++ {
+		d.stopprocessor[i] <- true
+	}
 
 	return nil
 }
 
 // eventProcessor processes docker events
-func (d *dockerMonitor) eventProcessor() {
+func (d *dockerMonitor) eventProcessors() {
 
-	for {
-		select {
-		case event := <-d.eventnotifications:
-			if event.Action != "" {
-				f, present := d.handlers[DockerEvent(event.Action)]
-				if present {
-					go func(event *events.Message) {
-						err := f(event)
-
-						if err != nil {
-							zap.L().Error("Error while handling event",
-								zap.String("action", event.Action),
-								zap.Error(err),
-							)
+	for i := 0; i < d.numberOfQueues; i++ {
+		go func(i int) {
+			for {
+				select {
+				case event := <-d.eventnotifications[i]:
+					if event.Action != "" {
+						f, ok := d.handlers[DockerEvent(event.Action)]
+						if ok {
+							err := f(event)
+							if err != nil {
+								zap.L().Error("Error while handling event",
+									zap.String("action", event.Action),
+									zap.Error(err),
+								)
+							}
+						} else {
+							zap.L().Debug("Docker event not handled.", zap.String("action", event.Action))
 						}
-					}(event)
-				} else {
-					zap.L().Debug("Docker event not handled.", zap.String("action", event.Action))
+					}
+				case <-d.stopprocessor[i]:
+					return
 				}
 			}
-		case <-d.stopprocessor:
-			return
-		}
+		}(i)
 	}
 }
 
@@ -329,7 +353,7 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 		select {
 		case message := <-messages:
 			zap.L().Debug("Got message from docker client", zap.String("action", message.Action))
-			d.eventnotifications <- &message
+			d.sendRequestToQueue(&message)
 
 		case err := <-errs:
 			if err != nil && err != io.EOF {
@@ -440,7 +464,6 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 }
 
 func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
-
 	timeout := time.Second * 0
 
 	if !dockerInfo.State.Running {
@@ -461,16 +484,14 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return err
 	}
 
-	errorChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStart)
-
-	if err := <-errorChan; err != nil {
+	if err := d.puHandler.HandlePUEvent(contextID, monitor.EventStart); err != nil {
 		if d.killContainerOnPolicyError {
-			if err := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); err != nil {
+			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
 				zap.L().Warn("Failed to stop bad container", zap.Error(err))
 			}
-			return fmt.Errorf("Policy cound't be set - container was killed")
+			return fmt.Errorf("Policy cound't be set - container was killed %s %s", contextID, err)
 		}
-		return fmt.Errorf("Policy cound't be set - container was kept alive per policy")
+		return fmt.Errorf("Policy cound't be set - container was kept alive per policy %s %s", contextID, err)
 	}
 
 	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
@@ -490,8 +511,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventStop)
-	return <-errChan
+	return d.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -517,10 +537,7 @@ func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	// Send the event upstream
-	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
-
-	return <-errChan
+	return d.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
 }
 
 // handleStartEvent will notify the agent immediately about the event in order
@@ -574,10 +591,8 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	// Send the event upstream
-	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
+	err = d.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
 
-	err = <-errChan
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
 			zap.Error(err),
@@ -602,8 +617,7 @@ func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventPause)
-	return <-errChan
+	return d.puHandler.HandlePUEvent(contextID, monitor.EventPause)
 }
 
 // handleCreateEvent generates a create event type.
@@ -614,7 +628,5 @@ func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	// Send the event upstream
-	errChan := d.puHandler.HandlePUEvent(contextID, monitor.EventUnpause)
-	return <-errChan
+	return d.puHandler.HandlePUEvent(contextID, monitor.EventUnpause)
 }

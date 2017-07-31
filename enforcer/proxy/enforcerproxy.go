@@ -85,8 +85,8 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	}
 
 	s.Lock()
-	defer s.Unlock()
 	s.initDone[contextID] = true
+	s.Unlock()
 
 	return nil
 }
@@ -103,13 +103,10 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("Called enforce and launched process", zap.String("contextID", contextID))
 
-	doIt := false
 	s.Lock()
-	if _, ok := s.initDone[contextID]; !ok {
-		doIt = true
-	}
+	_, ok := s.initDone[contextID]
 	s.Unlock()
-	if doIt {
+	if !ok {
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
 			return err
 		}
@@ -147,8 +144,8 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 func (s *ProxyInfo) Unenforce(contextID string) error {
 
 	s.Lock()
-	defer s.Unlock()
 	delete(s.initDone, contextID)
+	s.Unlock()
 
 	return nil
 }
