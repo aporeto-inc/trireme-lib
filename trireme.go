@@ -307,15 +307,15 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 			switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
 			case *enforcerproxy.ProxyInfo:
 				if lerr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); lerr != nil {
-					return err
+					return lerr
 				}
 
 				if lerr := t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID); lerr != nil {
-					return err
+					return lerr
 				}
 
 				if lerr := t.doHandleCreate(contextID); lerr != nil {
-					return err
+					return lerr
 				}
 			default:
 				return err

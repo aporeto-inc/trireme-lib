@@ -132,7 +132,7 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 
 	err = nil
 	for _, rule := range rules {
-		if lerr := c.AddRule(rule); err != nil {
+		if lerr := c.AddRule(rule); lerr != nil {
 			err = lerr
 		}
 	}
