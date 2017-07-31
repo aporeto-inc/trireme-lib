@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
-	"sync"
 
 	"go.uber.org/zap"
 
@@ -14,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"time"
 
 	"net/rpc"
@@ -40,6 +40,8 @@ type RPCWrapper struct {
 // NewRPCWrapper creates a new rpcwrapper
 func NewRPCWrapper() *RPCWrapper {
 
+	RegisterTypes()
+
 	return &RPCWrapper{
 		rpcClientMap: cache.NewCache(),
 		contextList:  []string{},
@@ -47,14 +49,12 @@ func NewRPCWrapper() *RPCWrapper {
 }
 
 const (
-	maxRetries     = 1000
+	maxRetries     = 10000
 	envRetryString = "REMOTE_RPCRETRIES"
 )
 
 // NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
-
-	RegisterTypes()
 
 	max := maxRetries
 	retries := os.Getenv(envRetryString)
@@ -211,11 +211,7 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 func (r *RPCWrapper) ContextList() []string {
 	r.Lock()
 	defer r.Unlock()
-
-	rc := []string{}
-	copy(rc, r.contextList)
-
-	return rc
+	return r.contextList
 }
 
 // ProcessMessage checks if the given request is valid

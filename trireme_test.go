@@ -78,7 +78,7 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		t.Errorf("Error while setting the Runtime in Trireme,  %s", e)
 	}
 	err := trireme.HandlePUEvent(id, monitor.EventStart)
-	if e := <-err; e != nil {
+	if err != nil {
 		t.Errorf("Create was supposed to be nil, was %s", e)
 	}
 
@@ -120,8 +120,8 @@ func doTestDelete(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 	})
 
 	err := trireme.HandlePUEvent(id, monitor.EventStop)
-	if e := <-err; e != nil {
-		t.Errorf("Delete was supposed to be nil, was %s", e)
+	if err != nil {
+		t.Errorf("Delete was supposed to be nil, was %s", err)
 	}
 	if resolverCount != 1 {
 		t.Errorf("Delete didn't go to Resolver")
@@ -158,7 +158,7 @@ func doTestDeleteNotExist(t *testing.T, trireme Trireme, tresolver TestPolicyRes
 	})
 
 	err := trireme.HandlePUEvent(id, monitor.EventStop)
-	if e := <-err; e == nil {
+	if err == nil {
 		t.Errorf("Delete was not supposed to be nil, was nil")
 	}
 }
@@ -205,8 +205,8 @@ func doTestUpdate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 	})
 
 	err := trireme.UpdatePolicy(id, updatedPolicy)
-	if e := <-err; e != nil {
-		t.Errorf("Update was supposed to be nil, was %s", e)
+	if err != nil {
+		t.Errorf("Update was supposed to be nil, was %s", err)
 	}
 
 	if supervisorCount != 1 {

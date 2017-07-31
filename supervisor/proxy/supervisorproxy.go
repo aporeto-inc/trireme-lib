@@ -34,14 +34,10 @@ type ProxyInfo struct {
 //Supervise Calls Supervise on the remote supervisor
 func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
-	doIt := false
 	s.Lock()
-	if _, ok := s.initDone[contextID]; !ok {
-		doIt = true
-	}
+	_, ok := s.initDone[contextID]
 	s.Unlock()
-
-	if doIt {
+	if !ok {
 		err := s.InitRemoteSupervisor(contextID, puInfo)
 		if err != nil {
 			return err
@@ -78,10 +74,9 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
 // Unsupervise exported stops enforcing policy for the given IP.
 func (s *ProxyInfo) Unsupervise(contextID string) error {
-
 	s.Lock()
-	defer s.Unlock()
 	delete(s.initDone, contextID)
+	s.Unlock()
 
 	s.prochdl.KillProcess(contextID)
 
@@ -90,6 +85,8 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 
 // SetTargetNetworks sets the target networks in case of an  update
 func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
+	s.Lock()
+	defer s.Unlock()
 	for contextID, done := range s.initDone {
 		if done {
 			request := &rpcwrapper.Request{
@@ -162,8 +159,8 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 	}
 
 	s.Lock()
-	defer s.Unlock()
 	s.initDone[contextID] = true
+	s.Unlock()
 
 	return nil
 
