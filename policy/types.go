@@ -42,8 +42,8 @@ func (f ActionType) Logged() bool {
 	return f&Log > 0
 }
 
-// ShortAcceptedString returns if the action if accepted of rejected as a short string.
-func (f ActionType) ShortAcceptedString() string {
+// ShortActionString returns if the action if accepted of rejected as a short string.
+func (f ActionType) ShortActionString() string {
 	if f.Accepted() && !f.Rejected() {
 		return "a"
 	}
@@ -53,6 +53,19 @@ func (f ActionType) ShortAcceptedString() string {
 	}
 
 	return "p"
+}
+
+// ActionString returns if the action if accepted of rejected as a long string.
+func (f ActionType) ActionString() string {
+	if f.Accepted() && !f.Rejected() {
+		return "accept"
+	}
+
+	if !f.Accepted() && f.Rejected() {
+		return "reject"
+	}
+
+	return "passthrough"
 }
 
 func (f ActionType) String() string {
