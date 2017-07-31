@@ -288,7 +288,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		err2 := d.appReplyConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
 
 		if err1 != nil || err2 != nil {
-			zap.L().Warn("Failed to remove cache entries")
+			zap.L().Debug("Failed to remove cache entries")
 		}
 
 		return nil, nil
