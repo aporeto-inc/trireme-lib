@@ -69,6 +69,13 @@ const (
 	PU
 )
 
+func (e *EndPointType) String() string {
+	if *e == Address {
+		return "ext"
+	}
+	return "pu"
+}
+
 // EndPoint is a structure that holds all the endpoint information
 type EndPoint struct {
 	ID   string
@@ -87,7 +94,6 @@ type FlowRecord struct {
 	Action      policy.ActionType
 	DropReason  string
 	PolicyID    string
-	Encrypted   bool
 }
 
 func (f *FlowRecord) String() string {

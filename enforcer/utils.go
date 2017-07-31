@@ -30,7 +30,6 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourc
 
 	if plc != nil {
 		c.PolicyID = plc.PolicyID
-		c.Encrypted = plc.Action.Encrypted()
 	}
 
 	d.collector.CollectFlowEvent(c)
