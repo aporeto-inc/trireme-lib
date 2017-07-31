@@ -28,10 +28,6 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourc
 		DropReason: mode,
 	}
 
-	if plc != nil {
-		c.PolicyID = plc.PolicyID
-	}
-
 	d.collector.CollectFlowEvent(c)
 
 }
@@ -47,6 +43,13 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sou
 	if conn != nil {
 		conn.SetReported(AcceptReported)
 	}
+
+	if plc == nil {
+		plc = &policy.FlowPolicy{
+			Action: policy.Reject,
+		}
+	}
+
 	d.reportFlow(p, conn, sourceID, destID, context, mode, plc)
 }
 
