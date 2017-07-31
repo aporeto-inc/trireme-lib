@@ -235,7 +235,6 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// if destination is in the cache, allow
 	context.Lock()
 	if policy, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))); err == nil {
-		fmt.Println("Found it in the cache .. let it go ")
 		context.Unlock()
 		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
@@ -535,14 +534,12 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, perr := context.externalIPCache.Get(flowHash); perr == nil {
 			plc = plci.(*policy.FlowPolicy)
-			fmt.Println("In the cache .. accept it ")
 			return plc, nil, nil
 		}
 
 		// Never seen this IP before, let's parse them.
 		plc, err = context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
 		if err != nil || plc.Action&policy.Reject > 0 {
-			fmt.Println("Didn't match any actions")
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 
