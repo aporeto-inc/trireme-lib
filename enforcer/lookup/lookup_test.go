@@ -129,7 +129,7 @@ func TestFuncAddPolicy(t *testing.T) {
 			So(policyDB.numberOfPolicies, ShouldEqual, 1)
 			So(index, ShouldEqual, 1)
 			for _, c := range appEqWebAndenvEqDemo.Clause {
-				So(policyDB.equalMapTable[c.Key][c.Value[0]], ShouldNotEqual, nil)
+				So(policyDB.equalMapTable[c.Key][c.Value[0]], ShouldNotBeNil
 				So(policyDB.equalMapTable[c.Key][c.Value[0]][0].index, ShouldEqual, index)
 				So(policyDB.equalPrefixes[c.Key], ShouldNotContain, c.Key)
 			}
@@ -141,7 +141,7 @@ func TestFuncAddPolicy(t *testing.T) {
 			So(policyDB.numberOfPolicies, ShouldEqual, 1)
 			So(index, ShouldEqual, 1)
 			for _, c := range policylangNotJava.Clause {
-				So(policyDB.notEqualMapTable[c.Key][c.Value[0]], ShouldNotEqual, nil)
+				So(policyDB.notEqualMapTable[c.Key][c.Value[0]], ShouldNotBeNil)
 				So(policyDB.notEqualMapTable[c.Key][c.Value[0]][0].index, ShouldEqual, index)
 				So(policyDB.equalPrefixes, ShouldNotContainKey, c.Key)
 			}
@@ -277,7 +277,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, -1)
-				So(action, ShouldEqual, nil)
+				So(action, ShouldBeNil)
 			})
 
 			Convey("Given that I search for rules that do not match, it should return an error ", func() {
@@ -287,7 +287,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, -1)
-				So(action, ShouldEqual, nil)
+				So(action, ShouldBeNil)
 			})
 
 			Convey("Given that I search for a single that succeeds in the Not Key  operator, it should succeed ,", func() {
