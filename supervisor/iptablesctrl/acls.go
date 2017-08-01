@@ -330,7 +330,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string, uid string) error {
 
 	if i.mode == constants.LocalServer {
-		if port != "0" {
+		if port != "0" || uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Append")
 		}
 		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Append")
