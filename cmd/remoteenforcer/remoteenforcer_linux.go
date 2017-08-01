@@ -52,6 +52,7 @@ type Server struct {
 	statsclient    *StatsClient
 	procMountPoint string
 	Enforcer       enforcer.PolicyEnforcer
+	ExitFlag       bool
 	Supervisor     supervisor.Supervisor
 	Service        enforcer.PacketProcessor
 	secrets        secrets.Secrets
@@ -346,6 +347,11 @@ func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) 
 //Enforce this method calls the enforce method on the enforcer created during initenforcer
 func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
+	if s.ExitFlag {
+		zap.L().Debug("Ignoring request as enforcer already exited")
+		return nil
+	}
+
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Enforce Message Auth Failed")
 		return errors.New(resp.Status)
@@ -417,6 +423,7 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	s.Supervisor = nil
 	s.Enforcer = nil
 	s.statsclient = nil
+	s.ExitFlag = true
 
 	if len(msgErrors) > 0 {
 		return fmt.Errorf(msgErrors)
