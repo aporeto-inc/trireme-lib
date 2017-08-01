@@ -36,40 +36,40 @@ func TestElements(t *testing.T) {
 		// Test Write
 		Convey("Given that I add a new element in the cache, it should not have errors", func() {
 			err := c.Add(id, value)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I add the same element for a second time, I should get an error", func() {
 			err := c.Add(id, value)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 
 		// Test Read
 		Convey("Given that I have an element in the cache, I should be able to read it", func() {
 			newvalue, err := c.Get(id)
 			So(value, ShouldEqual, newvalue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I try to read an element that is not there, I should get an error", func() {
 			_, err := c.Get(fakeid)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 
 		// Test Update
 		Convey("Given that I want to update the element, I should be able to do it", func() {
 
 			err := c.Update(id, secondValue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 			newvalue, err := c.Get(id)
 			So(newvalue, ShouldEqual, secondValue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I try to update an element that doesn't exist, I should get an error ", func() {
 			nextid := uuid.NewV4()
 			err := c.Update(nextid, value)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Given that I try to add or update an element in the cache, I should not get an error", func() {
@@ -77,17 +77,17 @@ func TestElements(t *testing.T) {
 			c.AddOrUpdate(newid, secondValue)
 			newvalue, err := c.Get(newid)
 			So(newvalue, ShouldEqual, secondValue)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I have an element in the cache, I should be able to delete it", func() {
 			err := c.Remove(id)
-			So(err, ShouldEqual, nil)
+			So(err, ShouldBeNil)
 		})
 
 		Convey("Given that I try to delete the same element twice, I should not be able to do it", func() {
 			err := c.Remove(id)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 	})
 }
@@ -186,7 +186,7 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 				// So(c.SizeOf(), ShouldEqual, 1) // @TODO: fix me it should be 1
 				Convey("When I check the cache size After another 2 seconds, the size should be 0", func() {
 					<-time.After(2 * time.Second)
-					So(c.SizeOf(), ShouldEqual, 0)
+					So(c.SizeOf(), ShouldBeZeroValue)
 				})
 			})
 		})
@@ -257,7 +257,7 @@ func TestSetTimeOut(t *testing.T) {
 					So(d.(string), ShouldResemble, "test")
 
 					Convey("If I wait for another second, the data should be gone", func() {
-						<-time.After(1000 * time.Millisecond)
+						<-time.After(1200 * time.Millisecond)
 						val, err := c.Get("test")
 						So(err, ShouldNotBeNil)
 						So(val, ShouldBeNil)

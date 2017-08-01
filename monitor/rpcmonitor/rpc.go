@@ -248,7 +248,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		if present {
 			if err := f(eventInfo); err != nil {
 				result.Error = err.Error()
-				return fmt.Errorf("Failed to Handle Event: %s ", err.Error())
+				return fmt.Errorf("Error")
 			}
 			return nil
 		}
@@ -275,8 +275,8 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		return nil, fmt.Errorf("EventInfo PUID is empty")
 	}
 
-	runtimeTags := policy.NewTagsMap(event.Tags)
-	runtimeIps := policy.NewIPMap(event.IPs)
+	runtimeTags := policy.NewTagStoreFromMap(event.Tags)
+	runtimeIps := event.IPs
 	runtimePID, err := strconv.Atoi(event.PID)
 	if err != nil {
 		return nil, fmt.Errorf("PID is invalid: %s", err)
