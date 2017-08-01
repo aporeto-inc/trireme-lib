@@ -19,7 +19,6 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			{
 				i.appAckPacketIPTableContext,
 				i.appCgroupIPTableSection,
-				"-m", "cgroup", "--cgroup", mark,
 				"-m", "comment", "--comment", "Server-specific-chain",
 				"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 				"-m", "owner", "--uid-owner", uid,
@@ -303,7 +302,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string, uid string) error {
 
 	if i.mode == constants.LocalServer {
-		if uid == "" {
+		if port != "0" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Append")
 		}
 		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Append")
