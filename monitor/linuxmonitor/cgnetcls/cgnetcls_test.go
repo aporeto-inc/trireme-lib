@@ -246,7 +246,7 @@ func TestListCgroupProcesses(t *testing.T) {
 
 	_, err := ListCgroupProcesses(testcgroupname)
 	if err == nil {
-		fmt.Errorf("No process found but succeeded")
+		t.Errorf("No process found but succeeded")
 	}
 	//AddProcess to a non-existent group
 	err = cg.AddProcess(testcgroupname, os.Getpid())
@@ -282,6 +282,6 @@ func TestListCgroupProcesses(t *testing.T) {
 
 	procs, err := ListCgroupProcesses(testcgroupname)
 	if procs[0] != "1" && err != nil {
-		fmt.Errorf("No process found %d", err)
+		t.Errorf("No process found %d", err)
 	}
 }
