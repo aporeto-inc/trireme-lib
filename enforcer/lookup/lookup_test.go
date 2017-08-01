@@ -129,7 +129,7 @@ func TestFuncAddPolicy(t *testing.T) {
 			So(policyDB.numberOfPolicies, ShouldEqual, 1)
 			So(index, ShouldEqual, 1)
 			for _, c := range appEqWebAndenvEqDemo.Clause {
-				So(policyDB.equalMapTable[c.Key][c.Value[0]], ShouldNotBeNil
+				So(policyDB.equalMapTable[c.Key][c.Value[0]], ShouldNotEqual, nil)
 				So(policyDB.equalMapTable[c.Key][c.Value[0]][0].index, ShouldEqual, index)
 				So(policyDB.equalPrefixes[c.Key], ShouldNotContain, c.Key)
 			}
@@ -141,7 +141,7 @@ func TestFuncAddPolicy(t *testing.T) {
 			So(policyDB.numberOfPolicies, ShouldEqual, 1)
 			So(index, ShouldEqual, 1)
 			for _, c := range policylangNotJava.Clause {
-				So(policyDB.notEqualMapTable[c.Key][c.Value[0]], ShouldNotBeNil)
+				So(policyDB.notEqualMapTable[c.Key][c.Value[0]], ShouldNotEqual, nil)
 				So(policyDB.notEqualMapTable[c.Key][c.Value[0]][0].index, ShouldEqual, index)
 				So(policyDB.equalPrefixes, ShouldNotContainKey, c.Key)
 			}
