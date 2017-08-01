@@ -13,66 +13,24 @@ import (
 )
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string) [][]string {
-	var str [][]string
-	if uid != "" {
-		str = [][]string{
-			{
-				i.appAckPacketIPTableContext,
-				i.appCgroupIPTableSection,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-				"-m", "owner", "--uid-owner", uid,
-				"-m", "set", "--match-set", targetNetworkSet, "dst",
-				"-j", "MARK", "--set-mark", mark,
-			},
-			{
-				i.appAckPacketIPTableContext,
-				i.appCgroupIPTableSection,
-				"-m", "cgroup", "--cgroup", mark,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", "MARK", "--set-mark", mark,
-			},
 
-			{
-				i.appAckPacketIPTableContext,
-				i.appCgroupIPTableSection,
-				"-m", "cgroup", "--cgroup", mark,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", appChain,
-			},
-		}
+	str := [][]string{
+		{
+			i.appAckPacketIPTableContext,
+			i.appCgroupIPTableSection,
+			"-m", "cgroup", "--cgroup", mark,
+			"-m", "comment", "--comment", "Server-specific-chain",
+			"-j", "MARK", "--set-mark", mark,
+		},
+		{
+			i.appAckPacketIPTableContext,
+			i.appCgroupIPTableSection,
+			"-m", "cgroup", "--cgroup", mark,
+			"-m", "comment", "--comment", "Server-specific-chain",
+			"-j", appChain,
+		},
 
-	} else {
-		str = [][]string{
-			{
-				i.appAckPacketIPTableContext,
-				i.appCgroupIPTableSection,
-				"-m", "cgroup", "--cgroup", mark,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-				"-m", "set", "--match-set", targetNetworkSet, "dst",
-				"-j", "MARK", "--set-mark", mark,
-			},
-			{
-				i.appAckPacketIPTableContext,
-				i.appCgroupIPTableSection,
-				"-m", "cgroup", "--cgroup", mark,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", "MARK", "--set-mark", mark,
-			},
-
-			{
-				i.appAckPacketIPTableContext,
-				i.appCgroupIPTableSection,
-				"-m", "cgroup", "--cgroup", mark,
-				"-m", "comment", "--comment", "Server-specific-chain",
-				"-j", appChain,
-			},
-		}
-	}
-
-	if port != "0" {
-		str = append(str, []string{
+		{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
 			"-p", "tcp",
@@ -80,17 +38,87 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"--destination-ports", port,
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
-		})
-	} else {
-
-		str = append(str, []string{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-p", "tcp",
-			"-m", "comment", "--comment", "Container-specific-chain",
-			"-j", netChain,
-		})
+		},
 	}
+
+	// var str [][]string
+	// if uid != "" {
+	// 	str = [][]string{
+	// 		{
+	// 			i.appAckPacketIPTableContext,
+	// 			i.appCgroupIPTableSection,
+	// 			"-m", "comment", "--comment", "Server-specific-chain",
+	// 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+	// 			"-m", "owner", "--uid-owner", uid,
+	// 			"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 			"-j", "MARK", "--set-mark", mark,
+	// 		},
+	// 		{
+	// 			i.appAckPacketIPTableContext,
+	// 			i.appCgroupIPTableSection,
+	// 			"-m", "cgroup", "--cgroup", mark,
+	// 			"-m", "comment", "--comment", "Server-specific-chain",
+	// 			"-j", "MARK", "--set-mark", mark,
+	// 		},
+
+	// 		{
+	// 			i.appAckPacketIPTableContext,
+	// 			i.appCgroupIPTableSection,
+	// 			"-m", "cgroup", "--cgroup", mark,
+	// 			"-m", "comment", "--comment", "Server-specific-chain",
+	// 			"-j", appChain,
+	// 		},
+	// 	}
+
+	// } else {
+	// 	str = [][]string{
+	// 		{
+	// 			i.appAckPacketIPTableContext,
+	// 			i.appCgroupIPTableSection,
+	// 			"-m", "cgroup", "--cgroup", mark,
+	// 			"-m", "comment", "--comment", "Server-specific-chain",
+	// 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+	// 			"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 			"-j", "MARK", "--set-mark", mark,
+	// 		},
+	// 		{
+	// 			i.appAckPacketIPTableContext,
+	// 			i.appCgroupIPTableSection,
+	// 			"-m", "cgroup", "--cgroup", mark,
+	// 			"-m", "comment", "--comment", "Server-specific-chain",
+	// 			"-j", "MARK", "--set-mark", mark,
+	// 		},
+
+	// 		{
+	// 			i.appAckPacketIPTableContext,
+	// 			i.appCgroupIPTableSection,
+	// 			"--mark", mark,
+	// 			"-m", "comment", "--comment", "Server-specific-chain",
+	// 			"-j", appChain,
+	// 		},
+	// 	}
+	// }
+
+	// if port != "0" {
+	// 	str = append(str, []string{
+	// 		i.netPacketIPTableContext,
+	// 		i.netPacketIPTableSection,
+	// 		"-p", "tcp",
+	// 		"-m", "multiport",
+	// 		"--destination-ports", port,
+	// 		"-m", "comment", "--comment", "Container-specific-chain",
+	// 		"-j", netChain,
+	// 	})
+	// } else {
+
+	// 	str = append(str, []string{
+	// 		i.netPacketIPTableContext,
+	// 		i.netPacketIPTableSection,
+	// 		"-p", "tcp",
+	// 		"-m", "comment", "--comment", "Container-specific-chain",
+	// 		"-j", netChain,
+	// 	})
+	// }
 
 	return str
 }
@@ -580,18 +608,18 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
-	// err := i.ipt.Insert(
-	// 	i.appAckPacketIPTableContext,
-	// 	appChain, 1,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
-	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-	// 	"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
-
-	// if err != nil {
-	// 	return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
-	// }
-
 	err := i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		appChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
+
+	if err != nil {
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
+	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
