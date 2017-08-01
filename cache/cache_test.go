@@ -186,7 +186,7 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 				// So(c.SizeOf(), ShouldEqual, 1) // @TODO: fix me it should be 1
 				Convey("When I check the cache size After another 2 seconds, the size should be 0", func() {
 					<-time.After(2 * time.Second)
-					So(c.SizeOf(), ShouldEqual, 0)
+					So(c.SizeOf(), ShouldBeZeroValue)
 				})
 			})
 		})
