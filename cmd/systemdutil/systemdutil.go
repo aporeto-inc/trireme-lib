@@ -146,7 +146,7 @@ func createMetadata(serviceName string, command string, ports []string, tags []s
 		keyvalue := strings.SplitN(tag, "=", 2)
 
 		if len(keyvalue) != 2 {
-			return "", nil, fmt.Errorf("Invalid metadata")
+			return "", nil, fmt.Errorf("Metadata should have the form key=value. Found %s instead", tag)
 		}
 
 		if keyvalue[0][0] == []byte("$")[0] || keyvalue[0][0] == []byte("@")[0] {
