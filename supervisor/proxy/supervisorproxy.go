@@ -4,6 +4,7 @@ package supervisorproxy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
@@ -26,12 +27,17 @@ type ProxyInfo struct {
 	prochdl        processmon.ProcessManager
 	rpchdl         rpcwrapper.RPCClient
 	initDone       map[string]bool
+
+	sync.Mutex
 }
 
 //Supervise Calls Supervise on the remote supervisor
 func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
-	if _, ok := s.initDone[contextID]; !ok {
+	s.Lock()
+	_, ok := s.initDone[contextID]
+	s.Unlock()
+	if !ok {
 		err := s.InitRemoteSupervisor(contextID, puInfo)
 		if err != nil {
 			return err
@@ -41,8 +47,8 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	req := &rpcwrapper.Request{
 		Payload: &rpcwrapper.SuperviseRequestPayload{
 			ContextID:        contextID,
-			ManagementID:     puInfo.Policy.ManagementID,
-			TriremeAction:    puInfo.Policy.TriremeAction,
+			ManagementID:     puInfo.Policy.ManagementID(),
+			TriremeAction:    puInfo.Policy.TriremeAction(),
 			ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
 			NetworkACLs:      puInfo.Policy.NetworkACLs(),
 			PolicyIPs:        puInfo.Policy.IPAddresses(),
@@ -56,7 +62,9 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, &rpcwrapper.Response{}); err != nil {
+		s.Lock()
 		delete(s.initDone, contextID)
+		s.Unlock()
 		return fmt.Errorf("Failed to send supervise command: context=%s error=%s", contextID, err)
 	}
 
@@ -66,8 +74,9 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 
 // Unsupervise exported stops enforcing policy for the given IP.
 func (s *ProxyInfo) Unsupervise(contextID string) error {
-
+	s.Lock()
 	delete(s.initDone, contextID)
+	s.Unlock()
 
 	s.prochdl.KillProcess(contextID)
 
@@ -76,6 +85,8 @@ func (s *ProxyInfo) Unsupervise(contextID string) error {
 
 // SetTargetNetworks sets the target networks in case of an  update
 func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
+	s.Lock()
+	defer s.Unlock()
 	for contextID, done := range s.initDone {
 		if done {
 			request := &rpcwrapper.Request{
@@ -147,7 +158,9 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 		return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 	}
 
+	s.Lock()
 	s.initDone[contextID] = true
+	s.Unlock()
 
 	return nil
 

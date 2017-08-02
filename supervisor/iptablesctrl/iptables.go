@@ -15,15 +15,18 @@ import (
 )
 
 const (
-	chainPrefix    = "TRIREME-"
-	appChainPrefix = chainPrefix + "App-"
-	netChainPrefix = chainPrefix + "Net-"
+	chainPrefix      = "TRIREME-"
+	appChainPrefix   = chainPrefix + "App-"
+	netChainPrefix   = chainPrefix + "Net-"
+	targetNetworkSet = "TargetNetSet"
 )
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
 	fqc                        *fqconfig.FilterQueue
 	ipt                        provider.IptablesProvider
+	ipset                      provider.IpsetProvider
+	targetSet                  provider.Ipset
 	appPacketIPTableContext    string
 	appAckPacketIPTableContext string
 	appPacketIPTableSection    string
@@ -42,9 +45,15 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		return nil, fmt.Errorf("Cannot initialize IPtables provider")
 	}
 
+	ips := provider.NewGoIPsetProvider()
+	if err != nil {
+		return nil, fmt.Errorf("Cannot initialize ipsets")
+	}
+
 	i := &Instance{
-		fqc: fqc,
-		ipt: ipt,
+		fqc:   fqc,
+		ipt:   ipt,
+		ipset: ips,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
@@ -96,7 +105,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	// policyrules.DefaultIPAddress()
 
 	// Supporting only one ip
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
+	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
@@ -147,7 +156,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *policy.IPMap, port string, mark string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string) error {
 	var ipAddress string
 	var ok bool
 
@@ -157,7 +166,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses *polic
 			return fmt.Errorf("Provided map of IP addresses is nil")
 		}
 
-		ipAddress, ok = i.defaultIP(ipAddresses.IPs)
+		ipAddress, ok = i.defaultIP(ipAddresses)
 		if !ok {
 			return fmt.Errorf("No ip address found ")
 		}
@@ -189,7 +198,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Supporting only one ip
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses().IPs)
+	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
@@ -286,15 +295,22 @@ func (i *Instance) Start() error {
 // SetTargetNetworks updates ths target networks for SynAck packets
 func (i *Instance) SetTargetNetworks(current, networks []string) error {
 
-	// Cleanup old ACLs
-	if len(current) > 0 {
-		if err := i.CleanCaptureSynAckPackets(current); err != nil {
-			return fmt.Errorf("Failed to clean synack networks")
-		}
+	if len(networks) == 0 {
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
 
-	// Insert new ACLs
-	if err := i.captureTargetSynAckPackets(i.appPacketIPTableSection, i.netPacketIPTableSection, networks); err != nil {
+	// Cleanup old ACLs
+	if len(current) > 0 {
+		return i.updateTargetNetworks(current, networks)
+	}
+
+	// Create the target network set
+	if err := i.createTargetSet(networks); err != nil {
+		return err
+	}
+
+	// Insert the ACLS that point to the target networks
+	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("Failed to update synack networks")
 	}
 
@@ -309,6 +325,10 @@ func (i *Instance) Stop() error {
 	// Clean any previous ACLs that we have installed
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
+	}
+
+	if err := i.ipset.DestroyAll(); err != nil {
+		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 	}
 
 	return nil

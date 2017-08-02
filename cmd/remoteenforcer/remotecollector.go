@@ -41,7 +41,7 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 
 	c.Flows[hash] = record
 
-	c.Flows[hash].Tags = c.Flows[hash].Tags.Clone()
+	c.Flows[hash].Tags = record.Tags
 }
 
 //CollectContainerEvent exported

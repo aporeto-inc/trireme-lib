@@ -17,7 +17,7 @@ import (
 
 func createPUInfo() *policy.PUInfo {
 
-	rules := policy.NewIPRuleList([]policy.IPRule{
+	rules := policy.IPRuleList{
 		policy.IPRule{
 			Address:  "192.30.253.0/24",
 			Port:     "80",
@@ -31,15 +31,15 @@ func createPUInfo() *policy.PUInfo {
 			Protocol: "TCP",
 			Action:   policy.Accept,
 		},
-	})
+	}
 
-	ips := policy.NewIPMap(map[string]string{
+	ips := policy.ExtendedMap{
 		policy.DefaultNamespace: "172.17.0.1",
-	})
+	}
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, nil)
+	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{})
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)
 

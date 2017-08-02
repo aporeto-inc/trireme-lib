@@ -78,8 +78,8 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 
 	// If not an ACK packet copy the tags
 	if !isAck {
-		for k, v := range claims.T.Tags {
-			tag := []byte(k + "=" + v + " ")
+		for _, kv := range claims.T.GetSlice() {
+			tag := []byte(kv + " ")
 			buffer = append(buffer, tag...)
 		}
 	}
@@ -120,7 +120,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interfa
 	claims.RMT = data[rmtIndex : rmtIndex+sizeOfRandom]
 
 	if !isAck {
-		claims.T = policy.NewTagsMap(nil)
+		claims.T = policy.NewTagStore()
 		buffer := bytes.NewBuffer(data[minBufferLength:])
 		for {
 			tag, err := buffer.ReadBytes([]byte(" ")[0])
@@ -131,7 +131,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interfa
 					continue
 				}
 
-				claims.T.Add(values[0], values[1])
+				claims.T.AppendKeyValue(values[0], values[1])
 				continue
 			}
 

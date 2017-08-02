@@ -37,12 +37,12 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sou
 }
 
 // createRuleDBs creates the database of rules from the policy
-func createRuleDBs(policyRules *policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
+func createRuleDBs(policyRules policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
 
 	acceptRules := lookup.NewPolicyDB()
 	rejectRules := lookup.NewPolicyDB()
 
-	for _, rule := range policyRules.TagSelectors {
+	for _, rule := range policyRules {
 		if rule.Action&policy.Accept != 0 {
 			acceptRules.AddPolicy(rule)
 		} else if rule.Action&policy.Reject != 0 {

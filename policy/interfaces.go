@@ -24,44 +24,16 @@ type RuntimeReader interface {
 	Tag(string) (string, bool)
 
 	// Tags returns a copy of the list of the tags.
-	Tags() *TagsMap
+	Tags() *TagStore
 
 	// Options returns a copy of the list of options.
-	Options() *TagsMap
+	Options() ExtendedMap
 
 	// DefaultIPAddress retutns the default IP address.
 	DefaultIPAddress() (string, bool)
 
 	// IPAddresses returns a copy of all the IP addresses.
-	IPAddresses() *IPMap
+	IPAddresses() ExtendedMap
 	//Returns the PUType for the PU
 	PUType() constants.PUType
-}
-
-// InfoInteractor is the interface for setting up policy before providing to trireme
-type InfoInteractor interface {
-
-	// Clone returns a copy of the policy
-	Clone() *PUPolicy
-
-	// ApplicationACLs returns a copy of IPRuleList
-	ApplicationACLs() *IPRuleList
-
-	// NetworkACLs returns a copy of IPRuleList
-	NetworkACLs() *IPRuleList
-
-	// ReceiverRules returns a copy of TagSelectorList
-	ReceiverRules() *TagSelectorList
-
-	// TransmitterRules returns a copy of TagSelectorList
-	TransmitterRules() *TagSelectorList
-
-	// Identity  returns a copy of the identity
-	Indentity() *TagsMap
-
-	// Annotations returns a copy of the Annotations
-	Annotations() *TagsMap
-
-	// DefaultIPAddress returns the default IP address for the processing unit
-	DefaultIPAddress() (string, bool)
 }
