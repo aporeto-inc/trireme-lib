@@ -277,7 +277,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, -1)
-				So(action, ShouldEqual, nil)
+				So(action, ShouldBeNil)
 			})
 
 			Convey("Given that I search for rules that do not match, it should return an error ", func() {
@@ -287,7 +287,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, -1)
-				So(action, ShouldEqual, nil)
+				So(action, ShouldBeNil)
 			})
 
 			Convey("Given that I search for a single that succeeds in the Not Key  operator, it should succeed ,", func() {
