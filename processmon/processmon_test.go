@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
 
@@ -199,4 +201,13 @@ func TestKillProcess(t *testing.T) {
 		t.Errorf("TEST:RPC call not executed")
 	}
 	KillContainer()
+}
+
+func TestGetProcessManagerHdl(t *testing.T) {
+	hdl := GetProcessManagerHdl()
+	cache := cache.NewCache()
+
+	if !reflect.DeepEqual(hdl.(*ProcessMon).activeProcesses, cache) {
+		t.Errorf("ProcessManagerhandle don't match with cache")
+	}
 }
