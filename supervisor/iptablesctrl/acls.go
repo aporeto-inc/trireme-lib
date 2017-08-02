@@ -9,6 +9,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -624,7 +625,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		appChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "MARK", "--set-mark", "99")
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
 		fmt.Println(err)
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())

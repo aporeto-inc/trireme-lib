@@ -14,6 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -157,7 +158,11 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			)
-			if p.Mark == "99" {
+
+			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
+				//SYN ACK came through the global rule.
+				//This not from a process we are monitoring
+				//let his packet through
 				return nil
 			}
 
