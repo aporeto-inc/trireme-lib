@@ -1,5 +1,3 @@
-//+build !test
-
 package packetgen
 
 //PacketFlowTemplate1 is a good hardcoded template
