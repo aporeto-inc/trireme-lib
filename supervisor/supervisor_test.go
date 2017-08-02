@@ -221,3 +221,36 @@ func TestStart(t *testing.T) {
 		})
 	})
 }
+
+func TestStop(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a properly configured supervisor", t, func() {
+		c := &collector.DefaultCollector{}
+		secrets := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+
+		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		So(s, ShouldNotBeNil)
+
+		impl := mock_supervisor.NewMockImplementor(ctrl)
+		s.impl = impl
+
+		Convey("When I try to start it and the implementor works", func() {
+			impl.EXPECT().Start().Return(nil)
+			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			err := s.Start()
+			Convey("I should get no errors", func() {
+				So(err, ShouldBeNil)
+			})
+			Convey("Then I try to stop the supervisor", func() {
+				impl.EXPECT().Stop().Return(nil)
+				err = s.Stop()
+				Convey("I should get no errors", func() {
+					So(err, ShouldBeNil)
+				})
+			})
+		})
+	})
+}

@@ -41,7 +41,7 @@ func TestElements(t *testing.T) {
 
 		Convey("Given that I add the same element for a second time, I should get an error", func() {
 			err := c.Add(id, value)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 
 		// Test Read
@@ -53,7 +53,7 @@ func TestElements(t *testing.T) {
 
 		Convey("Given that I try to read an element that is not there, I should get an error", func() {
 			_, err := c.Get(fakeid)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 
 		// Test Update
@@ -69,7 +69,7 @@ func TestElements(t *testing.T) {
 		Convey("Given that I try to update an element that doesn't exist, I should get an error ", func() {
 			nextid := uuid.NewV4()
 			err := c.Update(nextid, value)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 
 		Convey("Given that I try to add or update an element in the cache, I should not get an error", func() {
@@ -87,7 +87,7 @@ func TestElements(t *testing.T) {
 
 		Convey("Given that I try to delete the same element twice, I should not be able to do it", func() {
 			err := c.Remove(id)
-			So(err, ShouldNotEqual, nil)
+			So(err, ShouldNotBeNil)
 		})
 	})
 }
@@ -186,7 +186,7 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 				// So(c.SizeOf(), ShouldEqual, 1) // @TODO: fix me it should be 1
 				Convey("When I check the cache size After another 2 seconds, the size should be 0", func() {
 					<-time.After(2 * time.Second)
-					So(c.SizeOf(), ShouldEqual, 0)
+					So(c.SizeOf(), ShouldBeZeroValue)
 				})
 			})
 		})

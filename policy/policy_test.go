@@ -3,6 +3,7 @@ package policy
 import (
 	"testing"
 
+	"github.com/aporeto-inc/trireme/constants"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -388,4 +389,18 @@ func TestAllLockedSetGet(t *testing.T) {
 		})
 	})
 
+}
+
+func TestPUInfo(t *testing.T) {
+	Convey("Given I try to initiate a new container policy", t, func() {
+		puInfor := NewPUInfo("123", constants.ContainerPU)
+		policy := NewPUPolicy("123", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{})
+		runtime := NewPURuntime("", 0, nil, nil, constants.ContainerPU, nil)
+
+		Convey("Then I expect the struct to be populated", func() {
+			So(puInfor.ContextID, ShouldEqual, "123")
+			So(puInfor.Policy, ShouldResemble, policy)
+			So(puInfor.Runtime, ShouldResemble, runtime)
+		})
+	})
 }
