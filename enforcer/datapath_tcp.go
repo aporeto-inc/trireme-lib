@@ -762,7 +762,6 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 		return context, conn.(*TCPConnection), nil
 	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
-		atomic.AddUint32(&d.numOfPacketsDropped, 1)
 		return nil, nil, fmt.Errorf("Connection already exists")
 	}
 
