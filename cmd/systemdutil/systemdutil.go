@@ -89,8 +89,8 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		}
 	}
 
-name, metadata, err := createMetadata(serviceName, command, ports, tags)
-  if err != nil {
+	name, metadata, err := createMetadata(serviceName, command, ports, tags)
+	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
 		stderrlogger.Print(err)
 		return err
