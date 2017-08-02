@@ -7,13 +7,16 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap"
+	"sync/atomic"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -762,6 +765,7 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 		return context, conn.(*TCPConnection), nil
 	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
+		atomic.AddUint32(&d.numOfPacketsDropped, 1)
 		return nil, nil, fmt.Errorf("Connection already exists")
 	}
 
