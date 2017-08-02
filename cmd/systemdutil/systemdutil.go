@@ -84,7 +84,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return err
 	}
 
-	// Make RPC call and only retry for a few seconds if resource is temporarily unavailable
+	// Make RPC call and only retry if the resource is temporarily unavailable
 	numRetries := 0
 	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
 	for err != nil {
