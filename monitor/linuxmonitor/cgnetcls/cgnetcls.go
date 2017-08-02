@@ -33,7 +33,8 @@ const (
 	procs                = "/cgroup.procs"
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
-	Initialmarkval       = 100
+	//Initialmarkval is the start of mark values we assign to cgroup
+	Initialmarkval = 100
 )
 
 var basePath = "/sys/fs/cgroup/net_cls"
