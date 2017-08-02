@@ -1,3 +1,5 @@
+//+build !test
+
 //PacketGen tester
 //Still in beta version, Currently used for debugging
 //Updates are coming soon with more test cases
