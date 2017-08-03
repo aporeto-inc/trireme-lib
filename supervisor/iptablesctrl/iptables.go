@@ -133,7 +133,6 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			port = "0"
 		}
 		uid, ok := containerInfo.Runtime.Options().Get("USER")
-		fmt.Println("uid", uid)
 		if !ok {
 			uid = ""
 		}

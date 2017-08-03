@@ -548,7 +548,6 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
-		fmt.Println(err)
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
 

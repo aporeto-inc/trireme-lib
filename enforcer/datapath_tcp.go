@@ -152,7 +152,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 		}
 	case packet.TCPSynAckMask:
 		context, conn, err = d.appRetrieveState(p)
-		fmt.Println(p.Mark)
 		if err != nil {
 			zap.L().Debug("SynAckPacket Ingored",
 				zap.String("flow", p.L4FlowHash()),

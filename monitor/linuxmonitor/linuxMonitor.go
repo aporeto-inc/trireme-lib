@@ -68,7 +68,6 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 
 	user, ok := runtimeTags.Get("@usr:originaluser")
 	if ok {
-		fmt.Println("USER", user)
 		options["USER"] = user
 	}
 	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
