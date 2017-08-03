@@ -44,6 +44,7 @@ var ErrInitFailed = errors.New("Failed remote Init")
 
 //ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
+	exitFlag          bool
 	MutualAuth        bool
 	Secrets           secrets.Secrets
 	serverID          string
@@ -94,6 +95,11 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 //Enforce method makes a RPC call for the remote enforcer enforce emthod
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
+	if s.exitFlag {
+		zap.L().Debug("Ignoring request as enforcer already exited")
+		return nil
+	}
+
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
 
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
@@ -140,7 +146,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	return nil
 }
 
-// Unenforce stops enforcing policy for the given contexID.
+// Unenforce stops enforcing policy for the given contextID.
 func (s *ProxyInfo) Unenforce(contextID string) error {
 
 	s.Lock()
@@ -157,11 +163,15 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 
 // Start starts the the remote enforcer proxy.
 func (s *ProxyInfo) Start() error {
+	s.exitFlag = false
+
 	return nil
 }
 
 // Stop stops the remote enforcer.
 func (s *ProxyInfo) Stop() error {
+	s.exitFlag = true
+
 	return nil
 }
 
