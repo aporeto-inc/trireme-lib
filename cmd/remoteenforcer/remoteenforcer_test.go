@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/cnf/structhash"
 
@@ -14,7 +13,6 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper/mock"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
@@ -40,50 +38,51 @@ func init() {
 	Token = []byte{0x65, 0x79, 0x4A, 0x68, 0x62, 0x47, 0x63, 0x69, 0x4F, 0x69, 0x4A, 0x46, 0x55, 0x7A, 0x49, 0x31, 0x4E, 0x69, 0x49, 0x73, 0x49, 0x6E, 0x52, 0x35, 0x63, 0x43, 0x49, 0x36, 0x49, 0x6B, 0x70, 0x58, 0x56, 0x43, 0x4A, 0x39, 0x2E, 0x65, 0x79, 0x4A, 0x59, 0x49, 0x6A, 0x6F, 0x78, 0x4F, 0x44, 0x51, 0x32, 0x4E, 0x54, 0x6B, 0x78, 0x4D, 0x7A, 0x63, 0x33, 0x4E, 0x44, 0x41, 0x35, 0x4D, 0x7A, 0x4D, 0x35, 0x4D, 0x7A, 0x51, 0x33, 0x4D, 0x54, 0x4D, 0x77, 0x4D, 0x6A, 0x4D, 0x35, 0x4E, 0x6A, 0x45, 0x79, 0x4E, 0x6A, 0x55, 0x79, 0x4D, 0x7A, 0x45, 0x77, 0x4E, 0x44, 0x51, 0x30, 0x4F, 0x44, 0x63, 0x34, 0x4D, 0x7A, 0x45, 0x78, 0x4E, 0x6A, 0x4D, 0x30, 0x4E, 0x7A, 0x6B, 0x32, 0x4D, 0x6A, 0x4D, 0x32, 0x4D, 0x7A, 0x67, 0x30, 0x4E, 0x54, 0x59, 0x30, 0x4E, 0x6A, 0x51, 0x78, 0x4E, 0x7A, 0x67, 0x78, 0x4E, 0x44, 0x41, 0x78, 0x4F, 0x44, 0x63, 0x35, 0x4F, 0x44, 0x4D, 0x30, 0x4D, 0x44, 0x51, 0x78, 0x4E, 0x53, 0x77, 0x69, 0x57, 0x53, 0x49, 0x36, 0x4F, 0x44, 0x59, 0x78, 0x4F, 0x44, 0x41, 0x7A, 0x4E, 0x6A, 0x45, 0x33, 0x4D, 0x6A, 0x67, 0x34, 0x4D, 0x54, 0x6B, 0x79, 0x4D, 0x44, 0x41, 0x30, 0x4D, 0x6A, 0x41, 0x33, 0x4D, 0x44, 0x63, 0x30, 0x4D, 0x44, 0x6B, 0x78, 0x4D, 0x54, 0x41, 0x33, 0x4D, 0x54, 0x49, 0x33, 0x4D, 0x7A, 0x49, 0x78, 0x4F, 0x54, 0x45, 0x34, 0x4D, 0x54, 0x45, 0x77, 0x4F, 0x44, 0x41, 0x77, 0x4E, 0x54, 0x41, 0x79, 0x4F, 0x54, 0x59, 0x79, 0x4D, 0x6A, 0x49, 0x78, 0x4D, 0x54, 0x41, 0x32, 0x4E, 0x44, 0x41, 0x30, 0x4D, 0x54, 0x6B, 0x32, 0x4F, 0x54, 0x49, 0x34, 0x4D, 0x54, 0x55, 0x78, 0x4D, 0x6A, 0x55, 0x31, 0x4E, 0x54, 0x55, 0x30, 0x4F, 0x54, 0x63, 0x73, 0x49, 0x6D, 0x56, 0x34, 0x63, 0x43, 0x49, 0x36, 0x4D, 0x54, 0x55, 0x7A, 0x4D, 0x7A, 0x49, 0x30, 0x4D, 0x54, 0x6B, 0x78, 0x4D, 0x6E, 0x30, 0x2E, 0x56, 0x43, 0x44, 0x30, 0x54, 0x61, 0x4C, 0x69, 0x66, 0x74, 0x35, 0x63, 0x6A, 0x6E, 0x66, 0x74, 0x73, 0x7A, 0x57, 0x63, 0x43, 0x74, 0x56, 0x64, 0x59, 0x49, 0x63, 0x5A, 0x44, 0x58, 0x63, 0x73, 0x67, 0x66, 0x47, 0x41, 0x69, 0x33, 0x42, 0x77, 0x6F, 0x73, 0x4A, 0x50, 0x68, 0x6F, 0x76, 0x6A, 0x57, 0x65, 0x56, 0x65, 0x74, 0x6E, 0x55, 0x44, 0x44, 0x46, 0x69, 0x45, 0x37, 0x4E, 0x78, 0x76, 0x4E, 0x6A, 0x32, 0x52, 0x43, 0x53, 0x79, 0x4A, 0x76, 0x2D, 0x52, 0x6F, 0x71, 0x72, 0x6F, 0x78, 0x4E, 0x48, 0x4B, 0x4B, 0x37, 0x77}
 }
 
-func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
-	var initEnfPayload rpcwrapper.InitRequestPayload
+// func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
+// 	var initEnfPayload rpcwrapper.InitRequestPayload
+//
+// 	dur, _ := time.ParseDuration("8760h0m0s")
+// 	initEnfPayload.Validity = dur
+// 	initEnfPayload.MutualAuth = true
+// 	initEnfPayload.SecretType = 2
+// 	initEnfPayload.ServerID = "598236b81c252c000102665d"
+// 	initEnfPayload.FqConfig = filterQ()
+// 	initEnfPayload.PrivatePEM = PrivatePEM
+// 	initEnfPayload.PublicPEM = PublicPEM
+// 	initEnfPayload.CAPEM = CAPem
+// 	initEnfPayload.Token = Token
+//
+// 	return initEnfPayload
+// }
 
-	dur, _ := time.ParseDuration("8760h0m0s")
-	initEnfPayload.Validity = dur
-	initEnfPayload.MutualAuth = true
-	initEnfPayload.SecretType = 2
-	initEnfPayload.ServerID = "598236b81c252c000102665d"
-	initEnfPayload.FqConfig = filterQ()
-	initEnfPayload.PrivatePEM = PrivatePEM
-	initEnfPayload.PublicPEM = PublicPEM
-	initEnfPayload.CAPEM = CAPem
-	initEnfPayload.Token = Token
+// func filterQ() *fqconfig.FilterQueue {
+// 	var initFilterQ fqconfig.FilterQueue
+//
+// 	initFilterQ.QueueSeparation = false
+// 	initFilterQ.MarkValue = 1000
+// 	initFilterQ.NetworkQueue = 4
+// 	initFilterQ.NumberOfApplicationQueues = 4
+// 	initFilterQ.NumberOfNetworkQueues = 4
+// 	initFilterQ.ApplicationQueue = 0
+// 	initFilterQ.ApplicationQueueSize = 500
+// 	initFilterQ.NetworkQueueSize = 500
+// 	initFilterQ.NetworkQueuesSynStr = "4:7"
+// 	initFilterQ.NetworkQueuesAckStr = "4:7"
+// 	initFilterQ.NetworkQueuesSynAckStr = "4:7"
+// 	initFilterQ.NetworkQueuesSvcStr = "4:7"
+// 	initFilterQ.ApplicationQueuesSynStr = "0:3"
+// 	initFilterQ.ApplicationQueuesAckStr = "0:3"
+// 	initFilterQ.ApplicationQueuesSvcStr = "0:3"
+// 	initFilterQ.ApplicationQueuesSynAckStr = "0:3"
+//
+// 	return &initFilterQ
+// }
 
-	return initEnfPayload
-}
-
-func filterQ() *fqconfig.FilterQueue {
-	var initFilterQ fqconfig.FilterQueue
-
-	initFilterQ.QueueSeparation = false
-	initFilterQ.MarkValue = 1000
-	initFilterQ.NetworkQueue = 4
-	initFilterQ.NumberOfApplicationQueues = 4
-	initFilterQ.NumberOfNetworkQueues = 4
-	initFilterQ.ApplicationQueue = 0
-	initFilterQ.ApplicationQueueSize = 500
-	initFilterQ.NetworkQueueSize = 500
-	initFilterQ.NetworkQueuesSynStr = "4:7"
-	initFilterQ.NetworkQueuesAckStr = "4:7"
-	initFilterQ.NetworkQueuesSynAckStr = "4:7"
-	initFilterQ.NetworkQueuesSvcStr = "4:7"
-	initFilterQ.ApplicationQueuesSynStr = "0:3"
-	initFilterQ.ApplicationQueuesAckStr = "0:3"
-	initFilterQ.ApplicationQueuesSvcStr = "0:3"
-	initFilterQ.ApplicationQueuesSynAckStr = "0:3"
-
-	return &initFilterQ
-}
-
-func initTestSupReqPayload() rpcwrapper.InitSupervisorPayload {
+func initTestSupReqPayload(ctype rpcwrapper.CaptureType) rpcwrapper.InitSupervisorPayload {
 	var initSupPayload rpcwrapper.InitSupervisorPayload
 
 	initSupPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
+  initSupPayload.CaptureMethod = ctype
 
 	return initSupPayload
 }
@@ -119,27 +118,27 @@ func initTrans() policy.TagSelectorList {
 	return tags
 }
 
-func initTestSupPayload() rpcwrapper.SuperviseRequestPayload {
-
-	var initPayload rpcwrapper.SuperviseRequestPayload
-  idString:="$namespace=/sibicentos @usr:role=client AporetoContextID=59812ccc27b430000135fbf3"
-  anoString:="@sys:name=/nervous_hermann @usr:role=client @usr:vendor=CentOS $id=59812ccc27b430000135fbf3 $namespace=/sibicentos @usr:build-date=20170705 @usr:license=GPLv2 @usr:name=CentOS Base Image $nativecontextid=ac0d3577e808 $operationalstatus=Running role=client $id=59812ccc27b430000135fbf3 $identity=processingunit $namespace=/sibicentos $protected=false $type=Docker @sys:image=centos @usr:role=client $description=centos $enforcerid=598236b81c252c000102665d $name=centos $id=59812ccc27b430000135fbf3 $namespace=/sibicentos"
-
-	initPayload.ContextID = "ac0d3577e808"
-	initPayload.ManagementID = "59812ccc27b430000135fbf3"
-	initPayload.TriremeAction = 2
-	//initPayload.ApplicationACLs
-	//initPayload.NetworkACLs
-	initPayload.PolicyIPs = policy.ExtendedMap{"bridge": "172.17.0.2"}
-	initPayload.Identity = initIdentity(idString)
-	initPayload.Annotations = initAnnotations(anoString)
-	//initPayload.ReceiverRules
-	initPayload.TransmitterRules = initTrans()
-	//initPayload.ExcludedNetworks=
-	initPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
-
-	return initPayload
-}
+// func initTestSupPayload() rpcwrapper.SuperviseRequestPayload {
+//
+// 	var initPayload rpcwrapper.SuperviseRequestPayload
+//   idString:="$namespace=/sibicentos @usr:role=client AporetoContextID=59812ccc27b430000135fbf3"
+//   anoString:="@sys:name=/nervous_hermann @usr:role=client @usr:vendor=CentOS $id=59812ccc27b430000135fbf3 $namespace=/sibicentos @usr:build-date=20170705 @usr:license=GPLv2 @usr:name=CentOS Base Image $nativecontextid=ac0d3577e808 $operationalstatus=Running role=client $id=59812ccc27b430000135fbf3 $identity=processingunit $namespace=/sibicentos $protected=false $type=Docker @sys:image=centos @usr:role=client $description=centos $enforcerid=598236b81c252c000102665d $name=centos $id=59812ccc27b430000135fbf3 $namespace=/sibicentos"
+//
+// 	initPayload.ContextID = "ac0d3577e808"
+// 	initPayload.ManagementID = "59812ccc27b430000135fbf3"
+// 	initPayload.TriremeAction = 2
+// 	//initPayload.ApplicationACLs
+// 	//initPayload.NetworkACLs
+// 	initPayload.PolicyIPs = policy.ExtendedMap{"bridge": "172.17.0.2"}
+// 	initPayload.Identity = initIdentity(idString)
+// 	initPayload.Annotations = initAnnotations(anoString)
+// 	//initPayload.ReceiverRules
+// 	initPayload.TransmitterRules = initTrans()
+// 	//initPayload.ExcludedNetworks=
+// 	initPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
+//
+// 	return initPayload
+// }
 
 func initTestEnfPayload() rpcwrapper.EnforcePayload{
 
@@ -223,59 +222,59 @@ func TestNewServer(t *testing.T) {
 		})
 	})
 }
-
-func TestInitEnforcer(t *testing.T) {
-
-	if os.Getenv("USER") != "root" {
-		t.SkipNow()
-	}
-
-	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := rpcwrapper.NewRPCServer()
-		var rpcWrpper rpcwrapper.RPCWrapper
-
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldResemble, &rpcWrpper)
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
-			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("STATSCHANNEL_PATH")
-			secret := os.Getenv("STATS_SECRET")
-			server, err := NewServer(service, rpcHdl, pcchan, secret)
-
-			Convey("Then I should get no error", func() {
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("When I try to initiate an enforcer", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
-				rpcwrperreq.Payload = initTestEnfReqPayload()
-        rpcwrperres.Status = ""
-
-				//err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get no error", func() {
-				//	So(err, ShouldBeNil)
-				})
-				os.Setenv("STATSCHANNEL_PATH", "")
-				os.Setenv("STATS_SECRET", "")
-			})
-		})
-	})
-}
+//
+// func TestInitEnforcer(t *testing.T) {
+//
+// 	if os.Getenv("USER") != "root" {
+// 		t.SkipNow()
+// 	}
+//
+// 	Convey("When I try to retrieve rpc server handle", t, func() {
+// 		rpcHdl := rpcwrapper.NewRPCServer()
+// 		var rpcWrpper rpcwrapper.RPCWrapper
+//
+// 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
+// 			So(rpcHdl, ShouldResemble, &rpcWrpper)
+// 		})
+//
+// 		Convey("When I try to create new server with env set", func() {
+// 			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+// 			os.Setenv("STATS_SECRET", "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
+// 			var service enforcer.PacketProcessor
+// 			pcchan := os.Getenv("STATSCHANNEL_PATH")
+// 			secret := os.Getenv("STATS_SECRET")
+// 			server, err := NewServer(service, rpcHdl, pcchan, secret)
+//
+// 			Convey("Then I should get no error", func() {
+// 				So(server, ShouldNotBeNil)
+// 				So(err, ShouldBeNil)
+// 			})
+//
+// 			Convey("When I try to initiate an enforcer", func() {
+// 				var rpcwrperreq rpcwrapper.Request
+// 				var rpcwrperres rpcwrapper.Response
+//
+// 				digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
+// 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+// 					So(err, ShouldBeNil)
+// 				}
+// 				rpcwrperreq.HashAuth = digest.Sum(nil)
+//
+// 				rpcwrperreq.HashAuth = []byte{0xC5, 0xD1, 0x24, 0x36, 0x1A, 0xFC, 0x66, 0x3E, 0xAE, 0xD7, 0x68, 0xCE, 0x88, 0x72, 0xC0, 0x97, 0xE4, 0x27, 0x70, 0x6C, 0x47, 0x31, 0x67, 0xEF, 0xD5, 0xCE, 0x73, 0x99, 0x7B, 0xAC, 0x25, 0x94}
+// 				rpcwrperreq.Payload = initTestEnfReqPayload()
+//         rpcwrperres.Status = ""
+//
+// 				//err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
+//
+// 				Convey("Then I should get no error", func() {
+// 				//	So(err, ShouldBeNil)
+// 				})
+// 				os.Setenv("STATSCHANNEL_PATH", "")
+// 				os.Setenv("STATS_SECRET", "")
+// 			})
+// 		})
+// 	})
+// }
 
 func TestInitSupervisor(t *testing.T) {
 
@@ -301,12 +300,58 @@ func TestInitSupervisor(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 
+      Convey("When I try to initiate the supervisor with invalid secret", func() {
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
+				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
+				rpcwrperres.Status = ""
+
+				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
+				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+					So(err, ShouldBeNil)
+				}
+				rpcwrperreq.HashAuth = digest.Sum(nil)
+
+				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error for no enforcer", func() {
+					So(err, ShouldResemble, fmt.Errorf("Supervisor Init Message Auth Failed"))
+				})
+			})
+
+      Convey("When I try to initiate the supervisor with IPSets support", func() {
+        var rpcwrperreq rpcwrapper.Request
+        var rpcwrperres rpcwrapper.Response
+
+        rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
+        rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPSets)
+        rpcwrperres.Status = ""
+
+        digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
+        if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+          So(err, ShouldBeNil)
+        }
+        rpcwrperreq.HashAuth = digest.Sum(nil)
+
+        collector := &collector.DefaultCollector{}
+        secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+        server.Enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+
+        err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
+
+        Convey("Then I should get error for no IPset support", func() {
+          So(err, ShouldResemble,fmt.Errorf("IPSets not supported yet"))
+        })
+      })
+
 			Convey("When I try to initiate the supervisor with no enforcer", func() {
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
 				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload()
+				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
@@ -327,7 +372,7 @@ func TestInitSupervisor(t *testing.T) {
 				var rpcwrperres rpcwrapper.Response
 
 				rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
-				rpcwrperreq.Payload = initTestSupReqPayload()
+				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
@@ -342,13 +387,39 @@ func TestInitSupervisor(t *testing.T) {
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
-				Convey("Then I should get error for no enforcer", func() {
+				Convey("Then I should get no error", func() {
 					So(err, ShouldBeNil)
 				})
 			})
+
+      Convey("When I try to initiate the supervisor with another supervisor running", func() {
+        var rpcwrperreq rpcwrapper.Request
+        var rpcwrperres rpcwrapper.Response
+
+        rpcwrperreq.HashAuth = []byte{0x47, 0xBE, 0x1A, 0x01, 0x47, 0x4F, 0x4A, 0x7A, 0xB5, 0xDA, 0x97, 0x46, 0xF3, 0x98, 0x50, 0x86, 0xB1, 0xF7, 0x05, 0x65, 0x6F, 0x58, 0x8C, 0x2C, 0x23, 0x9B, 0xA2, 0x82, 0x40, 0x45, 0x24, 0x45}
+        rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
+        rpcwrperres.Status = ""
+
+        digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
+        if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+          So(err, ShouldBeNil)
+        }
+        rpcwrperreq.HashAuth = digest.Sum(nil)
+
+        collector := &collector.DefaultCollector{}
+        secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+        server.Enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.Supervisor, _ = supervisor.NewSupervisor(collector, server.Enforcer, constants.LocalContainer, constants.IPTables, []string{})
+
+        err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
+
+        Convey("Then I should get no error", func() {
+          So(err, ShouldBeNil)
+        })
+      })
+
 			os.Setenv("STATSCHANNEL_PATH", "")
 			os.Setenv("STATS_SECRET", "")
-
 		})
 	})
 }
@@ -406,7 +477,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 				})
 			})
 
-			Convey("When I try to exit the enforcer", func() {
+			Convey("When I try to exit the enforcer with no enforcer and supervisor", func() {
 				server.statsclient = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
 
@@ -414,97 +485,18 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
-		})
-	})
-}
 
-func TestSupervise(t *testing.T) {
-
-	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := rpcwrapper.NewRPCServer()
-
-		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
-			So(rpcHdl, ShouldNotBeNil)
-		})
-
-		Convey("When I try to create new server with no env set", func() {
-			var service enforcer.PacketProcessor
-			pcchan := "/tmp/test.sock"
-			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret)
-
-			Convey("Then I should get error for no stats", func() {
-				So(server, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
-			})
-		})
-
-		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
-			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("STATSCHANNEL_PATH")
-			secret := os.Getenv("STATS_SECRET")
-			server, err := NewServer(service, rpcHdl, pcchan, secret)
-
-			Convey("Then I should get no error", func() {
-				So(server, ShouldNotBeNil)
-				So(err, ShouldBeNil)
-			})
-
-			Convey("When I try to send supervise command", func() {
-				var rpcwrperreq rpcwrapper.Request
-				var rpcwrperres rpcwrapper.Response
-
-				rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-				rpcwrperreq.Payload = initTestSupPayload()
-				rpcwrperres.Status = ""
-
-				digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
-					So(err, ShouldBeNil)
-				}
-				rpcwrperreq.HashAuth = digest.Sum(nil)
-
-				c := &collector.DefaultCollector{}
-				secrets := secrets.NewPSKSecrets([]byte("test password"))
-				e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
-
-				server.Supervisor, _ = supervisor.NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
-
-				//err := server.Supervise(rpcwrperreq, &rpcwrperres)
-
-				Convey("Then I should get no error", func() {
-					//So(err, ShouldBeNil)
-				})
-			})
-
-      Convey("When I try to send unsupervise command", func() {
-        var rpcwrperreq rpcwrapper.Request
-        var rpcwrperres rpcwrapper.Response
-
-        rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-        rpcwrperreq.Payload = initTestSupPayload()
-        rpcwrperres.Status = ""
-
-        digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
-        if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
-          So(err, ShouldBeNil)
-        }
-        rpcwrperreq.HashAuth = digest.Sum(nil)
-
+      Convey("When I try to exit the enforcer with supervisor", func() {
+        server.statsclient = nil
         c := &collector.DefaultCollector{}
         secrets := secrets.NewPSKSecrets([]byte("test password"))
         e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
-
         server.Supervisor, _ = supervisor.NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
-
-        //err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
+        server.Enforcer=nil
+        err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
 
         Convey("Then I should get no error", func() {
-          //So(err, ShouldBeNil)
+          So(err, ShouldBeNil)
         })
       })
 			os.Setenv("STATSCHANNEL_PATH", "")
@@ -512,6 +504,98 @@ func TestSupervise(t *testing.T) {
 		})
 	})
 }
+//
+// func TestSupervise(t *testing.T) {
+//
+// 	Convey("When I try to retrieve rpc server handle", t, func() {
+// 		rpcHdl := rpcwrapper.NewRPCServer()
+//
+// 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
+// 			So(rpcHdl, ShouldNotBeNil)
+// 		})
+//
+// 		Convey("When I try to create new server with no env set", func() {
+// 			var service enforcer.PacketProcessor
+// 			pcchan := "/tmp/test.sock"
+// 			secret := "mysecret"
+// 			server, err := NewServer(service, rpcHdl, pcchan, secret)
+//
+// 			Convey("Then I should get error for no stats", func() {
+// 				So(server, ShouldBeNil)
+// 				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
+// 			})
+// 		})
+//
+// 		Convey("When I try to create new server with env set", func() {
+// 			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+// 			os.Setenv("STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+// 			var service enforcer.PacketProcessor
+// 			pcchan := os.Getenv("STATSCHANNEL_PATH")
+// 			secret := os.Getenv("STATS_SECRET")
+// 			server, err := NewServer(service, rpcHdl, pcchan, secret)
+//
+// 			Convey("Then I should get no error", func() {
+// 				So(server, ShouldNotBeNil)
+// 				So(err, ShouldBeNil)
+// 			})
+//
+// 			Convey("When I try to send supervise command", func() {
+// 				var rpcwrperreq rpcwrapper.Request
+// 				var rpcwrperres rpcwrapper.Response
+//
+// 				rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
+// 				rpcwrperreq.Payload = initTestSupPayload()
+// 				rpcwrperres.Status = ""
+//
+// 				digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
+// 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+// 					So(err, ShouldBeNil)
+// 				}
+// 				rpcwrperreq.HashAuth = digest.Sum(nil)
+//
+// 				c := &collector.DefaultCollector{}
+// 				secrets := secrets.NewPSKSecrets([]byte("test password"))
+// 				e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+// 				server.Supervisor, _ = supervisor.NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
+//
+// 				//err := server.Supervise(rpcwrperreq, &rpcwrperres)
+//
+// 				Convey("Then I should get no error", func() {
+// 					//So(err, ShouldBeNil)
+// 				})
+// 			})
+//
+//       Convey("When I try to send unsupervise command", func() {
+//         var rpcwrperreq rpcwrapper.Request
+//         var rpcwrperres rpcwrapper.Response
+//
+//         rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
+//         rpcwrperreq.Payload = initTestSupPayload()
+//         rpcwrperres.Status = ""
+//
+//         digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
+//         if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+//           So(err, ShouldBeNil)
+//         }
+//         rpcwrperreq.HashAuth = digest.Sum(nil)
+//
+//         c := &collector.DefaultCollector{}
+//         secrets := secrets.NewPSKSecrets([]byte("test password"))
+//         e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+//
+//         server.Supervisor, _ = supervisor.NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
+//
+//         //err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
+//
+//         Convey("Then I should get no error", func() {
+//           //So(err, ShouldBeNil)
+//         })
+//       })
+// 			os.Setenv("STATSCHANNEL_PATH", "")
+// 			os.Setenv("STATS_SECRET", "")
+// 		})
+// 	})
+// }
 
 
 func TestEnforce(t *testing.T) {
@@ -548,7 +632,57 @@ func TestEnforce(t *testing.T) {
 				So(err, ShouldBeNil)
 			})
 
-			Convey("When I try to send enforce command", func() {
+      Convey("When I try to send enforce command with invalid secret", func() {
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.HashAuth = []byte{0xDE,0xBD,0x1C,0x6A,0x2A,0x51,0xC0,0x02,0x4B,0xD7,0xD1,0x82,0x78,0x8A,0xC4,0xF1,0xBE,0xBF,0x00,0x89,0x47,0x0F,0x13,0x71,0xAB,0x4C,0x0D,0xD9,0x9D,0x85,0x45,0x04}
+				rpcwrperreq.Payload = initTestEnfPayload()
+				rpcwrperres.Status = ""
+
+				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
+				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+					So(err, ShouldBeNil)
+				}
+				rpcwrperreq.HashAuth = digest.Sum(nil)
+
+        collector := &collector.DefaultCollector{}
+				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				server.Enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalServer, "/proc").(*enforcer.Datapath)
+
+				err := server.Enforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldResemble,fmt.Errorf("Enforce Message Auth Failed"))
+				})
+			})
+
+      Convey("When I try to send enforce command for local container", func() {
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.HashAuth = []byte{0xDE,0xBD,0x1C,0x6A,0x2A,0x51,0xC0,0x02,0x4B,0xD7,0xD1,0x82,0x78,0x8A,0xC4,0xF1,0xBE,0xBF,0x00,0x89,0x47,0x0F,0x13,0x71,0xAB,0x4C,0x0D,0xD9,0x9D,0x85,0x45,0x04}
+				rpcwrperreq.Payload = initTestEnfPayload()
+				rpcwrperres.Status = ""
+
+				digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
+				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+					So(err, ShouldBeNil)
+				}
+				rpcwrperreq.HashAuth = digest.Sum(nil)
+
+        collector := &collector.DefaultCollector{}
+				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				server.Enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+
+				err := server.Enforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldResemble,fmt.Errorf("No IP provided for Local Container"))
+				})
+			})
+
+			Convey("When I try to send enforce command for local server", func() {
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -611,6 +745,31 @@ func TestUnEnforce(t *testing.T) {
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
 				So(err, ShouldBeNil)
+			})
+
+      Convey("When I try to send Unenforce command with invalid secret", func() {
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.HashAuth = []byte{0xDE,0xBD,0x1C,0x6A,0x2A,0x51,0xC0,0x02,0x4B,0xD7,0xD1,0x82,0x78,0x8A,0xC4,0xF1,0xBE,0xBF,0x00,0x89,0x47,0x0F,0x13,0x71,0xAB,0x4C,0x0D,0xD9,0x9D,0x85,0x45,0x04}
+				rpcwrperreq.Payload = initTestUnEnfPayload()
+				rpcwrperres.Status = ""
+
+				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
+				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+					So(err, ShouldBeNil)
+				}
+				rpcwrperreq.HashAuth = digest.Sum(nil)
+
+        collector := &collector.DefaultCollector{}
+				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+				server.Enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+
+				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get error", func() {
+					So(err, ShouldResemble,fmt.Errorf("Unenforce Message Auth Failed"))
+				})
 			})
 
 			Convey("When I try to send Unenforce command without enforcer", func() {
@@ -676,6 +835,33 @@ func TestUnSupervise(t *testing.T) {
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
 				So(err, ShouldBeNil)
+			})
+
+      Convey("When I try to send unsupervise command with invalid secret", func() {
+				var rpcwrperreq rpcwrapper.Request
+				var rpcwrperres rpcwrapper.Response
+
+				rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
+				rpcwrperreq.Payload = initTestUnSupPayload()
+				rpcwrperres.Status = ""
+
+				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
+				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+					So(err, ShouldBeNil)
+				}
+				rpcwrperreq.HashAuth = digest.Sum(nil)
+
+				c := &collector.DefaultCollector{}
+				secrets := secrets.NewPSKSecrets([]byte("test password"))
+				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, secrets, constants.LocalContainer, "/proc")
+
+				server.Supervisor, _ = supervisor.NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
+
+				err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
+
+				Convey("Then I should get no error", func() {
+					So(err, ShouldResemble, fmt.Errorf("Unsupervise Message Auth Failed"))
+				})
 			})
 
 			Convey("When I try to send unsupervise command before supervise", func() {
