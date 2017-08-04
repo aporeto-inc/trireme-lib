@@ -186,7 +186,7 @@ func TestNewServer(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mock_rpcwrapper.NewMockRPCServer(ctrl)
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -431,7 +431,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		//rpcHdl := rpcwrapper.NewRPCServer()
-		rpcHdl := mock_rpcwrapper.NewMockRPCServer(ctrl)
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -504,7 +504,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 		})
 	})
 }
-//
+
 // func TestSupervise(t *testing.T) {
 //
 // 	Convey("When I try to retrieve rpc server handle", t, func() {
@@ -564,33 +564,6 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 // 					//So(err, ShouldBeNil)
 // 				})
 // 			})
-//
-//       Convey("When I try to send unsupervise command", func() {
-//         var rpcwrperreq rpcwrapper.Request
-//         var rpcwrperres rpcwrapper.Response
-//
-//         rpcwrperreq.HashAuth = []byte{0x14, 0x5E, 0x0A, 0x3B, 0x50, 0xA3, 0xFF, 0xBC, 0xD5, 0x1B, 0x25, 0x21, 0x7D, 0x32, 0xD2, 0x02, 0x9F, 0x3A, 0xBE, 0xDC, 0x1F, 0xBB, 0xB7, 0x32, 0xFB, 0x91, 0x63, 0xA0, 0xF8, 0xE4, 0x43, 0x80}
-//         rpcwrperreq.Payload = initTestSupPayload()
-//         rpcwrperres.Status = ""
-//
-//         digest := hmac.New(sha256.New, []byte(os.Getenv("STATS_SECRET")))
-//         if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
-//           So(err, ShouldBeNil)
-//         }
-//         rpcwrperreq.HashAuth = digest.Sum(nil)
-//
-//         c := &collector.DefaultCollector{}
-//         secrets := secrets.NewPSKSecrets([]byte("test password"))
-//         e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
-//
-//         server.Supervisor, _ = supervisor.NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
-//
-//         //err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
-//
-//         Convey("Then I should get no error", func() {
-//           //So(err, ShouldBeNil)
-//         })
-//       })
 // 			os.Setenv("STATSCHANNEL_PATH", "")
 // 			os.Setenv("STATS_SECRET", "")
 // 		})
@@ -711,7 +684,6 @@ func TestEnforce(t *testing.T) {
 		})
 	})
 }
-
 
 func TestUnEnforce(t *testing.T) {
 
