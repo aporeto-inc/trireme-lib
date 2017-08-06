@@ -336,17 +336,6 @@ func TestNewPKITriremeWithDockerMonitor(t *testing.T) {
 			So(pkaddr, ShouldNotBeNil)
 		})
 	})
-
-	Convey("When I try to instantiate a New PKI Trireme With Docker Monitor set to false and invalid secrets", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
-		trirem, monitor, pkaddr := NewPKITriremeWithDockerMonitor("testServerID", policyResolver(), procPacket(), nil, false, []byte("keyPEM"), []byte(certPEM), []byte(caPool), dm, false, false)
-
-		Convey("Then trireme struct should match and monitor should not match because of docker events", func() {
-			So(trirem, ShouldNotResemble, testTriremeStruct("pki", "localdocker", constants.IPTables, constants.ContainerPU, constants.ContainerPU))
-			So(monitor, ShouldNotResemble, testMonitorInstance(testTriremeStruct("pki", "localdocker", constants.IPTables, constants.ContainerPU, constants.ContainerPU)))
-			So(pkaddr, ShouldBeNil)
-		})
-	})
 }
 
 func TestNewPSKHybridTriremeWithMonitor(t *testing.T) {
@@ -365,6 +354,18 @@ func TestNewHybridCompactPKIWithDocker(t *testing.T) {
 	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
 		var dm dockermonitor.DockerMetadataExtractor
 		trirem, monitor, _ := NewHybridCompactPKIWithDocker("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), token, dm, false, false)
+
+		Convey("Then trireme struct should not match because of random server secret don't match", func() {
+			So(trirem, ShouldNotResemble, testTriremeStruct("pki", "hybrid", constants.IPTables, constants.ContainerPU, constants.ContainerPU))
+			So(monitor, ShouldNotResemble, testMonitorInstance(testTriremeStruct("pki", "hybrid", constants.IPTables, constants.ContainerPU, constants.ContainerPU)))
+		})
+	})
+}
+
+func TestNewCompactPKIWithDocker(t *testing.T) {
+	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
+		var dm dockermonitor.DockerMetadataExtractor
+		trirem, monitor := NewCompactPKIWithDocker("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), token, dm, false, false)
 
 		Convey("Then trireme struct should not match because of random server secret don't match", func() {
 			So(trirem, ShouldNotResemble, testTriremeStruct("pki", "hybrid", constants.IPTables, constants.ContainerPU, constants.ContainerPU))
