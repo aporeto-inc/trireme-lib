@@ -1,7 +1,6 @@
 package configurator
 
 import (
-	"os"
 	"testing"
 
 	"github.com/aporeto-inc/trireme"
@@ -366,22 +365,6 @@ func TestNewHybridCompactPKIWithDocker(t *testing.T) {
 	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
 		var dm dockermonitor.DockerMetadataExtractor
 		trirem, monitor, _ := NewHybridCompactPKIWithDocker("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), token, dm, false, false)
-
-		Convey("Then trireme struct should not match because of random server secret don't match", func() {
-			So(trirem, ShouldNotResemble, testTriremeStruct("pki", "hybrid", constants.IPTables, constants.ContainerPU, constants.ContainerPU))
-			So(monitor, ShouldNotResemble, testMonitorInstance(testTriremeStruct("pki", "hybrid", constants.IPTables, constants.ContainerPU, constants.ContainerPU)))
-		})
-	})
-}
-
-func TestNewCompactPKIWithDocker(t *testing.T) {
-	if os.Getenv("USER") != "root" {
-		t.SkipNow()
-	}
-
-	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
-		trirem, monitor := NewCompactPKIWithDocker("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), token, dm, false, false)
 
 		Convey("Then trireme struct should not match because of random server secret don't match", func() {
 			So(trirem, ShouldNotResemble, testTriremeStruct("pki", "hybrid", constants.IPTables, constants.ContainerPU, constants.ContainerPU))
