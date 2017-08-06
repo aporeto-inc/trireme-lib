@@ -68,8 +68,7 @@ IG7Nv+YlTVp5qA==
 }
 
 func eventCollector() collector.EventCollector {
-	var newEvent collector.EventCollector
-	newEvent = &collector.DefaultCollector{}
+	newEvent := &collector.DefaultCollector{}
 	return newEvent
 }
 

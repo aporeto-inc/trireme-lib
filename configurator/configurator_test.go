@@ -1,6 +1,7 @@
 package configurator
 
 import (
+	"os"
 	"testing"
 
 	"github.com/aporeto-inc/trireme"
@@ -82,8 +83,7 @@ func procPacket() enforcer.PacketProcessor {
 }
 
 func eventCollector() collector.EventCollector {
-	var newEvent collector.EventCollector
-	newEvent = &collector.DefaultCollector{}
+	newEvent := &collector.DefaultCollector{}
 	return newEvent
 }
 
@@ -132,14 +132,10 @@ func testEnforcerMap(sec, config string, pucon constants.PUType, puenfmode const
 
 func testEnforcer(sec string, puenfmode constants.ModeType) enforcer.PolicyEnforcer {
 	if sec == "psk" {
-		var newEnf enforcer.PolicyEnforcer
-		newEnf = enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen(nil, nil, nil), puenfmode, DefaultProcMountPoint)
-
+		newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen(nil, nil, nil), puenfmode, DefaultProcMountPoint)
 		return newEnf
 	}
-	var newEnf enforcer.PolicyEnforcer
-	newEnf = enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen([]byte(keyPEM), []byte(certPEM), []byte(caPool)), puenfmode, DefaultProcMountPoint)
-
+	newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen([]byte(keyPEM), []byte(certPEM), []byte(caPool)), puenfmode, DefaultProcMountPoint)
 	return newEnf
 }
 
@@ -197,8 +193,7 @@ func testSupervisorProxy(sec string, puconmode constants.ModeType) (*supervisorp
 }
 
 func testEnforcerProxy() enforcer.PolicyEnforcer {
-	var newEnf enforcer.PolicyEnforcer
-	newEnf = enforcerproxy.NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpcwrapper.NewRPCWrapper(), DefaultProcMountPoint)
+	newEnf := enforcerproxy.NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpcwrapper.NewRPCWrapper(), DefaultProcMountPoint)
 	return newEnf
 }
 
@@ -380,6 +375,10 @@ func TestNewHybridCompactPKIWithDocker(t *testing.T) {
 }
 
 func TestNewCompactPKIWithDocker(t *testing.T) {
+	if os.Getenv("USER") != "root" {
+		t.SkipNow()
+	}
+
 	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
 		var dm dockermonitor.DockerMetadataExtractor
 		trirem, monitor := NewCompactPKIWithDocker("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), token, dm, false, false)
