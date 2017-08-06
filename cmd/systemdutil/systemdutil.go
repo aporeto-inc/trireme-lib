@@ -27,9 +27,6 @@ const (
 // ExecuteCommand executes a command in a cgroup and programs Trireme
 // TODO : This method is deprecated and should be removed once there is no code using it.
 func ExecuteCommand(arguments map[string]interface{}) error {
-	if !arguments["run"].(bool) {
-		return fmt.Errorf("Bad arguments - no run command")
-	}
 
 	var command string
 	if value, ok := arguments["<command>"]; ok && value != nil {
