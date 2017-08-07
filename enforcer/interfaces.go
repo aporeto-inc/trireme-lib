@@ -15,6 +15,19 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
+// Reporter is an interface implemented by datapath to report statistics
+type Reporter interface {
+
+	// ReportFlow will report an accepted/rejected flow
+	ReportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string)
+
+	// ReportAcceptedFlow will report an accepted flow
+	ReportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext)
+
+	// ReportRejectedFlow will report an rejected flow
+	ReportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string)
+}
+
 // A PolicyEnforcer is implementing the enforcer that will modify//analyze the capture packets
 type PolicyEnforcer interface {
 

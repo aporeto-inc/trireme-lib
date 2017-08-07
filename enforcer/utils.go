@@ -7,7 +7,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
+func (d *Datapath) ReportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
 
 	d.collector.CollectFlowEvent(&collector.FlowRecord{
 		ContextID:       context.ID,
@@ -22,18 +22,18 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourc
 	})
 }
 
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext) {
+func (d *Datapath) ReportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext) {
 	if conn != nil {
 		conn.SetReported(RejectReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
+	d.ReportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
 }
 
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
+func (d *Datapath) ReportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
 	if conn != nil {
 		conn.SetReported(AcceptReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
+	d.ReportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
 }
 
 // createRuleDBs creates the database of rules from the policy
