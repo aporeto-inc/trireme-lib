@@ -30,7 +30,7 @@ type Datapath struct {
 	collector      collector.EventCollector
 	service        PacketProcessor
 	secrets        secrets.Secrets
-	nflogger       *nfLogger
+	nflogger       nfLogger
 	procMountPoint string
 
 	// Internal structures and caches
@@ -132,7 +132,7 @@ func New(
 		zap.L().Fatal("Unable to create enforcer")
 	}
 
-	d.nflogger = NewNFLogger(11, 10, d.puInfoDelegate, collector)
+	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
 
 	return d
 }
@@ -242,7 +242,7 @@ func (d *Datapath) Start() error {
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()
 
-	go d.nflogger.Start()
+	go d.nflogger.start()
 
 	return nil
 }
