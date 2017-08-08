@@ -4,6 +4,7 @@ package enforcer
 
 import (
 	"strings"
+	"time"
 
 	"github.com/aporeto-inc/netlink-go/nflog"
 	"github.com/aporeto-inc/trireme/collector"
@@ -39,6 +40,8 @@ func (a *nfLog) start() {
 	go nflog.BindAndListenForLogs([]uint16{a.ipv4groupDest}, 64, func(buf *nflog.NfPacket, data interface{}) {
 		a.AddDstLogs(buf)
 	}, errorCallbacks)
+
+	time.Sleep(5 * time.Second)
 }
 
 func errorCallbacks(err error) {
@@ -55,31 +58,61 @@ func (a *nfLog) AddSrcLogs(buf *nflog.NfPacket) {
 		zap.L().Error("nflog: unable to find pu ID associated given contexID", zap.String("contextID", contextID))
 	}
 
-	record := &collector.FlowRecord{
-		ContextID: contextID,
-		Source: &collector.EndPoint{
-			IP: buf.SrcIP.String(),
-		},
-		Destination: &collector.EndPoint{
-			IP:   buf.DstIP.String(),
-			Port: uint16(buf.DstPort),
-		},
-		PolicyID: policyID,
-		Tags:     tags,
+	if buf.Protocol.String() == "TCP" {
+		record := &collector.FlowRecord{
+			ContextID: contextID,
+			Source: &collector.EndPoint{
+				IP: buf.SrcIP.String(),
+			},
+			Destination: &collector.EndPoint{
+				IP:   buf.DstIP.String(),
+				Port: uint16(buf.TCPDstPort),
+			},
+			PolicyID: policyID,
+			Tags:     tags,
+		}
+
+		if shortAction == "a" {
+			record.Action = policy.Accept
+		} else {
+			record.Action = policy.Reject
+		}
+
+		record.Source.Type = collector.Address
+		record.Source.ID = extSrvID
+		record.Destination.Type = collector.PU
+		record.Destination.ID = puID
+
+		a.collector.CollectFlowEvent(record)
 	}
 
-	if shortAction == "a" {
-		record.Action = policy.Accept
-	} else {
-		record.Action = policy.Reject
+	if buf.Protocol.String() == "UDP" {
+		record := &collector.FlowRecord{
+			ContextID: contextID,
+			Source: &collector.EndPoint{
+				IP: buf.SrcIP.String(),
+			},
+			Destination: &collector.EndPoint{
+				IP:   buf.DstIP.String(),
+				Port: uint16(buf.UDPDstPort),
+			},
+			PolicyID: policyID,
+			Tags:     tags,
+		}
+
+		if shortAction == "a" {
+			record.Action = policy.Accept
+		} else {
+			record.Action = policy.Reject
+		}
+
+		record.Source.Type = collector.Address
+		record.Source.ID = extSrvID
+		record.Destination.Type = collector.PU
+		record.Destination.ID = puID
+
+		a.collector.CollectFlowEvent(record)
 	}
-
-	record.Source.Type = collector.Address
-	record.Source.ID = extSrvID
-	record.Destination.Type = collector.PU
-	record.Destination.ID = puID
-
-	a.collector.CollectFlowEvent(record)
 }
 
 func (a *nfLog) AddDstLogs(buf *nflog.NfPacket) {
@@ -93,29 +126,60 @@ func (a *nfLog) AddDstLogs(buf *nflog.NfPacket) {
 		zap.L().Error("nflog: unable to find pu ID associated given contexID", zap.String("contextID", contextID))
 	}
 
-	record := &collector.FlowRecord{
-		ContextID: contextID,
-		Source: &collector.EndPoint{
-			IP: buf.SrcIP.String(),
-		},
-		Destination: &collector.EndPoint{
-			IP:   buf.DstIP.String(),
-			Port: uint16(buf.DstPort),
-		},
-		PolicyID: policyID,
-		Tags:     tags,
+	if buf.Protocol.String() == "TCP" {
+		record := &collector.FlowRecord{
+			ContextID: contextID,
+			Source: &collector.EndPoint{
+				IP: buf.SrcIP.String(),
+			},
+			Destination: &collector.EndPoint{
+				IP:   buf.DstIP.String(),
+				Port: uint16(buf.TCPDstPort),
+			},
+			PolicyID: policyID,
+			Tags:     tags,
+		}
+
+		if shortAction == "a" {
+			record.Action = policy.Accept
+		} else {
+			record.Action = policy.Reject
+		}
+
+		record.Source.Type = collector.PU
+		record.Source.ID = puID
+		record.Destination.Type = collector.Address
+		record.Destination.ID = extSrvID
+
+		a.collector.CollectFlowEvent(record)
 	}
 
-	if shortAction == "a" {
-		record.Action = policy.Accept
-	} else {
-		record.Action = policy.Reject
+	if buf.Protocol.String() == "UDP" {
+		record := &collector.FlowRecord{
+			ContextID: contextID,
+			Source: &collector.EndPoint{
+				IP: buf.SrcIP.String(),
+			},
+			Destination: &collector.EndPoint{
+				IP:   buf.DstIP.String(),
+				Port: uint16(buf.UDPDstPort),
+			},
+			PolicyID: policyID,
+			Tags:     tags,
+		}
+
+		if shortAction == "a" {
+			record.Action = policy.Accept
+		} else {
+			record.Action = policy.Reject
+		}
+
+		record.Source.Type = collector.PU
+		record.Source.ID = puID
+		record.Destination.Type = collector.Address
+		record.Destination.ID = extSrvID
+
+		a.collector.CollectFlowEvent(record)
 	}
 
-	record.Source.Type = collector.PU
-	record.Source.ID = puID
-	record.Destination.Type = collector.Address
-	record.Destination.ID = extSrvID
-
-	a.collector.CollectFlowEvent(record)
 }
