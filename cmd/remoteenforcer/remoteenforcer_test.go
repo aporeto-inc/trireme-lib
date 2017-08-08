@@ -109,15 +109,20 @@ func initAnnotations(an string) *policy.TagStore {
 }
 
 func initTrans() policy.TagSelectorList {
+
 	var tags policy.TagSelectorList
 	var tag policy.TagSelector
 	var keyval policy.KeyValueOperator
+	var action policy.FlowPolicy
+	var accept policy.ActionType
 
 	keyval.Key = "@usr:role"
 	keyval.Value = []string{"server"}
 	keyval.Operator = "="
+	accept=policy.Accept
+	action.Action = accept
 	tag.Clause = []policy.KeyValueOperator{keyval}
-	tag.Action = 1
+	tag.Policy = &action
 	tags = []policy.TagSelector{tag}
 
 	return tags
