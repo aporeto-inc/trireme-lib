@@ -81,9 +81,3 @@ type PUContext struct {
 	synExpiration   time.Time
 	sync.Mutex
 }
-
-type nfLogger interface {
-	start()
-}
-
-type puInfoFunc func(string) (string, *policy.TagStore)
