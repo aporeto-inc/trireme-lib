@@ -56,7 +56,7 @@ func TestLookup(t *testing.T) {
 		c := NewACLCache()
 		err := c.AddRuleList(rules)
 		So(err, ShouldBeNil)
-		So(len(c.prefixMap), ShouldEqual, len(rules)-2)
+		So(len(c.prefixMap), ShouldEqual, len(rules)-1)
 
 		Convey("When I lookup for a matching address and a port range, I should get the right action", func() {
 			ip := net.ParseIP("172.17.0.1")

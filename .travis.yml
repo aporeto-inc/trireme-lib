@@ -27,8 +27,6 @@ before_install:
 install:
   - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd -
   - go get -t -v ./...
-  - cd $GOPATH/src/github.com/smartystreets/assertions && git checkout 1.6.0 && go install && cd -
-  - cd $GOPATH/src/github.com/smartystreets/goconvey && git checkout 1.6.2 && go install && cd -
 
 
 script:
