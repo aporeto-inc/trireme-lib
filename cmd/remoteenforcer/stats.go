@@ -108,7 +108,7 @@ func (s *StatsClient) SendStats() {
 
 }
 
-// connectStatsCLient  This is an private function called by the remoteenforcer to connect back
+// ConnectStatsClient  This is an private function called by the remoteenforcer to connect back
 // to the controller over a stats channel
 func (s *StatsClient) ConnectStatsClient() error {
 
