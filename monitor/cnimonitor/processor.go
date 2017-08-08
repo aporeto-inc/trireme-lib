@@ -78,74 +78,18 @@ func (p *CniProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 // Stop handles a stop event
 func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
-
-	contextID, err := generateContextID(eventInfo)
-	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
-	}
-
-	if !stringp.HasPrefix(contextID, cgnetclp.TriremeBasePath) || contextID == cgnetclp.TriremeBasePath {
-		return nil
-	}
-
-	contextID = contextID[stringp.LastIndex(contextID, "/"):]
-
-	return p.puHandler.HandlePUEvent(contextID, monitor.EventStop)
+	return nil
 }
 
 // Destroy handles a destroy event
 func (p *CniProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
-
-	contextID, err := generateContextID(eventInfo)
-	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
-	}
-
-	if !stringp.HasPrefix(contextID, cgnetclp.TriremeBasePath) || contextID == cgnetclp.TriremeBasePath {
-		return nil
-	}
-
-	contextID = contextID[stringp.LastIndex(contextID, "/"):]
-
-	contextStoreHdl := contextstore.NewContextStore()
-
-	p.netclp.Deletebasepath(contextID)
-
-	// Send the event upstream
-	if err := p.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
-		zap.L().Warn("Failed to clean trireme ",
-			zap.String("contextID", contextID),
-			zap.Error(err),
-		)
-	}
-
-	//let us remove the cgroup files now
-	if err := p.netclp.DeleteCgroup(contextID); err != nil {
-		zap.L().Warn("Failed to clean netcls group",
-			zap.String("contextID", contextID),
-			zap.Error(err),
-		)
-	}
-
-	if err := contextStoreHdl.RemoveContext(contextID); err != nil {
-		zap.L().Warn("Failed to clean cache while destroying process",
-			zap.String("contextID", contextID),
-			zap.Error(err),
-		)
-	}
 
 	return nil
 }
 
 // Pause handles a pause event
 func (p *CniProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
-
-	contextID, err := generateContextID(eventInfo)
-	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
-	}
-
-	return p.puHandler.HandlePUEvent(contextID, monitor.EventPause)
+	return nil
 }
 
 // generateContextID creates the contextID from the event information

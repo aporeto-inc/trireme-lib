@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/monitor/cnimonitor"
 	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
@@ -534,5 +535,52 @@ func NewCompactPKIWithDocker(
 	)
 
 	return triremeInstance, monitorDocker
+
+}
+
+// NewCNITrireme is an implementation of Trireme with CNI
+func NewCNITrireme(serverID string,
+	networks []string,
+	resolver trireme.PolicyResolver,
+	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
+	syncAtStart bool,
+	key []byte,
+	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	killContainerError bool,
+) (trireme.Trireme, monitor.Monitor) {
+
+	if eventCollector == nil {
+		zap.L().Warn("Using a default collector for events")
+		eventCollector = &collector.DefaultCollector{}
+	}
+
+	secrets := NewSecretsFromPSK(key)
+
+	triremeInstance := NewHybridTrireme(
+		serverID,
+		resolver,
+		processor,
+		eventCollector,
+		secrets,
+		networks,
+	)
+
+	rpcmon, err := rpcmonitor.NewRPCMonitor(
+		rpcmonitor.DefaultRPCAddress,
+		triremeInstance,
+		eventCollector,
+	)
+	if err != nil {
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+	}
+
+	// configure a LinuxServices processor for the rpc monitor
+	cniProcessor := cnimonitor.NewCniProcessor(eventCollector, triremeInstance, cnimonitor.CNIMetadataExtractor)
+	if err := rpcmon.RegisterProcessor(constants.ContainerPU, cniProcessor); err != nil {
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+	}
+
+	return triremeInstance, rpcmon
 
 }
