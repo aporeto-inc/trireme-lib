@@ -52,10 +52,6 @@ func stoptestserver() {
 
 }
 
-type CustomPolicyResolver struct {
-	monitor.ProcessingUnitsHandler
-}
-
 type CustomProcessor struct {
 	MonitorProcessor
 }
