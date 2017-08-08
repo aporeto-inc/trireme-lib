@@ -26,9 +26,10 @@ before_install:
 
 install:
   - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd -
-  - mkdir -p $GOPATH/src/github.com/smartystreets/assertions && cd $GOPATH/src/github.com/smartystreets/assertions && git clone https://github.com/smartystreets/assertions -b 1.6.0 && cd -
-  - mkdir -p $GOPATH/src/github.com/smartystreets/goconvey && cd $GOPATH/src/github.com/smartystreets/goconvey && git clone https://github.com/smartystreets/goconvey -b 1.6.2 && cd -
   - go get -t -v ./...
+  - cd $GOPATH/src/github.com/smartystreets/assertions && git checkout 1.6.0 && go install && cd -
+  - cd $GOPATH/src/github.com/smartystreets/goconvey && git checkout 1.6.2 && go install && cd -
+
 
 script:
   - gometalinter.v1 --disable-all --enable=vet --enable=vetshadow --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell --deadline=5m ./...
