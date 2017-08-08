@@ -153,7 +153,7 @@ func setupProcessingUnitsInDatapathAndEnforce() (puInfo1, puInfo2 *policy.PUInfo
 				Operator: policy.Equal,
 			},
 		},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	iteration = iteration + 1
