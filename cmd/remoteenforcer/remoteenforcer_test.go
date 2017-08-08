@@ -119,7 +119,7 @@ func initTrans() policy.TagSelectorList {
 	keyval.Key = "@usr:role"
 	keyval.Value = []string{"server"}
 	keyval.Operator = "="
-	accept = policy.Accept
+	accept=policy.Accept
 	action.Action = accept
 	tag.Clause = []policy.KeyValueOperator{keyval}
 	tag.Policy = &action
@@ -137,14 +137,10 @@ func initTestSupPayload() rpcwrapper.SuperviseRequestPayload {
 	initPayload.ContextID = "ac0d3577e808"
 	initPayload.ManagementID = "59812ccc27b430000135fbf3"
 	initPayload.TriremeAction = 2
-	//initPayload.ApplicationACLs
-	//initPayload.NetworkACLs
 	initPayload.PolicyIPs = policy.ExtendedMap{"bridge": "172.17.0.2"}
 	initPayload.Identity = initIdentity(idString)
 	initPayload.Annotations = initAnnotations(anoString)
-	//initPayload.ReceiverRules
 	initPayload.TransmitterRules = initTrans()
-	//initPayload.ExcludedNetworks=
 	initPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
 
 	return initPayload
@@ -159,14 +155,10 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 	initPayload.ContextID = "b06f47830f64"
 	initPayload.ManagementID = "5983bc8c923caa0001337b11"
 	initPayload.TriremeAction = 2
-	//initPayload.ApplicationACLs
-	//initPayload.NetworkACLs
 	initPayload.PolicyIPs = policy.ExtendedMap{"bridge": "172.17.0.2"}
 	initPayload.Identity = initIdentity(idString)
 	initPayload.Annotations = initAnnotations(anoString)
-	//initPayload.ReceiverRules
 	initPayload.TransmitterRules = initTrans()
-	//initPayload.ExcludedNetworks=
 	initPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
 
 	return initPayload
