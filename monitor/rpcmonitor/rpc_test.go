@@ -262,7 +262,6 @@ func TestHandleEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	puHandler := &CustomPolicyResolver{}
 	contextstore := mock_contextstore.NewMockContextStore(ctrl)
 
 	Convey("Given an RPC monitor", t, func() {
