@@ -77,13 +77,6 @@ func TestNewRPCMonitor(t *testing.T) {
 			})
 		})
 
-		Convey("If we start nil PU handler", func() {
-			_, err := NewRPCMonitor("rpcAddress", nil)
-			Convey("It should fail", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
 		Convey("If we start with valid parameters", func() {
 			mon, err := NewRPCMonitor("/tmp/monitor.sock", nil)
 			mon.contextstore = cstore
