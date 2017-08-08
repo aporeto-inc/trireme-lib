@@ -46,6 +46,4 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 
 //CollectContainerEvent exported
 //This event should not be expected here in the enforcer process inside a particular container context
-func (c *CollectorImpl) CollectContainerEvent(record *collector.ContainerRecord) {
-	return
-}
+func (c *CollectorImpl) CollectContainerEvent(record *collector.ContainerRecord) {}

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/policy"
 )
 
 var (
@@ -87,6 +88,9 @@ type TCPConnection struct {
 
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
+
+	// FlowPolicy holds the last matched policy
+	FlowPolicy *policy.FlowPolicy
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
