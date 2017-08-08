@@ -119,7 +119,7 @@ func initTrans() policy.TagSelectorList {
 	keyval.Key = "@usr:role"
 	keyval.Value = []string{"server"}
 	keyval.Operator = "="
-	accept=policy.Accept
+	accept = policy.Accept
 	action.Action = accept
 	tag.Clause = []policy.KeyValueOperator{keyval}
 	tag.Policy = &action
