@@ -546,7 +546,6 @@ func NewCNITrireme(serverID string,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
 	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor) {
 
