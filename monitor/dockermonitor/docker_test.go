@@ -8,6 +8,7 @@ import (
 
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/docker/docker/api/types"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -16,6 +17,28 @@ var testDockerMetadataExtractor DockerMetadataExtractor
 func eventCollector() collector.EventCollector {
 	newEvent := &collector.DefaultCollector{}
 	return newEvent
+}
+
+func initTestDockerInfo() *types.ContainerJSON {
+	var testInfo types.ContainerJSON
+	var m map[string]string
+	m = make(map[string]string)
+	m["role"] = "client"
+	m["vendor"] = "CentOS"
+	m["$id"] = "598a35a60f79af0001b52ef5"
+	m["$namespace"] = "/sibicentos"
+	m["build-date"] = "20170801"
+	m["license"] = "GPLv2"
+	m["name"] = "CentOS Base Image"
+
+	testInfo.Config.Image = "centos"
+	testInfo.Name = "/priceless_rosalind"
+	testInfo.Config.Labels = m
+	testInfo.NetworkSettings.IPAddress = "172.17.0.2"
+	testInfo.State.Pid = 4912
+	testInfo.HostConfig.NetworkMode = "default"
+
+	return &testInfo
 }
 
 func TestNewDockerMonitor(t *testing.T) {
@@ -92,6 +115,17 @@ func TestContextIDFromDockerID(t *testing.T) {
 		Convey("Then I should get error", func() {
 			So(cID, ShouldEqual, "")
 			So(err, ShouldResemble, fmt.Errorf("Empty DockerID String"))
+		})
+	})
+}
+
+func TestDefaultDockerMetadataExtractor(t *testing.T) {
+	Convey("When I try to extract metadata from docker container", t, func() {
+		puR, err := defaultDockerMetadataExtractor(initTestDockerInfo())
+
+		Convey("Then I should not get any error", func() {
+			So(puR, ShouldNotBeNil)
+			So(err, ShouldBeNil)
 		})
 	})
 }
