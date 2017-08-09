@@ -9,7 +9,8 @@ type nfLog struct {
 }
 
 func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) nfLogger {
-	return nil
+	return &nfLog{}
 }
 
 func (n *nfLog) start() {}
+func (n *nfLog) stop()  {}
