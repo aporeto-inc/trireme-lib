@@ -18,7 +18,7 @@ type nfLog struct {
 	ipv4groupSource uint16
 	ipv4groupDest   uint16
 	collector       collector.EventCollector
-	nflogHandle     *nflog.NFlog
+	nflogHandle     *nflog.NfLog
 }
 
 func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) nfLogger {
