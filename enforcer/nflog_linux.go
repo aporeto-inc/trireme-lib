@@ -18,7 +18,7 @@ type nfLog struct {
 	ipv4groupSource uint16
 	ipv4groupDest   uint16
 	collector       collector.EventCollector
-	nflogStop       chan bool
+	nflogHandle     *nflog.NFlog
 }
 
 func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) nfLogger {
@@ -36,15 +36,10 @@ func (a *nfLog) start() {
 	go nflog.BindAndListenForLogs([]uint16{a.ipv4groupSource}, 64, a.sourceNFLogsHanlder, a.nflogErrorHandler)
 	go nflog.BindAndListenForLogs([]uint16{a.ipv4groupDest}, 64, a.destNFLogsHandler, a.nflogErrorHandler)
 
-	go func() {
-		if <-a.nflogStop {
-			return
-		}
-	}()
 }
 
 func (a *nfLog) stop() {
-	a.nflogStop <- true
+	a.nflogHandle.NFlogClose()
 }
 
 func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
@@ -74,6 +69,7 @@ func (a *nfLog) nflogErrorHandler(err error) {
 
 func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*collector.FlowRecord, error) {
 
+	a.nflogHandle = buf.NflogHandle
 	parts := strings.SplitN(buf.Prefix[:len(buf.Prefix)-1], ":", 3)
 
 	if len(parts) != 3 {
