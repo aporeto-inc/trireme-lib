@@ -49,32 +49,32 @@ var (
 
 	appEqWebAndenvEqDemo = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{appEqWeb, envEqDemo},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	appEqWebAndEnvEqDemoOrQa = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{appEqWeb, envEqDemoOrQa},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	dcTagExists = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{dcKeyExists},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	policylangNotJava = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{langNotJava},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	appEqWebAndenvNotDemoOrQA = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{appEqWeb, envNotDemoOrQA},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	envKeyNotExistsAndAppEqWeb = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{envKeyNotExists, appEqWeb},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	domainParent = policy.KeyValueOperator{
@@ -91,17 +91,17 @@ var (
 
 	policyDomainParent = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{domainParent},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	policyDomainFull = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{domainFull},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
 	policyEnvDoesNotExist = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{envKeyNotExists},
-		Action: policy.Accept,
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 )
 
@@ -225,7 +225,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index1)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for a single matching that matches the not equal rules, it should return the right index,", func() {
@@ -235,7 +235,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index2)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for rules that match the KeyExists Policy, it should return the right index  ", func() {
@@ -245,7 +245,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index3)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for a single matching that matches the Or rules, it should return the right index,", func() {
@@ -256,7 +256,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index4)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for a single matching that matches the NOT Or rlues, it should return the right index,", func() {
@@ -266,7 +266,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index5)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for a single clause  that fails in the Not OR operator, it should fail ,", func() {
@@ -296,7 +296,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index6)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for a value that matches a prefix", func() {
@@ -304,7 +304,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("domain", "com.example.db")
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index7)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for a value that matches a complete value ", func() {
@@ -313,7 +313,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index8)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 			Convey("Given that I search for a value that matches some of the prefix, it should return err  ", func() {
@@ -332,7 +332,7 @@ func TestFuncSearch(t *testing.T) {
 
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index9)
-				So(action.(policy.FlowAction), ShouldEqual, policy.Accept)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
 
 		})

@@ -14,7 +14,7 @@ import (
 type PortAction struct {
 	min    uint16
 	max    uint16
-	action policy.FlowAction
+	policy *policy.FlowPolicy
 }
 
 // PortActionList is a list of Port Actions
@@ -23,15 +23,13 @@ type PortActionList []*PortAction
 // ACLCache holds all the ACLS in an internal DB
 // map[prefixes][subnets] -> list of ports with their actions
 type ACLCache struct {
-	prefixMap  map[uint32]map[uint32]PortActionList
-	defaultNet PortActionList
+	prefixMap map[uint32]map[uint32]PortActionList
 }
 
 // NewACLCache creates a new ACL cache
 func NewACLCache() *ACLCache {
 	return &ACLCache{
-		prefixMap:  make(map[uint32]map[uint32]PortActionList),
-		defaultNet: PortActionList{},
+		prefixMap: make(map[uint32]map[uint32]PortActionList),
 	}
 }
 
@@ -72,7 +70,7 @@ func createPortAction(rule policy.IPRule) *PortAction {
 		return nil
 	}
 
-	p.action = rule.Action
+	p.policy = rule.Policy
 
 	return p
 }
@@ -107,7 +105,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 		return fmt.Errorf("Invalid address")
 	}
 
-	if _, ok := c.prefixMap[mask]; !ok && mask != 0 {
+	if _, ok := c.prefixMap[mask]; !ok {
 		c.prefixMap[mask] = make(map[uint32]PortActionList)
 	}
 
@@ -118,11 +116,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 
 	subnet = subnet & mask
 
-	if subnet != 0 {
-		c.prefixMap[mask][subnet] = append(c.prefixMap[mask][subnet], a)
-	} else {
-		c.defaultNet = append(c.defaultNet, a)
-	}
+	c.prefixMap[mask][subnet] = append(c.prefixMap[mask][subnet], a)
 
 	return nil
 }
@@ -141,7 +135,7 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 }
 
 // GetMatchingAction gets the matching action
-func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (policy.FlowAction, error) {
+func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (*policy.FlowPolicy, error) {
 
 	addr := binary.BigEndian.Uint32(ip)
 	// Iterate over all the bitmasks we have
@@ -153,24 +147,11 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (policy.FlowAction,
 			// Scan the ports - TODO: better algorithm needed hefe
 			for _, p := range actionList {
 				if port >= p.min && port <= p.max {
-					return p.action, nil
+					return p.policy, nil
 				}
 			}
 		}
 	}
 
-	return policy.Reject, fmt.Errorf("No match")
-}
-
-// GetDefaultAction gets the matching action
-func (c *ACLCache) GetDefaultAction(port uint16) (policy.FlowAction, error) {
-
-	// Just look at the default
-	for _, p := range c.defaultNet {
-		if port >= p.min && port <= p.max {
-			return p.action, nil
-		}
-	}
-
-	return policy.Reject, fmt.Errorf("No match")
+	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}, fmt.Errorf("No match")
 }
