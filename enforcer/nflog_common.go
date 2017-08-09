@@ -6,6 +6,7 @@ import (
 
 type nfLogger interface {
 	start()
+	stop()
 }
 
 type puInfoFunc func(string) (string, *policy.TagStore)
