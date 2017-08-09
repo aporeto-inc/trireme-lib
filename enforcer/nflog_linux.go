@@ -37,7 +37,7 @@ func (a *nfLog) start() {
 	go nflog.BindAndListenForLogs([]uint16{a.ipv4groupDest}, 64, a.destNFLogsHandler, a.nflogErrorHandler)
 
 	go func() {
-		if a.nflogStop {
+		if <-a.nflogStop {
 			return
 		}
 	}()
