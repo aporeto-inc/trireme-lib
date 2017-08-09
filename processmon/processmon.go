@@ -179,7 +179,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string, networkQueue uint16, appQueue uint16) error {
 	secretLength := 32
 	var cmdName string
 
@@ -253,8 +253,10 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	MountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
 	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
-
-	cmd.Env = append(os.Environ(), []string{MountPoint, namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+	envContextID := "CONTEXT_ID=" + contextID
+	envNetworkQueue := "NETWORK_QUEUE=" + strconv.Itoa(int(networkQueue))
+	envAppQueue := "APP_QUEUE=" + strconv.Itoa(int(appQueue))
+	cmd.Env = append(os.Environ(), []string{MountPoint, namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid), envContextID, envNetworkQueue, envAppQueue}...)
 
 	err = cmd.Start()
 	if err != nil {

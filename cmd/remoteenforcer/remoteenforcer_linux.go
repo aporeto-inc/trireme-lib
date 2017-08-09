@@ -32,6 +32,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
 
 const (
@@ -425,6 +426,23 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	return nil
 }
 
+//installDefaultRules-- private function to install default rules while we wait for actual policy to come by
+//We will not return error from here
+func installDefaultRules() {
+	netQueue := os.Getenv("NETWORK_QUEUE")
+	appQueue := os.Getenv("APP_QUEUE")
+	ipt, _ := provider.NewGoIPTablesProvider()
+	err := ipt.Insert("mangle", "INPUT", 1, "-p", "tcp", "-j", "NFQUEUE", "--queue-num", netQueue)
+	if err != nil {
+		return
+	}
+	err = ipt.Insert("mangle", "OUTPUT", 1, "-p", "tcp", "-j", "NFQUEUE", "--queue-num", appQueue)
+	if err != nil {
+		return
+	}
+	return
+}
+
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
@@ -432,6 +450,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
 	secret := os.Getenv(envSecret)
 
+	go installDefaultRules()
 	if len(secret) == 0 {
 		os.Exit(-1)
 	}

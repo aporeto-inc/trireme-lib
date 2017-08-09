@@ -95,8 +95,9 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
-
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
+	networkQueue := s.filterQueue.NetworkQueue
+	appQueue := s.filterQueue.ApplicationQueue
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint, networkQueue, appQueue)
 	if err != nil {
 		return err
 	}
