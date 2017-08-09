@@ -18,8 +18,8 @@ type nfLog struct {
 	ipv4groupSource uint16
 	ipv4groupDest   uint16
 	collector       collector.EventCollector
-	srcNflogHandle  *nflog.NfLog
-	dstNflogHandle  *nflog.NfLog
+	srcNflogHandle  []*nflog.NfLog
+	dstNflogHandle  []*nflog.NfLog
 }
 
 func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) nfLogger {
@@ -40,13 +40,15 @@ func (a *nfLog) start() {
 }
 
 func (a *nfLog) stop() {
-	a.srcNflogHandle.NFlogClose()
-	a.dstNflogHandle.NFlogClose()
+	for i, _ := range a.srcNflogHandle {
+		a.srcNflogHandle[i].NFlogClose()
+		a.dstNflogHandle[i].NFlogClose()
+	}
 }
 
 func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
 
-	a.srcNflogHandle = buf.NflogHandle
+	a.srcNflogHandle = append(a.srcNflogHandle, buf.NflogHandle)
 	record, err := a.recordFromNFLogBuffer(buf, false)
 	if err != nil {
 		zap.L().Error("sourceNFLogsHanlder: create flow record", zap.Error(err))
@@ -57,7 +59,7 @@ func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
 
 func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, data interface{}) {
 
-	a.dstNflogHandle = buf.NflogHandle
+	a.dstNflogHandle = append(a.srcNflogHandle, buf.NflogHandle)
 	record, err := a.recordFromNFLogBuffer(buf, true)
 	if err != nil {
 		zap.L().Error("destNFLogsHandler: create flow record", zap.Error(err))
