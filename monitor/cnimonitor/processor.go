@@ -3,6 +3,8 @@ package cnimonitor
 import (
 	"fmt"
 
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
@@ -38,13 +40,47 @@ func (p *CniProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 // Start handles start events
 func (p *CniProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	fmt.Printf("Start: %+v \n", eventInfo)
-	return nil
+	contextID, err := generateContextID(eventInfo)
+	if err != nil {
+		return err
+	}
+
+	runtimeInfo, err := p.metadataExtractor(eventInfo)
+	if err != nil {
+		return err
+	}
+
+	if err = p.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
+		return err
+	}
+
+	defaultIP, _ := runtimeInfo.DefaultIPAddress()
+
+	if perr := p.puHandler.HandlePUEvent(contextID, monitor.EventStart); perr != nil {
+		zap.L().Error("Failed to activate process", zap.Error(perr))
+		return perr
+	}
+
+	p.collector.CollectContainerEvent(&collector.ContainerRecord{
+		ContextID: contextID,
+		IPAddress: defaultIP,
+		Tags:      runtimeInfo.Tags(),
+		Event:     collector.ContainerStart,
+	})
+
+	// Store the state in the context store for future access
+	return p.contextStore.StoreContext(contextID, eventInfo)
 }
 
 // Stop handles a stop event
 func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	fmt.Printf("Stop: %+v \n", eventInfo)
-	return nil
+	contextID, err := generateContextID(eventInfo)
+	if err != nil {
+		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+	}
+
+	return p.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
 // Destroy handles a destroy event

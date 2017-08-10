@@ -41,6 +41,8 @@ const (
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
+	// KubernetesPU indicates that this is KubernetesPod
+	KubernetesPU
 )
 
 const (

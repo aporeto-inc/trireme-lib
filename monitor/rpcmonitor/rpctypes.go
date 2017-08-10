@@ -33,6 +33,9 @@ type EventInfo struct {
 	// The PID is the PID on the system where this Processing Unit is running.
 	PID string
 
+	// The path for the Network Namespace.
+	NS string
+
 	// IPs is a map of all the IPs that fully belong to this processing Unit.
 	IPs map[string]string
 }
