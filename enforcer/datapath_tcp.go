@@ -511,45 +511,30 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		var plc *policy.FlowPolicy
 
-		// Defer all cleaning up functions
-		defer func() {
-			lerr1 := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
-			lerr2 := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-			if lerr1 != nil || lerr2 != nil {
-				zap.L().Debug("Failed to clean cache")
-			}
-			if lerr := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.DestinationAddress.String(),
-				tcpPacket.SourceAddress.String(),
-				tcpPacket.IPProto,
-				tcpPacket.DestinationPort,
-				tcpPacket.SourcePort,
-				constants.DefaultConnMark,
-			); lerr != nil {
-				zap.L().Error("Failed to update conntrack table")
-			}
-			d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
-		}()
-
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, perr := context.externalIPCache.Get(flowHash); perr == nil {
 			plc = plci.(*policy.FlowPolicy)
+			d.releaseFlow(context, plc, tcpPacket)
 			return plc, nil, nil
 		}
 
 		// Never seen this IP before, let's parse them.
 		plc, err = context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
 		if err != nil || plc.Action&policy.Reject > 0 {
+			d.reportExternalServiceFlow(context, plc, true, tcpPacket)
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 
 		// Added to the cache if we can accept it
 		if err = context.externalIPCache.Add(tcpPacket.SourceAddress.String()+":"+strconv.Itoa(int(tcpPacket.SourcePort)), plc); err != nil {
+			d.releaseFlow(context, plc, tcpPacket)
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(TCPData)
+
+		d.releaseFlow(context, plc, tcpPacket)
 
 		return plc, nil, nil
 	}
@@ -959,4 +944,27 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 		return nil, fmt.Errorf("PU Context cannot be found using port key %v ", port)
 	}
 	return pu.(*PUContext), nil
+}
+
+// releaseFlow releases the flow and updates the conntrack table
+func (d *Datapath) releaseFlow(context *PUContext, plc *policy.FlowPolicy, tcpPacket *packet.Packet) {
+
+	lerr1 := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
+	lerr2 := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+	if lerr1 != nil || lerr2 != nil {
+		zap.L().Debug("Failed to clean cache")
+	}
+
+	if lerr := d.conntrackHdl.ConntrackTableUpdateMark(
+		tcpPacket.DestinationAddress.String(),
+		tcpPacket.SourceAddress.String(),
+		tcpPacket.IPProto,
+		tcpPacket.DestinationPort,
+		tcpPacket.SourcePort,
+		constants.DefaultConnMark,
+	); lerr != nil {
+		zap.L().Error("Failed to update conntrack table")
+	}
+
+	d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
 }
