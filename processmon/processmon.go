@@ -188,7 +188,17 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		return nil
 	}
 
-	pidstat, pidstaterr := os.Stat(procMountPoint + "/" + strconv.Itoa(refPid) + "/ns/net")
+	var nsPath string
+
+	// We check if the NetNsPath was given as parameter.
+	// If it was we will use it. Otherwise we will determine it based on the PID.
+	if refNSPath == "" {
+		nsPath = procMountPoint + "/" + strconv.Itoa(refPid) + "/ns/net"
+	} else {
+		nsPath = refNSPath
+	}
+
+	pidstat, pidstaterr := os.Stat(nsPath)
 	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
@@ -209,8 +219,9 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		}
 	}
 
+	// A symlink is created from /var/run/netns/<context> to the NetNSPath
 	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
-		linkErr := os.Symlink(procMountPoint+"/"+strconv.Itoa(refPid)+"/ns/net",
+		linkErr := os.Symlink(nsPath,
 			netnspath+contextID)
 		if linkErr != nil {
 			zap.L().Error(ErrSymLinkFailed.Error(), zap.Error(linkErr))
