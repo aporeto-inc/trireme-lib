@@ -488,7 +488,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	if err := d.puHandler.HandlePUEvent(contextID, monitor.EventStart); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
-				zap.L().Warn("Failed to stop bad container", zap.Error(err))
+				zap.L().Warn("Failed to stop bad container", zap.Error(derr))
 			}
 			return fmt.Errorf("Policy cound't be set - container was killed %s %s", contextID, err)
 		}
