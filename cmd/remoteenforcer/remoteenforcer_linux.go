@@ -49,7 +49,7 @@ type Server struct {
 	rpcSecret      string
 	rpcchannel     string
 	rpchdl         rpcwrapper.RPCServer
-	statsclient    *StatsClient
+	statsclient    Stats
 	procMountPoint string
 	Enforcer       enforcer.PolicyEnforcer
 	Supervisor     supervisor.Supervisor
@@ -60,11 +60,25 @@ type Server struct {
 var cmdLock sync.Mutex
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string) (*Server, error) {
+func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, stats Stats) (*Server, error) {
 
-	statsclient, err := NewStatsClient()
-	if err != nil {
-		return nil, err
+	if stats == nil {
+		statsclient, err := NewStatsClient()
+		if err != nil {
+			return nil, err
+		}
+		procMountPoint := os.Getenv(envProcMountPoint)
+		if len(procMountPoint) == 0 {
+			procMountPoint = configurator.DefaultProcMountPoint
+		}
+		return &Server{
+			Service:        service,
+			rpcchannel:     rpcchan,
+			rpcSecret:      secret,
+			rpchdl:         rpchdl,
+			procMountPoint: procMountPoint,
+			statsclient:    statsclient,
+		}, nil
 	}
 	procMountPoint := os.Getenv(envProcMountPoint)
 	if len(procMountPoint) == 0 {
@@ -76,7 +90,7 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 		rpcSecret:      secret,
 		rpchdl:         rpchdl,
 		procMountPoint: procMountPoint,
-		statsclient:    statsclient,
+		statsclient:    stats,
 	}, nil
 }
 
@@ -141,79 +155,80 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	payload := req.Payload.(rpcwrapper.InitRequestPayload)
-	switch payload.SecretType {
-	case secrets.PKIType:
-		// PKI params
-		s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
-		if err != nil {
-			return fmt.Errorf("Failed to initialize secrets")
+	if s.Enforcer == nil {
+		payload := req.Payload.(rpcwrapper.InitRequestPayload)
+		switch payload.SecretType {
+		case secrets.PKIType:
+			// PKI params
+			s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
+			if err != nil {
+				return fmt.Errorf("Failed to initialize secrets")
+			}
+			s.Enforcer = enforcer.New(
+				payload.MutualAuth,
+				payload.FqConfig,
+				s.statsclient.(*StatsClient).collector,
+				s.Service,
+				s.secrets,
+				payload.ServerID,
+				payload.Validity,
+				constants.RemoteContainer,
+				s.procMountPoint,
+			)
+		case secrets.PSKType:
+			// PSK params
+			s.secrets = secrets.NewPSKSecrets(payload.PrivatePEM)
+			s.Enforcer = enforcer.New(
+				payload.MutualAuth,
+				payload.FqConfig,
+				s.statsclient.(*StatsClient).collector,
+				s.Service,
+				s.secrets,
+				payload.ServerID,
+				payload.Validity,
+				constants.RemoteContainer,
+				s.procMountPoint,
+			)
+		case secrets.PKICompactType:
+			// Compact PKI Parameters
+			s.secrets, err = secrets.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
+			if err != nil {
+				return fmt.Errorf("Failed to initialize secrets")
+			}
+			s.Enforcer = enforcer.New(
+				payload.MutualAuth,
+				payload.FqConfig,
+				s.statsclient.(*StatsClient).collector,
+				s.Service,
+				s.secrets,
+				payload.ServerID,
+				payload.Validity,
+				constants.RemoteContainer,
+				s.procMountPoint,
+			)
+		case secrets.PKINull:
+			// Null Encryption
+			zap.L().Info("Using Null Secrets")
+			s.secrets, err = secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
+			if err != nil {
+				return fmt.Errorf("Failed to initialize secrets")
+			}
+			s.Enforcer = enforcer.New(
+				payload.MutualAuth,
+				payload.FqConfig,
+				s.statsclient.(*StatsClient).collector,
+				s.Service,
+				s.secrets,
+				payload.ServerID,
+				payload.Validity,
+				constants.RemoteContainer,
+				s.procMountPoint,
+			)
 		}
-		s.Enforcer = enforcer.New(
-			payload.MutualAuth,
-			payload.FqConfig,
-			s.statsclient.collector,
-			s.Service,
-			s.secrets,
-			payload.ServerID,
-			payload.Validity,
-			constants.RemoteContainer,
-			s.procMountPoint,
-		)
-	case secrets.PSKType:
-		// PSK params
-		s.secrets = secrets.NewPSKSecrets(payload.PrivatePEM)
-		s.Enforcer = enforcer.New(
-			payload.MutualAuth,
-			payload.FqConfig,
-			s.statsclient.collector,
-			s.Service,
-			s.secrets,
-			payload.ServerID,
-			payload.Validity,
-			constants.RemoteContainer,
-			s.procMountPoint,
-		)
-	case secrets.PKICompactType:
-		// Compact PKI Parameters
-		s.secrets, err = secrets.NewCompactPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.Token)
-		if err != nil {
-			return fmt.Errorf("Failed to initialize secrets")
-		}
-		s.Enforcer = enforcer.New(
-			payload.MutualAuth,
-			payload.FqConfig,
-			s.statsclient.collector,
-			s.Service,
-			s.secrets,
-			payload.ServerID,
-			payload.Validity,
-			constants.RemoteContainer,
-			s.procMountPoint,
-		)
-	case secrets.PKINull:
-		// Null Encryption
-		zap.L().Info("Using Null Secrets")
-		s.secrets, err = secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
-		if err != nil {
-			return fmt.Errorf("Failed to initialize secrets")
-		}
-		s.Enforcer = enforcer.New(
-			payload.MutualAuth,
-			payload.FqConfig,
-			s.statsclient.collector,
-			s.Service,
-			s.secrets,
-			payload.ServerID,
-			payload.Validity,
-			constants.RemoteContainer,
-			s.procMountPoint,
-		)
 	}
-
 	s.Enforcer.Start()
 
-	s.statsclient.connectStatsClient()
+	s.statsclient.ConnectStatsClient()
 
 	resp.Status = ""
 
@@ -239,7 +254,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			return fmt.Errorf("IPSets not supported yet")
 		default:
 			supervisorHandle, err := supervisor.NewSupervisor(
-				s.statsclient.collector,
+				s.statsclient.(*StatsClient).collector,
 				s.Enforcer,
 				constants.RemoteContainer,
 				constants.IPTables,
@@ -444,7 +459,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
 	rpchdl := rpcwrapper.NewRPCServer()
 
-	server, err := NewServer(service, rpchdl, namedPipe, secret)
+	server, err := NewServer(service, rpchdl, namedPipe, secret, nil)
 	if err != nil {
 		return err
 	}
