@@ -458,6 +458,7 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
+		return err
 	}
 
 	return nil
