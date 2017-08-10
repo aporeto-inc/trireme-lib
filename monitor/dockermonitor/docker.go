@@ -298,7 +298,6 @@ func (d *dockerMonitor) Stop() error {
 	zap.L().Debug("Stopping the docker monitor")
 
 	d.stoplistener <- true
-	fmt.Println("Stop")
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.stopprocessor[i] <- true
 	}
