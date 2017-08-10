@@ -23,6 +23,7 @@ func TestNewPURunTime(t *testing.T) {
 		runtime := NewPURuntime(
 			"container1",
 			123,
+			"",
 			tags,
 			ips,
 			constants.ContainerPU,
@@ -67,6 +68,7 @@ func TestBasicFunctions(t *testing.T) {
 		runtime := NewPURuntime(
 			"container1",
 			123,
+			"",
 			tags,
 			ips,
 			constants.ContainerPU,
