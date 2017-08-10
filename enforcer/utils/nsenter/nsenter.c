@@ -35,7 +35,7 @@ void nsexec(void) {
     snprintf(path, sizeof(path), "%s/%s/ns/net", mountpoint, container_pid_env);
   } else {
     // We use the env variable as the Path.
-    strncpy(path, netns_path_env, STRBUF_SIZE));
+    strncpy(path, netns_path_env, STRBUF_SIZE);
   }
 
   // Setup FD to symlink
