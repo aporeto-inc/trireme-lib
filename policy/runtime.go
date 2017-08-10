@@ -133,6 +133,22 @@ func (r *PURuntime) SetPid(pid int) {
 	r.pid = pid
 }
 
+// NSPath returns the NSPath
+func (r *PURuntime) NSPath() string {
+	r.Lock()
+	defer r.Unlock()
+
+	return r.nsPath
+}
+
+// SetNSPath sets the NSPath
+func (r *PURuntime) SetNSPath(nsPath string) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.nsPath = nsPath
+}
+
 // SetPUType sets the PU Type
 func (r *PURuntime) SetPUType(puType constants.PUType) {
 	r.Lock()

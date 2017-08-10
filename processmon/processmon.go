@@ -179,7 +179,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath string, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
 	secretLength := 32
 	var cmdName string
 

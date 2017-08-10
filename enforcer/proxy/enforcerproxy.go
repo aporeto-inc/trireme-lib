@@ -91,12 +91,13 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	return nil
 }
 
-//Enforce method makes a RPC call for the remote enforcer enforce emthod
+//Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
+	zap.L().Debug("NSPath of container", zap.String("ns", puInfo.Runtime.NSPath()))
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), puInfo.Runtime.NSPath(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
 	if err != nil {
 		return err
 	}
