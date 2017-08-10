@@ -260,6 +260,8 @@ func (d *Datapath) Stop() error {
 		d.netStop[i] <- true
 	}
 
+	d.nflogger.stop()
+
 	return nil
 }
 
