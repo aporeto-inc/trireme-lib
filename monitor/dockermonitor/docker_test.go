@@ -43,8 +43,7 @@ func initTestDockerInfo(id string, nwmode container.NetworkMode, state bool) *ty
 	var testContainer types.ContainerState
 	var testHostConfig container.HostConfig
 
-	var m map[string]string
-	m = make(map[string]string)
+	m := make(map[string]string)
 	m["role"] = "client"
 	m["vendor"] = "CentOS"
 	m["$id"] = "598a35a60f79af0001b52ef5"
@@ -641,7 +640,8 @@ func TestStart(t *testing.T) {
 
 		Convey("When I try to call extractmetadata with nil docker info", func() {
 
-			ctx, _ := context.WithTimeout(context.Background(), 2*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
 			_, pingerr := dm.(*dockerMonitor).dockerClient.Ping(ctx)
 			if pingerr != nil {
 				err := dm.(*dockerMonitor).Start()
