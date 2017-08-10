@@ -243,18 +243,34 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		return err
 	}
 
-	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
+	statsChannel := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		//This is a more serious failure. We can't reliably control the remote enforcer
 		return fmt.Errorf("Failed to generate secret: %s", err.Error())
 	}
-	MountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
+	mountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
 	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
+	containerPID := "CONTAINER_PID=" + strconv.Itoa(refPid)
 
-	cmd.Env = append(os.Environ(), []string{MountPoint, namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+	newEnvVars := []string{
+		mountPoint,
+		namedPipe,
+		statsChannel,
+		rpcClientSecret,
+		envStatsSecret,
+		containerPID,
+	}
+
+	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
+	if refNSPath != "" {
+		nsPath := "APORETO_ENV_NS_PATH=" + refNSPath
+		newEnvVars = append(newEnvVars, nsPath)
+	}
+
+	cmd.Env = append(os.Environ(), newEnvVars...)
 
 	err = cmd.Start()
 	if err != nil {
