@@ -4,9 +4,9 @@
 package mockmonitor
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
 	monitor "github.com/aporeto-inc/trireme/monitor"
 	policy "github.com/aporeto-inc/trireme/policy"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockMonitor is a mock of Monitor interface
