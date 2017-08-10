@@ -27,7 +27,7 @@ func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURunt
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, 1, runtimeTags, runtimeIps, constants.LinuxProcessPU, nil), nil
+	return policy.NewPURuntime(event.Name, 1, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, nil), nil
 }
 
 // DockerCNIMetadataExtractor is a systemd based metadata extractor
@@ -49,5 +49,5 @@ func DockerCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime,
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, 1, runtimeTags, runtimeIps, constants.LinuxProcessPU, nil), nil
+	return policy.NewPURuntime(event.Name, 1, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, nil), nil
 }
