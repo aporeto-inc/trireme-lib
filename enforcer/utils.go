@@ -7,33 +7,136 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, action string, mode string) {
+func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 
-	d.collector.CollectFlowEvent(&collector.FlowRecord{
-		ContextID:       context.ID,
-		DestinationID:   destID,
-		SourceID:        sourceID,
-		Tags:            context.Annotations,
-		Action:          action,
-		Mode:            mode,
-		SourceIP:        p.SourceAddress.String(),
-		DestinationIP:   p.DestinationAddress.String(),
-		DestinationPort: p.DestinationPort,
-	})
+	c := &collector.FlowRecord{
+		ContextID: context.ID,
+		Source: &collector.EndPoint{
+			ID:   sourceID,
+			IP:   p.SourceAddress.String(),
+			Port: p.SourcePort,
+			Type: collector.PU,
+		},
+		Destination: &collector.EndPoint{
+			ID:   destID,
+			IP:   p.DestinationAddress.String(),
+			Port: p.DestinationPort,
+			Type: collector.PU,
+		},
+		Tags:       context.Annotations,
+		Action:     plc.Action,
+		DropReason: mode,
+	}
+
+	d.collector.CollectFlowEvent(c)
+
 }
 
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext) {
+func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, plc *policy.FlowPolicy) {
 	if conn != nil {
 		conn.SetReported(RejectReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowAccept, "NA")
+	d.reportFlow(p, conn, sourceID, destID, context, "NA", plc)
 }
 
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string) {
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 	if conn != nil {
 		conn.SetReported(AcceptReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, collector.FlowReject, mode)
+
+	if plc == nil {
+		plc = &policy.FlowPolicy{
+			Action: policy.Reject,
+		}
+	}
+
+	d.reportFlow(p, conn, sourceID, destID, context, mode, plc)
+}
+
+func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
+
+	src := &collector.EndPoint{
+		IP:   p.SourceAddress.String(),
+		Port: p.SourcePort,
+	}
+
+	dst := &collector.EndPoint{
+		IP:   p.DestinationAddress.String(),
+		Port: p.DestinationPort,
+	}
+
+	if flowpolicy == nil {
+		flowpolicy = &policy.FlowPolicy{
+			Action: policy.Reject,
+		}
+	}
+
+	if app {
+		src.ID = context.ManagementID
+		src.Type = collector.PU
+		dst.ID = flowpolicy.ServiceID
+		dst.Type = collector.Address
+	} else {
+		src.ID = flowpolicy.ServiceID
+		src.Type = collector.Address
+		dst.ID = context.ManagementID
+		dst.Type = collector.PU
+	}
+
+	record := &collector.FlowRecord{
+		ContextID:   context.ID,
+		Source:      src,
+		Destination: dst,
+		DropReason:  collector.PolicyDrop,
+		Action:      flowpolicy.Action,
+		Tags:        context.Annotations,
+		PolicyID:    flowpolicy.PolicyID,
+	}
+
+	d.collector.CollectFlowEvent(record)
+}
+
+func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
+
+	src := &collector.EndPoint{
+		IP:   p.DestinationAddress.String(),
+		Port: p.DestinationPort,
+	}
+
+	dst := &collector.EndPoint{
+		IP:   p.SourceAddress.String(),
+		Port: p.SourcePort,
+	}
+
+	if flowpolicy == nil {
+		flowpolicy = &policy.FlowPolicy{
+			Action: policy.Reject,
+		}
+	}
+
+	if app {
+		src.ID = context.ManagementID
+		src.Type = collector.PU
+		dst.ID = flowpolicy.ServiceID
+		dst.Type = collector.Address
+	} else {
+		src.ID = flowpolicy.ServiceID
+		src.Type = collector.Address
+		dst.ID = context.ManagementID
+		dst.Type = collector.PU
+	}
+
+	record := &collector.FlowRecord{
+		ContextID:   context.ID,
+		Source:      src,
+		Destination: dst,
+		DropReason:  collector.PolicyDrop,
+		Action:      flowpolicy.Action,
+		Tags:        context.Annotations,
+		PolicyID:    flowpolicy.PolicyID,
+	}
+
+	d.collector.CollectFlowEvent(record)
 }
 
 // createRuleDBs creates the database of rules from the policy
@@ -43,9 +146,9 @@ func createRuleDBs(policyRules policy.TagSelectorList) (*lookup.PolicyDB, *looku
 	rejectRules := lookup.NewPolicyDB()
 
 	for _, rule := range policyRules {
-		if rule.Action&policy.Accept != 0 {
+		if rule.Policy.Action&policy.Accept != 0 {
 			acceptRules.AddPolicy(rule)
-		} else if rule.Action&policy.Reject != 0 {
+		} else if rule.Policy.Action&policy.Reject != 0 {
 			rejectRules.AddPolicy(rule)
 		} else {
 			continue
