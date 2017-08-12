@@ -102,5 +102,9 @@ func generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
 		return "", fmt.Errorf("PUID is empty from eventInfo")
 	}
 
-	return eventInfo.PUID, nil
+	if len(eventInfo.PUID) < 12 {
+		return "", fmt.Errorf("PUID smaller than 12 characters")
+	}
+
+	return eventInfo.PUID[:12], nil
 }
