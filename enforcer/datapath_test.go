@@ -1042,7 +1042,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 									Operator: policy.Equal,
 								},
 							},
-							Action: policy.Accept,
+							Policy: &policy.FlowPolicy{Action: policy.Accept},
 						}
 						PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
 						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
@@ -1050,29 +1050,29 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						iteration = iteration + 1
 						puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
 						puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
-						puIP1 := PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String() // + strconv.Itoa(iteration)
-						puIP2 := PacketFlow.GetNthPacket(0).GetIPPacket().DstIP.String() // + strconv.Itoa(iteration)
+						puIP1 := "164.67.228.152" // + strconv.Itoa(iteration)
+						puIP2 := "10.1.10.76"     // + strconv.Itoa(iteration)
 						serverID := "SomeServerId"
 
 						// Create ProcessingUnit 1
 						puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
 
-						ip1 := policy.NewIPMap(map[string]string{})
-						ip1.Add("bridge", puIP1)
+						ip1 := policy.ExtendedMap{}
+						ip1["bridge"] = puIP1
 						puInfo1.Runtime.SetIPAddresses(ip1)
-						ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP1})
+						ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
 						puInfo1.Policy.SetIPAddresses(ipl1)
 						puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
-						puInfo1.Policy.AddReceiverRules(&tagSelector)
+						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
 						puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
-						ip2 := policy.NewIPMap(map[string]string{"bridge": puIP2})
+						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
-						ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP2})
+						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
 						puInfo2.Policy.SetIPAddresses(ipl2)
 						puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
-						puInfo2.Policy.AddReceiverRules(&tagSelector)
+						puInfo2.Policy.AddReceiverRules(tagSelector)
 
 						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 						collector := &collector.DefaultCollector{}
@@ -1095,7 +1095,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 									Operator: policy.Equal,
 								},
 							},
-							Action: policy.Accept,
+							Policy: &policy.FlowPolicy{Action: policy.Accept},
 						}
 						PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
 						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
@@ -1103,29 +1103,29 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						iteration = iteration + 1
 						puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
 						puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
-						puIP1 := PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String() // + strconv.Itoa(iteration)
-						puIP2 := PacketFlow.GetNthPacket(0).GetIPPacket().DstIP.String() // + strconv.Itoa(iteration)
+						puIP1 := "164.67.228.152" // + strconv.Itoa(iteration)
+						puIP2 := "10.1.10.76"     // + strconv.Itoa(iteration)
 						serverID := "SomeServerId"
 
 						// Create ProcessingUnit 1
 						puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
 
-						ip1 := policy.NewIPMap(map[string]string{})
-						ip1.Add("bridge", puIP1)
+						ip1 := policy.ExtendedMap{}
+						ip1["bridge"] = puIP1
 						puInfo1.Runtime.SetIPAddresses(ip1)
-						ipl1 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP1})
+						ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
 						puInfo1.Policy.SetIPAddresses(ipl1)
 						puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
-						puInfo1.Policy.AddReceiverRules(&tagSelector)
+						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
 						puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
-						ip2 := policy.NewIPMap(map[string]string{"bridge": puIP2})
+						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
-						ipl2 := policy.NewIPMap(map[string]string{policy.DefaultNamespace: puIP2})
+						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
 						puInfo2.Policy.SetIPAddresses(ipl2)
 						puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
-						puInfo2.Policy.AddReceiverRules(&tagSelector)
+						puInfo2.Policy.AddReceiverRules(tagSelector)
 
 						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 						collector := &collector.DefaultCollector{}
@@ -1192,10 +1192,8 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 							fmt.Println("Output packet", i)
 							outPacket.Print(0)
 						}
-
 					}
 				}
-
 			})
 		})
 	})
