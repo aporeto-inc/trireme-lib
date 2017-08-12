@@ -43,7 +43,7 @@ type Server struct {
 }
 
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
-func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, collector collector.EventCollector) (*RPCMonitor, error) {
+func NewRPCMonitor(rpcAddress string, collector collector.EventCollector) (*RPCMonitor, error) {
 
 	if rpcAddress == "" {
 		return nil, fmt.Errorf("RPC endpoint address invalid")
@@ -53,10 +53,6 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 		if err := os.Remove(rpcAddress); err != nil {
 			return nil, fmt.Errorf("Failed to clean up rpc socket")
 		}
-	}
-
-	if puHandler == nil {
-		return nil, fmt.Errorf("PU Handler required")
 	}
 
 	monitorServer := &Server{
