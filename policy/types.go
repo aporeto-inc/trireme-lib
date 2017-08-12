@@ -19,26 +19,94 @@ const (
 	KeyNotExists = "!*"
 )
 
-// FlowAction is the action that can be applied to a flow.
-type FlowAction int
+// ActionType   is the action that can be applied to a flow.
+type ActionType byte
+
+// Accepted returns if the action mask contains the Accepted mask.
+func (f ActionType) Accepted() bool {
+	return f&Accept > 0
+}
+
+// Rejected returns if the action mask contains the Rejected mask.
+func (f ActionType) Rejected() bool {
+	return f&Reject > 0
+}
+
+// Encrypted returns if the action mask contains the Encrypted mask.
+func (f ActionType) Encrypted() bool {
+	return f&Encrypt > 0
+}
+
+// Logged returns if the action mask contains the Logged mask.
+func (f ActionType) Logged() bool {
+	return f&Log > 0
+}
+
+// ShortActionString returns if the action if accepted of rejected as a short string.
+func (f ActionType) ShortActionString() string {
+	if f.Accepted() && !f.Rejected() {
+		return "a"
+	}
+
+	if !f.Accepted() && f.Rejected() {
+		return "r"
+	}
+
+	return "p"
+}
+
+// ActionString returns if the action if accepted of rejected as a long string.
+func (f ActionType) ActionString() string {
+	if f.Accepted() && !f.Rejected() {
+		return "accept"
+	}
+
+	if !f.Accepted() && f.Rejected() {
+		return "reject"
+	}
+
+	return "passthrough"
+}
+
+func (f ActionType) String() string {
+	switch f {
+	case Accept:
+		return "accept"
+	case Reject:
+		return "reject"
+	case Encrypt:
+		return "encrypt"
+	case Log:
+		return "log"
+	}
+
+	return "unknown"
+}
 
 const (
 	// Accept is the accept action
-	Accept FlowAction = 0x1
+	Accept ActionType = 0x1
 	// Reject is the reject  action
-	Reject FlowAction = 0x2
-	// Log intstructs the data to log informat
-	Log FlowAction = 0x4
+	Reject ActionType = 0x2
 	// Encrypt instructs data to be encrypted
-	Encrypt FlowAction = 0x8
+	Encrypt ActionType = 0x4
+	// Log instructs the datapath to log the IP addresses
+	Log ActionType = 0x8
 )
+
+// FlowPolicy captures the policy for a particular flow
+type FlowPolicy struct {
+	Action    ActionType
+	ServiceID string
+	PolicyID  string
+}
 
 // IPRule holds IP rules to external services
 type IPRule struct {
 	Address  string
 	Port     string
 	Protocol string
-	Action   FlowAction
+	Policy   *FlowPolicy
 }
 
 // IPRuleList is a list of IP rules
@@ -63,7 +131,7 @@ type KeyValueOperator struct {
 // TagSelector info describes a tag selector key Operator value
 type TagSelector struct {
 	Clause []KeyValueOperator
-	Action FlowAction
+	Policy *FlowPolicy
 }
 
 // TagSelectorList defines a list of TagSelectors

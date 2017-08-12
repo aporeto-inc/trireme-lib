@@ -32,7 +32,7 @@ type StatsClient struct {
 }
 
 // NewStatsClient initializes a new stats client
-func NewStatsClient() (*StatsClient, error) {
+func NewStatsClient() (Stats, error) {
 
 	statsChannel := os.Getenv(envStatsChannelPath)
 	if len(statsChannel) == 0 {
@@ -108,9 +108,9 @@ func (s *StatsClient) SendStats() {
 
 }
 
-// connectStatsCLient  This is an private function called by the remoteenforcer to connect back
+// ConnectStatsClient  This is an private function called by the remoteenforcer to connect back
 // to the controller over a stats channel
-func (s *StatsClient) connectStatsClient() error {
+func (s *StatsClient) ConnectStatsClient() error {
 
 	if err := s.rpchdl.NewRPCClient(statsContextID, s.statsChannel, s.secret); err != nil {
 		zap.L().Error("Stats RPC client cannot connect", zap.Error(err))
