@@ -184,22 +184,26 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 // DestroyRPCClient calls close on the rpc and cleans up the connection
 func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
-	rpcHdl, _ := r.rpcClientMap.Get(contextID)
-	if err := rpcHdl.(*RPCHdl).Client.Close(); err != nil {
+	rpcHdl, err := r.rpcClientMap.Get(contextID)
+	if err != nil {
+		return
+	}
+
+	if err = rpcHdl.(*RPCHdl).Client.Close(); err != nil {
 		zap.L().Warn("Failed to close channel",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
 	}
 
-	if err := os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
+	if err = os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
 		zap.L().Debug("Failed to remove channel - already closed",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
 	}
 
-	if err := r.rpcClientMap.Remove(contextID); err != nil {
+	if err = r.rpcClientMap.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to remove item from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
