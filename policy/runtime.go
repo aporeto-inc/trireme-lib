@@ -11,18 +11,22 @@ import (
 type PURuntime struct {
 	// puType is the type of the PU (container or process )
 	puType constants.PUType
-	//PURuntimeMutex is a mutex to prevent access to same runtime object from multiple threads
-	puRuntimeMutex *sync.Mutex
 	// Pid holds the value of the first process of the container
 	pid int
 	// Name is the name of the container
 	name string
 	// IPAddress is the IP Address of the container
-	ips *IPMap
+	ips ExtendedMap
 	// Tags is a map of the metadata of the container
-	tags *TagsMap
+	tags *TagStore
 	// options
-	options *TagsMap
+	options ExtendedMap
+
+	// GlobalLock is used by Trireme to make sure that two operations do not
+	// get interleaved for the same container.
+	GlobalLock *sync.Mutex
+
+	sync.Mutex
 }
 
 // PURuntimeJSON is a Json representation of PURuntime
@@ -34,39 +38,39 @@ type PURuntimeJSON struct {
 	// Name is the name of the container
 	Name string
 	// IPAddress is the IP Address of the container
-	IPAddresses *IPMap
+	IPAddresses ExtendedMap
 	// Tags is a map of the metadata of the container
-	Tags *TagsMap
+	Tags *TagStore
 	// Options is a map of the options of the container
-	Options *TagsMap
+	Options ExtendedMap
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagsMap, ips *IPMap, puType constants.PUType, options *TagsMap) *PURuntime {
+func NewPURuntime(name string, pid int, tags *TagStore, ips ExtendedMap, puType constants.PUType, options ExtendedMap) *PURuntime {
 
 	t := tags
 	if t == nil {
-		t = NewTagsMap(nil)
+		t = NewTagStore()
 	}
 
 	i := ips
 	if i == nil {
-		i = NewIPMap(nil)
+		i = ExtendedMap{}
 	}
 
 	o := options
 	if o == nil {
-		o = NewTagsMap(nil)
+		o = ExtendedMap{}
 	}
 
 	return &PURuntime{
-		puType:         puType,
-		puRuntimeMutex: &sync.Mutex{},
-		tags:           t,
-		ips:            i,
-		options:        o,
-		pid:            pid,
-		name:           name,
+		puType:     puType,
+		tags:       t,
+		ips:        i,
+		options:    o,
+		pid:        pid,
+		name:       name,
+		GlobalLock: &sync.Mutex{},
 	}
 }
 
@@ -78,10 +82,10 @@ func NewPURuntimeWithDefaults() *PURuntime {
 
 // Clone returns a copy of the policy
 func (r *PURuntime) Clone() *PURuntime {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags.Clone(), r.ips.Clone(), r.puType, r.options)
+	return NewPURuntime(r.name, r.pid, r.tags.Copy(), r.ips.Copy(), r.puType, r.options)
 }
 
 // MarshalJSON Marshals this struct.
@@ -113,76 +117,99 @@ func (r *PURuntime) UnmarshalJSON(param []byte) error {
 
 // Pid returns the PID
 func (r *PURuntime) Pid() int {
+	r.Lock()
+	defer r.Unlock()
+
 	return r.pid
 }
 
 // SetPid sets the PID
 func (r *PURuntime) SetPid(pid int) {
+	r.Lock()
+	defer r.Unlock()
+
 	r.pid = pid
 }
 
+// SetPUType sets the PU Type
+func (r *PURuntime) SetPUType(puType constants.PUType) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.puType = puType
+}
+
 // SetOptions sets the Options
-func (r *PURuntime) SetOptions(options *TagsMap) {
-	r.options = options
+func (r *PURuntime) SetOptions(options ExtendedMap) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.options = options.Copy()
 }
 
 // Name returns the PID
 func (r *PURuntime) Name() string {
+	r.Lock()
+	defer r.Unlock()
+
 	return r.name
 }
 
 // PUType returns the PU type
 func (r *PURuntime) PUType() constants.PUType {
+	r.Lock()
+	defer r.Unlock()
+
 	return r.puType
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit
 func (r *PURuntime) DefaultIPAddress() (string, bool) {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
-	ip, ok := r.ips.Get("bridge")
+	ip, ok := r.ips[DefaultNamespace]
 
 	return ip, ok
 }
 
 // IPAddresses returns all the IP addresses for the processing unit
-func (r *PURuntime) IPAddresses() *IPMap {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
+func (r *PURuntime) IPAddresses() ExtendedMap {
+	r.Lock()
+	defer r.Unlock()
 
-	return r.ips.Clone()
+	return r.ips.Copy()
 }
 
 // SetIPAddresses sets up all the IP addresses for the processing unit
-func (r *PURuntime) SetIPAddresses(ipa *IPMap) {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
+func (r *PURuntime) SetIPAddresses(ipa ExtendedMap) {
+	r.Lock()
+	defer r.Unlock()
 
-	r.ips = ipa.Clone()
+	r.ips = ipa.Copy()
 }
 
-//Tag returns a specific tag for the processing unit
+// Tag returns a specific tag for the processing unit
 func (r *PURuntime) Tag(key string) (string, bool) {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
 	tag, ok := r.tags.Get(key)
 	return tag, ok
 }
 
 //Tags returns tags for the processing unit
-func (r *PURuntime) Tags() *TagsMap {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
+func (r *PURuntime) Tags() *TagStore {
+	r.Lock()
+	defer r.Unlock()
 
-	return r.tags.Clone()
+	return r.tags.Copy()
 }
 
 // Options returns tags for the processing unit
-func (r *PURuntime) Options() *TagsMap {
-	r.puRuntimeMutex.Lock()
-	defer r.puRuntimeMutex.Unlock()
+func (r *PURuntime) Options() ExtendedMap {
+	r.Lock()
+	defer r.Unlock()
 
-	return r.options.Clone()
+	return r.options.Copy()
 }

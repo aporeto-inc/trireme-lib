@@ -41,11 +41,9 @@ func (c *CollectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 
 	c.Flows[hash] = record
 
-	c.Flows[hash].Tags = c.Flows[hash].Tags.Clone()
+	c.Flows[hash].Tags = record.Tags
 }
 
 //CollectContainerEvent exported
 //This event should not be expected here in the enforcer process inside a particular container context
-func (c *CollectorImpl) CollectContainerEvent(record *collector.ContainerRecord) {
-	return
-}
+func (c *CollectorImpl) CollectContainerEvent(record *collector.ContainerRecord) {}

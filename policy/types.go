@@ -1,6 +1,9 @@
 package policy
 
-// This file defines types and accessor methods for these types
+const (
+	// DefaultNamespace is the default namespace for applying policy
+	DefaultNamespace = "bridge"
+)
 
 // Operator defines the operation between your key and value.
 type Operator string
@@ -16,127 +19,106 @@ const (
 	KeyNotExists = "!*"
 )
 
-// FlowAction is the action that can be applied to a flow.
-type FlowAction int
+// ActionType   is the action that can be applied to a flow.
+type ActionType byte
+
+// Accepted returns if the action mask contains the Accepted mask.
+func (f ActionType) Accepted() bool {
+	return f&Accept > 0
+}
+
+// Rejected returns if the action mask contains the Rejected mask.
+func (f ActionType) Rejected() bool {
+	return f&Reject > 0
+}
+
+// Encrypted returns if the action mask contains the Encrypted mask.
+func (f ActionType) Encrypted() bool {
+	return f&Encrypt > 0
+}
+
+// Logged returns if the action mask contains the Logged mask.
+func (f ActionType) Logged() bool {
+	return f&Log > 0
+}
+
+// ShortActionString returns if the action if accepted of rejected as a short string.
+func (f ActionType) ShortActionString() string {
+	if f.Accepted() && !f.Rejected() {
+		return "a"
+	}
+
+	if !f.Accepted() && f.Rejected() {
+		return "r"
+	}
+
+	return "p"
+}
+
+// ActionString returns if the action if accepted of rejected as a long string.
+func (f ActionType) ActionString() string {
+	if f.Accepted() && !f.Rejected() {
+		return "accept"
+	}
+
+	if !f.Accepted() && f.Rejected() {
+		return "reject"
+	}
+
+	return "passthrough"
+}
+
+func (f ActionType) String() string {
+	switch f {
+	case Accept:
+		return "accept"
+	case Reject:
+		return "reject"
+	case Encrypt:
+		return "encrypt"
+	case Log:
+		return "log"
+	}
+
+	return "unknown"
+}
 
 const (
 	// Accept is the accept action
-	Accept FlowAction = 0x1
+	Accept ActionType = 0x1
 	// Reject is the reject  action
-	Reject FlowAction = 0x2
-	// Log intstructs the data to log informat
-	Log FlowAction = 0x4
+	Reject ActionType = 0x2
 	// Encrypt instructs data to be encrypted
-	Encrypt FlowAction = 0x8
+	Encrypt ActionType = 0x4
+	// Log instructs the datapath to log the IP addresses
+	Log ActionType = 0x8
 )
 
-const (
-	// DefaultNamespace is the default namespace for applying policy
-	DefaultNamespace = "bridge"
-)
-
-// PUAction defines the action types that applies for a specific PU as a whole.
-type PUAction int
-
-const (
-	// AllowAll allows everything for the specific PU.
-	AllowAll = 0x1
-	// Police filters on the PU based on the PolicyRules.
-	Police = 0x2
-)
+// FlowPolicy captures the policy for a particular flow
+type FlowPolicy struct {
+	Action    ActionType
+	ServiceID string
+	PolicyID  string
+}
 
 // IPRule holds IP rules to external services
 type IPRule struct {
 	Address  string
 	Port     string
 	Protocol string
-	Action   FlowAction
+	Policy   *FlowPolicy
 }
 
 // IPRuleList is a list of IP rules
-type IPRuleList struct {
-	Rules []IPRule
-}
+type IPRuleList []IPRule
 
-// NewIPRuleList returns a new IP rule list
-func NewIPRuleList(rules []IPRule) *IPRuleList {
-	rl := &IPRuleList{
-		Rules: []IPRule{},
+// Copy creates a clone of the IP rule list
+func (l IPRuleList) Copy() IPRuleList {
+	list := make(IPRuleList, len(l))
+	for i, v := range l {
+		list[i] = v
 	}
-	rl.Rules = append(rl.Rules, rules...)
-
-	return rl
-}
-
-// Clone creates a clone of the IP rule list
-func (l *IPRuleList) Clone() *IPRuleList {
-	return NewIPRuleList(l.Rules)
-}
-
-// An IPMap is a map of Key:Values used for IP Addresses.
-type IPMap struct {
-	IPs map[string]string
-}
-
-// NewIPMap returns a new instance of IPMap
-func NewIPMap(ips map[string]string) *IPMap {
-	ipm := &IPMap{
-		IPs: map[string]string{},
-	}
-	for k, v := range ips {
-		ipm.IPs[k] = v
-	}
-	return ipm
-}
-
-// Clone returns a copy of the map
-func (i *IPMap) Clone() *IPMap {
-	return NewIPMap(i.IPs)
-}
-
-// Add adds a key value pair
-func (i *IPMap) Add(k, v string) {
-	i.IPs[k] = v
-}
-
-// Get returns the value of a given key
-func (i *IPMap) Get(k string) (string, bool) {
-	v, ok := i.IPs[k]
-	return v, ok
-}
-
-// A TagsMap is a map of Key:Values used as tags.
-type TagsMap struct {
-	Tags map[string]string
-}
-
-// NewTagsMap returns a new instance of TagsMap
-func NewTagsMap(tags map[string]string) *TagsMap {
-	tm := &TagsMap{
-		Tags: map[string]string{},
-	}
-	if tags != nil {
-		for k, v := range tags {
-			tm.Tags[k] = v
-		}
-	}
-	return tm
-}
-
-// Clone returns a copy of the map
-func (t *TagsMap) Clone() *TagsMap {
-	return NewTagsMap(t.Tags)
-}
-
-// Get returns the value of a given key
-func (t *TagsMap) Get(k string) (string, bool) {
-	v, ok := t.Tags[k]
-	return v, ok
-}
-
-// Add adds a key value pair
-func (t *TagsMap) Add(k, v string) {
-	t.Tags[k] = v
+	return list
 }
 
 // KeyValueOperator describes an individual matching rule
@@ -146,64 +128,40 @@ type KeyValueOperator struct {
 	Operator Operator
 }
 
-// NewKeyValueOperator returns an empty KeyValueOperator
-func NewKeyValueOperator(k string, o Operator, kvos []string) *KeyValueOperator {
-	kvo := &KeyValueOperator{
-		Key:      k,
-		Operator: o,
-		Value:    []string{},
-	}
-
-	kvo.Value = append(kvo.Value, kvos...)
-
-	return kvo
-}
-
-// Clone returns a copy of the KeyValueOperator
-func (k *KeyValueOperator) Clone() *KeyValueOperator {
-	return NewKeyValueOperator(k.Key, k.Operator, k.Value)
-}
-
 // TagSelector info describes a tag selector key Operator value
 type TagSelector struct {
 	Clause []KeyValueOperator
-	Action FlowAction
+	Policy *FlowPolicy
 }
 
-// NewTagSelector return a new TagSelector
-func NewTagSelector(clauses []KeyValueOperator, a FlowAction) *TagSelector {
-	ts := &TagSelector{
-		Clause: []KeyValueOperator{},
-		Action: a,
+// TagSelectorList defines a list of TagSelectors
+type TagSelectorList []TagSelector
+
+// Copy  returns a copy of the TagSelectorList
+func (t TagSelectorList) Copy() TagSelectorList {
+	list := make(TagSelectorList, len(t))
+
+	for i, v := range t {
+		list[i] = v
 	}
-	for _, c := range clauses {
-		ts.Clause = append(ts.Clause, *c.Clone())
+
+	return list
+}
+
+// ExtendedMap is a common map with additional functions
+type ExtendedMap map[string]string
+
+// Copy copies an ExtendedMap
+func (s ExtendedMap) Copy() ExtendedMap {
+	c := ExtendedMap{}
+	for k, v := range s {
+		c[k] = v
 	}
-	return ts
+	return c
 }
 
-// Clone returns a copy of the TagSelector
-func (t *TagSelector) Clone() *TagSelector {
-	return NewTagSelector(t.Clause, t.Action)
-}
-
-// TagSelectorList defines a list of TagSelector
-type TagSelectorList struct {
-	TagSelectors []TagSelector
-}
-
-// NewTagSelectorList return a new TagSelectorList
-func NewTagSelectorList(tss []TagSelector) *TagSelectorList {
-	tsl := &TagSelectorList{
-		TagSelectors: []TagSelector{},
-	}
-	for _, ts := range tss {
-		tsl.TagSelectors = append(tsl.TagSelectors, *ts.Clone())
-	}
-	return tsl
-}
-
-// Clone returns a copy of the TagSelectorList
-func (t *TagSelectorList) Clone() *TagSelectorList {
-	return NewTagSelectorList(t.TagSelectors)
+// Get does a lookup in the map
+func (s ExtendedMap) Get(key string) (string, bool) {
+	value, ok := s[key]
+	return value, ok
 }

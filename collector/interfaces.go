@@ -1,6 +1,10 @@
 package collector
 
-import "github.com/aporeto-inc/trireme/policy"
+import (
+	"fmt"
+
+	"github.com/aporeto-inc/trireme/policy"
+)
 
 const (
 	// FlowReject indicates that a flow was rejected
@@ -41,6 +45,8 @@ const (
 	UnknownContainerDelete = "unknowncontainer"
 	// PolicyValid Normal flow accept
 	PolicyValid = "V"
+	// DefaultEndPoint  provides a string for unknown container sources
+	DefaultEndPoint = "default"
 )
 
 // EventCollector is the interface for collecting events.
@@ -53,24 +59,61 @@ type EventCollector interface {
 	CollectContainerEvent(record *ContainerRecord)
 }
 
+// EndPointType is the type of an endpoint (PU or an external IP address )
+type EndPointType byte
+
+const (
+	// Address indicates that the endpoint is an external IP address
+	Address EndPointType = iota
+	// PU indicates that the endpoint is a PU
+	PU
+)
+
+func (e *EndPointType) String() string {
+	if *e == Address {
+		return "ext"
+	}
+	return "pu"
+}
+
+// EndPoint is a structure that holds all the endpoint information
+type EndPoint struct {
+	ID   string
+	IP   string
+	Port uint16
+	Type EndPointType
+}
+
 // FlowRecord describes a flow record for statistis
 type FlowRecord struct {
-	ContextID       string
-	Count           int
-	SourceID        string
-	DestinationID   string
-	SourceIP        string
-	DestinationIP   string
-	DestinationPort uint16
-	Tags            *policy.TagsMap
-	Action          string
-	Mode            string
+	ContextID   string
+	Count       int
+	Source      *EndPoint
+	Destination *EndPoint
+	Tags        *policy.TagStore
+	Action      policy.ActionType
+	DropReason  string
+	PolicyID    string
+}
+
+func (f *FlowRecord) String() string {
+	return fmt.Sprintf("<flowrecord contextID:%s count:%d sourceID:%s destinationID:%s sourceIP: %s destinationIP:%s destinationPort:%d action:%s mode:%s>",
+		f.ContextID,
+		f.Count,
+		f.Source.ID,
+		f.Destination.ID,
+		f.Source.IP,
+		f.Destination.IP,
+		f.Destination.Port,
+		f.Action.String(),
+		f.DropReason,
+	)
 }
 
 // ContainerRecord is a statistics record for a container
 type ContainerRecord struct {
 	ContextID string
 	IPAddress string
-	Tags      *policy.TagsMap
+	Tags      *policy.TagStore
 	Event     string
 }

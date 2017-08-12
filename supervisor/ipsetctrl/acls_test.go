@@ -43,21 +43,21 @@ func TestCreateACLSets(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
-			})
+			}
 
 			err := i.createACLSets("0", "APP1-", rules)
 
@@ -72,7 +72,7 @@ func TestCreateACLSets(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			err := i.createACLSets("0", "APP1-", policy.NewIPRuleList(nil))
+			err := i.createACLSets("0", "APP1-", policy.IPRuleList{})
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -91,21 +91,21 @@ func TestCreateACLSets(t *testing.T) {
 				return nil, fmt.Errorf("Error")
 			})
 
-			rules := policy.NewIPRuleList([]policy.IPRule{
+			rules := policy.IPRuleList{
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
-			})
+			}
 
 			err := i.createACLSets("0", "APP1-", rules)
 			Convey("I should get an error", func() {

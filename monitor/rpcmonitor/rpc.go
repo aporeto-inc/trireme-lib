@@ -43,7 +43,7 @@ type Server struct {
 }
 
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
-func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, collector collector.EventCollector) (*RPCMonitor, error) {
+func NewRPCMonitor(rpcAddress string, collector collector.EventCollector) (*RPCMonitor, error) {
 
 	if rpcAddress == "" {
 		return nil, fmt.Errorf("RPC endpoint address invalid")
@@ -53,10 +53,6 @@ func NewRPCMonitor(rpcAddress string, puHandler monitor.ProcessingUnitsHandler, 
 		if err := os.Remove(rpcAddress); err != nil {
 			return nil, fmt.Errorf("Failed to clean up rpc socket")
 		}
-	}
-
-	if puHandler == nil {
-		return nil, fmt.Errorf("PU Handler required")
 	}
 
 	monitorServer := &Server{
@@ -248,7 +244,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		if present {
 			if err := f(eventInfo); err != nil {
 				result.Error = err.Error()
-				return fmt.Errorf("Failed to Handle Event: %s ", err.Error())
+				return fmt.Errorf("Error")
 			}
 			return nil
 		}
@@ -275,8 +271,8 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		return nil, fmt.Errorf("EventInfo PUID is empty")
 	}
 
-	runtimeTags := policy.NewTagsMap(event.Tags)
-	runtimeIps := policy.NewIPMap(event.IPs)
+	runtimeTags := policy.NewTagStoreFromMap(event.Tags)
+	runtimeIps := event.IPs
 	runtimePID, err := strconv.Atoi(event.PID)
 	if err != nil {
 		return nil, fmt.Errorf("PID is invalid: %s", err)

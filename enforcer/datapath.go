@@ -5,37 +5,21 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"sync"
 	"time"
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/acls"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
-
-// InterfaceStats for interface
-type InterfaceStats struct {
-	IncomingPackets     uint32
-	OutgoingPackets     uint32
-	ProtocolDropPackets uint32
-	CreateDropPackets   uint32
-}
-
-// PacketStats for interface
-type PacketStats struct {
-	IncomingPackets        uint32
-	OutgoingPackets        uint32
-	AuthDropPackets        uint32
-	ServicePreDropPackets  uint32
-	ServicePostDropPackets uint32
-}
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
@@ -46,6 +30,7 @@ type Datapath struct {
 	collector      collector.EventCollector
 	service        PacketProcessor
 	secrets        secrets.Secrets
+	nflogger       nfLogger
 	procMountPoint string
 
 	// Internal structures and caches
@@ -68,11 +53,8 @@ type Datapath struct {
 	netOrigConnectionTracker  cache.DataStore
 	netReplyConnectionTracker cache.DataStore
 
-	// stats
-	net    InterfaceStats
-	app    InterfaceStats
-	netTCP PacketStats
-	appTCP PacketStats
+	// connctrack handle
+	conntrackHdl conntrack.Conntrack
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
@@ -85,8 +67,6 @@ type Datapath struct {
 	ackSize uint32
 
 	mutualAuthorization bool
-
-	sync.Mutex
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -124,7 +104,6 @@ func New(
 		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
 	}
 
-	fmt.Printf("Initializing remote with fq %+v", filterQueue)
 	d := &Datapath{
 		puFromIP:   cache.NewCache(),
 		puFromMark: cache.NewCache(),
@@ -132,29 +111,28 @@ func New(
 
 		contextTracker: cache.NewCache(),
 
-		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 60),
-		appOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
-		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
-		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 60),
-		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 60),
+		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 24),
+		appOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
+		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
+		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
+		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
 		collector:                 collector,
 		tokenEngine:               tokenEngine,
 		secrets:                   secrets,
-		net:                       InterfaceStats{},
-		app:                       InterfaceStats{},
-		netTCP:                    PacketStats{},
-		appTCP:                    PacketStats{},
 		ackSize:                   secrets.AckSize(),
 		mode:                      mode,
 		procMountPoint:            procMountPoint,
+		conntrackHdl:              conntrack.NewHandle(),
 	}
 
 	if d.tokenEngine == nil {
 		zap.L().Fatal("Unable to create enforcer")
 	}
+
+	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
 
 	return d
 }
@@ -264,6 +242,8 @@ func (d *Datapath) Start() error {
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()
 
+	go d.nflogger.start()
+
 	return nil
 }
 
@@ -279,6 +259,8 @@ func (d *Datapath) Stop() error {
 	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 		d.netStop[i] <- true
 	}
+
+	d.nflogger.stop()
 
 	return nil
 }
@@ -311,10 +293,11 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	pu := &PUContext{
-		ID:           contextID,
-		ManagementID: puInfo.Policy.ManagementID,
-		PUType:       puInfo.Runtime.PUType(),
-		IP:           ip,
+		ID:              contextID,
+		ManagementID:    puInfo.Policy.ManagementID(),
+		PUType:          puInfo.Runtime.PUType(),
+		IP:              ip,
+		externalIPCache: cache.NewCacheWithExpiration(time.Second * 900),
 	}
 
 	// Cache PUs for retrieval based on packet information
@@ -351,5 +334,27 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	return nil
+	puContext.ApplicationACLs = acls.NewACLCache()
+	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
+		return err
+	}
+
+	puContext.NetworkACLS = acls.NewACLCache()
+	return puContext.NetworkACLS.AddRuleList(containerInfo.Policy.NetworkACLs())
+}
+
+func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
+
+	item, err := d.contextTracker.Get(contextID)
+	if err != nil {
+		return
+	}
+
+	ctx := item.(*PUContext)
+	ctx.Lock()
+	ID = ctx.ManagementID
+	tags = ctx.Annotations.Copy()
+	ctx.Unlock()
+
+	return
 }

@@ -4,7 +4,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/acls"
 	"github.com/aporeto-inc/trireme/enforcer/lookup"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -59,20 +61,23 @@ type PacketProcessor interface {
 
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
-	ID             string
-	ManagementID   string
-	Identity       *policy.TagsMap
-	Annotations    *policy.TagsMap
-	AcceptTxtRules *lookup.PolicyDB
-	RejectTxtRules *lookup.PolicyDB
-	AcceptRcvRules *lookup.PolicyDB
-	RejectRcvRules *lookup.PolicyDB
-	Extension      interface{}
-	IP             string
-	Mark           string
-	Ports          []string
-	PUType         constants.PUType
-	synToken       []byte
-	synExpiration  time.Time
+	ID              string
+	ManagementID    string
+	Identity        *policy.TagStore
+	Annotations     *policy.TagStore
+	AcceptTxtRules  *lookup.PolicyDB
+	RejectTxtRules  *lookup.PolicyDB
+	AcceptRcvRules  *lookup.PolicyDB
+	RejectRcvRules  *lookup.PolicyDB
+	ApplicationACLs *acls.ACLCache
+	NetworkACLS     *acls.ACLCache
+	externalIPCache cache.DataStore
+	Extension       interface{}
+	IP              string
+	Mark            string
+	Ports           []string
+	PUType          constants.PUType
+	synToken        []byte
+	synExpiration   time.Time
 	sync.Mutex
 }

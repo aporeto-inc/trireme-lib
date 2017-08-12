@@ -3,6 +3,7 @@ package lookup
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -80,7 +81,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 	e := ForwardingPolicy{
 		count:   0,
 		tags:    selector.Clause,
-		actions: selector.Action,
+		actions: selector.Policy,
 	}
 
 	// For each tag of the incoming policy add a mapping between the map tables
@@ -139,23 +140,35 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 
 }
 
+func (m *PolicyDB) keyValueFromString(tag string) (key, value string) {
+
+	parts := strings.SplitN(tag, "=", 2)
+
+	if len(parts) != 2 {
+		return "", ""
+	}
+
+	return parts[0], parts[1]
+}
+
 //Search searches for a set of tags in the database to find a policy match
-func (m *PolicyDB) Search(tags *policy.TagsMap) (int, interface{}) {
+func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	count := make([]int, m.numberOfPolicies+1)
 
 	skip := make([]bool, m.numberOfPolicies+1)
 
 	// Disable all policies that fail the not key exists
-	for k := range tags.Tags {
+	for _, t := range tags.GetSlice() {
+		k, _ := m.keyValueFromString(t)
 		for _, policy := range m.notStarTable[k] {
 			skip[policy.index] = true
 		}
 	}
 
 	// Go through the list of tags
-	for k, v := range tags.Tags {
-
+	for _, t := range tags.GetSlice() {
+		k, v := m.keyValueFromString(t)
 		// Search for matches of k=v
 		if index, action := searchInMapTabe(m.equalMapTable[k][v], count, skip); index >= 0 {
 			return index, action

@@ -23,25 +23,21 @@ type trireme struct {
 	enforcers   map[constants.PUType]enforcer.PolicyEnforcer
 	resolver    PolicyResolver
 	collector   collector.EventCollector
-	stop        chan bool
-	requests    chan *triremeRequest
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
 func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
 
-	trireme := &trireme{
+	t := &trireme{
 		serverID:    serverID,
 		cache:       cache.NewCache(),
 		supervisors: supervisors,
 		enforcers:   enforcers,
 		resolver:    resolver,
 		collector:   eventCollector,
-		stop:        make(chan bool),
-		requests:    make(chan *triremeRequest),
 	}
 
-	return trireme
+	return t
 }
 
 // Start starts the supervisor and the enforcer. It will also start to handling requests
@@ -62,9 +58,6 @@ func (t *trireme) Start() error {
 		}
 	}
 
-	// Starting main trireme routine
-	go t.run()
-
 	return nil
 }
 
@@ -84,45 +77,30 @@ func (t *trireme) Stop() error {
 		}
 	}
 
-	// send the stop signal for the trireme worker routine.
-	t.stop <- true
-
 	return nil
 }
 
 // HandlePUEvent implements the logic needed between all the Trireme components for
 // explicitly adding a new PU.
-func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) <-chan error {
+func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) error {
 
-	c := make(chan error, 1)
+	// Notify The PolicyResolver that an event occurred:
+	t.resolver.HandlePUEvent(contextID, event)
 
-	req := &triremeRequest{
-		contextID:  contextID,
-		reqType:    handleEvent,
-		eventType:  event,
-		returnChan: c,
+	switch event {
+	case monitor.EventStart:
+		return t.doHandleCreate(contextID)
+	case monitor.EventStop:
+		return t.doHandleDelete(contextID)
+	default:
+		return nil
 	}
-
-	t.requests <- req
-
-	return c
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
-func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) <-chan error {
+func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 
-	c := make(chan error, 1)
-
-	req := &triremeRequest{
-		contextID:  contextID,
-		reqType:    policyUpdate,
-		policyInfo: newPolicy.Clone(),
-		returnChan: c,
-	}
-
-	t.requests <- req
-
-	return c
+	return t.doUpdatePolicy(contextID, newPolicy)
 }
 
 // PURuntime returns the RuntimeInfo based on the contextID.
@@ -152,10 +130,10 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 // default TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
-	if containerInfo.Policy.ManagementID == "" {
+	if containerInfo.Policy.ManagementID() == "" {
 		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
 	} else {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID)
+		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID())
 	}
 }
 
@@ -165,7 +143,7 @@ func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 //   - Policy got the AllowAll tag.
 func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 
-	if containerInfo.Policy.TriremeAction == policy.AllowAll {
+	if containerInfo.Policy.TriremeAction() == policy.AllowAll {
 		zap.L().Debug("PUPolicy with AllowAll Action. Not policing", zap.String("contextID", contextID))
 		return false
 	}
@@ -189,10 +167,12 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	runtimeInfo := cachedElement.(*policy.PURuntime)
+	runtimeInfo.GlobalLock.Lock()
+	defer runtimeInfo.GlobalLock.Unlock()
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 
-	if err != nil {
+	if err != nil || policyInfo == nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: "N/A",
@@ -203,21 +183,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return fmt.Errorf("Policy Error for this context: %s. Container killed. %s", contextID, err)
 	}
 
-	if policyInfo == nil {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: "N/A",
-			Tags:      nil,
-			Event:     collector.ContainerFailed,
-		})
-
-		return fmt.Errorf("Nil policy returned for context: %s. Container killed", contextID)
-	}
-
 	ip, _ := policyInfo.DefaultIPAddress()
-
-	// Create a copy as we are going to modify it locally
-	policyInfo = policyInfo.Clone()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 
@@ -273,8 +239,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 func (t *trireme) doHandleDelete(contextID string) error {
 
-	runtime, err := t.PURuntime(contextID)
-
+	runtimeReader, err := t.PURuntime(contextID)
 	if err != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
@@ -282,9 +247,14 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			Tags:      nil,
 			Event:     collector.UnknownContainerDelete,
 		})
-
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s: %s", contextID, err)
 	}
+
+	runtime := runtimeReader.(*policy.PURuntime)
+
+	// Serialize operations
+	runtime.GlobalLock.Lock()
+	defer runtime.GlobalLock.Unlock()
 
 	ip, _ := runtime.DefaultIPAddress()
 
@@ -319,29 +289,19 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	return nil
 }
 
-func (t *trireme) doHandleEvent(contextID string, event monitor.Event) error {
-	// Notify The PolicyResolver that an event occurred:
-	t.resolver.HandlePUEvent(contextID, event)
-
-	switch event {
-	case monitor.EventStart:
-		return t.doHandleCreate(contextID)
-	case monitor.EventStop:
-		return t.doHandleDelete(contextID)
-	default:
-		return nil
-	}
-}
-
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 
-	runtimeInfo, err := t.PURuntime(contextID)
-
+	runtimeReader, err := t.PURuntime(contextID)
 	if err != nil {
 		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)
 	}
 
-	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtimeInfo.(*policy.PURuntime))
+	runtime := runtimeReader.(*policy.PURuntime)
+	// Serialize operations
+	runtime.GlobalLock.Lock()
+	defer runtime.GlobalLock.Unlock()
+
+	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtime)
 
 	addTransmitterLabel(contextID, containerInfo)
 
@@ -350,25 +310,30 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
-		if err != nil {
-			//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
-			zap.L().Debug("We lost communication with enforcer lets restart")
-
-			if containerInfo.Runtime.PUType() == constants.ContainerPU {
-				//The unsupervise and unenforce functions just make changes to the proxy structures
-				//and do not depend on the remote instance running and can be called here
-				switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
-				case *enforcerproxy.ProxyInfo:
-					t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID)
-					t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID)
-					t.doHandleCreate(contextID)
-				default:
-					//do nothing
-
+		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
+		zap.L().Warn("Re-initializing enforcers - connection lost")
+		if containerInfo.Runtime.PUType() == constants.ContainerPU {
+			//The unsupervise and unenforce functions just make changes to the proxy structures
+			//and do not depend on the remote instance running and can be called here
+			switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
+			case *enforcerproxy.ProxyInfo:
+				if lerr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); lerr != nil {
+					return err
 				}
 
+				if lerr := t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID); lerr != nil {
+					return err
+				}
+
+				if lerr := t.doHandleCreate(contextID); lerr != nil {
+					return err
+				}
+			default:
+				return err
 			}
+			return nil
 		}
+
 		return fmt.Errorf("Enforcer failed to update PU policy: context=%s error=%s", contextID, err)
 	}
 
@@ -393,40 +358,11 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	return nil
 }
 
-func (t *trireme) handleRequest(request *triremeRequest) error {
-	switch request.reqType {
-	case handleEvent:
-		return t.doHandleEvent(request.contextID, request.eventType)
-	case policyUpdate:
-		return t.doUpdatePolicy(request.contextID, request.policyInfo)
-	default:
-		return fmt.Errorf("Trireme Request format not recognized: %d", request.reqType)
-	}
-}
-
 // Supervisor returns the Trireme supervisor for the given PU Type
 func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 	if s, ok := t.supervisors[kind]; ok {
 		return s
 	}
-
 	return nil
-}
-
-// run is the main function for running Trireme
-func (t *trireme) run() {
-	for {
-		select {
-		case req := <-t.requests:
-			zap.L().Debug("Handling Trireme Request",
-				zap.Int("type", req.reqType),
-				zap.String("contextID", req.contextID),
-			)
-			req.returnChan <- t.handleRequest(req)
-		case <-t.stop:
-			zap.L().Debug("Stopping trireme worker.")
-			return
-		}
-	}
 }

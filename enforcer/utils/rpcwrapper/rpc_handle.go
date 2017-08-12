@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"time"
 
 	"net/rpc"
@@ -32,10 +33,14 @@ type RPCHdl struct {
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
 	contextList  []string
+
+	sync.Mutex
 }
 
 // NewRPCWrapper creates a new rpcwrapper
 func NewRPCWrapper() *RPCWrapper {
+
+	RegisterTypes()
 
 	return &RPCWrapper{
 		rpcClientMap: cache.NewCache(),
@@ -44,14 +49,12 @@ func NewRPCWrapper() *RPCWrapper {
 }
 
 const (
-	maxRetries     = 1000
+	maxRetries     = 10000
 	envRetryString = "REMOTE_RPCRETRIES"
 )
 
 // NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
-
-	RegisterTypes()
 
 	max := maxRetries
 	retries := os.Getenv(envRetryString)
@@ -71,7 +74,10 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 		client, err = rpc.DialHTTP("unix", channel)
 	}
 
+	r.Lock()
 	r.contextList = append(r.contextList, contextID)
+	r.Unlock()
+
 	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
 }
@@ -178,22 +184,26 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 // DestroyRPCClient calls close on the rpc and cleans up the connection
 func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
-	rpcHdl, _ := r.rpcClientMap.Get(contextID)
-	if err := rpcHdl.(*RPCHdl).Client.Close(); err != nil {
+	rpcHdl, err := r.rpcClientMap.Get(contextID)
+	if err != nil {
+		return
+	}
+
+	if err = rpcHdl.(*RPCHdl).Client.Close(); err != nil {
 		zap.L().Warn("Failed to close channel",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
 	}
 
-	if err := os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
+	if err = os.Remove(rpcHdl.(*RPCHdl).Channel); err != nil {
 		zap.L().Debug("Failed to remove channel - already closed",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
 	}
 
-	if err := r.rpcClientMap.Remove(contextID); err != nil {
+	if err = r.rpcClientMap.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to remove item from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
@@ -203,6 +213,8 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 // ContextList returns the list of active context managed by the rpcwrapper
 func (r *RPCWrapper) ContextList() []string {
+	r.Lock()
+	defer r.Unlock()
 	return r.contextList
 }
 
