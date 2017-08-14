@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/enforcer/utils/packetgen"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
@@ -132,7 +133,7 @@ func TestInvalidTokenContext(t *testing.T) {
 			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
 			err2 := enforcer.processNetworkTCPPackets(tcpPacket)
 
-			Convey("Then I should see an error for missing IP", func() {
+			Convey("Then I should see an error for missing Token", func() {
 
 				So(err, ShouldBeNil)
 				So(err1, ShouldNotBeNil)
@@ -1015,4 +1016,185 @@ func selectPacket(i int, t *testing.T) [2]*packet.Packet {
 		t.Error("Invalid Test Packet")
 	}
 	return [2](*packet.Packet){oldPacket, tcpPacket}
+}
+
+func TestForPacketsWithRandomFlags(t *testing.T) {
+
+	SIP := net.IPv4zero
+
+	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
+
+		var puInfo1, puInfo2 *policy.PUInfo
+		var enforcer *Datapath
+		var err1, err2 error
+
+		Convey("When I pass multiple packets with random flags through the enforcer", func() {
+
+			Convey("Then I should not see any error", func() {
+				for k := 0; k < 2; k++ {
+					if k == 0 {
+						tagSelector := policy.TagSelector{
+
+							Clause: []policy.KeyValueOperator{
+								{
+									Key:      TransmitterLabel,
+									Value:    []string{"value"},
+									Operator: policy.Equal,
+								},
+							},
+							Policy: &policy.FlowPolicy{Action: policy.Accept},
+						}
+						PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
+						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
+
+						iteration = iteration + 1
+						puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
+						puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
+						puIP1 := "164.67.228.152" // + strconv.Itoa(iteration)
+						puIP2 := "10.1.10.76"     // + strconv.Itoa(iteration)
+						serverID := "SomeServerId"
+
+						// Create ProcessingUnit 1
+						puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
+
+						ip1 := policy.ExtendedMap{}
+						ip1["bridge"] = puIP1
+						puInfo1.Runtime.SetIPAddresses(ip1)
+						ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
+						puInfo1.Policy.SetIPAddresses(ipl1)
+						puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo1.Policy.AddReceiverRules(tagSelector)
+
+						// Create processing unit 2
+						puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+						ip2 := policy.ExtendedMap{"bridge": puIP2}
+						puInfo2.Runtime.SetIPAddresses(ip2)
+						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
+						puInfo2.Policy.SetIPAddresses(ipl2)
+						puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo2.Policy.AddReceiverRules(tagSelector)
+
+						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+						collector := &collector.DefaultCollector{}
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+						err1 = enforcer.Enforce(puID1, puInfo1)
+						err2 = enforcer.Enforce(puID2, puInfo2)
+						So(puInfo1, ShouldNotBeNil)
+						So(puInfo2, ShouldNotBeNil)
+						So(enforcer, ShouldNotBeNil)
+						So(err1, ShouldBeNil)
+						So(err2, ShouldBeNil)
+
+					} else if k == 1 {
+						tagSelector := policy.TagSelector{
+
+							Clause: []policy.KeyValueOperator{
+								{
+									Key:      TransmitterLabel,
+									Value:    []string{"value"},
+									Operator: policy.Equal,
+								},
+							},
+							Policy: &policy.FlowPolicy{Action: policy.Accept},
+						}
+						PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
+						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
+
+						iteration = iteration + 1
+						puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
+						puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
+						puIP1 := "164.67.228.152" // + strconv.Itoa(iteration)
+						puIP2 := "10.1.10.76"     // + strconv.Itoa(iteration)
+						serverID := "SomeServerId"
+
+						// Create ProcessingUnit 1
+						puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
+
+						ip1 := policy.ExtendedMap{}
+						ip1["bridge"] = puIP1
+						puInfo1.Runtime.SetIPAddresses(ip1)
+						ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
+						puInfo1.Policy.SetIPAddresses(ipl1)
+						puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo1.Policy.AddReceiverRules(tagSelector)
+
+						// Create processing unit 2
+						puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+						ip2 := policy.ExtendedMap{"bridge": puIP2}
+						puInfo2.Runtime.SetIPAddresses(ip2)
+						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
+						puInfo2.Policy.SetIPAddresses(ipl2)
+						puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo2.Policy.AddReceiverRules(tagSelector)
+
+						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+						collector := &collector.DefaultCollector{}
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc").(*Datapath)
+						err1 = enforcer.Enforce(puID1, puInfo1)
+						err2 = enforcer.Enforce(puID2, puInfo2)
+
+					}
+					PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
+					PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
+
+					for i := 0; i < PacketFlow.GetNumPackets(); i++ {
+						//Setting random TCP flags for all the packets
+						PacketFlow.GetNthPacket(i).SetTCPCwr()
+						PacketFlow.GetNthPacket(i).SetTCPPsh()
+						PacketFlow.GetNthPacket(i).SetTCPEce()
+
+						oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+						if err == nil && oldPacket != nil {
+							oldPacket.UpdateIPChecksum()
+							oldPacket.UpdateTCPChecksum()
+						}
+						tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+						if err == nil && tcpPacket != nil {
+							tcpPacket.UpdateIPChecksum()
+							tcpPacket.UpdateTCPChecksum()
+						}
+
+						if debug {
+							fmt.Println("Input packet", i)
+							tcpPacket.Print(0)
+						}
+
+						So(err, ShouldBeNil)
+						So(tcpPacket, ShouldNotBeNil)
+
+						if reflect.DeepEqual(SIP, net.IPv4zero) {
+							SIP = tcpPacket.SourceAddress
+						}
+						if !reflect.DeepEqual(SIP, tcpPacket.DestinationAddress) &&
+							!reflect.DeepEqual(SIP, tcpPacket.SourceAddress) {
+							t.Error("Invalid Test Packet")
+						}
+
+						err = enforcer.processApplicationTCPPackets(tcpPacket)
+						So(err, ShouldBeNil)
+
+						if debug {
+							fmt.Println("Intermediate packet", i)
+							tcpPacket.Print(0)
+						}
+
+						output := make([]byte, len(tcpPacket.GetBytes()))
+						copy(output, tcpPacket.GetBytes())
+
+						outPacket, errp := packet.New(0, output, "0")
+						So(len(tcpPacket.GetBytes()), ShouldBeLessThanOrEqualTo, len(outPacket.GetBytes()))
+						So(errp, ShouldBeNil)
+
+						err = enforcer.processNetworkTCPPackets(outPacket)
+						So(err, ShouldBeNil)
+
+						if debug {
+							fmt.Println("Output packet", i)
+							outPacket.Print(0)
+						}
+					}
+				}
+			})
+		})
+	})
 }
