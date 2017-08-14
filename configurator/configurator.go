@@ -391,7 +391,6 @@ func NewPSKHybridTriremeWithMonitor(
 	// use rpcmonitor no need to return it since no other consumer for it
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
-		triremeInstance,
 		eventCollector,
 	)
 
@@ -464,7 +463,6 @@ func NewHybridCompactPKIWithDocker(
 	// use rpcmonitor no need to return it since no other consumer for it
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
-		triremeInstance,
 		eventCollector,
 	)
 

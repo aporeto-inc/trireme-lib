@@ -52,10 +52,6 @@ func stoptestserver() {
 
 }
 
-type CustomPolicyResolver struct {
-	monitor.ProcessingUnitsHandler
-}
-
 type CustomProcessor struct {
 	MonitorProcessor
 }
@@ -65,7 +61,7 @@ func TestNewRPCMonitor(t *testing.T) {
 	Convey("When we try to instantiate a new monitor", t, func() {
 
 		Convey("If we start with invalid rpc address", func() {
-			_, err := NewRPCMonitor("", &CustomPolicyResolver{}, nil)
+			_, err := NewRPCMonitor("", nil)
 			Convey("It should fail ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -73,7 +69,7 @@ func TestNewRPCMonitor(t *testing.T) {
 
 		Convey("If we start with an RPC address that exists", func() {
 			os.Create("/tmp/testfile") // nolint : errcheck
-			_, err := NewRPCMonitor("/tmp/testfile", &CustomPolicyResolver{}, nil)
+			_, err := NewRPCMonitor("/tmp/testfile", nil)
 			Convey("I should get no error and the file is removed", func() {
 				So(err, ShouldBeNil)
 				_, ferr := os.Stat("/tmp/testfile")
@@ -81,15 +77,8 @@ func TestNewRPCMonitor(t *testing.T) {
 			})
 		})
 
-		Convey("If we start nil PU handler", func() {
-			_, err := NewRPCMonitor("rpcAddress", nil, nil)
-			Convey("It should fail", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
 		Convey("If we start with valid parameters", func() {
-			mon, err := NewRPCMonitor("/tmp/monitor.sock", &CustomPolicyResolver{}, nil)
+			mon, err := NewRPCMonitor("/tmp/monitor.sock", nil)
 			mon.contextstore = cstore
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
@@ -104,7 +93,7 @@ func TestNewRPCMonitor(t *testing.T) {
 func TestRegisterProcessor(t *testing.T) {
 	cstore := contextstore.NewCustomContextStore("/tmp")
 	Convey("Given a new rpc monitor", t, func() {
-		mon, _ := NewRPCMonitor(testRPCAddress, &CustomPolicyResolver{}, nil)
+		mon, _ := NewRPCMonitor(testRPCAddress, nil)
 		mon.contextstore = cstore
 		Convey("When I try to register a new processor", func() {
 			processor := &CustomProcessor{}
@@ -132,14 +121,13 @@ func TestStart(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	puHandler := &CustomPolicyResolver{}
 	contextstore := mock_contextstore.NewMockContextStore(ctrl)
 
 	Convey("When we start an rpc processor ", t, func() {
 
 		Convey("If we can't access the context store", func() {
 			contextstore.EXPECT().WalkStore().Return(nil, fmt.Errorf("Error"))
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
 			testRPCMonitor.contextstore = contextstore
 
 			err := testRPCMonitor.Start()
@@ -153,7 +141,7 @@ func TestStart(t *testing.T) {
 			clist <- ""
 
 			contextstore.EXPECT().WalkStore().Return(clist, nil)
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
 			testRPCMonitor.contextstore = contextstore
 
 			go starttestserver()
@@ -174,7 +162,7 @@ func TestStart(t *testing.T) {
 			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
 			contextstore.EXPECT().GetContextInfo("/test1").Return(nil, fmt.Errorf("Invalid Context"))
 
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
 			testRPCMonitor.contextstore = contextstore
 
 			Convey("Start server returns no error", func() {
@@ -193,7 +181,7 @@ func TestStart(t *testing.T) {
 			contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{PUType: 1,EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
 			contextstore.EXPECT().RemoveContext("/test1").Return(nil)
 
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
 			testRPCMonitor.contextstore = contextstore
 
 			Convey("Start server returns no error", func() {
@@ -212,7 +200,7 @@ func TestStart(t *testing.T) {
 			contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{PUType: 1,EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
 			contextstore.EXPECT().RemoveContext("/test1").Return(fmt.Errorf("Error"))
 
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
 			testRPCMonitor.contextstore = contextstore
 
 			Convey("Start server returns no error", func() {
@@ -240,7 +228,7 @@ func TestStart(t *testing.T) {
 			contextstore.EXPECT().WalkStore().Return(contextlist, nil)
 			contextstore.EXPECT().GetContextInfo("/test1").Return(j, nil)
 
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
 			testRPCMonitor.contextstore = contextstore
 			processor := NewMockMonitorProcessor(ctrl)
 			//processor.EXPECT().Start(gomock.Any()).Return(nil)
@@ -263,7 +251,6 @@ func TestHandleEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	puHandler := &CustomPolicyResolver{}
 	contextstore := mock_contextstore.NewMockContextStore(ctrl)
 
 	Convey("Given an RPC monitor", t, func() {
@@ -274,7 +261,7 @@ func TestHandleEvent(t *testing.T) {
 		contextstore.EXPECT().WalkStore().Return(contextlist, nil)
 		contextstore.EXPECT().GetContextInfo("/test1").Return(nil, fmt.Errorf("Invalid Context"))
 
-		testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, puHandler, nil)
+		testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
 		testRPCMonitor.contextstore = contextstore
 		monerr := testRPCMonitor.Start()
 		So(monerr, ShouldBeNil)
