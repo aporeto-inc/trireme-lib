@@ -576,7 +576,6 @@ func NewPSKTriremeWithCNIMonitor(
 
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
-		triremeInstance,
 		eventCollector,
 	)
 	if err != nil {
