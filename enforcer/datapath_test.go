@@ -123,7 +123,7 @@ func (m *myMatcher) Matches(x interface{}) bool {
 	f1 := m.x.(*collector.FlowRecord)
 	f2 := x.(*collector.FlowRecord)
 
-	if f1.DestinationIP == f2.DestinationIP && f1.SourceIP == f2.SourceIP && f1.DestinationPort == f2.DestinationPort && f1.Action == f2.Action && f1.Count == f2.Count {
+	if f1.Destination.IP == f2.Destination.IP && f1.Source.IP == f2.Source.IP && f1.Destination.Port == f2.Destination.Port && f1.Action == f2.Action && f1.Count == f2.Count {
 
 		return true
 	}
@@ -156,7 +156,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 					Operator: policy.Equal,
 				},
 			},
-			Action: policy.Accept,
+			Policy: &policy.FlowPolicy{Action: policy.Accept},
 		}
 		PacketFlow := packetgen.NewTemplateFlow()
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -1448,12 +1448,17 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -1465,12 +1470,17 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 						} else if k == 1 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -1581,12 +1591,17 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
@@ -1598,12 +1613,17 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 
 						} else if k == 1 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
@@ -1716,12 +1736,17 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
@@ -1733,12 +1758,17 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 
 						} else if k == 1 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
@@ -1855,12 +1885,17 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -1872,12 +1907,17 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 						} else if k == 1 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -1994,12 +2034,17 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2011,12 +2056,17 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 
 						} else if k == 1 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2241,14 +2291,18 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 				Convey("Then I expect the flow to be reported only once with states intact", func() {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
-
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2259,14 +2313,18 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							So(err2, ShouldBeNil)
 
 						} else if k == 1 {
-
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2445,12 +2503,17 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2463,12 +2526,17 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -2721,14 +2789,19 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -2739,14 +2812,19 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
@@ -2853,14 +2931,19 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "164.67.228.152"
+							dstEndPoint.IP = "10.1.10.76"
+							dstEndPoint.Port = 57761
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "164.67.228.152"
-							flowRecord.DestinationIP = "10.1.10.76"
-							flowRecord.DestinationPort = 57761
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -2871,14 +2954,19 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "164.67.228.152"
+							dstEndPoint.IP = "10.1.10.76"
+							dstEndPoint.Port = 57761
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "164.67.228.152"
-							flowRecord.DestinationIP = "10.1.10.76"
-							flowRecord.DestinationPort = 57761
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
@@ -2997,12 +3085,17 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3015,12 +3108,17 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3158,14 +3256,19 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "164.67.228.152"
-							flowRecord.DestinationIP = "10.1.10.76"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -3176,14 +3279,19 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
@@ -3308,14 +3416,19 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -3326,14 +3439,19 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
@@ -3463,16 +3581,20 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							fmt.Println("This is Container")
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
@@ -3482,15 +3604,20 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
-							fmt.Println("This is Server")
+
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
@@ -3556,7 +3683,6 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && !PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
 								fmt.Println("This is network (A)", i)
 								err = enforcer.processNetworkTCPPackets(outPacket)
-								fmt.Println("DuplicateSYNreceived")
 								So(err, ShouldNotBeNil)
 								fmt.Println(err)
 							} else if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && isAckPacket {
@@ -3613,12 +3739,17 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 						if k == 0 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3631,12 +3762,17 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 						} else if k == 1 {
 
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "accept"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Accept
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
@@ -3763,14 +3899,19 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -3780,14 +3921,19 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 						} else if k == 1 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "10.1.10.76"
+							dstEndPoint.IP = "164.67.228.152"
+							dstEndPoint.Port = 80
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "10.1.10.76"
-							flowRecord.DestinationIP = "164.67.228.152"
-							flowRecord.DestinationPort = 80
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
@@ -3883,15 +4029,21 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 				Convey("Then I expect the flow to be reported as rejected once", func() {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
+
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "164.67.228.152"
+							dstEndPoint.IP = "10.1.10.76"
+							dstEndPoint.Port = 57761
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "164.67.228.152"
-							flowRecord.DestinationIP = "10.1.10.76"
-							flowRecord.DestinationPort = 57761
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -3901,14 +4053,19 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 						} else if k == 1 {
 							var flowRecord collector.FlowRecord
+							var srcEndPoint collector.EndPoint
+							var dstEndPoint collector.EndPoint
+
+							srcEndPoint.IP = "164.67.228.152"
+							dstEndPoint.IP = "10.1.10.76"
+							dstEndPoint.Port = 57761
 
 							flowRecord.Count = 0
-							flowRecord.SourceIP = "164.67.228.152"
-							flowRecord.DestinationIP = "10.1.10.76"
-							flowRecord.DestinationPort = 57761
-							flowRecord.Action = "reject"
+							flowRecord.Source = &srcEndPoint
+							flowRecord.Destination = &dstEndPoint
+							flowRecord.Action = policy.Reject
 
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
+							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
@@ -4003,7 +4160,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 						Operator: policy.Equal,
 					},
 				},
-				Action: policy.Accept,
+				Policy: &policy.FlowPolicy{Action: policy.Accept},
 			}
 			PacketFlow := packetgen.NewTemplateFlow()
 			PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -4132,10 +4289,10 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 // 							var flowRecord collector.FlowRecord
 //
 // 							flowRecord.Count = 0
-// 							flowRecord.SourceIP = "10.1.10.76"
-// 							flowRecord.DestinationIP = "164.67.228.152"
-// 							flowRecord.DestinationPort = 80
-// 							flowRecord.Action = "reject"
+// 							flowRecord.Source.IP = "10.1.10.76"
+// 							flowRecord.Destination.IP = "164.67.228.152"
+// 							flowRecord.Destination.Port = 80
+// 							flowRecord.Action = policy.Reject
 //
 // 							fmt.Println("This is a Container")
 // 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
@@ -4151,10 +4308,10 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 // 							var flowRecord collector.FlowRecord
 //
 // 							flowRecord.Count = 0
-// 							flowRecord.SourceIP = "10.1.10.76"
-// 							flowRecord.DestinationIP = "164.67.228.152"
-// 							flowRecord.DestinationPort = 80
-// 							flowRecord.Action = "reject"
+// 							flowRecord.Source.IP = "10.1.10.76"
+// 							flowRecord.Destination.IP = "164.67.228.152"
+// 							flowRecord.Destination.Port = 80
+// 							flowRecord.Action = policy.Reject
 //
 // 							fmt.Println("This is a Server")
 // 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
