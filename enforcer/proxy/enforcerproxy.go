@@ -131,7 +131,10 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
 	if err != nil {
-		//We can't talk to the enforcer. Kill it and restart it
+		// We can't talk to the enforcer. Kill it and restart it
+		s.Lock()
+		delete(s.initDone, contextID)
+		s.Unlock()
 		s.prochdl.KillProcess(contextID)
 		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
 		return ErrEnforceFailed
@@ -140,7 +143,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	return nil
 }
 
-// Unenforce stops enforcing policy for the given contexID.
+// Unenforce stops enforcing policy for the given contextID.
 func (s *ProxyInfo) Unenforce(contextID string) error {
 
 	s.Lock()

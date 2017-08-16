@@ -5,8 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/trireme/cache"
 	"go.uber.org/zap"
+
+	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/policy"
 )
 
 var (
@@ -89,6 +91,9 @@ type TCPConnection struct {
 
 	// sequenceNum will store the syn packet sequence number
 	sequenceNum uint32
+
+	// FlowPolicy holds the last matched policy
+	FlowPolicy *policy.FlowPolicy
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element

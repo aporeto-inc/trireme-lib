@@ -81,7 +81,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 	e := ForwardingPolicy{
 		count:   0,
 		tags:    selector.Clause,
-		actions: selector.Action,
+		actions: selector.Policy,
 	}
 
 	// For each tag of the incoming policy add a mapping between the map tables

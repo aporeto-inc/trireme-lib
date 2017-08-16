@@ -48,14 +48,14 @@ func TestCreateACLSets(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
@@ -96,14 +96,14 @@ func TestCreateACLSets(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 

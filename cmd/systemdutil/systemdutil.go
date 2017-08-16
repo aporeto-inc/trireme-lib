@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
@@ -19,20 +20,55 @@ import (
 )
 
 const (
+	maxRetries       = 4
 	remoteMethodCall = "Server.HandleEvent"
 )
 
 // ExecuteCommand executes a command in a cgroup and programs Trireme
+// TODO : This method is deprecated and should be removed once there is no code using it.
 func ExecuteCommand(arguments map[string]interface{}) error {
+
+	var command string
+	if value, ok := arguments["<command>"]; ok && value != nil {
+		command = value.(string)
+	}
+
+	var cgroup string
+	if value, ok := arguments["<cgroup>"]; ok && value != nil {
+		cgroup = value.(string)
+	}
+
+	var labels []string
+	if value, ok := arguments["--label"]; ok && value != nil {
+		labels = value.([]string)
+	}
+
+	var serviceName string
+	if value, ok := arguments["--service-name"]; ok && value != nil {
+		serviceName = value.(string)
+	}
+
+	var params []string
+	if value, ok := arguments["<params>"]; ok && value != nil {
+		params = append(params, value.([]string)...)
+	}
+
+	var ports []string
+	if value, ok := arguments["--ports"]; ok && value != nil {
+		ports = value.([]string)
+	}
+
+	return ExecuteCommandWithParameters(command, params, cgroup, serviceName, ports, labels)
+}
+
+// ExecuteCommandWithParameters executes the command with all the given parameters
+func ExecuteCommandWithParameters(command string, params []string, cgroup string, serviceName string, ports []string, tags []string) error {
 
 	var err error
 
 	stderrlogger := log.New(os.Stderr, "", 0)
-
-	if arguments["<cgroup>"] != nil && len(arguments["<cgroup>"].(string)) > 0 {
-		exitingCgroup := arguments["<cgroup>"].(string)
-
-		if err = HandleCgroupStop(exitingCgroup); err != nil {
+	if cgroup != "" {
+		if err = HandleCgroupStop(cgroup); err != nil {
 			err = fmt.Errorf("cannot connect to policy process %s. Resources not deleted", err)
 			stderrlogger.Print(err)
 			return err
@@ -41,15 +77,10 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return nil
 	}
 
-	if !arguments["run"].(bool) {
-		return fmt.Errorf("Bad arguments - no run command")
+	if len(ports) == 0 {
+		ports = append(ports, "0")
 	}
 
-	metadata := []string{}
-	servicename := ""
-	ports := "0"
-
-	command := arguments["<command>"].(string)
 	if !path.IsAbs(command) {
 		command, err = exec.LookPath(command)
 		if err != nil {
@@ -57,24 +88,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		}
 	}
 
-	if args, ok := arguments["--label"]; ok && args != nil {
-		metadata = args.([]string)
-	}
-
-	if args, ok := arguments["--service-name"]; ok && args != nil {
-		servicename = args.(string)
-	}
-
-	params := []string{command}
-	if args, ok := arguments["<params>"]; ok && args != nil {
-		params = append(params, args.([]string)...)
-	}
-
-	if args, ok := arguments["--ports"]; ok && args != nil {
-		ports = args.(string)
-	}
-
-	name, metadatamap, err := createMetadata(servicename, command, ports, metadata)
+	name, metadata, err := createMetadata(serviceName, command, ports, tags)
 
 	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
@@ -82,13 +96,21 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return err
 	}
 
-	// Make RPC call
+	// Make RPC call and only retry if the resource is temporarily unavailable
+	numRetries := 0
 	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
+	for err != nil {
+		numRetries++
+		nerr, ok := err.(*net.OpError)
 
-	if err != nil {
-		err = fmt.Errorf("Cannot connect to policy process %s", err)
-		stderrlogger.Print(err)
-		return err
+		if numRetries >= maxRetries || !(ok && nerr.Err == syscall.EAGAIN) {
+			err = fmt.Errorf("Cannot connect to policy process %s", err)
+			stderrlogger.Print(err)
+			return err
+		}
+
+		time.Sleep(5 * time.Millisecond)
+		client, err = net.Dial("unix", rpcmonitor.DefaultRPCAddress)
 	}
 
 	//This is added since the release_notification comes in this format
@@ -97,7 +119,7 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		PUType:    constants.LinuxProcessPU,
 		PUID:      "/" + strconv.Itoa(os.Getpid()),
 		Name:      name,
-		Tags:      metadatamap,
+		Tags:      metadata,
 		PID:       strconv.Itoa(os.Getpid()),
 		EventType: "start",
 	}
@@ -118,20 +140,20 @@ func ExecuteCommand(arguments map[string]interface{}) error {
 		return err
 	}
 
-	return syscall.Exec(command, params, os.Environ())
+	return syscall.Exec(command, append([]string{command}, params...), os.Environ())
 
 }
 
 // createMetadata extracts the relevant metadata
-func createMetadata(servicename string, command string, ports string, metadata []string) (string, map[string]string, error) {
+func createMetadata(serviceName string, command string, ports []string, tags []string) (string, map[string]string, error) {
 
-	metadatamap := map[string]string{}
+	metadata := map[string]string{}
 
-	for _, element := range metadata {
-		keyvalue := strings.Split(element, "=")
+	for _, tag := range tags {
+		keyvalue := strings.SplitN(tag, "=", 2)
 
 		if len(keyvalue) != 2 {
-			return "", nil, fmt.Errorf("Invalid metadata")
+			return "", nil, fmt.Errorf("Metadata should have the form key=value. Found %s instead", tag)
 		}
 
 		if keyvalue[0][0] == []byte("$")[0] || keyvalue[0][0] == []byte("@")[0] {
@@ -142,19 +164,18 @@ func createMetadata(servicename string, command string, ports string, metadata [
 			return "", nil, fmt.Errorf("Metadata key cannot be port or execpath ")
 		}
 
-		metadatamap[keyvalue[0]] = keyvalue[1]
+		metadata[keyvalue[0]] = keyvalue[1]
 	}
 
-	metadatamap["port"] = ports
-
-	metadatamap["execpath"] = command
+	metadata["port"] = strings.Join(ports, ",")
+	metadata["execpath"] = command
 
 	name := command
-	if servicename != "" {
-		name = servicename
+	if serviceName != "" {
+		name = serviceName
 	}
 
-	return name, metadatamap, nil
+	return name, metadata, nil
 }
 
 // HandleCgroupStop handles the deletion of a cgroup

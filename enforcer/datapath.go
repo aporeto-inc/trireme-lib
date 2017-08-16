@@ -30,6 +30,7 @@ type Datapath struct {
 	collector      collector.EventCollector
 	service        PacketProcessor
 	secrets        secrets.Secrets
+	nflogger       nfLogger
 	procMountPoint string
 
 	// Internal structures and caches
@@ -132,6 +133,8 @@ func New(
 	if d.tokenEngine == nil {
 		zap.L().Fatal("Unable to create enforcer")
 	}
+
+	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
 
 	return d
 }
@@ -241,6 +244,8 @@ func (d *Datapath) Start() error {
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()
 
+	go d.nflogger.start()
+
 	return nil
 }
 
@@ -256,6 +261,8 @@ func (d *Datapath) Stop() error {
 	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 		d.netStop[i] <- true
 	}
+
+	d.nflogger.stop()
 
 	return nil
 }
@@ -336,4 +343,20 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.NetworkACLS = acls.NewACLCache()
 	return puContext.NetworkACLS.AddRuleList(containerInfo.Policy.NetworkACLs())
+}
+
+func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
+
+	item, err := d.contextTracker.Get(contextID)
+	if err != nil {
+		return
+	}
+
+	ctx := item.(*PUContext)
+	ctx.Lock()
+	ID = ctx.ManagementID
+	tags = ctx.Annotations.Copy()
+	ctx.Unlock()
+
+	return
 }

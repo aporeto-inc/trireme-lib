@@ -79,7 +79,7 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 	}
 	err := trireme.HandlePUEvent(id, monitor.EventStart)
 	if err != nil {
-		t.Errorf("Create was supposed to be nil, was %s", e)
+		t.Errorf("Create was supposed to be nil, was %s", err)
 	}
 
 	if resolverCount != 1 {
