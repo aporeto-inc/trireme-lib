@@ -765,7 +765,7 @@ func (d *Datapath) parseAckToken(auth *AuthInfo, data []byte) (*tokens.Connectio
 func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 
 	tokenLen := uint8(len(token))
-	options := []byte{packet.TCPAuthenticationOption, TCPAuthenticationOptionBaseLen + tokenLen, 0, 0}
+	options := []byte{254, 4, 0xf9, 0x89}
 
 	if tokenLen != 0 {
 		options = append(options, token...)
