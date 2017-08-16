@@ -26,14 +26,20 @@ func TestCollectFlowEvent(t *testing.T) {
 
 		Convey("When I add a flow event", func() {
 			r := &collector.FlowRecord{
-				ContextID:       "1",
-				SourceID:        "A",
-				DestinationID:   "B",
-				SourceIP:        "1.1.1.1",
-				DestinationIP:   "2.2.2.2",
-				DestinationPort: 80,
-				Count:           0,
-				Tags:            policy.NewTagStore(),
+				ContextID: "1",
+				Source: &collector.EndPoint{
+					ID:   "A",
+					IP:   "1.1.1.1",
+					Type: collector.PU,
+				},
+				Destination: &collector.EndPoint{
+					ID:   "B",
+					IP:   "2.2.2.2",
+					Type: collector.PU,
+					Port: 80,
+				},
+				Count: 0,
+				Tags:  policy.NewTagStore(),
 			}
 			c.CollectFlowEvent(r)
 
@@ -45,14 +51,20 @@ func TestCollectFlowEvent(t *testing.T) {
 
 			Convey("When I add a second flow that matches", func() {
 				r := &collector.FlowRecord{
-					ContextID:       "1",
-					SourceID:        "A",
-					DestinationID:   "B",
-					SourceIP:        "1.1.1.1",
-					DestinationIP:   "2.2.2.2",
-					DestinationPort: 80,
-					Count:           10,
-					Tags:            policy.NewTagStore(),
+					ContextID: "1",
+					Source: &collector.EndPoint{
+						ID:   "A",
+						IP:   "1.1.1.1",
+						Type: collector.PU,
+					},
+					Destination: &collector.EndPoint{
+						ID:   "B",
+						IP:   "2.2.2.2",
+						Type: collector.PU,
+						Port: 80,
+					},
+					Count: 10,
+					Tags:  policy.NewTagStore(),
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
@@ -64,14 +76,20 @@ func TestCollectFlowEvent(t *testing.T) {
 
 			Convey("When I add a third flow that doesn't  matche the previous flows ", func() {
 				r := &collector.FlowRecord{
-					ContextID:       "1",
-					SourceID:        "C",
-					DestinationID:   "D",
-					SourceIP:        "3.3.3.3",
-					DestinationIP:   "4.4.4.4",
-					DestinationPort: 80,
-					Count:           33,
-					Tags:            policy.NewTagStore(),
+					ContextID: "1",
+					Source: &collector.EndPoint{
+						ID:   "C",
+						IP:   "3.3.3.3",
+						Type: collector.PU,
+					},
+					Destination: &collector.EndPoint{
+						ID:   "D",
+						IP:   "4.4.4.4",
+						Type: collector.PU,
+						Port: 80,
+					},
+					Count: 33,
+					Tags:  policy.NewTagStore(),
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {

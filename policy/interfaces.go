@@ -34,6 +34,7 @@ type RuntimeReader interface {
 
 	// IPAddresses returns a copy of all the IP addresses.
 	IPAddresses() ExtendedMap
-	//Returns the PUType for the PU
+
+	// Returns the PUType for the PU
 	PUType() constants.PUType
 }
