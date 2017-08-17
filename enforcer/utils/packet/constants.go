@@ -96,7 +96,7 @@ const (
 // TCP Options Related constants
 const (
 	// TCPAuthenticationOption is the option number will be using
-	TCPAuthenticationOption = uint8(254)
+	TCPAuthenticationOption = uint8(34)
 
 	// TCPMssOption is the type for MSS option
 	TCPMssOption = uint8(2)
