@@ -800,7 +800,9 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 		return context, conn.(*TCPConnection), nil
 	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
 		atomic.AddUint32(&d.numOfPacketsDropped, 1)
-		return nil, nil, fmt.Errorf("Connection already exists")
+		return nil, nil, fmt.Errorf("Connection already exists: SYN with same sequence number")
+	} else {
+		return nil, nil, fmt.Errorf("Connection already exists: SYN with different sequence number")
 	}
 
 	return nil, nil, nil
@@ -828,7 +830,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 
 	if packet.TCPFlagsToStr(p.TCPFlags) == ".A..S." {
 		if conn.(*TCPConnection).GetState() != TCPSynReceived {
-			return nil, nil, fmt.Errorf("Already received this packet")
+			return nil, nil, fmt.Errorf("Already received this packet: SynAck State is incorrect")
 		}
 	}
 	conn.(*TCPConnection).Lock()
@@ -862,6 +864,8 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 		return context, conn.(*TCPConnection), nil
 	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
 		return nil, nil, fmt.Errorf("Connection already exists: SYN with same sequence number")
+	} else {
+		return nil, nil, fmt.Errorf("Connection already exists: SYN with different sequence number")
 	}
 
 	return nil, nil, nil
