@@ -241,9 +241,9 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 	// Our option was not found in the right place. We don't do anything
 	// for this packet.
 	if p.Buffer[p.TCPDataStartBytes()-optionLength] != TCPAuthenticationOption {
-		//err = fmt.Errorf("TCP option not found when Checking TCPAuthenticationOption: optionLength=%d", optionLength)
+		err = fmt.Errorf("TCP option not found when Checking TCPAuthenticationOption: optionLength=%d", optionLength)
 		// TODO: what about the error here ?
-		err = nil
+		return
 	}
 
 	return
