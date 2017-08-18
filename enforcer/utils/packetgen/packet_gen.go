@@ -193,10 +193,6 @@ func (p *Packet) GetTCPChecksum() uint16 {
 //SetTCPSequenceNumber changes TCP sequence number
 func (p *Packet) SetTCPSequenceNumber(seqNum uint32) error {
 
-	if p.tcpLayer.Seq != 0 {
-		return fmt.Errorf("Sequence number already exists")
-	}
-
 	p.tcpLayer.Seq = seqNum
 
 	return nil
@@ -204,10 +200,6 @@ func (p *Packet) SetTCPSequenceNumber(seqNum uint32) error {
 
 //SetTCPAcknowledgementNumber changes TCP Acknowledgement number
 func (p *Packet) SetTCPAcknowledgementNumber(ackNum uint32) error {
-
-	if p.tcpLayer.Ack != 0 {
-		return fmt.Errorf("Acknowledgement number already exists")
-	}
 
 	p.tcpLayer.Ack = ackNum
 
