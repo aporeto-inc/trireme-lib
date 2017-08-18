@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	gomock "github.com/aporeto-inc/mock/gomock"
 	"github.com/aporeto-inc/trireme/collector"
@@ -2737,10 +2738,10 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 								if isChecked {
-									// time.Sleep(time.Second * 61)
-									// netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
-									// So(netconn, ShouldBeNil)
-									// So(err, ShouldNotBeNil)
+									time.Sleep(time.Second * 61)
+									netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
+									So(netconn, ShouldBeNil)
+									So(err, ShouldNotBeNil)
 								}
 								isChecked = true
 							}
