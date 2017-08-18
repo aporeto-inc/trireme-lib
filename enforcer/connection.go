@@ -89,9 +89,6 @@ type TCPConnection struct {
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
 
-	// sequenceNum will store the syn packet sequence number
-	sequenceNum uint32
-
 	// FlowPolicy holds the last matched policy
 	FlowPolicy *policy.FlowPolicy
 }
@@ -190,12 +187,6 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 			zap.String("connection", c.String()),
 			zap.String("logs", logStr))
 	}
-}
-
-// SetTCPSequenceNum will add Sequence number to struct
-func (c *TCPConnection) SetTCPSequenceNum(snum uint32) {
-
-	c.sequenceNum = snum
 }
 
 // NewTCPConnection returns a TCPConnection information struct
