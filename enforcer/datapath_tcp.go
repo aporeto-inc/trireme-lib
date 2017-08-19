@@ -105,7 +105,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 		}
 
 		if conn.ServiceConnection && conn.TimeOut > 0 {
-			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut)
+			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint
 		}
 
 	}
