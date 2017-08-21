@@ -7,13 +7,16 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap"
+	"sync/atomic"
 
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -54,7 +57,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			)
-			return nil
+			return err
 		}
 
 	default:
@@ -152,7 +155,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			)
-			return nil
+			return err
 		}
 	default:
 		context, conn, err = d.appRetrieveState(p)
@@ -260,6 +263,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// Track the connection/port cache
 	hash := tcpPacket.L4FlowHash()
 	conn.SetState(TCPSynSend)
+	conn.SetTCPSequenceNum(tcpPacket.TCPSeq)
 
 	// conntrack
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
@@ -492,6 +496,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		// Update the connection state and store the Nonse send to us by the host.
 		// We use the nonse in the subsequent packets to achieve randomization.
 		conn.SetState(TCPSynReceived)
+		conn.SetTCPSequenceNum(tcpPacket.TCPSeq)
 
 		// conntrack
 		d.netOrigConnectionTracker.AddOrUpdate(hash, conn)
@@ -780,6 +785,7 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 }
 
 // appSynRetrieveState retrieves state for the the application Syn packet.
+// If duplicate SYN found it will report error
 // It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
@@ -792,12 +798,17 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	if err != nil {
 		conn = NewTCPConnection()
 
+		conn.(*TCPConnection).Lock()
+		conn.(*TCPConnection).Context = context
+		conn.(*TCPConnection).Unlock()
+
+		return context, conn.(*TCPConnection), nil
+	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
+		atomic.AddUint32(&d.numOfPacketsDropped, 1)
+		return nil, nil, fmt.Errorf("Connection already exists")
 	}
 
-	conn.(*TCPConnection).Lock()
-	conn.(*TCPConnection).Context = context
-	conn.(*TCPConnection).Unlock()
-	return context, conn.(*TCPConnection), nil
+	return nil, nil, nil
 }
 
 // appRetrieveState retrieves the state for the rest of the application packets. It
@@ -820,6 +831,11 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 		}
 	}
 
+	if packet.TCPFlagsToStr(p.TCPFlags) == ".A..S." {
+		if conn.(*TCPConnection).GetState() != TCPSynReceived {
+			return nil, nil, fmt.Errorf("Already received this packet")
+		}
+	}
 	conn.(*TCPConnection).Lock()
 	defer conn.(*TCPConnection).Unlock()
 	context := conn.(*TCPConnection).Context
@@ -831,6 +847,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 }
 
 // netSynRetrieveState retrieves the state for the Syn packets on the network.
+// If duplicate SYN found it will report error
 // Obviously if no state is found, it generates a new connection record.
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
@@ -842,13 +859,17 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
 	if err != nil {
 		conn = NewTCPConnection()
+
+		conn.(*TCPConnection).Lock()
+		conn.(*TCPConnection).Context = context
+		conn.(*TCPConnection).Unlock()
+
+		return context, conn.(*TCPConnection), nil
+	} else if p.TCPSeq == conn.(*TCPConnection).sequenceNum {
+		return nil, nil, fmt.Errorf("Connection already exists: SYN with same sequence number")
 	}
 
-	conn.(*TCPConnection).Lock()
-	conn.(*TCPConnection).Context = context
-	conn.(*TCPConnection).Unlock()
-
-	return context, conn.(*TCPConnection), nil
+	return nil, nil, nil
 }
 
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
@@ -863,6 +884,9 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPCon
 		return nil, nil, fmt.Errorf("No Synack Connection")
 	}
 
+	if conn.(*TCPConnection).GetState() != TCPSynSend {
+		return nil, nil, fmt.Errorf("Already received this packet")
+	}
 	conn.(*TCPConnection).Lock()
 	defer conn.(*TCPConnection).Unlock()
 	context := conn.(*TCPConnection).Context

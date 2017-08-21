@@ -56,6 +56,8 @@ type Datapath struct {
 	// connctrack handle
 	conntrackHdl conntrack.Conntrack
 
+	// to keep track of the packets that are dropped
+	numOfPacketsDropped uint32
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
 
