@@ -113,6 +113,11 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("PostPost service processing failed for network packet")
 		}
+
+		if conn.ServiceConnection && conn.TimeOut > 0 {
+			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint
+		}
+
 	}
 
 	// Accept the packet
@@ -250,25 +255,13 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 // processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
-	// Let's check if it matches a specific external service - we can let those go
-	// We don't account for 0.0.0.0/0 external services though
+	// if destination is in the cache, allow
 	context.Lock()
-	if action, err := context.ApplicationACLs.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort); err == nil && action&policy.Accept > 0 {
-		conn.SetState(TCPData)
+	if policy, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))); err == nil {
 		context.Unlock()
-		return action, nil
-	}
-
-	// If we have an IP in the cache for the default match, the process here.
-	if _, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String()); err == nil {
-		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.DestinationPort)
-		if perr != nil || action == policy.Reject {
-			context.Unlock()
-			return nil, fmt.Errorf("Drop it")
-		}
-		conn.SetState(TCPData)
-		context.Unlock()
-		return action, nil
+		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
+		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+		return policy, nil
 	}
 	context.Unlock()
 
@@ -298,6 +291,31 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 // processApplicationSynAckPacket processes an application SynAck packet
 func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
+	if conn.GetState() == TCPData && !conn.ServiceConnection {
+		if err := d.conntrackHdl.ConntrackTableUpdateMark(
+			tcpPacket.DestinationAddress.String(),
+			tcpPacket.SourceAddress.String(),
+			tcpPacket.IPProto,
+			tcpPacket.DestinationPort,
+			tcpPacket.SourcePort,
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack entry for flow",
+				zap.String("context", string(conn.Auth.LocalContext)),
+				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+				zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+			)
+		}
+
+		err1 := d.netOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
+		err2 := d.appReplyConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
+
+		if err1 != nil || err2 != nil {
+			zap.L().Debug("Failed to remove cache entries")
+		}
+
+		return nil, nil
+	}
 	// Process the packet at the right state. I should have either received a Syn packet or
 	// I could have send a SynAck and this is a duplicate request since my response was lost.
 	if conn.GetState() == TCPSynReceived || conn.GetState() == TCPSynAckSend {
@@ -363,14 +381,20 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		conn.SetState(TCPAckSend)
 
 		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
-			d.conntrackHdl.ConntrackTableUpdateMark(
+			if err := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
 				tcpPacket.IPProto,
 				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
 				constants.DefaultConnMark,
-			)
+			); err != nil {
+				zap.L().Error("Failed to update conntrack table for flow",
+					zap.String("context", string(conn.Auth.LocalContext)),
+					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+					zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+				)
+			}
 		}
 
 		return nil, nil
@@ -429,11 +453,17 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 
 		// If there is no auth option, attempt the ACLs
-		action, perr := context.NetworkACLS.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.DestinationPort)
-		if perr != nil || action == policy.Reject {
+		plc, perr := context.NetworkACLS.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.DestinationPort)
+		d.reportExternalServiceFlow(context, plc, false, tcpPacket)
+		if perr != nil || plc.Action == policy.Reject {
 			return nil, nil, fmt.Errorf("Drop it")
 		}
-		return action, nil, nil
+
+		conn.SetState(TCPData)
+		d.netOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
+		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
+
+		return plc, nil, nil
 	}
 
 	// Decode the JWT token using the context key
@@ -443,20 +473,20 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	// we must drop the connection and we drop the Syn packet. The source will
 	// retry but we have no state to maintain here.
 	if err != nil || claims == nil {
-		d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidToken)
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidToken, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
 	}
 
 	txLabel, ok := claims.T.Get(TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); !ok || err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat, nil)
 		return nil, nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
 
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat)
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.InvalidFormat, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 	}
 
@@ -467,9 +497,9 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	// Validate against reject rules first - We always process reject with higher priority
-	if index, _ := context.RejectRcvRules.Search(claims.T); index >= 0 {
+	if index, plc := context.RejectRcvRules.Search(claims.T); index >= 0 {
 		// Reject the connection
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop)
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop, plc.(*policy.FlowPolicy))
 		return nil, nil, fmt.Errorf("Connection rejected because of policy %+v", claims.T)
 	}
 
@@ -485,11 +515,14 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		d.netOrigConnectionTracker.AddOrUpdate(hash, conn)
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
 
+		// Cache the action
+		conn.FlowPolicy = action.(*policy.FlowPolicy)
+
 		// Accept the connection
 		return action, claims, nil
 	}
 
-	d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop)
+	d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop, nil)
 	return nil, nil, fmt.Errorf("No matched tags - reject %+v", claims.T)
 }
 
@@ -499,35 +532,39 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	defer context.Unlock()
 
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+		var plc *policy.FlowPolicy
 
-		// If there are no options and it is in the cache, ignore. We have processed it
-		_, lerr := context.externalIPCache.Get(tcpPacket.SourceAddress.String())
-		if lerr == nil {
-			return nil, nil, nil
+		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+		if plci, perr := context.externalIPCache.Get(flowHash); perr == nil {
+			plc = plci.(*policy.FlowPolicy)
+			d.releaseFlow(context, plc, tcpPacket)
+			return plc, nil, nil
 		}
 
-		// Never seen this IP before, let's parse them. We only look at the defaults
-		// in this case. The rest have  been processed at the Syn packet
-		action, perr := context.ApplicationACLs.GetDefaultAction(tcpPacket.SourcePort)
-		if perr != nil || action == policy.Reject {
+		// Never seen this IP before, let's parse them.
+		plc, err = context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
+		if err != nil || plc.Action&policy.Reject > 0 {
+			d.reportExternalServiceFlow(context, plc, true, tcpPacket)
 			return nil, nil, fmt.Errorf("Drop it")
 		}
 
-		// Since its the first time, we added in the cache
-		// Stack will retransmit clean Syn packet if cache fails for some reason
-		cerr := context.externalIPCache.Add(tcpPacket.SourceAddress.String(), true)
-		if cerr != nil {
-			return action, nil, fmt.Errorf("Drop it")
+		// Added to the cache if we can accept it
+		if err = context.externalIPCache.Add(tcpPacket.SourceAddress.String()+":"+strconv.Itoa(int(tcpPacket.SourcePort)), plc); err != nil {
+			d.releaseFlow(context, plc, tcpPacket)
+			return nil, nil, fmt.Errorf("Drop it")
 		}
 
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(TCPData)
-		return action, nil, nil
+
+		d.releaseFlow(context, plc, tcpPacket)
+
+		return plc, nil, nil
 	}
 
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
-		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID, context, collector.MissingToken, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of missing token")
 	}
 
@@ -535,20 +572,20 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	// // Validate the certificate and parse the token
 	// claims, nonce, cert, err := d.tokenEngine.Decode(false, tcpData, nil)
 	if err != nil || claims == nil {
-		d.reportRejectedFlow(tcpPacket, nil, "", context.ManagementID, context, collector.MissingToken)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID, context, collector.MissingToken, nil)
 		return nil, nil, fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
 	}
 
 	tcpPacket.ConnectionMetadata = &conn.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat, nil)
 		return nil, nil, fmt.Errorf("TCP Authentication Option not found")
 	}
 
 	// Remove any of our data
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of invalid format")
 	}
 
@@ -559,7 +596,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	// become a very strong condition
 
 	if index, _ := context.RejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
 		return nil, nil, fmt.Errorf("Dropping because of reject rule on transmitter")
 	}
 
@@ -571,7 +608,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		return action, claims, nil
 	}
 
-	d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop)
+	d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
 	return nil, nil, fmt.Errorf("Dropping packet SYNACK at the network ")
 }
 
@@ -591,37 +628,39 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 	if conn.GetState() == TCPSynAckSend || conn.GetState() == TCPSynReceived {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
 		if _, err := d.parseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 		}
 
 		// Remove any of our data - adjust the sequence numbers
 		if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, "", context.ManagementID, context, collector.InvalidFormat)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because of invalid format %v", err)
 		}
 
 		tcpPacket.DropDetachedBytes()
 
 		// We accept the packet as a new flow
-		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context)
+		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, conn.FlowPolicy)
 
 		conn.SetState(TCPData)
 
 		if !conn.ServiceConnection {
-			d.conntrackHdl.ConntrackTableUpdateMark(
+			if err := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
 				tcpPacket.IPProto,
 				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
 				constants.DefaultConnMark,
-			)
+			); err != nil {
+				zap.L().Error("Failed to update conntrack table after ack packet")
+			}
 		}
 
 		// Accept the packet
@@ -633,7 +672,7 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 	}
 
 	// Everything else is dropped - ACK received in the Syn state without a SynAck
-	d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, collector.InvalidState)
+	d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, collector.InvalidState, nil)
 	zap.L().Error("Invalid state reached",
 		zap.String("state", fmt.Sprintf("%v", conn.GetState())),
 		zap.String("context", context.ManagementID),
@@ -949,4 +988,27 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 		return nil, fmt.Errorf("PU Context cannot be found using port key %v ", port)
 	}
 	return pu.(*PUContext), nil
+}
+
+// releaseFlow releases the flow and updates the conntrack table
+func (d *Datapath) releaseFlow(context *PUContext, plc *policy.FlowPolicy, tcpPacket *packet.Packet) {
+
+	lerr1 := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
+	lerr2 := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
+	if lerr1 != nil || lerr2 != nil {
+		zap.L().Debug("Failed to clean cache")
+	}
+
+	if lerr := d.conntrackHdl.ConntrackTableUpdateMark(
+		tcpPacket.DestinationAddress.String(),
+		tcpPacket.SourceAddress.String(),
+		tcpPacket.IPProto,
+		tcpPacket.DestinationPort,
+		tcpPacket.SourcePort,
+		constants.DefaultConnMark,
+	); lerr != nil {
+		zap.L().Error("Failed to update conntrack table")
+	}
+
+	d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
 }

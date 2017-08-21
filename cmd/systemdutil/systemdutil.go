@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
@@ -19,15 +20,13 @@ import (
 )
 
 const (
+	maxRetries       = 4
 	remoteMethodCall = "Server.HandleEvent"
 )
 
 // ExecuteCommand executes a command in a cgroup and programs Trireme
 // TODO : This method is deprecated and should be removed once there is no code using it.
 func ExecuteCommand(arguments map[string]interface{}) error {
-	if !arguments["run"].(bool) {
-		return fmt.Errorf("Bad arguments - no run command")
-	}
 
 	var command string
 	if value, ok := arguments["<command>"]; ok && value != nil {
@@ -96,13 +95,21 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		return err
 	}
 
-	// Make RPC call
+	// Make RPC call and only retry if the resource is temporarily unavailable
+	numRetries := 0
 	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
+	for err != nil {
+		numRetries++
+		nerr, ok := err.(*net.OpError)
 
-	if err != nil {
-		err = fmt.Errorf("Cannot connect to policy process %s", err)
-		stderrlogger.Print(err)
-		return err
+		if numRetries >= maxRetries || !(ok && nerr.Err == syscall.EAGAIN) {
+			err = fmt.Errorf("Cannot connect to policy process %s", err)
+			stderrlogger.Print(err)
+			return err
+		}
+
+		time.Sleep(5 * time.Millisecond)
+		client, err = net.Dial("unix", rpcmonitor.DefaultRPCAddress)
 	}
 
 	//This is added since the release_notification comes in this format

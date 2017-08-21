@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/policy"
 )
 
 var (
@@ -32,7 +33,7 @@ const (
 	// TCPSynAckReceived is the state where the SynAck has been received
 	TCPSynAckReceived
 
-	// TCPAckSend indicates that the ack packets has been send
+	// TCPAckSend indicates that the ack packets has been sent
 	TCPAckSend
 
 	// TCPAckProcessed is the state that the negotiation has been completed
@@ -87,6 +88,9 @@ type TCPConnection struct {
 
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
+
+	// FlowPolicy holds the last matched policy
+	FlowPolicy *policy.FlowPolicy
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element

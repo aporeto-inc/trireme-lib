@@ -167,6 +167,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	runtimeInfo := cachedElement.(*policy.PURuntime)
+	runtimeInfo.GlobalLock.Lock()
+	defer runtimeInfo.GlobalLock.Unlock()
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
 
@@ -237,8 +239,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 func (t *trireme) doHandleDelete(contextID string) error {
 
-	runtime, err := t.PURuntime(contextID)
-
+	runtimeReader, err := t.PURuntime(contextID)
 	if err != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
@@ -246,9 +247,14 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			Tags:      nil,
 			Event:     collector.UnknownContainerDelete,
 		})
-
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s: %s", contextID, err)
 	}
+
+	runtime := runtimeReader.(*policy.PURuntime)
+
+	// Serialize operations
+	runtime.GlobalLock.Lock()
+	defer runtime.GlobalLock.Unlock()
 
 	ip, _ := runtime.DefaultIPAddress()
 
@@ -285,12 +291,17 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 
-	runtimeInfo, err := t.PURuntime(contextID)
+	runtimeReader, err := t.PURuntime(contextID)
 	if err != nil {
 		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)
 	}
 
-	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtimeInfo.(*policy.PURuntime))
+	runtime := runtimeReader.(*policy.PURuntime)
+	// Serialize operations
+	runtime.GlobalLock.Lock()
+	defer runtime.GlobalLock.Unlock()
+
+	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtime)
 
 	addTransmitterLabel(contextID, containerInfo)
 

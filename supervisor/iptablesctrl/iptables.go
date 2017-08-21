@@ -15,11 +15,16 @@ import (
 )
 
 const (
-	chainPrefix      = "TRIREME-"
-	appChainPrefix   = chainPrefix + "App-"
-	netChainPrefix   = chainPrefix + "Net-"
-	uidchain         = "UIDCHAIN"
-	targetNetworkSet = "TargetNetSet"
+
+	uidchain                  = "UIDCHAIN"
+	chainPrefix               = "TRIREME-"
+	appChainPrefix            = chainPrefix + "App-"
+	netChainPrefix            = chainPrefix + "Net-"
+	targetNetworkSet          = "TargetNetSet"
+	ipTableSectionOutput      = "OUTPUT"
+	ipTableSectionInput       = "INPUT"
+	ipTableSectionPreRouting  = "PREROUTING"
+	ipTableSectionPostRouting = "POSTROUTING"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -43,7 +48,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize IPtables provider")
+		return nil, fmt.Errorf("Cannot initialize IPtables provider: %s", err)
 	}
 
 	ips := provider.NewGoIPsetProvider()
@@ -62,15 +67,15 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
-		i.appPacketIPTableSection = "OUTPUT" //nolint
-		i.appCgroupIPTableSection = "OUTPUT" //nolint
-		i.netPacketIPTableSection = "INPUT"  //nolint
-		i.appSynAckIPTableSection = "OUTPUT" //nolint
+		i.appPacketIPTableSection = ipTableSectionOutput
+		i.appCgroupIPTableSection = ipTableSectionOutput
+		i.netPacketIPTableSection = ipTableSectionInput
+		i.appSynAckIPTableSection = ipTableSectionOutput
 	} else {
-		i.appPacketIPTableSection = "PREROUTING"  //nolint
-		i.appCgroupIPTableSection = "OUTPUT"      //nolint
-		i.netPacketIPTableSection = "POSTROUTING" //nolint
-		i.appSynAckIPTableSection = "INPUT"       //nolint
+		i.appPacketIPTableSection = ipTableSectionPreRouting
+		i.appCgroupIPTableSection = ipTableSectionOutput
+		i.netPacketIPTableSection = ipTableSectionPostRouting
+		i.appSynAckIPTableSection = ipTableSectionInput
 	}
 
 	return i, nil
@@ -145,11 +150,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(contextID, appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(contextID, netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
@@ -221,11 +226,11 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	if err := i.addAppACLs(appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(contextID, appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(contextID, netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 

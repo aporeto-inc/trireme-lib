@@ -28,14 +28,20 @@ func TestNewPolicy(t *testing.T) {
 
 		Convey("When I provide all the feilds", func() {
 			appACL := IPRule{
-				Action:   Accept,
+				Policy: &FlowPolicy{
+					Action:   Accept,
+					PolicyID: "1",
+				},
 				Address:  "10.0.0.0/8",
 				Protocol: "tcp",
 				Port:     "80",
 			}
 
 			netACL := IPRule{
-				Action:   Accept,
+				Policy: &FlowPolicy{
+					Action:   Accept,
+					PolicyID: "2",
+				},
 				Address:  "20.0.0.0/8",
 				Protocol: "tcp",
 				Port:     "80",
@@ -47,8 +53,18 @@ func TestNewPolicy(t *testing.T) {
 				Operator: Equal,
 			}
 
-			txtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Accept}}
-			rxtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Reject}}
+			txtags := TagSelectorList{
+				TagSelector{
+					Clause: []KeyValueOperator{clause},
+					Policy: &FlowPolicy{Action: Accept, PolicyID: "3"},
+				},
+			}
+			rxtags := TagSelectorList{
+				TagSelector{
+					Clause: []KeyValueOperator{clause},
+					Policy: &FlowPolicy{Action: Reject, PolicyID: "4"},
+				},
+			}
 
 			identity := NewTagStore()
 			identity.AppendKeyValue("image", "nginx")
@@ -113,14 +129,20 @@ func TestNewPolicyWithDefaults(t *testing.T) {
 func TestFuncClone(t *testing.T) {
 	Convey("When I have a default policy", t, func() {
 		appACL := IPRule{
-			Action:   Accept,
+			Policy: &FlowPolicy{
+				Action:   Accept,
+				PolicyID: "1",
+			},
 			Address:  "10.0.0.0/8",
 			Protocol: "tcp",
 			Port:     "80",
 		}
 
 		netACL := IPRule{
-			Action:   Accept,
+			Policy: &FlowPolicy{
+				Action:   Accept,
+				PolicyID: "2",
+			},
 			Address:  "20.0.0.0/8",
 			Protocol: "tcp",
 			Port:     "80",
@@ -132,8 +154,18 @@ func TestFuncClone(t *testing.T) {
 			Operator: Equal,
 		}
 
-		txtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Accept}}
-		rxtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Reject}}
+		txtags := TagSelectorList{
+			TagSelector{
+				Clause: []KeyValueOperator{clause},
+				Policy: &FlowPolicy{Action: Accept, PolicyID: "3"},
+			},
+		}
+		rxtags := TagSelectorList{
+			TagSelector{
+				Clause: []KeyValueOperator{clause},
+				Policy: &FlowPolicy{Action: Reject, PolicyID: "4"},
+			},
+		}
 
 		identity := NewTagStore()
 		identity.AppendKeyValue("image", "nginx")
@@ -182,14 +214,20 @@ func TestFuncClone(t *testing.T) {
 func TestAllLockedSetGet(t *testing.T) {
 	Convey("Given a good policy", t, func() {
 		appACL := IPRule{
-			Action:   Accept,
+			Policy: &FlowPolicy{
+				Action:   Accept,
+				PolicyID: "1",
+			},
 			Address:  "10.0.0.0/8",
 			Protocol: "tcp",
 			Port:     "80",
 		}
 
 		netACL := IPRule{
-			Action:   Accept,
+			Policy: &FlowPolicy{
+				Action:   Accept,
+				PolicyID: "2",
+			},
 			Address:  "20.0.0.0/8",
 			Protocol: "tcp",
 			Port:     "80",
@@ -201,8 +239,18 @@ func TestAllLockedSetGet(t *testing.T) {
 			Operator: Equal,
 		}
 
-		txtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Accept}}
-		rxtags := TagSelectorList{TagSelector{Clause: []KeyValueOperator{clause}, Action: Reject}}
+		txtags := TagSelectorList{
+			TagSelector{
+				Clause: []KeyValueOperator{clause},
+				Policy: &FlowPolicy{Action: Accept, PolicyID: "3"},
+			},
+		}
+		rxtags := TagSelectorList{
+			TagSelector{
+				Clause: []KeyValueOperator{clause},
+				Policy: &FlowPolicy{Action: Reject, PolicyID: "4"},
+			},
+		}
 
 		identity := NewTagStore()
 		identity.AppendKeyValue("image", "nginx")
@@ -319,15 +367,25 @@ func TestAllLockedSetGet(t *testing.T) {
 		}
 
 		Convey("If I add a transmitter rule, it should succeed", func() {
-			p.AddTransmitterRules(TagSelector{Clause: []KeyValueOperator{newclause}, Action: Accept})
+
+			rule := TagSelector{
+				Clause: []KeyValueOperator{newclause},
+				Policy: &FlowPolicy{Action: Accept, PolicyID: "3"},
+			}
+
+			p.AddTransmitterRules(rule)
 			So(len(p.TransmitterRules()), ShouldEqual, 2)
-			So(p.TransmitterRules()[1], ShouldResemble, TagSelector{Clause: []KeyValueOperator{newclause}, Action: Accept})
+			So(p.TransmitterRules()[1], ShouldResemble, rule)
 		})
 
 		Convey("If I add a receiver rule, it should succeed", func() {
-			p.AddReceiverRules(TagSelector{Clause: []KeyValueOperator{newclause}, Action: Reject})
+			rule := TagSelector{
+				Clause: []KeyValueOperator{newclause},
+				Policy: &FlowPolicy{Action: Reject, PolicyID: "4"},
+			}
+			p.AddReceiverRules(rule)
 			So(len(p.ReceiverRules()), ShouldEqual, 2)
-			So(p.ReceiverRules()[1], ShouldResemble, TagSelector{Clause: []KeyValueOperator{newclause}, Action: Reject})
+			So(p.ReceiverRules()[1], ShouldResemble, rule)
 		})
 	})
 

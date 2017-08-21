@@ -323,11 +323,14 @@ func TestAddAppACLs(t *testing.T) {
 					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
 						return nil
 					}
+					if err := matchSpec("NFLOG", rulespec); err == nil {
+						return nil
+					}
 				}
 				return fmt.Errorf("Error")
 			})
 
-			err := i.addAppACLs("chain", "", policy.IPRuleList{})
+			err := i.addAppACLs("", "chain", "", policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -341,7 +344,7 @@ func TestAddAppACLs(t *testing.T) {
 				return nil
 			})
 
-			err := i.addAppACLs("chain", "", policy.IPRuleList{})
+			err := i.addAppACLs("", "chain", "", policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -354,14 +357,14 @@ func TestAddAppACLs(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
@@ -377,7 +380,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addAppACLs("chain", "", rules)
+			err := i.addAppACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -390,14 +393,14 @@ func TestAddAppACLs(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
@@ -410,7 +413,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addAppACLs("chain", "", rules)
+			err := i.addAppACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -423,14 +426,14 @@ func TestAddAppACLs(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
@@ -443,7 +446,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addAppACLs("chain", "", rules)
+			err := i.addAppACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -468,11 +471,14 @@ func TestAddNetAcls(t *testing.T) {
 					if err := matchSpec("ESTABLISHED", rulespec); err == nil {
 						return nil
 					}
+					if err := matchSpec("NFLOG", rulespec); err == nil {
+						return nil
+					}
 				}
 				return fmt.Errorf("Error")
 			})
 
-			err := i.addNetACLs("chain", "", policy.IPRuleList{})
+			err := i.addNetACLs("", "chain", "", policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -486,7 +492,7 @@ func TestAddNetAcls(t *testing.T) {
 				return nil
 			})
 
-			err := i.addNetACLs("chain", "", policy.IPRuleList{})
+			err := i.addNetACLs("", "chain", "", policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -499,18 +505,21 @@ func TestAddNetAcls(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("NFLOG", rulespec) == nil {
+					return nil
+				}
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
 					return nil
 				}
@@ -522,7 +531,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addNetACLs("chain", "", rules)
+			err := i.addNetACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -535,18 +544,21 @@ func TestAddNetAcls(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("NFLOG", rulespec) == nil {
+					return nil
+				}
 				if matchSpec("80", rulespec) == nil && matchSpec("REJECT", rulespec) == nil {
 					return nil
 				}
@@ -555,7 +567,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addNetACLs("chain", "", rules)
+			err := i.addNetACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -568,18 +580,21 @@ func TestAddNetAcls(t *testing.T) {
 					Address:  "192.30.253.0/24",
 					Port:     "80",
 					Protocol: "TCP",
-					Action:   policy.Reject,
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
 					Protocol: "TCP",
-					Action:   policy.Accept,
+					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if matchSpec("NFLOG", rulespec) == nil {
+					return nil
+				}
 				if matchSpec("443", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
 					return nil
 				}
@@ -588,7 +603,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s ", rulespec)
 			})
-			err := i.addNetACLs("chain", "", rules)
+			err := i.addNetACLs("chain", "", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
