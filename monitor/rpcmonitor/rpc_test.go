@@ -71,7 +71,7 @@ func TestNewRPCMonitor(t *testing.T) {
 
 			os.Create("./testfile") // nolint : errcheck
 			contextStorePath = "./base"
-			_, err := NewRPCMonitor("./testfile", &CustomPolicyResolver{}, nil)
+			_, err := NewRPCMonitor("./testfile", nil)
 			Convey("I should get no error and the file is removed", func() {
 				So(err, ShouldBeNil)
 				_, ferr := os.Stat("./testfile")

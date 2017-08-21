@@ -3336,7 +3336,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
-								So(err, ShouldBeNil)
+								So(err, ShouldNotBeNil)
 
 							}
 
