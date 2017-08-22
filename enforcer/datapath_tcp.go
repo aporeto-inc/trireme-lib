@@ -260,6 +260,10 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 
+	// We use a trick to reduce the seq number from ISN so that when our component gets out of the way, the
+	// sequence numbers between the TCP stacks automatically match
+	tcpPacket.DecreaseTCPSeq(uint32(len(tcpData)-1) + (d.ackSize))
+
 	// Attach the tags to the packet.
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 
@@ -312,6 +316,10 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		}
 
 		// Attach the tags to the packet
+		tcpPacket.DecreaseTCPSeq(uint32(len(tcpData) - 1))
+		tcpPacket.DecreaseTCPAck(d.ackSize)
+
+		// Attach the tags to the packet
 		return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 	}
 
@@ -349,6 +357,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		if len(token) != int(d.ackSize) {
 			return nil, fmt.Errorf("Protocol Error %d", len(token))
 		}
+
+		// Attach the tags to the packet
+		tcpPacket.DecreaseTCPSeq(d.ackSize)
 
 		// Attach the tags to the packet
 		if err := tcpPacket.TCPDataAttach(tcpOptions, token); err != nil {
@@ -460,6 +471,9 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		return nil, nil, fmt.Errorf("TCP Authentication Option not found %v", err)
 	}
 
+	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
+	tcpPacket.IncreaseTCPSeq((tcpDataLen - 1) + (d.ackSize))
+
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
@@ -560,6 +574,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		return nil, nil, fmt.Errorf("TCP Authentication Option not found")
 	}
 
+	tcpDataLen := uint32(tcpPacket.IPTotalLength - tcpPacket.TCPDataStartBytes())
+	tcpPacket.IncreaseTCPSeq(tcpDataLen - 1)
+	tcpPacket.IncreaseTCPAck(d.ackSize)
+
 	// Remove any of our data
 	if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.InvalidFormat, nil)
@@ -613,6 +631,9 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 		}
+
+		// Remove any of our data - adjust the sequence numbers
+		tcpPacket.IncreaseTCPSeq(d.ackSize)
 
 		// Remove any of our data - adjust the sequence numbers
 		if err := tcpPacket.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
