@@ -802,8 +802,12 @@ func (i *Instance) CleanAllSynAckPacketCaptures() error {
 		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
 	//We installed UID CHAINS with synack lets remove it here
-
-	i.ipt.DeleteChain(i.appAckPacketIPTableContext, uidchain)
+	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+		zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
+	}
+	if err := i.ipt.DeleteChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+		zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
+	}
 	return nil
 }
 
