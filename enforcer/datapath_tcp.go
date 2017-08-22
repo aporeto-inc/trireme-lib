@@ -103,6 +103,11 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			p.Print(packet.PacketFailureService)
 			return fmt.Errorf("PostPost service processing failed for network packet")
 		}
+
+		if conn.ServiceConnection && conn.TimeOut > 0 {
+			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint
+		}
+
 	}
 
 	// Accept the packet
