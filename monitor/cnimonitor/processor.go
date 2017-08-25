@@ -11,6 +11,8 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 )
 
+var contextStorePath = "/var/run/trireme"
+
 // CniProcessor captures all the monitor processor information
 // It implements the MonitorProcessor interface of the rpc monitor
 type CniProcessor struct {
@@ -27,7 +29,7 @@ func NewCniProcessor(collector collector.EventCollector, puHandler monitor.Proce
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
-		contextStore:      contextstore.NewContextStore(),
+		contextStore:      contextstore.NewContextStore(contextStorePath),
 	}
 }
 
