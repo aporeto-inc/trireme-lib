@@ -245,7 +245,7 @@ func TestInitEnforcer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := NewServer(service, rpcHdl, pcchan, secret, mockStats)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
