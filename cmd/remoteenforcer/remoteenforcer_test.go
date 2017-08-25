@@ -199,7 +199,7 @@ func TestNewServer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret)
+			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -213,7 +213,7 @@ func TestNewServer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
-			server, err := NewServer(service, rpcHdl, pcchan, secret)
+			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -245,7 +245,7 @@ func TestInitEnforcer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
-			server, err := NewServer(service, rpcHdl, pcchan, secret)
+			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
