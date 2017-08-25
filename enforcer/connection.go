@@ -33,7 +33,7 @@ const (
 	// TCPSynAckReceived is the state where the SynAck has been received
 	TCPSynAckReceived
 
-	// TCPAckSend indicates that the ack packets has been send
+	// TCPAckSend indicates that the ack packets has been sent
 	TCPAckSend
 
 	// TCPAckProcessed is the state that the negotiation has been completed

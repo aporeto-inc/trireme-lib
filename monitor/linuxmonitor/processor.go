@@ -23,17 +23,19 @@ type LinuxProcessor struct {
 	metadataExtractor rpcmonitor.RPCMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore
+	storePath         string
 }
 
 // NewLinuxProcessor initializes a processor
 func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
-
+	storePath := "/var/run/trireme"
 	return &LinuxProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
 		netcls:            cgnetcls.NewCgroupNetController(releasePath),
-		contextStore:      contextstore.NewContextStore(),
+		contextStore:      contextstore.NewContextStore(storePath),
+		storePath:         storePath,
 	}
 }
 
@@ -148,8 +150,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID = contextID[strings.LastIndex(contextID, "/"):]
 
-	contextStoreHdl := contextstore.NewContextStore()
-
+	contextStoreHdl := s.contextStore
 	s.netcls.Deletebasepath(contextID)
 
 	// Send the event upstream

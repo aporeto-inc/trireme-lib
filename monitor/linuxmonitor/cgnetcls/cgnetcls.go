@@ -33,11 +33,12 @@ const (
 	procs                = "/cgroup.procs"
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
-	initialmarkval       = 100
+	//Initialmarkval is the start of mark values we assign to cgroup
+	Initialmarkval = 100
 )
 
 var basePath = "/sys/fs/cgroup/net_cls"
-var markval uint64 = initialmarkval
+var markval uint64 = Initialmarkval
 
 //Empty receiver struct
 type netCls struct {

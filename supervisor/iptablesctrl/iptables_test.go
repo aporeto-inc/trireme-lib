@@ -246,14 +246,14 @@ func TestDeleteRules(t *testing.T) {
 		i.ipt = iptables
 
 		Convey("If I try to delete with nil IP addreses", func() {
-			err := i.DeleteRules(1, "context", nil, "0", "0")
+			err := i.DeleteRules(1, "context", nil, "0", "0", "")
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("I try to delete with no default IP address ", func() {
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0")
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0", "")
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -269,7 +269,7 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0")
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "")
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
