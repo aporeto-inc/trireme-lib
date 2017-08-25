@@ -14,6 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -46,6 +47,15 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 				zap.Error(err),
 			)
 			return err
+		}
+
+		if context.PUType == constants.TransientPU {
+			//Drop Data and let packet through.
+			//Don't create any state
+			//The option should always be present since our rules looks for this option
+			//context is destroyed here if we are a transient PU
+			//Verdict get set to pass
+			return nil
 		}
 	case packet.TCPSynAckMask:
 		context, conn, err = d.netSynAckRetrieveState(p)
@@ -152,7 +162,15 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 			)
-			return nil
+
+			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
+				//SYN ACK came through the global rule.
+				//This not from a process we are monitoring
+				//let his packet through
+				return nil
+			}
+
+			return err
 		}
 	default:
 		context, conn, err = d.appRetrieveState(p)
@@ -809,6 +827,14 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	if err != nil {
 		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
+			if d.mode != constants.RemoteContainer {
+				//We see a syn ack for which we have not recorded a syn
+				//Update the port for the context matching the mark this packet has comes with
+				context, _ := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
+
+				d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
+				//Return an error still we will process the syn successfully on retry and
+			}
 			return nil, nil, fmt.Errorf("App state not found")
 		}
 		if uerr := updateTimer(d.appOrigConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {
@@ -835,8 +861,22 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
 	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
+
 	if err != nil {
-		return nil, nil, fmt.Errorf("No Context in App Processing")
+		//This needs to hit only for local processes never for containers
+		//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
+		if d.mode != constants.RemoteContainer {
+
+			context = &PUContext{
+				PUType: constants.TransientPU,
+			}
+			//we will create the bare minimum needed to exercise our stack
+			//We need this syn to look similar to what we will pass on the retry
+			//so we setup enought for us to identify this request in the later stages
+			return context, nil, nil
+		}
+
+		return nil, nil, fmt.Errorf("No Context in net Processing")
 	}
 
 	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
@@ -847,7 +887,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	conn.(*TCPConnection).Lock()
 	conn.(*TCPConnection).Context = context
 	conn.(*TCPConnection).Unlock()
-
 	return context, conn.(*TCPConnection), nil
 }
 

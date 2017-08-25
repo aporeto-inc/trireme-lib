@@ -41,6 +41,11 @@ const (
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
+	//UIDLoginPU -- PU representing a user session
+	UIDLoginPU
+	//TransientPU PU -- placeholder to run processing. This should not
+	//be inserted in any cache. This is valid only for processing a packet
+	TransientPU
 )
 
 const (

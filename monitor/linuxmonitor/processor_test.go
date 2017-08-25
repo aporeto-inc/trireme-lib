@@ -108,6 +108,7 @@ func TestDestroy(t *testing.T) {
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
 		p := testLinuxProcessor(&collector.DefaultCollector{}, puHandler, rpcmonitor.DefaultRPCMetadataExtractor, "")
+		p.contextStore = contextstore.NewContextStore("./base")
 		mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 		p.netcls = mockcls
 

@@ -22,6 +22,7 @@ type cacheData struct {
 	ips     policy.ExtendedMap
 	mark    string
 	port    string
+	uid     string
 }
 
 // Config is the structure holding all information about the supervisor
@@ -117,7 +118,7 @@ func (s *Config) Unsupervise(contextID string) error {
 
 	cacheEntry := version.(*cacheData)
 
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark); err != nil {
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -186,11 +187,16 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	if !ok {
 		port = "0"
 	}
+	uid, ok := containerInfo.Runtime.Options().Get("USER")
+	if !ok {
+		uid = ""
+	}
 	cacheEntry := &cacheData{
 		version: version,
 		ips:     containerInfo.Policy.IPAddresses(),
 		mark:    mark,
 		port:    port,
+		uid:     uid,
 	}
 
 	// Version the policy so that we can do hitless policy changes

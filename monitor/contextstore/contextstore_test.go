@@ -24,6 +24,7 @@ func cleanupstore() {
 func TestStoreContext(t *testing.T) {
 	cstore := NewCustomContextStore("./base")
 	defer cleanupstore()
+
 	testdata := &testdatastruct{data: 10}
 	marshaldata, _ := json.Marshal(testdata)
 	err := cstore.StoreContext(testcontextID, testdata)
@@ -31,7 +32,9 @@ func TestStoreContext(t *testing.T) {
 		t.Errorf("Failed to store context data %s", err.Error())
 		t.SkipNow()
 	} else {
-		readdata, _ := ioutil.ReadFile(storebasePath + testcontextID + eventInfoFile)
+
+		readdata, _ := ioutil.ReadFile("./base/" + testcontextID + eventInfoFile)
+
 		if strings.TrimSpace(string(readdata)) != string(marshaldata) {
 			t.Errorf("Data corrupted in stores")
 			t.SkipNow()
@@ -41,7 +44,7 @@ func TestStoreContext(t *testing.T) {
 
 func TestDestroyStore(t *testing.T) {
 	storebasePath = "./base"
-	cstore := NewContextStore()
+	cstore := NewContextStore(storebasePath)
 	defer cleanupstore()
 
 	os.RemoveAll(storebasePath) //nolint
@@ -51,7 +54,7 @@ func TestDestroyStore(t *testing.T) {
 	}
 	//Reinit store
 	storebasePath = "./base"
-	cstore = NewContextStore()
+	cstore = NewContextStore(storebasePath)
 	testdata := &testdatastruct{data: 10}
 	if err := cstore.StoreContext(testcontextID, testdata); err != nil {
 		t.Errorf("Failed to store context %s", err.Error())
@@ -65,7 +68,7 @@ func TestDestroyStore(t *testing.T) {
 
 func TestGetContextInfo(t *testing.T) {
 	storebasePath = "./base"
-	cstore := NewContextStore()
+	cstore := NewContextStore(storebasePath)
 	defer cleanupstore()
 
 	_, err := cstore.GetContextInfo(testcontextID)
@@ -95,7 +98,7 @@ func TestGetContextInfo(t *testing.T) {
 
 func TestRemoveContext(t *testing.T) {
 	storebasePath = "./base"
-	cstore := NewContextStore()
+	cstore := NewContextStore(storebasePath)
 	//defer cleanupstore()
 
 	err := cstore.RemoveContext(testcontextID)
@@ -121,7 +124,7 @@ func TestRemoveContext(t *testing.T) {
 
 func TestWalkStore(t *testing.T) {
 	storebasePath = "./base"
-	cstore := NewContextStore()
+	cstore := NewContextStore(storebasePath)
 	defer cleanupstore()
 	testdata := &testdatastruct{data: 10}
 	contextIDList := []string{"/test1", "/test2", "/test3"}

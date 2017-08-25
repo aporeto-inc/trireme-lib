@@ -45,7 +45,7 @@ func TestInvalidContext(t *testing.T) {
 
 				So(err, ShouldBeNil)
 				So(err1, ShouldNotBeNil)
-				So(err2, ShouldNotBeNil)
+				So(err2, ShouldBeNil)
 			})
 		})
 	})
@@ -74,7 +74,7 @@ func TestInvalidIPContext(t *testing.T) {
 
 				So(err, ShouldBeNil)
 				So(err1, ShouldNotBeNil)
-				So(err2, ShouldNotBeNil)
+				So(err2, ShouldBeNil)
 			})
 		})
 	})
@@ -109,7 +109,7 @@ func TestInvalidTokenContext(t *testing.T) {
 
 				So(err, ShouldBeNil)
 				So(err1, ShouldNotBeNil)
-				So(err2, ShouldNotBeNil)
+				So(err2, ShouldBeNil)
 			})
 		})
 	})
@@ -3336,7 +3336,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
-								So(err, ShouldBeNil)
+								So(err, ShouldNotBeNil)
 
 							}
 

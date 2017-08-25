@@ -89,7 +89,6 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 	}
 
 	name, metadata, err := createMetadata(serviceName, command, ports, tags)
-
 	if err != nil {
 		err = fmt.Errorf("Invalid metadata: %s", err)
 		stderrlogger.Print(err)
@@ -185,7 +184,7 @@ func HandleCgroupStop(cgroupName string) error {
 	if err != nil {
 		return err
 	}
-
+	filepath := "/var/run/trireme/"
 	request := &rpcmonitor.EventInfo{
 		PUType:    constants.LinuxProcessPU,
 		PUID:      cgroupName,
@@ -193,6 +192,10 @@ func HandleCgroupStop(cgroupName string) error {
 		Tags:      nil,
 		PID:       strconv.Itoa(os.Getpid()),
 		EventType: monitor.EventStop,
+	}
+	if _, ferr := os.Stat(filepath + cgroupName); os.IsNotExist(ferr) {
+
+		request.PUType = constants.UIDLoginPU
 	}
 	response := &rpcmonitor.RPCResponse{}
 

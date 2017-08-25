@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	uidchain                  = "UIDCHAIN"
 	chainPrefix               = "TRIREME-"
 	appChainPrefix            = chainPrefix + "App-"
 	netChainPrefix            = chainPrefix + "Net-"
@@ -121,7 +122,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	if i.mode != constants.LocalServer {
 
-		if err := i.addChainRules(appChain, netChain, ipAddress, "", ""); err != nil {
+		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", ""); err != nil {
 			return err
 		}
 
@@ -135,7 +136,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		if !ok {
 			port = "0"
 		}
-		if err := i.addChainRules(appChain, netChain, ipAddress, port, mark); err != nil {
+		uid, ok := containerInfo.Runtime.Options().Get("USER")
+		if !ok {
+			uid = ""
+		}
+		if err := i.addChainRules(appChain, netChain, ipAddress, port, mark, uid); err != nil {
 			return err
 		}
 	}
@@ -160,7 +165,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error {
 	var ipAddress string
 	var ok bool
 
@@ -178,7 +183,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 
 	appChain, netChain := i.chainName(contextID, version)
 
-	if derr := i.deleteChainRules(appChain, netChain, ipAddress, port, mark); derr != nil {
+	if derr := i.deleteChainRules(appChain, netChain, ipAddress, port, mark, uid); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -235,7 +240,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	// Add mapping to new chain
 	if i.mode != constants.LocalServer {
 
-		if err := i.addChainRules(appChain, netChain, ipAddress, "", ""); err != nil {
+		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", ""); err != nil {
 			return err
 		}
 	} else {
@@ -247,24 +252,32 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		if !ok {
 			portlist = "0"
 		}
-
-		if err := i.addChainRules(appChain, netChain, ipAddress, portlist, mark); err != nil {
+		uid, ok := containerInfo.Runtime.Options().Get("USER")
+		if !ok {
+			uid = ""
+		}
+		if err := i.addChainRules(appChain, netChain, ipAddress, portlist, mark, uid); err != nil {
 			return err
 		}
 	}
 
 	//Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, "", ""); err != nil {
+		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, "", "", ""); err != nil {
 			return err
 		}
 	} else {
 		mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
 		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+
 		if !ok {
 			port = "0"
 		}
-		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark); err != nil {
+		uid, ok := containerInfo.Runtime.Options().Get("USER")
+		if !ok {
+			uid = ""
+		}
+		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark, uid); err != nil {
 			return err
 		}
 	}
@@ -318,6 +331,9 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return fmt.Errorf("Failed to update synack networks")
 	}
 
+	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
+	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain)
+	//	i.ipt.Insert(i.appAckPacketIPTableContext, uidchain, 1, "-j", "RETURN")
 	return nil
 }
 

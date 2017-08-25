@@ -121,14 +121,14 @@ func (_mr *_MockImplementorRecorder) UpdateRules(arg0, arg1, arg2 interface{}) *
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateRules", arg0, arg1, arg2)
 }
 
-func (_m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string) error {
-	ret := _m.ctrl.Call(_m, "DeleteRules", version, context, ipAddresses, port, mark)
+func (_m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error {
+	ret := _m.ctrl.Call(_m, "DeleteRules", version, context, ipAddresses, port, mark, uid)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockImplementorRecorder) DeleteRules(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteRules", arg0, arg1, arg2, arg3, arg4)
+func (_mr *_MockImplementorRecorder) DeleteRules(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteRules", arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 func (_m *MockImplementor) SetTargetNetworks(_param0 []string, _param1 []string) error {

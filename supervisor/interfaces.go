@@ -31,7 +31,7 @@ type Implementor interface {
 	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error
 
 	// DeleteRules
-	DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string) error
+	DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
 	SetTargetNetworks([]string, []string) error
