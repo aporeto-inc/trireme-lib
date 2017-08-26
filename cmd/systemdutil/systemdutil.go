@@ -184,7 +184,7 @@ func HandleCgroupStop(cgroupName string) error {
 	if err != nil {
 		return err
 	}
-	filepath := "/var/run/trireme/"
+	filepath := "/var/run"
 	request := &rpcmonitor.EventInfo{
 		PUType:    constants.LinuxProcessPU,
 		PUID:      cgroupName,
@@ -193,10 +193,11 @@ func HandleCgroupStop(cgroupName string) error {
 		PID:       strconv.Itoa(os.Getpid()),
 		EventType: monitor.EventStop,
 	}
-	if _, ferr := os.Stat(filepath + cgroupName); os.IsNotExist(ferr) {
 
+	if _, ferr := os.Stat(filepath + cgroupName); os.IsNotExist(ferr) {
 		request.PUType = constants.UIDLoginPU
 	}
+
 	response := &rpcmonitor.RPCResponse{}
 
 	rpcClient := jsonrpc.NewClient(client)
