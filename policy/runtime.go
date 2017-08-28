@@ -13,6 +13,8 @@ type PURuntime struct {
 	puType constants.PUType
 	// Pid holds the value of the first process of the container
 	pid int
+	// NsPath is the path to the networking namespace for this PURuntime if applicable.
+	nsPath string
 	// Name is the name of the container
 	name string
 	// IPAddress is the IP Address of the container
@@ -35,6 +37,8 @@ type PURuntimeJSON struct {
 	PUType constants.PUType
 	// Pid holds the value of the first process of the container
 	Pid int
+	// NSPath is the path to the networking namespace for this PURuntime if applicable.
+	NSPath string
 	// Name is the name of the container
 	Name string
 	// IPAddress is the IP Address of the container
@@ -46,7 +50,7 @@ type PURuntimeJSON struct {
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagStore, ips ExtendedMap, puType constants.PUType, options ExtendedMap) *PURuntime {
+func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType constants.PUType, options ExtendedMap) *PURuntime {
 
 	t := tags
 	if t == nil {
@@ -69,6 +73,7 @@ func NewPURuntime(name string, pid int, tags *TagStore, ips ExtendedMap, puType 
 		ips:        i,
 		options:    o,
 		pid:        pid,
+		nsPath:     nsPath,
 		name:       name,
 		GlobalLock: &sync.Mutex{},
 	}
@@ -77,7 +82,7 @@ func NewPURuntime(name string, pid int, tags *TagStore, ips ExtendedMap, puType 
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, nil, nil, constants.ContainerPU, nil)
+	return NewPURuntime("", 0, "", nil, nil, constants.ContainerPU, nil)
 }
 
 // Clone returns a copy of the policy
@@ -85,7 +90,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.Lock()
 	defer r.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags.Copy(), r.ips.Copy(), r.puType, r.options)
+	return NewPURuntime(r.name, r.pid, r.nsPath, r.tags.Copy(), r.ips.Copy(), r.puType, r.options)
 }
 
 // MarshalJSON Marshals this struct.
@@ -93,6 +98,7 @@ func (r *PURuntime) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&PURuntimeJSON{
 		PUType:      r.puType,
 		Pid:         r.pid,
+		NSPath:      r.nsPath,
 		Name:        r.name,
 		IPAddresses: r.ips,
 		Tags:        r.tags,
@@ -107,6 +113,7 @@ func (r *PURuntime) UnmarshalJSON(param []byte) error {
 		return err
 	}
 	r.pid = a.Pid
+	r.nsPath = a.NSPath
 	r.name = a.Name
 	r.ips = a.IPAddresses
 	r.tags = a.Tags
@@ -129,6 +136,22 @@ func (r *PURuntime) SetPid(pid int) {
 	defer r.Unlock()
 
 	r.pid = pid
+}
+
+// NSPath returns the NSPath
+func (r *PURuntime) NSPath() string {
+	r.Lock()
+	defer r.Unlock()
+
+	return r.nsPath
+}
+
+// SetNSPath sets the NSPath
+func (r *PURuntime) SetNSPath(nsPath string) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.nsPath = nsPath
 }
 
 // SetPUType sets the PU Type

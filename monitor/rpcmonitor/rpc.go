@@ -246,7 +246,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		if present {
 			if err := f(eventInfo); err != nil {
 				result.Error = err.Error()
-				return fmt.Errorf("Error")
+				return err
 			}
 			return nil
 		}
@@ -280,5 +280,5 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
 }

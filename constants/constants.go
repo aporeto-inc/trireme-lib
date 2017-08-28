@@ -41,6 +41,8 @@ const (
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
+	// KubernetesPU indicates that this is KubernetesPod
+	KubernetesPU
 	//UIDLoginPU -- PU representing a user session
 	UIDLoginPU
 	//TransientPU PU -- placeholder to run processing. This should not

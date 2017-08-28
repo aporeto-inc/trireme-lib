@@ -43,5 +43,5 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	runtimePID, _ := strconv.Atoi(event.PID)
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
 }
