@@ -293,11 +293,10 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	pu := &PUContext{
-		ID:              contextID,
-		ManagementID:    puInfo.Policy.ManagementID(),
-		PUType:          puInfo.Runtime.PUType(),
-		IP:              ip,
-		externalIPCache: cache.NewCacheWithExpiration(time.Second * 900),
+		ID:           contextID,
+		ManagementID: puInfo.Policy.ManagementID(),
+		PUType:       puInfo.Runtime.PUType(),
+		IP:           ip,
 	}
 
 	// Cache PUs for retrieval based on packet information
@@ -333,6 +332,8 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 	puContext.Identity = containerInfo.Policy.Identity()
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
+
+	puContext.externalIPCache = cache.NewCache()
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
