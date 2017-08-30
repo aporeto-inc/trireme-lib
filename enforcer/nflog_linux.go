@@ -49,6 +49,7 @@ func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
 	record, err := a.recordFromNFLogBuffer(buf, false)
 	if err != nil {
 		zap.L().Error("sourceNFLogsHanlder: create flow record", zap.Error(err))
+		return
 	}
 
 	a.collector.CollectFlowEvent(record)
@@ -59,6 +60,7 @@ func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, data interface{}) {
 	record, err := a.recordFromNFLogBuffer(buf, true)
 	if err != nil {
 		zap.L().Error("destNFLogsHandler: create flow record", zap.Error(err))
+		return
 	}
 
 	a.collector.CollectFlowEvent(record)
