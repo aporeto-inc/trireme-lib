@@ -3,6 +3,7 @@ package enforcer
 // Go libraries
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -20,6 +21,16 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
+
+// Trace defines if the header should be printed for debug purposes.
+// Add TRIREME_TRACE to your env variables to trace headers.
+var Trace = false
+
+func init() {
+	if os.Getenv("TRIREME_TRACE") != "" {
+		Trace = true
+	}
+}
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
