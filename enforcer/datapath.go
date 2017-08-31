@@ -24,11 +24,13 @@ import (
 
 // Trace defines if the header should be printed for debug purposes.
 // Add TRIREME_TRACE to your env variables to trace headers.
-var Trace = false
+var Trace bool
 
 func init() {
 	if os.Getenv("TRIREME_TRACE") != "" {
 		Trace = true
+	} else {
+		Trace = false
 	}
 }
 
