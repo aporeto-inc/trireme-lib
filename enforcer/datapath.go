@@ -335,7 +335,7 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	duration, err := time.ParseDuration("500ms")
 	if err != nil {
-		return fmt.Errorf("couldn't create duration: ", err)
+		return fmt.Errorf("couldn't create duration: %s", err)
 	}
 
 	puContext.externalIPCache = cache.NewCacheWithExpiration(duration)
