@@ -333,7 +333,12 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	puContext.externalIPCache = cache.NewCache()
+	duration, err := time.ParseDuration("500ms")
+	if err != nil {
+		return fmt.Errorf("couldn't create duration: ", err)
+	}
+
+	puContext.externalIPCache = cache.NewCacheWithExpiration(duration)
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
