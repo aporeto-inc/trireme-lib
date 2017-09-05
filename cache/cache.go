@@ -267,8 +267,7 @@ func (c *Cache) RemoveWithDelay(u interface{}, duration time.Duration) error {
 		return fmt.Errorf("Cannot remove item with delay - it doesn't exist")
 	}
 
-	var timer *time.Timer
-	timer = time.AfterFunc(duration, func() {
+	timer := time.AfterFunc(duration, func() {
 		if err := c.Remove(u); err != nil {
 			zap.L().Warn("Failed to remove item with delay", zap.String("key", fmt.Sprintf("%v", u)), zap.String("delay", duration.String()))
 		}
