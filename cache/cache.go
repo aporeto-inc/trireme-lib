@@ -19,6 +19,7 @@ type DataStore interface {
 	Get(u interface{}) (i interface{}, err error)
 	GetReset(u interface{}, duration time.Duration) (interface{}, error)
 	Remove(u interface{}) (err error)
+	RemoveWithDelay(u interface{}, duration time.Duration) (err error)
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 	SetTimeOut(u interface{}, timeout time.Duration) (err error)
 }
@@ -249,6 +250,45 @@ func (c *Cache) removeNotify(u interface{}, notify bool) (err error) {
 func (c *Cache) Remove(u interface{}) (err error) {
 
 	return c.removeNotify(u, false)
+}
+
+// RemoveWithDelay removes the entry from the cache after a certain duration
+func (c *Cache) RemoveWithDelay(u interface{}, duration time.Duration) error {
+	if duration == -1 {
+		return c.Remove(u)
+	}
+
+	c.Lock()
+	defer c.Unlock()
+
+	e, ok := c.data[u]
+
+	if !ok {
+		return fmt.Errorf("Cannot remove item with delay - it doesn't exist")
+	}
+
+	var timer *time.Timer
+	timer = time.AfterFunc(duration, func() {
+		if err := c.Remove(u); err != nil {
+			zap.L().Warn("Failed to remove item with delay", zap.String("key", fmt.Sprintf("%v", u)), zap.String("delay", duration.String()))
+		}
+	})
+
+	t := time.Now()
+
+	if c.data[u].timer != nil {
+		c.data[u].timer.Stop()
+	}
+
+	c.data[u] = entry{
+		value:     e.value,
+		timestamp: t,
+		timer:     timer,
+		expirer:   c.expirer,
+	}
+
+	return nil
+
 }
 
 // SizeOf returns the number of elements in the cache

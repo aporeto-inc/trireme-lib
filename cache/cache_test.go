@@ -323,3 +323,43 @@ func TestThousandsOfTimers(t *testing.T) {
 		})
 	})
 }
+
+func TestRemoveWithDelay(t *testing.T) {
+	Convey("Given an initial cache that is non empty", t, func() {
+		c := NewCache()
+		c.Add("info1", "info1") // nolint
+		c.Add("info2", "info2") // nolint
+		c.Add("info3", "info3") // nolint
+		c.Add("info4", "info4") // nolint
+
+		Convey("When I remove an valid entry with a duration of -1", func() {
+			err := c.RemoveWithDelay("info1", -1)
+			Convey("It should remove the entry right away", func() {
+				So(err, ShouldBeNil)
+				So(c.SizeOf(), ShouldEqual, 3)
+				_, err := c.Get("info1")
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I remove an valid entry with a duration of 2 seconds", func() {
+			err := c.RemoveWithDelay("info2", 2*time.Second)
+			Convey("It should remove the entry right away", func() {
+				So(err, ShouldBeNil)
+				So(c.SizeOf(), ShouldEqual, 4)
+				<-time.After(3 * time.Second)
+				So(c.SizeOf(), ShouldEqual, 3)
+				_, err := c.Get("info2")
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I remove an unknown entry with a duration of 2 seconds", func() {
+			err := c.RemoveWithDelay("unknown", 2*time.Second)
+			Convey("It should return an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+	})
+}
