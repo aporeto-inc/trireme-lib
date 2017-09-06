@@ -70,8 +70,8 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
-				return nil
 			}
+			return nil
 		}
 
 	default:
