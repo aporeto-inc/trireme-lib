@@ -6,6 +6,7 @@ package enforcer
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	nfqueue "github.com/aporeto-inc/netlink-go/nfqueue"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -27,6 +28,7 @@ func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startNetworkInterceptor() {
 	var err error
+	retry := 0
 	d.netStop = make([]chan bool, d.filterQueue.GetNumNetworkQueues())
 	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
 		d.netStop[i] = make(chan bool)
@@ -39,7 +41,19 @@ func (d *Datapath) startNetworkInterceptor() {
 		// Initialize all the queues
 		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetNetworkQueueStart()+i, d.filterQueue.GetNetworkQueueSize(), nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
 		if err != nil {
-			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+			retry++
+			if retry < 5 {
+				for cq := uint16(0); cq < i; cq++ {
+					d.netStop[cq] <- true
+				}
+				<-time.After(3 * time.Second)
+				//restart loop here
+				i = 0
+				continue
+			} else {
+				zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+			}
+
 		}
 		go func(j uint16) {
 			for range d.netStop[j] {
@@ -55,6 +69,7 @@ func (d *Datapath) startNetworkInterceptor() {
 func (d *Datapath) startApplicationInterceptor() {
 
 	var err error
+	retry := 0
 	d.appStop = make([]chan bool, d.filterQueue.GetNumApplicationQueues())
 	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
 		d.appStop[i] = make(chan bool)
@@ -66,10 +81,23 @@ func (d *Datapath) startApplicationInterceptor() {
 		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetApplicationQueueStart()+i, d.filterQueue.GetApplicationQueueSize(), nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
 
 		if err != nil {
-			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+			retry++
+			if retry < 5 {
+				for cq := uint16(0); cq < i; cq++ {
+					d.appStop[cq] <- true
+				}
+				<-time.After(3 * time.Second)
+				//restart loop here
+				i = 0
+				continue
+			} else {
+				zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+			}
+
 		}
 		go func(j uint16) {
 			for range d.appStop[j] {
+				nfq[i].(*nfqueue.NfQueue).NfqDestroyQueue()
 				return
 			}
 
