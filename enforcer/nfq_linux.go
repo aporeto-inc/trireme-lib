@@ -50,7 +50,7 @@ func (d *Datapath) startNetworkInterceptor() {
 		}
 		go func(j uint16) {
 			for range d.netStop[j] {
-				nfq[j].(*nfqueue.NfQueue).NfqDestroyQueue()
+				nfq[j].StopQueue()
 				return
 			}
 		}(i)
@@ -85,7 +85,7 @@ func (d *Datapath) startApplicationInterceptor() {
 		}
 		go func(j uint16) {
 			for range d.appStop[j] {
-				nfq[i].(*nfqueue.NfQueue).NfqDestroyQueue()
+				nfq[i].StopQueue()
 				return
 			}
 
