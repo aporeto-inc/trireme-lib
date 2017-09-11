@@ -53,6 +53,9 @@ type Datapath struct {
 	netOrigConnectionTracker  cache.DataStore
 	netReplyConnectionTracker cache.DataStore
 
+	// CacheTimeout used for Trireme auto-detecion
+	cacheTimeout time.Duration
+
 	// connctrack handle
 	conntrackHdl conntrack.Conntrack
 
@@ -82,6 +85,7 @@ func New(
 	validity time.Duration,
 	mode constants.ModeType,
 	procMountPoint string,
+	cacheTimeout time.Duration,
 ) PolicyEnforcer {
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
@@ -116,6 +120,7 @@ func New(
 		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
 		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
 		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
+		cacheTimeout:              cacheTimeout,
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
@@ -156,6 +161,11 @@ func NewWithDefaults(
 
 	validity := time.Hour * 8760
 
+	duration, err := time.ParseDuration("500ms")
+	if err != nil {
+		duration = time.Second
+	}
+
 	return New(
 		mutualAuthorization,
 		fqConfig,
@@ -166,6 +176,7 @@ func NewWithDefaults(
 		validity,
 		mode,
 		procMountPoint,
+		duration,
 	)
 }
 
@@ -333,12 +344,7 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	duration, err := time.ParseDuration("500ms")
-	if err != nil {
-		return fmt.Errorf("couldn't create duration: %s", err)
-	}
-
-	puContext.externalIPCache = cache.NewCacheWithExpiration(duration)
+	puContext.externalIPCache = cache.NewCacheWithExpiration(d.cacheTimeout)
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
