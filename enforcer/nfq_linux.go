@@ -6,6 +6,7 @@ package enforcer
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	nfqueue "github.com/aporeto-inc/netlink-go/nfqueue"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -39,10 +40,17 @@ func (d *Datapath) startNetworkInterceptor() {
 		// Initialize all the queues
 		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetNetworkQueueStart()+i, d.filterQueue.GetNetworkQueueSize(), nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
 		if err != nil {
-			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+			for retry := 0; retry < 5 && err != nil; retry++ {
+				nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetNetworkQueueStart()+i, d.filterQueue.GetNetworkQueueSize(), nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
+				<-time.After(3 * time.Second)
+			}
+			if err != nil {
+				zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+			}
 		}
 		go func(j uint16) {
 			for range d.netStop[j] {
+				nfq[j].StopQueue()
 				return
 			}
 		}(i)
@@ -66,10 +74,19 @@ func (d *Datapath) startApplicationInterceptor() {
 		nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetApplicationQueueStart()+i, d.filterQueue.GetApplicationQueueSize(), nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
 
 		if err != nil {
-			zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
+			for retry := 0; retry < 5 && err != nil; retry++ {
+				nfq[i], err = nfqueue.CreateAndStartNfQueue(d.filterQueue.GetApplicationQueueStart()+i, d.filterQueue.GetApplicationQueueSize(), nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
+				<-time.After(3 * time.Second)
+			}
+			if err != nil {
+				zap.L().Fatal("Unable to initialize netfilter queue", zap.Int("QueueNum", int(d.filterQueue.GetNetworkQueueStart()+i)), zap.Error(err))
+			}
+
 		}
 		go func(j uint16) {
 			for range d.appStop[j] {
+				//Call StopQueue
+				nfq[j].StopQueue()
 				return
 			}
 
