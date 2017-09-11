@@ -32,6 +32,44 @@ const (
 	AporetoProcMountPoint = "/aporetoproc"
 )
 
+// TriremeOptions defines all the possible configuration options for Trireme configurator
+type TriremeOptions struct {
+	ServerID string
+
+	RemoteEnforcer     bool
+	KillContainerError bool
+	SyncAtStart        bool
+
+	PSK []byte
+
+	KeyPEM    []byte
+	CertPEM   []byte
+	CaCertPEM []byte
+	Token     []byte
+
+	TargetNetworks []string
+
+	resolver       *trireme.PolicyResolver
+	EventCollector *collector.EventCollector
+	Processor      *enforcer.PacketProcessor
+
+	ImplementationType constants.ImplementationType
+}
+
+// TriremeResult is the result of the creation of Trireme
+type TriremeResult struct {
+}
+
+// DefaultTriremeOptions returns a default set of options.
+func DefaultTriremeOptions() *TriremeOptions {
+	return &TriremeOptions{}
+}
+
+// NewTriremeWithOptions creates all the Trireme objects based on the option struct
+func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
+	return nil, nil
+}
+
 // NewTriremeLinuxProcess instantiates Trireme for a Linux process implementation
 func NewTriremeLinuxProcess(
 	serverID string,
