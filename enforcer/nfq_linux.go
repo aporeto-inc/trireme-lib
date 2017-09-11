@@ -85,6 +85,7 @@ func (d *Datapath) startApplicationInterceptor() {
 		}
 		go func(j uint16) {
 			for range d.appStop[j] {
+				//Call StopQueue
 				nfq[i].StopQueue()
 				return
 			}
