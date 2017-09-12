@@ -37,7 +37,7 @@ const (
 type PUType int
 
 const (
-	// ContainerPU indicates that this PU is a conctainer
+	// ContainerPU indicates that this PU is a container
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
