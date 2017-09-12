@@ -4,6 +4,7 @@ package configurator
 
 import (
 	"crypto/ecdsa"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 
 	"github.com/aporeto-inc/trireme/enforcer/proxy"
@@ -28,8 +30,8 @@ import (
 const (
 	//DefaultProcMountPoint The default proc mountpoint
 	DefaultProcMountPoint = "/proc"
-	//AporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
-	AporetoProcMountPoint = "/aporetoproc"
+	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
+	DefaultAporetoProcMountPoint = "/aporetoproc"
 )
 
 // TriremeOptions defines all the possible configuration options for Trireme configurator
@@ -49,25 +51,125 @@ type TriremeOptions struct {
 
 	TargetNetworks []string
 
-	resolver       *trireme.PolicyResolver
-	EventCollector *collector.EventCollector
-	Processor      *enforcer.PacketProcessor
+	Resolver       trireme.PolicyResolver
+	EventCollector collector.EventCollector
+	Processor      enforcer.PacketProcessor
+	Secrets        secrets.Secrets
+
+	cniMetadataExtractor *rpcmonitor.RPCMetadataExtractor
 
 	ImplementationType constants.ImplementationType
+
+	MutualAuth bool
+	Validity   time.Duration
+
+	FilterQueue *fqconfig.FilterQueue
+
+	LinuxProcess bool
+	Docker       bool
+	Local        bool
+	Distributed  bool
+	Hybrid       bool
+	CompactPKI   bool
+	CNI          bool
+
+	ModeType constants.ModeType
+	PUType   constants.PUType
+	ImplType constants.ImplementationType
+
+	ProcMountPoint        string
+	AporetoProcMountPoint string
+
+	RemoteArg string
+
+	Remote bool
 }
 
 // TriremeResult is the result of the creation of Trireme
 type TriremeResult struct {
+	Trireme trireme.Trireme
+	Monitor monitor.Monitor
 }
 
 // DefaultTriremeOptions returns a default set of options.
 func DefaultTriremeOptions() *TriremeOptions {
-	return &TriremeOptions{}
+	return &TriremeOptions{
+		EventCollector: &collector.DefaultCollector{},
+
+		MutualAuth:  false,
+		FilterQueue: fqconfig.NewFilterQueueWithDefaults(),
+
+		Validity: time.Hour * 8760,
+
+		TargetNetworks: []string{},
+
+		ProcMountPoint:        DefaultProcMountPoint,
+		AporetoProcMountPoint: DefaultAporetoProcMountPoint,
+
+		ModeType: constants.RemoteContainer,
+		ImplType: constants.IPTables,
+
+		RemoteArg: constants.DefaultRemoteArg,
+	}
 }
 
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
 func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
-	return nil, nil
+
+	var e enforcer.PolicyEnforcer
+	var s supervisor.Supervisor
+	var err error
+
+	if options.Remote {
+		rpcwrapper := rpcwrapper.NewRPCWrapper()
+		e = enforcerproxy.NewProxyEnforcer(
+			options.MutualAuth,
+			options.FilterQueue,
+			options.EventCollector,
+			options.Processor,
+			options.Secrets,
+			options.ServerID,
+			options.Validity,
+			rpcwrapper,
+			options.RemoteArg,
+			options.ProcMountPoint,
+		)
+
+		s, err = supervisorproxy.NewProxySupervisor(
+			options.EventCollector,
+			e,
+			rpcwrapper)
+	} else {
+		e = enforcer.New(
+			options.MutualAuth,
+			options.FilterQueue,
+			options.EventCollector,
+			options.Processor,
+			options.Secrets,
+			options.ServerID,
+			options.Validity,
+			options.ModeType,
+			options.ProcMountPoint,
+		)
+
+		s, err = supervisor.NewSupervisor(
+			options.EventCollector,
+			e,
+			options.ModeType,
+			options.ImplType,
+			options.TargetNetworks,
+		)
+	}
+	if err != nil {
+		zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
+	}
+
+	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{options.PUType: e}
+	supervisors := map[constants.PUType]supervisor.Supervisor{options.PUType: s}
+
+	return &TriremeResult{
+		Trireme: trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector),
+	}, nil
 }
 
 // NewTriremeLinuxProcess instantiates Trireme for a Linux process implementation
