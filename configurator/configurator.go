@@ -309,6 +309,54 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}, nil
 }
 
+// NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
+// a policy engine implementation and a pre-shared secret. This is for backward
+// compatibility. Will be removed
+// DEPRECATED. Use NewWithOptions
+func NewPSKTriremeWithDockerMonitor(
+	serverID string,
+	resolver trireme.PolicyResolver,
+	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
+	syncAtStart bool,
+	key []byte,
+	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	remoteEnforcer bool,
+	killContainerError bool,
+) (trireme.Trireme, monitor.Monitor) {
+
+	if eventCollector == nil {
+		zap.L().Warn("Using a default collector for events")
+		eventCollector = &collector.DefaultCollector{}
+	}
+
+	options := DefaultTriremeOptions()
+	options.ServerID = serverID
+	options.Resolver = resolver
+	options.Processor = processor
+	options.EventCollector = eventCollector
+	options.SyncAtStart = syncAtStart
+	options.PSK = key
+	options.DockerMetadataExtractor = &dockerMetadataExtractor
+	options.LocalProcess = false
+	if remoteEnforcer {
+		options.RemoteContainer = true
+		options.LocalContainer = false
+	} else {
+		options.RemoteContainer = false
+		options.LocalContainer = true
+	}
+	options.KillContainerError = killContainerError
+
+	trireme, err := NewTriremeWithOptions(options)
+	if err != nil {
+		zap.L().Fatal("Error creating trireme", zap.Error(err))
+	}
+
+	return trireme.Trireme, trireme.DockerMonitor
+
+}
+
 // NewTriremeLinuxProcess instantiates Trireme for a Linux process implementation
 func NewTriremeLinuxProcess(
 	serverID string,
@@ -504,62 +552,6 @@ func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) secrets.Secrets {
 		return nil
 	}
 	return secrets
-}
-
-// NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
-// a policy engine implementation and a pre-shared secret. This is for backward
-// compatibility. Will be removed
-func NewPSKTriremeWithDockerMonitor(
-	serverID string,
-	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
-	eventCollector collector.EventCollector,
-	syncAtStart bool,
-	key []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
-	remoteEnforcer bool,
-	killContainerError bool,
-) (trireme.Trireme, monitor.Monitor) {
-
-	if eventCollector == nil {
-		zap.L().Warn("Using a default collector for events")
-		eventCollector = &collector.DefaultCollector{}
-	}
-
-	secrets := NewSecretsFromPSK(key)
-
-	var triremeInstance trireme.Trireme
-
-	if remoteEnforcer {
-		triremeInstance = NewDistributedTriremeDocker(
-			serverID,
-			resolver,
-			processor,
-			eventCollector,
-			secrets,
-			constants.IPTables)
-	} else {
-		triremeInstance = NewLocalTriremeDocker(
-			serverID,
-			resolver,
-			processor,
-			eventCollector,
-			secrets,
-			constants.IPTables)
-	}
-
-	monitorInstance := dockermonitor.NewDockerMonitor(
-		constants.DefaultDockerSocketType,
-		constants.DefaultDockerSocket,
-		triremeInstance,
-		dockerMetadataExtractor,
-		eventCollector,
-		syncAtStart,
-		nil,
-		killContainerError)
-
-	return triremeInstance, monitorInstance
-
 }
 
 // NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
