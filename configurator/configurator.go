@@ -57,8 +57,7 @@ type TriremeOptions struct {
 	DockerSocketType string
 	DockerSocket     string
 
-	MutualAuth bool
-	Validity   time.Duration
+	Validity time.Duration
 
 	FilterQueue *fqconfig.FilterQueue
 
@@ -70,6 +69,11 @@ type TriremeOptions struct {
 
 	RemoteArg string
 
+	RPCAddress              string
+	LinuxProcessReleasePath string
+
+	MutualAuth bool
+
 	KillContainerError bool
 	SyncAtStart        bool
 
@@ -79,9 +83,6 @@ type TriremeOptions struct {
 	LocalContainer  bool
 	RemoteContainer bool
 	CNI             bool
-
-	RPCAddress              string
-	LinuxProcessReleasePath string
 }
 
 // TriremeResult is the result of the creation of Trireme
@@ -102,8 +103,7 @@ func DefaultTriremeOptions() *TriremeOptions {
 		DockerSocketType: constants.DefaultDockerSocketType,
 		DockerSocket:     constants.DefaultDockerSocket,
 
-		MutualAuth: false,
-		Validity:   time.Hour * 8760,
+		Validity: time.Hour * 8760,
 
 		FilterQueue: fqconfig.NewFilterQueueWithDefaults(),
 
@@ -115,6 +115,11 @@ func DefaultTriremeOptions() *TriremeOptions {
 
 		RemoteArg: constants.DefaultRemoteArg,
 
+		RPCAddress:              rpcmonitor.DefaultRPCAddress,
+		LinuxProcessReleasePath: "",
+
+		MutualAuth: false,
+
 		KillContainerError: false,
 		SyncAtStart:        false,
 
@@ -124,9 +129,6 @@ func DefaultTriremeOptions() *TriremeOptions {
 		LocalContainer:  false,
 		RemoteContainer: true,
 		CNI:             false,
-
-		RPCAddress:              rpcmonitor.DefaultRPCAddress,
-		LinuxProcessReleasePath: "",
 	}
 }
 
