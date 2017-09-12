@@ -85,7 +85,8 @@ type TriremeOptions struct {
 	RemoteContainer bool
 	CNI             bool
 
-	RPCAddress string
+	RPCAddress              string
+	LinuxProcessReleasePath string
 }
 
 // TriremeResult is the result of the creation of Trireme
@@ -122,6 +123,8 @@ func DefaultTriremeOptions() *TriremeOptions {
 		PKI: false,
 
 		RemoteContainer: true,
+
+		LinuxProcessReleasePath: "",
 
 		RPCAddress: rpcmonitor.DefaultRPCAddress,
 	}
@@ -270,16 +273,28 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	if options.LocalProcess {
 		// configure a LinuxServices processor for the rpc monitor
-		linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(options.EventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
-		if err := rpcMonitorInstance.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
+		linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(
+			options.EventCollector,
+			triremeInstance,
+			linuxmonitor.SystemdRPCMetadataExtractor,
+			options.LinuxProcessReleasePath)
+		if err := rpcMonitorInstance.RegisterProcessor(
+			constants.LinuxProcessPU,
+			linuxMonitorProcessor); err != nil {
 			zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 		}
 	}
 
 	if options.CNI {
 		// configure a CNI processor for the rpc monitor
-		cniProcessor := cnimonitor.NewCniProcessor(options.EventCollector, triremeInstance, *options.CNIMetadataExtractor)
-		if err := rpcMonitorInstance.RegisterProcessor(constants.ContainerPU, cniProcessor); err != nil {
+		cniProcessor := cnimonitor.NewCniProcessor(
+			options.EventCollector,
+			triremeInstance,
+			*options.CNIMetadataExtractor)
+		err := rpcMonitorInstance.RegisterProcessor(
+			constants.ContainerPU,
+			cniProcessor)
+		if err != nil {
 			zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 		}
 	}
