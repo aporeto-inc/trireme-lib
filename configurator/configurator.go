@@ -39,7 +39,6 @@ const (
 type TriremeOptions struct {
 	ServerID string
 
-	RemoteEnforcer     bool
 	KillContainerError bool
 	SyncAtStart        bool
 
@@ -48,7 +47,6 @@ type TriremeOptions struct {
 	KeyPEM    []byte
 	CertPEM   []byte
 	CaCertPEM []byte
-	Token     []byte
 
 	TargetNetworks []string
 
@@ -62,15 +60,12 @@ type TriremeOptions struct {
 	DockerSocketType string
 	DockerSocket     string
 
-	ImplementationType constants.ImplementationType
-
 	MutualAuth bool
 	Validity   time.Duration
 
 	FilterQueue *fqconfig.FilterQueue
 
 	ModeType constants.ModeType
-	PUType   constants.PUType
 	ImplType constants.ImplementationType
 
 	ProcMountPoint        string
