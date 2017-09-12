@@ -133,8 +133,8 @@ func DefaultTriremeOptions() *TriremeOptions {
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
 func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
-	var enforcers map[constants.PUType]enforcer.PolicyEnforcer
-	var supervisors map[constants.PUType]supervisor.Supervisor
+	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{}
+	supervisors := map[constants.PUType]supervisor.Supervisor{}
 
 	var secretInstance secrets.Secrets
 	var dockerMonitorInstance monitor.Monitor
