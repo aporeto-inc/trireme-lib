@@ -55,7 +55,6 @@ type TriremeOptions struct {
 	Resolver       trireme.PolicyResolver
 	EventCollector collector.EventCollector
 	Processor      enforcer.PacketProcessor
-	Secrets        secrets.Secrets
 
 	CNIMetadataExtractor    *rpcmonitor.RPCMetadataExtractor
 	DockerMetadataExtractor *dockermonitor.DockerMetadataExtractor
@@ -79,15 +78,22 @@ type TriremeOptions struct {
 
 	RemoteArg string
 
+	PKI bool
+
 	LocalProcess    bool
 	LocalContainer  bool
 	RemoteContainer bool
+	CNI             bool
+
+	RPCAddress string
 }
 
 // TriremeResult is the result of the creation of Trireme
 type TriremeResult struct {
-	Trireme trireme.Trireme
-	Monitor monitor.Monitor
+	Trireme       trireme.Trireme
+	DockerMonitor monitor.Monitor
+	RPCMonitor    rpcmonitor.RPCMonitor
+	Secret        secrets.Secrets
 }
 
 // DefaultTriremeOptions returns a default set of options.
@@ -113,18 +119,23 @@ func DefaultTriremeOptions() *TriremeOptions {
 
 		RemoteArg: constants.DefaultRemoteArg,
 
+		PKI: false,
+
 		RemoteContainer: true,
+
+		RPCAddress: rpcmonitor.DefaultRPCAddress,
 	}
 }
 
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
 func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
-	var e enforcer.PolicyEnforcer
-	var s supervisor.Supervisor
-
 	var enforcers map[constants.PUType]enforcer.PolicyEnforcer
 	var supervisors map[constants.PUType]supervisor.Supervisor
+
+	var secretInstance secrets.Secrets
+	var dockerMonitorInstance monitor.Monitor
+	var rpcMonitorInstance *rpcmonitor.RPCMonitor
 
 	var err error
 
@@ -133,14 +144,25 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		return nil, fmt.Errorf("Cannot have remote and local container enabled at the same time")
 	}
 
+	if options.PKI {
+		secretInstance, err = secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
+		if err != nil {
+			return nil, fmt.Errorf("Error generating secrets for PKI: %s", err)
+		}
+	} else {
+		secretInstance = NewSecretsFromPSK(options.PSK)
+	}
+
 	if options.RemoteContainer {
+		var s supervisor.Supervisor
+
 		rpcwrapper := rpcwrapper.NewRPCWrapper()
-		e = enforcerproxy.NewProxyEnforcer(
+		e := enforcerproxy.NewProxyEnforcer(
 			options.MutualAuth,
 			options.FilterQueue,
 			options.EventCollector,
 			options.Processor,
-			options.Secrets,
+			secretInstance,
 			options.ServerID,
 			options.Validity,
 			rpcwrapper,
@@ -161,12 +183,14 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	if options.LocalContainer {
-		e = enforcer.New(
+		var s supervisor.Supervisor
+
+		e := enforcer.New(
 			options.MutualAuth,
 			options.FilterQueue,
 			options.EventCollector,
 			options.Processor,
-			options.Secrets,
+			secretInstance,
 			options.ServerID,
 			options.Validity,
 			constants.LocalContainer,
@@ -189,12 +213,14 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	if options.LocalProcess {
-		e = enforcer.New(
+		var s supervisor.Supervisor
+
+		e := enforcer.New(
 			options.MutualAuth,
 			options.FilterQueue,
 			options.EventCollector,
 			options.Processor,
-			options.Secrets,
+			secretInstance,
 			options.ServerID,
 			options.Validity,
 			constants.LocalServer,
@@ -219,19 +245,50 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector)
 
-	dockerMonitorInstance := dockermonitor.NewDockerMonitor(
-		options.DockerSocketType,
-		options.DockerSocket,
-		triremeInstance,
-		*options.DockerMetadataExtractor,
-		options.EventCollector,
-		options.SyncAtStart,
-		nil,
-		options.KillContainerError)
+	if options.LocalContainer || options.RemoteContainer {
+		dockerMonitorInstance = dockermonitor.NewDockerMonitor(
+			options.DockerSocketType,
+			options.DockerSocket,
+			triremeInstance,
+			*options.DockerMetadataExtractor,
+			options.EventCollector,
+			options.SyncAtStart,
+			nil,
+			options.KillContainerError)
+	}
+
+	if options.CNI || options.LocalProcess {
+		// use rpcmonitor no need to return it since no other consumer for it
+		rpcMonitorInstance, err = rpcmonitor.NewRPCMonitor(
+			options.RPCAddress,
+			options.EventCollector,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to initialize RPC monitor %s", err)
+		}
+	}
+
+	if options.LocalProcess {
+		// configure a LinuxServices processor for the rpc monitor
+		linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(options.EventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
+		if err := rpcMonitorInstance.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
+			zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+		}
+	}
+
+	if options.CNI {
+		// configure a CNI processor for the rpc monitor
+		cniProcessor := cnimonitor.NewCniProcessor(options.EventCollector, triremeInstance, *options.CNIMetadataExtractor)
+		if err := rpcMonitorInstance.RegisterProcessor(constants.ContainerPU, cniProcessor); err != nil {
+			zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+		}
+	}
 
 	return &TriremeResult{
-		Trireme: triremeInstance,
-		Monitor: dockerMonitorInstance,
+		Trireme:       triremeInstance,
+		DockerMonitor: dockerMonitorInstance,
+		RPCMonitor:    *rpcMonitorInstance,
+		Secret:        secretInstance,
 	}, nil
 }
 
