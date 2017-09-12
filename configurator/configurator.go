@@ -39,9 +39,6 @@ const (
 type TriremeOptions struct {
 	ServerID string
 
-	KillContainerError bool
-	SyncAtStart        bool
-
 	PSK []byte
 
 	KeyPEM    []byte
@@ -73,6 +70,9 @@ type TriremeOptions struct {
 
 	RemoteArg string
 
+	KillContainerError bool
+	SyncAtStart        bool
+
 	PKI bool
 
 	LocalProcess    bool
@@ -95,33 +95,38 @@ type TriremeResult struct {
 // DefaultTriremeOptions returns a default set of options.
 func DefaultTriremeOptions() *TriremeOptions {
 	return &TriremeOptions{
-		EventCollector: &collector.DefaultCollector{},
-
-		MutualAuth:  false,
-		FilterQueue: fqconfig.NewFilterQueueWithDefaults(),
-
-		Validity: time.Hour * 8760,
-
 		TargetNetworks: []string{},
+
+		EventCollector: &collector.DefaultCollector{},
 
 		DockerSocketType: constants.DefaultDockerSocketType,
 		DockerSocket:     constants.DefaultDockerSocket,
 
-		ProcMountPoint:        DefaultProcMountPoint,
-		AporetoProcMountPoint: DefaultAporetoProcMountPoint,
+		MutualAuth: false,
+		Validity:   time.Hour * 8760,
+
+		FilterQueue: fqconfig.NewFilterQueueWithDefaults(),
 
 		ModeType: constants.RemoteContainer,
 		ImplType: constants.IPTables,
 
+		ProcMountPoint:        DefaultProcMountPoint,
+		AporetoProcMountPoint: DefaultAporetoProcMountPoint,
+
 		RemoteArg: constants.DefaultRemoteArg,
+
+		KillContainerError: false,
+		SyncAtStart:        false,
 
 		PKI: false,
 
+		LocalProcess:    true,
+		LocalContainer:  false,
 		RemoteContainer: true,
+		CNI:             false,
 
+		RPCAddress:              rpcmonitor.DefaultRPCAddress,
 		LinuxProcessReleasePath: "",
-
-		RPCAddress: rpcmonitor.DefaultRPCAddress,
 	}
 }
 
