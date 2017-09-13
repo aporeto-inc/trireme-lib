@@ -368,6 +368,7 @@ func NewPSKTriremeWithDockerMonitor(
 // a policy engine implementation and private/public key pair and parent certificate.
 // All certificates are passed in PEM format. If a certificate pool is provided
 // certificates will not be transmitted on the wire
+// DEPRECATED. Use NewWithOptions instead
 func NewPKITriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
@@ -414,6 +415,52 @@ func NewPKITriremeWithDockerMonitor(
 	}
 
 	return trireme.Trireme, trireme.DockerMonitor, trireme.PublicKeyAdder
+}
+
+// NewPSKHybridTriremeWithMonitor creates a new network isolator. The calling module must provide
+// a policy engine implementation and a pre-shared secret. This is for backward
+// compatibility.
+// DEPRECATED. Use NewWithOptions instead
+func NewPSKHybridTriremeWithMonitor(
+	serverID string,
+	networks []string,
+	resolver trireme.PolicyResolver,
+	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
+	syncAtStart bool,
+	key []byte,
+	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	killContainerError bool,
+) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
+
+	if eventCollector == nil {
+		zap.L().Warn("Using a default collector for events")
+		eventCollector = &collector.DefaultCollector{}
+	}
+
+	options := DefaultTriremeOptions()
+	options.ServerID = serverID
+	options.TargetNetworks = networks
+	options.Resolver = resolver
+	options.Processor = processor
+	options.EventCollector = eventCollector
+	options.SyncAtStart = syncAtStart
+	options.PKI = false
+	options.PSK = key
+	options.DockerMetadataExtractor = &dockerMetadataExtractor
+	options.LocalProcess = true
+	options.RemoteContainer = true
+	options.LocalContainer = false
+
+	options.KillContainerError = killContainerError
+
+	trireme, err := NewTriremeWithOptions(options)
+	if err != nil {
+		zap.L().Fatal("Error creating trireme", zap.Error(err))
+	}
+
+	return trireme.Trireme, trireme.DockerMonitor, &trireme.RPCMonitor
+
 }
 
 // NewTriremeLinuxProcess instantiates Trireme for a Linux process implementation
@@ -611,67 +658,6 @@ func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) secrets.Secrets {
 		return nil
 	}
 	return secrets
-}
-
-// NewPSKHybridTriremeWithMonitor creates a new network isolator. The calling module must provide
-// a policy engine implementation and a pre-shared secret. This is for backward
-// compatibility. Will be removed
-func NewPSKHybridTriremeWithMonitor(
-	serverID string,
-	networks []string,
-	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
-	eventCollector collector.EventCollector,
-	syncAtStart bool,
-	key []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
-	killContainerError bool,
-) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
-
-	if eventCollector == nil {
-		zap.L().Warn("Using a default collector for events")
-		eventCollector = &collector.DefaultCollector{}
-	}
-
-	secrets := NewSecretsFromPSK(key)
-
-	triremeInstance := NewHybridTrireme(
-		serverID,
-		resolver,
-		processor,
-		eventCollector,
-		secrets,
-		networks,
-	)
-
-	monitorDocker := dockermonitor.NewDockerMonitor(
-		constants.DefaultDockerSocketType,
-		constants.DefaultDockerSocket,
-		triremeInstance,
-		dockerMetadataExtractor,
-		eventCollector,
-		syncAtStart,
-		nil,
-		killContainerError,
-	)
-	// use rpcmonitor no need to return it since no other consumer for it
-	rpcmon, err := rpcmonitor.NewRPCMonitor(
-		rpcmonitor.DefaultRPCAddress,
-		eventCollector,
-	)
-
-	if err != nil {
-		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
-	}
-
-	// configure a LinuxServices processor for the rpc monitor
-	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
-	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
-		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
-	}
-
-	return triremeInstance, monitorDocker, rpcmon
-
 }
 
 // NewHybridCompactPKIWithDocker is an example of configuring Trireme to use the compact PKI
