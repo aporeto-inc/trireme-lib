@@ -326,14 +326,13 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 
+	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
+
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("Failed to update synack networks")
 	}
 
-	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
-	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain)
-	//	i.ipt.Insert(i.appAckPacketIPTableContext, uidchain, 1, "-j", "RETURN")
 	return nil
 }
 
