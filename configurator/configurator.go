@@ -419,7 +419,8 @@ func NewPKITriremeWithDockerMonitor(
 
 	trireme, err := NewTriremeWithOptions(options)
 	if err != nil {
-		zap.L().Fatal("Error creating trireme", zap.Error(err))
+		// Respecting the convention of previous implementation (deprecated anyways)
+		return nil, nil, nil
 	}
 
 	return trireme.Trireme, trireme.DockerMonitor, trireme.PublicKeyAdder
