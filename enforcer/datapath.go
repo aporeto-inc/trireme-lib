@@ -21,6 +21,8 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
+const DefaultExternalIPTimeout = "500ms"
+
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
 
@@ -87,6 +89,14 @@ func New(
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
 ) PolicyEnforcer {
+
+	if externalIPCacheTimeout <= 0 {
+		var err error
+		externalIPCacheTimeout, err = time.ParseDuration(DefaultExternalIPTimeout)
+		if err != nil {
+			externalIPCacheTimeout = time.Second
+		}
+	}
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
@@ -159,7 +169,7 @@ func NewWithDefaults(
 	defaultMutualAuthorization := false
 	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
 	defaultValidity := time.Hour * 8760
-	defaultExternalIPCacheTimeout, err := time.ParseDuration("500ms")
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
