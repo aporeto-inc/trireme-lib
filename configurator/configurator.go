@@ -87,10 +87,11 @@ type TriremeOptions struct {
 
 // TriremeResult is the result of the creation of Trireme
 type TriremeResult struct {
-	Trireme       trireme.Trireme
-	DockerMonitor monitor.Monitor
-	RPCMonitor    rpcmonitor.RPCMonitor
-	Secret        secrets.Secrets
+	Trireme        trireme.Trireme
+	DockerMonitor  monitor.Monitor
+	RPCMonitor     rpcmonitor.RPCMonitor
+	PublicKeyAdder enforcer.PublicKeyAdder
+	Secret         secrets.Secrets
 }
 
 // DefaultTriremeOptions returns a default set of options.
@@ -138,6 +139,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{}
 	supervisors := map[constants.PUType]supervisor.Supervisor{}
 
+	var publicKeyAdder enforcer.PublicKeyAdder
 	var secretInstance secrets.Secrets
 	var dockerMonitorInstance monitor.Monitor
 	var rpcMonitorInstance *rpcmonitor.RPCMonitor
@@ -150,7 +152,9 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	if options.PKI {
-		secretInstance, err = secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
+		pkiSecrets, err := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
+		secretInstance = pkiSecrets
+		publicKeyAdder = pkiSecrets
 		if err != nil {
 			return nil, fmt.Errorf("Error generating secrets for PKI: %s", err)
 		}
@@ -302,10 +306,11 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	return &TriremeResult{
-		Trireme:       triremeInstance,
-		DockerMonitor: dockerMonitorInstance,
-		RPCMonitor:    *rpcMonitorInstance,
-		Secret:        secretInstance,
+		Trireme:        triremeInstance,
+		DockerMonitor:  dockerMonitorInstance,
+		RPCMonitor:     *rpcMonitorInstance,
+		PublicKeyAdder: publicKeyAdder,
+		Secret:         secretInstance,
 	}, nil
 }
 
@@ -336,6 +341,7 @@ func NewPSKTriremeWithDockerMonitor(
 	options.Processor = processor
 	options.EventCollector = eventCollector
 	options.SyncAtStart = syncAtStart
+	options.PKI = false
 	options.PSK = key
 	options.DockerMetadataExtractor = &dockerMetadataExtractor
 	options.LocalProcess = false
@@ -354,6 +360,59 @@ func NewPSKTriremeWithDockerMonitor(
 	}
 
 	return trireme.Trireme, trireme.DockerMonitor
+
+}
+
+// NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
+// a policy engine implementation and private/public key pair and parent certificate.
+// All certificates are passed in PEM format. If a certificate pool is provided
+// certificates will not be transmitted on the wire
+func NewPKITriremeWithDockerMonitor(
+	serverID string,
+	resolver trireme.PolicyResolver,
+	processor enforcer.PacketProcessor,
+	eventCollector collector.EventCollector,
+	syncAtStart bool,
+	keyPEM []byte,
+	certPEM []byte,
+	caCertPEM []byte,
+	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	remoteEnforcer bool,
+	killContainerError bool,
+) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
+
+	if eventCollector == nil {
+		zap.L().Warn("Using a default collector for events")
+		eventCollector = &collector.DefaultCollector{}
+	}
+
+	options := DefaultTriremeOptions()
+	options.ServerID = serverID
+	options.Resolver = resolver
+	options.Processor = processor
+	options.EventCollector = eventCollector
+	options.SyncAtStart = syncAtStart
+	options.PKI = true
+	options.KeyPEM = keyPEM
+	options.CertPEM = certPEM
+	options.CaCertPEM = caCertPEM
+	options.DockerMetadataExtractor = &dockerMetadataExtractor
+	options.LocalProcess = false
+	if remoteEnforcer {
+		options.RemoteContainer = true
+		options.LocalContainer = false
+	} else {
+		options.RemoteContainer = false
+		options.LocalContainer = true
+	}
+	options.KillContainerError = killContainerError
+
+	trireme, err := NewTriremeWithOptions(options)
+	if err != nil {
+		zap.L().Fatal("Error creating trireme", zap.Error(err))
+	}
+
+	return trireme.Trireme, trireme.DockerMonitor, trireme.PublicKeyAdder
 
 }
 
@@ -552,68 +611,6 @@ func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) secrets.Secrets {
 		return nil
 	}
 	return secrets
-}
-
-// NewPKITriremeWithDockerMonitor creates a new network isolator. The calling module must provide
-// a policy engine implementation and private/public key pair and parent certificate.
-// All certificates are passed in PEM format. If a certificate pool is provided
-// certificates will not be transmitted on the wire
-func NewPKITriremeWithDockerMonitor(
-	serverID string,
-	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
-	eventCollector collector.EventCollector,
-	syncAtStart bool,
-	keyPEM []byte,
-	certPEM []byte,
-	caCertPEM []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
-	remoteEnforcer bool,
-	killContainerError bool,
-) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
-
-	if eventCollector == nil {
-		zap.L().Warn("Using a default collector for events")
-		eventCollector = &collector.DefaultCollector{}
-	}
-
-	publicKeyAdder, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
-	if err != nil {
-		return nil, nil, nil
-	}
-
-	var triremeInstance trireme.Trireme
-
-	if remoteEnforcer {
-		triremeInstance = NewDistributedTriremeDocker(
-			serverID,
-			resolver,
-			processor,
-			eventCollector,
-			publicKeyAdder,
-			constants.IPTables)
-	} else {
-		triremeInstance = NewLocalTriremeDocker(
-			serverID,
-			resolver,
-			processor,
-			eventCollector,
-			publicKeyAdder,
-			constants.IPTables)
-	}
-
-	monitorInstance := dockermonitor.NewDockerMonitor(
-		constants.DefaultDockerSocketType,
-		constants.DefaultDockerSocket,
-		triremeInstance,
-		dockerMetadataExtractor,
-		eventCollector,
-		syncAtStart,
-		nil,
-		killContainerError)
-
-	return triremeInstance, monitorInstance, publicKeyAdder
-
 }
 
 // NewPSKHybridTriremeWithMonitor creates a new network isolator. The calling module must provide
