@@ -306,13 +306,21 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		}
 	}
 
-	return &TriremeResult{
+	result := &TriremeResult{
 		Trireme:        triremeInstance,
-		DockerMonitor:  dockerMonitorInstance,
-		RPCMonitor:     *rpcMonitorInstance,
 		PublicKeyAdder: publicKeyAdder,
 		Secret:         secretInstance,
-	}, nil
+	}
+
+	if dockerMonitorInstance != nil {
+		result.DockerMonitor = dockerMonitorInstance
+	}
+
+	if rpcMonitorInstance != nil {
+		result.RPCMonitor = *rpcMonitorInstance
+	}
+
+	return result, nil
 }
 
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
