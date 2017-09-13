@@ -51,8 +51,8 @@ type TriremeOptions struct {
 	EventCollector collector.EventCollector
 	Processor      enforcer.PacketProcessor
 
-	CNIMetadataExtractor    *rpcmonitor.RPCMetadataExtractor
-	DockerMetadataExtractor *dockermonitor.DockerMetadataExtractor
+	CNIMetadataExtractor    rpcmonitor.RPCMetadataExtractor
+	DockerMetadataExtractor dockermonitor.DockerMetadataExtractor
 
 	DockerSocketType string
 	DockerSocket     string
@@ -260,7 +260,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			options.DockerSocketType,
 			options.DockerSocket,
 			triremeInstance,
-			*options.DockerMetadataExtractor,
+			options.DockerMetadataExtractor,
 			options.EventCollector,
 			options.SyncAtStart,
 			nil,
@@ -297,7 +297,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		cniProcessor := cnimonitor.NewCniProcessor(
 			options.EventCollector,
 			triremeInstance,
-			*options.CNIMetadataExtractor)
+			options.CNIMetadataExtractor)
 		err := rpcMonitorInstance.RegisterProcessor(
 			constants.ContainerPU,
 			cniProcessor)
@@ -344,7 +344,7 @@ func NewPSKTriremeWithDockerMonitor(
 	options.SyncAtStart = syncAtStart
 	options.PKI = false
 	options.PSK = key
-	options.DockerMetadataExtractor = &dockerMetadataExtractor
+	options.DockerMetadataExtractor = dockerMetadataExtractor
 	options.LocalProcess = false
 	if remoteEnforcer {
 		options.RemoteContainer = true
@@ -398,7 +398,7 @@ func NewPKITriremeWithDockerMonitor(
 	options.KeyPEM = keyPEM
 	options.CertPEM = certPEM
 	options.CaCertPEM = caCertPEM
-	options.DockerMetadataExtractor = &dockerMetadataExtractor
+	options.DockerMetadataExtractor = dockerMetadataExtractor
 	options.LocalProcess = false
 	if remoteEnforcer {
 		options.RemoteContainer = true
@@ -447,7 +447,7 @@ func NewPSKHybridTriremeWithMonitor(
 	options.SyncAtStart = syncAtStart
 	options.PKI = false
 	options.PSK = key
-	options.DockerMetadataExtractor = &dockerMetadataExtractor
+	options.DockerMetadataExtractor = dockerMetadataExtractor
 	options.LocalProcess = true
 	options.RemoteContainer = true
 	options.LocalContainer = false
