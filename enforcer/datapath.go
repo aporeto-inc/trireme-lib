@@ -54,7 +54,7 @@ type Datapath struct {
 	netReplyConnectionTracker cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
-	cacheTimeout time.Duration
+	externalIPCacheTimeout time.Duration
 
 	// connctrack handle
 	conntrackHdl conntrack.Conntrack
@@ -85,7 +85,7 @@ func New(
 	validity time.Duration,
 	mode constants.ModeType,
 	procMountPoint string,
-	cacheTimeout time.Duration,
+	externalIPCacheTimeout time.Duration,
 ) PolicyEnforcer {
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
@@ -120,7 +120,7 @@ func New(
 		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
 		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
 		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
-		cacheTimeout:              cacheTimeout,
+		externalIPCacheTimeout:    externalIPCacheTimeout,
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
@@ -156,27 +156,25 @@ func NewWithDefaults(
 		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
 	}
 
-	mutualAuthorization := false
-	fqConfig := fqconfig.NewFilterQueueWithDefaults()
-
-	validity := time.Hour * 8760
-
-	duration, err := time.ParseDuration("500ms")
+	defaultMutualAuthorization := false
+	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
+	defaultValidity := time.Hour * 8760
+	defaultExternalIPCacheTimeout, err := time.ParseDuration("500ms")
 	if err != nil {
-		duration = time.Second
+		defaultExternalIPCacheTimeout = time.Second
 	}
 
 	return New(
-		mutualAuthorization,
-		fqConfig,
+		defaultMutualAuthorization,
+		defaultFQConfig,
 		collector,
 		service,
 		secrets,
 		serverID,
-		validity,
+		defaultValidity,
 		mode,
 		procMountPoint,
-		duration,
+		defaultExternalIPCacheTimeout,
 	)
 }
 
@@ -344,7 +342,7 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	puContext.externalIPCache = cache.NewCacheWithExpiration(d.cacheTimeout)
+	puContext.externalIPCache = cache.NewCacheWithExpiration(d.externalIPCacheTimeout)
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
