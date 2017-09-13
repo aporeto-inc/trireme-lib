@@ -144,6 +144,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	var dockerMonitorInstance monitor.Monitor
 	var rpcMonitorInstance *rpcmonitor.RPCMonitor
 
+	var pkiSecrets *secrets.PKISecrets
 	var err error
 
 	// Only a type of Container (remote or local) can be enabled
@@ -152,7 +153,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	if options.PKI {
-		pkiSecrets, err := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
+		pkiSecrets, err = secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
 		secretInstance = pkiSecrets
 		publicKeyAdder = pkiSecrets
 		if err != nil {
@@ -317,7 +318,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
 // a policy engine implementation and a pre-shared secret. This is for backward
 // compatibility. Will be removed
-// DEPRECATED. Use NewWithOptions
+// DEPRECATED. Use NewWithOptions instead
 func NewPSKTriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
@@ -413,7 +414,6 @@ func NewPKITriremeWithDockerMonitor(
 	}
 
 	return trireme.Trireme, trireme.DockerMonitor, trireme.PublicKeyAdder
-
 }
 
 // NewTriremeLinuxProcess instantiates Trireme for a Linux process implementation
