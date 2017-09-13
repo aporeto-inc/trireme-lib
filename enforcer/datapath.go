@@ -21,6 +21,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
+// DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
 
 // Datapath is the structure holding all information about a connection filter
