@@ -7,7 +7,9 @@ direct access of a container to the host network. For example, Consul
 has a use case of exposing a DNS server using host networks. The Redhat Openshift
 router or several ingress implementations in Kubernetes instantiate the
 ingress proxy on a host network so that they can fix its IP address.
-(see https://docs.docker.com/engine/userguide/networking/ for some examples).
+(see https://docs.docker.com/engine/userguide/networking/ or
+  https://docs.openshift.com/enterprise/3.0/install_config/install/deploy_router.html
+  for some examples).
 
 In general exposing a container directly on the host network poses some
 challenges from a security perspective. The container is essentially attached
