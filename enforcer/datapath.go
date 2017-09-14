@@ -21,6 +21,9 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
+// DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
+const DefaultExternalIPTimeout = "500ms"
+
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
 
@@ -53,6 +56,9 @@ type Datapath struct {
 	netOrigConnectionTracker  cache.DataStore
 	netReplyConnectionTracker cache.DataStore
 
+	// CacheTimeout used for Trireme auto-detecion
+	externalIPCacheTimeout time.Duration
+
 	// connctrack handle
 	conntrackHdl conntrack.Conntrack
 
@@ -82,7 +88,16 @@ func New(
 	validity time.Duration,
 	mode constants.ModeType,
 	procMountPoint string,
+	externalIPCacheTimeout time.Duration,
 ) PolicyEnforcer {
+
+	if externalIPCacheTimeout <= 0 {
+		var err error
+		externalIPCacheTimeout, err = time.ParseDuration(DefaultExternalIPTimeout)
+		if err != nil {
+			externalIPCacheTimeout = time.Second
+		}
+	}
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
@@ -116,6 +131,7 @@ func New(
 		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
 		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
 		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
+		externalIPCacheTimeout:    externalIPCacheTimeout,
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
@@ -151,21 +167,25 @@ func NewWithDefaults(
 		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
 	}
 
-	mutualAuthorization := false
-	fqConfig := fqconfig.NewFilterQueueWithDefaults()
-
-	validity := time.Hour * 8760
+	defaultMutualAuthorization := false
+	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
+	defaultValidity := time.Hour * 8760
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(DefaultExternalIPTimeout)
+	if err != nil {
+		defaultExternalIPCacheTimeout = time.Second
+	}
 
 	return New(
-		mutualAuthorization,
-		fqConfig,
+		defaultMutualAuthorization,
+		defaultFQConfig,
 		collector,
 		service,
 		secrets,
 		serverID,
-		validity,
+		defaultValidity,
 		mode,
 		procMountPoint,
+		defaultExternalIPCacheTimeout,
 	)
 }
 
@@ -333,7 +353,7 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	puContext.externalIPCache = cache.NewCache()
+	puContext.externalIPCache = cache.NewCacheWithExpiration(d.externalIPCacheTimeout)
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {

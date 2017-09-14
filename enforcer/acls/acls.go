@@ -143,7 +143,7 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (*policy.FlowPolicy
 		// Do a lookup as a hash to see if we have a match
 		if actionList, ok := pmap[addr&bitmask]; ok {
 
-			// Scan the ports - TODO: better algorithm needed hefe
+			// Scan the ports - TODO: better algorithm needed here
 			for _, p := range actionList {
 				if port >= p.min && port <= p.max {
 					return p.policy, nil
