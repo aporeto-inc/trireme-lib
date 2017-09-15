@@ -57,7 +57,8 @@ type TriremeOptions struct {
 	DockerSocketType string
 	DockerSocket     string
 
-	Validity time.Duration
+	Validity                time.Duration
+	ExternalIPCacheValidity time.Duration
 
 	FilterQueue *fqconfig.FilterQueue
 
@@ -106,7 +107,8 @@ func DefaultTriremeOptions() *TriremeOptions {
 
 		Validity: time.Hour * 8760,
 
-		FilterQueue: fqconfig.NewFilterQueueWithDefaults(),
+		FilterQueue:             fqconfig.NewFilterQueueWithDefaults(),
+		ExternalIPCacheValidity: -1, // Will get the default from the instantiation.
 
 		ModeType: constants.RemoteContainer,
 		ImplType: constants.IPTables,
@@ -205,6 +207,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			options.Validity,
 			constants.LocalContainer,
 			options.ProcMountPoint,
+			options.ExternalIPCacheValidity,
 		)
 
 		s, err = supervisor.NewSupervisor(
@@ -235,6 +238,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			options.Validity,
 			constants.LocalServer,
 			options.ProcMountPoint,
+			options.ExternalIPCacheValidity,
 		)
 
 		s, err = supervisor.NewSupervisor(
