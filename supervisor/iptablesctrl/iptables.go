@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/bvandewalle/go-ipset/ipset"
 
 	"github.com/aporeto-inc/trireme/supervisor/provider"
 )
@@ -206,7 +207,14 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	if err := i.deleteAllContainerChains(appChain, netChain); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
-
+	if uid != "" {
+		ips := ipset.IPSet{
+			Name: PuPortSetName(contextID, mark),
+		}
+		if err := ips.Destroy(); err != nil {
+			zap.L().Warn("Failed to clear puport set", zap.Error(err))
+		}
+	}
 	return nil
 }
 
