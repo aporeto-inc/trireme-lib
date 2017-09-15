@@ -17,6 +17,8 @@ import (
 	"github.com/aporeto-inc/trireme/log"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme/supervisor/iptablesctrl"
+	"github.com/bvandewalle/go-ipset/ipset"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -854,6 +856,13 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 
 				if err == nil {
+					ips := ipset.IPSet{
+						Name: iptablesctrl.PuPortSetName(context.ID, p.Mark),
+					}
+					port := strconv.Itoa(int(p.SourcePort))
+					if adderr := ips.Add(port, 0); adderr != nil {
+						zap.L().Fatal("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
+					}
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 				}
 				//Return an error still we will process the syn successfully on retry and

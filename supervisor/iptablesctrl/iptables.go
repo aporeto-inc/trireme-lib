@@ -20,6 +20,7 @@ const (
 	appChainPrefix            = chainPrefix + "App-"
 	netChainPrefix            = chainPrefix + "Net-"
 	targetNetworkSet          = "TargetNetSet"
+	PuPortSet                 = "PUPortSet-"
 	ipTableSectionOutput      = "OUTPUT"
 	ipTableSectionInput       = "INPUT"
 	ipTableSectionPreRouting  = "PREROUTING"
@@ -88,6 +89,12 @@ func (i *Instance) chainName(contextID string, version int) (app, net string) {
 	return app, net
 }
 
+//PuportSetName returns the name of the pu portset
+func PuPortSetName(contextID string, mark string) string {
+
+	return (PuPortSet + contextID + "-" + mark)
+}
+
 // DefaultIPAddress returns the default IP address for the processing unit
 func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 
@@ -122,7 +129,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	if i.mode != constants.LocalServer {
 
-		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", ""); err != nil {
+		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", ""); err != nil {
 			return err
 		}
 
@@ -139,8 +146,17 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		uid, ok := containerInfo.Runtime.Options().Get("USER")
 		if !ok {
 			uid = ""
+
+		} else {
+			//We are about to create a uid login pu
+			//This set will be empty and we will only fill it when we find a port for it
+			//The reason to use contextID here is to ensure that we don't need to talk between supervisor and enforcer to share names the id is derivable from information available in the enforcer
+			if puseterr := i.createPUPortSet(PuPortSetName(contextID, mark)); puseterr != nil {
+				return puseterr
+			}
 		}
-		if err := i.addChainRules(appChain, netChain, ipAddress, port, mark, uid); err != nil {
+		portSetName := PuPortSetName(contextID, mark)
+		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid); err != nil {
 			return err
 		}
 	}
@@ -182,8 +198,8 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	}
 
 	appChain, netChain := i.chainName(contextID, version)
-
-	if derr := i.deleteChainRules(appChain, netChain, ipAddress, port, mark, uid); derr != nil {
+	portSetName := PuPortSetName(contextID, mark)
+	if derr := i.deleteChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -240,7 +256,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	// Add mapping to new chain
 	if i.mode != constants.LocalServer {
 
-		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", ""); err != nil {
+		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", ""); err != nil {
 			return err
 		}
 	} else {
@@ -256,14 +272,15 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		if !ok {
 			uid = ""
 		}
-		if err := i.addChainRules(appChain, netChain, ipAddress, portlist, mark, uid); err != nil {
+		portSetName := PuPortSetName(contextID, mark)
+		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, portlist, mark, uid); err != nil {
 			return err
 		}
 	}
 
 	//Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, "", "", ""); err != nil {
+		if err := i.deleteChainRules("", oldAppChain, oldNetChain, ipAddress, "", "", ""); err != nil {
 			return err
 		}
 	} else {
@@ -277,7 +294,8 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		if !ok {
 			uid = ""
 		}
-		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark, uid); err != nil {
+		portSetName := PuPortSetName(contextID, mark)
+		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, ipAddress, port, mark, uid); err != nil {
 			return err
 		}
 	}
@@ -325,7 +343,7 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.createTargetSet(networks); err != nil {
 		return err
 	}
-
+	//Create a set of all local ips
 	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
 
 	// Insert the ACLS that point to the target networks
