@@ -124,7 +124,7 @@ func DefaultTriremeOptions() *TriremeOptions {
 		MutualAuth: false,
 
 		KillContainerError: false,
-		SyncAtStart:        false,
+		SyncAtStart:        true,
 
 		PKI: false,
 
