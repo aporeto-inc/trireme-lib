@@ -8,11 +8,11 @@ application supporting linux processes.
 In this document we will describe how one can use Trireme with Linux processes
 and what are the underlying mechanisms used by the library.
 
-Essentially Trireme allows you to introduce end-to-end authentication and
+Essentially, Trireme allows you to introduce end-to-end authentication and
 authorization between any two Linux processes without ever touching the
 process. Through this mechanism you can achieve detailed access control
 in your Linux environment without the need for firewall rules, ACLs,
-and a complex infrastructure. 
+and a complex infrastructure.
 
 # TL;DR - Show me how
 
@@ -73,7 +73,7 @@ at this point. Even processes in the same host will be unable to reach the
 server, unless they are also started with Trireme and they are protected by
 the same authorization framework.
 
-Essentially Trireme allows us very easily to introduce authorization to
+Trireme allows us very easily to introduce authorization to
 any process in the Linux subsystem within the same host or across hosts over
 the network.
 
@@ -117,7 +117,7 @@ ACLs that capture Syn/SynAck traffic only on packets with this mark. As a result
 we can apply policy to a specific Linux processes and not just a container.
 
 Of course we need some more work. Eventually the process will die and we need
-to clean up. Fortunately, there is an easy facility for that. The file
+to clean up. Fortunately, there is a kernel  facility for that. The file
 /sys/fs/cgroup/net_cls/trireme/100/notify_on_release is populated with 1, meaning
 that the kernel should notify a release agent that there are no more processes
 associated with the particular cgroup. The file /sys/fs/cgroup/net_cls/release_agent
@@ -158,7 +158,7 @@ One can enhance this metadata extractor with additional sources. For example in
 an AWS environment, the ami ID, VPC ID, subnet, SELinux/AppArmor labels and so on.
 The possibilities are unlimited.
 
-Essentially by associating custom and system metadata with a process, Trireme allows
+By associating custom and system metadata with a process, Trireme allows
 you to create a "contextual identity" for every Linux process. You can then
 use this identity to control access over the network without worrying about IP
 addresses and port numbers. It is the identity that matters.
