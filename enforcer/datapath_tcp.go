@@ -21,6 +21,10 @@ import (
 	"github.com/bvandewalle/go-ipset/ipset"
 )
 
+const (
+	portEntryTimeout = 60
+)
+
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
@@ -860,7 +864,8 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 						Name: iptablesctrl.PuPortSetName(context.ID, p.Mark),
 					}
 					port := strconv.Itoa(int(p.SourcePort))
-					if adderr := ips.Add(port, 0); adderr != nil {
+					//Add an entry for 60 seconds we will rediscover ports every 60 sec
+					if adderr := ips.Add(port, portEntryTimeout); adderr != nil {
 						zap.L().Fatal("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
 					}
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
