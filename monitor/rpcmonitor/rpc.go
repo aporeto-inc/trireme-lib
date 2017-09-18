@@ -185,7 +185,7 @@ func (r *RPCMonitor) processRequests() {
 			break
 		}
 
-		r.rpcServer.ServeCodec(jsonrpc.NewServerCodec(conn))
+		go r.rpcServer.ServeCodec(jsonrpc.NewServerCodec(conn))
 	}
 }
 

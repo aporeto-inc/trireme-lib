@@ -863,16 +863,16 @@ func (i *Instance) cleanACLs() error {
 
 	// Clean Application Rules/Chains in Raw if needed
 	if i.mode == constants.LocalContainer {
-		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
+		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 	}
 
 	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
+	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 
 	return nil
 }
 
-func (i *Instance) cleanACLSection(context, netSection, appSection, chainPrefix string) {
+func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSection, chainPrefix string) {
 
 	if err := i.ipt.ClearChain(context, appSection); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
@@ -889,7 +889,13 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, chainPrefix 
 			zap.Error(err),
 		)
 	}
-
+	if err := i.ipt.ClearChain(context, preroutingSection); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", netSection),
+			zap.Error(err),
+		)
+	}
 	rules, err := i.ipt.ListChains(context)
 	if err != nil {
 		zap.L().Warn("Failed to list chains",
