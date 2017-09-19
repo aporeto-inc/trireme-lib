@@ -44,17 +44,18 @@ var ErrInitFailed = errors.New("Failed remote Init")
 
 //ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
-	MutualAuth        bool
-	Secrets           secrets.Secrets
-	serverID          string
-	validity          time.Duration
-	prochdl           processmon.ProcessManager
-	rpchdl            rpcwrapper.RPCClient
-	initDone          map[string]bool
-	filterQueue       *fqconfig.FilterQueue
-	commandArg        string
-	statsServerSecret string
-	procMountPoint    string
+	MutualAuth             bool
+	Secrets                secrets.Secrets
+	serverID               string
+	validity               time.Duration
+	prochdl                processmon.ProcessManager
+	rpchdl                 rpcwrapper.RPCClient
+	initDone               map[string]bool
+	filterQueue            *fqconfig.FilterQueue
+	commandArg             string
+	statsServerSecret      string
+	procMountPoint         string
+	externalIPCacheTimeout time.Duration
 
 	sync.Mutex
 }
@@ -180,6 +181,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
 	procMountPoint string,
+	externalIPCacheTimeout time.Duration,
 ) enforcer.PolicyEnforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
@@ -191,17 +193,18 @@ func NewProxyEnforcer(mutualAuth bool,
 	}
 
 	proxydata := &ProxyInfo{
-		MutualAuth:        mutualAuth,
-		Secrets:           secrets,
-		serverID:          serverID,
-		validity:          validity,
-		prochdl:           processmon.GetProcessManagerHdl(),
-		rpchdl:            rpchdl,
-		initDone:          make(map[string]bool),
-		filterQueue:       filterQueue,
-		commandArg:        cmdArg,
-		statsServerSecret: statsServersecret,
-		procMountPoint:    procMountPoint,
+		MutualAuth:             mutualAuth,
+		Secrets:                secrets,
+		serverID:               serverID,
+		validity:               validity,
+		prochdl:                processmon.GetProcessManagerHdl(),
+		rpchdl:                 rpchdl,
+		initDone:               make(map[string]bool),
+		filterQueue:            filterQueue,
+		commandArg:             cmdArg,
+		statsServerSecret:      statsServersecret,
+		procMountPoint:         procMountPoint,
+		externalIPCacheTimeout: externalIPCacheTimeout,
 	}
 
 	zap.L().Debug("Called NewDataPathEnforcer")
@@ -225,6 +228,10 @@ func NewDefaultProxyEnforcer(serverID string,
 
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcer.DefaultExternalIPTimeout)
+	if err != nil {
+		defaultExternalIPCacheTimeout = time.Second
+	}
 
 	validity := time.Hour * 8760
 	return NewProxyEnforcer(
@@ -238,6 +245,7 @@ func NewDefaultProxyEnforcer(serverID string,
 		rpchdl,
 		constants.DefaultRemoteArg,
 		procMountPoint,
+		defaultExternalIPCacheTimeout,
 	)
 }
 
