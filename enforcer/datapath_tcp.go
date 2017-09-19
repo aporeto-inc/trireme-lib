@@ -477,7 +477,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		plc, perr := context.NetworkACLS.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.DestinationPort)
 		d.reportExternalServiceFlow(context, plc, false, tcpPacket)
 		if perr != nil || plc.Action == policy.Reject {
-			return nil, nil, fmt.Errorf("No Auth option on Network Syn. Drop it")
+			return nil, nil, fmt.Errorf("No Auth or ACLS - drop outgoing connection ")
 		}
 
 		conn.SetState(TCPData)
@@ -566,7 +566,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		plc, err = context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
 		if err != nil || plc.Action&policy.Reject > 0 {
 			d.reportExternalServiceFlow(context, plc, true, tcpPacket)
-			return nil, nil, fmt.Errorf("No Auth option on Network SynAck. Drop it")
+			return nil, nil, fmt.Errorf("No Auth or ACLs - Drop SynAck packet and connection")
 		}
 
 		// Added to the cache if we can accept it
