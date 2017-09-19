@@ -477,7 +477,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		plc, perr := context.NetworkACLS.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.DestinationPort)
 		d.reportExternalServiceFlow(context, plc, false, tcpPacket)
 		if perr != nil || plc.Action == policy.Reject {
-			return nil, nil, fmt.Errorf("No Auth option on NetworkSyn. Drop it")
+			return nil, nil, fmt.Errorf("No Auth option on Network Syn. Drop it")
 		}
 
 		conn.SetState(TCPData)
