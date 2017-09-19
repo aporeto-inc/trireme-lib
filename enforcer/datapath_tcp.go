@@ -854,7 +854,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	if err != nil {
 		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
-			if d.mode != constants.RemoteContainer {
+			if d.mode != constants.RemoteContainer && p.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 				//We see a syn ack for which we have not recorded a syn
 				//Update the port for the context matching the mark this packet has comes with
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
