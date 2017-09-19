@@ -332,7 +332,9 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		err2 := d.appReplyConnectionTracker.Remove(tcpPacket.L4ReverseFlowHash())
 
 		if err1 != nil || err2 != nil {
-			zap.L().Debug("Failed to remove cache entries")
+			if log.Trace {
+				zap.L().Debug("Failed to remove cache entries")
+			}
 		}
 
 		return nil, nil
@@ -1021,7 +1023,9 @@ func (d *Datapath) releaseFlow(context *PUContext, plc *policy.FlowPolicy, tcpPa
 	lerr1 := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash())
 	lerr2 := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
 	if lerr1 != nil || lerr2 != nil {
-		zap.L().Debug("Failed to clean cache")
+		if log.Trace {
+			zap.L().Debug("Failed to clean cache")
+		}
 	}
 
 	if lerr := d.conntrackHdl.ConntrackTableUpdateMark(
