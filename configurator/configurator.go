@@ -180,6 +180,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			rpcwrapper,
 			options.RemoteArg,
 			options.ProcMountPoint,
+			options.ExternalIPCacheValidity,
 		)
 
 		s, err = supervisorproxy.NewProxySupervisor(
