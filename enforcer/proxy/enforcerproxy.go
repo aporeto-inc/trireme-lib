@@ -66,14 +66,15 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	resp := &rpcwrapper.Response{}
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitRequestPayload{
-			FqConfig:   s.filterQueue,
-			MutualAuth: s.MutualAuth,
-			Validity:   s.validity,
-			SecretType: s.Secrets.Type(),
-			ServerID:   s.serverID,
-			CAPEM:      s.Secrets.(keyPEM).AuthPEM(),
-			PublicPEM:  s.Secrets.(keyPEM).TransmittedPEM(),
-			PrivatePEM: s.Secrets.(keyPEM).EncodingPEM(),
+			FqConfig:               s.filterQueue,
+			MutualAuth:             s.MutualAuth,
+			Validity:               s.validity,
+			SecretType:             s.Secrets.Type(),
+			ServerID:               s.serverID,
+			CAPEM:                  s.Secrets.(keyPEM).AuthPEM(),
+			PublicPEM:              s.Secrets.(keyPEM).TransmittedPEM(),
+			PrivatePEM:             s.Secrets.(keyPEM).EncodingPEM(),
+			ExternalIPCacheTimeout: s.externalIPCacheTimeout,
 		},
 	}
 
