@@ -53,13 +53,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			uidchain,
 			"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", mark,
 		},
-		{
-			i.appAckPacketIPTableContext,
-			uidchain,
-			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server-specific-chain",
-			"-j", "MARK", "--set-mark", mark,
-		},
+
 		{
 			i.appAckPacketIPTableContext,
 			uidchain,
