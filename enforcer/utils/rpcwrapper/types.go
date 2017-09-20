@@ -39,15 +39,16 @@ type Response struct {
 
 //InitRequestPayload Payload for enforcer init request
 type InitRequestPayload struct {
-	FqConfig   *fqconfig.FilterQueue      `json:",omitempty"`
-	MutualAuth bool                       `json:",omitempty"`
-	Validity   time.Duration              `json:",omitempty"`
-	SecretType secrets.PrivateSecretsType `json:",omitempty"`
-	ServerID   string                     `json:",omitempty"`
-	CAPEM      []byte                     `json:",omitempty"`
-	PublicPEM  []byte                     `json:",omitempty"`
-	PrivatePEM []byte                     `json:",omitempty"`
-	Token      []byte                     `json:",omitempty"`
+	FqConfig               *fqconfig.FilterQueue      `json:",omitempty"`
+	MutualAuth             bool                       `json:",omitempty"`
+	Validity               time.Duration              `json:",omitempty"`
+	SecretType             secrets.PrivateSecretsType `json:",omitempty"`
+	ServerID               string                     `json:",omitempty"`
+	CAPEM                  []byte                     `json:",omitempty"`
+	PublicPEM              []byte                     `json:",omitempty"`
+	PrivatePEM             []byte                     `json:",omitempty"`
+	Token                  []byte                     `json:",omitempty"`
+	ExternalIPCacheTimeout time.Duration              `json:",omitempty"`
 }
 
 //InitSupervisorPayload for supervisor init request
