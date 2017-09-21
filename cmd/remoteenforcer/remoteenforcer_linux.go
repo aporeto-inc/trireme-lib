@@ -174,7 +174,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 				payload.Validity,
 				constants.RemoteContainer,
 				s.procMountPoint,
-				-1,
+				payload.ExternalIPCacheTimeout,
 			)
 		case secrets.PSKType:
 			// PSK params
@@ -189,7 +189,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 				payload.Validity,
 				constants.RemoteContainer,
 				s.procMountPoint,
-				-1,
+				payload.ExternalIPCacheTimeout,
 			)
 		case secrets.PKICompactType:
 			// Compact PKI Parameters
@@ -207,7 +207,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 				payload.Validity,
 				constants.RemoteContainer,
 				s.procMountPoint,
-				-1,
+				payload.ExternalIPCacheTimeout,
 			)
 		case secrets.PKINull:
 			// Null Encryption
@@ -226,7 +226,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 				payload.Validity,
 				constants.RemoteContainer,
 				s.procMountPoint,
-				-1,
+				payload.ExternalIPCacheTimeout,
 			)
 		}
 	}
