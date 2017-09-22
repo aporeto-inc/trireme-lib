@@ -4060,8 +4060,8 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							dstEndPoint.Port = 57761
 
 							flowRecord.Count = 0
-							flowRecord.Source = &srcEndPoint
-							flowRecord.Destination = &dstEndPoint
+							flowRecord.Source = &dstEndPoint
+							flowRecord.Destination = &srcEndPoint
 							flowRecord.Action = policy.Reject
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
