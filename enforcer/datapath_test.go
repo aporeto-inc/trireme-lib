@@ -2930,20 +2930,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 
-							var flowRecord collector.FlowRecord
-							var srcEndPoint collector.EndPoint
-							var dstEndPoint collector.EndPoint
-
-							srcEndPoint.IP = "164.67.228.152"
-							dstEndPoint.IP = "10.1.10.76"
-							dstEndPoint.Port = 57761
-
-							flowRecord.Count = 0
-							flowRecord.Source = &dstEndPoint
-							flowRecord.Destination = &srcEndPoint
-							flowRecord.Action = policy.Reject
-
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+							mockCollector.EXPECT().CollectFlowEvent(gomock.Any()).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
 							So(puInfo1, ShouldNotBeNil)
@@ -2953,20 +2940,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 						} else if k == 1 {
 
-							var flowRecord collector.FlowRecord
-							var srcEndPoint collector.EndPoint
-							var dstEndPoint collector.EndPoint
-
-							srcEndPoint.IP = "164.67.228.152"
-							dstEndPoint.IP = "10.1.10.76"
-							dstEndPoint.Port = 57761
-
-							flowRecord.Count = 0
-							flowRecord.Source = &srcEndPoint
-							flowRecord.Destination = &dstEndPoint
-							flowRecord.Action = policy.Reject
-
-							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
+							mockCollector.EXPECT().CollectFlowEvent(gomock.Any()).Times(1)
 
 							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
 							So(puInfo1, ShouldNotBeNil)
