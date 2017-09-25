@@ -24,6 +24,13 @@ const (
 	ipTableSectionInput       = "INPUT"
 	ipTableSectionPreRouting  = "PREROUTING"
 	ipTableSectionPostRouting = "POSTROUTING"
+	natProxyOutputChain       = "RedirProxy-App"
+	natProxyInputChain        = "RedirProxy-Net"
+	ProxyOutputChain          = "Proxy-App"
+	ProxyInputChain           = "Proxy-Net"
+	ProxyServiceset           = "Proxied-Service"
+	proxyMark                 = "0x40"
+	ProxyPort                 = "5000"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -34,6 +41,7 @@ type Instance struct {
 	targetSet                  provider.Ipset
 	appPacketIPTableContext    string
 	appAckPacketIPTableContext string
+	appProxyIPTableContext     string
 	appPacketIPTableSection    string
 	netPacketIPTableContext    string
 	netPacketIPTableSection    string
@@ -62,6 +70,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
+		appProxyIPTableContext:     "nat",
 		mode: mode,
 	}
 
@@ -325,15 +334,25 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.createTargetSet(networks); err != nil {
 		return err
 	}
-
+	if err := i.createProxySet([]string{"192.168.33.10,80"}); err != nil {
+		return err
+	}
+	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
+	i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain)
+	i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain)
+	i.ipt.NewChain(i.appAckPacketIPTableContext, ProxyOutputChain)
+	i.ipt.NewChain(i.appAckPacketIPTableContext, ProxyInputChain)
+	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain)
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("Failed to update synack networks")
 	}
 
-	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
-	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain)
-	//	i.ipt.Insert(i.appAckPacketIPTableContext, uidchain, 1, "-j", "RETURN")
+	i.ipt.Insert(i.appProxyIPTableContext, ipTableSectionPreRouting, 1, "-j", natProxyInputChain)
+	i.ipt.Insert(i.appProxyIPTableContext, ipTableSectionOutput, 1, "-j", natProxyOutputChain)
+	i.ipt.Insert(i.appAckPacketIPTableContext, i.netPacketIPTableSection, 1, "-j", ProxyInputChain)
+	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", ProxyOutputChain)
+
 	return nil
 }
 

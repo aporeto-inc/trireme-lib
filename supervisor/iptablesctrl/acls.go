@@ -30,7 +30,46 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
-
+		{
+			i.appProxyIPTableContext,
+			natProxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst",
+			"-j", "REDIRECT",
+			"--to-port", ProxyPort,
+		},
+		{
+			i.appProxyIPTableContext,
+			natProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst",
+			// "-m", "mark", "!",
+			// "--mark", proxyMark,
+			"-j", "REDIRECT",
+			"--to-port", ProxyPort,
+		},
+		{
+			i.netPacketIPTableContext,
+			ProxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
+		{
+			i.appAckPacketIPTableContext,
+			ProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
 		{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
@@ -737,7 +776,35 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
+	err = i.ipt.Insert(i.appProxyIPTableContext,
+		ipTableSectionPreRouting, 1,
+		"-j", natProxyInputChain)
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
+	err = i.ipt.Insert(i.appProxyIPTableContext,
+		ipTableSectionOutput, 1,
+		"-j", natProxyOutputChain)
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
 
+	err = i.ipt.Insert(i.netPacketIPTableContext,
+		ProxyInputChain, 1,
+		"-m", "mark",
+		"--mark", proxyMark,
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
+	err = i.ipt.Insert(i.netPacketIPTableContext,
+		ProxyOutputChain, 1,
+		"-m", "mark",
+		"--mark", proxyMark,
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
 	return nil
 
 }

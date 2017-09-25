@@ -55,3 +55,22 @@ func (i *Instance) createTargetSet(networks []string) error {
 
 	return nil
 }
+
+// createProxySet creates a new target set -- ipportset is a list of {ip,port}
+func (i *Instance) createProxySet(ipportset []string) error {
+
+	ips, err := i.ipset.NewIpset(ProxyServiceset, "hash:ip,port", &ipset.Params{})
+	if err != nil {
+		return fmt.Errorf("Couldn't create IPSet for %s: %s", targetNetworkSet, err)
+	}
+
+	i.targetSet = ips
+
+	for _, net := range ipportset {
+		if err := i.targetSet.Add(net, 0); err != nil {
+			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
+		}
+	}
+
+	return nil
+}
