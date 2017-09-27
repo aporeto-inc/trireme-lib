@@ -30,12 +30,15 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
+
 		{
 			i.appProxyIPTableContext,
 			natProxyInputChain,
 			"-p", "tcp",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst",
+			"--match-set", ProxyServiceset, "dst,dst",
 			"-j", "REDIRECT",
 			"--to-port", ProxyPort,
 		},
@@ -44,9 +47,9 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			natProxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst",
-			// "-m", "mark", "!",
-			// "--mark", proxyMark,
+			"--match-set", ProxyServiceset, "dst,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
 			"-j", "REDIRECT",
 			"--to-port", ProxyPort,
 		},
@@ -55,7 +58,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			ProxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst",
+			"--match-set", ProxyServiceset, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -65,7 +68,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			ProxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst",
+			"--match-set", ProxyServiceset, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -782,9 +785,27 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
+
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionOutput, 1,
 		"-j", natProxyOutputChain)
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
+
+	err = i.ipt.Insert(i.appProxyIPTableContext,
+		natProxyInputChain, 1,
+		"-m", "mark",
+		"--mark", proxyMark,
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
+	err = i.ipt.Insert(i.appProxyIPTableContext,
+		natProxyOutputChain, 1,
+		"-m", "mark",
+		"--mark", proxyMark,
+		"-j", "ACCEPT")
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
@@ -797,11 +818,28 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
+
 	err = i.ipt.Insert(i.netPacketIPTableContext,
 		ProxyOutputChain, 1,
 		"-m", "mark",
 		"--mark", proxyMark,
 		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
+
+	err = i.ipt.Insert(i.appAckPacketIPTableContext,
+		i.netPacketIPTableSection, 1,
+		"-j", ProxyInputChain,
+	)
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
+	}
+	i.ipt.Insert(i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection,
+		1,
+		"-j", ProxyOutputChain,
+	)
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}

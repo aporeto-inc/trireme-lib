@@ -34,6 +34,7 @@ type Datapath struct {
 	service        PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nfLogger
+	proxyhdl       PolicyEnforcer
 	procMountPoint string
 
 	// Internal structures and caches
@@ -149,7 +150,7 @@ func New(
 	}
 
 	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
-
+	d.proxyhdl = NewProxy(":5000", true, false)
 	return d
 }
 
@@ -263,7 +264,8 @@ func (d *Datapath) Start() error {
 	d.startNetworkInterceptor()
 
 	go d.nflogger.start()
-
+	zap.L().Error("Calling Proxy Start")
+	go d.proxyhdl.Start()
 	return nil
 }
 

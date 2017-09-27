@@ -348,11 +348,6 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return fmt.Errorf("Failed to update synack networks")
 	}
 
-	i.ipt.Insert(i.appProxyIPTableContext, ipTableSectionPreRouting, 1, "-j", natProxyInputChain)
-	i.ipt.Insert(i.appProxyIPTableContext, ipTableSectionOutput, 1, "-j", natProxyOutputChain)
-	i.ipt.Insert(i.appAckPacketIPTableContext, i.netPacketIPTableSection, 1, "-j", ProxyInputChain)
-	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", ProxyOutputChain)
-
 	return nil
 }
 
