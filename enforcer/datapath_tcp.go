@@ -571,7 +571,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		// Never seen this IP before, let's parse them.
 		plc, err = context.ApplicationACLs.GetMatchingAction(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
 		if err != nil || plc.Action&policy.Reject > 0 {
-			d.reportExternalServiceFlow(context, plc, true, tcpPacket)
+			d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
 			return nil, nil, fmt.Errorf("No Auth or ACLs - Drop SynAck packet and connection")
 		}
 
