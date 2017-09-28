@@ -3,6 +3,7 @@ package linuxmonitor
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -71,6 +72,19 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	if perr := s.puHandler.HandlePUEvent(contextID, monitor.EventStart); perr != nil {
 		zap.L().Error("Failed to activate process", zap.Error(perr))
 		return perr
+	}
+
+	if eventInfo.PUID == "1" {
+		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
+		if !ok {
+			return errors.New("Mark value not found")
+		}
+		mark, _ := strconv.ParseUint(markval, 10, 32)
+		hexmark := "0x" + (strconv.FormatUint(mark, 16))
+		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644); err != nil {
+			return errors.New("Failed to  write to net_cls.classid file for new cgroup")
+		}
+		return nil
 	}
 
 	//It is okay to launch this so let us create a cgroup for it
