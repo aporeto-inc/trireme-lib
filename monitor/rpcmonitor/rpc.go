@@ -98,14 +98,14 @@ func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor Monito
 
 // reSync resyncs with all the existing services that were there before we start
 func (r *RPCMonitor) reSync() error {
-	deleted := []byte{}
-	reacquired := []byte{}
+	deleted := []string{}
+	reacquired := []string{}
 	defer func() {
 		if len(deleted) > 0 {
-			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted[:], ",")))
+			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted, ",")))
 		}
 		if len(reacquired) > 0 {
-			zap.L().Info("Reacquired  contexts", zap.String("Context List", strings.Join(reacquired[:], ",")))
+			zap.L().Info("Reacquired  contexts", zap.String("Context List", strings.Join(reacquired, ",")))
 		}
 	}()
 	walker, err := r.contextstore.WalkStore()
@@ -161,7 +161,7 @@ func (r *RPCMonitor) reSync() error {
 					zap.Error(err),
 				)
 			}
-			deleted := append(deleted, eventInfo.PUID)
+			deleted = append(deleted, eventInfo.PUID)
 			if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
 				zap.L().Warn("Failed to deleted context",
 					zap.String("puID", eventInfo.PUID),
