@@ -91,6 +91,9 @@ type TCPConnection struct {
 
 	// FlowPolicy holds the last matched policy
 	FlowPolicy *policy.FlowPolicy
+
+	// ExpectedAckInitialSequenceNumber is the sequence number of the first ACK
+	ExpectedAckInitialSequenceNumber uint32
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element

@@ -299,6 +299,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	// Track the connection/port cache
 	hash := tcpPacket.L4FlowHash()
 	conn.SetState(TCPSynSend)
+	conn.ExpectedAckInitialSequenceNumber = tcpPacket.TCPSeq + 1
 
 	// conntrack
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
@@ -371,12 +372,9 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 // processApplicationAckPacket processes an application ack packet
 func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
-	if conn.GetState() == TCPData {
-		return nil, nil
-	}
+	// Only process the first Ack of a connection (same sequence number as the Syn+1)
+	if conn.ExpectedAckInitialSequenceNumber == tcpPacket.TCPSeq && tcpPacket.IsEmptyTCPPayload() {
 
-	// Only process in SynAckReceived state
-	if conn.GetState() == TCPSynAckReceived || conn.GetState() == TCPSynSend {
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
@@ -421,22 +419,31 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		return nil, nil
 	}
 
-	// Catch the first request packet
+	if conn.GetState() == TCPData {
+		return nil, nil
+	}
+
 	if conn.GetState() == TCPAckSend {
-
-		// Once we have seen the end of the TCP SynAck sequence we have enough state
-		// We can delete the source port cache to avoid any connection re-use issues
-		// Flow caches will use a time out
-		if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
-			zap.L().Warn("Failed to clean up cache state for connections",
-				zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
-				zap.Error(err),
-			)
-		}
-
 		conn.SetState(TCPData)
 		return nil, nil
 	}
+
+	// // Catch the first request packet
+	// if conn.GetState() == TCPAckSend {
+	//
+	// 	// Once we have seen the end of the TCP SynAck sequence we have enough state
+	// 	// We can delete the source port cache to avoid any connection re-use issues
+	// 	// Flow caches will use a time out
+	// 	if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
+	// 		zap.L().Warn("Failed to clean up cache state for connections",
+	// 			zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
+	// 			zap.Error(err),
+	// 		)
+	// 	}
+	//
+	// 	conn.SetState(TCPData)
+	// 	return nil, nil
+	// }
 
 	return nil, fmt.Errorf("Received application ACK packet in the wrong state! %v", conn.GetState())
 }
@@ -573,6 +580,24 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		if err = context.externalIPCache.Add(tcpPacket.SourceAddress.String()+":"+strconv.Itoa(int(tcpPacket.SourcePort)), plc); err != nil {
 			d.releaseFlow(context, plc, tcpPacket)
 			return nil, nil, fmt.Errorf("Couldn't add to the cache %s", err)
+		}
+
+		if conn.state == TCPData {
+			// Revert the connmarks - dealing with retransmissions
+			if err := d.conntrackHdl.ConntrackTableUpdateMark(
+				tcpPacket.SourceAddress.String(),
+				tcpPacket.DestinationAddress.String(),
+				tcpPacket.IPProto,
+				tcpPacket.SourcePort,
+				tcpPacket.DestinationPort,
+				0,
+			); err != nil {
+				zap.L().Error("Failed to update conntrack table for flow",
+					zap.String("context", string(conn.Auth.LocalContext)),
+					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+					zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+				)
+			}
 		}
 
 		// Set the state to Data so the other state machines ignore subsequent packets
