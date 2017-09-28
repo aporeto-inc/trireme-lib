@@ -146,7 +146,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
-
+	fmt.Println("149")
 	if log.Trace {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -162,10 +162,12 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 
 	var context *PUContext
 	var conn *TCPConnection
-
+	fmt.Println("165")
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
+		fmt.Println("169")
 		context, conn, err = d.appSynRetrieveState(p)
+		fmt.Println("169")
 		if err != nil {
 			if log.Trace {
 				zap.L().Debug("Packet rejected",
@@ -177,7 +179,9 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			return err
 		}
 	case packet.TCPSynAckMask:
+		fmt.Println("182")
 		context, conn, err = d.appRetrieveState(p)
+		fmt.Println("182")
 		if err != nil {
 			if log.Trace {
 				zap.L().Debug("SynAckPacket Ignored",
@@ -196,7 +200,9 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			return err
 		}
 	default:
+		fmt.Println("202")
 		context, conn, err = d.appRetrieveState(p)
+		fmt.Println("202")
 		if err != nil {
 			if log.Trace {
 				zap.L().Debug("Packet rejected",
@@ -208,7 +214,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			return err
 		}
 	}
-
+	fmt.Println("213")
 	conn.Lock()
 	defer conn.Unlock()
 
@@ -223,7 +229,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	}
 
 	p.Print(packet.PacketStageAuth)
-
+	fmt.Println("228")
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, err := d.processApplicationTCPPacket(p, context, conn)
 	if err != nil {
@@ -851,6 +857,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	hash := p.L4FlowHash()
 
 	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
+	fmt.Println("-860")
 	if err != nil {
 		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
@@ -858,20 +865,25 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				//We see a syn ack for which we have not recorded a syn
 				//Update the port for the context matching the mark this packet has comes with
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
-
+				fmt.Println("--868")
 				if err == nil {
 					ips := ipset.IPSet{
 						Name: iptablesctrl.PuPortSetName(context.ID, p.Mark),
 					}
+
 					port := strconv.Itoa(int(p.SourcePort))
 					//Add an entry for 60 seconds we will rediscover ports every 60 sec
+
 					if adderr := ips.Add(port, portEntryTimeout); adderr != nil {
-						zap.L().Fatal("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
+						zap.L().Warn("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
+
 					}
+
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 				}
 				//Return an error still we will process the syn successfully on retry and
 			}
+
 			return nil, nil, fmt.Errorf("App state not found")
 		}
 		if uerr := updateTimer(d.appOrigConnectionTracker, hash, conn.(*TCPConnection)); uerr != nil {

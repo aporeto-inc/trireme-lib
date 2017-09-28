@@ -16,11 +16,12 @@ import (
 )
 
 const (
-	uidchain                  = "UIDCHAIN"
-	chainPrefix               = "TRIREME-"
-	appChainPrefix            = chainPrefix + "App-"
-	netChainPrefix            = chainPrefix + "Net-"
-	targetNetworkSet          = "TargetNetSet"
+	uidchain         = "UIDCHAIN"
+	chainPrefix      = "TRIREME-"
+	appChainPrefix   = chainPrefix + "App-"
+	netChainPrefix   = chainPrefix + "Net-"
+	targetNetworkSet = "TargetNetSet"
+	//PuPortSet The prefix for portset names
 	PuPortSet                 = "PUPortSet-"
 	ipTableSectionOutput      = "OUTPUT"
 	ipTableSectionInput       = "INPUT"
@@ -90,7 +91,7 @@ func (i *Instance) chainName(contextID string, version int) (app, net string) {
 	return app, net
 }
 
-//PuportSetName returns the name of the pu portset
+//PuPortSetName returns the name of the pu portset
 func PuPortSetName(contextID string, mark string) string {
 
 	return (PuPortSet + contextID + "-" + mark)
