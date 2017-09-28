@@ -56,7 +56,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-	if _, err := s.contextStore.GetContextInfo(contextID); err == nil {
+	if _, err = s.contextStore.GetContextInfo(contextID); err == nil {
 		pid, _ := strconv.Atoi(eventInfo.PID)
 		s.netcls.AddProcess(eventInfo.PUID, pid)
 		return nil
