@@ -98,7 +98,16 @@ func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor Monito
 
 // reSync resyncs with all the existing services that were there before we start
 func (r *RPCMonitor) reSync() error {
-
+	deleted := []byte{}
+	reacquired := []byte{}
+	defer func() {
+		if len(deleted) > 0 {
+			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted[:], ",")))
+		}
+		if len(reacquired) > 0 {
+			zap.L().Info("Reacquired  contexts", zap.String("Context List", strings.Join(reacquired[:], ",")))
+		}
+	}()
 	walker, err := r.contextstore.WalkStore()
 	if err != nil {
 		return fmt.Errorf("error in accessing context store")
@@ -134,6 +143,8 @@ func (r *RPCMonitor) reSync() error {
 
 		processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 		if err != nil {
+			zap.L().Info("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
+			deleted = append(deleted, eventInfo.PUID)
 			//The cgroup does not exists - log error and remove context
 			if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {
 				zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
@@ -150,7 +161,7 @@ func (r *RPCMonitor) reSync() error {
 					zap.Error(err),
 				)
 			}
-
+			deleted := append(deleted, eventInfo.PUID)
 			if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
 				zap.L().Warn("Failed to deleted context",
 					zap.String("puID", eventInfo.PUID),
@@ -159,7 +170,7 @@ func (r *RPCMonitor) reSync() error {
 			}
 			continue
 		}
-
+		reacquired = append(reacquired, eventInfo.PUID)
 		if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
 			if err := f(&eventInfo); err != nil {
 				return fmt.Errorf("error in processing existing data: %s", err.Error())
