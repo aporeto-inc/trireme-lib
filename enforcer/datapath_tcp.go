@@ -276,7 +276,8 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 // processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
-	// if destination is in the cache, allow
+	// First check if the destination is in the external servicess approved cache
+	// and if yes, allow the packet to go.
 	context.Lock()
 	if policy, err := context.externalIPCache.Get(tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))); err == nil {
 		context.Unlock()
@@ -285,6 +286,8 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		return policy, nil
 	}
 	context.Unlock()
+
+	// We are now processing as a Trireme packet that needs authorization headers
 
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
@@ -296,15 +299,16 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	if err != nil {
 		return nil, err
 	}
-	// Track the connection/port cache
-	hash := tcpPacket.L4FlowHash()
+
+	// Set the state indicating that we send out a Syn packet
 	conn.SetState(TCPSynSend)
 
-	// conntrack
+	// Poplate the caches to track the connection
+	hash := tcpPacket.L4FlowHash()
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 
-	// Attach the tags to the packet.
+	// Attach the tags to the packet and accept the packet
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 
 }
@@ -312,6 +316,10 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 // processApplicationSynAckPacket processes an application SynAck packet
 func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
+	// If we are already in the TCPData, it means that this is an external flow
+	// At this point we can release the flow to the kernel by updating conntrack
+	// We can also clean up the state since we are not going to see any more
+	// packets from this connection.
 	if conn.GetState() == TCPData && !conn.ServiceConnection {
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
 			tcpPacket.DestinationAddress.String(),
@@ -337,11 +345,11 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 
 		return nil, nil
 	}
+
+	// We now process packets that need authorization options
 	// Process the packet at the right state. I should have either received a Syn packet or
 	// I could have send a SynAck and this is a duplicate request since my response was lost.
 	if conn.GetState() == TCPSynReceived || conn.GetState() == TCPSynAckSend {
-
-		conn.SetState(TCPSynAckSend)
 
 		// Create TCP Option
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
@@ -354,6 +362,9 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 		if err != nil {
 			return nil, err
 		}
+
+		// Set the state for future reference
+		conn.SetState(TCPSynAckSend)
 
 		// Attach the tags to the packet
 		return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
@@ -371,12 +382,10 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 // processApplicationAckPacket processes an application ack packet
 func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *PUContext, conn *TCPConnection) (interface{}, error) {
 
-	if conn.GetState() == TCPData {
-		return nil, nil
-	}
+	// Only process the first Ack of a connection. This means that we have received
+	// as SynAck packet and we can now process the ACK.
+	if conn.GetState() == TCPSynAckReceived && tcpPacket.IsEmptyTCPPayload() {
 
-	// Only process in SynAckReceived state
-	if conn.GetState() == TCPSynAckReceived || conn.GetState() == TCPSynSend {
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
@@ -401,6 +410,10 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 
 		conn.SetState(TCPAckSend)
 
+		// If its not a service connection, we release it to the kernel. Subsequent
+		// packets after the first data packet, that might be already in the queue
+		// will be transmitted through the kernel directly. Service connections are
+		// delegated to the service module
 		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
 			if err := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.SourceAddress.String(),
@@ -421,19 +434,15 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		return nil, nil
 	}
 
-	// Catch the first request packet
+	// If we are already in the TCPData connection just forward the packet
+	if conn.GetState() == TCPData {
+		return nil, nil
+	}
+
+	// Here we capture the first data packet after an ACK packet by modyfing the
+	// state. We will not release the caches though to deal with re-transmissions.
+	// We will let the caches expire.
 	if conn.GetState() == TCPAckSend {
-
-		// Once we have seen the end of the TCP SynAck sequence we have enough state
-		// We can delete the source port cache to avoid any connection re-use issues
-		// Flow caches will use a time out
-		if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
-			zap.L().Warn("Failed to clean up cache state for connections",
-				zap.String("src-port-hash", tcpPacket.SourcePortHash(packet.PacketTypeApplication)),
-				zap.Error(err),
-			)
-		}
-
 		conn.SetState(TCPData)
 		return nil, nil
 	}
@@ -471,6 +480,8 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 	context.Lock()
 	defer context.Unlock()
 
+	// Incoming packets that don't have our options are candidates to be processed
+	// as external services.
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 
 		// If there is no auth option, attempt the ACLs
@@ -487,6 +498,7 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 		return plc, nil, nil
 	}
 
+	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
 	claims, err = d.parsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 
@@ -549,9 +561,11 @@ func (d *Datapath) processNetworkSynPacket(context *PUContext, conn *TCPConnecti
 
 // processNetworkSynAckPacket processes a SynAck packet arriving from the network
 func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
+
 	context.Lock()
 	defer context.Unlock()
 
+	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		var plc *policy.FlowPolicy
 
@@ -583,6 +597,30 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 		return plc, nil, nil
 	}
 
+	// This is a corner condition. We are receiving a SynAck packet and we are in
+	// a state that indicates that we have already processed one. This means that
+	// our ack packet was lost. We need to revert conntrack in this case and get
+	// back into the picture.
+	if conn.GetState() != TCPSynSend {
+
+		// Revert the connmarks - dealing with retransmissions
+		if cerr := d.conntrackHdl.ConntrackTableUpdateMark(
+			tcpPacket.SourceAddress.String(),
+			tcpPacket.DestinationAddress.String(),
+			tcpPacket.IPProto,
+			tcpPacket.SourcePort,
+			tcpPacket.DestinationPort,
+			0,
+		); cerr != nil {
+			zap.L().Error("Failed to update conntrack table for flow",
+				zap.String("context", string(conn.Auth.LocalContext)),
+				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+				zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+			)
+		}
+	}
+
+	// Now we can process the SynAck packet with its options
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
 		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID, context, collector.MissingToken, nil)
@@ -615,7 +653,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	// We can now verify the reverse policy. The system requires that policy
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
-
 	if index, _ := context.RejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
 		return nil, nil, fmt.Errorf("Dropping because of reject rule on transmitter")
@@ -939,7 +976,6 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPCon
 
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
-
 	hash := p.L4FlowHash()
 
 	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
@@ -965,6 +1001,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 	}
 
 	return context, conn.(*TCPConnection), nil
+
 }
 
 // updateTimer updates the timers for the service connections

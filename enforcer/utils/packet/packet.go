@@ -105,6 +105,11 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	return &p, nil
 }
 
+// IsEmptyTCPPayload returns the TCP data offset
+func (p *Packet) IsEmptyTCPPayload() bool {
+	return p.TCPDataStartBytes() == p.IPTotalLength
+}
+
 // GetTCPData returns any additional data in the packet
 func (p *Packet) GetTCPData() []byte {
 	return p.tcpData
