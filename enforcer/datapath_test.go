@@ -3210,7 +3210,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	//Dummy Added to ensure ipset coreos does not fail
-	ipset.New("tempset", "hash:ip", &ipset.Params{})
+	ipset.New("temp_set", "hash:ip", &ipset.Params{})
 	defer func() {
 		//ips.Destroy()
 		ctrl.Finish()
@@ -3376,7 +3376,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	ipset.New("tempset", "hash:ip", &ipset.Params{})
+	ipset.New("temp_set", "hash:ip", &ipset.Params{})
 	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
