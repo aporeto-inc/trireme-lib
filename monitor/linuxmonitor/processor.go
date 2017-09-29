@@ -9,7 +9,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -58,11 +57,33 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		return err
 	}
 	zap.L().Info("Get ContextInfo", zap.String("Starting PU", eventInfo.PUID))
-	if _, err = s.contextStore.GetContextInfo(contextID); err == nil && eventInfo.PUType == constants.UIDLoginPU {
-		pid, _ := strconv.Atoi(eventInfo.PID)
-		s.netcls.AddProcess(eventInfo.PUID, pid)
-		return nil
+	list, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
+	if err != nil {
+		//cgroup does not exist
+		//Definitely a new session let it through do nothing
+	} else {
+		//cgroup exists and pid might be a member
+		isrestart := func() bool {
+			for _, element := range list {
+				if element == eventInfo.PID {
+					//pid is already there it is restart
+					return true
+				}
+			}
+			return false
+		}()
+		if !isrestart {
+			pid, _ := strconv.Atoi(eventInfo.PID)
+			s.netcls.AddProcess(eventInfo.PUID, pid)
+			return nil
+		}
 	}
+
+	// if _, err = s.contextStore.GetContextInfo(contextID); err == nil {
+	// 	pid, _ := strconv.Atoi(eventInfo.PID)
+	// 	s.netcls.AddProcess(eventInfo.PUID, pid)
+	// 	return nil
+	// }
 	runtimeInfo, err := s.metadataExtractor(eventInfo)
 	if err != nil {
 		return err
