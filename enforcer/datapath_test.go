@@ -1037,8 +1037,6 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 			So(err2, ShouldBeNil)
 			Convey("When I pass multiple packets through the enforcer", func() {
 
-				firstAckPacketReceived := false
-
 				PacketFlow := packetgen.NewTemplateFlow()
 				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
@@ -1092,22 +1090,6 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 									So(es, ShouldBeNil)
 								})
 							})
-						}
-
-						// ACK Packets only
-						if tcpPacket.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
-							if !firstAckPacketReceived {
-								firstAckPacketReceived = true
-							} else {
-								Convey("When I pass any application packets with ACK flag for packet "+string(i), func() {
-									Convey("Then I expect src port cache to be NOT populated "+string(i), func() {
-										fmt.Println("SrcPortHash:" + tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-										cs, es := enforcer.sourcePortConnectionCache.Get(tcpPacket.SourcePortHash(packet.PacketTypeApplication))
-										So(cs, ShouldBeNil)
-										So(es, ShouldNotBeNil)
-									})
-								})
-							}
 						}
 					}
 
