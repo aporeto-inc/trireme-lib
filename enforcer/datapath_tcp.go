@@ -567,7 +567,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
-		fmt.Println("I received a  SYNACK and my state is  ", conn.GetState())
 		var plc *policy.FlowPolicy
 
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
@@ -726,7 +725,6 @@ func (d *Datapath) processNetworkAckPacket(context *PUContext, conn *TCPConnecti
 		return nil, nil, nil
 	}
 
-	fmt.Println(" I received an ACK , but didn't process it yet ")
 	if conn.ServiceConnection {
 		return nil, nil, nil
 	}
@@ -978,7 +976,6 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*PUContext, *TCPCon
 
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
-	fmt.Println("I am looking for thestate ")
 	hash := p.L4FlowHash()
 
 	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
@@ -1003,7 +1000,6 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 		return nil, nil, fmt.Errorf("No context found")
 	}
 
-	fmt.Println("I Found the state for htepacket ")
 	return context, conn.(*TCPConnection), nil
 
 }
