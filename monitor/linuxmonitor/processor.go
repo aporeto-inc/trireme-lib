@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -51,12 +52,13 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 
 // Start handles start events
 func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
-
+	zap.L().Info("Start Event", zap.String("Starting PU", eventInfo.PUID))
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return err
 	}
-	if _, err = s.contextStore.GetContextInfo(contextID); err == nil {
+	zap.L().Info("Get ContextInfo", zap.String("Starting PU", eventInfo.PUID))
+	if _, err = s.contextStore.GetContextInfo(contextID); err == nil && eventInfo.PUType == constants.UIDLoginPU {
 		pid, _ := strconv.Atoi(eventInfo.PID)
 		s.netcls.AddProcess(eventInfo.PUID, pid)
 		return nil
