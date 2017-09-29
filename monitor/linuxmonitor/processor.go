@@ -71,12 +71,12 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
-
+	zap.L().Debug("Activating PU", zap.String("PUID", eventInfo.PUID))
 	if perr := s.puHandler.HandlePUEvent(contextID, monitor.EventStart); perr != nil {
 		zap.L().Error("Failed to activate process", zap.Error(perr))
 		return perr
 	}
-
+	zap.L().Debug("Done Activating PU", zap.String("PUID", eventInfo.PUID))
 	//It is okay to launch this so let us create a cgroup for it
 	err = s.netcls.Creategroup(eventInfo.PUID)
 	if err != nil {

@@ -173,6 +173,7 @@ func (r *RPCMonitor) reSync() error {
 		reacquired = append(reacquired, eventInfo.PUID)
 		if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
 			if err := f(&eventInfo); err != nil {
+				zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
 				return fmt.Errorf("error in processing existing data: %s", err.Error())
 			}
 		} else {
