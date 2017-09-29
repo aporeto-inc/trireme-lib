@@ -817,10 +817,11 @@ func TestSetGlobalRules(t *testing.T) {
 					if matchSpec("connmark", rulespec) == nil && matchSpec(strconv.Itoa(int(constants.DefaultConnMark)), rulespec) == nil {
 						return nil
 					}
-					if strings.Contains(rulestring, "UIDCHAIN") {
-						return nil
-					}
 
+				}
+
+				if chain == "PREROUTING" || strings.Contains(rulestring, "UIDCHAIN") {
+					return nil
 				}
 				return fmt.Errorf("Failed")
 			})
