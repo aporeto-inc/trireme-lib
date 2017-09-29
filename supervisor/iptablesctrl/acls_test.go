@@ -809,6 +809,7 @@ func TestSetGlobalRules(t *testing.T) {
 		Convey("When I add the capture for the SynAck packets", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				rulestring := strings.Join(rulespec, ",")
+				fmt.Println("RULES", rulestring)
 				if chain == "INPUT" || chain == "OUTPUT" {
 					if matchSpec("--match-set", rulespec) == nil && matchSpec(targetNetworkSet, rulespec) == nil {
 						return nil
