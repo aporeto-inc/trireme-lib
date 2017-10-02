@@ -51,12 +51,11 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 
 // Start handles start events
 func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
-	zap.L().Info("Start Event", zap.String("Starting PU", eventInfo.PUID))
+
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return err
 	}
-	zap.L().Info("Get ContextInfo", zap.String("Starting PU", eventInfo.PUID))
 	list, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 	if err != nil {
 		//cgroup does not exist
@@ -79,11 +78,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		}
 	}
 
-	// if _, err = s.contextStore.GetContextInfo(contextID); err == nil {
-	// 	pid, _ := strconv.Atoi(eventInfo.PID)
-	// 	s.netcls.AddProcess(eventInfo.PUID, pid)
-	// 	return nil
-	// }
 	runtimeInfo, err := s.metadataExtractor(eventInfo)
 	if err != nil {
 		return err
@@ -94,12 +88,11 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
-	zap.L().Info("Activating PU", zap.String("PUID", eventInfo.PUID))
 	if perr := s.puHandler.HandlePUEvent(contextID, monitor.EventStart); perr != nil {
 		zap.L().Error("Failed to activate process", zap.Error(perr))
 		return perr
 	}
-	zap.L().Info("Done Activating PU", zap.String("PUID", eventInfo.PUID))
+
 	//It is okay to launch this so let us create a cgroup for it
 	err = s.netcls.Creategroup(eventInfo.PUID)
 	if err != nil {

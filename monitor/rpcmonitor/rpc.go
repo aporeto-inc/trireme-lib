@@ -143,7 +143,7 @@ func (r *RPCMonitor) reSync() error {
 
 		processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 		if err != nil {
-			zap.L().Info("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
+			zap.L().Debug("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
 			deleted = append(deleted, eventInfo.PUID)
 			//The cgroup does not exists - log error and remove context
 			if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {

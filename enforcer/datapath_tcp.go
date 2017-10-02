@@ -146,6 +146,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
+
 	if log.Trace {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -161,6 +162,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 
 	var context *PUContext
 	var conn *TCPConnection
+
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
 		context, conn, err = d.appSynRetrieveState(p)
@@ -206,6 +208,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 			return err
 		}
 	}
+
 	conn.Lock()
 	defer conn.Unlock()
 
@@ -220,6 +223,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	}
 
 	p.Print(packet.PacketStageAuth)
+
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, err := d.processApplicationTCPPacket(p, context, conn)
 	if err != nil {
