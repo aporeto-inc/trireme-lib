@@ -56,6 +56,27 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+	list, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
+	if err != nil {
+		//cgroup does not exist
+		//Definitely a new session let it through do nothing
+	} else {
+		//cgroup exists and pid might be a member
+		isrestart := func() bool {
+			for _, element := range list {
+				if element == eventInfo.PID {
+					//pid is already there it is restart
+					return true
+				}
+			}
+			return false
+		}()
+		if !isrestart {
+			pid, _ := strconv.Atoi(eventInfo.PID)
+			s.netcls.AddProcess(eventInfo.PUID, pid)
+			return nil
+		}
+	}
 
 	runtimeInfo, err := s.metadataExtractor(eventInfo)
 	if err != nil {
@@ -67,7 +88,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
-
 	if perr := s.puHandler.HandlePUEvent(contextID, monitor.EventStart); perr != nil {
 		zap.L().Error("Failed to activate process", zap.Error(perr))
 		return perr
