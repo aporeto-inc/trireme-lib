@@ -241,6 +241,11 @@ func (r *RPCMonitor) Stop() error {
 	return nil
 }
 
+// Sync resyncs all processes
+func (r *RPCMonitor) Sync() error {
+	return nil
+}
+
 func (s *Server) addHandler(puType constants.PUType, event monitor.Event, handler RPCEventHandler) {
 
 	s.handlers[puType][event] = handler

@@ -279,7 +279,7 @@ func (d *dockerMonitor) Start() error {
 
 	//Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
-		err := d.syncContainers()
+		err := d.syncContainers(monitor.SynchronizationTypeInitial)
 
 		if err != nil {
 			zap.L().Error("Error Syncing existingContainers", zap.Error(err))
@@ -302,6 +302,11 @@ func (d *dockerMonitor) Stop() error {
 		d.stopprocessor[i] <- true
 	}
 
+	return nil
+}
+
+// Sync forces a full Resync for all the containers
+func (d *dockerMonitor) Sync() error {
 	return nil
 }
 
@@ -369,7 +374,7 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 
 // syncContainers resyncs all the existing containers on the Host, using the
 // same process as when a container is initially spawn up
-func (d *dockerMonitor) syncContainers() error {
+func (d *dockerMonitor) syncContainers(syncType monitor.SynchronizationType) error {
 
 	zap.L().Debug("Syncing all existing containers")
 
@@ -403,12 +408,12 @@ func (d *dockerMonitor) syncContainers() error {
 			} else {
 				state = monitor.StateStopped
 			}
-			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitor.SynchronizationTypeInitial); err != nil {
+			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, syncType); err != nil {
 				zap.L().Error("Error Syncing existing Container", zap.Error(err))
 			}
 		}
 
-		d.syncHandler.HandleSynchronizationComplete(monitor.SynchronizationTypeInitial)
+		d.syncHandler.HandleSynchronizationComplete(syncType)
 	}
 
 	for _, c := range containers {
