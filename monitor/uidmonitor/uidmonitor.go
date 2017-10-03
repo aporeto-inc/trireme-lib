@@ -36,7 +36,7 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 	if ok {
 		options[cgnetcls.PortTag] = ports
 	}
-	user, ok := runtimeTags.Get("@usr:originaluser")
+	user, ok := runtimeTags.Get("@usr:user")
 	if ok {
 		options["USER"] = user
 	}

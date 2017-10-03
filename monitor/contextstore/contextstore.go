@@ -113,9 +113,13 @@ func (s *store) WalkStore() (chan string, error) {
 	}
 
 	go func() {
+		i := 0
 		for _, file := range files {
+			zap.L().Debug("File Name", zap.String("Path", file.Name()))
 			contextChannel <- file.Name()
+			i++
 		}
+		zap.L().Info("Processed ", zap.Int("Number of processes walked", i))
 		contextChannel <- ""
 		close(contextChannel)
 	}()
