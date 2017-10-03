@@ -18,11 +18,12 @@ import (
 )
 
 type cacheData struct {
-	version int
-	ips     policy.ExtendedMap
-	mark    string
-	port    string
-	uid     string
+	version       int
+	ips           policy.ExtendedMap
+	mark          string
+	port          string
+	uid           string
+	containerInfo *policy.PUInfo
 }
 
 // Config is the structure holding all information about the supervisor
@@ -192,11 +193,12 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 		uid = ""
 	}
 	cacheEntry := &cacheData{
-		version: version,
-		ips:     containerInfo.Policy.IPAddresses(),
-		mark:    mark,
-		port:    port,
-		uid:     uid,
+		version:       version,
+		ips:           containerInfo.Policy.IPAddresses(),
+		mark:          mark,
+		port:          port,
+		uid:           uid,
+		containerInfo: containerInfo,
 	}
 
 	// Version the policy so that we can do hitless policy changes

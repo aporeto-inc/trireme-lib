@@ -56,3 +56,7 @@ const (
 	// DefaultConnMark is the default conn mark for all data packets
 	DefaultConnMark = uint32(0xEEEE)
 )
+
+const (
+	DefaultProxyPort = "5000"
+)

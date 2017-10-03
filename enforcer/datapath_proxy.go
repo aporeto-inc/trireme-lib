@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/netlink-go/conntrack"
+	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/policy"
@@ -19,68 +20,98 @@ import (
 const (
 	SO_ORIGINAL_DST = 80
 	proxyMarkInt    = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
+
 )
 
 // Proxy connections from Listen to Backend.
 type Proxy struct {
-	Listen   string
-	Backend  string
-	Forward  bool
-	Encrypt  bool
-	certPath string
-	keyPath  string
-	listener net.Listener
-	wg       sync.WaitGroup
+	Listen          string
+	Backend         string
+	Forward         bool
+	Encrypt         bool
+	certPath        string
+	keyPath         string
+	listener        net.Listener
+	wg              sync.WaitGroup
+	datapath        *Datapath
+	socketListeners *cache.Cache
 }
 
+type socketListenerEntry struct {
+	listen net.Listener
+	port   string
+}
 type sockaddr struct {
 	family uint16
 	data   [14]byte
 }
 
-func NewProxy(listen string, forward bool, encrypt bool) PolicyEnforcer {
+func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnforcer {
 	return &Proxy{
-		Listen:  listen,
-		Forward: forward,
-		Encrypt: encrypt,
-		wg:      sync.WaitGroup{},
+		//Listen:  listen,
+		Forward:         forward,
+		Encrypt:         encrypt,
+		wg:              sync.WaitGroup{},
+		datapath:        d,
+		socketListeners: cache.NewCache(),
 	}
 }
+
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
-	return nil
-
-}
-
-func (p *Proxy) Unenforce(contextID string) error {
-	return nil
-}
-
-func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
-	return nil
-}
-
-func (p *Proxy) Start() error {
-	var err error
-
-	if p.Forward || !p.Encrypt {
-		if p.listener, err = net.Listen("tcp", p.Listen); err != nil {
-			zap.L().Fatal("Fauiled to Bind", zap.Error(err))
+	_, err := p.datapath.contextTracker.Get(contextID)
+	if err != nil {
+		//Start proxy
+		errChan := make(chan error, 1)
+		port, ok := puInfo.Runtime.Options().Get("proxyPort")
+		if !ok {
+			zap.L().Error("Port Not Found")
+		}
+		go p.StartListener(contextID, errChan, port)
+		err, closed := <-errChan
+		if closed {
+			return nil
+		}
+		if err != nil {
 			return err
+		}
+	}
+	//Nothing required for the update case we will use the parent datapath structures to store state about PU
+	return nil
+
+}
+
+//StartListener returns error only during init. After init it never returns
+func (p *Proxy) StartListener(contextID string, reterr chan error, port string) {
+	var err error
+	var listener net.Listener
+	port = ":" + port
+	zap.L().Error("Started Listener")
+	if p.Forward || !p.Encrypt {
+		if listener, err = net.Listen("tcp", port); err != nil {
+			zap.L().Fatal("Fauiled to Bind", zap.Error(err))
+			reterr <- err
+
 		}
 
 	} else {
 		config, err := p.loadTLS()
 		if err != nil {
-			return err
+			reterr <- err
 		}
 
-		if p.listener, err = tls.Listen("tcp", p.Listen, config); err != nil {
-			return err
+		if listener, err = tls.Listen("tcp", port, config); err != nil {
+			reterr <- err
 		}
 	}
 	zap.L().Error("Started Proxy")
+	//At this point we are done initing lets close channel
+	close(reterr)
+	p.socketListeners.AddOrUpdate(contextID, &socketListenerEntry{
+		listen: listener,
+		port:   port,
+	})
 	for {
-		if conn, err := p.listener.Accept(); err == nil {
+		if conn, err := listener.Accept(); err == nil {
 			zap.L().Error("Got Connection")
 			filehdl, _ := conn.(*net.TCPConn).File()
 			err = syscall.SetsockoptInt(int(filehdl.Fd()), syscall.SOL_SOCKET, syscall.SO_MARK, proxyMarkInt)
@@ -97,9 +128,27 @@ func (p *Proxy) Start() error {
 				conn.Close()
 			}()
 		} else {
-			return nil
+			return
 		}
 	}
+}
+func (p *Proxy) Unenforce(contextID string) error {
+	entry, err := p.socketListeners.Get(contextID)
+	if err != nil {
+		entry.(*socketListenerEntry).listen.Close()
+		//p.portMap.ReleasePort(entry.(*socketListenerEntry).port)
+
+	}
+	return nil
+}
+
+func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
+	return nil
+}
+
+func (p *Proxy) Start() error {
+	//Do Nothing
+	return nil
 
 }
 func (p *Proxy) Stop() error {
@@ -264,4 +313,12 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 //We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(backend string, upConn, downConn net.Conn) error {
 	return nil
+}
+
+func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
+	port, ok := puInfo.Runtime.Options().Get("proxyPort")
+	if !ok {
+		port = constants.DefaultProxyPort
+	}
+	return port
 }

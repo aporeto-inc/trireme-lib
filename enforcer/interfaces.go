@@ -75,6 +75,7 @@ type PUContext struct {
 	Extension       interface{}
 	IP              string
 	Mark            string
+	ProxyPort       string
 	Ports           []string
 	PUType          constants.PUType
 	synToken        []byte
