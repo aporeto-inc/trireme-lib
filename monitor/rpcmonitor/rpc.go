@@ -14,7 +14,6 @@ import (
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -31,7 +30,6 @@ type RPCMonitor struct {
 	rpcServer     *rpc.Server
 	monitorServer *Server
 	listensock    net.Listener
-	contextstore  contextstore.ContextStore
 	collector     collector.EventCollector
 }
 

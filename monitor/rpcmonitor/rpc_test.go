@@ -12,7 +12,6 @@ import (
 	"github.com/aporeto-inc/mock/gomock"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -55,7 +54,6 @@ type CustomProcessor struct {
 }
 
 func TestNewRPCMonitor(t *testing.T) {
-	cstore := contextstore.NewContextStore("/tmp")
 	Convey("When we try to instantiate a new monitor", t, func() {
 
 		Convey("If we start with invalid rpc address", func() {
@@ -78,22 +76,19 @@ func TestNewRPCMonitor(t *testing.T) {
 
 		Convey("If we start with valid parameters", func() {
 			mon, err := NewRPCMonitor("/tmp/monitor.sock", nil)
-			mon.contextstore = cstore
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
 				So(mon.rpcAddress, ShouldResemble, "/tmp/monitor.sock")
 				So(mon.monitorServer, ShouldNotBeNil)
-				So(mon.contextstore, ShouldNotBeNil)
 			})
 		})
 	})
 }
 
 func TestRegisterProcessor(t *testing.T) {
-	cstore := contextstore.NewContextStore("/tmp")
+
 	Convey("Given a new rpc monitor", t, func() {
 		mon, _ := NewRPCMonitor(testRPCAddress, nil)
-		mon.contextstore = cstore
 		Convey("When I try to register a new processor", func() {
 			processor := &CustomProcessor{}
 			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
