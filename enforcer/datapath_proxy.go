@@ -193,6 +193,7 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	//Now let us handle the state machine for the down connection
 	if err := p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
+		return err
 	}
 	if !p.Encrypt {
 		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
@@ -385,6 +386,7 @@ L:
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
 					zap.L().Error("Received Ack", zap.Error(err))
+					return err
 				}
 				msg = msg[:n]
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
@@ -434,10 +436,13 @@ E:
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
-					if n < 1024 || err != nil {
+					if n < 1024 || err == nil {
 						zap.L().Error("Received Bytes", zap.Int("NumBytes", n), zap.Error(err))
 						msg = append(msg, data[:n]...)
 						break
+					}
+					if err != nil {
+						return err
 					}
 					msg = append(msg, data[:n]...)
 				}
@@ -479,10 +484,13 @@ E:
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
-					if n < 1024 || err != nil {
+					if n < 1024 || err == nil {
 						zap.L().Error("Received Bytes", zap.Int("NumBytes", n), zap.Error(err))
 						msg = append(msg, data[:n]...)
 						break
+					}
+					if err != nil {
+						return err
 					}
 					msg = append(msg, data[:n]...)
 				}
