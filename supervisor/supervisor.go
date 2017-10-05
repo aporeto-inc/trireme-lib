@@ -118,8 +118,8 @@ func (s *Config) Unsupervise(contextID string) error {
 	}
 
 	cacheEntry := version.(*cacheData)
-
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid); err != nil {
+	port, _ := cacheEntry.containerInfo.Runtime.Options().Get("proxyPort")
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 

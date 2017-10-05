@@ -317,7 +317,12 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	if !mustEnforce(contextID, containerInfo) {
 		return nil
 	}
-
+	proxyPort, ok := containerInfo.Runtime.Options().Get("proxyPort")
+	if !ok {
+		zap.L().Error("No Proxy Port")
+	} else {
+		zap.L().Error("ProxyPort in Update", zap.String("PortVal", proxyPort))
+	}
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 		zap.L().Warn("Re-initializing enforcers - connection lost")

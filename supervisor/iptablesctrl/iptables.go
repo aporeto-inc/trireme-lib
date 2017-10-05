@@ -120,10 +120,14 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
+
 	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
-
+	proxyPort, ok := containerInfo.Runtime.Options().Get("proxyPort")
+	if !ok {
+		proxyPort = constants.DefaultProxyPort
+	}
 	// Configure all the ACLs
 	if err := i.addContainerChain(appChain, netChain); err != nil {
 		return err
@@ -131,7 +135,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	if i.mode != constants.LocalServer {
 
-		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", ""); err != nil {
+		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", "", proxyPort); err != nil {
 			return err
 		}
 
@@ -149,7 +153,8 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		if !ok {
 			uid = ""
 		}
-		if err := i.addChainRules(appChain, netChain, ipAddress, port, mark, uid); err != nil {
+		zap.L().Error("Proxy Port", zap.String("PortVal", proxyPort))
+		if err := i.addChainRules(appChain, netChain, ipAddress, port, mark, uid, proxyPort); err != nil {
 			return err
 		}
 	}
@@ -174,7 +179,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string) error {
 	var ipAddress string
 	var ok bool
 
@@ -192,7 +197,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 
 	appChain, netChain := i.chainName(contextID, version)
 
-	if derr := i.deleteChainRules(appChain, netChain, ipAddress, port, mark, uid); derr != nil {
+	if derr := i.deleteChainRules(appChain, netChain, ipAddress, port, mark, uid, proxyPort); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -220,7 +225,10 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	if !ok {
 		return fmt.Errorf("No ip address found ")
 	}
-
+	proxyPort, ok := containerInfo.Runtime.Options().Get("proxyPort")
+	if !ok {
+		proxyPort = constants.DefaultProxyPort
+	}
 	appChain, netChain := i.chainName(contextID, version)
 
 	oldAppChain, oldNetChain := i.chainName(contextID, version^1)
@@ -249,7 +257,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	// Add mapping to new chain
 	if i.mode != constants.LocalServer {
 
-		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", ""); err != nil {
+		if err := i.addChainRules(appChain, netChain, ipAddress, "", "", "", proxyPort); err != nil {
 			return err
 		}
 	} else {
@@ -265,14 +273,14 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		if !ok {
 			uid = ""
 		}
-		if err := i.addChainRules(appChain, netChain, ipAddress, portlist, mark, uid); err != nil {
+		if err := i.addChainRules(appChain, netChain, ipAddress, portlist, mark, uid, proxyPort); err != nil {
 			return err
 		}
 	}
 
 	//Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, "", "", ""); err != nil {
+		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, "", "", "", proxyPort); err != nil {
 			return err
 		}
 	} else {
@@ -286,7 +294,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		if !ok {
 			uid = ""
 		}
-		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark, uid); err != nil {
+		if err := i.deleteChainRules(oldAppChain, oldNetChain, ipAddress, port, mark, uid, proxyPort); err != nil {
 			return err
 		}
 	}

@@ -13,7 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string) [][]string {
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string) [][]string {
 
 	str := [][]string{
 		{
@@ -40,7 +40,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "set",
 			"--match-set", ProxyServiceset, "dst,dst",
 			"-j", "REDIRECT",
-			"--to-port", ProxyPort,
+			"--to-port", proxyPort,
 		},
 		{
 			i.appProxyIPTableContext,
@@ -51,7 +51,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
-			"--to-port", ProxyPort,
+			"--to-port", proxyPort,
 		},
 		{
 			i.netPacketIPTableContext,
@@ -105,7 +105,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	return str
 }
 
-func (i *Instance) uidChainRules(appChain string, netChain string, mark string, port string, uid string) [][]string {
+func (i *Instance) uidChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string) [][]string {
 
 	str := [][]string{
 		{
@@ -153,7 +153,7 @@ func (i *Instance) uidChainRules(appChain string, netChain string, mark string, 
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]string {
+func (i *Instance) chainRules(appChain string, netChain string, ip string, port string) [][]string {
 
 	rules := [][]string{}
 
@@ -309,17 +309,17 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string, uid string) error {
+func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string, uid string, proxyPort string) error {
 
 	if i.mode == constants.LocalServer {
 		if port != "0" || uid == "" {
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Append")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort), "Append")
 		}
-		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Append")
+		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid, proxyPort), "Append")
 
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Append")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, proxyPort), "Append")
 
 }
 
@@ -676,17 +676,17 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, mark string, uid string) error {
+func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, mark string, uid string, proxyPort string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Delete")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort), "Delete")
 		}
-		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid), "Delete")
+		return i.processRulesFromList(i.uidChainRules(appChain, netChain, mark, port, uid, proxyPort), "Delete")
 
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, proxyPort), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules

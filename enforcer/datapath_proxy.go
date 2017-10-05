@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -85,7 +87,6 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 	var err error
 	var listener net.Listener
 	port = ":" + port
-	zap.L().Error("Started Listener")
 	if p.Forward || !p.Encrypt {
 		if listener, err = net.Listen("tcp", port); err != nil {
 			zap.L().Fatal("Fauiled to Bind", zap.Error(err))
@@ -103,7 +104,6 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 			reterr <- err
 		}
 	}
-	zap.L().Error("Started Proxy")
 	//At this point we are done initing lets close channel
 	close(reterr)
 	p.socketListeners.AddOrUpdate(contextID, &socketListenerEntry{
@@ -112,7 +112,6 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 	})
 	for {
 		if conn, err := listener.Accept(); err == nil {
-			zap.L().Error("Got Connection")
 			filehdl, _ := conn.(*net.TCPConn).File()
 			err = syscall.SetsockoptInt(int(filehdl.Fd()), syscall.SOL_SOCKET, syscall.SO_MARK, proxyMarkInt)
 
@@ -120,11 +119,10 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 				zap.L().Error(err.Error())
 			}
 
-			zap.L().Error("Accepted connection")
 			p.wg.Add(1)
 			go func() {
 				defer p.wg.Done()
-				p.handle(conn)
+				p.handle(conn, contextID)
 				conn.Close()
 			}()
 		} else {
@@ -134,10 +132,9 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 }
 func (p *Proxy) Unenforce(contextID string) error {
 	entry, err := p.socketListeners.Get(contextID)
-	if err != nil {
-		entry.(*socketListenerEntry).listen.Close()
-		//p.portMap.ReleasePort(entry.(*socketListenerEntry).port)
+	if err == nil {
 
+		entry.(*socketListenerEntry).listen.Close()
 	}
 	return nil
 }
@@ -168,21 +165,21 @@ func (p *Proxy) loadTLS() (*tls.Config, error) {
 }
 
 // handle handles a connection
-func (p *Proxy) handle(upConn net.Conn) {
+func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	var err error
 
 	var ip []byte
 	var port uint16
 	defer upConn.Close()
 
-	backend := p.Backend
+	//backend := p.Backend
 	if p.Forward {
 		ip, port, err = getOriginalDestination(upConn)
 		if err != nil {
 			fmt.Println("Failed to get the backend ")
 			return
 		}
-		fmt.Println("I found the right backend", backend)
+		fmt.Println("I found the right backend", net.IPv4(ip[0], ip[1], ip[2], ip[3]).String(), port)
 	}
 
 	downConn, err := p.downConnection(ip, port)
@@ -194,9 +191,9 @@ func (p *Proxy) handle(upConn net.Conn) {
 	defer syscall.Close(downConn)
 
 	//Now let us handle the state machine for the down connection
-	// if err := p.CompleteEndPointAuthorization(backend, upConn, downConn); err != nil {
-	// 	return
-	// }
+	if err := p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
+		zap.L().Error("Error on Authorization", zap.Error(err))
+	}
 	if !p.Encrypt {
 		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
 			fmt.Printf("pipe failed: %s", err)
@@ -291,7 +288,6 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 		//zap.L().Info("Peer Address", zap.String("IP Address", net.IPv4(remote.Addr[0], remote.Addr[1], remote.Addr[2], remote.Addr[3]).String()))
 		addr, _ = syscall.Getsockname(fd)
 		local := addr.(*syscall.SockaddrInet4)
-		zap.L().Info("Sock Address", zap.String("IP Address", net.IPv4(local.Addr[0], local.Addr[1], local.Addr[2], local.Addr[3]).String()), zap.Int("Port", local.Port))
 
 		conntrackHdl := conntrack.NewHandle()
 		if connterror := conntrackHdl.ConntrackTableUpdateMark(net.IPv4(local.Addr[0], local.Addr[1], local.Addr[2], local.Addr[3]).String(),
@@ -311,8 +307,31 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 
 //CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
 //We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
-func (p *Proxy) CompleteEndPointAuthorization(backend string, upConn, downConn net.Conn) error {
-	return nil
+func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
+	puContext, err := p.datapath.contextTracker.Get(contextID)
+	if err != nil {
+		zap.L().Error("Did not find context")
+	}
+	puContext.(*PUContext).Lock()
+	defer puContext.(*PUContext).Unlock()
+	pu := puContext.(*PUContext)
+	//addr := upConn.RemoteAddr().String()
+
+	if pu.PUType == constants.LinuxProcessPU {
+		//Are we client or server proxy
+
+		if len(puContext.(*PUContext).Ports) > 0 && puContext.(*PUContext).Ports[0] != "0" {
+
+			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
+		} else {
+			//We are client no advertised port
+			return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
+
+		}
+
+	} else {
+		return nil
+	}
 }
 
 func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
@@ -321,4 +340,138 @@ func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
 		port = constants.DefaultProxyPort
 	}
 	return port
+}
+
+func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
+	//We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
+	puContext, err := p.datapath.contextTracker.Get(contextID)
+	if err != nil {
+		zap.L().Error("Did not find context")
+	}
+	conn := NewTCPConnection()
+
+	toAddr, err := syscall.Getpeername(downConn)
+	//fmt.Println(toAddr.(*syscall.SockaddrInet4).)
+	// ipv4addr := toAddr.(*syscall.SockaddrInet4).Addr
+	// port := toAddr.(*syscall.SockaddrInet4).Port
+	if err != nil {
+		zap.L().Error("Peer Name Failed", zap.Error(err))
+	}
+
+L:
+	for conn.GetState() == TCPSynSend {
+		msg := make([]byte, 1024)
+		for {
+			zap.L().Error("Conn State", zap.Int("State", int(conn.GetState())))
+			switch conn.GetState() {
+			case TCPSynSend:
+				token, err := p.datapath.createSynPacketToken(puContext.(*PUContext), &conn.Auth)
+				if err != nil {
+					zap.L().Error("Failed to create syn token", zap.Error(err))
+				}
+				if serr := syscall.Sendto(downConn, token, 0, toAddr); serr != nil {
+					zap.L().Error("Sendto failed", zap.Error(serr))
+					return serr
+				}
+				conn.SetState(TCPSynAckReceived)
+			case TCPSynAckReceived:
+				// plc, err := puContext.(*PUContext).ApplicationACLs.GetMatchingAction(ipv4addr[:], uint16(port))
+				// if err != nil || plc.Action&policy.Reject > 0 {
+				// 	zap.L().Error("Error", zap.Error(err))
+				// 	zap.L().Error("Action", zap.Int("Action", int(plc.Action)))
+				// 	return fmt.Errorf("No Auth or ACLs - Drop SynAck packet and connection")
+				// }
+				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
+				if err != nil || claims == nil {
+					return fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
+				}
+				if index, _ := puContext.(*PUContext).RejectTxtRules.Search(claims.T); p.datapath.mutualAuthorization && index >= 0 {
+					return fmt.Errorf("Dropping because of reject rule on transmitter")
+				}
+				if index, _ := puContext.(*PUContext).AcceptTxtRules.Search(claims.T); !p.datapath.mutualAuthorization || index < 0 {
+					return fmt.Errorf("Dropping because of reject rule on receiver")
+				}
+				conn.SetState(TCPAckSend)
+				break L
+			case TCPAckSend:
+				break L
+			}
+			n, _, err := syscall.Recvfrom(downConn, msg, 0)
+			if err != nil {
+				zap.L().Error("Received Ack", zap.Error(err))
+			}
+			msg = msg[:n]
+		}
+	}
+	return nil
+
+}
+
+func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
+	context, err := p.datapath.contextTracker.Get(contextID)
+	if err != nil {
+		zap.L().Error("Did not find context")
+	}
+	conn := NewTCPConnection()
+	conn.SetState(TCPSynReceived)
+E:
+	for conn.GetState() == TCPSynReceived {
+		for {
+			msg := []byte{}
+
+			switch conn.GetState() {
+			case TCPSynReceived:
+				for {
+					data := make([]byte, 1024)
+					n, err := upConn.Read(data)
+					if n < 1024 || err != nil {
+						zap.L().Error("Received Bytes", zap.Int("NumBytes", n), zap.Error(err))
+						msg = append(msg, data[:n]...)
+						break
+					}
+					msg = append(msg, data[:n]...)
+				}
+				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
+				if err != nil || claims == nil {
+					return err
+				}
+				claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(backendport)))
+				if index, plc := context.(*PUContext).RejectRcvRules.Search(claims.T); index >= 0 {
+					zap.L().Error("Connection Dropped", zap.String("Policy ID", plc.(*policy.FlowPolicy).PolicyID))
+					return fmt.Errorf("Connection dropped because of Policy %v", err)
+				}
+				if index, _ := context.(*PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
+
+					return fmt.Errorf("Connection dropped because No Accept Policy")
+				}
+				t := strings.Join(claims.T.GetSlice(), ",")
+				zap.L().Error("Accepted Tokens", zap.String("tokens", t))
+				conn.SetState(TCPSynAckSend)
+
+			case TCPSynAckSend:
+				zap.L().Error("TCPSYNACKSEND ENTER")
+				//context.(*PUContext).Lock()
+				claims, err := p.datapath.createSynAckPacketToken(context.(*PUContext), &conn.Auth)
+				//context.(*PUContext).Unlock()
+				if err != nil {
+					return fmt.Errorf("Unable to create synack token")
+				}
+				zap.L().Error("Called Write")
+				synackn, err := upConn.Write(claims)
+				if err == nil {
+					zap.L().Error("Returned SynACK Token size", zap.Int("Token Length", synackn))
+				} else {
+					zap.L().Error("Failed to write", zap.Error(err))
+				}
+				conn.SetState(TCPAckProcessed)
+				zap.L().Error("TCPSYNACKSEND EXIT")
+			case TCPAckProcessed:
+				break E
+			}
+		}
+	}
+	//zap.L().Error("Received", zap.String("Message", hex.Dump(msg)))
+	//upConn.Write([]byte("Good"))
+	return nil
+
 }
