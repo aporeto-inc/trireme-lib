@@ -43,10 +43,10 @@ type EventInfo struct {
 	// Services is a list of services of interest - for host control
 	Services []policy.Service
 
-	// ControlApplicationTraffic indicates that traffic from the applications must be controlled
+	// ControlApplicationTraffic indicates that traffic from the applications must be controlled.
 	ControlApplicationTraffic bool
 
-	// ControlNetworkTraffic indicates that traffic towards the applications must be controled
+	// ControlNetworkTraffic indicates that traffic towards the applications must be controlled.
 	ControlNetworkTraffic bool
 }
 

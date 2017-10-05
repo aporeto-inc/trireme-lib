@@ -177,7 +177,7 @@ type Service struct {
 	Port uint16
 }
 
-// ConvertServicesToPortList convers an array of services to a port list
+// ConvertServicesToPortList converts an array of services to a port list
 func ConvertServicesToPortList(services []Service) string {
 
 	portlist := ""
