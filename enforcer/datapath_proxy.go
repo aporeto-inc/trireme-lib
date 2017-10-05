@@ -374,6 +374,7 @@ L:
 					return serr
 				}
 				conn.SetState(TCPSynAckReceived)
+
 			case TCPSynAckReceived:
 				// plc, err := puContext.(*PUContext).ApplicationACLs.GetMatchingAction(ipv4addr[:], uint16(port))
 				// if err != nil || plc.Action&policy.Reject > 0 {
@@ -381,6 +382,11 @@ L:
 				// 	zap.L().Error("Action", zap.Int("Action", int(plc.Action)))
 				// 	return fmt.Errorf("No Auth or ACLs - Drop SynAck packet and connection")
 				// }
+				n, _, err := syscall.Recvfrom(downConn, msg, 0)
+				if err != nil {
+					zap.L().Error("Received Ack", zap.Error(err))
+				}
+				msg = msg[:n]
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					return fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
@@ -392,15 +398,19 @@ L:
 					return fmt.Errorf("Dropping because of reject rule on receiver")
 				}
 				conn.SetState(TCPAckSend)
-				break L
+
 			case TCPAckSend:
+				token, err := p.datapath.createAckPacketToken(puContext.(*PUContext), &conn.Auth)
+				if err != nil {
+					zap.L().Error("Failed to create ack token", zap.Error(err))
+				}
+				if serr := syscall.Sendto(downConn, token, 0, toAddr); serr != nil {
+					zap.L().Error("Sendto failed", zap.Error(serr))
+					return serr
+				}
 				break L
 			}
-			n, _, err := syscall.Recvfrom(downConn, msg, 0)
-			if err != nil {
-				zap.L().Error("Received Ack", zap.Error(err))
-			}
-			msg = msg[:n]
+
 		}
 	}
 	return nil
@@ -466,6 +476,19 @@ E:
 				conn.SetState(TCPAckProcessed)
 				zap.L().Error("TCPSYNACKSEND EXIT")
 			case TCPAckProcessed:
+				for {
+					data := make([]byte, 1024)
+					n, err := upConn.Read(data)
+					if n < 1024 || err != nil {
+						zap.L().Error("Received Bytes", zap.Int("NumBytes", n), zap.Error(err))
+						msg = append(msg, data[:n]...)
+						break
+					}
+					msg = append(msg, data[:n]...)
+				}
+				if _, err := p.datapath.parseAckToken(&conn.Auth, msg); err != nil {
+					return fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
+				}
 				break E
 			}
 		}
