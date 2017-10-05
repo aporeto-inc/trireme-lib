@@ -183,7 +183,9 @@ func HandleCgroupStop(cgroupName string) error {
 	if err != nil {
 		return err
 	}
-	filepath := "/var/run"
+
+	linuxPath := "/var/run/trireme/linux"
+
 	request := &rpcmonitor.EventInfo{
 		PUType:    constants.LinuxProcessPU,
 		PUID:      cgroupName,
@@ -193,7 +195,13 @@ func HandleCgroupStop(cgroupName string) error {
 		EventType: monitor.EventStop,
 	}
 
-	if _, ferr := os.Stat(filepath + cgroupName); os.IsNotExist(ferr) {
+	parts := strings.Split(cgroupName, "/")
+
+	if len(parts) != 3 {
+		return fmt.Errorf("Can't handle the process")
+	}
+
+	if _, ferr := os.Stat(linuxPath + "/" + parts[2]); os.IsNotExist(ferr) {
 		request.PUType = constants.UIDLoginPU
 	}
 
