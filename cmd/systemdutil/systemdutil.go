@@ -123,10 +123,6 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		EventType: "start",
 	}
 
-	if serviceName == "Root" {
-		request.PUID = "1"
-	}
-
 	response := &rpcmonitor.RPCResponse{}
 	rpcClient := jsonrpc.NewClient(client)
 	err = rpcClient.Call(remoteMethodCall, request, response)
@@ -143,11 +139,7 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		return err
 	}
 
-	if serviceName != "Root" {
-		return syscall.Exec(command, append([]string{command}, params...), os.Environ())
-	}
-	return nil
-
+	return syscall.Exec(command, append([]string{command}, params...), os.Environ())
 }
 
 // createMetadata extracts the relevant metadata
