@@ -17,7 +17,6 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -287,15 +286,9 @@ func (d *Datapath) Stop() error {
 
 func (d *Datapath) getProcessKeys(puInfo *policy.PUInfo) (string, []string) {
 
-	mark, ok := puInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-	if !ok {
-		mark = ""
-	}
+	mark := puInfo.Runtime.Options().CgroupMark
 
-	ports, ok := puInfo.Runtime.Options().Get(cgnetcls.PortTag)
-	if !ok {
-		ports = "0"
-	}
+	ports := policy.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
 
 	portlist := strings.Split(ports, ",")
 

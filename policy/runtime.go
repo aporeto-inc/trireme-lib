@@ -22,7 +22,7 @@ type PURuntime struct {
 	// Tags is a map of the metadata of the container
 	tags *TagStore
 	// options
-	options ExtendedMap
+	options *OptionsType
 
 	// GlobalLock is used by Trireme to make sure that two operations do not
 	// get interleaved for the same container.
@@ -46,11 +46,11 @@ type PURuntimeJSON struct {
 	// Tags is a map of the metadata of the container
 	Tags *TagStore
 	// Options is a map of the options of the container
-	Options ExtendedMap
+	Options *OptionsType
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType constants.PUType, options ExtendedMap) *PURuntime {
+func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType constants.PUType, options *OptionsType) *PURuntime {
 
 	t := tags
 	if t == nil {
@@ -62,16 +62,11 @@ func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips Exten
 		i = ExtendedMap{}
 	}
 
-	o := options
-	if o == nil {
-		o = ExtendedMap{}
-	}
-
 	return &PURuntime{
 		puType:     puType,
 		tags:       t,
 		ips:        i,
-		options:    o,
+		options:    options,
 		pid:        pid,
 		nsPath:     nsPath,
 		name:       name,
@@ -163,11 +158,11 @@ func (r *PURuntime) SetPUType(puType constants.PUType) {
 }
 
 // SetOptions sets the Options
-func (r *PURuntime) SetOptions(options ExtendedMap) {
+func (r *PURuntime) SetOptions(options OptionsType) {
 	r.Lock()
 	defer r.Unlock()
 
-	r.options = options.Copy()
+	r.options = &options
 }
 
 // Name returns the PID
@@ -230,9 +225,13 @@ func (r *PURuntime) Tags() *TagStore {
 }
 
 // Options returns tags for the processing unit
-func (r *PURuntime) Options() ExtendedMap {
+func (r *PURuntime) Options() OptionsType {
 	r.Lock()
 	defer r.Unlock()
 
-	return r.options.Copy()
+	if r.options == nil {
+		return OptionsType{}
+	}
+
+	return *r.options
 }

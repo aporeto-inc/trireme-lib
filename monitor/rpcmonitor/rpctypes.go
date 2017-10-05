@@ -3,6 +3,7 @@ package rpcmonitor
 import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme/policy"
 )
 
 const (
@@ -38,6 +39,15 @@ type EventInfo struct {
 
 	// IPs is a map of all the IPs that fully belong to this processing Unit.
 	IPs map[string]string
+
+	// Services is a list of services of interest - for host control
+	Services []policy.Service
+
+	// ControlApplicationTraffic indicates that traffic from the applications must be controlled
+	ControlApplicationTraffic bool
+
+	// ControlNetworkTraffic indicates that traffic towards the applications must be controled
+	ControlNetworkTraffic bool
 }
 
 // RPCResponse encapsulate the error response if any.

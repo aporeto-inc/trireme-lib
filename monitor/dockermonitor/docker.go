@@ -131,33 +131,27 @@ func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntim
 
 // hostModeOptions creates the default options for a host-mode container. This is done
 // based on the policy and the metadata extractor logic and can very by implementation
-func hostModeOptions(dockerInfo *types.ContainerJSON) policy.ExtendedMap {
+func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 
-	// Create the options needed to activate
-	options := policy.ExtendedMap{
-		cgnetcls.PortTag:       "0",
-		cgnetcls.CgroupNameTag: strconv.Itoa(dockerInfo.State.Pid),
+	options := policy.OptionsType{
+		CgroupName: strconv.Itoa(dockerInfo.State.Pid),
+		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 	}
-
-	ports := ""
 
 	for p := range dockerInfo.Config.ExposedPorts {
 		if p.Proto() == "tcp" {
-			if ports == "" {
-				ports = p.Port()
-			} else {
-				ports = ports + "," + p.Port()
+			port, err := strconv.Atoi(p.Port())
+			if err != nil {
+				continue
 			}
+			options.Services = append(options.Services, policy.Service{
+				Protocol: uint8(6),
+				Port:     uint16(port),
+			})
 		}
 	}
 
-	if len(ports) > 0 {
-		options[cgnetcls.PortTag] = ports
-	}
-
-	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
-
-	return options
+	return &options
 }
 
 // dockerMonitor implements the connection to Docker and monitoring based on events
@@ -438,8 +432,8 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 		return err
 	}
 
-	markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
-	if !ok {
+	markval := runtimeInfo.Options().CgroupMark
+	if markval == "" {
 		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}

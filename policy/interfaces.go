@@ -27,7 +27,7 @@ type RuntimeReader interface {
 	Tags() *TagStore
 
 	// Options returns a copy of the list of options.
-	Options() ExtendedMap
+	Options() OptionsType
 
 	// DefaultIPAddress retutns the default IP address.
 	DefaultIPAddress() (string, bool)
