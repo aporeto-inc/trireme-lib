@@ -5,7 +5,7 @@
 package rpcmonitor
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of MonitorProcessor interface

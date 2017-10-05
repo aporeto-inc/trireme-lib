@@ -98,7 +98,7 @@ func TestGetContextInfo(t *testing.T) {
 func TestRemoveContext(t *testing.T) {
 
 	cstore := NewContextStore(storebasePath)
-	//defer cleanupstore("./base")
+	defer cleanupstore("./base")
 
 	err := cstore.RemoveContext(testcontextID)
 	if err == nil {
