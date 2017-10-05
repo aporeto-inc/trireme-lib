@@ -2,6 +2,7 @@ package cnimonitor
 
 import (
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -10,8 +11,6 @@ import (
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 )
-
-var contextStorePath = "/var/run/trireme"
 
 // CniProcessor captures all the monitor processor information
 // It implements the MonitorProcessor interface of the rpc monitor
@@ -24,6 +23,8 @@ type CniProcessor struct {
 
 // NewCniProcessor initializes a processor
 func NewCniProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor) *CniProcessor {
+
+	contextStorePath := "/var/run/trireme/cni"
 
 	return &CniProcessor{
 		collector:         collector,
@@ -94,6 +95,51 @@ func (p *CniProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 // Pause handles a pause event
 func (p *CniProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 	fmt.Printf("Pause: %+v \n", eventInfo)
+	return nil
+}
+
+// ReSync resyncs with all the existing services that were there before we start
+func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
+
+	deleted := []string{}
+	reacquired := []string{}
+
+	defer func() {
+		if len(deleted) > 0 {
+			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted, ",")))
+		}
+		if len(reacquired) > 0 {
+			zap.L().Info("Reacquired contexts", zap.String("Context List", strings.Join(reacquired, ",")))
+		}
+	}()
+
+	walker, err := p.contextStore.WalkStore()
+	if err != nil {
+		return fmt.Errorf("error in accessing context store")
+	}
+
+	for {
+		contextID := <-walker
+		if contextID == "" {
+			break
+		}
+
+		eventInfo := rpcmonitor.EventInfo{}
+		if err := p.contextStore.GetContextInfo("/"+contextID, &eventInfo); err != nil {
+			continue
+		}
+
+		// TODO: Better resync for CNI
+
+		reacquired = append(reacquired, eventInfo.PUID)
+
+		if err := p.Start(&eventInfo); err != nil {
+			zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
+			return fmt.Errorf("error in processing existing data: %s", err.Error())
+		}
+
+	}
+
 	return nil
 }
 

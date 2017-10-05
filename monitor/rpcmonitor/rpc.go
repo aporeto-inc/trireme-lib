@@ -1,7 +1,6 @@
 package rpcmonitor
 
 import (
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -16,17 +15,14 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
-
-var contextStorePath = "/var/run/trireme"
 
 // RPCMetadataExtractor is a function used to extract a *policy.PURuntime from a given
 // EventInfo.
 type RPCMetadataExtractor func(*EventInfo) (*policy.PURuntime, error)
 
-// A RPCEventHandler is type of docker event handler functions.
+// A RPCEventHandler is type of event handler functions.
 type RPCEventHandler func(*EventInfo) error
 
 // RPCMonitor implements the RPC connection
@@ -37,11 +33,6 @@ type RPCMonitor struct {
 	listensock    net.Listener
 	contextstore  contextstore.ContextStore
 	collector     collector.EventCollector
-}
-
-// Server represents the Monitor RPC Server implementation
-type Server struct {
-	handlers map[constants.PUType]map[monitor.Event]RPCEventHandler
 }
 
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
@@ -64,7 +55,6 @@ func NewRPCMonitor(rpcAddress string, collector collector.EventCollector) (*RPCM
 	r := &RPCMonitor{
 		rpcAddress:    rpcAddress,
 		monitorServer: monitorServer,
-		contextstore:  contextstore.NewContextStore(contextStorePath),
 		collector:     collector,
 	}
 
@@ -92,95 +82,7 @@ func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor Monito
 	r.monitorServer.addHandler(puType, monitor.EventCreate, processor.Create)
 	r.monitorServer.addHandler(puType, monitor.EventDestroy, processor.Destroy)
 	r.monitorServer.addHandler(puType, monitor.EventPause, processor.Pause)
-
-	return nil
-}
-
-// reSync resyncs with all the existing services that were there before we start
-func (r *RPCMonitor) reSync() error {
-	deleted := []string{}
-	reacquired := []string{}
-	defer func() {
-		if len(deleted) > 0 {
-			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted, ",")))
-		}
-		if len(reacquired) > 0 {
-			zap.L().Info("Reacquired  contexts", zap.String("Context List", strings.Join(reacquired, ",")))
-		}
-	}()
-	walker, err := r.contextstore.WalkStore()
-	if err != nil {
-		return fmt.Errorf("error in accessing context store")
-	}
-
-	//This is create to only delete if required don't create groups using this handle here
-	cgnetclshandle := cgnetcls.NewCgroupNetController("")
-	cstorehandle := contextstore.NewContextStore(contextStorePath)
-
-	for {
-		contextID := <-walker
-		if contextID == "" {
-			break
-		}
-
-		data, cerr := r.contextstore.GetContextInfo("/" + contextID)
-		if cerr != nil || data == nil {
-			continue
-		}
-
-		var eventInfo EventInfo
-		if err := json.Unmarshal(data.([]byte), &eventInfo); err != nil {
-			zap.L().Warn("Found invalid state for context - Cleaning up",
-				zap.String("contextID", contextID),
-				zap.Error(err),
-			)
-
-			if rerr := r.contextstore.RemoveContext("/" + contextID); rerr != nil {
-				return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
-			}
-			continue
-		}
-
-		processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
-		if err != nil {
-			zap.L().Debug("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
-			deleted = append(deleted, eventInfo.PUID)
-			//The cgroup does not exists - log error and remove context
-			if cerr := cstorehandle.RemoveContext(eventInfo.PUID); cerr != nil {
-				zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
-			}
-			continue
-		}
-
-		if len(processlist) <= 0 {
-			//We have an empty cgroup
-			//Remove the cgroup and context store file
-			if err := cgnetclshandle.DeleteCgroup(eventInfo.PUID); err != nil {
-				zap.L().Warn("Failed to deleted cgroup",
-					zap.String("puID", eventInfo.PUID),
-					zap.Error(err),
-				)
-			}
-			deleted = append(deleted, eventInfo.PUID)
-			if err := cstorehandle.RemoveContext(eventInfo.PUID); err != nil {
-				zap.L().Warn("Failed to deleted context",
-					zap.String("puID", eventInfo.PUID),
-					zap.Error(err),
-				)
-			}
-			continue
-		}
-		reacquired = append(reacquired, eventInfo.PUID)
-		if f, ok := r.monitorServer.handlers[eventInfo.PUType][monitor.EventStart]; ok {
-			if err := f(&eventInfo); err != nil {
-				zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
-				return fmt.Errorf("error in processing existing data: %s", err.Error())
-			}
-		} else {
-			return fmt.Errorf("cannot find handler")
-		}
-
-	}
+	r.monitorServer.addHandler(puType, monitor.EventResync, processor.ReSync)
 
 	return nil
 }
@@ -209,7 +111,7 @@ func (r *RPCMonitor) Start() error {
 	zap.L().Debug("Starting RPC monitor", zap.String("address", r.rpcAddress))
 
 	// Check if we had running units when we last died
-	if err = r.reSync(); err != nil {
+	if err = r.monitorServer.reSync(); err != nil {
 		return err
 	}
 
@@ -241,9 +143,9 @@ func (r *RPCMonitor) Stop() error {
 	return nil
 }
 
-func (s *Server) addHandler(puType constants.PUType, event monitor.Event, handler RPCEventHandler) {
-
-	s.handlers[puType][event] = handler
+// Server represents the Monitor RPC Server implementation
+type Server struct {
+	handlers map[constants.PUType]map[monitor.Event]RPCEventHandler
 }
 
 // HandleEvent Gets called when clients generate events.
@@ -268,6 +170,23 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 	result.Error = err.Error()
 	return err
 
+}
+
+// addHandler adds a hadler for a given PU and monitor event
+func (s *Server) addHandler(puType constants.PUType, event monitor.Event, handler RPCEventHandler) {
+	s.handlers[puType][event] = handler
+}
+
+// ReSync handles a server resync
+func (s *Server) reSync() error {
+
+	for _, h := range s.handlers {
+		if err := h[monitor.EventResync](nil); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DefaultRPCMetadataExtractor is a default RPC metadata extractor for testing

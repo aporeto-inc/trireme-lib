@@ -3,7 +3,6 @@ package linuxmonitor
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"strconv"
 	"strings"
 
@@ -27,9 +26,9 @@ type LinuxProcessor struct {
 	storePath         string
 }
 
-// NewLinuxProcessor initializes a processor
-func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
-	storePath := "/var/run/trireme"
+// NewCustomLinuxProcessor initializes a processor with a custom path
+func NewCustomLinuxProcessor(storePath string, collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
+
 	return &LinuxProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
@@ -38,6 +37,11 @@ func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pro
 		contextStore:      contextstore.NewContextStore(storePath),
 		storePath:         storePath,
 	}
+}
+
+// NewLinuxProcessor creates a default Linux processor with the standard trireme path
+func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
+	return NewCustomLinuxProcessor("/var/run/trireme/linux", collector, puHandler, metadataExtractor, releasePath)
 }
 
 // Create handles create events
@@ -57,11 +61,9 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+
 	list, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
-	if err != nil {
-		//cgroup does not exist
-		//Definitely a new session let it through do nothing
-	} else {
+	if err == nil {
 		//cgroup exists and pid might be a member
 		isrestart := func() bool {
 			for _, element := range list {
@@ -72,9 +74,10 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			}
 			return false
 		}()
+
 		if !isrestart {
 			pid, _ := strconv.Atoi(eventInfo.PID)
-			s.netcls.AddProcess(eventInfo.PUID, pid)
+			s.netcls.AddProcess(eventInfo.PUID, pid) // nolint
 			return nil
 		}
 	}
@@ -94,18 +97,18 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		return perr
 	}
 
-	if eventInfo.PUID == "1" {
-		markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
-		if !ok {
-			return errors.New("Mark value not found")
-		}
-		mark, _ := strconv.ParseUint(markval, 10, 32)
-		hexmark := "0x" + (strconv.FormatUint(mark, 16))
-		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644); err != nil {
-			return errors.New("Failed to  write to net_cls.classid file for new cgroup")
-		}
-		return nil
-	}
+	// if eventInfo.PUID == "1" {
+	// 	markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
+	// 	if !ok {
+	// 		return errors.New("Mark value not found")
+	// 	}
+	// 	mark, _ := strconv.ParseUint(markval, 10, 32)
+	// 	hexmark := "0x" + (strconv.FormatUint(mark, 16))
+	// 	if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644); err != nil {
+	// 		return errors.New("Failed to  write to net_cls.classid file for new cgroup")
+	// 	}
+	// 	return nil
+	// }
 
 	//It is okay to launch this so let us create a cgroup for it
 	err = s.netcls.Creategroup(eventInfo.PUID)
@@ -184,7 +187,6 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID = contextID[strings.LastIndex(contextID, "/"):]
 
-	contextStoreHdl := s.contextStore
 	s.netcls.Deletebasepath(contextID)
 
 	// Send the event upstream
@@ -203,7 +205,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		)
 	}
 
-	if err := contextStoreHdl.RemoveContext(contextID); err != nil {
+	if err := s.contextStore.RemoveContext(contextID); err != nil {
 		zap.L().Warn("Failed to clean cache while destroying process",
 			zap.String("contextID", contextID),
 			zap.Error(err),
@@ -222,6 +224,79 @@ func (s *LinuxProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
+}
+
+// ReSync resyncs with all the existing services that were there before we start
+func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
+
+	deleted := []string{}
+	reacquired := []string{}
+
+	defer func() {
+		if len(deleted) > 0 {
+			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted, ",")))
+		}
+		if len(reacquired) > 0 {
+			zap.L().Info("Reacquired contexts", zap.String("Context List", strings.Join(reacquired, ",")))
+		}
+	}()
+
+	walker, err := s.contextStore.WalkStore()
+	if err != nil {
+		return fmt.Errorf("error in accessing context store")
+	}
+
+	for {
+		contextID := <-walker
+		if contextID == "" {
+			break
+		}
+
+		eventInfo := rpcmonitor.EventInfo{}
+		if err := s.contextStore.GetContextInfo("/"+contextID, &eventInfo); err != nil {
+			continue
+		}
+
+		processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
+		if err != nil {
+			zap.L().Debug("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
+			deleted = append(deleted, eventInfo.PUID)
+			// The cgroup does not exists - log error and remove context
+			if cerr := s.contextStore.RemoveContext(eventInfo.PUID); cerr != nil {
+				zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
+			}
+			continue
+		}
+
+		if len(processlist) <= 0 {
+			// We have an empty cgroup. Remove the cgroup and context store file
+			if err := s.netcls.DeleteCgroup(eventInfo.PUID); err != nil {
+				zap.L().Warn("Failed to deleted cgroup",
+					zap.String("puID", eventInfo.PUID),
+					zap.Error(err),
+				)
+			}
+			deleted = append(deleted, eventInfo.PUID)
+
+			if err := s.contextStore.RemoveContext(eventInfo.PUID); err != nil {
+				zap.L().Warn("Failed to deleted context",
+					zap.String("puID", eventInfo.PUID),
+					zap.Error(err),
+				)
+			}
+			continue
+		}
+
+		reacquired = append(reacquired, eventInfo.PUID)
+
+		if err := s.Start(&eventInfo); err != nil {
+			zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
+			return fmt.Errorf("error in processing existing data: %s", err.Error())
+		}
+
+	}
+
+	return nil
 }
 
 // generateContextID creates the contextID from the event information

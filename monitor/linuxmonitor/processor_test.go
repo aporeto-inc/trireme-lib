@@ -22,7 +22,7 @@ func testLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pr
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
 		netcls:            cgnetcls.NewCgroupNetController(releasePath),
-		contextStore:      contextstore.NewCustomContextStore("/tmp"),
+		contextStore:      contextstore.NewContextStore("/tmp"),
 	}
 }
 
@@ -288,3 +288,58 @@ func TestStart(t *testing.T) {
 
 	})
 }
+
+// Convey("When we discover invalid context we ignore the errors", func() {
+// 	contextlist := make(chan string, 2)
+// 	contextlist <- "test1"
+// 	contextlist <- ""
+//
+// 	contextstore.EXPECT().WalkStore().Return(contextlist, nil)
+// 	contextstore.EXPECT().GetContextInfo("/test1").Return(nil, fmt.Errorf("Invalid Context"))
+//
+// 	testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
+// 	testRPCMonitor.contextstore = contextstore
+//
+// 	Convey("Start server returns no error", func() {
+// 		starerr := testRPCMonitor.Start()
+// 		So(starerr, ShouldBeNil)
+// 		testRPCMonitor.Stop() // nolint
+// 	})
+// })
+//
+// Convey("When we discover invalid json we ignore it", func() {
+// 	contextlist := make(chan string, 2)
+// 	contextlist <- "test1"
+// 	contextlist <- ""
+//
+// 	contextstore.EXPECT().WalkStore().Return(contextlist, nil)
+// 	contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{PUType: 1,EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
+// 	contextstore.EXPECT().RemoveContext("/test1").Return(nil)
+//
+// 	testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
+// 	testRPCMonitor.contextstore = contextstore
+//
+// 	Convey("Start server returns no error", func() {
+// 		starterr := testRPCMonitor.Start()
+// 		So(starterr, ShouldBeNil)
+// 		testRPCMonitor.Stop() //nolint
+// 	})
+// })
+//
+// Convey("When we discover invalid json and we can't remove the bad context", func() {
+// 	contextlist := make(chan string, 2)
+// 	contextlist <- "test1"
+// 	contextlist <- ""
+//
+// 	contextstore.EXPECT().WalkStore().Return(contextlist, nil)
+// 	contextstore.EXPECT().GetContextInfo("/test1").Return([]byte("{PUType: 1,EventType:start,PUID:/test1,Name:nginx.service,Tags:{@port:80,443,app:web},PID:15691,IPs:null}"), nil)
+// 	contextstore.EXPECT().RemoveContext("/test1").Return(fmt.Errorf("Error"))
+//
+// 	testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
+// 	testRPCMonitor.contextstore = contextstore
+//
+// 	Convey("Start server returns no error", func() {
+// 		starterr := testRPCMonitor.Start()
+// 		So(starterr, ShouldNotBeNil)
+// 	})
+// })
