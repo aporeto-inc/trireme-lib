@@ -58,6 +58,6 @@ const (
 )
 
 const (
-	//DefaultProxyPort-- the default port the l4 proxy listens on
+	//DefaultProxyPort  the default port the l4 proxy listens on
 	DefaultProxyPort = "5000"
 )

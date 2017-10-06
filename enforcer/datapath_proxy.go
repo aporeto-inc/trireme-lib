@@ -353,11 +353,9 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		if len(puContext.(*PUContext).Ports) > 0 && puContext.(*PUContext).Ports[0] != "0" {
 
 			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
-		} else {
-			//We are client no advertised port
-			return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
-
 		}
+		//We are client no advertised port
+		return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 
 	} else {
 		//Assumption within a container two applications talking to each other won't be proxied.
@@ -372,21 +370,20 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		}()
 		if islocalIP {
 			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
-		} else {
-			return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 		}
+		return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 
 	}
 }
 
 //getProxyPort for a given PU
-func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
-	port, ok := puInfo.Runtime.Options().Get("proxyPort")
-	if !ok {
-		port = constants.DefaultProxyPort
-	}
-	return port
-}
+// func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
+// 	port, ok := puInfo.Runtime.Options().Get("proxyPort")
+// 	if !ok {
+// 		port = constants.DefaultProxyPort
+// 	}
+// 	return port
+// }
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {

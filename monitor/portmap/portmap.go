@@ -2,10 +2,12 @@ package portmap
 
 import "strconv"
 
+//ProxyPortMap -- proxy portmap struct
 type ProxyPortMap struct {
 	portMap chan string
 }
 
+//New -- Create a new port map
 func New(start, size int) *ProxyPortMap {
 	portchan := make(chan string, size)
 	for i := start; i < (start + size); i++ {
