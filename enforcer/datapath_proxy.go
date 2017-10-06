@@ -357,23 +357,22 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		//We are client no advertised port
 		return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 
-	} else {
-		//Assumption within a container two applications talking to each other won't be proxied.
-		//If backend ip is non local we are client else we are server
-		islocalIP := func() bool {
-			for _, ip := range p.IPList {
-				if ip == backendip {
-					return true
-				}
-			}
-			return false
-		}()
-		if islocalIP {
-			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
-		}
-		return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
-
 	}
+	//Assumption within a container two applications talking to each other won't be proxied.
+	//If backend ip is non local we are client else we are server
+	islocalIP := func() bool {
+		for _, ip := range p.IPList {
+			if ip == backendip {
+				return true
+			}
+		}
+		return false
+	}()
+	if islocalIP {
+		return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
+	}
+	return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
+
 }
 
 //getProxyPort for a given PU

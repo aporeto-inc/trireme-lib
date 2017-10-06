@@ -38,7 +38,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -47,7 +47,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			natProxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -55,20 +55,20 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 		},
 		{
 			i.netPacketIPTableContext,
-			ProxyInputChain,
+			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		},
 		{
 			i.appAckPacketIPTableContext,
-			ProxyOutputChain,
+			proxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -172,7 +172,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -181,7 +181,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 			natProxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -189,27 +189,27 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 		},
 		{
 			i.netPacketIPTableContext,
-			ProxyInputChain,
+			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		},
 		{
 			i.netPacketIPTableContext,
-			ProxyInputChain,
+			proxyInputChain,
 			"-p", "tcp",
 			"--dport", proxyPort,
 			"-j", "ACCEPT",
 		},
 		{
 			i.appAckPacketIPTableContext,
-			ProxyOutputChain,
+			proxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", ProxyServiceset, "dst,dst",
+			"--match-set", proxyServiceSet, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -863,7 +863,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	}
 
 	err = i.ipt.Insert(i.netPacketIPTableContext,
-		ProxyInputChain, 1,
+		proxyInputChain, 1,
 		"-m", "mark",
 		"--mark", proxyMark,
 		"-j", "ACCEPT")
@@ -872,7 +872,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	}
 
 	err = i.ipt.Insert(i.netPacketIPTableContext,
-		ProxyOutputChain, 1,
+		proxyOutputChain, 1,
 		"-m", "mark",
 		"--mark", proxyMark,
 		"-j", "ACCEPT")
@@ -882,7 +882,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	err = i.ipt.Insert(i.appAckPacketIPTableContext,
 		i.netPacketIPTableSection, 1,
-		"-j", ProxyInputChain,
+		"-j", proxyInputChain,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
@@ -890,7 +890,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	i.ipt.Insert(i.appAckPacketIPTableContext,
 		i.appPacketIPTableSection,
 		1,
-		"-j", ProxyOutputChain,
+		"-j", proxyOutputChain,
 	)
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
@@ -1000,7 +1000,7 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
-func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, ProxyInputChain, ProxyOutputChain string) error {
+func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) error {
 	i.ipt.Delete(natproxyTableContext,
 		inputProxySection,
 		"-j", natProxyInputChain,
@@ -1014,10 +1014,10 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain)
 	i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain)
 	//Nat table is clean
-	i.ipt.ClearChain(proxyTableContext, ProxyInputChain)
-	i.ipt.DeleteChain(proxyTableContext, ProxyInputChain)
-	i.ipt.ClearChain(proxyTableContext, ProxyOutputChain)
-	i.ipt.DeleteChain(proxyTableContext, ProxyOutputChain)
+	i.ipt.ClearChain(proxyTableContext, proxyInputChain)
+	i.ipt.DeleteChain(proxyTableContext, proxyInputChain)
+	i.ipt.ClearChain(proxyTableContext, proxyOutputChain)
+	i.ipt.DeleteChain(proxyTableContext, proxyOutputChain)
 
 	return nil
 }
@@ -1039,7 +1039,7 @@ func (i *Instance) cleanACLs() error {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
 	}
 	//Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
-	i.removeProxyRules(i.appProxyIPTableContext, i.appAckPacketIPTableContext, ipTableSectionPreRouting, ipTableSectionOutput, natProxyInputChain, natProxyOutputChain, ProxyInputChain, ProxyOutputChain)
+	i.removeProxyRules(i.appProxyIPTableContext, i.appAckPacketIPTableContext, ipTableSectionPreRouting, ipTableSectionOutput, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain)
 	// Clean Application Rules/Chains
 	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
 

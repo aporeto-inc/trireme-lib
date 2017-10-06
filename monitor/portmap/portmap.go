@@ -11,7 +11,8 @@ type ProxyPortMap struct {
 func New(start, size int) *ProxyPortMap {
 	portchan := make(chan string, size)
 	for i := start; i < (start + size); i++ {
-		portchan <- strconv.FormatInt(int64(i), 10)
+
+		portchan <- strconv.Itoa(i)
 	}
 	return &ProxyPortMap{
 		portMap: portchan,

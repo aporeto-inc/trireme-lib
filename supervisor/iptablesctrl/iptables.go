@@ -26,9 +26,9 @@ const (
 	ipTableSectionPostRouting = "POSTROUTING"
 	natProxyOutputChain       = "RedirProxy-App"
 	natProxyInputChain        = "RedirProxy-Net"
-	ProxyOutputChain          = "Proxy-App"
-	ProxyInputChain           = "Proxy-Net"
-	ProxyServiceset           = "Proxied-Service"
+	proxyOutputChain          = "Proxy-App"
+	proxyInputChain           = "Proxy-Net"
+	proxyServiceSet           = "Proxied-Service"
 	proxyMark                 = "0x40"
 	ProxyPort                 = "5000"
 )
@@ -348,8 +348,8 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
 	i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain)
 	i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain)
-	i.ipt.NewChain(i.appAckPacketIPTableContext, ProxyOutputChain)
-	i.ipt.NewChain(i.appAckPacketIPTableContext, ProxyInputChain)
+	i.ipt.NewChain(i.appAckPacketIPTableContext, proxyOutputChain)
+	i.ipt.NewChain(i.appAckPacketIPTableContext, proxyInputChain)
 	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain)
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
