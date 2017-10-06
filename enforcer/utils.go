@@ -69,7 +69,8 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 
 	if flowpolicy == nil {
 		flowpolicy = &policy.FlowPolicy{
-			Action: policy.Reject,
+			Action:    policy.Reject,
+			ServiceID: "default",
 		}
 	}
 
@@ -112,7 +113,8 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpoli
 
 	if flowpolicy == nil {
 		flowpolicy = &policy.FlowPolicy{
-			Action: policy.Reject,
+			Action:    policy.Reject,
+			ServiceID: "default",
 		}
 	}
 

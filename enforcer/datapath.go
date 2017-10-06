@@ -237,7 +237,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		}
 	}
 
-	if err := d.contextTracker.Remove(contextID); err != nil {
+	if err := d.contextTracker.RemoveWithDelay(contextID, 10*time.Second); err != nil {
 		zap.L().Warn("Unable to remove context from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
