@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// proxyTCP proxies data bi-directionally between in and out.
+// Pipe proxies data bi-directionally between in and out.
 func Pipe(in *net.TCPConn, out int) error {
 	defer in.Close()
 	defer syscall.Close(out)
@@ -71,7 +71,7 @@ func copyBytes(direction string, destFd, srcFd int, wg *sync.WaitGroup) {
 	syscall.Shutdown(destFd, syscall.SHUT_WR)
 }
 
-// CopyPie
+// CopyPipe -- Copies in case splice is not possible
 func CopyPipe(a, b net.Conn) error {
 	done := make(chan error, 1)
 

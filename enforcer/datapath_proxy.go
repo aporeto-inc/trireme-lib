@@ -3,6 +3,7 @@ package enforcer
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -19,20 +20,20 @@ import (
 )
 
 const (
-	SO_ORIGINAL_DST = 80
+	SO_ORIGINAL_DST = 80   //nolint
 	proxyMarkInt    = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
 
 )
 
 // Proxy connections from Listen to Backend.
 type Proxy struct {
-	Listen          string
-	Backend         string
-	Forward         bool
-	Encrypt         bool
-	certPath        string
-	keyPath         string
-	listener        net.Listener
+	Listen   string
+	Backend  string
+	Forward  bool
+	Encrypt  bool
+	certPath string
+	keyPath  string
+	//listener        net.Listener
 	wg              sync.WaitGroup
 	datapath        *Datapath
 	socketListeners *cache.Cache
@@ -48,6 +49,7 @@ type sockaddr struct {
 	data   [14]byte
 }
 
+//NewProxy -- Create a new instance of Proxy
 func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnforcer {
 	ifaces, _ := net.Interfaces()
 	iplist := []string{}
@@ -72,6 +74,7 @@ func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnfo
 	}
 }
 
+//Enforce -- Enforce function policyenforcer interface
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	_, err := p.datapath.contextTracker.Get(contextID)
 	if err != nil {
@@ -146,6 +149,8 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 
 	}
 }
+
+//Unenforce - Unenforce from the policyenforcer interfaces
 func (p *Proxy) Unenforce(contextID string) error {
 	entry, err := p.socketListeners.Get(contextID)
 	if err == nil {
@@ -155,15 +160,19 @@ func (p *Proxy) Unenforce(contextID string) error {
 	return nil
 }
 
+//GetFilterQueue -- PolicyEnforcer interface function not required here implemented for interface
 func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
 	return nil
 }
 
+//Start -- Does nothing we do proxy start on an enforce when we know the port
 func (p *Proxy) Start() error {
 	//Do Nothing
 	return nil
 
 }
+
+//Stop -- Wait for go routine to exit . From policyenforcer interface
 func (p *Proxy) Stop() error {
 	p.wg.Wait()
 	return nil
@@ -233,14 +242,15 @@ func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err er
 	return
 }
 
-func setsockopt(s int, level int, name int, val uintptr, vallen uint32) (err error) {
-	_, _, e1 := syscall.Syscall6(syscall.SYS_SETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(vallen), 0)
-	if e1 != 0 {
-		err = e1
-	}
-	return
-}
+// func setsockopt(s int, level int, name int, val uintptr, vallen uint32) (err error) {
+// 	_, _, e1 := syscall.Syscall6(syscall.SYS_SETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(vallen), 0)
+// 	if e1 != 0 {
+// 		err = e1
+// 	}
+// 	return
+// }
 
+//getOriginalDestination -- Func to get original destination of redirected packet. Used to figure out backend destination
 func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
 	var addr sockaddr
 	size := uint32(unsafe.Sizeof(addr))
@@ -369,6 +379,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 	}
 }
 
+//getProxyPort for a given PU
 func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
 	port, ok := puInfo.Runtime.Options().Get("proxyPort")
 	if !ok {
@@ -377,6 +388,7 @@ func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
 	return port
 }
 
+//StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 	//We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
 	puContext, err := p.datapath.contextTracker.Get(contextID)
@@ -447,7 +459,8 @@ L:
 
 }
 
-func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
+//StartServerAuthStateMachine -- Start the aporeto handshake for a server application
+func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
 	context, err := p.datapath.contextTracker.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
