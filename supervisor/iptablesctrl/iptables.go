@@ -343,7 +343,7 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.createTargetSet(networks); err != nil {
 		return err
 	}
-	if err := i.createProxySet([]string{"192.168.33.10,80"}); err != nil {
+	if err := i.createProxySet([]string{}); err != nil {
 		return err
 	}
 	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
