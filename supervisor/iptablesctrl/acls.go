@@ -1000,6 +1000,27 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
+func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, ProxyInputChain, ProxyOutputChain string) error {
+	i.ipt.Delete(natproxyTableContext,
+		inputProxySection,
+		"-j", natProxyInputChain,
+	)
+	i.ipt.Delete(natproxyTableContext,
+		outputProxySection,
+		"-j", natProxyOutputChain,
+	)
+	i.ipt.ClearChain(natproxyTableContext, natProxyInputChain)
+	i.ipt.ClearChain(natproxyTableContext, natProxyOutputChain)
+	i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain)
+	i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain)
+	//Nat table is clean
+	i.ipt.ClearChain(proxyTableContext, ProxyInputChain)
+	i.ipt.DeleteChain(proxyTableContext, ProxyInputChain)
+	i.ipt.ClearChain(proxyTableContext, ProxyOutputChain)
+	i.ipt.DeleteChain(proxyTableContext, ProxyOutputChain)
+
+	return nil
+}
 func (i *Instance) cleanACLs() error {
 
 	// Clean the mark rule
@@ -1017,7 +1038,8 @@ func (i *Instance) cleanACLs() error {
 	if i.mode == constants.LocalContainer {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
 	}
-
+	//Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
+	i.removeProxyRules(i.appProxyIPTableContext, i.appAckPacketIPTableContext, ipTableSectionPreRouting, ipTableSectionOutput, natProxyInputChain, natProxyOutputChain, ProxyInputChain, ProxyOutputChain)
 	// Clean Application Rules/Chains
 	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
 

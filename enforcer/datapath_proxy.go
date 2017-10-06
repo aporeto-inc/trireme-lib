@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -126,6 +125,7 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 		port:   port,
 	})
 	for {
+
 		if conn, err := listener.Accept(); err == nil {
 			filehdl, _ := conn.(*net.TCPConn).File()
 			err = syscall.SetsockoptInt(int(filehdl.Fd()), syscall.SOL_SOCKET, syscall.SO_MARK, proxyMarkInt)
@@ -143,6 +143,7 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 		} else {
 			return
 		}
+
 	}
 }
 func (p *Proxy) Unenforce(contextID string) error {
@@ -485,7 +486,6 @@ E:
 
 					return fmt.Errorf("Connection dropped because No Accept Policy")
 				}
-				t := strings.Join(claims.T.GetSlice(), ",")
 				conn.SetState(TCPSynAckSend)
 
 			case TCPSynAckSend:
