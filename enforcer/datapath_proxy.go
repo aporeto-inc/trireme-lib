@@ -238,7 +238,7 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		}
 	} else {
 		// if err := CopyPipe(upConn, downConn); err != nil {
-		// 	fmt.Println("Got an error in pipe ")
+		fmt.Println("Got an error in pipe ")
 		// }
 	}
 }
