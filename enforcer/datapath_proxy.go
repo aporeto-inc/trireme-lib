@@ -104,7 +104,7 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 	port = ":" + port
 	if p.Forward || !p.Encrypt {
 		if listener, err = net.Listen("tcp", port); err != nil {
-			zap.L().Fatal("Fauiled to Bind", zap.Error(err))
+			zap.L().Fatal("Failed to Bind", zap.Error(err))
 			reterr <- err
 
 		}
@@ -213,7 +213,6 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
-	zap.L().Error("Completed End Point Auhtorization")
 	if !p.Encrypt {
 		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
 			fmt.Printf("pipe failed: %s", err)
@@ -306,7 +305,6 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 
 		addr, _ := syscall.Getpeername(fd)
 		remote := addr.(*syscall.SockaddrInet4)
-		//zap.L().Info("Peer Address", zap.String("IP Address", net.IPv4(remote.Addr[0], remote.Addr[1], remote.Addr[2], remote.Addr[3]).String()))
 		addr, _ = syscall.Getsockname(fd)
 		local := addr.(*syscall.SockaddrInet4)
 
@@ -356,7 +354,6 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		islocalIP := func() bool {
 			for _, ip := range p.IPList {
 				if ip == backendip {
-					zap.L().Error("Found LOCAL IP")
 					return true
 				}
 			}
@@ -399,7 +396,6 @@ L:
 	for conn.GetState() == TCPSynSend {
 		msg := make([]byte, 1024)
 		for {
-			zap.L().Error("Conn State", zap.Int("State", int(conn.GetState())))
 			switch conn.GetState() {
 			case TCPSynSend:
 				token, err := p.datapath.createSynPacketToken(puContext.(*PUContext), &conn.Auth)
@@ -413,12 +409,7 @@ L:
 				conn.SetState(TCPSynAckReceived)
 
 			case TCPSynAckReceived:
-				// plc, err := puContext.(*PUContext).ApplicationACLs.GetMatchingAction(ipv4addr[:], uint16(port))
-				// if err != nil || plc.Action&policy.Reject > 0 {
-				// 	zap.L().Error("Error", zap.Error(err))
-				// 	zap.L().Error("Action", zap.Int("Action", int(plc.Action)))
-				// 	return fmt.Errorf("No Auth or ACLs - Drop SynAck packet and connection")
-				// }
+
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
 					zap.L().Error("Received Ack", zap.Error(err))
@@ -473,7 +464,6 @@ E:
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
 					if n < 1024 || err == nil {
-						zap.L().Error("Received Bytes", zap.Int("NumBytes", n), zap.Error(err))
 						msg = append(msg, data[:n]...)
 						break
 					}
@@ -484,7 +474,6 @@ E:
 				}
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
-					zap.L().Error("453 -- SYN TOKEN FAILED")
 					return err
 				}
 				claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(backendport)))
@@ -497,18 +486,13 @@ E:
 					return fmt.Errorf("Connection dropped because No Accept Policy")
 				}
 				t := strings.Join(claims.T.GetSlice(), ",")
-				zap.L().Error("Accepted Tokens", zap.String("tokens", t))
 				conn.SetState(TCPSynAckSend)
 
 			case TCPSynAckSend:
-				zap.L().Error("TCPSYNACKSEND ENTER")
-				//context.(*PUContext).Lock()
 				claims, err := p.datapath.createSynAckPacketToken(context.(*PUContext), &conn.Auth)
-				//context.(*PUContext).Unlock()
 				if err != nil {
 					return fmt.Errorf("Unable to create synack token")
 				}
-				zap.L().Error("Called Write")
 				synackn, err := upConn.Write(claims)
 				if err == nil {
 					zap.L().Error("Returned SynACK Token size", zap.Int("Token Length", synackn))
@@ -516,13 +500,11 @@ E:
 					zap.L().Error("Failed to write", zap.Error(err))
 				}
 				conn.SetState(TCPAckProcessed)
-				zap.L().Error("TCPSYNACKSEND EXIT")
 			case TCPAckProcessed:
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
 					if n < 1024 || err == nil {
-						zap.L().Error("Received Bytes", zap.Int("NumBytes", n), zap.Error(err))
 						msg = append(msg, data[:n]...)
 						break
 					}
@@ -538,8 +520,6 @@ E:
 			}
 		}
 	}
-	//zap.L().Error("Received", zap.String("Message", hex.Dump(msg)))
-	//upConn.Write([]byte("Good"))
 	return nil
 
 }
