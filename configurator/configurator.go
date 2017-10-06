@@ -331,7 +331,6 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 // NewPSKTriremeWithDockerMonitor creates a new network isolator. The calling module must provide
 // a policy engine implementation and a pre-shared secret. This is for backward
 // compatibility. Will be removed
-// DEPRECATED. Use NewWithOptions instead
 func NewPSKTriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
@@ -349,31 +348,39 @@ func NewPSKTriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	options := DefaultTriremeOptions()
-	options.ServerID = serverID
-	options.Resolver = resolver
-	options.Processor = processor
-	options.EventCollector = eventCollector
-	options.SyncAtStart = syncAtStart
-	options.PKI = false
-	options.PSK = key
-	options.DockerMetadataExtractor = dockerMetadataExtractor
-	options.LocalProcess = false
+	secrets := NewSecretsFromPSK(key)
+
+	var triremeInstance trireme.Trireme
+
 	if remoteEnforcer {
-		options.RemoteContainer = true
-		options.LocalContainer = false
+		triremeInstance = NewDistributedTriremeDocker(
+			serverID,
+			resolver,
+			processor,
+			eventCollector,
+			secrets,
+			constants.IPTables)
 	} else {
-		options.RemoteContainer = false
-		options.LocalContainer = true
+		triremeInstance = NewLocalTriremeDocker(
+			serverID,
+			resolver,
+			processor,
+			eventCollector,
+			secrets,
+			constants.IPTables)
 	}
-	options.KillContainerError = killContainerError
 
-	trireme, err := NewTriremeWithOptions(options)
-	if err != nil {
-		zap.L().Fatal("Error creating trireme", zap.Error(err))
-	}
+	monitorInstance := dockermonitor.NewDockerMonitor(
+		constants.DefaultDockerSocketType,
+		constants.DefaultDockerSocket,
+		triremeInstance,
+		dockerMetadataExtractor,
+		eventCollector,
+		syncAtStart,
+		nil,
+		killContainerError)
 
-	return trireme.Trireme, trireme.DockerMonitor
+	return triremeInstance, monitorInstance
 
 }
 
@@ -381,7 +388,6 @@ func NewPSKTriremeWithDockerMonitor(
 // a policy engine implementation and private/public key pair and parent certificate.
 // All certificates are passed in PEM format. If a certificate pool is provided
 // certificates will not be transmitted on the wire
-// DEPRECATED. Use NewWithOptions instead
 func NewPKITriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
@@ -401,40 +407,48 @@ func NewPKITriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	options := DefaultTriremeOptions()
-	options.ServerID = serverID
-	options.Resolver = resolver
-	options.Processor = processor
-	options.EventCollector = eventCollector
-	options.SyncAtStart = syncAtStart
-	options.PKI = true
-	options.KeyPEM = keyPEM
-	options.CertPEM = certPEM
-	options.CaCertPEM = caCertPEM
-	options.DockerMetadataExtractor = dockerMetadataExtractor
-	options.LocalProcess = false
-	if remoteEnforcer {
-		options.RemoteContainer = true
-		options.LocalContainer = false
-	} else {
-		options.RemoteContainer = false
-		options.LocalContainer = true
-	}
-	options.KillContainerError = killContainerError
-
-	trireme, err := NewTriremeWithOptions(options)
+	publicKeyAdder, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
 	if err != nil {
-		// Respecting the convention of previous implementation (deprecated anyways)
 		return nil, nil, nil
 	}
 
-	return trireme.Trireme, trireme.DockerMonitor, trireme.PublicKeyAdder
+	var triremeInstance trireme.Trireme
+
+	if remoteEnforcer {
+		triremeInstance = NewDistributedTriremeDocker(
+			serverID,
+			resolver,
+			processor,
+			eventCollector,
+			publicKeyAdder,
+			constants.IPTables)
+	} else {
+		triremeInstance = NewLocalTriremeDocker(
+			serverID,
+			resolver,
+			processor,
+			eventCollector,
+			publicKeyAdder,
+			constants.IPTables)
+	}
+
+	monitorInstance := dockermonitor.NewDockerMonitor(
+		constants.DefaultDockerSocketType,
+		constants.DefaultDockerSocket,
+		triremeInstance,
+		dockerMetadataExtractor,
+		eventCollector,
+		syncAtStart,
+		nil,
+		killContainerError)
+
+	return triremeInstance, monitorInstance, publicKeyAdder
+
 }
 
 // NewPSKHybridTriremeWithMonitor creates a new network isolator. The calling module must provide
 // a policy engine implementation and a pre-shared secret. This is for backward
-// compatibility.
-// DEPRECATED. Use NewWithOptions instead
+// compatibility. Will be removed
 func NewPSKHybridTriremeWithMonitor(
 	serverID string,
 	networks []string,
@@ -452,28 +466,44 @@ func NewPSKHybridTriremeWithMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	options := DefaultTriremeOptions()
-	options.ServerID = serverID
-	options.TargetNetworks = networks
-	options.Resolver = resolver
-	options.Processor = processor
-	options.EventCollector = eventCollector
-	options.SyncAtStart = syncAtStart
-	options.PKI = false
-	options.PSK = key
-	options.DockerMetadataExtractor = dockerMetadataExtractor
-	options.LocalProcess = true
-	options.RemoteContainer = true
-	options.LocalContainer = false
+	secrets := NewSecretsFromPSK(key)
 
-	options.KillContainerError = killContainerError
+	triremeInstance := NewHybridTrireme(
+		serverID,
+		resolver,
+		processor,
+		eventCollector,
+		secrets,
+		networks,
+	)
 
-	trireme, err := NewTriremeWithOptions(options)
+	monitorDocker := dockermonitor.NewDockerMonitor(
+		constants.DefaultDockerSocketType,
+		constants.DefaultDockerSocket,
+		triremeInstance,
+		dockerMetadataExtractor,
+		eventCollector,
+		syncAtStart,
+		nil,
+		killContainerError,
+	)
+	// use rpcmonitor no need to return it since no other consumer for it
+	rpcmon, err := rpcmonitor.NewRPCMonitor(
+		rpcmonitor.DefaultRPCAddress,
+		eventCollector,
+	)
+
 	if err != nil {
-		zap.L().Fatal("Error creating trireme", zap.Error(err))
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 	}
 
-	return trireme.Trireme, trireme.DockerMonitor, &trireme.RPCMonitor
+	// configure a LinuxServices processor for the rpc monitor
+	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
+	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
+		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+	}
+
+	return triremeInstance, monitorDocker, rpcmon
 
 }
 
