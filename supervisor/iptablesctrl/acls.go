@@ -63,24 +63,6 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		},
-		// {
-		// 	i.netPacketIPTableContext,
-		// 	ProxyInputChain,
-		// 	"-p", "tcp",
-		// 	"-m", "set",
-		// 	"--match-set", ProxyServiceset, "src,src",
-		// 	"--tcp-flags", "SYN,ACK", "SYN,ACK",
-		// 	"-j", "ACCEPT",
-		// },
-		// {
-		// 	i.netPacketIPTableContext,
-		// 	ProxyOutputChain,
-		// 	"-p", "tcp",
-		// 	"-m", "set",
-		// 	"--match-set", ProxyServiceset, "src,src",
-		// 	"--tcp-flags", "SYN,ACK", "SYN,ACK",
-		// 	"-j", "ACCEPT",
-		// },
 		{
 			i.appAckPacketIPTableContext,
 			ProxyOutputChain,
@@ -153,7 +135,7 @@ func (i *Instance) uidChainRules(appChain string, netChain string, mark string, 
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(appChain string, netChain string, ip string, port string) [][]string {
+func (i *Instance) chainRules(appChain string, netChain string, ip string, port string, proxyPort string) [][]string {
 
 	rules := [][]string{}
 
@@ -182,7 +164,58 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 		"-m", "comment", "--comment", "Container-specific-chain",
 		"-j", netChain,
 	})
-
+	proxyRules := [][]string{
+		{
+			i.appProxyIPTableContext,
+			natProxyInputChain,
+			"-p", "tcp",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst,dst",
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		},
+		{
+			i.appProxyIPTableContext,
+			natProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		},
+		{
+			i.netPacketIPTableContext,
+			ProxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
+		{
+			i.netPacketIPTableContext,
+			ProxyInputChain,
+			"-p", "tcp",
+			"--dport", proxyPort,
+			"-j", "ACCEPT",
+		},
+		{
+			i.appAckPacketIPTableContext,
+			ProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", ProxyServiceset, "dst,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
+	}
+	rules = append(rules, proxyRules...)
 	return rules
 
 }
@@ -260,6 +293,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 		})
+
 	}
 	return rules
 }
@@ -319,7 +353,7 @@ func (i *Instance) addChainRules(appChain string, netChain string, ip string, po
 
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, proxyPort), "Append")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort), "Append")
 
 }
 
@@ -686,7 +720,7 @@ func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, 
 
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, proxyPort), "Delete")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules

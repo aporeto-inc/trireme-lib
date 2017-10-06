@@ -37,6 +37,7 @@ type Proxy struct {
 	wg              sync.WaitGroup
 	datapath        *Datapath
 	socketListeners *cache.Cache
+	IPList          []string
 }
 
 type socketListenerEntry struct {
@@ -49,6 +50,18 @@ type sockaddr struct {
 }
 
 func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnforcer {
+	ifaces, _ := net.Interfaces()
+	iplist := []string{}
+	for _, intf := range ifaces {
+		addrs, _ := intf.Addrs()
+		for _, addr := range addrs {
+			ip, _, _ := net.ParseCIDR(addr.String())
+			if ip.To4() != nil {
+				iplist = append(iplist, ip.String())
+			}
+		}
+	}
+
 	return &Proxy{
 		//Listen:  listen,
 		Forward:         forward,
@@ -56,6 +69,7 @@ func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnfo
 		wg:              sync.WaitGroup{},
 		datapath:        d,
 		socketListeners: cache.NewCache(),
+		IPList:          iplist,
 	}
 }
 
@@ -66,6 +80,7 @@ func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		errChan := make(chan error, 1)
 		port, ok := puInfo.Runtime.Options().Get("proxyPort")
 		if !ok {
+			port = constants.DefaultProxyPort
 			zap.L().Error("Port Not Found")
 		}
 		go p.StartListener(contextID, errChan, port)
@@ -185,6 +200,9 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
 		fmt.Println("Failed to connect")
+		if downConn > 0 {
+			syscall.Close(downConn)
+		}
 		return
 	}
 
@@ -193,8 +211,9 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	//Now let us handle the state machine for the down connection
 	if err := p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
-		return err
+		return
 	}
+	zap.L().Error("Completed End Point Auhtorization")
 	if !p.Encrypt {
 		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
 			fmt.Printf("pipe failed: %s", err)
@@ -282,6 +301,7 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 		err = syscall.Connect(fd, address)
 		if err != nil {
 			zap.L().Error("Connect Error", zap.String("Connect Error", err.Error()))
+			return fd, err
 		}
 
 		addr, _ := syscall.Getpeername(fd)
@@ -331,7 +351,23 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		}
 
 	} else {
-		return nil
+		//Assumption within a container two applications talking to each other won't be proxied.
+		//If backend ip is non local we are client else we are server
+		islocalIP := func() bool {
+			for _, ip := range p.IPList {
+				if ip == backendip {
+					zap.L().Error("Found LOCAL IP")
+					return true
+				}
+			}
+			return false
+		}()
+		if islocalIP {
+			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
+		} else {
+			return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
+		}
+
 	}
 }
 
@@ -448,6 +484,7 @@ E:
 				}
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
+					zap.L().Error("453 -- SYN TOKEN FAILED")
 					return err
 				}
 				claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(backendport)))
