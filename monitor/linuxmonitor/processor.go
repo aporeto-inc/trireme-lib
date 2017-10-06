@@ -116,8 +116,8 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		return err
 	}
 
-	markval, ok := runtimeInfo.Options().Get(cgnetcls.CgroupMarkTag)
-	if !ok {
+	markval := runtimeInfo.Options().CgroupMark
+	if markval == "" {
 		if derr := s.netcls.DeleteCgroup(eventInfo.PUID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}

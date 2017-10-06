@@ -11,7 +11,6 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/ipsetctrl"
 	"github.com/aporeto-inc/trireme/supervisor/iptablesctrl"
@@ -182,15 +181,10 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	zap.L().Debug("IPTables update for the creation of a pu", zap.String("contextID", contextID))
 
 	version := 0
-	mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-	port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
-	if !ok {
-		port = "0"
-	}
-	uid, ok := containerInfo.Runtime.Options().Get("USER")
-	if !ok {
-		uid = ""
-	}
+	mark := containerInfo.Runtime.Options().CgroupMark
+	port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
+	uid := containerInfo.Runtime.Options().UserID
+
 	cacheEntry := &cacheData{
 		version: version,
 		ips:     containerInfo.Policy.IPAddresses(),

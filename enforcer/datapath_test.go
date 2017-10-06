@@ -15,7 +15,6 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/packetgen"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/mock"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
@@ -1180,8 +1179,17 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
-		tags := policy.ExtendedMap{cgnetcls.CgroupMarkTag: "100", cgnetcls.PortTag: "80,90,100"}
-		puInfo.Runtime.SetOptions(tags)
+
+		puInfo.Runtime.SetOptions(policy.OptionsType{
+			CgroupMark: "100",
+			Services: []policy.Service{
+				policy.Service{
+					Protocol: uint8(6),
+					Port:     uint16(80),
+				},
+			},
+		})
+
 		Convey("When I create a new PU", func() {
 			err := enforcer.doCreatePU(contextID, puInfo)
 
@@ -1193,10 +1201,8 @@ func TestDoCreatePU(t *testing.T) {
 				So(err1, ShouldBeNil)
 				_, err2 := enforcer.puFromPort.Get("80")
 				So(err2, ShouldBeNil)
-				_, err3 := enforcer.puFromPort.Get("90")
-				So(err3, ShouldBeNil)
-				_, err4 := enforcer.puFromIP.Get(DefaultNetwork)
-				So(err4, ShouldNotBeNil)
+				_, err3 := enforcer.puFromIP.Get(DefaultNetwork)
+				So(err3, ShouldNotBeNil)
 			})
 		})
 	})

@@ -26,21 +26,19 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 		runtimeTags.AppendKeyValue("@usr:"+k, v)
 	}
 
-	//Addd more thing here later
-	options := policy.ExtendedMap{
-		cgnetcls.PortTag:       "0",
-		cgnetcls.CgroupNameTag: event.PUID,
+	user, ok := runtimeTags.Get("@usr:user")
+	if !ok {
+		user = ""
 	}
 
-	ports, ok := runtimeTags.Get(cgnetcls.PortTag)
-	if ok {
-		options[cgnetcls.PortTag] = ports
+	//Addd more thing here later
+	options := &policy.OptionsType{
+		CgroupName: event.PUID,
+		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		UserID:     user,
+		Services:   event.Services,
 	}
-	user, ok := runtimeTags.Get("@usr:user")
-	if ok {
-		options["USER"] = user
-	}
-	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	runtimePID, _ := strconv.Atoi(event.PID)
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil

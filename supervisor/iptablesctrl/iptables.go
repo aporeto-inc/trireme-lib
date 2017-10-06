@@ -8,7 +8,6 @@ import (
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 
@@ -136,20 +135,15 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		}
 
 	} else {
-		mark, ok := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-		if !ok {
+		mark := containerInfo.Runtime.Options().CgroupMark
+		if mark == "" {
 			return fmt.Errorf("No Mark value found")
 		}
 
-		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
-		if !ok {
-			port = "0"
-		}
-		uid, ok := containerInfo.Runtime.Options().Get("USER")
-		if !ok {
-			uid = ""
+		port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
 
-		} else {
+		uid := containerInfo.Runtime.Options().UserID
+		if uid != "" {
 			//We are about to create a uid login pu
 			//This set will be empty and we will only fill it when we find a port for it
 			//The reason to use contextID here is to ensure that we don't need to talk between supervisor and enforcer to share names the id is derivable from information available in the enforcer
@@ -157,6 +151,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 				return puseterr
 			}
 		}
+
 		portSetName := PuPortSetName(contextID, mark)
 		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid); err != nil {
 			return err
@@ -269,18 +264,15 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 			return err
 		}
 	} else {
-		mark, ok := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-		if !ok {
+		mark := containerInfo.Runtime.Options().CgroupMark
+		if mark == "" {
 			return fmt.Errorf("No Mark value found")
 		}
-		portlist, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
-		if !ok {
-			portlist = "0"
-		}
-		uid, ok := containerInfo.Runtime.Options().Get("USER")
-		if !ok {
-			uid = ""
-		}
+
+		portlist := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
+
+		uid := containerInfo.Runtime.Options().UserID
+
 		portSetName := PuPortSetName(contextID, mark)
 		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, portlist, mark, uid); err != nil {
 			return err
@@ -293,16 +285,10 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 			return err
 		}
 	} else {
-		mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-		port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
+		mark := containerInfo.Runtime.Options().CgroupMark
+		port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
+		uid := containerInfo.Runtime.Options().UserID
 
-		if !ok {
-			port = "0"
-		}
-		uid, ok := containerInfo.Runtime.Options().Get("USER")
-		if !ok {
-			uid = ""
-		}
 		portSetName := PuPortSetName(contextID, mark)
 		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, ipAddress, port, mark, uid); err != nil {
 			return err
@@ -353,7 +339,7 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 	//Create a set of all local ips
-	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
+	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain) // nolint
 
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
