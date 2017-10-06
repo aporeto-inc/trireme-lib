@@ -195,22 +195,23 @@ func NewWithDefaults(
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	puContext, err := d.contextTracker.Get(contextID)
-	if err != nil {
-		//Call proxy enforce from here and not from trireme like for other calls
-		//We will call enforce every time on the enforce so no need to propagate this info out of enforcer package
-		zap.L().Error("Called Proxy Enforce")
-		proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
-		if proxyerr != nil {
-			zap.L().Error("Failed Called Proxy Enforce", zap.Error(proxyerr))
-			return proxyerr
-		}
 
-		zap.L().Error("Called Do Create Enforce")
+	if err != nil {
 		createerr := d.doCreatePU(contextID, puInfo)
 
 		if createerr != nil {
 			zap.L().Error("Called Do Create Returned error")
 			return createerr
+		}
+		//Call proxy enforce from here and not from trireme like for other calls
+		//We will call enforce every time on the enforce so no need to propagate this info out of enforcer package
+		zap.L().Error("Called Proxy Enforce")
+
+		proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
+
+		if proxyerr != nil {
+			zap.L().Error("Failed Called Proxy Enforce", zap.Error(proxyerr))
+			return proxyerr
 		}
 
 		return nil
@@ -235,6 +236,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 	defer puContext.(*PUContext).Unlock()
 	//Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
 	//Datapath is a strict readonly struct for us
+
 	d.proxyhdl.Unenforce(contextID)
 	pu := puContext.(*PUContext)
 	if err := d.puFromIP.Remove(pu.IP); err != nil {
@@ -334,6 +336,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	ip, ok := puInfo.Runtime.DefaultIPAddress()
 	if !ok {
 		if d.mode == constants.LocalContainer {
+			fmt.Println("378")
 			return fmt.Errorf("No IP provided for Local Container")
 		}
 		ip = DefaultNetwork
@@ -351,6 +354,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	if !ok {
 		pu.ProxyPort = constants.DefaultProxyPort
 	}
+
 	//One more cache for the proxy datapath
 	//d.proxyhdl.PuFromProxyPort(pu.ProxyPort, pu)
 	// Cache PUs for retrieval based on packet information
@@ -369,6 +373,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PU from contextID for management and policy updates
+
 	d.contextTracker.AddOrUpdate(contextID, pu)
 
 	return d.doUpdatePU(pu, puInfo)

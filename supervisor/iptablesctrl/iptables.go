@@ -30,7 +30,8 @@ const (
 	proxyInputChain           = "Proxy-Net"
 	proxyServiceSet           = "Proxied-Service"
 	proxyMark                 = "0x40"
-	ProxyPort                 = "5000"
+	//ProxyPort DefaultProxyPort
+	ProxyPort = "5000"
 )
 
 // Instance  is the structure holding all information about a implementation

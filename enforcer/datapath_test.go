@@ -60,7 +60,7 @@ func TestInvalidIPContext(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
-
+		defer enforcer.Unenforce("SomeServerId")
 		PacketFlow := packetgen.NewTemplateFlow()
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
 		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
@@ -181,6 +181,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 
 		// Create processing unit 2
 		puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+
 		ip2 := policy.ExtendedMap{"bridge": puIP2}
 		puInfo2.Runtime.SetIPAddresses(ip2)
 		ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -241,25 +242,25 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 	ip1 := policy.ExtendedMap{}
 	ip1["bridge"] = puIP1
 	puInfo1.Runtime.SetIPAddresses(ip1)
-	ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
+	ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1, "proxyPort": "5000"}
 	puInfo1.Policy.SetIPAddresses(ipl1)
 	puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
 	puInfo1.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 2
 	puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
-	ip2 := policy.ExtendedMap{"bridge": puIP2}
+	ip2 := policy.ExtendedMap{"bridge": puIP2, "proxyPort": "5001"}
 	puInfo2.Runtime.SetIPAddresses(ip2)
-	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
+	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2, "proxyPort": "5002"}
 	puInfo2.Policy.SetIPAddresses(ipl2)
 	puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
 	puInfo2.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 3
 	puInfo3 := policy.NewPUInfo(puID3, constants.ContainerPU)
-	ip3 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
+	ip3 := policy.ExtendedMap{policy.DefaultNamespace: puIP2, "proxyPort": "5003"}
 	puInfo3.Runtime.SetIPAddresses(ip3)
-	ipl3 := policy.ExtendedMap{policy.DefaultNamespace: puIP3}
+	ipl3 := policy.ExtendedMap{policy.DefaultNamespace: puIP3, "proxyPort": "5004"}
 	puInfo3.Policy.SetIPAddresses(ipl3)
 	puInfo3.Policy.AddIdentityTag(TransmitterLabel, "value")
 	puInfo3.Policy.AddReceiverRules(tagSelector)

@@ -76,15 +76,19 @@ func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnfo
 
 //Enforce -- Enforce function policyenforcer interface
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
+	fmt.Println("Enforce", contextID)
 	_, err := p.datapath.contextTracker.Get(contextID)
+
 	if err != nil {
 		//Start proxy
 		errChan := make(chan error, 1)
 		port, ok := puInfo.Runtime.Options().Get("proxyPort")
+
 		if !ok {
 			port = constants.DefaultProxyPort
 			zap.L().Error("Port Not Found")
 		}
+
 		go p.StartListener(contextID, errChan, port)
 		err, closed := <-errChan
 		if closed {
@@ -101,11 +105,14 @@ func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 //StartListener returns error only during init. After init it never returns
 func (p *Proxy) StartListener(contextID string, reterr chan error, port string) {
+	fmt.Println("StartListener", contextID)
 	var err error
 	var listener net.Listener
 	port = ":" + port
 	if p.Forward || !p.Encrypt {
+		fmt.Println("112")
 		if listener, err = net.Listen("tcp", port); err != nil {
+			fmt.Println("210", port, err)
 			zap.L().Fatal("Failed to Bind", zap.Error(err))
 			reterr <- err
 
@@ -123,6 +130,7 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 	}
 	//At this point we are done initing lets close channel
 	close(reterr)
+
 	p.socketListeners.AddOrUpdate(contextID, &socketListenerEntry{
 		listen: listener,
 		port:   port,
@@ -153,8 +161,9 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 //Unenforce - Unenforce from the policyenforcer interfaces
 func (p *Proxy) Unenforce(contextID string) error {
 	entry, err := p.socketListeners.Get(contextID)
+	fmt.Println("Unenforce", contextID)
 	if err == nil {
-
+		fmt.Println("164")
 		entry.(*socketListenerEntry).listen.Close()
 	}
 	return nil
