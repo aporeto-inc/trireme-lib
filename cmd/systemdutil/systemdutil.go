@@ -17,6 +17,7 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme/policy"
 )
 
 const (
@@ -95,6 +96,20 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		return err
 	}
 
+	services := []policy.Service{}
+	for _, p := range ports {
+		intPort, ierr := strconv.Atoi(p)
+		if ierr != nil {
+			continue
+		}
+
+		// TODO: Assumes only TCP here until we add UDP support
+		services = append(services, policy.Service{
+			Protocol: uint8(6),
+			Port:     uint16(intPort),
+		})
+	}
+
 	// Make RPC call and only retry if the resource is temporarily unavailable
 	numRetries := 0
 	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
@@ -121,6 +136,7 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		Tags:      metadata,
 		PID:       strconv.Itoa(os.Getpid()),
 		EventType: "start",
+		Services:  services,
 	}
 
 	response := &rpcmonitor.RPCResponse{}
