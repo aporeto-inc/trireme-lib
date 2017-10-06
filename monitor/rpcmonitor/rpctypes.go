@@ -63,4 +63,7 @@ type MonitorProcessor interface {
 
 	// Event processes a pause event
 	Pause(eventInfo *EventInfo) error
+
+	// ReSync resyncs all PUs handled by this processor
+	ReSync(EventInfo *EventInfo) error
 }

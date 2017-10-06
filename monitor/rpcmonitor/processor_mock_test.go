@@ -4,7 +4,9 @@
 // nolint
 package rpcmonitor
 
-import gomock "github.com/golang/mock/gomock"
+import (
+	gomock "github.com/golang/mock/gomock"
+)
 
 // Mock of MonitorProcessor interface
 type MockMonitorProcessor struct {
@@ -28,7 +30,6 @@ func (_m *MockMonitorProcessor) EXPECT() *_MockMonitorProcessorRecorder {
 }
 
 func (_m *MockMonitorProcessor) Start(eventInfo *EventInfo) error {
-
 	ret := _m.ctrl.Call(_m, "Start", eventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -76,4 +77,14 @@ func (_m *MockMonitorProcessor) Pause(eventInfo *EventInfo) error {
 
 func (_mr *_MockMonitorProcessorRecorder) Pause(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Pause", arg0)
+}
+
+func (_m *MockMonitorProcessor) ReSync(EventInfo *EventInfo) error {
+	ret := _m.ctrl.Call(_m, "ReSync", EventInfo)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockMonitorProcessorRecorder) ReSync(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReSync", arg0)
 }

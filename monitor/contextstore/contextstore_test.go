@@ -1,7 +1,6 @@
 package contextstore
 
 import (
-	"bytes"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -11,21 +10,22 @@ import (
 
 const (
 	testcontextID = "/test"
+	storebasePath = "./base"
 )
 
 type testdatastruct struct {
-	data int
+	Data int
 }
 
-func cleanupstore() {
+func cleanupstore(storebasePath string) {
 	os.RemoveAll(storebasePath) //nolint
 }
 
 func TestStoreContext(t *testing.T) {
-	cstore := NewCustomContextStore("./base")
-	defer cleanupstore()
+	cstore := NewContextStore("./base")
+	defer cleanupstore("./base")
 
-	testdata := &testdatastruct{data: 10}
+	testdata := &testdatastruct{Data: 10}
 	marshaldata, _ := json.Marshal(testdata)
 	err := cstore.StoreContext(testcontextID, testdata)
 	if err != nil {
@@ -43,19 +43,19 @@ func TestStoreContext(t *testing.T) {
 }
 
 func TestDestroyStore(t *testing.T) {
-	storebasePath = "./base"
+
 	cstore := NewContextStore(storebasePath)
-	defer cleanupstore()
+	defer cleanupstore("./base")
 
 	os.RemoveAll(storebasePath) //nolint
 	if err := cstore.DestroyStore(); err == nil {
 		t.Errorf("No Error returned for uninited store")
 		t.SkipNow()
 	}
+
 	//Reinit store
-	storebasePath = "./base"
 	cstore = NewContextStore(storebasePath)
-	testdata := &testdatastruct{data: 10}
+	testdata := &testdatastruct{Data: 10}
 	if err := cstore.StoreContext(testcontextID, testdata); err != nil {
 		t.Errorf("Failed to store context %s", err.Error())
 	}
@@ -67,29 +67,28 @@ func TestDestroyStore(t *testing.T) {
 }
 
 func TestGetContextInfo(t *testing.T) {
-	storebasePath = "./base"
-	cstore := NewContextStore(storebasePath)
-	defer cleanupstore()
 
-	_, err := cstore.GetContextInfo(testcontextID)
+	cstore := NewContextStore(storebasePath)
+	defer cleanupstore("./base")
+
+	context := testdatastruct{}
+
+	err := cstore.GetContextInfo(testcontextID, &context)
 	if err == nil {
 		t.Errorf("No error returned for non-existent context")
 		t.SkipNow()
 	}
 
-	testdata := &testdatastruct{data: 10}
-
+	testdata := &testdatastruct{Data: 10}
 	if cerr := cstore.StoreContext(testcontextID, testdata); cerr != nil {
 		t.Errorf("Cannot store data %s ", cerr.Error())
 	}
 
-	data, err := cstore.GetContextInfo(testcontextID)
-	if err != nil {
+	if err := cstore.GetContextInfo(testcontextID, &context); err != nil {
 		t.Errorf("Unable to get contextinfo %s", err.Error())
 		t.SkipNow()
 	} else {
-		marshaldata, _ := json.Marshal(testdata)
-		if !bytes.Equal(data.([]byte), marshaldata) {
+		if testdata.Data != context.Data {
 			t.Errorf("Data recovered does not match written data")
 			t.SkipNow()
 		}
@@ -97,16 +96,16 @@ func TestGetContextInfo(t *testing.T) {
 }
 
 func TestRemoveContext(t *testing.T) {
-	storebasePath = "./base"
+
 	cstore := NewContextStore(storebasePath)
-	//defer cleanupstore()
+	defer cleanupstore("./base")
 
 	err := cstore.RemoveContext(testcontextID)
 	if err == nil {
 		t.Errorf("No Error returned for non-existent context")
 		t.SkipNow()
 	}
-	testdata := &testdatastruct{data: 10}
+	testdata := &testdatastruct{Data: 10}
 	if cerr := cstore.StoreContext(testcontextID, testdata); cerr != nil {
 		t.Errorf("Cannot store data %s ", cerr.Error())
 	}
@@ -123,10 +122,10 @@ func TestRemoveContext(t *testing.T) {
 }
 
 func TestWalkStore(t *testing.T) {
-	storebasePath = "./base"
+
 	cstore := NewContextStore(storebasePath)
-	defer cleanupstore()
-	testdata := &testdatastruct{data: 10}
+	defer cleanupstore("./base")
+	testdata := &testdatastruct{Data: 10}
 	contextIDList := []string{"/test1", "/test2", "/test3"}
 
 	for _, contextID := range contextIDList {
