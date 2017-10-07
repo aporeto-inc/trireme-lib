@@ -28,7 +28,8 @@ const (
 	natProxyInputChain        = "RedirProxy-Net"
 	proxyOutputChain          = "Proxy-App"
 	proxyInputChain           = "Proxy-Net"
-	proxyServiceSet           = "Proxied-Service"
+	destProxyServiceSet       = "Service-VIP"
+	srcProxyServiceSet        = "Service-PIP"
 	proxyMark                 = "0x40"
 	//ProxyPort DefaultProxyPort
 	ProxyPort = "5000"
@@ -39,6 +40,8 @@ type Instance struct {
 	fqc                        *fqconfig.FilterQueue
 	ipt                        provider.IptablesProvider
 	ipset                      provider.IpsetProvider
+	vipTargetSet               provider.Ipset
+	pipTargetSet               provider.Ipset
 	targetSet                  provider.Ipset
 	appPacketIPTableContext    string
 	appAckPacketIPTableContext string
@@ -343,7 +346,7 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.createTargetSet(networks); err != nil {
 		return err
 	}
-	if err := i.createProxySet([]string{}); err != nil {
+	if err := i.createProxySets([]string{}, []string{}); err != nil {
 		return err
 	}
 	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)

@@ -307,7 +307,8 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 		payload.Annotations,
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
-		payload.ExcludedNetworks)
+		payload.ExcludedNetworks,
+		payload.ProxiedServices)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -385,7 +386,8 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 		payload.Annotations,
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
-		payload.ExcludedNetworks)
+		payload.ExcludedNetworks,
+		payload.ProxiedServices)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)

@@ -57,17 +57,30 @@ func (i *Instance) createTargetSet(networks []string) error {
 }
 
 // createProxySet creates a new target set -- ipportset is a list of {ip,port}
-func (i *Instance) createProxySet(ipportset []string) error {
+func (i *Instance) createProxySets(vipipportset []string, pipipportset []string) error {
 
-	ips, err := i.ipset.NewIpset(proxyServiceSet, "hash:ip,port", &ipset.Params{})
+	ips, err := i.ipset.NewIpset(destProxyServiceSet, "hash:ip,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Couldn't create IPSet for %s: %s", targetNetworkSet, err)
+		return fmt.Errorf("Couldn't create IPSet for %s: %s", destProxyServiceSet, err)
 	}
 
-	i.targetSet = ips
+	i.vipTargetSet = ips
 
-	for _, net := range ipportset {
-		if err := i.targetSet.Add(net, 0); err != nil {
+	for _, net := range vipipportset {
+		if err := i.vipTargetSet.Add(net, 0); err != nil {
+			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
+		}
+	}
+
+	ips, err = i.ipset.NewIpset(srcProxyServiceSet, "hash:ip,port", &ipset.Params{})
+	if err != nil {
+		return fmt.Errorf("Couldn't create IPSet for %s: %s", srcProxyServiceSet, err)
+	}
+
+	i.pipTargetSet = ips
+
+	for _, net := range pipipportset {
+		if err := i.pipTargetSet.Add(net, 0); err != nil {
 			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
 		}
 	}
