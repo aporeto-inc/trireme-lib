@@ -75,7 +75,7 @@ type CLIRequest struct {
 	Services []policy.Service
 	// HostPolicy indicates that this is a host policy
 	HostPolicy bool
-	// NetworkOnly indicates that the request is only for traffic comming from the network
+	// NetworkOnly indicates that the request is only for traffic coming from the network
 	NetworkOnly bool
 }
 
@@ -136,6 +136,8 @@ func NewCustomRequestProcessor(linux, host string) *RequestProcessor {
 // `
 
 // ParseCommand parses a command based on the above specification
+// This is a helper function for CLIs like in Trireme Example.
+// Proper use is through the CLIRequest structure
 func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIRequest, error) {
 
 	c := &CLIRequest{}

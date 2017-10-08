@@ -67,43 +67,13 @@ func TestLibs(t *testing.T) {
 
 func TestSystemdRPCMetadataExtractor(t *testing.T) {
 	Convey("When I call the metadata extrator", t, func() {
-		Convey("If the event name is empty", func() {
-			event := &rpcmonitor.EventInfo{}
-			_, err := SystemdRPCMetadataExtractor(event)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("If the PID is empty", func() {
-			event := &rpcmonitor.EventInfo{
-				Name: "process",
-			}
-			_, err := SystemdRPCMetadataExtractor(event)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("If the PUID is empty", func() {
-			event := &rpcmonitor.EventInfo{
-				Name: "process",
-				PID:  "1234",
-			}
-			_, err := SystemdRPCMetadataExtractor(event)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
 
 		Convey("If all data are present", func() {
 			event := &rpcmonitor.EventInfo{
 				Name: "./testdata/curl",
 				PID:  "1234",
 				PUID: "/1234",
-				Tags: map[string]string{
-					"app": "web",
-				},
+				Tags: []string{"app=web"},
 			}
 
 			pu, err := SystemdRPCMetadataExtractor(event)

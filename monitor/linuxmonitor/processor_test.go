@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme/mock"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/monitor/contextstore/mock"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
 	"github.com/golang/mock/gomock"
@@ -17,11 +16,8 @@ import (
 )
 
 func testLinuxProcessor() *LinuxProcessor {
-	return &LinuxProcessor{
-		collector:         &collector.DefaultCollector{},
-		metadataExtractor: rpcmonitor.DefaultRPCMetadataExtractor,
-		netcls:            cgnetcls.NewCgroupNetController(""),
-	}
+	return NewLinuxProcessor(&collector.DefaultCollector{}, nil, rpcmonitor.DefaultRPCMetadataExtractor, "/tmp")
+
 }
 
 func TestCreate(t *testing.T) {
@@ -35,16 +31,6 @@ func TestCreate(t *testing.T) {
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
 		p.contextStore = store
-
-		Convey("When I get an event with no PUID", func() {
-			event := &rpcmonitor.EventInfo{
-				PUID: "",
-			}
-			Convey("I should get an error", func() {
-				err := p.Create(event)
-				So(err, ShouldNotBeNil)
-			})
-		})
 
 		Convey("When I get a create event that is valid", func() {
 			event := &rpcmonitor.EventInfo{
@@ -71,26 +57,6 @@ func TestStop(t *testing.T) {
 		p.puHandler = puHandler
 		p.contextStore = store
 		p.netcls = mock_cgnetcls.NewMockCgroupnetcls(ctrl)
-
-		Convey("When I get a stop event with no PUID", func() {
-			event := &rpcmonitor.EventInfo{
-				PUID: "",
-			}
-			Convey("I should get an error", func() {
-				err := p.Stop(event)
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When I get stop event without the Trireme Prefix", func() {
-			event := &rpcmonitor.EventInfo{
-				PUID: "/blah/blah",
-			}
-			Convey("It should be ignored", func() {
-				err := p.Stop(event)
-				So(err, ShouldBeNil)
-			})
-		})
 
 		Convey("When I get a stop event that is valid", func() {
 			event := &rpcmonitor.EventInfo{
@@ -121,26 +87,6 @@ func TestDestroy(t *testing.T) {
 		mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 		p.netcls = mockcls
 
-		Convey("When I get a destroy event with no PUID", func() {
-			event := &rpcmonitor.EventInfo{
-				PUID: "",
-			}
-			Convey("I should get an error", func() {
-				err := p.Destroy(event)
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("When I get destroy event without the Trireme Prefix", func() {
-			event := &rpcmonitor.EventInfo{
-				PUID: "/blah/blah",
-			}
-			Convey("It should be ignored", func() {
-				err := p.Destroy(event)
-				So(err, ShouldBeNil)
-			})
-		})
-
 		Convey("When I get a destroy event that is valid", func() {
 			event := &rpcmonitor.EventInfo{
 				PUID: "/trireme/1234",
@@ -170,16 +116,6 @@ func TestPause(t *testing.T) {
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
 		p.contextStore = store
-
-		Convey("When I get a pause event with no PUID", func() {
-			event := &rpcmonitor.EventInfo{
-				PUID: "",
-			}
-			Convey("I should get an error", func() {
-				err := p.Pause(event)
-				So(err, ShouldNotBeNil)
-			})
-		})
 
 		Convey("When I get a pause event that is valid", func() {
 			event := &rpcmonitor.EventInfo{
