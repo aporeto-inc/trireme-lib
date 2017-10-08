@@ -237,9 +237,8 @@ func validateEvent(event *EventInfo) error {
 			if event.NetworkOnlyTraffic {
 				if event.Name == "" || event.Name == "default" {
 					return fmt.Errorf("Service name must be provided and must be not be default")
-				} else {
-					event.PUID = event.Name
 				}
+				event.PUID = event.Name
 			} else {
 				event.Name = "DefaultServer"
 				event.PUID = "default"
