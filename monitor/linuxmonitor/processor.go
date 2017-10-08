@@ -323,9 +323,11 @@ func (s *LinuxProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, r
 func (s *LinuxProcessor) processHostServiceStart(event *rpcmonitor.EventInfo, runtimeInfo *policy.PURuntime) error {
 
 	if !event.NetworkOnlyTraffic {
+
 		markval := runtimeInfo.Options().CgroupMark
 		mark, _ := strconv.ParseUint(markval, 10, 32)
 		hexmark := "0x" + (strconv.FormatUint(mark, 16))
+
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644); err != nil {
 			return errors.New("Failed to  write to net_cls.classid file for new cgroup")
 		}

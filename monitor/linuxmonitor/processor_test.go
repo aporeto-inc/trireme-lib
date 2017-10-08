@@ -32,6 +32,16 @@ func TestCreate(t *testing.T) {
 		p.puHandler = puHandler
 		p.contextStore = store
 
+		Convey("When I try a create event with invalid PU ID, ", func() {
+			event := &rpcmonitor.EventInfo{
+				PUID: "/@#$@",
+			}
+			Convey("I should get an error", func() {
+				err := p.Create(event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
 		Convey("When I get a create event that is valid", func() {
 			event := &rpcmonitor.EventInfo{
 				PUID: "1234",

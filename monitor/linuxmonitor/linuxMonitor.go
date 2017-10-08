@@ -52,7 +52,6 @@ func DefaultHostMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntim
 func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
-	runtimeTags.Tags = event.Tags
 
 	for _, tag := range event.Tags {
 		parts := strings.SplitN(tag, "=", 2)
