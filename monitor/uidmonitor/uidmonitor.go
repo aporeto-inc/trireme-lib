@@ -17,7 +17,7 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 	runtimeTags := policy.NewTagStore()
 
 	for _, tag := range event.Tags {
-		parts := strings.Split(tag, "=")
+		parts := strings.SplitN(tag, "=", 2)
 		if len(parts) != 2 {
 			return nil, fmt.Errorf("Invalid Tag")
 		}

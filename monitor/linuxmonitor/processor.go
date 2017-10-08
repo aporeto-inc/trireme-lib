@@ -55,7 +55,7 @@ func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pro
 func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 
 	if !s.regStart.Match([]byte(eventInfo.PUID)) {
-		return fmt.Errorf("Invalid PU ID")
+		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
 	}
 
 	return s.puHandler.HandlePUEvent(eventInfo.PUID, monitor.EventCreate)
@@ -66,7 +66,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	// Validate the PUID format
 	if !s.regStart.Match([]byte(eventInfo.PUID)) {
-		return fmt.Errorf("Invalid PU ID")
+		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
 	}
 
 	contextID := eventInfo.PUID
@@ -112,12 +112,9 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 // Stop handles a stop event
 func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
-	contextID := eventInfo.PUID
-	if len(eventInfo.Cgroup) > 0 {
-		if !s.regStop.Match([]byte(eventInfo.Cgroup)) {
-			return fmt.Errorf("Invalid PUID")
-		}
-		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
+	contextID, err := s.generateContextID(eventInfo)
+	if err != nil {
+		return err
 	}
 
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
@@ -126,12 +123,9 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 // Destroy handles a destroy event
 func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
-	contextID := eventInfo.PUID
-	if eventInfo.Cgroup != "" {
-		if !s.regStop.Match([]byte(eventInfo.Cgroup)) {
-			return fmt.Errorf("Invalid PUID")
-		}
-		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
+	contextID, err := s.generateContextID(eventInfo)
+	if err != nil {
+		return err
 	}
 
 	// Send the event upstream
@@ -144,7 +138,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	if eventInfo.HostService {
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte("0"), 0644); err != nil {
-			return errors.New("Failed to  write to net_cls.classid file for new cgroup")
+			return fmt.Errorf("Failed to  write to net_cls.classid file for new cgroup, error %s", err.Error())
 		}
 	}
 
@@ -171,7 +165,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 // Pause handles a pause event
 func (s *LinuxProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 
-	contextID, err := generateContextID(eventInfo)
+	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
@@ -253,9 +247,17 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 }
 
 // generateContextID creates the contextID from the event information
-func generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
+func (s *LinuxProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
 
-	return eventInfo.PUID, nil
+	contextID := eventInfo.PUID
+	if eventInfo.Cgroup != "" {
+		if !s.regStop.Match([]byte(eventInfo.Cgroup)) {
+			return "", fmt.Errorf("Invalid PUID %s", eventInfo.Cgroup)
+		}
+		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
+	}
+
+	return contextID, nil
 }
 
 func (s *LinuxProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, runtimeInfo *policy.PURuntime) error {
