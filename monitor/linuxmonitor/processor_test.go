@@ -16,7 +16,7 @@ import (
 )
 
 func testLinuxProcessor() *LinuxProcessor {
-	return NewLinuxProcessor(&collector.DefaultCollector{}, nil, rpcmonitor.DefaultRPCMetadataExtractor, "./")
+	return NewCustomLinuxProcessor("/tmp", &collector.DefaultCollector{}, nil, rpcmonitor.DefaultRPCMetadataExtractor, "./")
 
 }
 
