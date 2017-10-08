@@ -204,34 +204,36 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 			continue
 		}
 
-		processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
-		if err != nil {
-			zap.L().Debug("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
-			deleted = append(deleted, eventInfo.PUID)
-			// The cgroup does not exists - log error and remove context
-			if cerr := s.contextStore.RemoveContext(eventInfo.PUID); cerr != nil {
-				zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
+		if !eventInfo.HostService {
+			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
+			if err != nil {
+				zap.L().Debug("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
+				deleted = append(deleted, eventInfo.PUID)
+				// The cgroup does not exists - log error and remove context
+				if cerr := s.contextStore.RemoveContext(eventInfo.PUID); cerr != nil {
+					zap.L().Warn("Failed to remove state from store handler", zap.Error(cerr))
+				}
+				continue
 			}
-			continue
-		}
 
-		if len(processlist) <= 0 {
-			// We have an empty cgroup. Remove the cgroup and context store file
-			if err := s.netcls.DeleteCgroup(eventInfo.PUID); err != nil {
-				zap.L().Warn("Failed to deleted cgroup",
-					zap.String("puID", eventInfo.PUID),
-					zap.Error(err),
-				)
-			}
-			deleted = append(deleted, eventInfo.PUID)
+			if len(processlist) <= 0 {
+				// We have an empty cgroup. Remove the cgroup and context store file
+				if err := s.netcls.DeleteCgroup(eventInfo.PUID); err != nil {
+					zap.L().Warn("Failed to deleted cgroup",
+						zap.String("puID", eventInfo.PUID),
+						zap.Error(err),
+					)
+				}
+				deleted = append(deleted, eventInfo.PUID)
 
-			if err := s.contextStore.RemoveContext(eventInfo.PUID); err != nil {
-				zap.L().Warn("Failed to deleted context",
-					zap.String("puID", eventInfo.PUID),
-					zap.Error(err),
-				)
+				if err := s.contextStore.RemoveContext(eventInfo.PUID); err != nil {
+					zap.L().Warn("Failed to deleted context",
+						zap.String("puID", eventInfo.PUID),
+						zap.Error(err),
+					)
+				}
+				continue
 			}
-			continue
 		}
 
 		reacquired = append(reacquired, eventInfo.PUID)
