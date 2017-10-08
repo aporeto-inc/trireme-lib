@@ -1,7 +1,6 @@
 package systemdutil
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -25,94 +24,302 @@ const (
 	remoteMethodCall = "Server.HandleEvent"
 )
 
-// ExecuteCommand executes a command in a cgroup and programs Trireme
-// TODO : This method is deprecated and should be removed once there is no code using it.
-func ExecuteCommand(arguments map[string]interface{}) error {
+var stderrlogger *log.Logger
 
-	var command string
-	if value, ok := arguments["<command>"]; ok && value != nil {
-		command = value.(string)
-	}
-
-	var cgroup string
-	if value, ok := arguments["<cgroup>"]; ok && value != nil {
-		cgroup = value.(string)
-	}
-
-	var labels []string
-	if value, ok := arguments["--label"]; ok && value != nil {
-		labels = value.([]string)
-	}
-
-	var serviceName string
-	if value, ok := arguments["--service-name"]; ok && value != nil {
-		serviceName = value.(string)
-	}
-
-	var params []string
-	if value, ok := arguments["<params>"]; ok && value != nil {
-		params = append(params, value.([]string)...)
-	}
-
-	var ports []string
-	if value, ok := arguments["--ports"]; ok && value != nil {
-		ports = value.([]string)
-	}
-
-	return ExecuteCommandWithParameters(command, params, cgroup, serviceName, ports, labels)
+func init() {
+	stderrlogger = log.New(os.Stderr, "", 0)
 }
 
-// ExecuteCommandWithParameters executes the command with all the given parameters
-func ExecuteCommandWithParameters(command string, params []string, cgroup string, serviceName string, ports []string, tags []string) error {
+// ExecuteCommandFromArguments processes the command from the arguments
+func ExecuteCommandFromArguments(arguments map[string]interface{}) error {
 
-	var err error
+	p := NewRequestProcessor()
 
-	stderrlogger := log.New(os.Stderr, "", 0)
-	if cgroup != "" {
-		if err = HandleCgroupStop(cgroup); err != nil {
-			err = fmt.Errorf("cannot connect to policy process %s. Resources not deleted", err)
-			stderrlogger.Print(err)
-			return err
-		}
-
-		return nil
-	}
-
-	if len(ports) == 0 {
-		ports = append(ports, "0")
-	}
-
-	if !path.IsAbs(command) {
-		command, err = exec.LookPath(command)
-		if err != nil {
-			return err
-		}
-	}
-
-	name, metadata, err := createMetadata(serviceName, command, ports, tags)
+	c, err := p.ParseCommand(arguments)
 	if err != nil {
-		err = fmt.Errorf("Invalid metadata: %s", err)
-		stderrlogger.Print(err)
 		return err
 	}
 
-	services := []policy.Service{}
-	for _, p := range ports {
-		intPort, ierr := strconv.Atoi(p)
-		if ierr != nil {
-			continue
-		}
+	return p.ExecuteRequest(c)
+}
 
-		// TODO: Assumes only TCP here until we add UDP support
-		services = append(services, policy.Service{
-			Protocol: uint8(6),
-			Port:     uint16(intPort),
-		})
+// RequestType is the type of the request
+type RequestType int
+
+const (
+	// CreateRequest requests a create event
+	CreateRequest RequestType = iota
+	// DeleteCgroupRequest requests deletion based on the cgroup - issued by the kernel
+	DeleteCgroupRequest
+	// DeleteServiceRequest requests deletion by the service ID
+	DeleteServiceRequest
+)
+
+// CLIRequest captures all CLI parameters
+type CLIRequest struct {
+	// Request is the type of the request
+	Request RequestType
+	// Cgroup is only provided for delete cgroup requests
+	Cgroup string
+	// Executable is the path to the executable
+	Executable string
+	// Parameters are the parameters of the executable
+	Parameters []string
+	// Labels are the user labels attached to the request
+	Labels []string
+	// ServiceName is a user defined service name
+	ServiceName string
+	// ServiceID is the ID of the service
+	ServiceID string
+	// Services are the user defined services (protocol, port)
+	Services []policy.Service
+	// HostPolicy indicates that this is a host policy
+	HostPolicy bool
+	// NetworkOnly indicates that the request is only for traffic comming from the network
+	NetworkOnly bool
+}
+
+// RequestProcessor is an instance of the processor
+type RequestProcessor struct {
+	LinuxPath string
+	HostPath  string
+}
+
+// NewRequestProcessor creates a default request processor
+func NewRequestProcessor() *RequestProcessor {
+	return &RequestProcessor{
+		LinuxPath: "/var/run/trireme/linux/",
+		HostPath:  "/var/run/trireme/host/",
+	}
+}
+
+// NewCustomRequestProcessor creates a new request processor
+func NewCustomRequestProcessor(linux, host string) *RequestProcessor {
+	r := NewRequestProcessor()
+
+	if linux != "" {
+		r.LinuxPath = linux
 	}
 
+	if host != "" {
+		r.HostPath = host
+	}
+
+	return r
+}
+
+// Generic command line arguments
+// Assumes a command like that:
+// usage = `Trireme Client Command
+//
+// Usage: enforcerd -h | --help
+// 		 trireme -v | --version
+// 		 trireme run
+// 			[--service-name=<sname>]
+// 			[[--ports=<ports>]...]
+// 			[[--label=<keyvalue>]...]
+// 			[--networkonly]
+// 			[--hostpolicy]
+// 			[<command> [--] [<params>...]]
+// 		 trireme rm
+//      [--service-id=<id>]
+//      [--service-name=<sname>]
+// 		 trireme <cgroup>
+//
+// Run Client Options:
+// 	--service-name=<sname>              Service name for the executed command [default ].
+// 	--ports=<ports>                     Ports that the executed service is listening to [default ].
+// 	--label=<keyvalue>                  Label (key/value pair) attached to the service [default ].
+// 	--networkonly                       Control traffic from the network only and not from applications [default false].
+// 	--hostpolicy                        Default control of the base namespace [default false].
+//
+// `
+
+// ParseCommand parses a command based on the above specification
+func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIRequest, error) {
+
+	c := &CLIRequest{}
+
+	// First parse a command that only provides the cgroup
+	// The kernel will only send us a command with one argument
+	if value, ok := arguments["<cgroup>"]; ok && value != nil {
+		c.Cgroup = value.(string)
+		c.Request = DeleteCgroupRequest
+		return c, nil
+	}
+
+	if value, ok := arguments["--service-id"]; ok && value != nil {
+		c.ServiceID = value.(string)
+	}
+
+	if value, ok := arguments["--service-name"]; ok && value != nil {
+		c.ServiceName = value.(string)
+	}
+
+	// If the command is remove use hostpolicy and service-id
+	if arguments["rm"].(bool) {
+		c.Request = DeleteServiceRequest
+		return c, nil
+	}
+
+	// Process the rest of the arguments of the create command
+	if value, ok := arguments["run"]; !ok || value == nil {
+		return nil, fmt.Errorf("No valid command provided")
+	}
+
+	// This is a create request - proceed
+	c.Request = CreateRequest
+
+	if value, ok := arguments["<command>"]; ok && value != nil {
+		c.Executable = value.(string)
+	}
+
+	if value, ok := arguments["--label"]; ok && value != nil {
+		c.Labels = value.([]string)
+	}
+
+	if value, ok := arguments["<params>"]; ok && value != nil {
+		c.Parameters = value.([]string)
+	}
+
+	if value, ok := arguments["--ports"]; ok && value != nil {
+		services, err := ParseServices(value.([]string))
+		if err != nil {
+			return nil, err
+		}
+		c.Services = services
+	}
+
+	if value, ok := arguments["--networkonly"]; ok && value != nil {
+		c.NetworkOnly = value.(bool)
+	}
+
+	if value, ok := arguments["--hostpolicy"]; ok && value != nil {
+		c.HostPolicy = value.(bool)
+	}
+
+	return c, nil
+}
+
+// CreateAndRun creates a processing unit
+func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
+	var err error
+
+	// If its not hostPolicy and the command doesn't exist we return an error
+	if !c.HostPolicy {
+		if c.Executable == "" {
+			return fmt.Errorf("Command must be provided")
+		}
+		if !path.IsAbs(c.Executable) {
+			c.Executable, err = exec.LookPath(c.Executable)
+			if err != nil {
+				return err
+			}
+		}
+		if c.ServiceName == "" {
+			c.ServiceName = c.Executable
+		}
+	}
+
+	// Determine the right RPC address. If we are not root, Root RPC will reject.
+	rpcAdress := rpcmonitor.DefaultRPCAddress
+	if c.HostPolicy {
+		rpcAdress = rpcmonitor.DefaultRootRPCAddress
+	}
+
+	//This is added since the release_notification comes in this format
+	//Easier to massage it while creation rather than change at the receiving end depending on event
+	request := &rpcmonitor.EventInfo{
+		PUType:             constants.LinuxProcessPU,
+		Name:               c.ServiceName,
+		Tags:               c.Labels,
+		PID:                strconv.Itoa(os.Getpid()),
+		EventType:          "start",
+		Services:           c.Services,
+		NetworkOnlyTraffic: c.NetworkOnly,
+		HostService:        c.HostPolicy,
+	}
+
+	if err := sendRPC(rpcAdress, request); err != nil {
+		return err
+	}
+
+	if c.HostPolicy {
+		return nil
+	}
+
+	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), os.Environ())
+}
+
+// Delete will issue a delete command
+func (r *RequestProcessor) Delete(c *CLIRequest) error {
+
+	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
+		return fmt.Errorf("cgroup, service ID, or service name must be defined")
+	}
+
+	rpcAdress := rpcmonitor.DefaultRPCAddress
+	linuxPath := r.LinuxPath
+	puid := c.ServiceID
+	host := false
+	if c.ServiceName != "" {
+		rpcAdress = rpcmonitor.DefaultRootRPCAddress
+		linuxPath = r.HostPath
+		puid = c.ServiceName
+		host = true
+	}
+
+	request := &rpcmonitor.EventInfo{
+		PUType:      constants.LinuxProcessPU,
+		PUID:        puid,
+		Cgroup:      c.Cgroup,
+		EventType:   monitor.EventStop,
+		HostService: host,
+	}
+
+	// Handle the special case with the User ID monitor and deletes
+	if c.Cgroup != "" {
+		parts := strings.Split(c.Cgroup, "/")
+		if len(parts) != 3 {
+			return fmt.Errorf("Invalid Cgroup")
+		}
+
+		if !c.HostPolicy {
+			if _, ferr := os.Stat(linuxPath + "/" + parts[2]); os.IsNotExist(ferr) {
+				request.PUType = constants.UIDLoginPU
+			}
+		}
+	}
+
+	// Send Stop request
+	if err := sendRPC(rpcAdress, request); err != nil {
+		return err
+	}
+
+	// Send destroy request
+	request.EventType = monitor.EventDestroy
+
+	return sendRPC(rpcAdress, request)
+}
+
+// ExecuteRequest executes the command with an RPC request
+func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
+
+	switch c.Request {
+	case CreateRequest:
+		return r.CreateAndRun(c)
+	case DeleteCgroupRequest, DeleteServiceRequest:
+		return r.Delete(c)
+	default:
+		return fmt.Errorf("Unknown command")
+	}
+}
+
+// sendRPC sends an RPC request to the provided address
+func sendRPC(address string, request *rpcmonitor.EventInfo) error {
 	// Make RPC call and only retry if the resource is temporarily unavailable
 	numRetries := 0
-	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
+	client, err := net.Dial("unix", address)
 	for err != nil {
 		numRetries++
 		nerr, ok := err.(*net.OpError)
@@ -124,25 +331,14 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		}
 
 		time.Sleep(5 * time.Millisecond)
-		client, err = net.Dial("unix", rpcmonitor.DefaultRPCAddress)
-	}
-
-	//This is added since the release_notification comes in this format
-	//Easier to massage it while creation rather than change at the receiving end depending on event
-	request := &rpcmonitor.EventInfo{
-		PUType:    constants.LinuxProcessPU,
-		PUID:      "/" + strconv.Itoa(os.Getpid()),
-		Name:      name,
-		Tags:      metadata,
-		PID:       strconv.Itoa(os.Getpid()),
-		EventType: "start",
-		Services:  services,
+		client, err = net.Dial("unix", address)
 	}
 
 	response := &rpcmonitor.RPCResponse{}
-	rpcClient := jsonrpc.NewClient(client)
-	err = rpcClient.Call(remoteMethodCall, request, response)
 
+	rpcClient := jsonrpc.NewClient(client)
+
+	err = rpcClient.Call(remoteMethodCall, request, response)
 	if err != nil {
 		err = fmt.Errorf("Policy Server call failed %s", err.Error())
 		stderrlogger.Print(err)
@@ -155,85 +351,31 @@ func ExecuteCommandWithParameters(command string, params []string, cgroup string
 		return err
 	}
 
-	return syscall.Exec(command, append([]string{command}, params...), os.Environ())
+	return nil
 }
 
-// createMetadata extracts the relevant metadata
-func createMetadata(serviceName string, command string, ports []string, tags []string) (string, map[string]string, error) {
+// ParseServices parses strings with the services and returns them in an
+// validated slice
+func ParseServices(ports []string) ([]policy.Service, error) {
+	// If no ports are provided, we add the default 0 port
+	if len(ports) == 0 {
+		ports = append(ports, "0")
+	}
 
-	metadata := map[string]string{}
-
-	for _, tag := range tags {
-		keyvalue := strings.SplitN(tag, "=", 2)
-
-		if len(keyvalue) != 2 {
-			return "", nil, fmt.Errorf("Metadata should have the form key=value. Found %s instead", tag)
+	// Parse the ports and create the services. Cleanup any bad ports
+	services := []policy.Service{}
+	for _, p := range ports {
+		intPort, ierr := strconv.Atoi(p)
+		if ierr != nil || intPort > 0xFFFF || intPort < 0 {
+			return nil, fmt.Errorf("Invalid services")
 		}
 
-		if keyvalue[0][0] == []byte("$")[0] || keyvalue[0][0] == []byte("@")[0] {
-			return "", nil, fmt.Errorf("Metadata cannot start with $ or @")
-		}
-
-		if keyvalue[0] == "port" || keyvalue[0] == "execpath" {
-			return "", nil, fmt.Errorf("Metadata key cannot be port or execpath ")
-		}
-
-		metadata[keyvalue[0]] = keyvalue[1]
+		// TODO: Assumes only TCP here until we add UDP support
+		services = append(services, policy.Service{
+			Protocol: uint8(6),
+			Port:     uint16(intPort),
+		})
 	}
 
-	metadata["port"] = strings.Join(ports, ",")
-	metadata["execpath"] = command
-
-	name := command
-	if serviceName != "" {
-		name = serviceName
-	}
-
-	return name, metadata, nil
-}
-
-// HandleCgroupStop handles the deletion of a cgroup
-func HandleCgroupStop(cgroupName string) error {
-
-	client, err := net.Dial("unix", rpcmonitor.DefaultRPCAddress)
-	if err != nil {
-		return err
-	}
-
-	linuxPath := "/var/run/trireme/linux"
-
-	request := &rpcmonitor.EventInfo{
-		PUType:    constants.LinuxProcessPU,
-		PUID:      cgroupName,
-		Name:      cgroupName,
-		Tags:      nil,
-		PID:       strconv.Itoa(os.Getpid()),
-		EventType: monitor.EventStop,
-	}
-
-	parts := strings.Split(cgroupName, "/")
-
-	if len(parts) != 3 {
-		return fmt.Errorf("Can't handle the process")
-	}
-
-	if _, ferr := os.Stat(linuxPath + "/" + parts[2]); os.IsNotExist(ferr) {
-		request.PUType = constants.UIDLoginPU
-	}
-
-	response := &rpcmonitor.RPCResponse{}
-
-	rpcClient := jsonrpc.NewClient(client)
-	if rpcClient == nil {
-		return errors.New("Failed to connect to policy server")
-
-	}
-
-	if err := rpcClient.Call(remoteMethodCall, request, response); err != nil {
-		return err
-	}
-
-	request.EventType = monitor.EventDestroy
-
-	return rpcClient.Call(remoteMethodCall, request, response)
+	return services, nil
 }

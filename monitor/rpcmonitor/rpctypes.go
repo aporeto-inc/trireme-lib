@@ -10,6 +10,9 @@ const (
 
 	// DefaultRPCAddress is the default Linux socket for the RPC monitor
 	DefaultRPCAddress = "/var/run/trireme.sock"
+
+	// DefaultRootRPCAddress creates an RPC listener that requires root credentials
+	DefaultRootRPCAddress = "/var/run/triremeroot.sock"
 )
 
 // EventInfo is a generic structure that defines all the information related to a PU event.
@@ -29,7 +32,7 @@ type EventInfo struct {
 	Name string
 
 	// Tags represents the set of MetadataTags associated with this PUID.
-	Tags map[string]string
+	Tags []string
 
 	// The PID is the PID on the system where this Processing Unit is running.
 	PID string
@@ -37,17 +40,23 @@ type EventInfo struct {
 	// The path for the Network Namespace.
 	NS string
 
+	// Cgroup is the path to the cgroup - used for deletes
+	Cgroup string
+
 	// IPs is a map of all the IPs that fully belong to this processing Unit.
 	IPs map[string]string
 
 	// Services is a list of services of interest - for host control
 	Services []policy.Service
 
-	// ControlApplicationTraffic indicates that traffic from the applications must be controlled.
-	ControlApplicationTraffic bool
+	// HostService indicates that the request is for the root namespace
+	HostService bool
 
-	// ControlNetworkTraffic indicates that traffic towards the applications must be controlled.
-	ControlNetworkTraffic bool
+	// NetworkOnlyTraffic indicates that traffic towards the applications must be controlled.
+	NetworkOnlyTraffic bool
+
+	// Root indicates that this request is coming from a roor user. Its overwritten by the enforcer
+	Root bool
 }
 
 // RPCResponse encapsulate the error response if any.

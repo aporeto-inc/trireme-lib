@@ -6,6 +6,7 @@ import (
 	"net/rpc"
 	"net/rpc/jsonrpc"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,10 +32,11 @@ type RPCMonitor struct {
 	monitorServer *Server
 	listensock    net.Listener
 	collector     collector.EventCollector
+	root          bool
 }
 
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
-func NewRPCMonitor(rpcAddress string, collector collector.EventCollector) (*RPCMonitor, error) {
+func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root bool) (*RPCMonitor, error) {
 
 	if rpcAddress == "" {
 		return nil, fmt.Errorf("RPC endpoint address invalid")
@@ -48,12 +50,14 @@ func NewRPCMonitor(rpcAddress string, collector collector.EventCollector) (*RPCM
 
 	monitorServer := &Server{
 		handlers: map[constants.PUType]map[monitor.Event]RPCEventHandler{},
+		root:     root,
 	}
 
 	r := &RPCMonitor{
 		rpcAddress:    rpcAddress,
 		monitorServer: monitorServer,
 		collector:     collector,
+		root:          root,
 	}
 
 	// Registering the monitorRPCServer as an RPC Server.
@@ -117,7 +121,13 @@ func (r *RPCMonitor) Start() error {
 		return fmt.Errorf("Failed to start RPC monitor: couldn't create binding: %s", err.Error())
 	}
 
-	if err = os.Chmod(r.rpcAddress, 0766); err != nil {
+	if r.root {
+		err = os.Chmod(r.rpcAddress, 0600)
+	} else {
+		err = os.Chmod(r.rpcAddress, 0766)
+	}
+
+	if err != nil {
 		return fmt.Errorf("Failed to start RPC monitor: cannot adjust permissions %s", err.Error())
 	}
 
@@ -144,13 +154,18 @@ func (r *RPCMonitor) Stop() error {
 // Server represents the Monitor RPC Server implementation
 type Server struct {
 	handlers map[constants.PUType]map[monitor.Event]RPCEventHandler
+	root     bool
 }
 
 // HandleEvent Gets called when clients generate events.
 func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 
-	if eventInfo.EventType == "" {
-		return fmt.Errorf("Invalid event type")
+	if err := validateEvent(eventInfo); err != nil {
+		return err
+	}
+
+	if eventInfo.HostService && !s.root {
+		return fmt.Errorf("Operation Requires Root Access")
 	}
 
 	if _, ok := s.handlers[eventInfo.PUType]; ok {
@@ -190,19 +205,9 @@ func (s *Server) reSync() error {
 // DefaultRPCMetadataExtractor is a default RPC metadata extractor for testing
 func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 
-	if event.Name == "" {
-		return nil, fmt.Errorf("EventInfo PU Name is empty")
-	}
+	runtimeTags := policy.NewTagStore()
+	runtimeTags.Tags = event.Tags
 
-	if event.PID == "" {
-		return nil, fmt.Errorf("EventInfo PID is empty")
-	}
-
-	if event.PUID == "" {
-		return nil, fmt.Errorf("EventInfo PUID is empty")
-	}
-
-	runtimeTags := policy.NewTagStoreFromMap(event.Tags)
 	runtimeIps := event.IPs
 	runtimePID, err := strconv.Atoi(event.PID)
 	if err != nil {
@@ -210,4 +215,46 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
+}
+
+func validateEvent(event *EventInfo) error {
+
+	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
+		if len(event.Name) > 64 {
+			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 32 characters")
+		}
+
+		if event.PID == "" {
+			return fmt.Errorf("PID cannot be empty")
+		}
+
+		pid, err := strconv.Atoi(event.PID)
+		if err != nil || pid < 0 {
+			return fmt.Errorf("Invalid PID - Must be a positive number")
+		}
+
+		if event.HostService {
+			if event.NetworkOnlyTraffic {
+				if event.Name == "" || event.Name == "default" {
+					return fmt.Errorf("Service name must be provided and must be not be default")
+				} else {
+					event.PUID = event.Name
+				}
+			} else {
+				event.Name = "DefaultServer"
+				event.PUID = "default"
+			}
+		} else {
+			event.PUID = event.PID
+		}
+	}
+
+	if event.EventType == monitor.EventStop || event.EventType == monitor.EventDestroy {
+		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
+		if event.Cgroup != "" && !regStop.Match([]byte(event.Cgroup)) {
+			return fmt.Errorf("Cgroup is not of the right format")
+		}
+	}
+
+	return nil
 }

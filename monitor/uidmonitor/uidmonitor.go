@@ -3,6 +3,7 @@ package uidmonitor
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -12,18 +13,15 @@ import (
 
 //UIDMetadataExtractor -- metadata extractor for uid/gid
 func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
-	if event.Name == "" {
-		return nil, fmt.Errorf("EventInfo PUName is empty")
-	}
-	if event.PUID == "" {
-		return nil, fmt.Errorf("EventInfo PUID is empty")
-	}
 
 	runtimeTags := policy.NewTagStore()
 
-	for k, v := range event.Tags {
-		//runtimeTags.Tags["@usr:"+k] = v
-		runtimeTags.AppendKeyValue("@usr:"+k, v)
+	for _, tag := range event.Tags {
+		parts := strings.Split(tag, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid Tag")
+		}
+		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
 	user, ok := runtimeTags.Get("@usr:user")
