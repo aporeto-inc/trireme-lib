@@ -118,6 +118,10 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 // SetPURuntime returns the RuntimeInfo based on the contextID.
 func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 
+	if _, err := t.cache.Get(contextID); err == nil {
+		return fmt.Errorf("PU Exists Already")
+	}
+
 	t.cache.AddOrUpdate(contextID, runtimeInfo)
 
 	return nil

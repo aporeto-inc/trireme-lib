@@ -29,7 +29,7 @@ func NewContextStore(basePath string) ContextStore {
 		}
 	}
 
-	return &store{storebasePath: basePath}
+	return &store{storebasePath: basePath + "/"}
 }
 
 // Store context writes to the store the eventInfo which can be used as a event to trireme

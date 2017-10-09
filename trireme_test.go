@@ -2,6 +2,7 @@ package trireme
 
 import (
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/aporeto-inc/trireme/collector"
@@ -283,10 +284,11 @@ func TestCache(t *testing.T) {
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
-	contextID := "123123"
+
 	runtime := policy.NewPURuntimeWithDefaults()
 
 	for i := 0; i < 5; i++ {
+		contextID := strconv.Itoa(i)
 		doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 
 		// Expecting cache to find it
@@ -327,6 +329,8 @@ func TestStop(t *testing.T) {
 	if err := trireme.Start(); err != nil {
 		t.Errorf("Failed to start trireme")
 	}
+
+	contextID = "232323"
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 

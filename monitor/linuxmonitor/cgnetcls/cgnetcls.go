@@ -21,7 +21,7 @@ import (
 
 const (
 	// TriremeBasePath is the base path of the Trireme tree in cgroups
-	TriremeBasePath = "/trireme"
+	TriremeBasePath = "/trireme/"
 	// CgroupNameTag is the tag for the cgroup name
 	CgroupNameTag = "@cgroup_name"
 	// CgroupMarkTag is the tag for the cgroup mark
