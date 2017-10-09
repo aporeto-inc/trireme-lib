@@ -76,7 +76,6 @@ func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnfo
 
 //Enforce -- Enforce function policyenforcer interface
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
-	fmt.Println("Enforce", contextID)
 	_, err := p.datapath.contextTracker.Get(contextID)
 
 	if err != nil {
@@ -101,7 +100,6 @@ func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 //StartListener returns error only during init. After init it never returns
 func (p *Proxy) StartListener(contextID string, reterr chan error, port string) {
-	fmt.Println("StartListener", contextID)
 	var err error
 	var listener net.Listener
 	port = ":" + port
@@ -156,9 +154,7 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 //Unenforce - Unenforce from the policyenforcer interfaces
 func (p *Proxy) Unenforce(contextID string) error {
 	entry, err := p.socketListeners.Get(contextID)
-	fmt.Println("Unenforce", contextID)
 	if err == nil {
-		fmt.Println("164")
 		entry.(*socketListenerEntry).listen.Close()
 	}
 	return nil
@@ -205,15 +201,12 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	if p.Forward {
 		ip, port, err = getOriginalDestination(upConn)
 		if err != nil {
-			fmt.Println("Failed to get the backend ")
 			return
 		}
-		fmt.Println("I found the right backend", net.IPv4(ip[0], ip[1], ip[2], ip[3]).String(), port)
 	}
 
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
-		fmt.Println("Failed to connect")
 		if downConn > 0 {
 			syscall.Close(downConn)
 		}
@@ -231,10 +224,6 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
 			fmt.Printf("pipe failed: %s", err)
 		}
-	} else {
-		// if err := CopyPipe(upConn, downConn); err != nil {
-		fmt.Println("Got an error in pipe ")
-		// }
 	}
 }
 
@@ -245,14 +234,6 @@ func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err er
 	}
 	return
 }
-
-// func setsockopt(s int, level int, name int, val uintptr, vallen uint32) (err error) {
-// 	_, _, e1 := syscall.Syscall6(syscall.SYS_SETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(vallen), 0)
-// 	if e1 != 0 {
-// 		err = e1
-// 	}
-// 	return
-// }
 
 //getOriginalDestination -- Func to get original destination of redirected packet. Used to figure out backend destination
 func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
@@ -283,8 +264,6 @@ func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
 
 // Initiate the downstream connection
 func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
-
-	fmt.Println("Dialing connection to backend:", net.IPv4(ip[0], ip[1], ip[2], ip[3]).To4(), port)
 
 	var err error
 	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
@@ -379,15 +358,6 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 
 }
 
-//getProxyPort for a given PU
-// func (p *Proxy) getProxyPort(puInfo *policy.PUInfo) string {
-// 	port, ok := puInfo.Runtime.Options().Get("proxyPort")
-// 	if !ok {
-// 		port = constants.DefaultProxyPort
-// 	}
-// 	return port
-// }
-
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 	//We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
@@ -398,9 +368,7 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 	conn := NewTCPConnection()
 
 	toAddr, err := syscall.Getpeername(downConn)
-	//fmt.Println(toAddr.(*syscall.SockaddrInet4).)
-	// ipv4addr := toAddr.(*syscall.SockaddrInet4).Addr
-	// port := toAddr.(*syscall.SockaddrInet4).Port
+
 	if err != nil {
 		zap.L().Error("Peer Name Failed", zap.Error(err))
 	}
