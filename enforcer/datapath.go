@@ -197,12 +197,6 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	puContext, err := d.contextTracker.Get(contextID)
 
 	if err != nil {
-		createerr := d.doCreatePU(contextID, puInfo)
-
-		if createerr != nil {
-			zap.L().Error("Called Do Create Returned error")
-			return createerr
-		}
 		//Call proxy enforce from here and not from trireme like for other calls
 		//We will call enforce every time on the enforce so no need to propagate this info out of enforcer package
 		zap.L().Error("Called Proxy Enforce")
@@ -212,6 +206,12 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		if proxyerr != nil {
 			zap.L().Error("Failed Called Proxy Enforce", zap.Error(proxyerr))
 			return proxyerr
+		}
+		createerr := d.doCreatePU(contextID, puInfo)
+
+		if createerr != nil {
+			zap.L().Error("Called Do Create Returned error")
+			return createerr
 		}
 
 		return nil

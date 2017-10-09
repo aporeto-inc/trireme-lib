@@ -58,7 +58,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", destProxyServiceSet, "src,src",
+			"--match-set", srcProxyServiceSet, "src,src",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",

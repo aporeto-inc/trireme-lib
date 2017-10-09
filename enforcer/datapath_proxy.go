@@ -82,6 +82,7 @@ func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err != nil {
 		//Start proxy
 		errChan := make(chan error, 1)
+
 		port, ok := puInfo.Runtime.Options().Get("proxyPort")
 
 		if !ok {
