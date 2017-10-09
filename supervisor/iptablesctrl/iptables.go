@@ -137,9 +137,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return fmt.Errorf("No ip address found ")
 	}
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
-	if !ok {
-		proxyPort = constants.DefaultProxyPort
-	}
+	zap.L().Error("COnfigureRules", zap.String("proxyPort", proxyPort))
 	// Configure all the ACLs
 	if err := i.addContainerChain(appChain, netChain); err != nil {
 		return err
