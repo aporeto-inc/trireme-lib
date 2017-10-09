@@ -106,7 +106,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{})
+	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, []string{})
 
 	return policy.PUInfoFromPolicyAndRuntime("testServerID", plc, runtime)
 

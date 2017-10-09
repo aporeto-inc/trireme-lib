@@ -68,7 +68,7 @@ func (i *Instance) createProxySets(vipipportset []string, pipipportset []string)
 	i.vipTargetSet = ips
 
 	for _, net := range vipipportset {
-		if err := i.vipTargetSet.Add(net, 0); err != nil {
+		if err = i.vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
 			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
 		}
