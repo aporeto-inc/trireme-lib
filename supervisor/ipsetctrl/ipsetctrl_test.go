@@ -132,6 +132,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				ipl,
 				[]string{},
+				[]string{},
 				[]string{})
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -154,6 +155,7 @@ func TestConfigureRules(t *testing.T) {
 			nil,
 			nil,
 			ipl,
+			[]string{},
 			[]string{},
 			[]string{},
 		)
@@ -316,7 +318,7 @@ func TestUpdateRules(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			nil, ipl, []string{"172.17.0.0/24"}, []string{})
+			nil, ipl, []string{"172.17.0.0/24"}, []string{}, []string{})
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 		containerinfo.Policy = policyrules
