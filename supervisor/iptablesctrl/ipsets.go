@@ -2,6 +2,7 @@ package iptablesctrl
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
@@ -88,4 +89,17 @@ func (i *Instance) createProxySets(vipipportset []string, pipipportset []string)
 	}
 
 	return nil
+}
+
+//Not using ipset from coreos library they don't support bitmap:port
+func (i *Instance) createPUPortSet(setname string) error {
+	//Bitmap type is not supported by the ipset library
+	//_, err := i.ipset.NewIpset(setname, "hash:port", &ipset.Params{})
+	path, _ := exec.LookPath("ipset")
+	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
+	if err != nil {
+		zap.L().Error("Error Creating Set", zap.String("Ipset Output", string(out)))
+	}
+	return err
+
 }

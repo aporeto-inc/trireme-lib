@@ -10,7 +10,7 @@ type ContextStore interface {
 	DestroyStore() error
 
 	// GetContextInfo retrieves the context given a context ID
-	GetContextInfo(contextID string) (interface{}, error)
+	GetContextInfo(contextID string, context interface{}) error
 
 	// RemoveContext removes the context given a context ID
 	RemoveContext(contextID string) error

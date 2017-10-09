@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
@@ -56,21 +58,11 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
 	}
 
-	options := policy.ExtendedMap{
-		cgnetcls.PortTag:       "0",
-		cgnetcls.CgroupNameTag: event.PUID,
-	}
-
-	ports, ok := runtimeTags.Get(cgnetcls.PortTag)
-	if ok {
-		options[cgnetcls.PortTag] = ports
-	}
-
-	user, ok := runtimeTags.Get("@usr:originaluser")
-	if ok {
-		options["USER"] = user
-	}
-	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	options := policy.OptionsType{}
+	options.Services = event.Services
+	zap.L().Error("AMIT :Got Event Service port ", zap.String("PORT LIST", policy.ConvertServicesToPortList(options.Services)))
+	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
+	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
@@ -80,7 +72,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, &options), nil
 }
 
 // ComputeMd5 computes the Md5 of a file

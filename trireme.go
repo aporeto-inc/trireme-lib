@@ -189,11 +189,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	ip, _ := policyInfo.DefaultIPAddress()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
-	options := containerInfo.Runtime.Options().Copy()
-	options["proxyPort"] = t.port.GetPort()
-	containerInfo.Runtime.SetOptions(options)
-	port, _ := containerInfo.Runtime.Options().Get("proxyPort")
-	zap.L().Info("Add Port", zap.String("Port", port))
+	newOptions := containerInfo.Runtime.Options()
+	newOptions.ProxyPort = t.port.GetPort()
+	containerInfo.Runtime.SetOptions(newOptions)
+
 	addTransmitterLabel(contextID, containerInfo)
 
 	if !mustEnforce(contextID, containerInfo) {
@@ -267,7 +266,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 	errS := t.supervisors[runtime.PUType()].Unsupervise(contextID)
 	errE := t.enforcers[runtime.PUType()].Unenforce(contextID)
-	port, _ := runtime.Options().Get("proxyPort")
+	port := runtime.Options().ProxyPort
 	zap.L().Info("Releasing Port", zap.String("Port", port))
 	t.port.ReleasePort(port)
 	if err := t.cache.Remove(contextID); err != nil {
@@ -317,12 +316,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	if !mustEnforce(contextID, containerInfo) {
 		return nil
 	}
-	proxyPort, ok := containerInfo.Runtime.Options().Get("proxyPort")
-	if !ok {
-		zap.L().Error("No Proxy Port")
-	} else {
-		zap.L().Error("ProxyPort in Update", zap.String("PortVal", proxyPort))
-	}
+
 	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 		zap.L().Warn("Re-initializing enforcers - connection lost")

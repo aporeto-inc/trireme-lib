@@ -13,10 +13,6 @@ type store struct {
 	storebasePath string
 }
 
-var (
-	storebasePath = "/var/run/trireme"
-)
-
 const (
 	eventInfoFile = "/eventInfo.data"
 )
@@ -34,13 +30,6 @@ func NewContextStore(basePath string) ContextStore {
 	}
 
 	return &store{storebasePath: basePath}
-}
-
-// NewCustomContextStore will start a context store with custom paths. Mainly
-// used for testing when root access is not available and /var/run cannot be accessed
-func NewCustomContextStore(basePath string) ContextStore {
-	//storebasePath = basePath
-	return NewContextStore(basePath)
 }
 
 // Store context writes to the store the eventInfo which can be used as a event to trireme
@@ -66,18 +55,30 @@ func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 }
 
 // GetContextInfo the event corresponding to the store
-func (s *store) GetContextInfo(contextID string) (interface{}, error) {
+func (s *store) GetContextInfo(contextID string, context interface{}) error {
 
 	if _, err := os.Stat(s.storebasePath + contextID); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Unknown ContextID %s", contextID)
+		return fmt.Errorf("Unknown ContextID %s", contextID)
 	}
 
 	data, err := ioutil.ReadFile(s.storebasePath + contextID + eventInfoFile)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to retrieve context from store %s", err.Error())
+		return fmt.Errorf("Unable to retrieve context from store %s", err.Error())
 	}
 
-	return data, err
+	if err := json.Unmarshal(data, context); err != nil {
+		zap.L().Warn("Found invalid state for context - Cleaning up",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
+
+		if rerr := s.RemoveContext("/" + contextID); rerr != nil {
+			return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
+		}
+		return err
+	}
+
+	return nil
 }
 
 // RemoveContext the context reference from the store
@@ -113,9 +114,13 @@ func (s *store) WalkStore() (chan string, error) {
 	}
 
 	go func() {
+		i := 0
 		for _, file := range files {
+			zap.L().Debug("File Name", zap.String("Path", file.Name()))
 			contextChannel <- file.Name()
+			i++
 		}
+		zap.L().Info("Processed ", zap.Int("Number of processes walked", i))
 		contextChannel <- ""
 		close(contextChannel)
 	}()

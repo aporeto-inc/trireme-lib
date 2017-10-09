@@ -21,6 +21,9 @@ const (
 
 	// EventUnpause is the event generated when a PU is unpaused.
 	EventUnpause Event = "unpause"
+
+	// EventResync instructs the processors to resync
+	EventResync Event = "resync"
 )
 
 // A State describes the state of the PU.
