@@ -106,11 +106,10 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 	var listener net.Listener
 	port = ":" + port
 	if p.Forward || !p.Encrypt {
-		fmt.Println("112")
 		if listener, err = net.Listen("tcp", port); err != nil {
-			fmt.Println("210", port, err)
-			zap.L().Fatal("Failed to Bind", zap.Error(err))
-			reterr <- err
+			zap.L().Warn("Failed to Bind", zap.Error(err))
+			reterr <- nil
+			return
 
 		}
 

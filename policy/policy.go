@@ -261,7 +261,7 @@ func (p *PUPolicy) TriremeNetworks() []string {
 	return p.triremeNetworks
 }
 
-// TriremeNetworks  returns the list of networks that Trireme must be applied
+// ProxiedServices returns the list of networks that Trireme must be applied
 func (p *PUPolicy) ProxiedServices() []string {
 	p.Lock()
 	defer p.Unlock()
