@@ -775,7 +775,8 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T: context.Identity,
+		T:  context.Identity,
+		EK: auth.LocalEphemeralKey,
 	}
 
 	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
@@ -795,6 +796,7 @@ func (d *Datapath) createSynAckPacketToken(context *PUContext, auth *AuthInfo) (
 	claims := &tokens.ConnectionClaims{
 		T:   context.Identity,
 		RMT: auth.RemoteContext,
+		EK:  auth.LocalEphemeralKey,
 	}
 
 	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
@@ -824,6 +826,7 @@ func (d *Datapath) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.Connec
 	auth.RemotePublicKey = cert
 	auth.RemoteContext = nonce
 	auth.RemoteContextID = remoteContextID
+	auth.RemoteEphemeralKey = claims.EK
 
 	return claims, nil
 }
