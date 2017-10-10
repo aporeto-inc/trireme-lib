@@ -768,6 +768,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	if context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
 		// Randomize the nonce and send it
 		auth.LocalContext, err = d.tokenEngine.Randomize(context.synToken)
+		auth.LocalEphemeralKey = context.synEphemeralKey
 		if err == nil {
 			return context.synToken, nil
 		}
@@ -784,6 +785,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	}
 
 	context.synExpiration = time.Now().Add(time.Millisecond * 500)
+	context.synEphemeralKey = auth.LocalEphemeralKey
 
 	return context.synToken, nil
 

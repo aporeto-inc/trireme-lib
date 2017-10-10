@@ -197,7 +197,6 @@ func NewTCPConnection() *TCPConnection {
 	c := &TCPConnection{
 		state: TCPSynSend,
 		logs:  []string{"Initialized"},
-		Auth:  AuthInfo{},
 	}
 
 	return c

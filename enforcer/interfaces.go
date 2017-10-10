@@ -78,6 +78,7 @@ type PUContext struct {
 	Ports           []string
 	PUType          constants.PUType
 	synToken        []byte
+	synEphemeralKey []byte
 	synExpiration   time.Time
 	sync.Mutex
 }
