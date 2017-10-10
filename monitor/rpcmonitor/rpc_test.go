@@ -57,7 +57,7 @@ func TestNewRPCMonitor(t *testing.T) {
 	Convey("When we try to instantiate a new monitor", t, func() {
 
 		Convey("If we start with invalid rpc address", func() {
-			_, err := NewRPCMonitor("", nil)
+			_, err := NewRPCMonitor("", nil, false)
 			Convey("It should fail ", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -66,7 +66,7 @@ func TestNewRPCMonitor(t *testing.T) {
 		Convey("If we start with an RPC address that exists", func() {
 
 			os.Create("./testfile") // nolint : errcheck
-			_, err := NewRPCMonitor("./testfile", nil)
+			_, err := NewRPCMonitor("./testfile", nil, false)
 			Convey("I should get no error and the file is removed", func() {
 				So(err, ShouldBeNil)
 				_, ferr := os.Stat("./testfile")
@@ -75,7 +75,7 @@ func TestNewRPCMonitor(t *testing.T) {
 		})
 
 		Convey("If we start with valid parameters", func() {
-			mon, err := NewRPCMonitor("/tmp/monitor.sock", nil)
+			mon, err := NewRPCMonitor("/tmp/monitor.sock", nil, false)
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
 				So(mon.rpcAddress, ShouldResemble, "/tmp/monitor.sock")
@@ -88,7 +88,7 @@ func TestNewRPCMonitor(t *testing.T) {
 func TestRegisterProcessor(t *testing.T) {
 
 	Convey("Given a new rpc monitor", t, func() {
-		mon, _ := NewRPCMonitor(testRPCAddress, nil)
+		mon, _ := NewRPCMonitor(testRPCAddress, nil, false)
 		Convey("When I try to register a new processor", func() {
 			processor := &CustomProcessor{}
 			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
@@ -121,7 +121,7 @@ func TestStart(t *testing.T) {
 			clist := make(chan string, 1)
 			clist <- ""
 
-			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, false)
 
 			go starttestserver()
 			time.Sleep(1 * time.Second)
@@ -145,7 +145,7 @@ func TestHandleEvent(t *testing.T) {
 		contextlist <- "test1"
 		contextlist <- ""
 
-		testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil)
+		testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, false)
 
 		monerr := testRPCMonitor.Start()
 		So(monerr, ShouldBeNil)
@@ -204,6 +204,7 @@ func TestHandleEvent(t *testing.T) {
 			eventInfo := &EventInfo{
 				EventType: monitor.EventCreate,
 				PUType:    constants.LinuxProcessPU,
+				PID:       "123",
 			}
 
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
@@ -232,20 +233,6 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 		Convey("If the event PID is empty", func() {
 			eventInfo := &EventInfo{
 				Name:      "PU",
-				EventType: monitor.EventStop,
-				PUType:    constants.LinuxProcessPU,
-			}
-
-			Convey("The default extractor must return an error ", func() {
-				_, err := DefaultRPCMetadataExtractor(eventInfo)
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("If the event PUID is empty", func() {
-			eventInfo := &EventInfo{
-				Name:      "PU",
-				PID:       "1234",
 				EventType: monitor.EventStop,
 				PUType:    constants.LinuxProcessPU,
 			}

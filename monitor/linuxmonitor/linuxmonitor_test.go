@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -67,43 +68,13 @@ func TestLibs(t *testing.T) {
 
 func TestSystemdRPCMetadataExtractor(t *testing.T) {
 	Convey("When I call the metadata extrator", t, func() {
-		Convey("If the event name is empty", func() {
-			event := &rpcmonitor.EventInfo{}
-			_, err := SystemdRPCMetadataExtractor(event)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("If the PID is empty", func() {
-			event := &rpcmonitor.EventInfo{
-				Name: "process",
-			}
-			_, err := SystemdRPCMetadataExtractor(event)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
-
-		Convey("If the PUID is empty", func() {
-			event := &rpcmonitor.EventInfo{
-				Name: "process",
-				PID:  "1234",
-			}
-			_, err := SystemdRPCMetadataExtractor(event)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
 
 		Convey("If all data are present", func() {
 			event := &rpcmonitor.EventInfo{
 				Name: "./testdata/curl",
 				PID:  "1234",
 				PUID: "/1234",
-				Tags: map[string]string{
-					"app": "web",
-				},
+				Tags: []string{"app=web"},
 			}
 
 			pu, err := SystemdRPCMetadataExtractor(event)
@@ -113,5 +84,65 @@ func TestSystemdRPCMetadataExtractor(t *testing.T) {
 			})
 		})
 
+	})
+}
+
+func TestDefaultHostMetadataExtractor(t *testing.T) {
+	Convey("When I call the host metadata extractor", t, func() {
+		Convey("If its valid data", func() {
+
+			services := []policy.Service{
+				policy.Service{
+					Protocol: uint8(6),
+					Port:     uint16(1000),
+				},
+			}
+
+			event := &rpcmonitor.EventInfo{
+				Name:     "Web",
+				PID:      "1234",
+				PUID:     "Web",
+				Tags:     []string{"app=web"},
+				Services: services,
+			}
+
+			pu, err := DefaultHostMetadataExtractor(event)
+			Convey("I should get no error and a valid PU runtimg", func() {
+				So(err, ShouldBeNil)
+				So(pu, ShouldNotBeNil)
+				So(pu.Options().CgroupName, ShouldResemble, "Web")
+				So(pu.Options().Services, ShouldResemble, services)
+			})
+		})
+
+		Convey("If I get invalid tags", func() {
+
+			event := &rpcmonitor.EventInfo{
+				Name: "Web",
+				PID:  "1234",
+				PUID: "Web",
+				Tags: []string{"invalid"},
+			}
+
+			_, err := DefaultHostMetadataExtractor(event)
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("If I get an invalid PID", func() {
+
+			event := &rpcmonitor.EventInfo{
+				Name: "Web",
+				PID:  "zxczxc",
+				PUID: "Web",
+				Tags: []string{"invalid"},
+			}
+
+			_, err := DefaultHostMetadataExtractor(event)
+			Convey("I should get an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
 	})
 }

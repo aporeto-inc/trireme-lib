@@ -2,6 +2,7 @@ package cnimonitor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
@@ -14,18 +15,17 @@ type CNIMetadataExtractor func(event *rpcmonitor.EventInfo) (*policy.PURuntime, 
 // KubernetesCNIMetadataExtractor is a systemd based metadata extractor
 func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
-	if event.Name == "" {
-		return nil, fmt.Errorf("EventInfo PU Name is empty")
-	}
-
-	if event.PUID == "" {
-		return nil, fmt.Errorf("EventInfo PUID is empty")
+	if event.NS == "" {
+		return nil, fmt.Errorf("NamespacePath is required when using CNI")
 	}
 
 	runtimeTags := policy.NewTagStore()
-
-	for k, v := range event.Tags {
-		runtimeTags.AppendKeyValue("@usr:"+k, v)
+	for _, tag := range event.Tags {
+		parts := strings.Split(tag, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid Tag")
+		}
+		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
@@ -36,22 +36,17 @@ func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURunt
 // DockerCNIMetadataExtractor is a systemd based metadata extractor
 func DockerCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
-	if event.Name == "" {
-		return nil, fmt.Errorf("EventInfo PU Name is empty")
-	}
-
-	if event.PUID == "" {
-		return nil, fmt.Errorf("EventInfo PUID is empty")
-	}
-
 	if event.NS == "" {
 		return nil, fmt.Errorf("NamespacePath is required when using CNI")
 	}
 
 	runtimeTags := policy.NewTagStore()
-
-	for k, v := range event.Tags {
-		runtimeTags.AppendKeyValue("@usr:"+k, v)
+	for _, tag := range event.Tags {
+		parts := strings.Split(tag, "=")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid Tag")
+		}
+		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}

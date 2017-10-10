@@ -20,25 +20,47 @@ import (
 	"github.com/shirou/gopsutil/process"
 )
 
-// SystemdRPCMetadataExtractor is a systemd based metadata extractor
-func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
-
-	if event.Name == "" {
-		return nil, fmt.Errorf("EventInfo PU Name is empty")
-	}
-
-	if event.PID == "" {
-		return nil, fmt.Errorf("EventInfo PID is empty")
-	}
-
-	if event.PUID == "" {
-		return nil, fmt.Errorf("EventInfo PUID is empty")
-	}
+// DefaultHostMetadataExtractor is a host specific metadata extractor
+func DefaultHostMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 
-	for k, v := range event.Tags {
-		runtimeTags.AppendKeyValue("@usr:"+k, v)
+	for _, tag := range event.Tags {
+		parts := strings.SplitN(tag, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid Tag")
+		}
+		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
+	}
+
+	options := &policy.OptionsType{
+		CgroupName: event.PUID,
+		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		Services:   event.Services,
+	}
+
+	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
+
+	runtimePID, err := strconv.Atoi(event.PID)
+
+	if err != nil {
+		return nil, fmt.Errorf("PID is invalid: %s", err)
+	}
+
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
+}
+
+// SystemdRPCMetadataExtractor is a systemd based metadata extractor
+func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
+
+	runtimeTags := policy.NewTagStore()
+
+	for _, tag := range event.Tags {
+		parts := strings.SplitN(tag, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid Tag")
+		}
+		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
 	userdata := processInfo(event.PID)

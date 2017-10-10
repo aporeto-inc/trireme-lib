@@ -277,6 +277,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		rpcMonitorInstance, err = rpcmonitor.NewRPCMonitor(
 			options.RPCAddress,
 			options.EventCollector,
+			false,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to initialize RPC monitor %s", err)
@@ -491,6 +492,7 @@ func NewPSKHybridTriremeWithMonitor(
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
 		eventCollector,
+		false,
 	)
 
 	if err != nil {
@@ -760,6 +762,7 @@ func NewHybridCompactPKIWithDocker(
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
 		eventCollector,
+		false,
 	)
 
 	if err != nil {
@@ -873,6 +876,7 @@ func NewPSKTriremeWithCNIMonitor(
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
 		eventCollector,
+		false,
 	)
 	if err != nil {
 		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
