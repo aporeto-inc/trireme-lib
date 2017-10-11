@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
@@ -82,7 +80,6 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 
 	options := policy.OptionsType{}
 	options.Services = event.Services
-	zap.L().Error("AMIT :Got Event Service port ", zap.String("PORT LIST", policy.ConvertServicesToPortList(options.Services)))
 	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
 	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
