@@ -87,8 +87,9 @@ type AuthInfo struct {
 type ProxyConnection struct {
 	sync.Mutex
 
-	state ProxyConnState
-	Auth  AuthInfo
+	state    ProxyConnState
+	Auth     AuthInfo
+	reported bool
 }
 
 // TCPConnection is information regarding TCP Connection
@@ -245,4 +246,9 @@ func (c *ProxyConnection) GetState() ProxyConnState {
 func (c *ProxyConnection) SetState(state ProxyConnState) {
 
 	c.state = state
+}
+
+//SetReported -- Set the flag to reported when the conn is reported
+func (c *ProxyConnection) SetReported(reported bool) {
+	c.reported = reported
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/policy"
@@ -38,6 +39,13 @@ type Proxy struct {
 	datapath        *Datapath
 	socketListeners *cache.Cache
 	IPList          []string
+}
+
+type ProxyFlowProperties struct {
+	SourceIP   net.IP
+	DestIP     net.IP
+	SourcePort uint16
+	DestPort   uint16
 }
 
 type socketListenerEntry struct {
@@ -368,6 +376,15 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 	conn := NewProxyConnection()
 	conn.SetState(ClientTokenSend)
 	toAddr, err := syscall.Getpeername(downConn)
+	localaddr, err := syscall.Getsockname(downConn)
+	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
+	remoteinet4ip, _ := toAddr.(*syscall.SockaddrInet4)
+	flowProperties := &ProxyFlowProperties{
+		SourceIP:   net.IPv4(localinet4ip.Addr[0], localinet4ip.Addr[1], localinet4ip.Addr[2], localinet4ip.Addr[3]),
+		SourceIP:   net.IPv4(remoteinet4ip.Addr[0], remoteinet4ip.Addr[1], remoteinet4ip.Addr[2], remoteinet4ip.Addr[3]),
+		SourcePort: uint16(localinet4ip.Port),
+		DestPort:   uint16(remoteinet4ip.Port),
+	}
 
 	if err != nil {
 		zap.L().Error("Peer Name Failed", zap.Error(err))
@@ -399,6 +416,7 @@ L:
 				msg = msg[:n]
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
+					p.reportRejectedFlow(flowProperties, conn.collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, context.(*PUContext), collector.InvalidToken, nil)
 					return fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
 				}
 				if index, _ := puContext.(*PUContext).RejectTxtRules.Search(claims.T); p.datapath.mutualAuthorization && index >= 0 {
@@ -502,5 +520,16 @@ E:
 		}
 	}
 	return nil
+
+}
+
+func (p *Proxy) reportAcceptedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, plc *policy.FlowPolicy) {
+	conn.Reported = true
+	d.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, "N/A", plc)
+}
+
+func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
+
+	d.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, mode, plc)
 
 }
