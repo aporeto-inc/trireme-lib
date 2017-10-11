@@ -2,7 +2,6 @@ package iptablesctrl
 
 import (
 	"crypto/md5"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"strconv"
@@ -90,12 +89,17 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 func (i *Instance) chainName(contextID string, version int) (app, net string) {
 	hash := md5.New()
 	io.WriteString(hash, contextID)
+<<<<<<< 51f69959f69ec28dee08c178a884a9b9021658e0
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
 	if len(contextID) > 4 {
 		contextID = contextID[:4] + string(output[:6])
 	} else {
 		contextID = contextID + string(output[:6])
 	}
+=======
+	output := hash.Sum(nil)
+	contextID = contextID[:4] + string(output[:8])
+>>>>>>> Hash for contextID
 	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
 	net = netChainPrefix + contextID + "-" + strconv.Itoa(version)
 	return app, net
