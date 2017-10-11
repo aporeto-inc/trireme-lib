@@ -88,6 +88,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 
 // chainPrefix returns the chain name for the specific PU
 func (i *Instance) chainName(contextID string, version int) (app, net string) {
+
 	hash := md5.New()
 	io.WriteString(hash, contextID)
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
