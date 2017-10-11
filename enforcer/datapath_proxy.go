@@ -365,8 +365,8 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
-	conn := NewTCPConnection()
-
+	conn := NewProxyConnection()
+	conn.SetState(ClientTokenSend)
 	toAddr, err := syscall.Getpeername(downConn)
 
 	if err != nil {
@@ -374,11 +374,11 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 	}
 
 L:
-	for conn.GetState() == TCPSynSend {
+	for conn.GetState() == ClientTokenSend {
 		msg := make([]byte, 1024)
 		for {
 			switch conn.GetState() {
-			case TCPSynSend:
+			case ClientTokenSend:
 				token, err := p.datapath.createSynPacketToken(puContext.(*PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create syn token", zap.Error(err))
@@ -387,9 +387,9 @@ L:
 					zap.L().Error("Sendto failed", zap.Error(serr))
 					return serr
 				}
-				conn.SetState(TCPSynAckReceived)
+				conn.SetState(ClientPeerTokenReceive)
 
-			case TCPSynAckReceived:
+			case ClientPeerTokenReceive:
 
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
@@ -407,9 +407,9 @@ L:
 				if index, _ := puContext.(*PUContext).AcceptTxtRules.Search(claims.T); !p.datapath.mutualAuthorization || index < 0 {
 					return fmt.Errorf("Dropping because of reject rule on receiver")
 				}
-				conn.SetState(TCPAckSend)
+				conn.SetState(ClientSendSignedPair)
 
-			case TCPAckSend:
+			case ClientSendSignedPair:
 				token, err := p.datapath.createAckPacketToken(puContext.(*PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create ack token", zap.Error(err))
@@ -433,15 +433,15 @@ func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
-	conn := NewTCPConnection()
-	conn.SetState(TCPSynReceived)
+	conn := NewProxyConnection()
+	conn.SetState(ServerReceivePeerToken)
 E:
-	for conn.GetState() == TCPSynReceived {
+	for conn.GetState() == ServerReceivePeerToken {
 		for {
 			msg := []byte{}
 
 			switch conn.GetState() {
-			case TCPSynReceived:
+			case ServerReceivePeerToken:
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
@@ -467,9 +467,9 @@ E:
 
 					return fmt.Errorf("Connection dropped because No Accept Policy")
 				}
-				conn.SetState(TCPSynAckSend)
+				conn.SetState(ServerSendToken)
 
-			case TCPSynAckSend:
+			case ServerSendToken:
 				claims, err := p.datapath.createSynAckPacketToken(context.(*PUContext), &conn.Auth)
 				if err != nil {
 					return fmt.Errorf("Unable to create synack token")
@@ -480,8 +480,8 @@ E:
 				} else {
 					zap.L().Error("Failed to write", zap.Error(err))
 				}
-				conn.SetState(TCPAckProcessed)
-			case TCPAckProcessed:
+				conn.SetState(ServerAuthenticatePair)
+			case ServerAuthenticatePair:
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
