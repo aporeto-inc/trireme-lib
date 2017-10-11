@@ -1,7 +1,10 @@
 package iptablesctrl
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"strconv"
 
 	"go.uber.org/zap"
@@ -85,6 +88,14 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 
 // chainPrefix returns the chain name for the specific PU
 func (i *Instance) chainName(contextID string, version int) (app, net string) {
+	hash := md5.New()
+	io.WriteString(hash, contextID)
+	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	if len(contextID) > 4 {
+		contextID = contextID[:4] + string(output[:6])
+	} else {
+		contextID = contextID + string(output[:6])
+	}
 	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
 	net = netChainPrefix + contextID + "-" + strconv.Itoa(version)
 	return app, net
