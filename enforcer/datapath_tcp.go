@@ -768,8 +768,8 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	if context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
 		// Randomize the nonce and send it
 		auth.LocalContext, err = d.tokenEngine.Randomize(context.synToken)
-		auth.LocalServiceContext = context.synServiceContext
 		if err == nil {
+			auth.LocalServiceContext = context.synServiceContext
 			return context.synToken, nil
 		}
 		// If there is an error, let's try to create a new one
