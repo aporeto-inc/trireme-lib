@@ -104,7 +104,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		Tags:      runtimeInfo.Tags(),
 		Event:     collector.ContainerStart,
 	})
-	zap.L().Error("Starting contextID", contextID)
+	zap.L().Error("Starting contextID", zap.String("start contextID", contextID))
 	// Store the state in the context store for future access
 	return s.contextStore.StoreContext(contextID, eventInfo)
 }
@@ -116,7 +116,7 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-	zap.L().Error("Stopping contextID", contextID)
+	zap.L().Error("Stopping contextID", zap.String("Stop ContextID", contextID))
 	strtokens := strings.Split(contextID, "/")
 	contextID = strtokens[len(strtokens)-1]
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
@@ -129,7 +129,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-	zap.L().Error("Destroying contextID", contextID)
+	zap.L().Error("Destroying contextID", zap.String("Destroy ContextID", contextID))
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",
