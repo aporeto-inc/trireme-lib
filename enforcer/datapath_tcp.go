@@ -768,7 +768,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	if context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
 		// Randomize the nonce and send it
 		auth.LocalContext, err = d.tokenEngine.Randomize(context.synToken)
-		auth.LocalEphemeralKey = context.synEphemeralKey
+		auth.LocalServiceContext = context.synServiceContext
 		if err == nil {
 			return context.synToken, nil
 		}
@@ -777,7 +777,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 
 	claims := &tokens.ConnectionClaims{
 		T:  context.Identity,
-		EK: auth.LocalEphemeralKey,
+		EK: auth.LocalServiceContext,
 	}
 
 	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
@@ -785,7 +785,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	}
 
 	context.synExpiration = time.Now().Add(time.Millisecond * 500)
-	context.synEphemeralKey = auth.LocalEphemeralKey
+	context.synServiceContext = auth.LocalServiceContext
 
 	return context.synToken, nil
 
@@ -798,14 +798,14 @@ func (d *Datapath) createSynAckPacketToken(context *PUContext, auth *AuthInfo) (
 	claims := &tokens.ConnectionClaims{
 		T:   context.Identity,
 		RMT: auth.RemoteContext,
-		EK:  auth.LocalEphemeralKey,
+		EK:  auth.LocalServiceContext,
 	}
 
-	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
+	if token, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
 		return []byte{}, nil
 	}
 
-	return context.synToken, nil
+	return token, nil
 
 }
 
@@ -828,7 +828,7 @@ func (d *Datapath) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.Connec
 	auth.RemotePublicKey = cert
 	auth.RemoteContext = nonce
 	auth.RemoteContextID = remoteContextID
-	auth.RemoteEphemeralKey = claims.EK
+	auth.RemoteServiceContext = claims.EK
 
 	return claims, nil
 }

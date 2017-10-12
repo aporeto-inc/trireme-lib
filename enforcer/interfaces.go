@@ -61,24 +61,24 @@ type PacketProcessor interface {
 
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
-	ID              string
-	ManagementID    string
-	Identity        *policy.TagStore
-	Annotations     *policy.TagStore
-	AcceptTxtRules  *lookup.PolicyDB
-	RejectTxtRules  *lookup.PolicyDB
-	AcceptRcvRules  *lookup.PolicyDB
-	RejectRcvRules  *lookup.PolicyDB
-	ApplicationACLs *acls.ACLCache
-	NetworkACLS     *acls.ACLCache
-	externalIPCache cache.DataStore
-	Extension       interface{}
-	IP              string
-	Mark            string
-	Ports           []string
-	PUType          constants.PUType
-	synToken        []byte
-	synEphemeralKey []byte
-	synExpiration   time.Time
+	ID                string
+	ManagementID      string
+	Identity          *policy.TagStore
+	Annotations       *policy.TagStore
+	AcceptTxtRules    *lookup.PolicyDB
+	RejectTxtRules    *lookup.PolicyDB
+	AcceptRcvRules    *lookup.PolicyDB
+	RejectRcvRules    *lookup.PolicyDB
+	ApplicationACLs   *acls.ACLCache
+	NetworkACLS       *acls.ACLCache
+	externalIPCache   cache.DataStore
+	Extension         interface{}
+	IP                string
+	Mark              string
+	Ports             []string
+	PUType            constants.PUType
+	synToken          []byte
+	synServiceContext []byte
+	synExpiration     time.Time
 	sync.Mutex
 }
