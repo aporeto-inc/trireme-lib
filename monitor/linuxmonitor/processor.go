@@ -116,7 +116,8 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-
+	strtokens := strings.Split(contextID, "/")
+	contextID = strtokens[len(strtokens)-1]
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
@@ -153,7 +154,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	if err := s.contextStore.RemoveContext(contextID); err != nil {
-		zap.L().Warn("Failed to clean cache while destroying process",
+		zap.L().Error("Failed to clean cache while destroying process",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
