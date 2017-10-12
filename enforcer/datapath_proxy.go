@@ -41,6 +41,7 @@ type Proxy struct {
 	IPList          []string
 }
 
+// ProxyFlowProperties is a struct used to pass flow information up
 type ProxyFlowProperties struct {
 	SourceIP   net.IP
 	DestIP     net.IP
@@ -374,9 +375,8 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 		zap.L().Error("Did not find context")
 	}
 	conn := NewProxyConnection()
-	conn.SetState(ClientTokenSend)
-	toAddr, err := syscall.Getpeername(downConn)
-	localaddr, err := syscall.Getsockname(downConn)
+	toAddr, _ := syscall.Getpeername(downConn)
+	localaddr, _ := syscall.Getsockname(downConn)
 	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
 	remoteinet4ip, _ := toAddr.(*syscall.SockaddrInet4)
 	flowProperties := &ProxyFlowProperties{
@@ -384,10 +384,6 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 		DestIP:     net.IPv4(remoteinet4ip.Addr[0], remoteinet4ip.Addr[1], remoteinet4ip.Addr[2], remoteinet4ip.Addr[3]),
 		SourcePort: uint16(localinet4ip.Port),
 		DestPort:   uint16(remoteinet4ip.Port),
-	}
-
-	if err != nil {
-		zap.L().Error("Peer Name Failed", zap.Error(err))
 	}
 
 L:

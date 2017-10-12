@@ -19,6 +19,7 @@ var (
 // TCPFlowState identifies the constants of the state of a TCP connectioncon
 type TCPFlowState int
 
+// ProxyConnState identifies the constants of the state of a proxied connection
 type ProxyConnState int
 
 const (
@@ -230,6 +231,7 @@ func NewTCPConnection() *TCPConnection {
 	return c
 }
 
+// NewProxyConnection returns a new Proxy Connection
 func NewProxyConnection() *ProxyConnection {
 
 	return &ProxyConnection{
@@ -237,6 +239,7 @@ func NewProxyConnection() *ProxyConnection {
 	}
 }
 
+// GetState returns the state of a proxy connection
 func (c *ProxyConnection) GetState() ProxyConnState {
 
 	return c.state
