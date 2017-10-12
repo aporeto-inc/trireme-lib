@@ -289,13 +289,11 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 		context.Unlock()
 		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
-		zap.L().Debug("DEBUG:292")
 		return policy, nil
 	}
 	context.Unlock()
 
 	// We are now processing as a Trireme packet that needs authorization headers
-	zap.L().Debug("DEBUG:298")
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
@@ -314,7 +312,6 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	hash := tcpPacket.L4FlowHash()
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
-	zap.L().Debug("DEBUG:317")
 	// Attach the tags to the packet and accept the packet
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 

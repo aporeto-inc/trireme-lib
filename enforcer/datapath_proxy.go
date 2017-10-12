@@ -410,19 +410,21 @@ L:
 
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
-					zap.L().Error("Received Ack", zap.Error(err))
+					zap.L().Error("Error while receiving peer token", zap.Error(err))
 					return err
 				}
 				msg = msg[:n]
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidToken, nil)
-					return fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
+					return fmt.Errorf("Peer token reject because of bad claims %v", claims)
 				}
 				if index, _ := puContext.(*PUContext).RejectTxtRules.Search(claims.T); p.datapath.mutualAuthorization && index >= 0 {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Dropping because of reject rule on transmitter")
 				}
 				if index, _ := puContext.(*PUContext).AcceptTxtRules.Search(claims.T); !p.datapath.mutualAuthorization || index < 0 {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Dropping because of reject rule on receiver")
 				}
 				conn.SetState(ClientSendSignedPair)
@@ -441,6 +443,7 @@ L:
 
 		}
 	}
+	p.reportAcceptedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), nil)
 	return nil
 
 }
