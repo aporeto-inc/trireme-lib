@@ -27,6 +27,7 @@ func (d *Datapath) reportProxiedFlow(flowproperties *ProxyFlowProperties, conn *
 		DropReason: mode,
 		PolicyID:   plc.PolicyID,
 	}
+	d.collector.CollectFlowEvent(c)
 }
 
 func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
