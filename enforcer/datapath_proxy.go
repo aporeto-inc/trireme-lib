@@ -415,6 +415,7 @@ L:
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidToken, nil)
 					return fmt.Errorf("Peer token reject because of bad claims %v", claims)
 				}
+
 				if index, _ := puContext.(*PUContext).RejectTxtRules.Search(claims.T); p.datapath.mutualAuthorization && index >= 0 {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Dropping because of reject rule on transmitter")
@@ -439,16 +440,25 @@ L:
 
 		}
 	}
-	p.reportAcceptedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), nil)
 	return nil
 
 }
 
 //StartServerAuthStateMachine -- Start the aporeto handshake for a server application
 func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
-	context, err := p.datapath.contextTracker.Get(contextID)
+	puContext, err := p.datapath.contextTracker.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
+	}
+	toAddr, _ := syscall.Getpeername(downConn)
+	localaddr, _ := syscall.Getsockname(downConn)
+	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
+	remoteinet4ip, _ := toAddr.(*syscall.SockaddrInet4)
+	flowProperties := &ProxyFlowProperties{
+		SourceIP:   net.IPv4(localinet4ip.Addr[0], localinet4ip.Addr[1], localinet4ip.Addr[2], localinet4ip.Addr[3]),
+		DestIP:     net.IPv4(remoteinet4ip.Addr[0], remoteinet4ip.Addr[1], remoteinet4ip.Addr[2], remoteinet4ip.Addr[3]),
+		SourcePort: uint16(localinet4ip.Port),
+		DestPort:   uint16(remoteinet4ip.Port),
 	}
 	conn := NewProxyConnection()
 	conn.SetState(ServerReceivePeerToken)
@@ -473,21 +483,27 @@ E:
 				}
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidToken, nil)
 					return err
 				}
 				claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(backendport)))
-				if index, plc := context.(*PUContext).RejectRcvRules.Search(claims.T); index >= 0 {
+				if index, plc := puContext.(*PUContext).RejectRcvRules.Search(claims.T); index >= 0 {
 					zap.L().Error("Connection Dropped", zap.String("Policy ID", plc.(*policy.FlowPolicy).PolicyID))
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, plc.(*policy.FlowPolicy))
 					return fmt.Errorf("Connection dropped because of Policy %v", err)
 				}
-				if index, _ := context.(*PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
+				var action interface{}
+				index := 0
+				if index, action = puContext.(*PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
 
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Connection dropped because No Accept Policy")
 				}
+				conn.FlowPolicy = action.(*policy.FlowPolicy)
 				conn.SetState(ServerSendToken)
 
 			case ServerSendToken:
-				claims, err := p.datapath.createSynAckPacketToken(context.(*PUContext), &conn.Auth)
+				claims, err := p.datapath.createSynAckPacketToken(puContext.(*PUContext), &conn.Auth)
 				if err != nil {
 					return fmt.Errorf("Unable to create synack token")
 				}
@@ -512,12 +528,14 @@ E:
 					msg = append(msg, data[:n]...)
 				}
 				if _, err := p.datapath.parseAckToken(&conn.Auth, msg); err != nil {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidFormat, nil)
 					return fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 				}
 				break E
 			}
 		}
 	}
+	p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.(*PUContext).ManagementID, puContext.(*PUContext), conn.FlowPolicy)
 	return nil
 
 }
@@ -529,6 +547,12 @@ func (p *Proxy) reportAcceptedFlow(flowproperties *ProxyFlowProperties, conn *Pr
 
 func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 
+	if plc == nil {
+		plc = &policy.FlowPolicy{
+			Action:   policy.Reject,
+			PolicyID: "",
+		}
+	}
 	p.datapath.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, mode, plc)
 
 }

@@ -88,9 +88,10 @@ type AuthInfo struct {
 type ProxyConnection struct {
 	sync.Mutex
 
-	state    ProxyConnState
-	Auth     AuthInfo
-	reported bool
+	state      ProxyConnState
+	Auth       AuthInfo
+	FlowPolicy *policy.FlowPolicy
+	reported   bool
 }
 
 // TCPConnection is information regarding TCP Connection
