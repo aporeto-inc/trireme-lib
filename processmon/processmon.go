@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -193,13 +194,13 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 	// We check if the NetNsPath was given as parameter.
 	// If it was we will use it. Otherwise we will determine it based on the PID.
 	if refNSPath == "" {
-		nsPath = procMountPoint + "/" + strconv.Itoa(refPid) + "/ns/net"
+		nsPath = filepath.Join(procMountPoint, strconv.Itoa(refPid), "ns/net")
 	} else {
 		nsPath = refNSPath
 	}
 
 	pidstat, pidstaterr := os.Stat(nsPath)
-	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
+	hoststat, hoststaterr := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
 			zap.L().Error("Refused to launch a remote enforcer in host namespace")
@@ -220,7 +221,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 	}
 
 	// A symlink is created from /var/run/netns/<context> to the NetNSPath
-	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
+	if _, lerr := os.Stat(filepath.Join(netnspath, contextID)); lerr != nil {
 		linkErr := os.Symlink(nsPath,
 			netnspath+contextID)
 		if linkErr != nil {
@@ -311,7 +312,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 	go processIOReader(stdout, contextID, exited)
 	go processIOReader(stderr, contextID, exited)
 
-	if err := rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock", randomkeystring); err != nil {
+	if err := rpchdl.NewRPCClient(contextID, filepath.Join("/var/run", contextID+".sock"), randomkeystring); err != nil {
 		return err
 	}
 

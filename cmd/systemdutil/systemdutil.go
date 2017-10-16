@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -88,8 +89,8 @@ type RequestProcessor struct {
 // NewRequestProcessor creates a default request processor
 func NewRequestProcessor() *RequestProcessor {
 	return &RequestProcessor{
-		LinuxPath: "/var/run/trireme/linux/",
-		HostPath:  "/var/run/trireme/host/",
+		LinuxPath: "/var/run/trireme/linux",
+		HostPath:  "/var/run/trireme/host",
 	}
 }
 
@@ -287,7 +288,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		}
 
 		if !c.HostPolicy {
-			if _, ferr := os.Stat(linuxPath + "/" + parts[2]); os.IsNotExist(ferr) {
+			if _, ferr := os.Stat(filepath.Join(linuxPath, parts[2])); os.IsNotExist(ferr) {
 				request.PUType = constants.UIDLoginPU
 			}
 		}
