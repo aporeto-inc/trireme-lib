@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -94,11 +95,11 @@ func TestLaunchProcess(t *testing.T) {
 	//Cleanup
 	p.KillProcess(contextID)
 	//Did we clean all resources when we exited
-	_, err = os.Stat("/tmp/" + strconv.Itoa(refPid) + ".sock")
+	_, err = os.Stat(filepath.Join("/tmp", strconv.Itoa(refPid)+".sock"))
 	if err == nil {
 		t.Errorf("TEST:Channel resource leaked ")
 	}
-	_, err = os.Stat("/var/run/netns/" + contextID)
+	_, err = os.Stat(filepath.Join("/var/run/netns", contextID))
 	if err == nil {
 		t.Errorf("TEST:Netns resource leaked ")
 	}
@@ -125,11 +126,11 @@ func TestGetExitStatus(t *testing.T) {
 	})
 	p.KillProcess(contextID)
 	//Did we clean all resources when we exited
-	_, err = os.Stat("/tmp/" + strconv.Itoa(refPid) + ".sock")
+	_, err = os.Stat(filepath.Join("/tmp/", strconv.Itoa(refPid)+".sock"))
 	if err == nil {
 		t.Errorf("TEST:Channel resource leaked ")
 	}
-	_, err = os.Stat("/var/run/netns/" + contextID)
+	_, err = os.Stat(filepath.Join("/var/run/netns", contextID))
 	if err == nil {
 		t.Errorf("TEST:Netns resource leaked ")
 	}
@@ -168,11 +169,11 @@ func TestSetExitStatus(t *testing.T) {
 	})
 	p.KillProcess(contextID)
 	//Did we clean all resources when we exited
-	_, err = os.Stat("/tmp/" + strconv.Itoa(refPid) + ".sock")
+	_, err = os.Stat(filepath.Join("/tmp", strconv.Itoa(refPid)+".sock"))
 	if err == nil {
 		t.Errorf("TEST:Channel resource leaked ")
 	}
-	_, err = os.Stat("/var/run/netns/" + contextID)
+	_, err = os.Stat(filepath.Join("/var/run/netns", contextID))
 	if err == nil {
 		t.Errorf("TEST:Netns resource leaked ")
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 )
@@ -14,7 +15,7 @@ type store struct {
 }
 
 const (
-	eventInfoFile = "/eventInfo.data"
+	eventInfoFile = "eventInfo.data"
 )
 
 // NewContextStore returns a handle to a new context store
@@ -29,14 +30,16 @@ func NewContextStore(basePath string) ContextStore {
 		}
 	}
 
-	return &store{storebasePath: basePath + "/"}
+	return &store{storebasePath: basePath}
 }
 
 // Store context writes to the store the eventInfo which can be used as a event to trireme
 func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 
-	if _, err := os.Stat(s.storebasePath + contextID); os.IsNotExist(err) {
-		if err := os.MkdirAll(s.storebasePath+contextID, 0700); err != nil {
+	folder := filepath.Join(s.storebasePath, contextID)
+
+	if _, err := os.Stat(folder); os.IsNotExist(err) {
+		if err := os.MkdirAll(folder, 0700); err != nil {
 			return err
 		}
 	}
@@ -46,7 +49,7 @@ func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 		return err
 	}
 
-	if err = ioutil.WriteFile(s.storebasePath+contextID+eventInfoFile, data, 0600); err != nil {
+	if err = ioutil.WriteFile(filepath.Join(folder, eventInfoFile), data, 0600); err != nil {
 		return err
 	}
 
@@ -57,11 +60,13 @@ func (s *store) StoreContext(contextID string, eventInfo interface{}) error {
 // GetContextInfo the event corresponding to the store
 func (s *store) GetContextInfo(contextID string, context interface{}) error {
 
-	if _, err := os.Stat(s.storebasePath + contextID); os.IsNotExist(err) {
+	folder := filepath.Join(s.storebasePath, contextID)
+
+	if _, err := os.Stat(folder); os.IsNotExist(err) {
 		return fmt.Errorf("Unknown ContextID %s", contextID)
 	}
 
-	data, err := ioutil.ReadFile(s.storebasePath + contextID + eventInfoFile)
+	data, err := ioutil.ReadFile(filepath.Join(folder, eventInfoFile))
 	if err != nil {
 		return fmt.Errorf("Unable to retrieve context from store %s", err.Error())
 	}
@@ -72,7 +77,7 @@ func (s *store) GetContextInfo(contextID string, context interface{}) error {
 			zap.Error(err),
 		)
 
-		if rerr := s.RemoveContext("/" + contextID); rerr != nil {
+		if rerr := s.RemoveContext(contextID); rerr != nil {
 			return fmt.Errorf("Failed to remove invalide context for %s", rerr.Error())
 		}
 		return err
@@ -84,11 +89,12 @@ func (s *store) GetContextInfo(contextID string, context interface{}) error {
 // RemoveContext the context reference from the store
 func (s *store) RemoveContext(contextID string) error {
 
-	if _, err := os.Stat(s.storebasePath + contextID); os.IsNotExist(err) {
+	folder := filepath.Join(s.storebasePath, contextID)
+	if _, err := os.Stat(folder); os.IsNotExist(err) {
 		return fmt.Errorf("Unknown ContextID %s", contextID)
 	}
 
-	return os.RemoveAll(s.storebasePath + contextID)
+	return os.RemoveAll(folder)
 
 }
 
