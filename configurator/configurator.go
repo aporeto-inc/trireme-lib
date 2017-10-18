@@ -408,7 +408,7 @@ func NewPKITriremeWithDockerMonitor(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	publicKeyAdder, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	publicKeyAdder, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, nil)
 	if err != nil {
 		return nil, nil, nil
 	}
