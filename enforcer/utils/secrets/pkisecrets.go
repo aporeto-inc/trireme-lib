@@ -23,6 +23,7 @@ type PKISecrets struct {
 
 // NewPKISecrets creates new secrets for PKI implementations
 func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) (*PKISecrets, error) {
+	zap.L().Debug("NewPKISecret CertCache: %+v ", zap.Any("certCache", certCache))
 	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid certificates")
@@ -60,6 +61,8 @@ func (p *PKISecrets) PublicKey() interface{} {
 func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert interface{}) (interface{}, error) {
 
 	// If we have a cache of certificates, just look there
+	zap.L().Debug("DecodingKey: CertCache: %+v ", zap.Any("p.CertificateCache", p.CertificateCache))
+
 	if p.CertificateCache != nil {
 		cert, ok := p.CertificateCache[server]
 

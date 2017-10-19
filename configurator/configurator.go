@@ -155,6 +155,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	if options.PKI {
+		zap.L().Debug("ConfiguratorPKI ")
 		pkiSecrets, err = secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, nil)
 		secretInstance = pkiSecrets
 		publicKeyAdder = pkiSecrets
