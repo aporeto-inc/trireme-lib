@@ -156,15 +156,15 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	if options.PKI {
-		//
 		if options.SmartToken != nil {
+
 			pkiSecrets, err = secrets.NewCompactPKI(options.KeyPEM, options.CertPEM, options.CaCertPEM, options.SmartToken)
 			if err != nil {
 				return nil, fmt.Errorf("Error Instantiating new Compact PKI: %s", err)
 			}
 		} else {
-			pkiTriremeSecret, err := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
-			if err != nil {
+			pkiTriremeSecret, err2 := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
+			if err2 != nil {
 				return nil, fmt.Errorf("Error Instantiating New PKI Secret: %s", err)
 			}
 			pkiSecrets = pkiTriremeSecret
