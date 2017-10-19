@@ -3,7 +3,6 @@
 package configurator
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"time"
 
@@ -700,7 +699,7 @@ func NewSecretsFromPSK(key []byte) secrets.Secrets {
 
 // NewSecretsFromPKI creates secrets from a PKI
 func NewSecretsFromPKI(keyPEM, certPEM, caCertPEM []byte) secrets.Secrets {
-	secrets, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, map[string]*ecdsa.PublicKey{})
+	secrets, err := secrets.NewPKISecrets(keyPEM, certPEM, caCertPEM, nil)
 	if err != nil {
 		return nil
 	}

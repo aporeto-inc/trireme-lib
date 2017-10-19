@@ -9,7 +9,6 @@ package remoteenforcer
 import "C"
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"os"
@@ -160,7 +159,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		switch payload.SecretType {
 		case secrets.PKIType:
 			// PKI params
-			s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
+			s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, nil)
 			if err != nil {
 				return fmt.Errorf("Failed to initialize secrets")
 			}
