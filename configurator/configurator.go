@@ -158,7 +158,9 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	if options.PKI {
 		if options.SmartToken != nil {
 
+			zap.L().Info("Initializing Trireme with Smart PKI Auth")
 			pkiSecrets, err = secrets.NewCompactPKI(options.KeyPEM, options.CertPEM, options.CaCertPEM, options.SmartToken)
+			zap.L().Info("Finished Initializing Trireme with PKI Auth")
 			if err != nil {
 				return nil, fmt.Errorf("Error Instantiating new Compact PKI: %s", err)
 			}
