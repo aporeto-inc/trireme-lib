@@ -116,8 +116,12 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+	zap.L().Debug("Stopping cgroup", zap.String("Cgroup", eventInfo.Cgroup), zap.String("contextID", contextID))
 	strtokens := strings.Split(contextID, "/")
 	contextID = strtokens[len(strtokens)-1]
+	if len(strtokens) == 1 && contextID == "trireme" {
+		return nil
+	}
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
@@ -128,7 +132,9 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-
+	zap.L().Debug("Destroying cgroup", zap.String("Cgroup", eventInfo.Cgroup))
+	strtokens := strings.Split(contextID, "/")
+	contextID = strtokens[len(strtokens)-1]
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",

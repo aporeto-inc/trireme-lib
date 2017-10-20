@@ -256,7 +256,6 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 // Delete will issue a delete command
 func (r *RequestProcessor) Delete(c *CLIRequest) error {
-
 	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
 		return fmt.Errorf("cgroup, service ID, or service name must be defined")
 	}
@@ -279,7 +278,6 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		EventType:   monitor.EventStop,
 		HostService: host,
 	}
-
 	// Handle the special case with the User ID monitor and deletes
 	if c.Cgroup != "" {
 		parts := strings.Split(c.Cgroup, "/")
