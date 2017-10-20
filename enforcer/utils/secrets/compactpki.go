@@ -31,11 +31,14 @@ func NewCompactPKI(keyPEM, certPEM, caPEM, txKey []byte) (*CompactPKI, error) {
 	if err != nil {
 		return nil, err
 	}
+	zap.L().Debug("Finished Load And Verify")
 
 	caKey, err := crypto.LoadCertificate(caPEM)
 	if err != nil {
 		return nil, err
 	}
+
+	zap.L().Debug("Finished LoadCertificates")
 
 	if len(txKey) == 0 {
 		return nil, fmt.Errorf("TransmitToken missing")
