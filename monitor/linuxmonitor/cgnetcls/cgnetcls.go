@@ -212,6 +212,17 @@ func mountCgroupController() {
 	}
 
 }
+func CgroupMemberCount(cgroupName string) int {
+	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupName))
+	if os.IsNotExist(err) {
+		return 0
+	}
+	data, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, "cgroup.procs"))
+	if err != nil {
+		return 0
+	}
+	return len(data)
+}
 
 // NewDockerCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewDockerCgroupNetController() Cgroupnetcls {

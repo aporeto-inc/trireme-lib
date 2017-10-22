@@ -2,6 +2,7 @@ package iptablesctrl
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"strings"
 
