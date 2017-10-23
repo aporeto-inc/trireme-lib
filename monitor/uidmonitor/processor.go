@@ -19,7 +19,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-// UidProcessor captures all the monitor processor information for a UIDLoginPU
+// UIDProcessor captures all the monitor processor information for a UIDLoginPU
 // It implements the MonitorProcessor interface of the rpc monitor
 type UIDProcessor struct {
 	collector         collector.EventCollector
@@ -41,7 +41,7 @@ type putoPidEntry struct {
 	publishedContextID string
 }
 
-//StoredContext -- struct is the structure of stored contextinfo for uidmonitor
+// StoredContext -- struct is the structure of stored contextinfo for uidmonitor
 type StoredContext struct {
 	MarkVal   string
 	EventInfo *rpcmonitor.EventInfo
@@ -83,7 +83,6 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	pids, err := s.puToPidEntry.Get(contextID)
 
 	if err != nil {
-		//runtimeInfo := &policy.PURuntime{}
 		runtimeInfo, err := s.metadataExtractor(eventInfo)
 		if err != nil {
 			return err
