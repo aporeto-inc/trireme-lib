@@ -24,7 +24,7 @@ const (
 	netChainPrefix   = chainPrefix + "Net-"
 	targetNetworkSet = "TargetNetSet"
 	//PuPortSet The prefix for portset names
-	PuPortSet                 = "PUPortSet-"
+	PuPortSet                 = "PUPort-"
 	ipTableSectionOutput      = "OUTPUT"
 	ipTableSectionInput       = "INPUT"
 	ipTableSectionPreRouting  = "PREROUTING"
@@ -105,8 +105,16 @@ func (i *Instance) chainName(contextID string, version int) (app, net string) {
 
 //PuPortSetName returns the name of the pu portset
 func PuPortSetName(contextID string, mark string) string {
+	hash := md5.New()
+	io.WriteString(hash, contextID)
+	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	if len(contextID) > 4 {
+		contextID = contextID[:4] + string(output[:4])
+	} else {
+		contextID = contextID + string(output[:4])
+	}
 
-	return (PuPortSet + contextID + "-" + mark)
+	return (PuPortSet + contextID + mark)
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit
