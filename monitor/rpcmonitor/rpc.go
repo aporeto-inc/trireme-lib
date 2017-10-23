@@ -77,7 +77,7 @@ func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor Monito
 		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
 	}
 
-	r.monitorServer.handles[puType] = map[monitor.Event]RPCEventHandler{}
+	r.monitorServer.handlers[puType] = map[monitor.Event]RPCEventHandler{}
 
 	r.monitorServer.addHandler(puType, monitor.EventStart, processor.Start)
 	r.monitorServer.addHandler(puType, monitor.EventStop, processor.Stop)
