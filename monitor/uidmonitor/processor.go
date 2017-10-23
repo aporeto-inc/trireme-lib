@@ -83,7 +83,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	pids, err := s.puToPidEntry.Get(contextID)
 
 	if err != nil {
-		runtimeInfo, err := s.metadataExtractor(eventInfo)
+		runtimeInfo, err = s.metadataExtractor(eventInfo)
 		if err != nil {
 			return err
 		}

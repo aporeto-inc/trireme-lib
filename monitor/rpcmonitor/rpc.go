@@ -159,11 +159,11 @@ type Server struct {
 
 // HandleEvent Gets called when clients generate events.
 func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
-
+	zap.L().Error("PRE eventInfo.PUID", zap.String("PUID", eventInfo.PUID))
 	if err := validateEvent(eventInfo); err != nil {
 		return err
 	}
-
+	zap.L().Error("POST eventInfo.PUID", zap.String("PUID", eventInfo.PUID))
 	if eventInfo.HostService && !s.root {
 		return fmt.Errorf("Operation Requires Root Access")
 	}
