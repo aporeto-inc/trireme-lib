@@ -173,7 +173,7 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 // GetAssignedMarkVal -- Gets the mark val assigned to the group
 func GetAssignedMarkVal(cgroupName string) string {
 	mark, _ := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
-	return string(mark)
+	return string(mark[:len(mark)-1])
 }
 
 //Deletebasepath removes the base aporeto directory which comes as a separate event when we are not managing any processes
