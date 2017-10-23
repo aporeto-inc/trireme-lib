@@ -237,7 +237,7 @@ func validateEvent(event *EventInfo) error {
 		if err != nil || pid < 0 {
 			return fmt.Errorf("Invalid PID - Must be a positive number")
 		}
-
+		zap.L().Debug("validateevent", zap.Int("PUTYPE", int(event.PUType)), zap.String("PUID", event.PUID), zap.String("PID", event.PID), zap.Bool("HostService", event.HostService))
 		if event.HostService {
 			if event.NetworkOnlyTraffic {
 				if event.Name == "" || event.Name == "default" {
@@ -248,6 +248,7 @@ func validateEvent(event *EventInfo) error {
 				event.Name = "DefaultServer"
 				event.PUID = "default"
 			}
+
 		} else {
 			if event.PUType != constants.UIDLoginPU {
 				event.PUID = event.PID

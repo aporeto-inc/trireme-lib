@@ -41,6 +41,7 @@ type putoPidEntry struct {
 	publishedContextID string
 }
 
+//StoredContext -- struct is the structure of stored contextinfo for uidmonitor
 type StoredContext struct {
 	MarkVal   string
 	EventInfo *rpcmonitor.EventInfo
@@ -130,13 +131,12 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			MarkVal:   runtimeInfo.Options().CgroupMark,
 		})
 
-	} else {
-		zap.L().Error("Adding to existing session", zap.String("contextID", contextID))
-		pids.(*putoPidEntry).pidlist[eventInfo.PID] = true
-		s.pidToPU.Add(eventInfo.PID, eventInfo.PUID)
-		err = s.processLinuxServiceStart(eventInfo, pids.(*putoPidEntry).Info)
-		return err
 	}
+	zap.L().Error("Adding to existing session", zap.String("contextID", contextID))
+	pids.(*putoPidEntry).pidlist[eventInfo.PID] = true
+	s.pidToPU.Add(eventInfo.PID, eventInfo.PUID)
+	err = s.processLinuxServiceStart(eventInfo, pids.(*putoPidEntry).Info)
+	return err
 
 }
 
@@ -212,7 +212,7 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		if len(ctx.(*putoPidEntry).pidlist) == 0 {
 			zap.L().Error("Removed context", zap.String("contextID", contextID))
 			s.puToPidEntry.Remove(contextID)
-			if err := s.contextStore.RemoveContext(contextID); err != nil {
+			if err = s.contextStore.RemoveContext(contextID); err != nil {
 				zap.L().Error("Failed to clean cache while destroying process",
 					zap.String("contextID", contextID),
 					zap.Error(err),
