@@ -249,7 +249,7 @@ func validateEvent(event *EventInfo) error {
 			}
 
 		} else {
-			if event.PUType != constants.UIDLoginPU {
+			if event.PUType != constants.UIDLoginPU || event.PUID == "" {
 				event.PUID = event.PID
 			}
 		}
