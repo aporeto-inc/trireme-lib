@@ -3,8 +3,6 @@ package uidmonitor
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"os/user"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,9 +19,9 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-// LinuxProcessor captures all the monitor processor information
+// UidProcessor captures all the monitor processor information for a UIDLoginPU
 // It implements the MonitorProcessor interface of the rpc monitor
-type UidProcessor struct {
+type UIDProcessor struct {
 	collector         collector.EventCollector
 	puHandler         monitor.ProcessingUnitsHandler
 	metadataExtractor rpcmonitor.RPCMetadataExtractor
@@ -48,10 +46,10 @@ type StoredContext struct {
 	EventInfo *rpcmonitor.EventInfo
 }
 
-// NewCustomLinuxProcessor initializes a processor with a custom path
-func NewCustomUidProcessor(storePath string, collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UidProcessor {
+// NewCustomUIDProcessor initializes a processor with a custom path
+func NewCustomUIDProcessor(storePath string, collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UIDProcessor {
 
-	return &UidProcessor{
+	return &UIDProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
@@ -65,19 +63,19 @@ func NewCustomUidProcessor(storePath string, collector collector.EventCollector,
 	}
 }
 
-// NewLinuxProcessor creates a default Linux processor with the standard trireme path
-func NewUidProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UidProcessor {
-	return NewCustomUidProcessor("/var/run/trireme/linux", collector, puHandler, metadataExtractor, releasePath)
+// NewUIDProcessor creates a default Linux processor with the standard trireme path
+func NewUIDProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UIDProcessor {
+	return NewCustomUIDProcessor("/var/run/trireme/linux", collector, puHandler, metadataExtractor, releasePath)
 }
 
 // Create handles create events
-func (s *UidProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 
 	return s.puHandler.HandlePUEvent(eventInfo.PUID, monitor.EventCreate)
 }
 
 // Start handles start events
-func (s *UidProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	s.Lock()
 	defer s.Unlock()
 	contextID := eventInfo.PUID
@@ -85,7 +83,8 @@ func (s *UidProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	if err != nil {
 		zap.L().Error("Creating a new uidsesion", zap.String("ContextID", contextID), zap.String("PID", eventInfo.PID))
-		runtimeInfo, err := s.metadataExtractor(eventInfo)
+		runtimeInfo := &policy.PURuntime{}
+		runtimeInfo, err = s.metadataExtractor(eventInfo)
 		if err != nil {
 			return err
 		}
@@ -136,30 +135,13 @@ func (s *UidProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		pids.(*putoPidEntry).pidlist[eventInfo.PID] = true
 		s.pidToPU.Add(eventInfo.PID, eventInfo.PUID)
 		err = s.processLinuxServiceStart(eventInfo, pids.(*putoPidEntry).Info)
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	}
 
-}
-
-func (s *UidProcessor) getContextIDFromPID(pid string) (string, error) {
-	data, _ := ioutil.ReadFile("/proc/" + pid + "/status")
-	lines := strings.Split(string(data), "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "Uid:") {
-			uids := strings.Split(strings.Split(line, ":")[1], "\t")
-			zap.L().Error("Looking up uid ", zap.String("UID", uids[1]))
-			user, _ := user.LookupId(uids[1])
-			return "/" + user.Username, nil
-		}
-	}
-	return "", fmt.Errorf("Bad Format for pid")
 }
 
 // Stop handles a stop event
-func (s *UidProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if eventInfo.PUID == "/trireme" {
 		return nil
 	}
@@ -196,7 +178,7 @@ func (s *UidProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Destroy handles a destroy event
-func (s *UidProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	if eventInfo.PUID == "/trireme" {
 		return nil
@@ -263,7 +245,7 @@ func (s *UidProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Pause handles a pause event
-func (s *UidProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
@@ -274,7 +256,7 @@ func (s *UidProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (s *UidProcessor) ReSync(e *rpcmonitor.EventInfo) error {
+func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -339,7 +321,7 @@ func (s *UidProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 }
 
 // generateContextID creates the contextID from the event information
-func (s *UidProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
+func (s *UIDProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
 
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
@@ -352,7 +334,7 @@ func (s *UidProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (strin
 	return contextID, nil
 }
 
-func (s *UidProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, runtimeInfo *policy.PURuntime) error {
+func (s *UIDProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, runtimeInfo *policy.PURuntime) error {
 	// list, err := cgnetcls.ListCgroupProcesses(event.PUID)
 	// if err == nil {
 	// 	//cgroup exists and pid might be a member

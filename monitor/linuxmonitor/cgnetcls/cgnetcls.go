@@ -218,6 +218,8 @@ func mountCgroupController() {
 	}
 
 }
+
+// CgroupMemberCount -- Gives the cound of the number of processes in a cgroup
 func CgroupMemberCount(cgroupName string) int {
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupName))
 	if os.IsNotExist(err) {
