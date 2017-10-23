@@ -167,6 +167,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 	if eventInfo.HostService && !s.root {
 		return fmt.Errorf("Operation Requires Root Access")
 	}
+	zap.L().Error("EVENTINFO.PUID", zap.String("PUID", eventInfo.PUID))
 	strtokens := strings.Split(eventInfo.PUID, "/")
 	if _, ferr := os.Stat("/var/run/trireme/linux" + strtokens[len(strtokens)-1]); os.IsNotExist(ferr) {
 		eventInfo.PUType = constants.UIDLoginPU
