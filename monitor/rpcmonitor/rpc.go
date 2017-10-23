@@ -223,7 +223,8 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 }
 
 func validateEvent(event *EventInfo) error {
-
+	zap.L().Error("EventType", zap.String("Type", string(event.EventType)))
+	zap.L().Error("validateevent", zap.Int("PUTYPE", int(event.PUType)), zap.String("PUID", event.PUID), zap.String("PID", event.PID), zap.Bool("HostService", event.HostService))
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
 		if len(event.Name) > 64 {
 			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 32 characters")
@@ -237,7 +238,7 @@ func validateEvent(event *EventInfo) error {
 		if err != nil || pid < 0 {
 			return fmt.Errorf("Invalid PID - Must be a positive number")
 		}
-		zap.L().Debug("validateevent", zap.Int("PUTYPE", int(event.PUType)), zap.String("PUID", event.PUID), zap.String("PID", event.PID), zap.Bool("HostService", event.HostService))
+
 		if event.HostService {
 			if event.NetworkOnlyTraffic {
 				if event.Name == "" || event.Name == "default" {
