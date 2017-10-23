@@ -81,7 +81,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	defer s.Unlock()
 	contextID := eventInfo.PUID
 	pids, err := s.puToPidEntry.Get(contextID)
-
+	var runtimeInfo *policy.PURuntime
 	if err != nil {
 		runtimeInfo, err = s.metadataExtractor(eventInfo)
 		if err != nil {
