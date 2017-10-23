@@ -167,7 +167,6 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 	if eventInfo.HostService && !s.root {
 		return fmt.Errorf("Operation Requires Root Access")
 	}
-	zap.L().Error("EVENTINFO.PUID", zap.String("PUID", eventInfo.PUID))
 	strtokens := strings.Split(eventInfo.PUID, "/")
 	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens[len(strtokens)-1]); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
@@ -223,8 +222,7 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 }
 
 func validateEvent(event *EventInfo) error {
-	zap.L().Error("EventType", zap.String("Type", string(event.EventType)))
-	zap.L().Error("validateevent", zap.Int("PUTYPE", int(event.PUType)), zap.String("PUID", event.PUID), zap.String("PID", event.PID), zap.Bool("HostService", event.HostService))
+
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
 		if len(event.Name) > 64 {
 			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 32 characters")
