@@ -44,6 +44,11 @@ type putoPidEntry struct {
 	publishedContextID string
 }
 
+type StoredContext struct {
+	MarkVal   string
+	EventInfo *rpcmonitor.EventInfo
+}
+
 // NewCustomLinuxProcessor initializes a processor with a custom path
 func NewCustomLinuxProcessor(storePath string, collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
 
@@ -125,7 +130,10 @@ func (s *LinuxProcessor) ProcessUIDLoginStart(eventInfo *rpcmonitor.EventInfo) e
 		s.pidToPU.Add(eventInfo.PID, contextID)
 		// Store the state in the context store for future access
 		zap.L().Error("ContextID", zap.String("eventInfo.PID", eventInfo.PID), zap.String("eventInfo.OUID", contextID))
-		return s.contextStore.StoreContext(contextID, eventInfo)
+		return s.contextStore.StoreContext(contextID, &StoredContext{
+			EventInfo: eventInfo,
+			MarkVal:   runtimeInfo.Options().CgroupMark,
+		})
 
 	} else {
 		zap.L().Error("Adding to existing session", zap.String("contextID", contextID))
@@ -192,7 +200,10 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	// Store the state in the context store for future access
 	zap.L().Error("ContextID", zap.String("context", contextID), zap.String("eventInfo.Name", eventInfo.Name))
-	return s.contextStore.StoreContext(contextID, eventInfo)
+	return s.contextStore.StoreContext(contextID, &StoredContext{
+		MarkVal:   runtimeInfo.Options().CgroupMark,
+		EventInfo: eventInfo,
+	})
 }
 func (s *LinuxProcessor) getContextIDFromPID(pid string) (string, error) {
 	data, _ := ioutil.ReadFile("/proc/" + pid + "/status")
@@ -336,7 +347,7 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
-
+	marktoPID := map[string][]string{}
 	defer func() {
 		if len(deleted) > 0 {
 			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted, ",")))
@@ -357,12 +368,14 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 			break
 		}
 
-		eventInfo := rpcmonitor.EventInfo{}
-		if err := s.contextStore.GetContextInfo("/"+contextID, &eventInfo); err != nil {
+		//eventInfo := rpcmonitor.EventInfo{}
+		storedPU := &StoredContext{}
+
+		if err := s.contextStore.GetContextInfo("/"+contextID, &storedPU); err != nil {
 			continue
 		}
-
-		if !eventInfo.HostService {
+		eventInfo := storedPU.EventInfo
+		if !eventInfo.HostService && eventInfo.PUType != constants.UIDLoginPU {
 			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
 			if err != nil {
 				zap.L().Debug("Removing Context for empty cgroup", zap.String("CONTEXTID", eventInfo.PUID))
@@ -393,10 +406,28 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 				continue
 			}
 		}
+		if constants.UIDLoginPU == eventInfo.PUType {
+			//Build a map of all pu to markval
 
+			//Let populate
+			var markval string
+			processlist := []string{}
+			cgroupList := cgnetcls.GetCgroupList()
+			for _, cgroup := range cgroupList {
+				markval = cgnetcls.GetAssignedMarkVal(cgroup)
+				processlist, _ = cgnetcls.ListCgroupProcesses(cgroup)
+
+			}
+			if val, ok := marktoPID[markval]; !ok {
+				marktoPID[markval] = []string{markval}
+			} else {
+				marktoPID[markval] = append(marktoPID[markval], processlist...)
+			}
+
+		}
 		reacquired = append(reacquired, eventInfo.PUID)
 
-		if err := s.Start(&eventInfo); err != nil {
+		if err := s.Start(eventInfo); err != nil {
 			zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
 			return fmt.Errorf("error in processing existing data: %s", err.Error())
 		}
