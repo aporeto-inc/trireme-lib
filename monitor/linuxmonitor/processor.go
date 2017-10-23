@@ -118,6 +118,7 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 	strtokens := strings.Split(contextID, "/")
 	contextID = strtokens[len(strtokens)-1]
+	zap.L().Error("Stopping", zap.String("contextID", contextID))
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
@@ -128,7 +129,8 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-
+	strtokens := strings.Split(contextID, "/")
+	contextID = strtokens[len(strtokens)-1]
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",

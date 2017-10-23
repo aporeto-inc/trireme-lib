@@ -169,7 +169,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 	}
 	zap.L().Error("EVENTINFO.PUID", zap.String("PUID", eventInfo.PUID))
 	strtokens := strings.Split(eventInfo.PUID, "/")
-	if _, ferr := os.Stat("/var/run/trireme/linux" + strtokens[len(strtokens)-1]); os.IsNotExist(ferr) {
+	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens[len(strtokens)-1]); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
 

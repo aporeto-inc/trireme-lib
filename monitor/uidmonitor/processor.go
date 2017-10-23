@@ -84,8 +84,8 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	if err != nil {
 		zap.L().Error("Creating a new uidsesion", zap.String("ContextID", contextID), zap.String("PID", eventInfo.PID))
-		runtimeInfo := &policy.PURuntime{}
-		runtimeInfo, err = s.metadataExtractor(eventInfo)
+		//runtimeInfo := &policy.PURuntime{}
+		runtimeInfo, err := s.metadataExtractor(eventInfo)
 		if err != nil {
 			return err
 		}
