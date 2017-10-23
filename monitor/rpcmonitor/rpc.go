@@ -77,7 +77,7 @@ func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor Monito
 		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
 	}
 
-	r.monitorServer.handlers[puType] = map[monitor.Event]RPCEventHandler{}
+	r.monitorServer.handles[puType] = map[monitor.Event]RPCEventHandler{}
 
 	r.monitorServer.addHandler(puType, monitor.EventStart, processor.Start)
 	r.monitorServer.addHandler(puType, monitor.EventStop, processor.Stop)
@@ -236,7 +236,7 @@ func validateEvent(event *EventInfo) error {
 		if err != nil || pid < 0 {
 			return fmt.Errorf("Invalid PID - Must be a positive number")
 		}
-
+		zap.L().Error("HOSTService", zap.Bool("hostservice", event.HostService))
 		if event.HostService {
 			if event.NetworkOnlyTraffic {
 				if event.Name == "" || event.Name == "default" {
@@ -250,6 +250,10 @@ func validateEvent(event *EventInfo) error {
 
 		} else {
 			if event.PUType != constants.UIDLoginPU || event.PUID == "" {
+				event.PUID = event.PID
+			}
+
+			if event.PUID == "" && event.EventType != monitor.EventStart && monitor.EventStop != event.EventType {
 				event.PUID = event.PID
 			}
 		}
