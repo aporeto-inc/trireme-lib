@@ -95,7 +95,6 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 		defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
-		zap.L().Error("Starting ", zap.String("contextID", contextID), zap.String("Publishing", publishedContextID))
 		if perr := s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStart); perr != nil {
 			zap.L().Error("Failed to activate process", zap.Error(perr))
 			return perr
@@ -123,14 +122,12 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		s.puToPidEntry.Add(contextID, entry)
 		s.pidToPU.Add(eventInfo.PID, contextID)
 		// Store the state in the context store for future access
-		zap.L().Error("ContextID", zap.String("eventInfo.PID", eventInfo.PID), zap.String("eventInfo.OUID", contextID))
 		return s.contextStore.StoreContext(contextID, &StoredContext{
 			EventInfo: eventInfo,
 			MarkVal:   runtimeInfo.Options().CgroupMark,
 		})
 
 	}
-	zap.L().Error("Adding to existing session", zap.String("contextID", contextID))
 	pids.(*putoPidEntry).pidlist[eventInfo.PID] = true
 	s.pidToPU.Add(eventInfo.PID, eventInfo.PUID)
 	err = s.processLinuxServiceStart(eventInfo, pids.(*putoPidEntry).Info)
@@ -150,13 +147,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 	strtokens := strings.Split(contextID, "/")
 	contextID = "/" + strtokens[len(strtokens)-1]
-	zap.L().Error("UID STOP EventInfo", zap.String("EventInfo.PUID", eventInfo.PUID),
-		zap.String("EventInfo.PID", eventInfo.PID),
-		zap.String("EventType", string(eventInfo.EventType)),
-		zap.Bool("HostService", eventInfo.HostService),
-		zap.String("CGROUP", eventInfo.Cgroup),
-		zap.String("contextID", contextID),
-	)
+
 	s.Lock()
 	defer s.Unlock()
 	stoppedpid := strtokens[len(strtokens)-1]
@@ -165,11 +156,9 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	var publishedContextID string
-	zap.L().Error("167", zap.String("contextID", contextID))
 	if pidlist, err := s.puToPidEntry.Get(contextID); err == nil {
 		publishedContextID = pidlist.(*putoPidEntry).publishedContextID
 		if len(pidlist.(*putoPidEntry).pidlist) > 1 {
-			zap.L().Error("Length of PIDLIST", zap.Int("Length", len(pidlist.(*putoPidEntry).pidlist)))
 			return nil
 		}
 	}
@@ -178,7 +167,6 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	hperr := s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop)
-	zap.L().Error("Stopped contextID ", zap.String("contextID", contextID), zap.String("PID", stoppedpid))
 	return hperr
 }
 
@@ -190,7 +178,6 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	}
 	cgroupPath := strings.Split(eventInfo.PUID, "/")[2]
-	zap.L().Error("Called Destroy", zap.String("contextID", eventInfo.PUID), zap.String("PID", cgroupPath))
 	var puid string
 	s.Lock()
 	defer s.Unlock()
@@ -205,7 +192,6 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	strtokens := strings.Split(contextID, "/")
 	contextID = "/" + strtokens[len(strtokens)-1]
 
-	zap.L().Error("Destroying PU", zap.String("contextID", contextID), zap.String("PID", cgroupPath))
 	ctx, err := s.puToPidEntry.Get(contextID)
 	var publishedContextID string
 
@@ -215,7 +201,6 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		delete(ctx.(*putoPidEntry).pidlist, cgroupPath)
 
 		if len(ctx.(*putoPidEntry).pidlist) == 0 {
-			zap.L().Error("Removed context", zap.String("contextID", contextID))
 			s.puToPidEntry.Remove(contextID)
 			if err = s.contextStore.RemoveContext(contextID); err != nil {
 				zap.L().Error("Failed to clean cache while destroying process",
@@ -293,9 +278,7 @@ func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 			marktoPID[markval] = append(list, pidlist...)
 		}
 	}
-	for k, v := range marktoPID {
-		zap.L().Error("Context ID", zap.String("Key", k), zap.String("PIDS", strings.Join(v, ",")))
-	}
+
 	for {
 		contextID := <-walker
 		if contextID == "" {
