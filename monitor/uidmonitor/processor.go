@@ -35,6 +35,10 @@ type UIDProcessor struct {
 	sync.Mutex
 }
 
+const (
+	triremeBaseCgroup = "/trireme"
+)
+
 type putoPidEntry struct {
 	pidlist            map[string]bool
 	Info               *policy.PURuntime
@@ -148,7 +152,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-	if contextID == "/trireme" {
+	if contextID == triremeBaseCgroup {
 		return nil
 	}
 	// strtokens := strings.Split(contextID, "/")
@@ -167,7 +171,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 			return nil
 		}
 	}
-	if contextID == "/trireme" {
+	if contextID == triremeBaseCgroup {
 		return nil
 	}
 
@@ -178,7 +182,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 // Destroy handles a destroy event
 func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
-	if eventInfo.PUID == "/trireme" {
+	if eventInfo.PUID == triremeBaseCgroup {
 		return nil
 
 	}
