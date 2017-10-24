@@ -140,7 +140,7 @@ func TestHandleEvent(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
+	dummyPUPath := "/var/run/trireme/linux/1234"
 	Convey("Given an RPC monitor", t, func() {
 		contextlist := make(chan string, 2)
 		contextlist <- "test1"
@@ -190,7 +190,7 @@ func TestHandleEvent(t *testing.T) {
 				PUID:      "/trireme/1234",
 				PID:       "123",
 			}
-			ioutil.WriteFile("/var/run/trireme/linux/1234", []byte{}, 0644)
+			ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get no error", func() {
 

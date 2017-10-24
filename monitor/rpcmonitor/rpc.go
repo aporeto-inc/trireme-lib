@@ -35,6 +35,10 @@ type RPCMonitor struct {
 	root          bool
 }
 
+const (
+	maxEventNameLength = 32
+)
+
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
 func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root bool) (*RPCMonitor, error) {
 
@@ -222,7 +226,7 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 func validateEvent(event *EventInfo) error {
 
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
-		if len(event.Name) > 32 {
+		if len(event.Name) > maxEventNameLength {
 			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 32 characters")
 		}
 

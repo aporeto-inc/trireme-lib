@@ -39,7 +39,8 @@ const (
 	triremeBaseCgroup = "/trireme"
 )
 
-type putoPidEntry struct {
+//puToPidEntry -- represents an entry to puToPidMap
+type puToPidEntry struct {
 	pidlist            map[string]bool
 	Info               *policy.PURuntime
 	publishedContextID string
@@ -126,7 +127,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			Tags:      runtimeInfo.Tags(),
 			Event:     collector.ContainerStart,
 		})
-		entry := &putoPidEntry{
+		entry := &puToPidEntry{
 			Info:               runtimeInfo,
 			publishedContextID: publishedContextID,
 			pidlist:            map[string]bool{},
@@ -141,9 +142,9 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		})
 
 	}
-	pids.(*putoPidEntry).pidlist[eventInfo.PID] = true
+	pids.(*puToPidEntry).pidlist[eventInfo.PID] = true
 	s.pidToPU.Add(eventInfo.PID, eventInfo.PUID)
-	err = s.processLinuxServiceStart(eventInfo, pids.(*putoPidEntry).Info)
+	err = s.processLinuxServiceStart(eventInfo, pids.(*puToPidEntry).Info)
 	return err
 
 }
@@ -171,8 +172,8 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 	var publishedContextID string
 	if pidlist, err := s.putoPidMap.Get(contextID); err == nil {
-		publishedContextID = pidlist.(*putoPidEntry).publishedContextID
-		if len(pidlist.(*putoPidEntry).pidlist) > 1 {
+		publishedContextID = pidlist.(*puToPidEntry).publishedContextID
+		if len(pidlist.(*puToPidEntry).pidlist) > 1 {
 			return nil
 		}
 	}
@@ -208,7 +209,7 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	var publishedContextID string
 
 	if err == nil {
-		ctxpidEntry, ok := ctx.(*putoPidEntry)
+		ctxpidEntry, ok := ctx.(*puToPidEntry)
 		if !ok {
 			return fmt.Errorf("Unable to cast to pupidEntry !! did not destroy %s", contextID)
 		}
