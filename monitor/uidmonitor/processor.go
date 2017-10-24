@@ -164,7 +164,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	var publishedContextID string
-
+	zap.L().Error("167", zap.String("contextID", contextID))
 	if pidlist, err := s.puToPidEntry.Get(contextID); err == nil {
 		publishedContextID = pidlist.(*putoPidEntry).publishedContextID
 		if len(pidlist.(*putoPidEntry).pidlist) > 1 {
