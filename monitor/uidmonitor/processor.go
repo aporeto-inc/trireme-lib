@@ -129,6 +129,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			pidlist:            map[string]bool{},
 		}
 		entry.pidlist[eventInfo.PID] = true
+		zap.L().Error("ContextID to puToPidEntry", zap.String("contextID", contextID))
 		s.puToPidEntry.Add(contextID, entry)
 		s.pidToPU.Add(eventInfo.PID, contextID)
 		// Store the state in the context store for future access
@@ -152,6 +153,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+
 	if contextID == triremeBaseCgroup {
 		return nil
 	}
@@ -167,10 +169,12 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	var publishedContextID string
 	if pidlist, err := s.puToPidEntry.Get(contextID); err == nil {
 		publishedContextID = pidlist.(*putoPidEntry).publishedContextID
+		zap.L().Error("ContextID to puToPidEntry", zap.String("contextID", publishedContextID))
 		if len(pidlist.(*putoPidEntry).pidlist) > 1 {
 			return nil
 		}
 	}
+
 	if contextID == triremeBaseCgroup {
 		return nil
 	}
@@ -326,7 +330,7 @@ func (s *UIDProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (strin
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}
-	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
+	contextID = "/" + contextID[strings.LastIndex(contextID, "/")+1:]
 	return contextID, nil
 }
 
