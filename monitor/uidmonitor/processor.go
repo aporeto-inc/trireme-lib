@@ -113,7 +113,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		}
 
 		if err = s.processLinuxServiceStart(eventInfo, runtimeInfo); err != nil {
-			zap.L().Error("ProcessLInuxServiceStart", zap.Error(err))
+			zap.L().Error("processLinuxServiceStart", zap.Error(err))
 			return err
 		}
 
@@ -129,7 +129,6 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			pidlist:            map[string]bool{},
 		}
 		entry.pidlist[eventInfo.PID] = true
-		zap.L().Error("ContextID to puToPidEntry", zap.String("contextID", contextID))
 		s.puToPidEntry.Add(contextID, entry)
 		s.pidToPU.Add(eventInfo.PID, contextID)
 		// Store the state in the context store for future access
@@ -162,21 +161,17 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	s.Lock()
 	defer s.Unlock()
-	if puid, err := s.pidToPU.Get(contextID); err == nil {
-		eventInfo.PUID = puid.(string)
+	//ignore the leading / here this is a special case for stop where i need to do a reverse lookup
+	stoppedpid := strings.TrimLeft(contextID, "/")
+	if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
+		contextID = puid.(string)
 	}
-
 	var publishedContextID string
 	if pidlist, err := s.puToPidEntry.Get(contextID); err == nil {
 		publishedContextID = pidlist.(*putoPidEntry).publishedContextID
-		zap.L().Error("ContextID to puToPidEntry", zap.String("contextID", publishedContextID))
 		if len(pidlist.(*putoPidEntry).pidlist) > 1 {
 			return nil
 		}
-	}
-
-	if contextID == triremeBaseCgroup {
-		return nil
 	}
 
 	return s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop)
@@ -197,9 +192,10 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-	cgroupPath := contextID[:strings.LastIndex(contextID, "/")+1]
-	if puid, err := s.pidToPU.Get(contextID[:strings.LastIndex(contextID, "/")+1]); err == nil {
-		eventInfo.PUID = puid.(string)
+	// := contextID[:strings.LastIndex(contextID, "/")+1]
+	stoppedpid := strings.TrimLeft(contextID, "/")
+	if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
+		contextID = puid.(string)
 	}
 
 	// strtokens := strings.Split(contextID, "/")
@@ -214,7 +210,7 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 			return fmt.Errorf("Unable to cast to pupidEntry !! did not destroy %s", contextID)
 		}
 		publishedContextID = ctxpidEntry.publishedContextID
-		delete(ctxpidEntry.pidlist, cgroupPath)
+		delete(ctxpidEntry.pidlist, stoppedpid)
 
 		if len(ctxpidEntry.pidlist) == 0 {
 			s.puToPidEntry.Remove(contextID)
@@ -225,10 +221,10 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 				)
 			}
 
-			s.netcls.DeleteCgroup(cgroupPath)
+			s.netcls.DeleteCgroup(stoppedpid)
 
 		} else {
-			s.netcls.DeleteCgroup(cgroupPath)
+			s.netcls.DeleteCgroup(stoppedpid)
 			return nil
 		}
 		//s.Unlock()

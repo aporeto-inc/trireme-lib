@@ -174,7 +174,7 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 func GetAssignedMarkVal(cgroupName string) string {
 	mark, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
 	zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))
-	if err != nil {
+	if err != nil || len(mark) < 1 {
 		return ""
 	}
 	return string(mark[:len(mark)-1])

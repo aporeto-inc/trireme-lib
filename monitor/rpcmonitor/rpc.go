@@ -166,6 +166,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		return fmt.Errorf("Operation Requires Root Access")
 	}
 	strtokens := eventInfo.PUID[:strings.LastIndex(eventInfo.PUID, "/")+1]
+	zap.L().Error("File Check", zap.String("Path", "/var/run/trireme/linux/"+strtokens))
 	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
@@ -233,7 +234,7 @@ func validateEvent(event *EventInfo) error {
 		if err != nil || pid < 0 {
 			return fmt.Errorf("Invalid PID - Must be a positive number")
 		}
-		zap.L().Error("HOSTService", zap.Bool("hostservice", event.HostService))
+
 		if event.HostService {
 			if event.NetworkOnlyTraffic {
 				if event.Name == "" || event.Name == "default" {

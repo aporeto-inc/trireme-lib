@@ -65,12 +65,13 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	// Validate the PUID format
+
 	if !s.regStart.Match([]byte(eventInfo.PUID)) {
 		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
 	}
 
 	contextID := eventInfo.PUID
-
+	zap.L().Error("Starting Linux Monitor", zap.String("LM", contextID))
 	// Extract the metadata
 	runtimeInfo, err := s.metadataExtractor(eventInfo)
 	if err != nil {
@@ -113,11 +114,15 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
+	zap.L().Error("Stopping Linux Monitor", zap.String("LM", contextID))
 	if err != nil {
 		return err
 	}
-	strtokens := strings.Split(contextID, "/")
-	contextID = strtokens[len(strtokens)-1]
+	if contextID == "/trireme" {
+		return nil
+	}
+	// strtokens := strings.Split(contextID, "/")
+	// contextID = strtokens[len(strtokens)-1]
 	zap.L().Error("Stopping", zap.String("contextID", contextID))
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
@@ -129,8 +134,14 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
-	strtokens := strings.Split(contextID, "/")
-	contextID = strtokens[len(strtokens)-1]
+	if contextID == "/trireme" {
+		contextID = strings.TrimLeft(contextID, "/")
+		s.netcls.Deletebasepath(contextID)
+		return nil
+	}
+	//strtokens := strings.Split(contextID, "/")
+	//contextID = strtokens[len(strtokens)-1]
+	contextID = contextID[:strings.LastIndex(contextID, "/")+1]
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",
@@ -144,8 +155,6 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 			return fmt.Errorf("Failed to  write to net_cls.classid file for new cgroup, error %s", err.Error())
 		}
 	}
-
-	s.netcls.Deletebasepath(contextID)
 
 	//let us remove the cgroup files now
 	if err := s.netcls.DeleteCgroup(contextID); err != nil {
