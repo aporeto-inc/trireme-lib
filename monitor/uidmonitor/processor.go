@@ -143,6 +143,12 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if eventInfo.PUID == "/trireme" {
 		return nil
 	}
+	contextID, err := s.generateContextID(eventInfo)
+	if err != nil {
+		return err
+	}
+	strtokens := strings.Split(contextID, "/")
+	contextID = "/" + strtokens[len(strtokens)-1]
 	zap.L().Error("EventInfo.PUID", zap.String("PUID", eventInfo.PUID))
 	s.Lock()
 	defer s.Unlock()
@@ -151,12 +157,6 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 		eventInfo.PUID = puid.(string)
 	}
 
-	contextID, err := s.generateContextID(eventInfo)
-	if err != nil {
-		return err
-	}
-	strtokens := strings.Split(contextID, "/")
-	contextID = "/" + strtokens[len(strtokens)-1]
 	var publishedContextID string
 
 	if pidlist, err := s.puToPidEntry.Get(contextID); err == nil {
