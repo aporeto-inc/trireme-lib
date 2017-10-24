@@ -71,7 +71,6 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	contextID := eventInfo.PUID
-	zap.L().Error("Starting Linux Monitor", zap.String("LM", contextID))
 	// Extract the metadata
 	runtimeInfo, err := s.metadataExtractor(eventInfo)
 	if err != nil {
@@ -114,16 +113,14 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
-	zap.L().Error("Stopping Linux Monitor", zap.String("LM", contextID))
 	if err != nil {
 		return err
 	}
 	if contextID == "/trireme" {
 		return nil
 	}
-	// strtokens := strings.Split(contextID, "/")
-	// contextID = strtokens[len(strtokens)-1]
-	zap.L().Error("Stopping", zap.String("contextID", contextID))
+
+	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
@@ -139,9 +136,8 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		s.netcls.Deletebasepath(contextID)
 		return nil
 	}
-	//strtokens := strings.Split(contextID, "/")
-	//contextID = strtokens[len(strtokens)-1]
-	contextID = contextID[:strings.LastIndex(contextID, "/")+1]
+
+	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",
@@ -270,7 +266,7 @@ func (s *LinuxProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (str
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}
-
+	//contextID = contextID[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	return contextID, nil
 }
 

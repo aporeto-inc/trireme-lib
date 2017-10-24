@@ -165,8 +165,8 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 	if eventInfo.HostService && !s.root {
 		return fmt.Errorf("Operation Requires Root Access")
 	}
-	strtokens := eventInfo.PUID[:strings.LastIndex(eventInfo.PUID, "/")+1]
-	zap.L().Error("File Check", zap.String("Path", "/var/run/trireme/linux/"+strtokens))
+
+	strtokens := eventInfo.PUID[strings.LastIndex(eventInfo.PUID, "/")+1:]
 	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
@@ -251,7 +251,7 @@ func validateEvent(event *EventInfo) error {
 				event.PUID = event.PID
 			}
 
-			if event.PUID == "" && event.EventType != monitor.EventStart && monitor.EventStop != event.EventType {
+			if event.EventType == monitor.EventDestroy {
 				event.PUID = event.PID
 			}
 		}

@@ -30,7 +30,7 @@ type UIDProcessor struct {
 	regStart          *regexp.Regexp
 	regStop           *regexp.Regexp
 	storePath         string
-	puToPidEntry      *cache.Cache
+	putoPidMap        *cache.Cache
 	pidToPU           *cache.Cache
 	sync.Mutex
 }
@@ -57,7 +57,10 @@ func NewCustomUIDProcessor(storePath string,
 	puHandler monitor.ProcessingUnitsHandler,
 	metadataExtractor rpcmonitor.RPCMetadataExtractor,
 	releasePath string) *UIDProcessor {
-
+	if puHandler == nil {
+		zap.L().Error("PuHandler cannot be nil")
+		return nil
+	}
 	return &UIDProcessor{
 		collector:         collector,
 		puHandler:         puHandler,
@@ -67,7 +70,7 @@ func NewCustomUIDProcessor(storePath string,
 		storePath:         storePath,
 		regStart:          regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$"),
 		regStop:           regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$"),
-		puToPidEntry:      cache.NewCache(),
+		putoPidMap:        cache.NewCache(),
 		pidToPU:           cache.NewCache(),
 	}
 }
@@ -91,7 +94,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	s.Lock()
 	defer s.Unlock()
 	contextID := eventInfo.PUID
-	pids, err := s.puToPidEntry.Get(contextID)
+	pids, err := s.putoPidMap.Get(contextID)
 	var runtimeInfo *policy.PURuntime
 	if err != nil {
 		runtimeInfo, err = s.metadataExtractor(eventInfo)
@@ -129,7 +132,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			pidlist:            map[string]bool{},
 		}
 		entry.pidlist[eventInfo.PID] = true
-		s.puToPidEntry.Add(contextID, entry)
+		s.putoPidMap.Add(contextID, entry)
 		s.pidToPU.Add(eventInfo.PID, contextID)
 		// Store the state in the context store for future access
 		return s.contextStore.StoreContext(contextID, &StoredContext{
@@ -167,7 +170,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 		contextID = puid.(string)
 	}
 	var publishedContextID string
-	if pidlist, err := s.puToPidEntry.Get(contextID); err == nil {
+	if pidlist, err := s.putoPidMap.Get(contextID); err == nil {
 		publishedContextID = pidlist.(*putoPidEntry).publishedContextID
 		if len(pidlist.(*putoPidEntry).pidlist) > 1 {
 			return nil
@@ -201,7 +204,7 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	// strtokens := strings.Split(contextID, "/")
 	// contextID = "/" + strtokens[len(strtokens)-1]
 
-	ctx, err := s.puToPidEntry.Get(contextID)
+	ctx, err := s.putoPidMap.Get(contextID)
 	var publishedContextID string
 
 	if err == nil {
@@ -213,7 +216,7 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		delete(ctxpidEntry.pidlist, stoppedpid)
 
 		if len(ctxpidEntry.pidlist) == 0 {
-			s.puToPidEntry.Remove(contextID)
+			s.putoPidMap.Remove(contextID)
 			if err = s.contextStore.RemoveContext(contextID); err != nil {
 				zap.L().Error("Failed to clean cache while destroying process",
 					zap.String("contextID", contextID),

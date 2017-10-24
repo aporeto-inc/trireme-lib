@@ -175,6 +175,7 @@ func GetAssignedMarkVal(cgroupName string) string {
 	mark, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
 	zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))
 	if err != nil || len(mark) < 1 {
+		zap.L().Error("Mark was never assigned for this group")
 		return ""
 	}
 	return string(mark[:len(mark)-1])
