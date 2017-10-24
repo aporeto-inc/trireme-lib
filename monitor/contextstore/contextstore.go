@@ -126,7 +126,7 @@ func (s *store) WalkStore() (chan string, error) {
 			contextChannel <- file.Name()
 			i++
 		}
-		zap.L().Info("Processed ", zap.Int("Number of processes walked", i))
+
 		contextChannel <- ""
 		close(contextChannel)
 	}()
