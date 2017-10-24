@@ -170,9 +170,13 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 	return nil
 }
 
-// GetAssignedMarkVal -- Gets the mark val assigned to the group
+// GetAssignedMarkVal -- returns the mark val assigned to the group
 func GetAssignedMarkVal(cgroupName string) string {
-	mark, _ := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
+	mark, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
+	zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))
+	if err != nil {
+		return ""
+	}
 	return string(mark[:len(mark)-1])
 }
 
@@ -219,7 +223,7 @@ func mountCgroupController() {
 
 }
 
-// CgroupMemberCount -- Gives the cound of the number of processes in a cgroup
+// CgroupMemberCount -- Returns the cound of the number of processes in a cgroup
 func CgroupMemberCount(cgroupName string) int {
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupName))
 	if os.IsNotExist(err) {
@@ -263,7 +267,7 @@ func MarkVal() uint64 {
 	return atomic.AddUint64(&markval, 1)
 }
 
-// ListCgroupProcesses lists the processes of the cgroup
+// ListCgroupProcesses returns lists of  processes in the cgroup
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupname))
@@ -290,10 +294,10 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 // GetCgroupList geta list of all cgroup names
 func GetCgroupList() []string {
-	cgroupList := []string{}
+	var cgroupList []string
 	filelist, err := ioutil.ReadDir(filepath.Join(basePath, TriremeBasePath))
 	if err != nil {
-		return []string{}
+		return cgroupList
 	}
 	for _, file := range filelist {
 		if file.IsDir() {

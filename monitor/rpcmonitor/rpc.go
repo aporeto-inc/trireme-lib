@@ -159,19 +159,16 @@ type Server struct {
 
 // HandleEvent Gets called when clients generate events.
 func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
-	zap.L().Error("PRE eventInfo.PUID", zap.String("PUID", eventInfo.PUID))
 	if err := validateEvent(eventInfo); err != nil {
 		return err
 	}
-	zap.L().Error("POST eventInfo.PUID", zap.String("PUID", eventInfo.PUID))
 	if eventInfo.HostService && !s.root {
 		return fmt.Errorf("Operation Requires Root Access")
 	}
-	strtokens := strings.Split(eventInfo.PUID, "/")
-	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens[len(strtokens)-1]); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
+	strtokens := eventInfo.PUID[:strings.LastIndex(eventInfo.PUID, "/")+1]
+	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
-
 	if _, ok := s.handlers[eventInfo.PUType]; ok {
 		f, present := s.handlers[eventInfo.PUType][eventInfo.EventType]
 		if present {
@@ -222,14 +219,9 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 }
 
 func validateEvent(event *EventInfo) error {
-	zap.L().Error("EventInfo", zap.String("EventInfo.PUID", event.PUID),
-		zap.String("EventInfo.PID", event.PID),
-		zap.String("EventType", string(event.EventType)),
-		zap.Bool("HostService", event.HostService),
-		zap.String("CGROUP", event.Cgroup),
-	)
+
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
-		if len(event.Name) > 64 {
+		if len(event.Name) > 32 {
 			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 32 characters")
 		}
 

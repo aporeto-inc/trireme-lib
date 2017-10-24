@@ -48,7 +48,11 @@ type StoredContext struct {
 }
 
 // NewCustomUIDProcessor initializes a processor with a custom path
-func NewCustomUIDProcessor(storePath string, collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UIDProcessor {
+func NewCustomUIDProcessor(storePath string,
+	collector collector.EventCollector,
+	puHandler monitor.ProcessingUnitsHandler,
+	metadataExtractor rpcmonitor.RPCMetadataExtractor,
+	releasePath string) *UIDProcessor {
 
 	return &UIDProcessor{
 		collector:         collector,
@@ -65,7 +69,10 @@ func NewCustomUIDProcessor(storePath string, collector collector.EventCollector,
 }
 
 // NewUIDProcessor creates a default Linux processor with the standard trireme path
-func NewUIDProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *UIDProcessor {
+func NewUIDProcessor(collector collector.EventCollector,
+	puHandler monitor.ProcessingUnitsHandler,
+	metadataExtractor rpcmonitor.RPCMetadataExtractor,
+	releasePath string) *UIDProcessor {
 	return NewCustomUIDProcessor("/var/run/trireme/linux", collector, puHandler, metadataExtractor, releasePath)
 }
 
@@ -87,6 +94,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		if err != nil {
 			return err
 		}
+
 		publishedContextID := contextID + runtimeInfo.Options().CgroupMark
 		// Setup the run time
 		if err = s.puHandler.SetPURuntime(publishedContextID, runtimeInfo); err != nil {
@@ -100,9 +108,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			return perr
 		}
 
-		err = s.processLinuxServiceStart(eventInfo, runtimeInfo)
-
-		if err != nil {
+		if err = s.processLinuxServiceStart(eventInfo, runtimeInfo); err != nil {
 			zap.L().Error("ProcessLInuxServiceStart", zap.Error(err))
 			return err
 		}
@@ -116,8 +122,8 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		entry := &putoPidEntry{
 			Info:               runtimeInfo,
 			publishedContextID: publishedContextID,
+			pidlist:            map[string]bool{},
 		}
-		entry.pidlist = make(map[string]bool, 20)
 		entry.pidlist[eventInfo.PID] = true
 		s.puToPidEntry.Add(contextID, entry)
 		s.pidToPU.Add(eventInfo.PID, contextID)
@@ -145,13 +151,12 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if contextID == "/trireme" {
 		return nil
 	}
-	strtokens := strings.Split(contextID, "/")
-	contextID = "/" + strtokens[len(strtokens)-1]
+	// strtokens := strings.Split(contextID, "/")
+	// contextID = "/" + strtokens[len(strtokens)-1]
 
 	s.Lock()
 	defer s.Unlock()
-	stoppedpid := strtokens[len(strtokens)-1]
-	if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
+	if puid, err := s.pidToPU.Get(contextID); err == nil {
 		eventInfo.PUID = puid.(string)
 	}
 
@@ -162,12 +167,12 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 			return nil
 		}
 	}
-	if len(strtokens) == 1 && contextID == "trireme" {
+	if contextID == "/trireme" {
 		return nil
 	}
 
-	hperr := s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop)
-	return hperr
+	return s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop)
+
 }
 
 // Destroy handles a destroy event
@@ -177,30 +182,33 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		return nil
 
 	}
-	cgroupPath := strings.Split(eventInfo.PUID, "/")[2]
-	var puid string
+
 	s.Lock()
 	defer s.Unlock()
-	if puid, err := s.pidToPU.Get(strings.Split(eventInfo.PUID, "/")[2]); err == nil {
-		eventInfo.PUID = puid.(string)
-	}
-
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
 		return err
 	}
-	strtokens := strings.Split(contextID, "/")
-	contextID = "/" + strtokens[len(strtokens)-1]
+	cgroupPath := contextID[:strings.LastIndex(contextID, "/")+1]
+	if puid, err := s.pidToPU.Get(contextID[:strings.LastIndex(contextID, "/")+1]); err == nil {
+		eventInfo.PUID = puid.(string)
+	}
+
+	// strtokens := strings.Split(contextID, "/")
+	// contextID = "/" + strtokens[len(strtokens)-1]
 
 	ctx, err := s.puToPidEntry.Get(contextID)
 	var publishedContextID string
 
 	if err == nil {
+		ctxpidEntry, ok := ctx.(*putoPidEntry)
+		if !ok {
+			return fmt.Errorf("Unable to cast to pupidEntry !! did not destroy %s", contextID)
+		}
+		publishedContextID = ctxpidEntry.publishedContextID
+		delete(ctxpidEntry.pidlist, cgroupPath)
 
-		publishedContextID = ctx.(*putoPidEntry).publishedContextID
-		delete(ctx.(*putoPidEntry).pidlist, cgroupPath)
-
-		if len(ctx.(*putoPidEntry).pidlist) == 0 {
+		if len(ctxpidEntry.pidlist) == 0 {
 			s.puToPidEntry.Remove(contextID)
 			if err = s.contextStore.RemoveContext(contextID); err != nil {
 				zap.L().Error("Failed to clean cache while destroying process",
@@ -213,10 +221,6 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 		} else {
 			s.netcls.DeleteCgroup(cgroupPath)
-			if err != nil {
-				zap.L().Error("Did not Find Context", zap.String("PUID", puid))
-			}
-
 			return nil
 		}
 		//s.Unlock()
@@ -232,6 +236,7 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	return nil
+
 }
 
 // Pause handles a pause event
@@ -295,7 +300,6 @@ func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 		if pids, ok := marktoPID[mark]; !ok {
 			//No pids with stored mark destroy the context record and go to next context
 			s.contextStore.RemoveContext("/" + contextID)
-			continue
 		} else {
 			for _, pid := range pids {
 				eventInfo.PID = pid
@@ -318,30 +322,11 @@ func (s *UIDProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (strin
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}
-
+	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
 	return contextID, nil
 }
 
 func (s *UIDProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, runtimeInfo *policy.PURuntime) error {
-	// list, err := cgnetcls.ListCgroupProcesses(event.PUID)
-	// if err == nil {
-	// 	//cgroup exists and pid might be a member
-	// 	isrestart := func() bool {
-	// 		for _, element := range list {
-	// 			if element == event.PID {
-	// 				//pid is already there it is restart
-	// 				return true
-	// 			}
-	// 		}
-	// 		return false
-	// 	}()
-
-	// 	if !isrestart {
-	// 		pid, _ := strconv.Atoi(event.PID)
-	// 		s.netcls.AddProcess(event.PID, pid) // nolint
-	// 		return nil
-	// 	}
-	// }
 
 	//It is okay to launch this so let us create a cgroup for it
 	err := s.netcls.Creategroup(event.PID)
@@ -358,8 +343,8 @@ func (s *UIDProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, run
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	err = s.netcls.AssignMark(event.PID, mark)
-	if err != nil {
+
+	if err = s.netcls.AssignMark(event.PID, mark); err != nil {
 		if derr := s.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}

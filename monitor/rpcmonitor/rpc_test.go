@@ -2,11 +2,13 @@ package rpcmonitor
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor"
@@ -52,87 +54,87 @@ type CustomProcessor struct {
 	MonitorProcessor
 }
 
-// func TestNewRPCMonitor(t *testing.T) {
-// 	Convey("When we try to instantiate a new monitor", t, func() {
+func TestNewRPCMonitor(t *testing.T) {
+	Convey("When we try to instantiate a new monitor", t, func() {
 
-// 		Convey("If we start with invalid rpc address", func() {
-// 			_, err := NewRPCMonitor("", nil, false)
-// 			Convey("It should fail ", func() {
-// 				So(err, ShouldNotBeNil)
-// 			})
-// 		})
+		Convey("If we start with invalid rpc address", func() {
+			_, err := NewRPCMonitor("", nil, false)
+			Convey("It should fail ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
 
-// 		Convey("If we start with an RPC address that exists", func() {
+		Convey("If we start with an RPC address that exists", func() {
 
-// 			os.Create("./testfile") // nolint : errcheck
-// 			_, err := NewRPCMonitor("./testfile", nil, false)
-// 			Convey("I should get no error and the file is removed", func() {
-// 				So(err, ShouldBeNil)
-// 				_, ferr := os.Stat("./testfile")
-// 				So(ferr, ShouldNotBeNil)
-// 			})
-// 		})
+			os.Create("./testfile") // nolint : errcheck
+			_, err := NewRPCMonitor("./testfile", nil, false)
+			Convey("I should get no error and the file is removed", func() {
+				So(err, ShouldBeNil)
+				_, ferr := os.Stat("./testfile")
+				So(ferr, ShouldNotBeNil)
+			})
+		})
 
-// 		Convey("If we start with valid parameters", func() {
-// 			mon, err := NewRPCMonitor("/tmp/monitor.sock", nil, false)
-// 			Convey("It should succeed", func() {
-// 				So(err, ShouldBeNil)
-// 				So(mon.rpcAddress, ShouldResemble, "/tmp/monitor.sock")
-// 				So(mon.monitorServer, ShouldNotBeNil)
-// 			})
-// 		})
-// 	})
-// }
+		Convey("If we start with valid parameters", func() {
+			mon, err := NewRPCMonitor("/tmp/monitor.sock", nil, false)
+			Convey("It should succeed", func() {
+				So(err, ShouldBeNil)
+				So(mon.rpcAddress, ShouldResemble, "/tmp/monitor.sock")
+				So(mon.monitorServer, ShouldNotBeNil)
+			})
+		})
+	})
+}
 
-// func TestRegisterProcessor(t *testing.T) {
+func TestRegisterProcessor(t *testing.T) {
 
-// 	Convey("Given a new rpc monitor", t, func() {
-// 		mon, _ := NewRPCMonitor(testRPCAddress, nil, false)
-// 		Convey("When I try to register a new processor", func() {
-// 			processor := &CustomProcessor{}
-// 			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
-// 			Convey("Then it should succeed", func() {
-// 				So(err, ShouldBeNil)
-// 				So(mon.monitorServer.handlers, ShouldNotBeNil)
-// 				So(mon.monitorServer.handlers[constants.LinuxProcessPU], ShouldNotBeNil)
-// 			})
-// 		})
+	Convey("Given a new rpc monitor", t, func() {
+		mon, _ := NewRPCMonitor(testRPCAddress, nil, false)
+		Convey("When I try to register a new processor", func() {
+			processor := &CustomProcessor{}
+			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			Convey("Then it should succeed", func() {
+				So(err, ShouldBeNil)
+				So(mon.monitorServer.handlers, ShouldNotBeNil)
+				So(mon.monitorServer.handlers[constants.LinuxProcessPU], ShouldNotBeNil)
+			})
+		})
 
-// 		Convey("When I try to register the same processor twice", func() {
-// 			processor := &CustomProcessor{}
-// 			monerr := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
-// 			So(monerr, ShouldBeNil)
-// 			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
-// 			Convey("Then it should fail", func() {
-// 				So(err, ShouldNotBeNil)
-// 			})
-// 		})
-// 	})
-// }
+		Convey("When I try to register the same processor twice", func() {
+			processor := &CustomProcessor{}
+			monerr := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			So(monerr, ShouldBeNil)
+			err := mon.RegisterProcessor(constants.LinuxProcessPU, processor)
+			Convey("Then it should fail", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+	})
+}
 
-// func TestStart(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+func TestStart(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// 	Convey("When we start an rpc processor ", t, func() {
+	Convey("When we start an rpc processor ", t, func() {
 
-// 		Convey("When the socket is busy", func() {
-// 			clist := make(chan string, 1)
-// 			clist <- ""
+		Convey("When the socket is busy", func() {
+			clist := make(chan string, 1)
+			clist <- ""
 
-// 			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, false)
+			testRPCMonitor, _ := NewRPCMonitor(testRPCAddress, nil, false)
 
-// 			go starttestserver()
-// 			time.Sleep(1 * time.Second)
-// 			defer stoptestserver()
-// 			err := testRPCMonitor.Start()
-// 			Convey("It should fail ", func() {
-// 				So(err, ShouldNotBeNil)
-// 			})
-// 			stoptestserver()
-// 		})
-// 	})
-// }
+			go starttestserver()
+			time.Sleep(1 * time.Second)
+			defer stoptestserver()
+			err := testRPCMonitor.Start()
+			Convey("It should fail ", func() {
+				So(err, ShouldNotBeNil)
+			})
+			stoptestserver()
+		})
+	})
+}
 
 func TestHandleEvent(t *testing.T) {
 
@@ -149,43 +151,46 @@ func TestHandleEvent(t *testing.T) {
 		monerr := testRPCMonitor.Start()
 		So(monerr, ShouldBeNil)
 
-		// Convey("If we receive an event with wrong type", func() {
-		// 	eventInfo := &EventInfo{
-		// 		EventType: "",
-		// 	}
+		Convey("If we receive an event with wrong type", func() {
+			eventInfo := &EventInfo{
+				EventType: "",
+			}
 
-		// 	err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
-		// 	Convey("We should get an error", func() {
-		// 		So(err, ShouldNotBeNil)
-		// 		testRPCMonitor.Stop() // nolint
-		// 	})
-		// })
+			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			Convey("We should get an error", func() {
+				So(err, ShouldNotBeNil)
+				testRPCMonitor.Stop() // nolint
+			})
+		})
 
-		// Convey("If we receive an event with no registered processor", func() {
-		// 	eventInfo := &EventInfo{
-		// 		EventType: monitor.EventCreate,
-		// 		PUType:    constants.LinuxProcessPU,
-		// 	}
+		Convey("If we receive an event with no registered processor", func() {
+			eventInfo := &EventInfo{
+				EventType: monitor.EventCreate,
+				PUType:    constants.LinuxProcessPU,
+			}
 
-		// 	err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
-		// 	Convey("We should get an error", func() {
-		// 		So(err, ShouldNotBeNil)
-		// 		testRPCMonitor.Stop() //nolint
-		// 	})
-		// })
+			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			Convey("We should get an error", func() {
+				So(err, ShouldNotBeNil)
+				testRPCMonitor.Stop() //nolint
+			})
+		})
 
 		Convey("If we receive a good event with a registered processor", func() {
 
 			processor := NewMockMonitorProcessor(ctrl)
-			processor.EXPECT().Stop(gomock.Any()).Return(nil)
+			processor.EXPECT().Start(gomock.Any()).Return(nil)
+			fmt.Printf("Calling Register %v\n", processor)
 			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 			So(monerr, ShouldBeNil)
 
 			eventInfo := &EventInfo{
-				EventType: monitor.EventStop,
+				EventType: monitor.EventStart,
 				PUType:    constants.LinuxProcessPU,
+				PUID:      "/trireme/1234",
+				PID:       "123",
 			}
-			fmt.Println("Here")
+			ioutil.WriteFile("/var/run/trireme/linux/1234", []byte{}, 0644)
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get no error", func() {
 
@@ -194,85 +199,85 @@ func TestHandleEvent(t *testing.T) {
 			})
 		})
 
-		// Convey("If we receive an event that fails processing", func() {
+		Convey("If we receive an event that fails processing", func() {
 
-		// 	processor := NewMockMonitorProcessor(ctrl)
-		// 	processor.EXPECT().Create(gomock.Any()).Return(fmt.Errorf("Error"))
-		// 	monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
-		// 	So(monerr, ShouldBeNil)
+			processor := NewMockMonitorProcessor(ctrl)
+			processor.EXPECT().Create(gomock.Any()).Return(fmt.Errorf("Error"))
+			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
+			So(monerr, ShouldBeNil)
 
-		// 	eventInfo := &EventInfo{
-		// 		EventType: monitor.EventCreate,
-		// 		PUType:    constants.LinuxProcessPU,
-		// 		PID:       "123",
-		// 	}
+			eventInfo := &EventInfo{
+				EventType: monitor.EventCreate,
+				PUType:    constants.LinuxProcessPU,
+				PID:       "123",
+			}
 
-		// 	err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
-		// 	Convey("We should get an error", func() {
-		// 		So(err, ShouldNotBeNil)
-		// 		testRPCMonitor.Stop() // nolint
-		// 	})
-		// })
+			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			Convey("We should get an error", func() {
+				So(err, ShouldNotBeNil)
+				testRPCMonitor.Stop() // nolint
+			})
+		})
 	})
 }
 
-// func TestDefaultRPCMetadataExtractor(t *testing.T) {
-// 	Convey("Given an event", t, func() {
-// 		Convey("If the event name is empty", func() {
-// 			eventInfo := &EventInfo{
-// 				EventType: monitor.EventStop,
-// 				PUType:    constants.LinuxProcessPU,
-// 			}
+func TestDefaultRPCMetadataExtractor(t *testing.T) {
+	Convey("Given an event", t, func() {
+		Convey("If the event name is empty", func() {
+			eventInfo := &EventInfo{
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
 
-// 			Convey("The default extractor must return an error ", func() {
-// 				_, err := DefaultRPCMetadataExtractor(eventInfo)
-// 				So(err, ShouldNotBeNil)
-// 			})
-// 		})
+			Convey("The default extractor must return an error ", func() {
+				_, err := DefaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldNotBeNil)
+			})
+		})
 
-// 		Convey("If the event PID is empty", func() {
-// 			eventInfo := &EventInfo{
-// 				Name:      "PU",
-// 				EventType: monitor.EventStop,
-// 				PUType:    constants.LinuxProcessPU,
-// 			}
+		Convey("If the event PID is empty", func() {
+			eventInfo := &EventInfo{
+				Name:      "PU",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
 
-// 			Convey("The default extractor must return an error ", func() {
-// 				_, err := DefaultRPCMetadataExtractor(eventInfo)
-// 				So(err, ShouldNotBeNil)
-// 			})
-// 		})
+			Convey("The default extractor must return an error ", func() {
+				_, err := DefaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldNotBeNil)
+			})
+		})
 
-// 		Convey("If the PID is not a number", func() {
-// 			eventInfo := &EventInfo{
-// 				Name:      "PU",
-// 				PID:       "abcera",
-// 				PUID:      "12345",
-// 				EventType: monitor.EventStop,
-// 				PUType:    constants.LinuxProcessPU,
-// 			}
+		Convey("If the PID is not a number", func() {
+			eventInfo := &EventInfo{
+				Name:      "PU",
+				PID:       "abcera",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
 
-// 			Convey("The default extractor must return an error ", func() {
-// 				_, err := DefaultRPCMetadataExtractor(eventInfo)
-// 				So(err, ShouldNotBeNil)
-// 			})
-// 		})
+			Convey("The default extractor must return an error ", func() {
+				_, err := DefaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldNotBeNil)
+			})
+		})
 
-// 		Convey("If all parameters are correct", func() {
-// 			eventInfo := &EventInfo{
-// 				Name:      "PU",
-// 				PID:       "1",
-// 				PUID:      "12345",
-// 				EventType: monitor.EventStop,
-// 				PUType:    constants.LinuxProcessPU,
-// 			}
+		Convey("If all parameters are correct", func() {
+			eventInfo := &EventInfo{
+				Name:      "PU",
+				PID:       "1",
+				PUID:      "12345",
+				EventType: monitor.EventStop,
+				PUType:    constants.LinuxProcessPU,
+			}
 
-// 			Convey("The default extractor must return no error ", func() {
-// 				runtime, err := DefaultRPCMetadataExtractor(eventInfo)
-// 				So(err, ShouldBeNil)
-// 				So(runtime, ShouldNotBeNil)
-// 			})
-// 		})
+			Convey("The default extractor must return no error ", func() {
+				runtime, err := DefaultRPCMetadataExtractor(eventInfo)
+				So(err, ShouldBeNil)
+				So(runtime, ShouldNotBeNil)
+			})
+		})
 
-// 	})
-// }
+	})
+}
