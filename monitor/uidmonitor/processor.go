@@ -149,11 +149,11 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 	strtokens := strings.Split(contextID, "/")
 	contextID = "/" + strtokens[len(strtokens)-1]
-	zap.L().Error("UID STOP EventInfo", zap.String("EventInfo.PUID", event.PUID),
-		zap.String("EventInfo.PID", event.PID),
-		zap.String("EventType", string(event.EventType)),
-		zap.Bool("HostService", event.HostService),
-		zap.String("CGROUP", event.Cgroup),
+	zap.L().Error("UID STOP EventInfo", zap.String("EventInfo.PUID", eventInfo.PUID),
+		zap.String("EventInfo.PID", eventInfo.PID),
+		zap.String("EventType", string(eventInfo.EventType)),
+		zap.Bool("HostService", eventInfo.HostService),
+		zap.String("CGROUP", eventInfo.Cgroup),
 	)
 	zap.L().Error("EventInfo.PUID", zap.String("PUID", eventInfo.PUID))
 	s.Lock()
