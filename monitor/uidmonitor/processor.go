@@ -140,12 +140,13 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 // Stop handles a stop event
 func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
-	if eventInfo.PUID == "/trireme" {
-		return nil
-	}
+
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
 		return err
+	}
+	if contextID == "/trireme" {
+		return nil
 	}
 	strtokens := strings.Split(contextID, "/")
 	contextID = "/" + strtokens[len(strtokens)-1]
@@ -155,10 +156,9 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 		zap.Bool("HostService", eventInfo.HostService),
 		zap.String("CGROUP", eventInfo.Cgroup),
 	)
-	zap.L().Error("EventInfo.PUID", zap.String("PUID", eventInfo.PUID))
 	s.Lock()
 	defer s.Unlock()
-	stoppedpid := strings.Split(eventInfo.PUID, "/")[2]
+	stoppedpid := strings.Split(contextID, "/")[2]
 	if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
 		eventInfo.PUID = puid.(string)
 	}
