@@ -224,7 +224,7 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 func validateEvent(event *EventInfo) error {
 	zap.L().Error("EventInfo", zap.String("EventInfo.PUID", event.PUID),
 		zap.String("EventInfo.PID", event.PID),
-		zap.String("EventType", event.EventType),
+		zap.String("EventType", string(event.EventType)),
 		zap.Bool("HostService", event.HostService),
 		zap.String("CGROUP", event.Cgroup),
 	)
