@@ -155,10 +155,14 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 		zap.String("EventType", string(eventInfo.EventType)),
 		zap.Bool("HostService", eventInfo.HostService),
 		zap.String("CGROUP", eventInfo.Cgroup),
+		zap.String("contextID", contextID),
 	)
 	s.Lock()
 	defer s.Unlock()
-	stoppedpid := strings.Split(contextID, "/")[2]
+	strdebugtoken := strings.Split(contextID, "/")
+	strrokenjoin := strings.Join(strdebugtoken, ",")
+	zap.L().Error("ContextID tokens", zap.String("strokens", strrokenjoin))
+	stoppedpid := strings.Split(contextID, "/")[1]
 	if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
 		eventInfo.PUID = puid.(string)
 	}
