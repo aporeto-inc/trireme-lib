@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	maxRetries       = 4
+	maxRetries       = 20
 	remoteMethodCall = "Server.HandleEvent"
 )
 

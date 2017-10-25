@@ -255,9 +255,9 @@ func validateEvent(event *EventInfo) error {
 				event.PUID = event.PID
 			}
 
-			if event.EventType == monitor.EventDestroy {
-				event.PUID = event.PID
-			}
+			// if event.EventType == monitor.EventDestroy {
+			// 	event.PUID = event.PID
+			// }
 		}
 	}
 

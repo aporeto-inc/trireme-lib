@@ -43,6 +43,7 @@ const (
 type puToPidEntry struct {
 	pidlist            map[string]bool
 	Info               *policy.PURuntime
+	puStopped          bool
 	publishedContextID string
 }
 
@@ -152,7 +153,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 }
 
-// Stop handles a stop event
+// Stop handles a stop event and destroy as well. Destroy does nothing for the uid monitor
 func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
@@ -161,6 +162,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	if contextID == triremeBaseCgroup {
+		s.netcls.Deletebasepath(contextID)
 		return nil
 	}
 	zap.L().Error("Stopping ContextID", zap.String("contextID", contextID))
@@ -174,54 +176,25 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	}
 	var publishedContextID string
 	if pidlist, err := s.putoPidMap.Get(contextID); err == nil {
-		publishedContextID = pidlist.(*puToPidEntry).publishedContextID
-		zap.L().Error("Stopping ContextID", zap.Int("stopping PID", len(pidlist.(*puToPidEntry).pidlist)))
-		if len(pidlist.(*puToPidEntry).pidlist) > 1 {
+		ctx := pidlist.(*puToPidEntry)
+		publishedContextID = ctx.publishedContextID
+		zap.L().Error("Stopping ContextID", zap.Int("stopping PID", len(ctx.pidlist)))
+		//Clean pid from both caches
+		delete(ctx.pidlist, stoppedpid)
+		s.pidToPU.Remove(stoppedpid)
+		if len(pidlist.(*puToPidEntry).pidlist) != 0 {
+			//Only destroy the pid that is being stopped
+			s.netcls.DeleteCgroup(stoppedpid)
 			return nil
-		}
-	}
-	zap.L().Error("Stopping ContextID", zap.String("contextID", contextID), zap.String("publishedcontextID", publishedContextID))
-	return s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop)
-
-}
-
-// Destroy handles a destroy event
-func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
-
-	if eventInfo.PUID == triremeBaseCgroup {
-		return nil
-
-	}
-	var err error
-	s.Lock()
-	defer s.Unlock()
-	contextID, err := s.generateContextID(eventInfo)
-	if err != nil {
-		return err
-	}
-	stoppedpid := strings.TrimLeft(contextID, "/")
-	zap.L().Error("Destroying ContextID", zap.String("stopping PID", stoppedpid), zap.String("contextID", contextID))
-	if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
-		contextID = puid.(string)
-	}
-
-	// strtokens := strings.Split(contextID, "/")
-	// contextID = "/" + strtokens[len(strtokens)-1]
-	zap.L().Error("Destroying contextID", zap.String("contextID", contextID))
-	ctx, err := s.putoPidMap.Get(contextID)
-	var publishedContextID string
-
-	if err == nil {
-		ctxpidEntry, ok := ctx.(*puToPidEntry)
-		if !ok {
-			return fmt.Errorf("Unable to cast to pupidEntry !! did not destroy %s", contextID)
-		}
-
-		publishedContextID = ctxpidEntry.publishedContextID
-		zap.L().Error("Destroying Pulished contextID", zap.String("published contextID", publishedContextID), zap.String("stopped Pid", stoppedpid))
-		delete(ctxpidEntry.pidlist, stoppedpid)
-		zap.L().Error("DestroyingLength of pidlist", zap.Int("length", len(ctxpidEntry.pidlist)))
-		if len(ctxpidEntry.pidlist) == 0 {
+		} else {
+			//We are the last here lets send stop
+			zap.L().Error("Stopping ContextID", zap.String("contextID", contextID), zap.String("publishedcontextID", publishedContextID))
+			if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop); err != nil {
+				zap.L().Warn("Failed to stop trireme PU ",
+					zap.String("contextID", contextID),
+					zap.Error(err),
+				)
+			}
 			s.putoPidMap.Remove(contextID)
 			if err = s.contextStore.RemoveContext(contextID); err != nil {
 				zap.L().Error("Failed to clean cache while destroying process",
@@ -229,27 +202,90 @@ func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 					zap.Error(err),
 				)
 			}
+			if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventDestroy); err != nil {
+				zap.L().Warn("Failed to Destroy clean trireme ",
+					zap.String("contextID", contextID),
+					zap.Error(err),
+				)
+			}
 
 			s.netcls.DeleteCgroup(stoppedpid)
 
-		} else {
-			s.netcls.DeleteCgroup(stoppedpid)
-			return nil
 		}
-		//s.Unlock()
-
-	}
-	s.netcls.Deletebasepath(contextID)
-	// Send the event upstream
-	zap.L().Error("Destroy PU", zap.String("publishedContextID", publishedContextID))
-	if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventDestroy); err != nil {
-		zap.L().Warn("Failed to clean trireme ",
-			zap.String("contextID", contextID),
-			zap.Error(err),
-		)
 	}
 
 	return nil
+
+}
+
+// Destroy handles a destroy event
+func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
+	return nil
+	// if eventInfo.PUID == triremeBaseCgroup {
+	// 	return nil
+
+	// }
+	// var err error
+	// s.Lock()
+	// defer s.Unlock()
+	// contextID, err := s.generateContextID(eventInfo)
+	// if err != nil {
+	// 	return err
+	// }
+	// stoppedpid := strings.TrimLeft(contextID, "/")
+	// zap.L().Error("Destroying ContextID", zap.String("stopping PID", stoppedpid), zap.String("contextID", contextID))
+	// if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
+	// 	contextID = puid.(string)
+	// }
+
+	// // strtokens := strings.Split(contextID, "/")
+	// // contextID = "/" + strtokens[len(strtokens)-1]
+	// zap.L().Error("Destroying contextID", zap.String("contextID", contextID))
+	// ctx, err := s.putoPidMap.Get(contextID)
+	// var publishedContextID string
+
+	// if err == nil {
+	// 	ctxpidEntry, ok := ctx.(*puToPidEntry)
+	// 	if !ok {
+	// 		return fmt.Errorf("Unable to cast to pupidEntry !! did not destroy %s", contextID)
+	// 	}
+
+	// 	publishedContextID = ctxpidEntry.publishedContextID
+	// 	zap.L().Error("Destroying Pulished contextID", zap.String("published contextID", publishedContextID), zap.String("stopped Pid", stoppedpid))
+	// 	zap.L().Error("Destroying length")
+	// 	delete(ctxpidEntry.pidlist, stoppedpid)
+	// 	zap.L().Error("DestroyingLength of pidlist", zap.Int("length", len(ctxpidEntry.pidlist)))
+	// 	if len(ctxpidEntry.pidlist) == 0 {
+	// 		zap.L().Error("Destroyed of pidlist", zap.Int("length", len(ctxpidEntry.pidlist)))
+	// 		s.putoPidMap.Remove(contextID)
+	// 		if err = s.contextStore.RemoveContext(contextID); err != nil {
+	// 			zap.L().Error("Failed to clean cache while destroying process",
+	// 				zap.String("contextID", contextID),
+	// 				zap.Error(err),
+	// 			)
+	// 		}
+
+	// 		s.netcls.DeleteCgroup(stoppedpid)
+
+	// 	} else {
+	// 		s.netcls.DeleteCgroup(stoppedpid)
+
+	// 		return nil
+	// 	}
+	// 	//s.Unlock()
+
+	// }
+	// s.netcls.Deletebasepath(contextID)
+	// // Send the event upstream
+	// zap.L().Error("Destroy PU", zap.String("publishedContextID", publishedContextID))
+	// if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventDestroy); err != nil {
+	// 	zap.L().Warn("Failed to clean trireme ",
+	// 		zap.String("contextID", contextID),
+	// 		zap.Error(err),
+	// 	)
+	// }
+
+	// return nil
 
 }
 
