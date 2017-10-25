@@ -304,7 +304,10 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	// Serialize operations
 	runtime.GlobalLock.Lock()
 	defer runtime.GlobalLock.Unlock()
-
+	_, err = t.PURuntime(contextID)
+	if err != nil {
+		zap.L().Error("PU Already Deleted do nothing", zap.String("contextID", contextID))
+	}
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtime)
 
 	addTransmitterLabel(contextID, containerInfo)
