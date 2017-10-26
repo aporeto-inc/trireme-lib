@@ -36,7 +36,7 @@ type RPCMonitor struct {
 }
 
 const (
-	maxEventNameLength = 32
+	maxEventNameLength = 64
 )
 
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
@@ -227,7 +227,7 @@ func validateEvent(event *EventInfo) error {
 
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
 		if len(event.Name) > maxEventNameLength {
-			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 32 characters")
+			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 64 characters")
 		}
 
 		if event.PID == "" {
