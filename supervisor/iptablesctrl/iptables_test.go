@@ -41,7 +41,9 @@ func TestChainName(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
 		Convey("With a contextID of Context and version of 1", func() {
-			app, net := i.chainName("Context", 1)
+			app, net, err := i.chainName("Context", 1)
+			So(err, ShouldBeNil)
+
 			Convey("I should get the right names", func() {
 				//app, net := i.chainName("Context", 1)
 
@@ -332,8 +334,12 @@ func TestUpdateRules(t *testing.T) {
 		})
 
 		Convey("I try to update with a valid default IP address ", func() {
-			app0, net0 := i.chainName("Context", 0)
-			app1, net1 := i.chainName("Context", 1)
+			app0, net0, err0 := i.chainName("Context", 0)
+			app1, net1, err1 := i.chainName("Context", 1)
+
+			So(err0, ShouldBeNil)
+			So(err1, ShouldBeNil)
+
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 
 				if matchSpec(app0, rulespec) == nil || matchSpec(net0, rulespec) == nil {
