@@ -43,7 +43,6 @@ const (
 type puToPidEntry struct {
 	pidlist            map[string]bool
 	Info               *policy.PURuntime
-	puStopped          bool
 	publishedContextID string
 }
 
@@ -181,31 +180,30 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 			//Only destroy the pid that is being stopped
 			s.netcls.DeleteCgroup(stoppedpid)
 			return nil
-		} else {
-			//We are the last here lets send stop
-			if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop); err != nil {
-				zap.L().Warn("Failed to stop trireme PU ",
-					zap.String("contextID", contextID),
-					zap.Error(err),
-				)
-			}
-			s.putoPidMap.Remove(contextID)
-			if err = s.contextStore.RemoveContext(contextID); err != nil {
-				zap.L().Error("Failed to clean cache while destroying process",
-					zap.String("contextID", contextID),
-					zap.Error(err),
-				)
-			}
-			if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventDestroy); err != nil {
-				zap.L().Warn("Failed to Destroy clean trireme ",
-					zap.String("contextID", contextID),
-					zap.Error(err),
-				)
-			}
-
-			s.netcls.DeleteCgroup(stoppedpid)
-
 		}
+		//We are the last here lets send stop
+		if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop); err != nil {
+			zap.L().Warn("Failed to stop trireme PU ",
+				zap.String("contextID", contextID),
+				zap.Error(err),
+			)
+		}
+		s.putoPidMap.Remove(contextID)
+		if err = s.contextStore.RemoveContext(contextID); err != nil {
+			zap.L().Error("Failed to clean cache while destroying process",
+				zap.String("contextID", contextID),
+				zap.Error(err),
+			)
+		}
+		if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventDestroy); err != nil {
+			zap.L().Warn("Failed to Destroy clean trireme ",
+				zap.String("contextID", contextID),
+				zap.Error(err),
+			)
+		}
+
+		s.netcls.DeleteCgroup(stoppedpid)
+
 	}
 
 	return nil
@@ -214,7 +212,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 // Destroy handles a destroy event
 func (s *UIDProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
-	//Destroy is not used for the UIDMonitor sicne we will destroy when we get stop
+	//Destroy is not used for the UIDMonitor since we will destroy when we get stop
 	//This is to try and save some time .Stop/Destroy is two RPC calls.
 	//We don't define pause on uid monitor so stop is always followed by destroy
 	return nil
