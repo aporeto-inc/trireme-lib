@@ -404,6 +404,8 @@ func NewPacketFlow(smac string, dmac string, sip string, dip string, sport layer
 }
 
 //GenerateTCPFlow returns an array of PacketFlowManipulator interface
+// TODO: remove nolint
+// nolint
 func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator {
 
 	if pt == 0 {

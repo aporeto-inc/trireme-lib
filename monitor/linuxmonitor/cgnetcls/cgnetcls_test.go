@@ -216,7 +216,13 @@ func TestDeleteCgroup(t *testing.T) {
 		t.Errorf("Non-existent cgroup delelte returned an error")
 		t.SkipNow()
 	}
-	cg.Creategroup(testcgroupname)
+	err = cg.Creategroup(testcgroupname)
+
+	if err != nil {
+		t.Errorf("Failed to create cgroup %s", err.Error())
+		t.SkipNow()
+	}
+
 	defer cleanupnetclsgroup()
 	err = cg.DeleteCgroup(testcgroupname)
 	if err != nil {
