@@ -20,32 +20,8 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	// TriremeBasePath is the base path of the Trireme tree in cgroups
-	TriremeBasePath = "trireme"
-	// CgroupNameTag is the tag for the cgroup name
-	CgroupNameTag = "@cgroup_name"
-	// CgroupMarkTag is the tag for the cgroup mark
-	CgroupMarkTag = "@cgroup_mark"
-	// PortTag is the tag for a port
-	PortTag = "@usr:port"
-
-	markFile             = "/net_cls.classid"
-	procs                = "/cgroup.procs"
-	releaseAgentConfFile = "/release_agent"
-	notifyOnReleaseFile  = "/notify_on_release"
-	//Initialmarkval is the start of mark values we assign to cgroup
-	Initialmarkval = 100
-)
-
 var basePath = "/sys/fs/cgroup/net_cls"
 var markval uint64 = Initialmarkval
-
-//Empty receiver struct
-type netCls struct {
-	markchan         chan uint64
-	ReleaseAgentPath string
-}
 
 //Initialize only ince
 func init() {

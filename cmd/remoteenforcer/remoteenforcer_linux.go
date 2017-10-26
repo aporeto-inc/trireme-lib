@@ -34,29 +34,6 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-const (
-	envSocketPath     = "APORETO_ENV_SOCKET_PATH"
-	envSecret         = "APORETO_ENV_SECRET"
-	envProcMountPoint = "APORETO_ENV_PROC_MOUNTPOINT"
-	nsErrorState      = "APORETO_ENV_NSENTER_ERROR_STATE"
-	nsEnterLogs       = "APORETO_ENV_NSENTER_LOGS"
-)
-
-// Server : This is the structure for maintaining state required by the remote enforcer.
-// It is cache of variables passed by th controller to the remote enforcer and other handles
-// required by the remote enforcer to talk to the external processes
-type Server struct {
-	rpcSecret      string
-	rpcchannel     string
-	rpchdl         rpcwrapper.RPCServer
-	statsclient    Stats
-	procMountPoint string
-	Enforcer       enforcer.PolicyEnforcer
-	Supervisor     supervisor.Supervisor
-	Service        enforcer.PacketProcessor
-	secrets        secrets.Secrets
-}
-
 var cmdLock sync.Mutex
 
 // NewServer starts a new server
