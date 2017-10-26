@@ -192,8 +192,10 @@ func TestHandleEvent(t *testing.T) {
 				PUID:      "/trireme/1234",
 				PID:       "123",
 			}
-			ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
-			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
+			err := ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
+			So(err, ShouldBeNil)
+
+			err = testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get no error", func() {
 
 				So(err, ShouldBeNil)
