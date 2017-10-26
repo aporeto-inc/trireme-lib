@@ -35,7 +35,7 @@ func (s *netCls) Creategroup(cgroupname string) error {
 	//Create the directory structure
 	_, err := os.Stat(basePath + procs)
 	if os.IsNotExist(err) {
-		if err := syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
+		if err = syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
 			return err
 		}
 	}

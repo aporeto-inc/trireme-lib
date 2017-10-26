@@ -111,6 +111,7 @@ func PuPortSetName(contextID string, mark string) string {
 	hash := md5.New()
 	io.WriteString(hash, contextID)
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+
 	if len(contextID) > 4 {
 		contextID = contextID[:4] + string(output[:4])
 	} else {
