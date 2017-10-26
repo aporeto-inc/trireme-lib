@@ -26,6 +26,7 @@ import (
 //PolicyEnforcer interface
 type keyPEM interface {
 	AuthPEM() []byte
+	TokenPEM() []byte
 	TransmittedPEM() []byte
 	EncodingPEM() []byte
 }
@@ -80,6 +81,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	if s.Secrets.Type() == secrets.PKICompactType {
 		request.Payload.(*rpcwrapper.InitRequestPayload).Token = s.Secrets.TransmittedKey()
+		request.Payload.(*rpcwrapper.InitRequestPayload).TokenCAPEM = s.Secrets.(keyPEM).TokenPEM()
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
