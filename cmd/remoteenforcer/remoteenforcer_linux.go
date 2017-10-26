@@ -212,7 +212,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return err
 	}
 
-	if err := s.statsclient.ConnectStatsClient(); err !== nil {
+	if err := s.statsclient.ConnectStatsClient(); err != nil {
 		return err
 	}
 
@@ -455,7 +455,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 		return err
 	}
 
-	go func(){
+	go func() {
 		if err := rpchdl.StartServer("unix", namedPipe, server); err != nil {
 			zap.L().Fatal("Failed to start the server", zap.Error(err))
 		}
