@@ -15,23 +15,23 @@ type CompactPKI struct {
 	PrivateKeyPEM []byte
 	PublicKeyPEM  []byte
 	AuthorityPEM  []byte
-	TokenCAPEM    []byte
+	TokenKeyPEMs  [][]byte
 	privateKey    *ecdsa.PrivateKey
 	publicKey     *x509.Certificate
 	certPool      *x509.CertPool
 	txKey         []byte
-	verifier      *pkiverifier.PKIConfiguration
+	verifier      pkiverifier.PKITokenVerifier
 }
 
 // NewCompactPKI creates new secrets for PKI implementation based on compact encoding
-func NewCompactPKI(keyPEM, certPEM, caPEM, txKey []byte) (*CompactPKI, error) {
+func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte) (*CompactPKI, error) {
 
 	zap.L().Warn("DEPRECATED. secrets.NewCompactPKI is deprecated in favor of secrets.NewCompactPKIWithTokenCA")
-	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, caPEM, txKey)
+	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{[]byte(caPEM)}, txKey)
 }
 
 // NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding
-func NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, tokenCAPEM, txKey []byte) (*CompactPKI, error) {
+func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte) (*CompactPKI, error) {
 
 	zap.L().Debug("Initializing with Compact PKI")
 
@@ -39,14 +39,17 @@ func NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, tokenCAPEM, txKey []byte) 
 	if err != nil {
 		return nil, err
 	}
-	zap.L().Debug("Finished Load And Verify")
 
-	caKey, err := crypto.LoadCertificate(tokenCAPEM)
-	if err != nil {
-		return nil, err
+	var tokenKeys []*ecdsa.PublicKey
+	for _, ca := range tokenKeyPEMs {
+
+		caCert, err := crypto.LoadCertificate(ca)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenKeys = append(tokenKeys, caCert.PublicKey.(*ecdsa.PublicKey))
 	}
-
-	zap.L().Debug("Finished LoadCertificates")
 
 	if len(txKey) == 0 {
 		return nil, fmt.Errorf("TransmitToken missing")
@@ -56,12 +59,12 @@ func NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, tokenCAPEM, txKey []byte) 
 		PrivateKeyPEM: keyPEM,
 		PublicKeyPEM:  certPEM,
 		AuthorityPEM:  caPEM,
-		TokenCAPEM:    tokenCAPEM,
+		TokenKeyPEMs:  tokenKeyPEMs,
 		privateKey:    key,
 		publicKey:     cert,
 		certPool:      caCertPool,
 		txKey:         txKey,
-		verifier:      pkiverifier.NewConfig(caKey.PublicKey.(*ecdsa.PublicKey), nil, -1),
+		verifier:      pkiverifier.NewPKIVerifier(tokenKeys, -1),
 	}
 
 	return p, nil
@@ -121,14 +124,14 @@ func (p *CompactPKI) AuthPEM() []byte {
 	return p.AuthorityPEM
 }
 
-// TokenPEM returns the Token Certificate Authority PEM
-func (p *CompactPKI) TokenPEM() []byte {
+// TokenPEMs returns the Token Certificate Authorities
+func (p *CompactPKI) TokenPEMs() [][]byte {
 
-	if len(p.TokenCAPEM) > 0 {
-		return p.TokenCAPEM
+	if len(p.TokenKeyPEMs) > 0 {
+		return p.TokenKeyPEMs
 	}
 
-	return p.AuthPEM()
+	return [][]byte{p.AuthPEM()}
 }
 
 // TransmittedPEM returns the PEM certificate that is transmitted

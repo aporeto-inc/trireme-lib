@@ -22,19 +22,20 @@ import (
 	"github.com/aporeto-inc/trireme/processmon"
 )
 
-//keyPEM is a private interface required by the enforcerlauncher to expose method not exposed by the
-//PolicyEnforcer interface
-type keyPEM interface {
+type pkiCertifier interface {
 	AuthPEM() []byte
-	TokenPEM() []byte
 	TransmittedPEM() []byte
 	EncodingPEM() []byte
 }
 
-//ErrFailedtoLaunch exported
+type tokenPKICertifier interface {
+	TokenPEMs() [][]byte
+}
+
+// ErrFailedtoLaunch exported.
 var ErrFailedtoLaunch = errors.New("Failed to Launch")
 
-//ErrExpectedEnforcer exported
+// ErrExpectedEnforcer exported
 var ErrExpectedEnforcer = errors.New("Process was not launched")
 
 // ErrEnforceFailed exported
@@ -43,7 +44,7 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 // ErrInitFailed exported
 var ErrInitFailed = errors.New("Failed remote Init")
 
-//ProxyInfo is the struct used to hold state about active enforcers in the system
+// ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
 	MutualAuth             bool
 	Secrets                secrets.Secrets
@@ -61,10 +62,12 @@ type ProxyInfo struct {
 	sync.Mutex
 }
 
-//InitRemoteEnforcer method makes a RPC call to the remote enforcer
+// InitRemoteEnforcer method makes a RPC call to the remote enforcer
 func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
+	pkier := s.Secrets.(pkiCertifier)
+
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitRequestPayload{
 			FqConfig:               s.filterQueue,
@@ -72,16 +75,17 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			Validity:               s.validity,
 			SecretType:             s.Secrets.Type(),
 			ServerID:               s.serverID,
-			CAPEM:                  s.Secrets.(keyPEM).AuthPEM(),
-			PublicPEM:              s.Secrets.(keyPEM).TransmittedPEM(),
-			PrivatePEM:             s.Secrets.(keyPEM).EncodingPEM(),
+			CAPEM:                  pkier.AuthPEM(),
+			PublicPEM:              pkier.TransmittedPEM(),
+			PrivatePEM:             pkier.EncodingPEM(),
 			ExternalIPCacheTimeout: s.externalIPCacheTimeout,
 		},
 	}
 
 	if s.Secrets.Type() == secrets.PKICompactType {
-		request.Payload.(*rpcwrapper.InitRequestPayload).Token = s.Secrets.TransmittedKey()
-		request.Payload.(*rpcwrapper.InitRequestPayload).TokenCAPEM = s.Secrets.(keyPEM).TokenPEM()
+		payload := request.Payload.(*rpcwrapper.InitRequestPayload)
+		payload.Token = s.Secrets.TransmittedKey()
+		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
@@ -95,7 +99,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	return nil
 }
 
-//Enforce method makes a RPC call for the remote enforcer enforce method
+// Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
@@ -173,7 +177,7 @@ func (s *ProxyInfo) Stop() error {
 	return nil
 }
 
-//NewProxyEnforcer creates a new proxy to remote enforcers
+// NewProxyEnforcer creates a new proxy to remote enforcers.
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
@@ -221,7 +225,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	return proxydata
 }
 
-// NewDefaultProxyEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer
+// NewDefaultProxyEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer.
 func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets secrets.Secrets,
@@ -252,14 +256,14 @@ func NewDefaultProxyEnforcer(serverID string,
 	)
 }
 
-//StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer
+// StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer.
 type StatsServer struct {
 	collector collector.EventCollector
 	rpchdl    rpcwrapper.RPCServer
 	secret    string
 }
 
-//GetStats  is the function called from the remoteenforcer when it has new flow events to publish
+// GetStats is the function called from the remoteenforcer when it has new flow events to publish.
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {

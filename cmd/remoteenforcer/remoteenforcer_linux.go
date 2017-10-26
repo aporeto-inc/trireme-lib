@@ -193,7 +193,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			)
 		case secrets.PKICompactType:
 			// Compact PKI Parameters
-			s.secrets, err = secrets.NewCompactPKIWithTokenCA(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.TokenCAPEM, payload.Token)
+			s.secrets, err = secrets.NewCompactPKIWithTokenCA(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.TokenKeyPEMs, payload.Token)
 			if err != nil {
 				return fmt.Errorf("Failed to initialize secrets: %s", err)
 			}

@@ -386,7 +386,7 @@ IG7Nv+YlTVp5qA==
 						So(key, ShouldBeNil)
 						So(cert, ShouldBeNil)
 						So(certPool, ShouldBeNil)
-						So(err, ShouldResemble, fmt.Errorf("Failed to decode PEM block"))
+						So(err, ShouldResemble, fmt.Errorf("Failed to decode PEM block: -----BEGIN CERTIFICATE-----\n\t\t-----END CERTIFICATE-----"))
 					})
 				})
 			})
