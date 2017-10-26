@@ -88,37 +88,38 @@ func TestStop(t *testing.T) {
 // TODO: remove nolint
 // nolint
 func TestDestroy(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	dummyPUPath := "/var/run/trireme/linux/1234"
-	err := ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
-	So(err, ShouldBeNil)
+	Convey("Given I init my env", t, func() {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		dummyPUPath := "/var/run/trireme/linux/1234"
+		err := ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
+		So(err, ShouldBeNil)
 
-	defer os.RemoveAll(dummyPUPath) //nolint
-	Convey("Given a valid processor", t, func() {
-		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		defer os.RemoveAll(dummyPUPath) //nolint
+		Convey("Given a valid processor", func() {
+			puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+			store := mock_contextstore.NewMockContextStore(ctrl)
 
-		p := testLinuxProcessor()
-		p.puHandler = puHandler
-		p.contextStore = store
-		mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
-		p.netcls = mockcls
+			p := testLinuxProcessor()
+			p.puHandler = puHandler
+			p.contextStore = store
+			mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+			p.netcls = mockcls
 
-		Convey("When I get a destroy event that is valid", func() {
-			event := &rpcmonitor.EventInfo{
-				PUID: "/trireme/1234",
-			}
-			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
-			store.EXPECT().RemoveContext(gomock.Any()).Return(nil)
+			Convey("When I get a destroy event that is valid", func() {
+				event := &rpcmonitor.EventInfo{
+					PUID: "/trireme/1234",
+				}
+				mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
+				store.EXPECT().RemoveContext(gomock.Any()).Return(nil)
 
-			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
-			Convey("I should get the status of the upstream function", func() {
-				err := p.Destroy(event)
-				So(err, ShouldBeNil)
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
+				Convey("I should get the status of the upstream function", func() {
+					err := p.Destroy(event)
+					So(err, ShouldBeNil)
+				})
 			})
 		})
-
 	})
 }
 
