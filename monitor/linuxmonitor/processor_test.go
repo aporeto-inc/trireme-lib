@@ -2,6 +2,8 @@ package linuxmonitor
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/aporeto-inc/trireme/collector"
@@ -86,7 +88,9 @@ func TestStop(t *testing.T) {
 func TestDestroy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
+	dummyPUPath := "/var/run/trireme/linux/1234"
+	ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
+	defer os.RemoveAll(dummyPUPath)
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
 		store := mock_contextstore.NewMockContextStore(ctrl)
@@ -101,7 +105,6 @@ func TestDestroy(t *testing.T) {
 			event := &rpcmonitor.EventInfo{
 				PUID: "/trireme/1234",
 			}
-			mockcls.EXPECT().Deletebasepath(gomock.Any()).Return(true)
 			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
 			store.EXPECT().RemoveContext(gomock.Any()).Return(nil)
 
