@@ -178,7 +178,7 @@ func mountCgroupController() {
 	mounts, err := ioutil.ReadFile("/proc/mounts")
 
 	if err != nil {
-		zap.L().Fatal(err)
+		zap.L().Fatal(err.Error())
 	}
 
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
@@ -206,11 +206,11 @@ func mountCgroupController() {
 		basePath = cgroupMount + "/net_cls"
 
 		if err := os.MkdirAll(basePath, 0700); err != nil {
-			zap.L().Fatal(err)
+			zap.L().Fatal(err.Error())
 		}
 
 		if err := syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
-			zap.L().Fatal(err)
+			zap.L().Fatal(err.Error())
 		}
 
 		return
