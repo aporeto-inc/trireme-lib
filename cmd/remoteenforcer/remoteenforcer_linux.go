@@ -263,7 +263,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 
 	} else {
 		if err := s.Supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
-			zap.L().Error("Error when setting target networks to superviso", zap.Error(err))
+			zap.L().Error("Error when setting target networks to supervision", zap.Error(err))
 		}
 	}
 

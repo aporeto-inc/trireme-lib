@@ -186,7 +186,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 		//Clean pid from both caches
 		delete(ctx.pidlist, stoppedpid)
 
-		if err := s.pidToPU.Remove(stoppedpid); err != nil {
+		if err = s.pidToPU.Remove(stoppedpid); err != nil {
 			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("stoppedpid", stoppedpid))
 		}
 
@@ -202,7 +202,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 			)
 		}
 
-		if err := s.putoPidMap.Remove(contextID); err != nil {
+		if err = s.putoPidMap.Remove(contextID); err != nil {
 			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("contextID", contextID))
 		}
 
@@ -353,7 +353,7 @@ func (s *UIDProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, run
 		return err
 	}
 
-	if err := s.netcls.AssignMark(event.PID, mark); err != nil {
+	if err = s.netcls.AssignMark(event.PID, mark); err != nil {
 		if derr := s.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
