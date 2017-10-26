@@ -254,7 +254,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 		}
 
 		if err := s.Supervisor.Start(); err != nil {
-			return err
+			zap.L().Error("Error when starting the supervisor", zap.Error(err))
 		}
 
 		if s.Service != nil {
