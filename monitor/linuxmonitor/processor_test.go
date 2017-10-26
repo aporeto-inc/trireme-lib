@@ -85,6 +85,8 @@ func TestStop(t *testing.T) {
 	})
 }
 
+// TODO: remove nolint
+// nolint
 func TestDestroy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

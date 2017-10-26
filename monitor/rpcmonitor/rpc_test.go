@@ -136,6 +136,8 @@ func TestStart(t *testing.T) {
 	})
 }
 
+// TODO: remove nolint
+// nolint
 func TestHandleEvent(t *testing.T) {
 
 	ctrl := gomock.NewController(t)

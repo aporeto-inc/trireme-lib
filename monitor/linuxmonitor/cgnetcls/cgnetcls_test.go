@@ -24,6 +24,8 @@ const (
 	testmark             = 100
 )
 
+// TODO: remove nolint
+// nolint
 func cleanupnetclsgroup() {
 	data, _ := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, testcgroupname, procs))
 	fmt.Println(string(data))
@@ -93,6 +95,8 @@ func TestCreategroup(t *testing.T) {
 
 }
 
+// TODO: remove nolint
+// nolint
 func TestAssignMark(t *testing.T) {
 	cg := NewCgroupNetController("")
 	if os.Getenv("USER") != "root" {
@@ -125,6 +129,8 @@ func TestAssignMark(t *testing.T) {
 
 }
 
+// TODO: remove nolint
+// nolint
 func TestAddProcess(t *testing.T) {
 	//hopefully this pid does not exist
 	pid := 1<<31 - 1
@@ -171,6 +177,8 @@ func TestAddProcess(t *testing.T) {
 
 }
 
+// TODO: remove nolint
+// nolint
 func TestRemoveProcess(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
@@ -238,6 +246,8 @@ func TestDeleteBasePath(t *testing.T) {
 	}
 }
 
+// TODO: remove nolint
+// nolint
 func TestListCgroupProcesses(t *testing.T) {
 	pid := 1<<31 - 1
 	r := rand.New(rand.NewSource(23))
