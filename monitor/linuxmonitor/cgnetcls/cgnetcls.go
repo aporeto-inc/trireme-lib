@@ -35,10 +35,14 @@ func (s *netCls) Creategroup(cgroupname string) error {
 	//Create the directory structure
 	_, err := os.Stat(basePath + procs)
 	if os.IsNotExist(err) {
-		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
+		if err := syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
+			return err
+		}
 	}
 
-	os.MkdirAll(filepath.Join(basePath, TriremeBasePath, cgroupname), 0700)
+	if err = os.MkdirAll(filepath.Join(basePath, TriremeBasePath, cgroupname), 0700); err != nil {
+		return err
+	}
 
 	//Write to the notify on release file and release agent files
 
@@ -150,7 +154,9 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 func (s *netCls) Deletebasepath(cgroupName string) bool {
 
 	if cgroupName == TriremeBasePath {
-		os.Remove(filepath.Join(basePath, cgroupName))
+		if err := os.Remove(filepath.Join(basePath, cgroupName)); err != nil {
+			zap.L().Error("Error when removing Trireme Base Path", zap.Error(err))
+		}
 		return true
 	}
 
@@ -158,7 +164,12 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 }
 
 func mountCgroupController() {
-	mounts, _ := ioutil.ReadFile("/proc/mounts")
+	mounts, err := ioutil.ReadFile("/proc/mounts")
+
+	if err != nil {
+		zap.L().Fatal(err)
+	}
+
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
 	var netCls = false
 	var cgroupMount string
@@ -179,14 +190,20 @@ func mountCgroupController() {
 		zap.L().Error("Cgroups are not enabled or net_cls is not mounted")
 		return
 	}
+
 	if !netCls {
 		basePath = cgroupMount + "/net_cls"
-		os.MkdirAll(basePath, 0700)
-		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
+
+		if err := os.MkdirAll(basePath, 0700); err != nil {
+			zap.L().Fatal(err)
+		}
+
+		if err := syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
+			zap.L().Fatal(err)
+		}
+
 		return
-
 	}
-
 }
 
 // NewDockerCgroupNetController returns a handle to call functions on the cgroup net_cls controller

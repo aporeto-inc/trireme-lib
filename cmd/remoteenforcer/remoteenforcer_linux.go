@@ -207,9 +207,14 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			)
 		}
 	}
-	s.Enforcer.Start()
 
-	s.statsclient.ConnectStatsClient()
+	if err := s.Enforcer.Start(); err != nil {
+		return err
+	}
+
+	if err := s.statsclient.ConnectStatsClient(); err !== nil {
+		return err
+	}
 
 	resp.Status = ""
 
@@ -248,13 +253,18 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			s.Supervisor = supervisorHandle
 		}
 
-		s.Supervisor.Start()
+		if err := s.Supervisor.Start(); err != nil {
+			return err
+		}
+
 		if s.Service != nil {
 			s.Service.Initialize(s.secrets, s.Enforcer.GetFilterQueue())
 		}
 
 	} else {
-		s.Supervisor.SetTargetNetworks(payload.TriremeNetworks)
+		if err := s.Supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
+			return err
+		}
 	}
 
 	resp.Status = ""
@@ -445,13 +455,19 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 		return err
 	}
 
-	go rpchdl.StartServer("unix", namedPipe, server)
+	go func(){
+		if err := rpchdl.StartServer("unix", namedPipe, server); err != nil {
+			zap.L().Fatal("Failed to start the server", zap.Error(err))
+		}
+	}()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-c
 
-	server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
+	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
+		zap.L().Fatal("Failed to stop the server", zap.Error(err))
+	}
 
 	return nil
 }
