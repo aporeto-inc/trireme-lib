@@ -45,6 +45,7 @@ type InitRequestPayload struct {
 	SecretType             secrets.PrivateSecretsType `json:",omitempty"`
 	ServerID               string                     `json:",omitempty"`
 	CAPEM                  []byte                     `json:",omitempty"`
+	TokenKeyPEMs           [][]byte                   `json:",omitempty"`
 	PublicPEM              []byte                     `json:",omitempty"`
 	PrivatePEM             []byte                     `json:",omitempty"`
 	Token                  []byte                     `json:",omitempty"`
