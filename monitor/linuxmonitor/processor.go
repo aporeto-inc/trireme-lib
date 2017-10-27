@@ -65,12 +65,12 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 	// Validate the PUID format
+
 	if !s.regStart.Match([]byte(eventInfo.PUID)) {
 		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
 	}
 
 	contextID := eventInfo.PUID
-
 	// Extract the metadata
 	runtimeInfo, err := s.metadataExtractor(eventInfo)
 	if err != nil {
@@ -116,7 +116,11 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+	if contextID == "/trireme" {
+		return nil
+	}
 
+	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventStop)
 }
 
@@ -127,7 +131,13 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+	if contextID == "/trireme" {
+		contextID = strings.TrimLeft(contextID, "/")
+		s.netcls.Deletebasepath(contextID)
+		return nil
+	}
 
+	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",
@@ -142,8 +152,6 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 		}
 	}
 
-	s.netcls.Deletebasepath(contextID)
-
 	//let us remove the cgroup files now
 	if err := s.netcls.DeleteCgroup(contextID); err != nil {
 		zap.L().Warn("Failed to clean netcls group",
@@ -153,7 +161,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	if err := s.contextStore.RemoveContext(contextID); err != nil {
-		zap.L().Warn("Failed to clean cache while destroying process",
+		zap.L().Error("Failed to clean cache while destroying process",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
@@ -258,7 +266,7 @@ func (s *LinuxProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (str
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}
-
+	//contextID = contextID[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	return contextID, nil
 }
 

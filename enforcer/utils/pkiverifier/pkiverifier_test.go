@@ -57,20 +57,28 @@ func TestNewConfig(t *testing.T) {
 	Convey("When I create a new PKI configuration", t, func() {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
-		Convey("When I use  valid keys, it should succeed ", func() {
-			p := NewConfig(cert.PublicKey.(*ecdsa.PublicKey), key, -1)
+
+		Convey("When I use NewPKIIssuer with valid keys, it should succeed ", func() {
+			p := NewPKIIssuer(key).(*tokenManager)
 			So(p, ShouldNotBeNil)
-			So(p.validity, ShouldEqual, defaultValidity*time.Second)
+			So(p.validity, ShouldEqual, 0)
 			So(p.privateKey, ShouldEqual, key)
-			So(p.publicKey, ShouldEqual, cert.PublicKey.(*ecdsa.PublicKey))
+			So(p.publicKeys, ShouldBeNil)
 		})
 
-		Convey("When I create a verifier with a custom validity, it should succeed  ", func() {
-			p := NewConfig(cert.PublicKey.(*ecdsa.PublicKey), key, 10*time.Second)
+		Convey("When I use NewPKIVerifier valid keys, it should succeed ", func() {
+			p := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1).(*tokenManager)
+			So(p, ShouldNotBeNil)
+			So(p.validity, ShouldEqual, defaultValidity*time.Second)
+			So(p.privateKey, ShouldBeNil)
+			So(p.publicKeys, ShouldResemble, []*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)})
+		})
+		Convey("When I use NewPKIVerifier valid keys with a custom validity, it should succeed ", func() {
+			p := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, 10*time.Second).(*tokenManager)
 			So(p, ShouldNotBeNil)
 			So(p.validity, ShouldEqual, 10*time.Second)
-			So(p.privateKey, ShouldEqual, key)
-			So(p.publicKey, ShouldEqual, cert.PublicKey.(*ecdsa.PublicKey))
+			So(p.privateKey, ShouldBeNil)
+			So(p.publicKeys, ShouldResemble, []*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)})
 		})
 	})
 }
@@ -79,12 +87,13 @@ func TestCreateAndVerify(t *testing.T) {
 	Convey("Given a valid verifier", t, func() {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
-		p := NewConfig(cert.PublicKey.(*ecdsa.PublicKey), key, -1)
+		p := NewPKIIssuer(key)
+		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1)
 		So(p, ShouldNotBeNil)
 		Convey("When I create a token", func() {
 			token, err1 := p.CreateTokenFromCertificate(cert)
 			So(err1, ShouldBeNil)
-			rxtoken, err2 := p.Verify(token)
+			rxtoken, err2 := v.Verify(token)
 			So(err2, ShouldBeNil)
 			So(*rxtoken.X, ShouldResemble, *cert.PublicKey.(*ecdsa.PublicKey).X)
 			So(*rxtoken.Y, ShouldResemble, *cert.PublicKey.(*ecdsa.PublicKey).Y)
@@ -95,13 +104,14 @@ func TestCreateAndVerify(t *testing.T) {
 	Convey("Given a valid verifier", t, func() {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
-		p := NewConfig(cert.PublicKey.(*ecdsa.PublicKey), key, -1)
+		p := NewPKIIssuer(key)
+		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, -1)
 		So(p, ShouldNotBeNil)
 		Convey("When I a receive a bad token, I should get an error", func() {
 			token, err1 := p.CreateTokenFromCertificate(cert)
 			So(err1, ShouldBeNil)
 			token = token[:len(token)-10]
-			_, err2 := p.Verify(token)
+			_, err2 := v.Verify(token)
 			So(err2, ShouldNotBeNil)
 		})
 	})
@@ -111,25 +121,27 @@ func TestCaching(t *testing.T) {
 	Convey("Given a valid verifier with a zero timer for the cache", t, func() {
 		key, cert, _, err := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
-		p := NewConfig(cert.PublicKey.(*ecdsa.PublicKey), key, 1*time.Second)
+		p := NewPKIIssuer(key)
+		v := NewPKIVerifier([]*ecdsa.PublicKey{cert.PublicKey.(*ecdsa.PublicKey)}, 1*time.Second)
+
 		So(p, ShouldNotBeNil)
 
 		Convey("When I receive a token", func() {
 			token, err1 := p.CreateTokenFromCertificate(cert)
 			So(err1, ShouldBeNil)
-			_, err2 := p.Verify(token)
+			_, err2 := v.Verify(token)
 			So(err2, ShouldBeNil)
 
 			Convey("The cache should have the token ", func() {
-				_, err := p.keycache.Get(string(token))
+				_, err := v.(*tokenManager).keycache.Get(string(token))
 				So(err, ShouldBeNil)
-				_, err2 := p.Verify(token)
+				_, err2 := v.Verify(token)
 				So(err2, ShouldBeNil)
 			})
 
 			Convey("The cache should not have the token after 2 seconds ", func() {
 				time.Sleep(2 * time.Second)
-				_, err := p.keycache.Get(string(token))
+				_, err := v.(*tokenManager).keycache.Get(string(token))
 				So(err, ShouldNotBeNil)
 			})
 		})

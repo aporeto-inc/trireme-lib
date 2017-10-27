@@ -15,7 +15,9 @@ import (
 )
 
 func matchSpec(term string, rulespec []string) error {
+
 	for _, rule := range rulespec {
+
 		if rule == term {
 			return nil
 		}

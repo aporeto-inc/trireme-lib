@@ -174,7 +174,7 @@ func LoadCertificate(certPEM []byte) (*x509.Certificate, error) {
 	// Decode the certificate
 	certBlock, _ := pem.Decode(certPEM)
 	if certBlock == nil {
-		return nil, fmt.Errorf("Failed to decode PEM block")
+		return nil, fmt.Errorf("Failed to decode PEM block: %s", string(certPEM))
 	}
 
 	// Create the certificate structure

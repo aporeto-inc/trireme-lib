@@ -41,9 +41,10 @@ type TriremeOptions struct {
 
 	PSK []byte
 
-	KeyPEM    []byte
-	CertPEM   []byte
-	CaCertPEM []byte
+	KeyPEM     []byte
+	CertPEM    []byte
+	CaCertPEM  []byte
+	SmartToken []byte
 
 	TargetNetworks []string
 
@@ -146,7 +147,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	var dockerMonitorInstance monitor.Monitor
 	var rpcMonitorInstance *rpcmonitor.RPCMonitor
 
-	var pkiSecrets *secrets.PKISecrets
+	var pkiSecrets secrets.Secrets
 	var err error
 
 	// Only a type of Container (remote or local) can be enabled
@@ -155,12 +156,24 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	if options.PKI {
-		pkiSecrets, err = secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
-		secretInstance = pkiSecrets
-		publicKeyAdder = pkiSecrets
-		if err != nil {
-			return nil, fmt.Errorf("Error generating secrets for PKI: %s", err)
+		if options.SmartToken != nil {
+
+			zap.L().Info("Initializing Trireme with Smart PKI Auth")
+			pkiSecrets, err = secrets.NewCompactPKI(options.KeyPEM, options.CertPEM, options.CaCertPEM, options.SmartToken)
+			zap.L().Info("Finished Initializing Trireme with PKI Auth")
+			if err != nil {
+				return nil, fmt.Errorf("Error Instantiating new Compact PKI: %s", err)
+			}
+		} else {
+			pkiTriremeSecret, err2 := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
+			if err2 != nil {
+				return nil, fmt.Errorf("Error Instantiating New PKI Secret: %s", err)
+			}
+			pkiSecrets = pkiTriremeSecret
+			publicKeyAdder = pkiTriremeSecret
 		}
+		secretInstance = pkiSecrets
+
 	} else {
 		secretInstance = NewSecretsFromPSK(options.PSK)
 	}
