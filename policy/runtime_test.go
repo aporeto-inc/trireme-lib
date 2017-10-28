@@ -16,24 +16,22 @@ func TestNewPURunTime(t *testing.T) {
 		tags.AppendKeyValue("server", "local")
 
 		ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
-		options := ExtendedMap{
-			"Activate": "true",
-		}
 
 		runtime := NewPURuntime(
 			"container1",
 			123,
+			"",
 			tags,
 			ips,
 			constants.ContainerPU,
-			options,
+			nil,
 		)
 
 		So(runtime, ShouldNotBeNil)
 		So(runtime.puType, ShouldEqual, constants.ContainerPU)
 		So(runtime.tags, ShouldResemble, tags)
 		So(runtime.ips, ShouldResemble, ips)
-		So(runtime.options, ShouldResemble, options)
+		So(runtime.options, ShouldBeNil)
 		So(runtime.pid, ShouldEqual, 123)
 		So(runtime.name, ShouldResemble, "container1")
 	})
@@ -47,7 +45,7 @@ func TestNewPDefaultURunTime(t *testing.T) {
 		So(runtime.puType, ShouldEqual, constants.ContainerPU)
 		So(runtime.tags, ShouldResemble, NewTagStore())
 		So(runtime.ips, ShouldResemble, ExtendedMap{})
-		So(runtime.options, ShouldResemble, ExtendedMap{})
+		So(runtime.options, ShouldBeNil)
 		So(runtime.pid, ShouldEqual, 0)
 		So(runtime.name, ShouldResemble, "")
 	})
@@ -60,17 +58,15 @@ func TestBasicFunctions(t *testing.T) {
 		tags.AppendKeyValue("server", "local")
 
 		ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
-		options := ExtendedMap{
-			"Activate": "true",
-		}
 
 		runtime := NewPURuntime(
 			"container1",
 			123,
+			"",
 			tags,
 			ips,
 			constants.ContainerPU,
-			options,
+			nil,
 		)
 
 		Convey("When I clone it, I should get the right runtime", func() {
@@ -93,12 +89,8 @@ func TestBasicFunctions(t *testing.T) {
 		})
 
 		Convey("I should be able to set and ge the right options", func() {
-			runtime.SetOptions(ExtendedMap{
-				"newoptions": "newvalues",
-			})
-			So(runtime.Options(), ShouldResemble, ExtendedMap{
-				"newoptions": "newvalues",
-			})
+			runtime.SetOptions(OptionsType{CgroupName: "test"})
+			So(runtime.Options(), ShouldResemble, OptionsType{CgroupName: "test"})
 		})
 
 		Convey("I should ge the right name", func() {

@@ -22,18 +22,20 @@ import (
 	"github.com/aporeto-inc/trireme/processmon"
 )
 
-//keyPEM is a private interface required by the enforcerlauncher to expose method not exposed by the
-//PolicyEnforcer interface
-type keyPEM interface {
+type pkiCertifier interface {
 	AuthPEM() []byte
 	TransmittedPEM() []byte
 	EncodingPEM() []byte
 }
 
-//ErrFailedtoLaunch exported
+type tokenPKICertifier interface {
+	TokenPEMs() [][]byte
+}
+
+// ErrFailedtoLaunch exported.
 var ErrFailedtoLaunch = errors.New("Failed to Launch")
 
-//ErrExpectedEnforcer exported
+// ErrExpectedEnforcer exported
 var ErrExpectedEnforcer = errors.New("Process was not launched")
 
 // ErrEnforceFailed exported
@@ -42,42 +44,48 @@ var ErrEnforceFailed = errors.New("Failed to enforce rules")
 // ErrInitFailed exported
 var ErrInitFailed = errors.New("Failed remote Init")
 
-//ProxyInfo is the struct used to hold state about active enforcers in the system
+// ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
-	MutualAuth        bool
-	Secrets           secrets.Secrets
-	serverID          string
-	validity          time.Duration
-	prochdl           processmon.ProcessManager
-	rpchdl            rpcwrapper.RPCClient
-	initDone          map[string]bool
-	filterQueue       *fqconfig.FilterQueue
-	commandArg        string
-	statsServerSecret string
-	procMountPoint    string
+	MutualAuth             bool
+	Secrets                secrets.Secrets
+	serverID               string
+	validity               time.Duration
+	prochdl                processmon.ProcessManager
+	rpchdl                 rpcwrapper.RPCClient
+	initDone               map[string]bool
+	filterQueue            *fqconfig.FilterQueue
+	commandArg             string
+	statsServerSecret      string
+	procMountPoint         string
+	externalIPCacheTimeout time.Duration
 
 	sync.Mutex
 }
 
-//InitRemoteEnforcer method makes a RPC call to the remote enforcer
+// InitRemoteEnforcer method makes a RPC call to the remote enforcer
 func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
+	pkier := s.Secrets.(pkiCertifier)
+
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitRequestPayload{
-			FqConfig:   s.filterQueue,
-			MutualAuth: s.MutualAuth,
-			Validity:   s.validity,
-			SecretType: s.Secrets.Type(),
-			ServerID:   s.serverID,
-			CAPEM:      s.Secrets.(keyPEM).AuthPEM(),
-			PublicPEM:  s.Secrets.(keyPEM).TransmittedPEM(),
-			PrivatePEM: s.Secrets.(keyPEM).EncodingPEM(),
+			FqConfig:               s.filterQueue,
+			MutualAuth:             s.MutualAuth,
+			Validity:               s.validity,
+			SecretType:             s.Secrets.Type(),
+			ServerID:               s.serverID,
+			CAPEM:                  pkier.AuthPEM(),
+			PublicPEM:              pkier.TransmittedPEM(),
+			PrivatePEM:             pkier.EncodingPEM(),
+			ExternalIPCacheTimeout: s.externalIPCacheTimeout,
 		},
 	}
 
 	if s.Secrets.Type() == secrets.PKICompactType {
-		request.Payload.(*rpcwrapper.InitRequestPayload).Token = s.Secrets.TransmittedKey()
+		payload := request.Payload.(*rpcwrapper.InitRequestPayload)
+		payload.Token = s.Secrets.TransmittedKey()
+		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
@@ -91,12 +99,13 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	return nil
 }
 
-//Enforce method makes a RPC call for the remote enforcer enforce emthod
+// Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
+	zap.L().Debug("NSPath of container", zap.String("ns", puInfo.Runtime.NSPath()))
 
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
+	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), puInfo.Runtime.NSPath(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
 	if err != nil {
 		return err
 	}
@@ -131,7 +140,10 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
 	if err != nil {
-		//We can't talk to the enforcer. Kill it and restart it
+		// We can't talk to the enforcer. Kill it and restart it
+		s.Lock()
+		delete(s.initDone, contextID)
+		s.Unlock()
 		s.prochdl.KillProcess(contextID)
 		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
 		return ErrEnforceFailed
@@ -140,7 +152,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	return nil
 }
 
-// Unenforce stops enforcing policy for the given contexID.
+// Unenforce stops enforcing policy for the given contextID.
 func (s *ProxyInfo) Unenforce(contextID string) error {
 
 	s.Lock()
@@ -165,7 +177,7 @@ func (s *ProxyInfo) Stop() error {
 	return nil
 }
 
-//NewProxyEnforcer creates a new proxy to remote enforcers
+// NewProxyEnforcer creates a new proxy to remote enforcers.
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
@@ -176,6 +188,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
 	procMountPoint string,
+	externalIPCacheTimeout time.Duration,
 ) enforcer.PolicyEnforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
@@ -187,17 +200,18 @@ func NewProxyEnforcer(mutualAuth bool,
 	}
 
 	proxydata := &ProxyInfo{
-		MutualAuth:        mutualAuth,
-		Secrets:           secrets,
-		serverID:          serverID,
-		validity:          validity,
-		prochdl:           processmon.GetProcessManagerHdl(),
-		rpchdl:            rpchdl,
-		initDone:          make(map[string]bool),
-		filterQueue:       filterQueue,
-		commandArg:        cmdArg,
-		statsServerSecret: statsServersecret,
-		procMountPoint:    procMountPoint,
+		MutualAuth:             mutualAuth,
+		Secrets:                secrets,
+		serverID:               serverID,
+		validity:               validity,
+		prochdl:                processmon.GetProcessManagerHdl(),
+		rpchdl:                 rpchdl,
+		initDone:               make(map[string]bool),
+		filterQueue:            filterQueue,
+		commandArg:             cmdArg,
+		statsServerSecret:      statsServersecret,
+		procMountPoint:         procMountPoint,
+		externalIPCacheTimeout: externalIPCacheTimeout,
 	}
 
 	zap.L().Debug("Called NewDataPathEnforcer")
@@ -211,7 +225,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	return proxydata
 }
 
-// NewDefaultProxyEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer
+// NewDefaultProxyEnforcer This is the default datapth method. THis is implemented to keep the interface consistent whether we are local or remote enforcer.
 func NewDefaultProxyEnforcer(serverID string,
 	collector collector.EventCollector,
 	secrets secrets.Secrets,
@@ -221,6 +235,10 @@ func NewDefaultProxyEnforcer(serverID string,
 
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcer.DefaultExternalIPTimeout)
+	if err != nil {
+		defaultExternalIPCacheTimeout = time.Second
+	}
 
 	validity := time.Hour * 8760
 	return NewProxyEnforcer(
@@ -234,17 +252,18 @@ func NewDefaultProxyEnforcer(serverID string,
 		rpchdl,
 		constants.DefaultRemoteArg,
 		procMountPoint,
+		defaultExternalIPCacheTimeout,
 	)
 }
 
-//StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer
+// StatsServer This struct is a receiver for Statsserver and maintains a handle to the RPC StatsServer.
 type StatsServer struct {
 	collector collector.EventCollector
 	rpchdl    rpcwrapper.RPCServer
 	secret    string
 }
 
-//GetStats  is the function called from the remoteenforcer when it has new flow events to publish
+// GetStats is the function called from the remoteenforcer when it has new flow events to publish.
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {

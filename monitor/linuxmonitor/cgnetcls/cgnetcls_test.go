@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -24,11 +25,12 @@ const (
 )
 
 func cleanupnetclsgroup() {
-	data, _ := ioutil.ReadFile(basePath + TriremeBasePath + testcgroupname + procs)
+	data, _ := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, testcgroupname, procs))
 	fmt.Println(string(data))
-	ioutil.WriteFile(basePath+procs, data, 0644)
-	os.RemoveAll(basePath + TriremeBasePath + testcgroupname)
+	ioutil.WriteFile(filepath.Join(basePath, procs), data, 0644)
+	os.RemoveAll(filepath.Join(basePath, TriremeBasePath, testcgroupname))
 }
+
 func TestCreategroup(t *testing.T) {
 
 	if os.Getenv("USER") != "root" {
@@ -44,14 +46,14 @@ func TestCreategroup(t *testing.T) {
 		t.Errorf("Failed to create group error returned %s", err.Error())
 	}
 
-	if _, err := ioutil.ReadFile(basePath + releaseAgentConfFile); err != nil {
+	if _, err := ioutil.ReadFile(filepath.Join(basePath, releaseAgentConfFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("ReleaseAgentConf File does not exist.Cgroup mount failed")
 			t.SkipNow()
 		}
 	}
 
-	if val, err := ioutil.ReadFile(basePath + notifyOnReleaseFile); err != nil {
+	if val, err := ioutil.ReadFile(filepath.Join(basePath, notifyOnReleaseFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("Notify on release file does not exist.Cgroup mount failed")
 			t.SkipNow()
@@ -63,7 +65,7 @@ func TestCreategroup(t *testing.T) {
 		}
 	}
 
-	if val, err := ioutil.ReadFile(basePath + TriremeBasePath + notifyOnReleaseFile); err != nil {
+	if val, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, notifyOnReleaseFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("Notify on release file does not exist.Cgroup mount failed")
 			t.SkipNow()
@@ -75,7 +77,7 @@ func TestCreategroup(t *testing.T) {
 		}
 	}
 
-	if val, err := ioutil.ReadFile(basePath + TriremeBasePath + testcgroupname + notifyOnReleaseFile); err != nil {
+	if val, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, testcgroupname, notifyOnReleaseFile)); err != nil {
 		if os.IsNotExist(err) {
 			t.Errorf("Notify on release file does not exist.Cgroup mount failed")
 			t.SkipNow()
@@ -109,7 +111,7 @@ func TestAssignMark(t *testing.T) {
 		t.Errorf("Failed to assign mark error = %s", err.Error())
 		t.SkipNow()
 	} else {
-		data, _ := ioutil.ReadFile(basePath + TriremeBasePath + testcgroupname + markFile)
+		data, _ := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, testcgroupname, markFile))
 		u, err := strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
 		if err != nil {
 			t.Errorf("Non Integer mark value in classid file")
@@ -160,7 +162,7 @@ func TestAddProcess(t *testing.T) {
 		t.SkipNow()
 	} else {
 		//This directory structure should not be delete
-		err = os.RemoveAll(basePath + TriremeBasePath + testcgroupname)
+		err = os.RemoveAll(filepath.Join(basePath, TriremeBasePath, testcgroupname))
 		if err == nil {
 			t.Errorf("Process not added to cgroup")
 			t.SkipNow()
@@ -229,7 +231,7 @@ func TestDeleteBasePath(t *testing.T) {
 
 	defer cleanupnetclsgroup()
 	cg.Deletebasepath(testcgroupnameformat)
-	_, err = os.Stat(basePath + TriremeBasePath + testcgroupname)
+	_, err = os.Stat(filepath.Join(basePath, TriremeBasePath, testcgroupname))
 	if err == nil {
 		t.Errorf("Delete of cgroup from system failed %s", err.Error())
 		t.SkipNow()
@@ -273,7 +275,7 @@ func TestListCgroupProcesses(t *testing.T) {
 		t.SkipNow()
 	} else {
 		//This directory structure should not be delete
-		err = os.RemoveAll(basePath + TriremeBasePath + testcgroupname)
+		err = os.RemoveAll(filepath.Join(basePath, TriremeBasePath, testcgroupname))
 		if err == nil {
 			t.Errorf("Process not added to cgroup")
 			t.SkipNow()

@@ -13,6 +13,8 @@ type PURuntime struct {
 	puType constants.PUType
 	// Pid holds the value of the first process of the container
 	pid int
+	// NsPath is the path to the networking namespace for this PURuntime if applicable.
+	nsPath string
 	// Name is the name of the container
 	name string
 	// IPAddress is the IP Address of the container
@@ -20,7 +22,11 @@ type PURuntime struct {
 	// Tags is a map of the metadata of the container
 	tags *TagStore
 	// options
-	options ExtendedMap
+	options *OptionsType
+
+	// GlobalLock is used by Trireme to make sure that two operations do not
+	// get interleaved for the same container.
+	GlobalLock *sync.Mutex
 
 	sync.Mutex
 }
@@ -31,6 +37,8 @@ type PURuntimeJSON struct {
 	PUType constants.PUType
 	// Pid holds the value of the first process of the container
 	Pid int
+	// NSPath is the path to the networking namespace for this PURuntime if applicable.
+	NSPath string
 	// Name is the name of the container
 	Name string
 	// IPAddress is the IP Address of the container
@@ -38,11 +46,11 @@ type PURuntimeJSON struct {
 	// Tags is a map of the metadata of the container
 	Tags *TagStore
 	// Options is a map of the options of the container
-	Options ExtendedMap
+	Options *OptionsType
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, tags *TagStore, ips ExtendedMap, puType constants.PUType, options ExtendedMap) *PURuntime {
+func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType constants.PUType, options *OptionsType) *PURuntime {
 
 	t := tags
 	if t == nil {
@@ -54,25 +62,22 @@ func NewPURuntime(name string, pid int, tags *TagStore, ips ExtendedMap, puType 
 		i = ExtendedMap{}
 	}
 
-	o := options
-	if o == nil {
-		o = ExtendedMap{}
-	}
-
 	return &PURuntime{
-		puType:  puType,
-		tags:    t,
-		ips:     i,
-		options: o,
-		pid:     pid,
-		name:    name,
+		puType:     puType,
+		tags:       t,
+		ips:        i,
+		options:    options,
+		pid:        pid,
+		nsPath:     nsPath,
+		name:       name,
+		GlobalLock: &sync.Mutex{},
 	}
 }
 
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, nil, nil, constants.ContainerPU, nil)
+	return NewPURuntime("", 0, "", nil, nil, constants.ContainerPU, nil)
 }
 
 // Clone returns a copy of the policy
@@ -80,7 +85,7 @@ func (r *PURuntime) Clone() *PURuntime {
 	r.Lock()
 	defer r.Unlock()
 
-	return NewPURuntime(r.name, r.pid, r.tags.Copy(), r.ips.Copy(), r.puType, r.options)
+	return NewPURuntime(r.name, r.pid, r.nsPath, r.tags.Copy(), r.ips.Copy(), r.puType, r.options)
 }
 
 // MarshalJSON Marshals this struct.
@@ -88,6 +93,7 @@ func (r *PURuntime) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&PURuntimeJSON{
 		PUType:      r.puType,
 		Pid:         r.pid,
+		NSPath:      r.nsPath,
 		Name:        r.name,
 		IPAddresses: r.ips,
 		Tags:        r.tags,
@@ -102,6 +108,7 @@ func (r *PURuntime) UnmarshalJSON(param []byte) error {
 		return err
 	}
 	r.pid = a.Pid
+	r.nsPath = a.NSPath
 	r.name = a.Name
 	r.ips = a.IPAddresses
 	r.tags = a.Tags
@@ -126,6 +133,22 @@ func (r *PURuntime) SetPid(pid int) {
 	r.pid = pid
 }
 
+// NSPath returns the NSPath
+func (r *PURuntime) NSPath() string {
+	r.Lock()
+	defer r.Unlock()
+
+	return r.nsPath
+}
+
+// SetNSPath sets the NSPath
+func (r *PURuntime) SetNSPath(nsPath string) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.nsPath = nsPath
+}
+
 // SetPUType sets the PU Type
 func (r *PURuntime) SetPUType(puType constants.PUType) {
 	r.Lock()
@@ -135,11 +158,11 @@ func (r *PURuntime) SetPUType(puType constants.PUType) {
 }
 
 // SetOptions sets the Options
-func (r *PURuntime) SetOptions(options ExtendedMap) {
+func (r *PURuntime) SetOptions(options OptionsType) {
 	r.Lock()
 	defer r.Unlock()
 
-	r.options = options.Copy()
+	r.options = &options
 }
 
 // Name returns the PID
@@ -202,9 +225,13 @@ func (r *PURuntime) Tags() *TagStore {
 }
 
 // Options returns tags for the processing unit
-func (r *PURuntime) Options() ExtendedMap {
+func (r *PURuntime) Options() OptionsType {
 	r.Lock()
 	defer r.Unlock()
 
-	return r.options.Copy()
+	if r.options == nil {
+		return OptionsType{}
+	}
+
+	return *r.options
 }

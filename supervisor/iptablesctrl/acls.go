@@ -9,10 +9,11 @@ import (
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string) [][]string {
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string) [][]string {
 
 	str := [][]string{
 		{
@@ -37,6 +38,42 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "multiport",
 			"--destination-ports", port,
 			"-m", "comment", "--comment", "Container-specific-chain",
+			"-j", netChain,
+		},
+	}
+
+	return str
+}
+
+func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string) [][]string {
+
+	str := [][]string{
+		{
+			i.appAckPacketIPTableContext,
+			uidchain,
+			"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", mark,
+		},
+
+		{
+			i.appAckPacketIPTableContext,
+			uidchain,
+			"-m", "mark", "--mark", mark,
+			"-m", "comment", "--comment", "Server-specific-chain",
+			"-j", appChain,
+		},
+		{
+			i.appAckPacketIPTableContext,
+			ipTableSectionPreRouting,
+			"-m", "set", "--match-set", portSetName, "dst",
+			"-j", "MARK", "--set-mark", mark,
+		},
+		{
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-p", "tcp",
+			"-m", "mark",
+			"--mark", mark,
+			"-m", "comment", "--comment", "Container-specific-chain 1",
 			"-j", netChain,
 		},
 	}
@@ -101,6 +138,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		})
+		//Moving to global rule
 		// Network Packets - SYN
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
@@ -108,7 +146,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
 		})
-		// Network Packets - Evertyhing but SYN (first 4 packets)
+		// // Network Packets - Evertyhing but SYN (first 4 packets)
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-m", "set", "--match-set", targetNetworkSet, "src",
@@ -125,6 +163,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
 		})
+
 		// Application Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
@@ -143,7 +182,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-m", "set", "--match-set", targetNetworkSet, "src",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 		})
 	}
@@ -195,10 +234,15 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(appChain string, netChain string, ip string, port string, mark string) error {
+func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, ip string, port string, mark string, uid string) error {
 
 	if i.mode == constants.LocalServer {
-		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Append")
+		if port != "0" || uid == "" {
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Append")
+		}
+
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid), "Append")
+
 	}
 
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Append")
@@ -558,10 +602,14 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(appChain, netChain, ip string, port string, mark string) error {
+func (i *Instance) deleteChainRules(portSetName, appChain, netChain, ip string, port string, mark string, uid string) error {
 
 	if i.mode == constants.LocalServer {
-		return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port), "Delete")
+		if uid == "" {
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid), "Delete")
+		}
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid), "Delete")
+
 	}
 
 	return i.processRulesFromList(i.chainRules(appChain, netChain, ip), "Delete")
@@ -627,12 +675,50 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err := i.ipt.Insert(
 		i.appAckPacketIPTableContext,
 		appChain, 1,
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"-j", "ACCEPT")
+
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at app ")
+	}
+
+	err = i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		appChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
 
 	if err != nil {
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
+	err = i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		appChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
+	if err != nil {
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
+	err = i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		i.appPacketIPTableSection, 1,
+		"-j", uidchain)
+	if err != nil {
+		return fmt.Errorf("Failed to add UID chain  %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
+	err = i.ipt.Insert(
+		i.appAckPacketIPTableContext,
+		appChain, 1,
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"-j", "ACCEPT")
+
+	if err != nil {
+		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
 
 	err = i.ipt.Insert(
@@ -647,23 +733,13 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	}
 
 	err = i.ipt.Insert(
-		i.appAckPacketIPTableContext,
-		appChain, 1,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT")
-
-	if err != nil {
-		return fmt.Errorf("Failed to add default allow for marked packets at app ")
-	}
-
-	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT")
 
 	if err != nil {
-		return fmt.Errorf("Failed to add default allow for marked packets at net")
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
 
 	return nil
@@ -729,7 +805,13 @@ func (i *Instance) CleanAllSynAckPacketCaptures() error {
 	if err := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
 		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
-
+	//We installed UID CHAINS with synack lets remove it here
+	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+		zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
+	}
+	if err := i.ipt.DeleteChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+		zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
+	}
 	return nil
 }
 
@@ -780,16 +862,16 @@ func (i *Instance) cleanACLs() error {
 
 	// Clean Application Rules/Chains in Raw if needed
 	if i.mode == constants.LocalContainer {
-		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
+		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 	}
 
 	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, chainPrefix)
+	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 
 	return nil
 }
 
-func (i *Instance) cleanACLSection(context, netSection, appSection, chainPrefix string) {
+func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSection, chainPrefix string) {
 
 	if err := i.ipt.ClearChain(context, appSection); err != nil {
 		zap.L().Warn("Can not clear the section in iptables",
@@ -806,7 +888,13 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, chainPrefix 
 			zap.Error(err),
 		)
 	}
-
+	if err := i.ipt.ClearChain(context, preroutingSection); err != nil {
+		zap.L().Warn("Can not clear the section in iptables",
+			zap.String("context", context),
+			zap.String("section", netSection),
+			zap.Error(err),
+		)
+	}
 	rules, err := i.ipt.ListChains(context)
 	if err != nil {
 		zap.L().Warn("Failed to list chains",

@@ -5,6 +5,7 @@ package enforcer
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/aporeto-inc/netlink-go/nflog"
 	"github.com/aporeto-inc/trireme/collector"
@@ -20,6 +21,7 @@ type nfLog struct {
 	collector       collector.EventCollector
 	srcNflogHandle  nflog.NFLog
 	dstNflogHandle  nflog.NFLog
+	sync.Mutex
 }
 
 func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) nfLogger {
@@ -33,15 +35,17 @@ func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, co
 }
 
 func (a *nfLog) start() {
-
+	a.Lock()
 	a.srcNflogHandle, _ = nflog.BindAndListenForLogs([]uint16{a.ipv4groupSource}, 64, a.sourceNFLogsHanlder, a.nflogErrorHandler)
 	a.dstNflogHandle, _ = nflog.BindAndListenForLogs([]uint16{a.ipv4groupDest}, 64, a.destNFLogsHandler, a.nflogErrorHandler)
-
+	a.Unlock()
 }
 
 func (a *nfLog) stop() {
+	a.Lock()
 	a.srcNflogHandle.NFlogClose()
 	a.dstNflogHandle.NFlogClose()
+	a.Unlock()
 }
 
 func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
@@ -49,6 +53,7 @@ func (a *nfLog) sourceNFLogsHanlder(buf *nflog.NfPacket, data interface{}) {
 	record, err := a.recordFromNFLogBuffer(buf, false)
 	if err != nil {
 		zap.L().Error("sourceNFLogsHanlder: create flow record", zap.Error(err))
+		return
 	}
 
 	a.collector.CollectFlowEvent(record)
@@ -59,6 +64,7 @@ func (a *nfLog) destNFLogsHandler(buf *nflog.NfPacket, data interface{}) {
 	record, err := a.recordFromNFLogBuffer(buf, true)
 	if err != nil {
 		zap.L().Error("destNFLogsHandler: create flow record", zap.Error(err))
+		return
 	}
 
 	a.collector.CollectFlowEvent(record)

@@ -11,7 +11,6 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor/ipsetctrl"
 	"github.com/aporeto-inc/trireme/supervisor/iptablesctrl"
@@ -22,6 +21,7 @@ type cacheData struct {
 	ips     policy.ExtendedMap
 	mark    string
 	port    string
+	uid     string
 }
 
 // Config is the structure holding all information about the supervisor
@@ -117,7 +117,7 @@ func (s *Config) Unsupervise(contextID string) error {
 
 	cacheEntry := version.(*cacheData)
 
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark); err != nil {
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -181,16 +181,16 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	zap.L().Debug("IPTables update for the creation of a pu", zap.String("contextID", contextID))
 
 	version := 0
-	mark, _ := containerInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-	port, ok := containerInfo.Runtime.Options().Get(cgnetcls.PortTag)
-	if !ok {
-		port = "0"
-	}
+	mark := containerInfo.Runtime.Options().CgroupMark
+	port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
+	uid := containerInfo.Runtime.Options().UserID
+
 	cacheEntry := &cacheData{
 		version: version,
 		ips:     containerInfo.Policy.IPAddresses(),
 		mark:    mark,
 		port:    port,
+		uid:     uid,
 	}
 
 	// Version the policy so that we can do hitless policy changes

@@ -17,9 +17,11 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
 )
+
+// DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
+const DefaultExternalIPTimeout = "500ms"
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
@@ -53,6 +55,9 @@ type Datapath struct {
 	netOrigConnectionTracker  cache.DataStore
 	netReplyConnectionTracker cache.DataStore
 
+	// CacheTimeout used for Trireme auto-detecion
+	externalIPCacheTimeout time.Duration
+
 	// connctrack handle
 	conntrackHdl conntrack.Conntrack
 
@@ -82,7 +87,16 @@ func New(
 	validity time.Duration,
 	mode constants.ModeType,
 	procMountPoint string,
+	externalIPCacheTimeout time.Duration,
 ) PolicyEnforcer {
+
+	if externalIPCacheTimeout <= 0 {
+		var err error
+		externalIPCacheTimeout, err = time.ParseDuration(DefaultExternalIPTimeout)
+		if err != nil {
+			externalIPCacheTimeout = time.Second
+		}
+	}
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
@@ -116,6 +130,7 @@ func New(
 		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
 		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
 		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
+		externalIPCacheTimeout:    externalIPCacheTimeout,
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
@@ -151,21 +166,25 @@ func NewWithDefaults(
 		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
 	}
 
-	mutualAuthorization := false
-	fqConfig := fqconfig.NewFilterQueueWithDefaults()
-
-	validity := time.Hour * 8760
+	defaultMutualAuthorization := false
+	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
+	defaultValidity := time.Hour * 8760
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(DefaultExternalIPTimeout)
+	if err != nil {
+		defaultExternalIPCacheTimeout = time.Second
+	}
 
 	return New(
-		mutualAuthorization,
-		fqConfig,
+		defaultMutualAuthorization,
+		defaultFQConfig,
 		collector,
 		service,
 		secrets,
 		serverID,
-		validity,
+		defaultValidity,
 		mode,
 		procMountPoint,
+		defaultExternalIPCacheTimeout,
 	)
 }
 
@@ -215,7 +234,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		}
 	}
 
-	if err := d.contextTracker.Remove(contextID); err != nil {
+	if err := d.contextTracker.RemoveWithDelay(contextID, 10*time.Second); err != nil {
 		zap.L().Warn("Unable to remove context from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
@@ -267,15 +286,9 @@ func (d *Datapath) Stop() error {
 
 func (d *Datapath) getProcessKeys(puInfo *policy.PUInfo) (string, []string) {
 
-	mark, ok := puInfo.Runtime.Options().Get(cgnetcls.CgroupMarkTag)
-	if !ok {
-		mark = ""
-	}
+	mark := puInfo.Runtime.Options().CgroupMark
 
-	ports, ok := puInfo.Runtime.Options().Get(cgnetcls.PortTag)
-	if !ok {
-		ports = "0"
-	}
+	ports := policy.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
 
 	portlist := strings.Split(ports, ",")
 
@@ -293,11 +306,10 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	pu := &PUContext{
-		ID:              contextID,
-		ManagementID:    puInfo.Policy.ManagementID(),
-		PUType:          puInfo.Runtime.PUType(),
-		IP:              ip,
-		externalIPCache: cache.NewCacheWithExpiration(time.Second * 900),
+		ID:           contextID,
+		ManagementID: puInfo.Policy.ManagementID(),
+		PUType:       puInfo.Runtime.PUType(),
+		IP:           ip,
 	}
 
 	// Cache PUs for retrieval based on packet information
@@ -333,6 +345,8 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 	puContext.Identity = containerInfo.Policy.Identity()
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
+
+	puContext.externalIPCache = cache.NewCacheWithExpiration(d.externalIPCacheTimeout)
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {

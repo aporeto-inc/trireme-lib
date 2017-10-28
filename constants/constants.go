@@ -37,10 +37,19 @@ const (
 type PUType int
 
 const (
-	// ContainerPU indicates that this PU is a conctainer
+	// ContainerPU indicates that this PU is a container
 	ContainerPU PUType = iota
 	// LinuxProcessPU indicates that this is Linux process
 	LinuxProcessPU
+	// KubernetesPU indicates that this is KubernetesPod
+	KubernetesPU
+	// UIDLoginPU -- PU representing a user session
+	UIDLoginPU
+	// TransientPU PU -- placeholder to run processing. This should not
+	// be inserted in any cache. This is valid only for processing a packet
+	TransientPU
+	// HostPU indicates that we must apply policy to the host namespace
+	HostPU
 )
 
 const (

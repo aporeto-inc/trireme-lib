@@ -26,6 +26,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourc
 		Tags:       context.Annotations,
 		Action:     plc.Action,
 		DropReason: mode,
+		PolicyID:   plc.PolicyID,
 	}
 
 	d.collector.CollectFlowEvent(c)
@@ -46,7 +47,8 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sou
 
 	if plc == nil {
 		plc = &policy.FlowPolicy{
-			Action: policy.Reject,
+			Action:   policy.Reject,
+			PolicyID: "",
 		}
 	}
 
@@ -67,7 +69,8 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 
 	if flowpolicy == nil {
 		flowpolicy = &policy.FlowPolicy{
-			Action: policy.Reject,
+			Action:    policy.Reject,
+			ServiceID: "default",
 		}
 	}
 
@@ -110,7 +113,8 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpoli
 
 	if flowpolicy == nil {
 		flowpolicy = &policy.FlowPolicy{
-			Action: policy.Reject,
+			Action:    policy.Reject,
+			ServiceID: "default",
 		}
 	}
 

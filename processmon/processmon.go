@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -179,7 +180,7 @@ func (p *ProcessMon) KillProcess(contextID string) {
 }
 
 //LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
+func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath string, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
 	secretLength := 32
 	var cmdName string
 
@@ -188,8 +189,18 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		return nil
 	}
 
-	pidstat, pidstaterr := os.Stat(procMountPoint + "/" + strconv.Itoa(refPid) + "/ns/net")
-	hoststat, hoststaterr := os.Stat(procMountPoint + "/1/ns/net")
+	var nsPath string
+
+	// We check if the NetNsPath was given as parameter.
+	// If it was we will use it. Otherwise we will determine it based on the PID.
+	if refNSPath == "" {
+		nsPath = filepath.Join(procMountPoint, strconv.Itoa(refPid), "ns/net")
+	} else {
+		nsPath = refNSPath
+	}
+
+	pidstat, pidstaterr := os.Stat(nsPath)
+	hoststat, hoststaterr := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
 			zap.L().Error("Refused to launch a remote enforcer in host namespace")
@@ -209,8 +220,9 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		}
 	}
 
-	if _, lerr := os.Stat(netnspath + contextID); lerr != nil {
-		linkErr := os.Symlink(procMountPoint+"/"+strconv.Itoa(refPid)+"/ns/net",
+	// A symlink is created from /var/run/netns/<context> to the NetNSPath
+	if _, lerr := os.Stat(filepath.Join(netnspath, contextID)); lerr != nil {
+		linkErr := os.Symlink(nsPath,
 			netnspath+contextID)
 		if linkErr != nil {
 			zap.L().Error(ErrSymLinkFailed.Error(), zap.Error(linkErr))
@@ -243,18 +255,34 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 		return err
 	}
 
-	statschannelenv := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
+	statsChannel := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		//This is a more serious failure. We can't reliably control the remote enforcer
 		return fmt.Errorf("Failed to generate secret: %s", err.Error())
 	}
-	MountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
+	mountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
 	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
+	containerPID := "CONTAINER_PID=" + strconv.Itoa(refPid)
 
-	cmd.Env = append(os.Environ(), []string{MountPoint, namedPipe, statschannelenv, rpcClientSecret, envStatsSecret, "CONTAINER_PID=" + strconv.Itoa(refPid)}...)
+	newEnvVars := []string{
+		mountPoint,
+		namedPipe,
+		statsChannel,
+		rpcClientSecret,
+		envStatsSecret,
+		containerPID,
+	}
+
+	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
+	if refNSPath != "" {
+		nsPath := "APORETO_ENV_NS_PATH=" + refNSPath
+		newEnvVars = append(newEnvVars, nsPath)
+	}
+
+	cmd.Env = append(os.Environ(), newEnvVars...)
 
 	err = cmd.Start()
 	if err != nil {
@@ -284,7 +312,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, rpchdl rpcwrapp
 	go processIOReader(stdout, contextID, exited)
 	go processIOReader(stderr, contextID, exited)
 
-	if err := rpchdl.NewRPCClient(contextID, "/var/run/"+contextID+".sock", randomkeystring); err != nil {
+	if err := rpchdl.NewRPCClient(contextID, filepath.Join("/var/run", contextID+".sock"), randomkeystring); err != nil {
 		return err
 	}
 

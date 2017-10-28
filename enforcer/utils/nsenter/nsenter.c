@@ -16,20 +16,27 @@ void nsexec(void) {
   char path[STRBUF_SIZE];
   char msg[STRBUF_SIZE];
   char mountpoint[STRBUF_SIZE] = {0};
-  char *str = getenv("CONTAINER_PID");
+  char *container_pid_env = getenv("CONTAINER_PID");
+  char *netns_path_env = getenv("APORETO_ENV_NS_PATH");
   char *proc_mountpoint = getenv("APORETO_ENV_PROC_MOUNTPOINT");
-  if(str == NULL){
+  if(container_pid_env == NULL){
     // We are not running as remote enforcer
     setenv("APORETO_ENV_NSENTER_LOGS", "no container pid", 1);
     return;
   }
-  if(proc_mountpoint == NULL){
-    strncpy(mountpoint, "/proc", strlen("/proc"));
-  }else{
-    strncpy(mountpoint, proc_mountpoint, STRBUF_SIZE);
+  if(netns_path_env == NULL){
+    // This means the PID Needs to be used to determine the NetNsPath.
+    if(proc_mountpoint == NULL){
+      strncpy(mountpoint, "/proc", strlen("/proc"));
+    }else{
+      strncpy(mountpoint, proc_mountpoint, STRBUF_SIZE);
+    }
+    // Setup proc symlink
+    snprintf(path, sizeof(path), "%s/%s/ns/net", mountpoint, container_pid_env);
+  } else {
+    // We use the env variable as the Path.
+    strncpy(path, netns_path_env, STRBUF_SIZE);
   }
-  // Setup proc symlink
-  snprintf(path, sizeof(path), "%s/%s/ns/net", mountpoint, str);
 
   // Setup FD to symlink
   fd = open(path, O_RDONLY);

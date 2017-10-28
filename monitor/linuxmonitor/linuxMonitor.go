@@ -18,25 +18,47 @@ import (
 	"github.com/shirou/gopsutil/process"
 )
 
-// SystemdRPCMetadataExtractor is a systemd based metadata extractor
-func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
-
-	if event.Name == "" {
-		return nil, fmt.Errorf("EventInfo PU Name is empty")
-	}
-
-	if event.PID == "" {
-		return nil, fmt.Errorf("EventInfo PID is empty")
-	}
-
-	if event.PUID == "" {
-		return nil, fmt.Errorf("EventInfo PUID is empty")
-	}
+// DefaultHostMetadataExtractor is a host specific metadata extractor
+func DefaultHostMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 
-	for k, v := range event.Tags {
-		runtimeTags.AppendKeyValue("@usr:"+k, v)
+	for _, tag := range event.Tags {
+		parts := strings.SplitN(tag, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid Tag")
+		}
+		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
+	}
+
+	options := &policy.OptionsType{
+		CgroupName: event.PUID,
+		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+		Services:   event.Services,
+	}
+
+	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
+
+	runtimePID, err := strconv.Atoi(event.PID)
+
+	if err != nil {
+		return nil, fmt.Errorf("PID is invalid: %s", err)
+	}
+
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
+}
+
+// SystemdRPCMetadataExtractor is a systemd based metadata extractor
+func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
+
+	runtimeTags := policy.NewTagStore()
+
+	for _, tag := range event.Tags {
+		parts := strings.SplitN(tag, "=", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid Tag")
+		}
+		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
 	userdata := processInfo(event.PID)
@@ -56,17 +78,10 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		runtimeTags.AppendKeyValue("@sys:lib:"+lib, "true")
 	}
 
-	options := policy.ExtendedMap{
-		cgnetcls.PortTag:       "0",
-		cgnetcls.CgroupNameTag: event.PUID,
-	}
-
-	ports, ok := runtimeTags.Get(cgnetcls.PortTag)
-	if ok {
-		options[cgnetcls.PortTag] = ports
-	}
-
-	options[cgnetcls.CgroupMarkTag] = strconv.FormatUint(cgnetcls.MarkVal(), 10)
+	options := policy.OptionsType{}
+	options.Services = event.Services
+	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
+	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
@@ -76,7 +91,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		return nil, fmt.Errorf("PID is invalid: %s", err)
 	}
 
-	return policy.NewPURuntime(event.Name, runtimePID, runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, &options), nil
 }
 
 // ComputeMd5 computes the Md5 of a file

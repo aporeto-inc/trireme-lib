@@ -15,15 +15,12 @@ func TestTypeInterface(t *testing.T) {
 
 	if PktInterface != (*Packet)(nil) {
 
-		t.Error("Packet struct does not implement Pkt Interface")
-
+		t.Error("Packet struct does not implement PacketManipulator Interface")
 	}
 
 	var PktFlowInterface PacketFlowManipulator = (*PacketFlow)(nil)
 	if PktFlowInterface != (*PacketFlow)(nil) {
 
-		t.Error("PacketFlow struct does not implement PktFlow Interface")
-
+		t.Error("PacketFlow struct does not implement PacketFlowManipulator Interface")
 	}
-
 }
