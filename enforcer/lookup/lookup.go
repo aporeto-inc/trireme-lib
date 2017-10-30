@@ -3,7 +3,6 @@ package lookup
 import (
 	"fmt"
 	"sort"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -140,15 +139,23 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 
 }
 
-func (m *PolicyDB) keyValueFromString(tag string) (key, value string) {
-
-	parts := strings.SplitN(tag, "=", 2)
-
-	if len(parts) != 2 {
-		return "", ""
+// Custom implementation for splitting strings. Gives significant performance
+// improvement. Do not allocate new strings
+func (m *PolicyDB) tagSplit(str string, k *string, v *string) error {
+	n := len(str)
+	if n == 0 {
+		return fmt.Errorf("wtf")
 	}
 
-	return parts[0], parts[1]
+	for i := 0; i < n; i++ {
+		if str[i] == '=' {
+			*k = str[:i]
+			*v = str[i+1:]
+			return nil
+		}
+	}
+
+	return fmt.Errorf("wtf 2")
 }
 
 //Search searches for a set of tags in the database to find a policy match
@@ -159,8 +166,11 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	skip := make([]bool, m.numberOfPolicies+1)
 
 	// Disable all policies that fail the not key exists
+	var k, v string
 	for _, t := range tags.GetSlice() {
-		k, _ := m.keyValueFromString(t)
+		if err := m.tagSplit(t, &k, &v); err != nil {
+			continue
+		}
 		for _, policy := range m.notStarTable[k] {
 			skip[policy.index] = true
 		}
@@ -168,7 +178,9 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	// Go through the list of tags
 	for _, t := range tags.GetSlice() {
-		k, v := m.keyValueFromString(t)
+		if err := m.tagSplit(t, &k, &v); err != nil {
+			continue
+		}
 		// Search for matches of k=v
 		if index, action := searchInMapTabe(m.equalMapTable[k][v], count, skip); index >= 0 {
 			return index, action
