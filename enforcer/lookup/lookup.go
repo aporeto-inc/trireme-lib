@@ -144,7 +144,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 func (m *PolicyDB) tagSplit(str string, k *string, v *string) error {
 	n := len(str)
 	if n == 0 {
-		return fmt.Errorf("wtf")
+		return fmt.Errorf("Null string")
 	}
 
 	for i := 0; i < n; i++ {
@@ -155,7 +155,7 @@ func (m *PolicyDB) tagSplit(str string, k *string, v *string) error {
 		}
 	}
 
-	return fmt.Errorf("wtf 2")
+	return fmt.Errorf("No key/value pair")
 }
 
 //Search searches for a set of tags in the database to find a policy match
