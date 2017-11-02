@@ -896,8 +896,15 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				//Update the port for the context matching the mark this packet has comes with
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
+
+					name, err := iptablesctrl.PuPortSetName(context.ID, p.Mark)
+
+					if err != nil {
+						return nil, nil, err
+					}
+
 					ips := ipset.IPSet{
-						Name: iptablesctrl.PuPortSetName(context.ID, p.Mark),
+						Name: name,
 					}
 
 					port := strconv.Itoa(int(p.SourcePort))

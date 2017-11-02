@@ -52,7 +52,9 @@ func (d *Datapath) startNetworkInterceptor() {
 		}
 		go func(j uint16) {
 			for range d.netStop[j] {
-				nfq[j].StopQueue()
+				if err := nfq[j].StopQueue(); err != nil {
+					zap.L().Error("Error when stoping nfq", zap.Error(err))
+				}
 				return
 			}
 		}(i)
@@ -88,7 +90,9 @@ func (d *Datapath) startApplicationInterceptor() {
 		go func(j uint16) {
 			for range d.appStop[j] {
 				//Call StopQueue
-				nfq[j].StopQueue()
+				if err := nfq[j].StopQueue(); err != nil {
+					zap.L().Error("Error when stoping nfq", zap.Error(err))
+				}
 				return
 			}
 
