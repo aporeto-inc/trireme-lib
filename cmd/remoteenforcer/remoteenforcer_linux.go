@@ -88,7 +88,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	//Check if successfully switched namespace
 	nsEnterState := getCEnvVariable(nsErrorState)
 	nsEnterLogMsg := getCEnvVariable(nsEnterLogs)
-	
+
 	if len(nsEnterState) != 0 {
 		zap.L().Error("Remote enforcer failed",
 			zap.String("nsErr", nsEnterState),
