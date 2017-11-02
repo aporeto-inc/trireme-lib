@@ -1,5 +1,4 @@
 // +build !linux
-
 package remoteenforcer
 
 import (
