@@ -104,6 +104,8 @@ func (p *Packet) GetIPPacket() layers.IPv4 {
 }
 
 //AddTCPLayer creates a TCP layer
+// TODO: remove nolint
+// nolint
 func (p *Packet) AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error {
 
 	if p.tcpLayer != nil {
@@ -285,6 +287,8 @@ func (p *Packet) NewTCPPayload(newPayload string) error {
 }
 
 //ToBytes creates a packet buffer and converts it into a complete packet with ethernet, IP and TCP (with options)
+// TODO: remove nolint
+// nolint
 func (p *Packet) ToBytes() []byte {
 
 	opts := gopacket.SerializeOptions{
@@ -322,6 +326,8 @@ func (p *Packet) AddPacket(packet gopacket.Packet) {
 }
 
 //DecodePacket returns decoded packet which implements PacketManipulator
+// TODO: remove nolint
+// nolint
 func (p *Packet) DecodePacket() PacketManipulator {
 
 	packetData := &Packet{
@@ -398,6 +404,8 @@ func NewPacketFlow(smac string, dmac string, sip string, dip string, sport layer
 }
 
 //GenerateTCPFlow returns an array of PacketFlowManipulator interface
+// TODO: remove nolint
+// nolint
 func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator {
 
 	if pt == 0 {
