@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -78,7 +79,7 @@ type TCPConnection struct {
 
 	// Context is the PUContext that is associated with this connection
 	// Minimizes the number of caches and lookups
-	Context *PUContext
+	Context *pucontext.PU
 
 	// TimeOut signals the timeout to be used by the state machines
 	TimeOut time.Duration
@@ -190,11 +191,12 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 }
 
 // NewTCPConnection returns a TCPConnection information struct
-func NewTCPConnection() *TCPConnection {
+func NewTCPConnection(context *pucontext.PU) *TCPConnection {
 
 	c := &TCPConnection{
-		state: TCPSynSend,
-		logs:  []string{"Initialized"},
+		state:   TCPSynSend,
+		Context: context,
+		logs:    []string{"Initialized"},
 	}
 
 	return c

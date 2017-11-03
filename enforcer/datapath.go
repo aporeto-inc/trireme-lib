@@ -4,7 +4,6 @@ package enforcer
 import (
 	"fmt"
 	"os/exec"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -13,7 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme/cache"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/acls"
+	"github.com/aporeto-inc/trireme/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
@@ -191,12 +190,31 @@ func NewWithDefaults(
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	puContext, err := d.contextTracker.Get(contextID)
+	// Always create a new PU context
+	pu, err := pucontext.NewPU(contextID, puInfo, d.externalIPCacheTimeout)
 	if err != nil {
-		return d.doCreatePU(contextID, puInfo)
+		return err
 	}
 
-	return d.doUpdatePU(puContext.(*PUContext), puInfo)
+	// Cache PUs for retrieval based on packet information
+	if pu.Type() == constants.LinuxProcessPU {
+		mark, ports := pu.GetProcessKeys()
+		d.puFromMark.AddOrUpdate(mark, pu)
+		for _, port := range ports {
+			d.puFromPort.AddOrUpdate(port, pu)
+		}
+	} else {
+		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
+			d.puFromIP.AddOrUpdate(ip, pu)
+		} else {
+			d.puFromIP.AddOrUpdate(DefaultNetwork, pu)
+		}
+	}
+
+	// Cache PU from contextID for management and policy updates
+	d.contextTracker.AddOrUpdate(contextID, pu)
+
+	return nil
 }
 
 // Unenforce removes the configuration for the given PU
@@ -207,25 +225,22 @@ func (d *Datapath) Unenforce(contextID string) error {
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}
 
-	puContext.(*PUContext).Lock()
-	defer puContext.(*PUContext).Unlock()
-
-	pu := puContext.(*PUContext)
-	if err := d.puFromIP.Remove(pu.IP); err != nil {
+	pu := puContext.(*pucontext.PU)
+	if err := d.puFromIP.Remove(pu.IP()); err != nil {
 		zap.L().Warn("Unable to remove cache entry during unenforcement",
-			zap.String("IP", pu.IP),
+			zap.String("IP", pu.IP()),
 			zap.Error(err),
 		)
 	}
 
-	if err := d.puFromIP.Remove(pu.Mark); err != nil {
+	if err := d.puFromIP.Remove(pu.Mark()); err != nil {
 		zap.L().Warn("Unable to remove cache entry during unenforcement",
-			zap.String("Mark", pu.Mark),
+			zap.String("Mark", pu.Mark()),
 			zap.Error(err),
 		)
 	}
 
-	for _, port := range pu.Ports {
+	for _, port := range pu.Ports() {
 		if err := d.puFromIP.Remove(port); err != nil {
 			zap.L().Warn("Unable to remove cache entry during unenforcement",
 				zap.String("Port", port),
@@ -284,79 +299,6 @@ func (d *Datapath) Stop() error {
 	return nil
 }
 
-func (d *Datapath) getProcessKeys(puInfo *policy.PUInfo) (string, []string) {
-
-	mark := puInfo.Runtime.Options().CgroupMark
-
-	ports := policy.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
-
-	portlist := strings.Split(ports, ",")
-
-	return mark, portlist
-}
-
-func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
-
-	ip, ok := puInfo.Runtime.DefaultIPAddress()
-	if !ok {
-		if d.mode == constants.LocalContainer {
-			return fmt.Errorf("No IP provided for Local Container")
-		}
-		ip = DefaultNetwork
-	}
-
-	pu := &PUContext{
-		ID:           contextID,
-		ManagementID: puInfo.Policy.ManagementID(),
-		PUType:       puInfo.Runtime.PUType(),
-		IP:           ip,
-	}
-
-	// Cache PUs for retrieval based on packet information
-	if pu.PUType == constants.LinuxProcessPU {
-		pu.Mark, pu.Ports = d.getProcessKeys(puInfo)
-		d.puFromMark.AddOrUpdate(pu.Mark, pu)
-		for _, port := range pu.Ports {
-			d.puFromPort.AddOrUpdate(port, pu)
-		}
-	} else {
-		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
-			d.puFromIP.AddOrUpdate(ip, pu)
-		} else {
-			d.puFromIP.AddOrUpdate(DefaultNetwork, pu)
-		}
-	}
-
-	// Cache PU from contextID for management and policy updates
-	d.contextTracker.AddOrUpdate(contextID, pu)
-
-	return d.doUpdatePU(pu, puInfo)
-}
-
-func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
-
-	puContext.Lock()
-	defer puContext.Unlock()
-
-	puContext.AcceptRcvRules, puContext.RejectRcvRules = createRuleDBs(containerInfo.Policy.ReceiverRules())
-
-	puContext.AcceptTxtRules, puContext.RejectTxtRules = createRuleDBs(containerInfo.Policy.TransmitterRules())
-
-	puContext.Identity = containerInfo.Policy.Identity()
-
-	puContext.Annotations = containerInfo.Policy.Annotations()
-
-	puContext.externalIPCache = cache.NewCacheWithExpiration(d.externalIPCacheTimeout)
-
-	puContext.ApplicationACLs = acls.NewACLCache()
-	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
-		return err
-	}
-
-	puContext.NetworkACLS = acls.NewACLCache()
-	return puContext.NetworkACLS.AddRuleList(containerInfo.Policy.NetworkACLs())
-}
-
 func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
 
 	item, err := d.contextTracker.Get(contextID)
@@ -364,11 +306,10 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 		return
 	}
 
-	ctx := item.(*PUContext)
-	ctx.Lock()
-	ID = ctx.ManagementID
-	tags = ctx.Annotations.Copy()
-	ctx.Unlock()
+	ctx := item.(*pucontext.PU)
+
+	ID = ctx.ManagementID()
+	tags = ctx.Annotations().Copy()
 
 	return
 }

@@ -1,13 +1,7 @@
 package enforcer
 
 import (
-	"sync"
-	"time"
-
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/acls"
-	"github.com/aporeto-inc/trireme/enforcer/lookup"
+	"github.com/aporeto-inc/trireme/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
@@ -47,37 +41,14 @@ type PacketProcessor interface {
 	Initialize(s secrets.Secrets, fq *fqconfig.FilterQueue)
 
 	// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
-	PreProcessTCPAppPacket(p *packet.Packet, context *PUContext, conn *TCPConnection) bool
+	PreProcessTCPAppPacket(p *packet.Packet, context *pucontext.PU, conn *TCPConnection) bool
 
 	// PostProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
-	PostProcessTCPAppPacket(p *packet.Packet, action interface{}, context *PUContext, conn *TCPConnection) bool
+	PostProcessTCPAppPacket(p *packet.Packet, action interface{}, context *pucontext.PU, conn *TCPConnection) bool
 
 	// PreProcessTCPNetPacket will be called for network packets and return value of false means drop packet
-	PreProcessTCPNetPacket(p *packet.Packet, context *PUContext, conn *TCPConnection) bool
+	PreProcessTCPNetPacket(p *packet.Packet, context *pucontext.PU, conn *TCPConnection) bool
 
 	// PostProcessTCPNetPacket will be called for network packets and return value of false means drop packet
-	PostProcessTCPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *PUContext, conn *TCPConnection) bool
-}
-
-// PUContext holds data indexed by the PU ID
-type PUContext struct {
-	ID              string
-	ManagementID    string
-	Identity        *policy.TagStore
-	Annotations     *policy.TagStore
-	AcceptTxtRules  *lookup.PolicyDB
-	RejectTxtRules  *lookup.PolicyDB
-	AcceptRcvRules  *lookup.PolicyDB
-	RejectRcvRules  *lookup.PolicyDB
-	ApplicationACLs *acls.ACLCache
-	NetworkACLS     *acls.ACLCache
-	externalIPCache cache.DataStore
-	Extension       interface{}
-	IP              string
-	Mark            string
-	Ports           []string
-	PUType          constants.PUType
-	synToken        []byte
-	synExpiration   time.Time
-	sync.Mutex
+	PostProcessTCPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *pucontext.PU, conn *TCPConnection) bool
 }
