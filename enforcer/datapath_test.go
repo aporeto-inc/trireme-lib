@@ -11,6 +11,7 @@ import (
 	gomock "github.com/aporeto-inc/mock/gomock"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packetgen"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
@@ -1191,7 +1192,7 @@ func TestDoCreatePU(t *testing.T) {
 		})
 
 		Convey("When I create a new PU", func() {
-			err := enforcer.doCreatePU(contextID, puInfo)
+			err := enforcer.Enforce(contextID, puInfo)
 
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
@@ -1216,7 +1217,7 @@ func TestDoCreatePU(t *testing.T) {
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
 
 		Convey("When I create a new PU without ports or mark", func() {
-			err := enforcer.doCreatePU(contextID, puInfo)
+			err := enforcer.Enforce(contextID, puInfo)
 
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
@@ -1236,13 +1237,6 @@ func TestDoCreatePU(t *testing.T) {
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
 
-		Convey("When I create a new PU without an IP", func() {
-			err := enforcer.doCreatePU(contextID, puInfo)
-
-			Convey("It should fail ", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
 		PacketFlow := packetgen.NewTemplateFlow()
 		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 
@@ -1254,7 +1248,7 @@ func TestDoCreatePU(t *testing.T) {
 				"bridge": PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String(),
 			}
 			puInfo.Runtime.SetIPAddresses(ip)
-			err := enforcer.doCreatePU(contextID, puInfo)
+			err := enforcer.Enforce(contextID, puInfo)
 
 			Convey("It should succeed ", func() {
 				So(err, ShouldBeNil)
@@ -1274,7 +1268,7 @@ func TestDoCreatePU(t *testing.T) {
 		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
 
 		Convey("When I create a new PU without an IP", func() {
-			err := enforcer.doCreatePU(contextID, puInfo)
+			err := enforcer.Enforce(contextID, puInfo)
 
 			Convey("It should succeed ", func() {
 				So(err, ShouldBeNil)
@@ -1292,10 +1286,10 @@ func TestContextFromIP(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 
-		context := &PUContext{
-			ID: "SomePU",
-			IP: "10.1.1.1",
-		}
+		puInfo := policy.NewPUInfo("SomePU", constants.ContainerPU)
+
+		context, err := pucontext.NewPU("SomePU", puInfo, 10*time.Second)
+		So(err, ShouldBeNil)
 
 		Convey("If I try to get the context based on the PU IP, it should succeed ", func() {
 			enforcer.puFromIP.AddOrUpdate("10.1.1.1", context)
