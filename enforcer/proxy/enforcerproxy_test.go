@@ -4,12 +4,12 @@ import (
 	"crypto/ecdsa"
 	"testing"
 
-	gomock "github.com/aporeto-inc/mock/gomock"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	mockrpcwrapper "github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper/mock"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/policy"
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

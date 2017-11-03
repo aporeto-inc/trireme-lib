@@ -4,8 +4,8 @@
 package mockrpcwrapper
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
 	rpcwrapper "github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockRPCClient is a mock of RPCClient interface
