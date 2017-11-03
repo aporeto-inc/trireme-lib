@@ -2,7 +2,7 @@
 // Source: interfaces.go
 
 // nolint
-package mock_enforcer
+package mockenforcer
 
 import (
 	enforcer "github.com/aporeto-inc/trireme/enforcer"
