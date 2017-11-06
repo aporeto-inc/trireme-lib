@@ -24,15 +24,11 @@ const (
 	testmark             = 100
 )
 
-func cleanupnetclsgroup(err *error) {
+func cleanupnetclsgroup() {
 	data, _ := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, testcgroupname, procs))
 	fmt.Println(string(data))
-	if werr := ioutil.WriteFile(filepath.Join(basePath, procs), data, 0644); werr != nil {
-		*err = fmt.Errorf("Error: Writing file %s", werr.Error())
-	}
-	if rerr := os.RemoveAll(filepath.Join(basePath, TriremeBasePath, testcgroupname)); rerr != nil {
-		*err = fmt.Errorf("Error: Removing file %s", rerr.Error())
-	}
+	_ = ioutil.WriteFile(filepath.Join(basePath, procs), data, 0644)
+	_ = os.RemoveAll(filepath.Join(basePath, TriremeBasePath, testcgroupname))
 }
 
 func TestCreategroup(t *testing.T) {
@@ -46,11 +42,8 @@ func TestCreategroup(t *testing.T) {
 		//Check if all the files required are created
 		t.Errorf("Failed to create group error returned %s", err.Error())
 	}
-	var cerr error
-	defer cleanupnetclsgroup(&cerr)
-	if cerr != nil {
-		t.Errorf("Failed to clean cgroup %s", cerr.Error())
-	}
+
+	defer cleanupnetclsgroup()
 
 	if _, err := ioutil.ReadFile(filepath.Join(basePath, releaseAgentConfFile)); err != nil {
 		if os.IsNotExist(err) {
@@ -111,11 +104,9 @@ func TestAssignMark(t *testing.T) {
 		t.Errorf("Error creating cgroup %s", err)
 		t.SkipNow()
 	}
-	var cerr error
-	defer cleanupnetclsgroup(&cerr)
-	if cerr != nil {
-		t.Errorf("Failed to clean cgroup %s", cerr.Error())
-	}
+
+	defer cleanupnetclsgroup()
+
 	if err := cg.AssignMark(testcgroupnameformat, testmark); err != nil {
 		t.Errorf("Failed to assign mark error = %s", err.Error())
 		t.SkipNow()
@@ -131,7 +122,6 @@ func TestAssignMark(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-
 }
 
 func TestAddProcess(t *testing.T) {
@@ -151,11 +141,9 @@ func TestAddProcess(t *testing.T) {
 		t.Errorf("Error creating cgroup")
 		t.SkipNow()
 	}
-	var cerr error
-	defer cleanupnetclsgroup(&cerr)
-	if cerr != nil {
-		t.Errorf("Failed to clean cgroup %s", cerr.Error())
-	}
+
+	defer cleanupnetclsgroup()
+
 	//Add a non-existent process
 	//loop to find non-existent pid
 	for {
@@ -196,11 +184,9 @@ func TestRemoveProcess(t *testing.T) {
 		t.Errorf("Error creating cgroup")
 		t.SkipNow()
 	}
-	var cerr error
-	defer cleanupnetclsgroup(&cerr)
-	if cerr != nil {
-		t.Errorf("Failed to clean cgroup %s", cerr.Error())
-	}
+
+	defer cleanupnetclsgroup()
+
 	if err := cg.AddProcess(testcgroupname, 1); err != nil {
 		t.Errorf("Error adding process")
 		t.SkipNow()
@@ -229,11 +215,9 @@ func TestDeleteCgroup(t *testing.T) {
 		t.Errorf("Failed to create cgroup %s", err.Error())
 		t.SkipNow()
 	}
-	var cerr error
-	defer cleanupnetclsgroup(&cerr)
-	if cerr != nil {
-		t.Errorf("Failed to clean cgroup %s", cerr.Error())
-	}
+
+	defer cleanupnetclsgroup()
+
 	if err := cg.DeleteCgroup(testcgroupname); err != nil {
 		t.Errorf("Failed to delete cgroup %s", err.Error())
 		t.SkipNow()
@@ -250,11 +234,9 @@ func TestDeleteBasePath(t *testing.T) {
 	if err := cg.DeleteCgroup(testcgroupname); err != nil {
 		t.Errorf("Delete of group failed %s", err.Error())
 	}
-	var cerr error
-	defer cleanupnetclsgroup(&cerr)
-	if cerr != nil {
-		t.Errorf("Failed to clean cgroup %s", cerr.Error())
-	}
+
+	defer cleanupnetclsgroup()
+
 	cg.Deletebasepath(testcgroupnameformat)
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, testcgroupname))
 	if err == nil {
@@ -284,11 +266,9 @@ func TestListCgroupProcesses(t *testing.T) {
 		t.Errorf("Error creating cgroup")
 		t.SkipNow()
 	}
-	var cerr error
-	defer cleanupnetclsgroup(&cerr)
-	if cerr != nil {
-		t.Errorf("Failed to clean cgroup %s", cerr.Error())
-	}
+
+	defer cleanupnetclsgroup()
+
 	//Add a non-existent process
 	//loop to find non-existent pid
 	for {
