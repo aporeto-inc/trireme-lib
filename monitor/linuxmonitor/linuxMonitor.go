@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
@@ -67,7 +68,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
 	}
 
-	runtimeTags.AppendKeyValue("@sys:hostname", findFQFN())
+	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(1*time.Second))
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
 		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
@@ -111,32 +112,44 @@ func ComputeMd5(filePath string) ([]byte, error) {
 	return hash.Sum(result), nil
 }
 
-func findFQFN() string {
+func findFQDN(expiration time.Duration) string {
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		return "unknown"
 	}
 
-	addrs, err := net.LookupIP(hostname)
-	if err != nil {
-		return hostname
-	}
-
-	for _, addr := range addrs {
-		if ipv4 := addr.To4(); ipv4 != nil {
-			ip, err := ipv4.MarshalText()
-			if err != nil {
-				return hostname
-			}
-			hosts, err := net.LookupAddr(string(ip))
-			if err != nil || len(hosts) == 0 {
-				return hostname
-			}
-			fqdn := hosts[0]
-			return strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
+	// Try to find FQDN
+	globalHostname := make(chan string, 1)
+	go func() {
+		addrs, err := net.LookupIP(hostname)
+		if err != nil {
+			globalHostname <- hostname
 		}
+
+		for _, addr := range addrs {
+			if ipv4 := addr.To4(); ipv4 != nil {
+				ip, err := ipv4.MarshalText()
+				if err != nil {
+					globalHostname <- hostname
+				}
+				hosts, err := net.LookupAddr(string(ip))
+				if err != nil || len(hosts) == 0 {
+					globalHostname <- hostname
+				}
+				fqdn := hosts[0]
+				globalHostname <- strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
+			}
+		}
+	}()
+
+	// Use OS hostname if we dont hear back in a second
+	select {
+	case <-time.After(expiration):
+		return hostname
+	case name := <-globalHostname:
+		return name
 	}
-	return hostname
 }
 
 // libs returns the list of dynamic library dependencies of an executable
