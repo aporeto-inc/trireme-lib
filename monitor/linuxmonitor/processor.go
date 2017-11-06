@@ -140,7 +140,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
->>>>>>> origin/master
+
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",
