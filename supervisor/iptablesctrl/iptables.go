@@ -1,7 +1,10 @@
 package iptablesctrl
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"strconv"
 
 	"go.uber.org/zap"
@@ -21,7 +24,7 @@ const (
 	netChainPrefix   = chainPrefix + "Net-"
 	targetNetworkSet = "TargetNetSet"
 	//PuPortSet The prefix for portset names
-	PuPortSet                 = "PUPortSet-"
+	PuPortSet                 = "PUPort-"
 	ipTableSectionOutput      = "OUTPUT"
 	ipTableSectionInput       = "INPUT"
 	ipTableSectionPreRouting  = "PREROUTING"
@@ -98,6 +101,16 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 
 // chainPrefix returns the chain name for the specific PU
 func (i *Instance) chainName(contextID string, version int) (app, net string) {
+
+	hash := md5.New()
+	io.WriteString(hash, contextID)
+	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	if len(contextID) > 4 {
+		contextID = contextID[:4] + string(output[:6])
+	} else {
+		contextID = contextID + string(output[:6])
+	}
+
 	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
 	net = netChainPrefix + contextID + "-" + strconv.Itoa(version)
 	return app, net
@@ -105,8 +118,16 @@ func (i *Instance) chainName(contextID string, version int) (app, net string) {
 
 //PuPortSetName returns the name of the pu portset
 func PuPortSetName(contextID string, mark string) string {
+	hash := md5.New()
+	io.WriteString(hash, contextID)
+	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	if len(contextID) > 4 {
+		contextID = contextID[:4] + string(output[:4])
+	} else {
+		contextID = contextID + string(output[:4])
+	}
 
-	return (PuPortSet + contextID + "-" + mark)
+	return (PuPortSet + contextID + mark)
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit

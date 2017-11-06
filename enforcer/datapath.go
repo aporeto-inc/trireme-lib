@@ -91,8 +91,6 @@ func New(
 	externalIPCacheTimeout time.Duration,
 ) PolicyEnforcer {
 
-	zap.L().Info("Using External Timrout of ", zap.Any("timeout", externalIPCacheTimeout))
-
 	if externalIPCacheTimeout <= 0 {
 		var err error
 		externalIPCacheTimeout, err = time.ParseDuration(DefaultExternalIPTimeout)

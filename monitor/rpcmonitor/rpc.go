@@ -35,6 +35,10 @@ type RPCMonitor struct {
 	root          bool
 }
 
+const (
+	maxEventNameLength = 64
+)
+
 // NewRPCMonitor returns a base RPC monitor. Processors must be registered externally
 func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root bool) (*RPCMonitor, error) {
 
@@ -159,15 +163,17 @@ type Server struct {
 
 // HandleEvent Gets called when clients generate events.
 func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
-
 	if err := validateEvent(eventInfo); err != nil {
 		return err
 	}
-
 	if eventInfo.HostService && !s.root {
 		return fmt.Errorf("Operation Requires Root Access")
 	}
 
+	strtokens := eventInfo.PUID[strings.LastIndex(eventInfo.PUID, "/")+1:]
+	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
+		eventInfo.PUType = constants.UIDLoginPU
+	}
 	if _, ok := s.handlers[eventInfo.PUType]; ok {
 		f, present := s.handlers[eventInfo.PUType][eventInfo.EventType]
 		if present {
@@ -220,8 +226,8 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 func validateEvent(event *EventInfo) error {
 
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
-		if len(event.Name) > 64 {
-			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 32 characters")
+		if len(event.Name) > maxEventNameLength {
+			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 64 characters")
 		}
 
 		if event.PID == "" {
@@ -243,8 +249,15 @@ func validateEvent(event *EventInfo) error {
 				event.Name = "DefaultServer"
 				event.PUID = "default"
 			}
+
 		} else {
-			event.PUID = event.PID
+			if event.PUType != constants.UIDLoginPU || event.PUID == "" {
+				event.PUID = event.PID
+			}
+
+			// if event.EventType == monitor.EventDestroy {
+			// 	event.PUID = event.PID
+			// }
 		}
 	}
 

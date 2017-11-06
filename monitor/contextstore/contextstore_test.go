@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -33,10 +34,10 @@ func TestStoreContext(t *testing.T) {
 		t.SkipNow()
 	} else {
 
-		readdata, _ := ioutil.ReadFile("./base/" + testcontextID + eventInfoFile)
+		readdata, _ := ioutil.ReadFile(filepath.Join("./base", testcontextID, eventInfoFile))
 
 		if strings.TrimSpace(string(readdata)) != string(marshaldata) {
-			t.Errorf("Data corrupted in stores")
+			t.Errorf("Data corrupted in stores - %s - %s", strings.TrimSpace(string(readdata)), string(marshaldata))
 			t.SkipNow()
 		}
 	}
@@ -113,7 +114,7 @@ func TestRemoveContext(t *testing.T) {
 		t.Errorf("Failed to remove context from store %s", err.Error())
 		t.SkipNow()
 	} else {
-		_, staterr := os.Stat(storebasePath + testcontextID)
+		_, staterr := os.Stat(filepath.Join(storebasePath, testcontextID))
 		if staterr == nil {
 			t.Errorf("Failed to remove context %s", staterr.Error())
 			t.SkipNow()

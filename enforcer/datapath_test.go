@@ -2706,7 +2706,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 								t.Error("Invalid Test Packet")
 							}
 
-							enforcer.processApplicationTCPPackets(tcpPacket)
+							enforcer.processApplicationTCPPackets(tcpPacket) // nolint: errcheck
 
 							if debug {
 								fmt.Println("Intermediate packet", i)
@@ -2736,7 +2736,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 								isChecked = true
 							}
 
-							enforcer.processNetworkTCPPackets(outPacket)
+							enforcer.processNetworkTCPPackets(outPacket) // nolint: errcheck
 
 							if debug {
 								fmt.Println("Output packet", i)
@@ -3200,7 +3200,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	//Dummy Added to ensure ipset coreos does not fail
-	ipset.New("temp_set", "hash:ip", &ipset.Params{})
+	ipset.New("temp_set", "hash:ip", &ipset.Params{}) // nolint: errcheck
 	defer func() {
 		//ips.Destroy()
 		ctrl.Finish()
@@ -3366,7 +3366,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	ipset.New("temp_set", "hash:ip", &ipset.Params{})
+	ipset.New("temp_set", "hash:ip", &ipset.Params{}) // nolint: errcheck
 	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero

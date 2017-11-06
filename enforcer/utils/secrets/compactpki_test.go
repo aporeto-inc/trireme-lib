@@ -55,17 +55,13 @@ func createTxtToken() []byte {
 	if err != nil {
 		panic("bad ca key ")
 	}
-	caCert, err := crypto.LoadCertificate([]byte(caPEM))
-	if err != nil {
-		panic("bad ca cert")
-	}
 
 	clientCert, err := crypto.LoadCertificate([]byte(publicPEM))
 	if err != nil {
 		panic("bad client cert ")
 	}
 
-	p := pkiverifier.NewConfig(caCert.PublicKey.(*ecdsa.PublicKey), caKey, -1)
+	p := pkiverifier.NewPKIIssuer(caKey)
 	token, err := p.CreateTokenFromCertificate(clientCert)
 	if err != nil {
 		panic("can't create token")

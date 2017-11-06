@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -20,7 +21,7 @@ import (
 )
 
 const (
-	maxRetries       = 4
+	maxRetries       = 20
 	remoteMethodCall = "Server.HandleEvent"
 )
 
@@ -88,8 +89,8 @@ type RequestProcessor struct {
 // NewRequestProcessor creates a default request processor
 func NewRequestProcessor() *RequestProcessor {
 	return &RequestProcessor{
-		LinuxPath: "/var/run/trireme/linux/",
-		HostPath:  "/var/run/trireme/host/",
+		LinuxPath: "/var/run/trireme/linux",
+		HostPath:  "/var/run/trireme/host",
 	}
 }
 
@@ -255,7 +256,6 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 // Delete will issue a delete command
 func (r *RequestProcessor) Delete(c *CLIRequest) error {
-
 	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
 		return fmt.Errorf("cgroup, service ID, or service name must be defined")
 	}
@@ -278,7 +278,6 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		EventType:   monitor.EventStop,
 		HostService: host,
 	}
-
 	// Handle the special case with the User ID monitor and deletes
 	if c.Cgroup != "" {
 		parts := strings.Split(c.Cgroup, "/")
@@ -287,7 +286,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		}
 
 		if !c.HostPolicy {
-			if _, ferr := os.Stat(linuxPath + "/" + parts[2]); os.IsNotExist(ferr) {
+			if _, ferr := os.Stat(filepath.Join(linuxPath, parts[2])); os.IsNotExist(ferr) {
 				request.PUType = constants.UIDLoginPU
 			}
 		}
