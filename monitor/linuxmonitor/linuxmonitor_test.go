@@ -37,7 +37,7 @@ func TestComputeMd5(t *testing.T) {
 
 func TestFindFQDN(t *testing.T) {
 	Convey("When I try to get the hostname of a good host", t, func() {
-		hostname := findFQFN(1000 * time.Second)
+		hostname := findFQDN(1000 * time.Second)
 
 		Convey("I should be able to resolve this hostname", func() {
 			addr, err := net.LookupHost(hostname)
