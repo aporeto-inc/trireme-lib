@@ -125,6 +125,7 @@ func findFQDN(expiration time.Duration) string {
 		addrs, err := net.LookupIP(hostname)
 		if err != nil {
 			globalHostname <- hostname
+			return
 		}
 
 		for _, addr := range addrs {
@@ -132,10 +133,12 @@ func findFQDN(expiration time.Duration) string {
 				ip, err := ipv4.MarshalText()
 				if err != nil {
 					globalHostname <- hostname
+					return
 				}
 				hosts, err := net.LookupAddr(string(ip))
 				if err != nil || len(hosts) == 0 {
 					globalHostname <- hostname
+					return
 				}
 				fqdn := hosts[0]
 				globalHostname <- strings.TrimSuffix(fqdn, ".") // return fqdn without trailing dot
