@@ -68,7 +68,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
 	}
 
-	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(1*time.Second))
+	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
 
 	if fileMd5, err := ComputeMd5(event.Name); err == nil {
 		runtimeTags.AppendKeyValue("@sys:filechecksum", hex.EncodeToString(fileMd5))
