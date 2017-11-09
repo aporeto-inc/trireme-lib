@@ -268,6 +268,8 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 		enforcers[constants.LinuxProcessPU] = e
 		supervisors[constants.LinuxProcessPU] = s
+		enforcers[constants.UIDLoginPU] = e
+		supervisors[constants.UIDLoginPU] = s
 
 	}
 
@@ -693,11 +695,13 @@ func NewHybridTrireme(
 	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
 		constants.ContainerPU:    containerEnforcer,
 		constants.LinuxProcessPU: processEnforcer,
+		constants.UIDLoginPU:     processEnforcer,
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{
 		constants.ContainerPU:    containerSupervisor,
 		constants.LinuxProcessPU: processSupervisor,
+		constants.UIDLoginPU:     processSupervisor,
 	}
 
 	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
