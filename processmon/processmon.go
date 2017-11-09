@@ -327,7 +327,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 //NewProcessMon is a method to create a new processmon
 func newProcessMon() ProcessManager {
 
-	launcher = &ProcessMon{activeProcesses: cache.NewCache()}
+	launcher = &ProcessMon{activeProcesses: cache.NewCache("ProcessMonitorCache")}
 	return launcher
 }
 

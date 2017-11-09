@@ -210,7 +210,7 @@ func TestKillProcess(t *testing.T) {
 
 func TestGetProcessManagerHdl(t *testing.T) {
 	hdl := GetProcessManagerHdl()
-	cache := cache.NewCache()
+	cache := cache.NewCache("ProcessManagerCache")
 
 	if !reflect.DeepEqual(hdl.(*ProcessMon).activeProcesses, cache) {
 		t.Errorf("ProcessManagerhandle don't match with cache")

@@ -119,17 +119,17 @@ func New(
 	}
 
 	d := &Datapath{
-		puFromIP:   cache.NewCache(),
-		puFromMark: cache.NewCache(),
-		puFromPort: cache.NewCache(),
+		puFromIP:   cache.NewCache("puFromIP"),
+		puFromMark: cache.NewCache("puFromMark"),
+		puFromPort: cache.NewCache("puFromPort"),
 
-		contextTracker: cache.NewCache(),
+		contextTracker: cache.NewCache("contextTracker"),
 
-		sourcePortConnectionCache: cache.NewCacheWithExpiration(time.Second * 24),
-		appOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
-		appReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
-		netOrigConnectionTracker:  cache.NewCacheWithExpiration(time.Second * 24),
-		netReplyConnectionTracker: cache.NewCacheWithExpiration(time.Second * 24),
+		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
+		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
+		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
+		netOrigConnectionTracker:  cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
+		netReplyConnectionTracker: cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 		externalIPCacheTimeout:    externalIPCacheTimeout,
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
@@ -346,7 +346,7 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	puContext.externalIPCache = cache.NewCacheWithExpiration(d.externalIPCacheTimeout)
+	puContext.externalIPCache = cache.NewCacheWithExpiration(fmt.Sprintf("externalIPCache:%s", puContext.ID), d.externalIPCacheTimeout)
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {

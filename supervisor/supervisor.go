@@ -63,7 +63,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	s := &Config{
 		mode:            mode,
 		impl:            nil,
-		versionTracker:  cache.NewCache(),
+		versionTracker:  cache.NewCache("SupVersionTracker"),
 		collector:       collector,
 		filterQueue:     filterQueue,
 		excludedIPs:     []string{},

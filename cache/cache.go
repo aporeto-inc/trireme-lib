@@ -22,15 +22,18 @@ type DataStore interface {
 	RemoveWithDelay(u interface{}, duration time.Duration) (err error)
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 	SetTimeOut(u interface{}, timeout time.Duration) (err error)
+	ToString() string
 }
 
 // Cache is the structure that involves the map of entries. The cache
 // provides a sync mechanism and allows multiple clients at the same time.
 type Cache struct {
+	name     string
 	data     map[interface{}]entry
 	lifetime time.Duration
 	sync.RWMutex
 	expirer ExpirationNotifier
+	max     int
 }
 
 // entry is a single line in the datastore that includes the actual entry
@@ -42,34 +45,81 @@ type entry struct {
 	expirer   ExpirationNotifier
 }
 
-// NewCache creates a new data cache
-func NewCache() *Cache {
+// cacheRegistry keeps handles of all caches initialized throught this library
+// for book keeping
+type cacheRegistry struct {
+	sync.RWMutex
+	items map[string]*Cache
+}
 
-	c := &Cache{
-		data:     make(map[interface{}]entry),
-		lifetime: -1,
+var registry *cacheRegistry
+
+func init() {
+
+	registry = &cacheRegistry{
+		items: make(map[string]*Cache, 0),
 	}
+}
 
-	return c
+// Add adds a cache to a registry
+func (r *cacheRegistry) Add(c *Cache) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.items[c.name] = c
+}
+
+// ToString generates information about all caches initialized through this lib
+func (r *cacheRegistry) ToString() string {
+	r.Lock()
+	defer r.Unlock()
+
+	buffer := fmt.Sprintf("Cache Registry: %d\n", len(r.items))
+	buffer += fmt.Sprintf(" %32s : %s\n\n", "Cache Name", "max/curr")
+	for k, c := range r.items {
+		buffer += fmt.Sprintf(" %32s : %s\n", k, c.ToString())
+	}
+	return buffer
+}
+
+// NewCache creates a new data cache
+func NewCache(name string) *Cache {
+
+	return NewCacheWithExpirationNotifier(name, -1, nil)
 }
 
 // NewCacheWithExpiration creates a new data cache
-func NewCacheWithExpiration(lifetime time.Duration) *Cache {
+func NewCacheWithExpiration(name string, lifetime time.Duration) *Cache {
 
-	return &Cache{
-		data:     make(map[interface{}]entry),
-		lifetime: lifetime,
-	}
+	return NewCacheWithExpirationNotifier(name, lifetime, nil)
 }
 
 // NewCacheWithExpirationNotifier creates a new data cache with notifier
-func NewCacheWithExpirationNotifier(lifetime time.Duration, expirer ExpirationNotifier) *Cache {
+func NewCacheWithExpirationNotifier(name string, lifetime time.Duration, expirer ExpirationNotifier) *Cache {
 
-	return &Cache{
+	c := &Cache{
+		name:     name,
 		data:     make(map[interface{}]entry),
 		lifetime: lifetime,
 		expirer:  expirer,
 	}
+	c.max = len(c.data)
+	registry.Add(c)
+	return c
+}
+
+// ToString generates information about all caches initialized through this lib
+func ToString() string {
+
+	return registry.ToString()
+}
+
+// ToString provides statistics about this cache
+func (c *Cache) ToString() string {
+	c.Lock()
+	defer c.Unlock()
+
+	return fmt.Sprintf("%d/%d", c.max, len(c.data))
 }
 
 // Add stores an entry into the cache and updates the timestamp
@@ -96,6 +146,9 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 			timestamp: t,
 			timer:     timer,
 			expirer:   c.expirer,
+		}
+		if len(c.data) > c.max {
+			c.max = len(c.data)
 		}
 		return nil
 	}
@@ -191,7 +244,9 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 		timer:     timer,
 		expirer:   c.expirer,
 	}
-
+	if len(c.data) > c.max {
+		c.max = len(c.data)
+	}
 }
 
 // SetTimeOut sets the time out of an entry to a new value

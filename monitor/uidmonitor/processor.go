@@ -71,8 +71,8 @@ func NewCustomUIDProcessor(storePath string,
 		storePath:         storePath,
 		regStart:          regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$"),
 		regStop:           regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$"),
-		putoPidMap:        cache.NewCache(),
-		pidToPU:           cache.NewCache(),
+		putoPidMap:        cache.NewCache("putoPidMap"),
+		pidToPU:           cache.NewCache("pidToPU"),
 	}
 }
 
