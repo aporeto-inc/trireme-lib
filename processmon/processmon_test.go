@@ -209,6 +209,7 @@ func TestKillProcess(t *testing.T) {
 }
 
 func TestGetProcessManagerHdl(t *testing.T) {
+	newProcessMon()
 	hdl := GetProcessManagerHdl()
 	cache := cache.NewCache(processMonitorCacheName)
 
