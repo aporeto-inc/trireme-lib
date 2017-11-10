@@ -45,7 +45,7 @@ type entry struct {
 	expirer   ExpirationNotifier
 }
 
-// cacheRegistry keeps handles of all caches initialized throught this library
+// cacheRegistry keeps handles of all caches initialized through this library
 // for book keeping
 type cacheRegistry struct {
 	sync.RWMutex
@@ -57,7 +57,7 @@ var registry *cacheRegistry
 func init() {
 
 	registry = &cacheRegistry{
-		items: make(map[string]*Cache, 0),
+		items: make(map[string]*Cache),
 	}
 }
 
