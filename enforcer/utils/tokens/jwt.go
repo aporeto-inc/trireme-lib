@@ -71,7 +71,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 		Issuer:         issuer,
 		signMethod:     signMethod,
 		secrets:        s,
-		tokenCache:     cache.NewCacheWithExpiration(time.Millisecond * 500),
+		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
 	}, nil
 }
 

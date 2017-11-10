@@ -131,7 +131,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	}
 
 	s := &ProxyInfo{
-		versionTracker: cache.NewCache(),
+		versionTracker: cache.NewCache("SupProxyVersionTracker"),
 		collector:      collector,
 		filterQueue:    enforcer.GetFilterQueue(),
 		prochdl:        processmon.GetProcessManagerHdl(),

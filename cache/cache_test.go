@@ -14,9 +14,11 @@ func TestConstructorNewCache(t *testing.T) {
 
 	Convey("Given I call the method NewCache, I should a new cache", t, func() {
 
-		c := &Cache{}
+		c := &Cache{
+			name: "cache",
+		}
 
-		So(NewCache(), ShouldHaveSameTypeAs, c)
+		So(NewCache("cache"), ShouldHaveSameTypeAs, c)
 	})
 }
 
@@ -24,7 +26,7 @@ func TestElements(t *testing.T) {
 
 	t.Parallel()
 
-	c := NewCache()
+	c := NewCache("cache")
 	id := uuid.NewV4()
 	fakeid := uuid.NewV4()
 	newid := uuid.NewV4()
@@ -97,7 +99,7 @@ func Test_CacheTimer(t *testing.T) {
 	t.Parallel()
 
 	Convey("Given a new cache with an expiration timer ", t, func() {
-		c := NewCacheWithExpiration(2 * time.Second)
+		c := NewCacheWithExpiration("cache", 2*time.Second)
 
 		Convey("When I create an item that has to exist for a second", func() {
 			err := c.Add("key", "value")
@@ -148,7 +150,7 @@ func TestLockedModify(t *testing.T) {
 	t.Parallel()
 
 	Convey("Given a new cache", t, func() {
-		c := NewCache()
+		c := NewCache("cache")
 
 		Convey("Given an element that is an integer", func() {
 			err := c.Add("key", 1)
@@ -173,7 +175,7 @@ func TestTimerExpirationWithUpdate(t *testing.T) {
 
 	Convey("Given that I instantiate 1 objects with 2 second timers", t, func() {
 		i := 1
-		c := NewCacheWithExpiration(2 * time.Second)
+		c := NewCacheWithExpiration("cache", 2*time.Second)
 		err := c.Add(i, i)
 		So(err, ShouldBeNil)
 		Convey("When I check the cache size After 1 seconds, the size should be 1", func() {
@@ -198,7 +200,7 @@ func TestGetReset(t *testing.T) {
 	t.Parallel()
 
 	Convey("Given that I instantiate 1 object with a 2 second timer", t, func() {
-		c := NewCacheWithExpiration(2 * time.Second)
+		c := NewCacheWithExpiration("cache", 2*time.Second)
 		err := c.Add("test", "test")
 		So(err, ShouldBeNil)
 		Convey("When I check the cache after 1 second, the element should be there", func() {
@@ -236,7 +238,7 @@ func TestSetTimeOut(t *testing.T) {
 	t.Parallel()
 
 	Convey("Given that I instantiate 1 object with a 2 second timer", t, func() {
-		c := NewCacheWithExpiration(2 * time.Second)
+		c := NewCacheWithExpiration("cache", 2*time.Second)
 		err := c.Add("test", "test")
 		So(err, ShouldBeNil)
 		Convey("When I check the cache after 1 second, the element should be there", func() {
@@ -275,7 +277,7 @@ func TestCacheWithExpirationNotifier(t *testing.T) {
 	finished := make(chan bool)
 
 	Convey("Given a cache with an expiration notitifier ", t, func() {
-		c := NewCacheWithExpirationNotifier(2*time.Second, func(s DataStore, id interface{}, item interface{}) {
+		c := NewCacheWithExpirationNotifier("cache", 2*time.Second, func(s DataStore, id interface{}, item interface{}) {
 			if id.(string) == "test" && item.(string) == "test" {
 				finished <- true
 			} else {
@@ -302,7 +304,7 @@ func TestThousandsOfTimers(t *testing.T) {
 	t.Parallel()
 
 	Convey("Given that I instantiate 10K objects with 2 second timers", t, func() {
-		c := NewCacheWithExpiration(2 * time.Second)
+		c := NewCacheWithExpiration("cache", 2*time.Second)
 		for i := 0; i < 10000; i++ {
 			err := c.Add(i, i)
 			So(err, ShouldBeNil)
@@ -326,7 +328,7 @@ func TestThousandsOfTimers(t *testing.T) {
 
 func TestRemoveWithDelay(t *testing.T) {
 	Convey("Given an initial cache that is non empty", t, func() {
-		c := NewCache()
+		c := NewCache("cache")
 		c.Add("info1", "info1") // nolint
 		c.Add("info2", "info2") // nolint
 		c.Add("info3", "info3") // nolint
