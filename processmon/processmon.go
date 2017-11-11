@@ -4,12 +4,15 @@
 package processmon
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -92,6 +95,19 @@ func collectChildExitStatus() {
 	}
 }
 
+// processIOReader will read from a reader and print it on the calling process
+func processIOReader(fd io.Reader, contextID string, exited chan int) {
+	reader := bufio.NewReader(fd)
+	for {
+		str, err := reader.ReadString('\n')
+		if err != nil {
+			exited <- 1
+			return
+		}
+		fmt.Print("[" + contextID + "]:" + str)
+	}
+}
+
 //SetnsNetPath -- only planned consumer is unit test
 //Call this function if you expect network namespace links to be created in a separate path
 func (p *ProcessMon) SetnsNetPath(netpath string) {
@@ -169,6 +185,28 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	}
 }
 
+// PollStdOutAndErr polls std out and err
+func (p *ProcessMon) PollStdOutAndErr(cmd *exec.Cmd, exited chan int, contextID string) (initializedCount int, err error) {
+
+	stdout, erro := cmd.StdoutPipe()
+	if erro != nil {
+		return initializedCount, erro
+	}
+	initializedCount++
+
+	stderr, erre := cmd.StderrPipe()
+	if erre != nil {
+		return initializedCount, erre
+	}
+	initializedCount++
+
+	// Stdout/err processing
+	go processIOReader(stdout, contextID, exited)
+	go processIOReader(stderr, contextID, exited)
+
+	return initializedCount, nil
+}
+
 //LaunchProcess prepares the environment for the new process and launches the process
 func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath string, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
 	secretLength := 32
@@ -226,15 +264,30 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		cmdArgs = append(cmdArgs, "--log-level")
 		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level"].(string))
 	}
-	cmdArgs = append(cmdArgs, "--log-id")
-	cmdArgs = append(cmdArgs, contextID)
 
+	if _, ok := GlobalCommandArgs["--log-to-console"]; ok {
+		cmdArgs = append(cmdArgs, "--log-to-console")
+	} else {
+		cmdArgs = append(cmdArgs, "--log-id")
+		cmdArgs = append(cmdArgs, contextID)
+	}
+
+	fmt.Printf("%+v\n", GlobalCommandArgs)
+	fmt.Println(cmdName, strings.Join(cmdArgs, " "))
 	cmd := exec.Command(cmdName, cmdArgs...)
 
 	zap.L().Debug("Enforcer executed",
 		zap.String("command", cmdName),
 		zap.Strings("args", cmdArgs),
 	)
+
+	exited := make(chan int, 2)
+	waitForExitCount := 0
+	if _, ok := GlobalCommandArgs["--log-to-console"]; ok {
+		if waitForExitCount, err = p.PollStdOutAndErr(cmd, exited, contextID); err != nil {
+			return err
+		}
+	}
 
 	statsChannel := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 
@@ -267,7 +320,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 
 	err = cmd.Start()
 	if err != nil {
-		//Cleanup resources
+		// Cleanup resources
 		if oerr := os.Remove(netnspath + contextID); oerr != nil {
 			zap.L().Warn("Failed to clean up netns path",
 				zap.String("command", cmdName),
@@ -278,6 +331,11 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 	}
 
 	go func() {
+		i := 0
+		for i < waitForExitCount {
+			<-exited
+			i++
+		}
 		status := cmd.Wait()
 		childExitStatus <- ExitStatus{process: cmd.Process.Pid, contextID: contextID, exitStatus: status}
 	}()
