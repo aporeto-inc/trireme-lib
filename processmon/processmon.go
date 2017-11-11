@@ -215,7 +215,7 @@ func (p *ProcessMon) getLaunchProcessCmd(arg string, contextID string) *exec.Cmd
 		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level-remote"].(string))
 	}
 
-	if GlobalCommandArgs["--log-to-console"].(bool) {
+	if _, ok := GlobalCommandArgs["--log-to-console"]; ok && GlobalCommandArgs["--log-to-console"].(bool) {
 		cmdArgs = append(cmdArgs, "--log-to-console")
 	} else {
 		cmdArgs = append(cmdArgs, "--log-id")
