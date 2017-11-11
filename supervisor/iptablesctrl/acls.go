@@ -13,8 +13,8 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string) [][]string {
-
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
+	destSetName, srcSetName := i.getSetNamePair(proxyPortSetName)
 	str := [][]string{
 		{
 			i.appAckPacketIPTableContext,
@@ -38,7 +38,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-m", "set",
-			"--match-set", srcProxyServiceSet, "src,src",
+			"--match-set", srcSetName, "src,dst",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -47,7 +47,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			natProxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", destProxyServiceSet, "dst,dst",
+			"--match-set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -58,7 +58,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srcProxyServiceSet, "src,src",
+			"--match-set", srcSetName, "src,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -68,7 +68,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			proxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", destProxyServiceSet, "dst,dst",
+			"--match-set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -87,7 +87,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	return str
 }
 
-func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string) [][]string {
+func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string, proyPortSetName string) [][]string {
 
 	str := [][]string{
 		{
@@ -125,10 +125,10 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(appChain string, netChain string, ip string, port string, proxyPort string) [][]string {
+func (i *Instance) chainRules(appChain string, netChain string, ip string, port string, proxyPort string, proxyPortSetName string) [][]string {
 
 	rules := [][]string{}
-
+	destSetName, srcSetName := i.getSetNamePair(proxyPortSetName)
 	if i.mode == constants.LocalContainer {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext,
@@ -162,7 +162,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-m", "set",
-			"--match-set", srcProxyServiceSet, "src,src",
+			"--match-set", srcSetName, "src,dst",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -171,7 +171,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 			natProxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", destProxyServiceSet, "dst,dst",
+			"--match-set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -182,7 +182,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 			proxyInputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", srcProxyServiceSet, "src,src",
+			"--match-set", srcSetName, "src,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -199,7 +199,7 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 			proxyOutputChain,
 			"-p", "tcp",
 			"-m", "set",
-			"--match-set", destProxyServiceSet, "dst,dst",
+			"--match-set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
@@ -328,19 +328,18 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-
-func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, ip string, port string, mark string, uid string, proxyPort string) error {
+func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, ip string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	if i.mode == constants.LocalServer {
 		if port != "0" || uid == "" {
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort), "Append")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Append")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort), "Append")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Append")
 
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort), "Append")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort, proxyPortSetName), "Append")
 
 }
 
@@ -697,16 +696,16 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(portSetName, appChain, netChain, ip string, port string, mark string, uid string, proxyPort string) error {
+func (i *Instance) deleteChainRules(portSetName, appChain, netChain, ip string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort), "Delete")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Delete")
 		}
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort), "Delete")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Delete")
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort), "Delete")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort, proxyPortSetName), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules

@@ -343,7 +343,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		//Are we client or server proxy
 
 		if len(puContext.(*PUContext).Ports) > 0 && puContext.(*PUContext).Ports[0] != "0" {
-
+			zap.L().Error("Starting Servicer AUTH")
 			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 		}
 		//We are client no advertised port
@@ -361,6 +361,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		return false
 	}()
 	if islocalIP {
+		zap.L().Error("Starting Servicer AUTH LOCALIP")
 		return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 	}
 	return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
@@ -481,9 +482,13 @@ E:
 					}
 					msg = append(msg, data[:n]...)
 				}
+
+				zap.L().Error("SERVER RECEIVE PEER TOKEN")
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
+				zap.L().Error("SERVER RECEIVE PEER TOKEN", zap.Error(err))
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidToken, nil)
+					zap.L().Error("REPORTED FLOW REJECTED")
 					return err
 				}
 				claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(backendport)))

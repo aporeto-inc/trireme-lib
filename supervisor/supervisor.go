@@ -118,7 +118,8 @@ func (s *Config) Unsupervise(contextID string) error {
 
 	cacheEntry := version.(*cacheData)
 	port := cacheEntry.containerInfo.Runtime.Options().ProxyPort
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port); err != nil {
+	proxyPortSetName := iptablesctrl.PuPortSetName(contextID, cacheEntry.mark, "Proxy-")
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port, proxyPortSetName); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -223,7 +224,7 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 
 	cachedEntry := cacheEntry.(*cacheData)
 
-	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo); err != nil {
+	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo, cachedEntry.containerInfo); err != nil {
 		if uerr := s.Unsupervise(contextID); uerr != nil {
 			zap.L().Warn("Failed to clean up state while updating the PU",
 				zap.String("contextID", contextID),

@@ -25,6 +25,7 @@ const (
 	targetNetworkSet = "TargetNetSet"
 	//PuPortSet The prefix for portset names
 	PuPortSet                 = "PUPort-"
+	proxyPortSet              = "Proxy-"
 	ipTableSectionOutput      = "OUTPUT"
 	ipTableSectionInput       = "INPUT"
 	ipTableSectionPreRouting  = "PREROUTING"
@@ -117,7 +118,7 @@ func (i *Instance) chainName(contextID string, version int) (app, net string) {
 }
 
 //PuPortSetName returns the name of the pu portset
-func PuPortSetName(contextID string, mark string) string {
+func PuPortSetName(contextID string, mark string, prefix string) string {
 	hash := md5.New()
 	io.WriteString(hash, contextID)
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
@@ -127,7 +128,7 @@ func PuPortSetName(contextID string, mark string) string {
 		contextID = contextID + string(output[:4])
 	}
 
-	return (PuPortSet + contextID + mark)
+	return (prefix + contextID + mark)
 }
 
 // DefaultIPAddress returns the default IP address for the processing unit
@@ -159,14 +160,22 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	}
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
 	zap.L().Error("COnfigureRules", zap.String("proxyPort", proxyPort))
+	proxiedServices := containerInfo.Policy.ProxiedServices()
+
 	// Configure all the ACLs
 	if err := i.addContainerChain(appChain, netChain); err != nil {
 		return err
 	}
 
 	if i.mode != constants.LocalServer {
+		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
+		if len(proxiedServices) > 0 {
 
-		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort); err != nil {
+			if err := i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
+				zap.L().Error("Failed to create ProxySets", zap.Error(err))
+			}
+		}
+		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 
@@ -183,13 +192,20 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			//We are about to create a uid login pu
 			//This set will be empty and we will only fill it when we find a port for it
 			//The reason to use contextID here is to ensure that we don't need to talk between supervisor and enforcer to share names the id is derivable from information available in the enforcer
-			if puseterr := i.createPUPortSet(PuPortSetName(contextID, mark)); puseterr != nil {
+			if puseterr := i.createPUPortSet(PuPortSetName(contextID, mark, PuPortSet)); puseterr != nil {
 				return puseterr
 			}
 		}
 
-		portSetName := PuPortSetName(contextID, mark)
-		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort); err != nil {
+		portSetName := PuPortSetName(contextID, mark, PuPortSet)
+		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
+		if len(proxiedServices) > 0 {
+
+			if err := i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
+				zap.L().Error("Failed to create ProxySets", zap.Error(err))
+			}
+		}
+		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
 
 			return err
 		}
@@ -215,7 +231,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 	var ipAddress string
 	var ok bool
 
@@ -232,8 +248,9 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	}
 
 	appChain, netChain := i.chainName(contextID, version)
-	portSetName := PuPortSetName(contextID, mark)
-	if derr := i.deleteChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort); derr != nil {
+	portSetName := PuPortSetName(contextID, mark, PuPortSet)
+	//	proxyPortSetName := PUPortSetName(contextID, mark, proxyPortSet)
+	if derr := i.deleteChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -242,17 +259,30 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	}
 	if uid != "" {
 		ips := ipset.IPSet{
-			Name: PuPortSetName(contextID, mark),
+			Name: PuPortSetName(contextID, mark, PuPortSet),
 		}
 		if err := ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to clear puport set", zap.Error(err))
 		}
 	}
+	dstPortSetName, srcPortSetName := i.getSetNamePair(proxyPortSetName)
+	ips := ipset.IPSet{
+		Name: dstPortSetName,
+	}
+	if err := ips.Destroy(); err != nil {
+		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", proxyPortSetName), zap.Error(err))
+	}
+	ips := ipset.IPSet{
+		Name: srcPortSetName,
+	}
+	if err := ips.Destroy(); err != nil {
+		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", proxyPortSetName), zap.Error(err))
+	}
 	return nil
 }
 
 // UpdateRules implements the update part of the interface
-func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil {
 		return fmt.Errorf("Container info cannot be nil")
@@ -297,7 +327,8 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Add mapping to new chain
 	if i.mode != constants.LocalServer {
-		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort); err != nil {
+		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
+		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 	} else {
@@ -308,8 +339,9 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		portlist := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
 		uid := containerInfo.Runtime.Options().UserID
 
-		portSetName := PuPortSetName(contextID, mark)
-		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, portlist, mark, uid, proxyPort); err != nil {
+		portSetName := PuPortSetName(contextID, mark, PuPortSet)
+		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
+		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, portlist, mark, uid, proxyPort, proxyPortSetName); err != nil {
 
 			return err
 		}
@@ -317,7 +349,8 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	//Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules("", oldAppChain, oldNetChain, ipAddress, "", "", "", proxyPort); err != nil {
+		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
+		if err := i.deleteChainRules("", oldAppChain, oldNetChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
 
 			return err
 		}
@@ -325,12 +358,25 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		mark := containerInfo.Runtime.Options().CgroupMark
 		port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
 		uid := containerInfo.Runtime.Options().UserID
-		portSetName := PuPortSetName(contextID, mark)
-		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, ipAddress, port, mark, uid, proxyPort); err != nil {
+		portSetName := PuPortSetName(contextID, mark, PuPortSet)
+		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
+		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 	}
+	//Update Proxy Ports
+	if i.mode != constants.LocalServer {
+		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
+		proxiedServiceList := containerInfo.Policy.ProxiedServices()
+		i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName)
 
+	} else {
+		mark := containerInfo.Runtime.Options().CgroupMark
+		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
+		proxiedServiceList := containerInfo.Policy.ProxiedServices()
+		i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName)
+
+	}
 	// Delete the old chain to clean up
 	if err := i.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
 		return err
@@ -375,9 +421,9 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 
-	if err := i.createProxySets([]string{}, []string{}); err != nil {
-		return err
-	}
+	// if err := i.createProxySets([]string{}, []string{}); err != nil {
+	// 	return err
+	// }
 	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
 	i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain)
 	i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain)

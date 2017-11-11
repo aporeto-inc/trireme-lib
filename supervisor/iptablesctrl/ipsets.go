@@ -58,11 +58,12 @@ func (i *Instance) createTargetSet(networks []string) error {
 }
 
 // createProxySet creates a new target set -- ipportset is a list of {ip,port}
-func (i *Instance) createProxySets(vipipportset []string, pipipportset []string) error {
+func (i *Instance) createProxySets(vipipportset []string, pipipportset []string, portSetName string) error {
+	destSetName, srcSetName := i.getSetNamePair(portSetName)
 
-	ips, err := i.ipset.NewIpset(destProxyServiceSet, "hash:ip,port", &ipset.Params{})
+	ips, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Couldn't create IPSet for %s: %s", destProxyServiceSet, err)
+		return fmt.Errorf("Couldn't create IPSet for %s: %s", destSetName, err)
 	}
 
 	i.vipTargetSet = ips
@@ -74,21 +75,54 @@ func (i *Instance) createProxySets(vipipportset []string, pipipportset []string)
 		}
 	}
 
-	ips, err = i.ipset.NewIpset(srcProxyServiceSet, "hash:ip,port", &ipset.Params{})
+	ips, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Couldn't create IPSet for %s: %s", srcProxyServiceSet, err)
+		return fmt.Errorf("Couldn't create IPSet for %s: %s", srcSetName, err)
 	}
 
 	i.pipTargetSet = ips
 
+	for _, net := range pipipportset {
+		zap.L().Error("Adding Net", zap.String("IPPORT", net))
+		if err := i.pipTargetSet.Add(net, 0); err != nil {
+			zap.L().Error("Failed to add pip", zap.Error(err))
+			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
+		}
+	}
+
+	return nil
+}
+
+func (i *Instance) updateProxySet(vipipportset []string, pipipportset []string, portSetName string) error {
+	dstSetName, srcSetName := i.getSetNamePair(portSetName)
+	vipTargetSet := ipset.IPSet{
+		Name: dstSetName,
+	}
+	vipTargetSet.Flush()
+	for _, net := range vipipportset {
+		if err := i.vipTargetSet.Add(net, 0); err != nil {
+			zap.L().Error("Failed to add vip", zap.Error(err))
+			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
+		}
+	}
+	pipTargetSet := ipset.IPSet{
+		Name: srcSetName,
+	}
+	pipTargetSet.Flush()
 	for _, net := range pipipportset {
 		if err := i.pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
 			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
 		}
 	}
-
 	return nil
+
+}
+
+//getSetNamePair returns a pair of strings represent proxySetNames
+func (i *Instance) getSetNamePair(portSetName string) (string, string) {
+	return "dst-" + portSetName, "src-" + portSetName
+
 }
 
 //Not using ipset from coreos library they don't support bitmap:port

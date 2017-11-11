@@ -23,6 +23,8 @@ import (
 
 const (
 	portEntryTimeout = 60
+	//Temporary this constant should go away as we integrate other uidm changed
+	PuPortSet = "PUPort-"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -895,7 +897,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
 					ips := ipset.IPSet{
-						Name: iptablesctrl.PuPortSetName(context.ID, p.Mark),
+						Name: iptablesctrl.PuPortSetName(context.ID, p.Mark, PuPortSet),
 					}
 
 					port := strconv.Itoa(int(p.SourcePort))
