@@ -224,8 +224,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 
 	// A symlink is created from /var/run/netns/<context> to the NetNSPath
 	if _, lerr := os.Stat(filepath.Join(netnspath, contextID)); lerr != nil {
-		linkErr := os.Symlink(nsPath,
-			netnspath+contextID)
+		linkErr := os.Symlink(nsPath, netnspath+contextID)
 		if linkErr != nil {
 			zap.L().Error(ErrSymLinkFailed.Error(), zap.Error(linkErr))
 		}
@@ -239,6 +238,8 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		cmdArgs = append(cmdArgs, "--log-level")
 		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level"].(string))
 	}
+	cmdArgs = append(cmdArgs, "--log-id")
+	cmdArgs = append(cmdArgs, contextID)
 
 	cmd := exec.Command(cmdName, cmdArgs...)
 
@@ -342,5 +343,4 @@ func GetProcessManagerHdl() ProcessManager {
 		return newProcessMon()
 	}
 	return launcher
-
 }
