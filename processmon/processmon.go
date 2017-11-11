@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -27,16 +26,31 @@ import (
 var (
 	// GlobalCommandArgs are command args received while invoking this command
 	GlobalCommandArgs map[string]interface{}
+	launcher          *ProcessMon
+	netnspath         string
+	childExitStatus   = make(chan ExitStatus, 100)
+
+	// ErrEnforcerAlreadyRunning Exported
+	ErrEnforcerAlreadyRunning = errors.New("Enforcer already running in this context")
+	// ErrSymLinkFailed Exported
+	ErrSymLinkFailed = errors.New("Failed to create symlink for use by ip netns")
+	// ErrFailedtoLaunch Exported
+	ErrFailedtoLaunch = errors.New("Failed to launch enforcer")
+	// ErrProcessDoesNotExists Exported
+	ErrProcessDoesNotExists = errors.New("Process in that context does not exist")
+	//ErrBinaryNotFound Exported
+	ErrBinaryNotFound = errors.New("Enforcer Binary not found")
 )
 
-const processMonitorCacheName = "ProcessMonitorCache"
+const (
+	processMonitorCacheName = "ProcessMonitorCache"
+	secretLength            = 32
+)
 
 //ProcessMon exported
 type ProcessMon struct {
 	activeProcesses *cache.Cache
 }
-
-var launcher *ProcessMon
 
 //ProcessInfo exported
 type processInfo struct {
@@ -55,27 +69,10 @@ type ExitStatus struct {
 	exitStatus error
 }
 
-var childExitStatus = make(chan ExitStatus, 100)
-var netnspath string
-
-// ErrEnforcerAlreadyRunning Exported
-var ErrEnforcerAlreadyRunning = errors.New("Enforcer already running in this context")
-
-// ErrSymLinkFailed Exported
-var ErrSymLinkFailed = errors.New("Failed to create symlink for use by ip netns")
-
-// ErrFailedtoLaunch Exported
-var ErrFailedtoLaunch = errors.New("Failed to launch enforcer")
-
-// ErrProcessDoesNotExists Exported
-var ErrProcessDoesNotExists = errors.New("Process in that context does not exist")
-
-//ErrBinaryNotFound Exported
-var ErrBinaryNotFound = errors.New("Enforcer Binary not found")
-
 func init() {
 
 	netnspath = "/var/run/netns/"
+
 	go collectChildExitStatus()
 
 	// Setup new launcher
@@ -185,8 +182,8 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	}
 }
 
-// PollStdOutAndErr polls std out and err
-func (p *ProcessMon) PollStdOutAndErr(cmd *exec.Cmd, exited chan int, contextID string) (initializedCount int, err error) {
+// pollStdOutAndErr polls std out and err
+func (p *ProcessMon) pollStdOutAndErr(cmd *exec.Cmd, exited chan int, contextID string) (initializedCount int, err error) {
 
 	stdout, erro := cmd.StdoutPipe()
 	if erro != nil {
@@ -207,10 +204,60 @@ func (p *ProcessMon) PollStdOutAndErr(cmd *exec.Cmd, exited chan int, contextID 
 	return initializedCount, nil
 }
 
+// getLaunchProcessCmd returns the command used to launch the enforcerd
+func (p *ProcessMon) getLaunchProcessCmd(arg string, contextID string) *exec.Cmd {
+
+	cmdName, _ := osext.Executable()
+	cmdArgs := []string{arg}
+
+	if _, ok := GlobalCommandArgs["--log-level-remote"]; ok {
+		cmdArgs = append(cmdArgs, "--log-level")
+		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level-remote"].(string))
+	}
+
+	if GlobalCommandArgs["--log-to-console"].(bool) {
+		cmdArgs = append(cmdArgs, "--log-to-console")
+	} else {
+		cmdArgs = append(cmdArgs, "--log-id")
+		cmdArgs = append(cmdArgs, contextID)
+	}
+
+	zap.L().Debug("Enforcer executed",
+		zap.String("command", cmdName),
+		zap.Strings("args", cmdArgs),
+	)
+	return exec.Command(cmdName, cmdArgs...)
+}
+
+func (p *ProcessMon) getLaunchProcessEnvVars(procMountPoint string, contextID string, randomkeystring string, statsServerSecret string, refPid int, refNSPath string) []string {
+
+	mountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
+	namedPipe := "APORETO_ENV_SOCKET_PATH=/var/run/" + contextID + ".sock"
+	statsChannel := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
+	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
+	envStatsSecret := "STATS_SECRET=" + statsServerSecret
+	containerPID := "CONTAINER_PID=" + strconv.Itoa(refPid)
+
+	newEnvVars := []string{
+		mountPoint,
+		namedPipe,
+		statsChannel,
+		rpcClientSecret,
+		envStatsSecret,
+		containerPID,
+	}
+
+	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
+	if refNSPath != "" {
+		nsPath := "APORETO_ENV_NS_PATH=" + refNSPath
+		newEnvVars = append(newEnvVars, nsPath)
+	}
+
+	return newEnvVars
+}
+
 //LaunchProcess prepares the environment for the new process and launches the process
 func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath string, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
-	secretLength := 32
-	var cmdName string
 
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
@@ -255,67 +302,24 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 			zap.L().Error(ErrSymLinkFailed.Error(), zap.Error(linkErr))
 		}
 	}
-	namedPipe := "APORETO_ENV_SOCKET_PATH=/var/run/" + contextID + ".sock"
 
-	cmdName, _ = osext.Executable()
-	cmdArgs := []string{arg}
-
-	if _, ok := GlobalCommandArgs["--log-level"]; ok {
-		cmdArgs = append(cmdArgs, "--log-level")
-		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level"].(string))
-	}
-
-	if _, ok := GlobalCommandArgs["--log-to-console"]; ok {
-		cmdArgs = append(cmdArgs, "--log-to-console")
-	} else {
-		cmdArgs = append(cmdArgs, "--log-id")
-		cmdArgs = append(cmdArgs, contextID)
-	}
-
-	fmt.Printf("%+v\n", GlobalCommandArgs)
-	fmt.Println(cmdName, strings.Join(cmdArgs, " "))
-	cmd := exec.Command(cmdName, cmdArgs...)
-
-	zap.L().Debug("Enforcer executed",
-		zap.String("command", cmdName),
-		zap.Strings("args", cmdArgs),
-	)
+	cmd := p.getLaunchProcessCmd(arg, contextID)
 
 	exited := make(chan int, 2)
 	waitForExitCount := 0
 	if _, ok := GlobalCommandArgs["--log-to-console"]; ok {
-		if waitForExitCount, err = p.PollStdOutAndErr(cmd, exited, contextID); err != nil {
+		if waitForExitCount, err = p.pollStdOutAndErr(cmd, exited, contextID); err != nil {
 			return err
 		}
 	}
-
-	statsChannel := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		//This is a more serious failure. We can't reliably control the remote enforcer
 		return fmt.Errorf("Failed to generate secret: %s", err.Error())
 	}
-	mountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
-	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
-	envStatsSecret := "STATS_SECRET=" + statsServerSecret
-	containerPID := "CONTAINER_PID=" + strconv.Itoa(refPid)
 
-	newEnvVars := []string{
-		mountPoint,
-		namedPipe,
-		statsChannel,
-		rpcClientSecret,
-		envStatsSecret,
-		containerPID,
-	}
-
-	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
-	if refNSPath != "" {
-		nsPath := "APORETO_ENV_NS_PATH=" + refNSPath
-		newEnvVars = append(newEnvVars, nsPath)
-	}
-
+	newEnvVars := p.getLaunchProcessEnvVars(procMountPoint, contextID, randomkeystring, statsServerSecret, refPid, refNSPath)
 	cmd.Env = append(os.Environ(), newEnvVars...)
 
 	err = cmd.Start()
@@ -323,7 +327,6 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		// Cleanup resources
 		if oerr := os.Remove(netnspath + contextID); oerr != nil {
 			zap.L().Warn("Failed to clean up netns path",
-				zap.String("command", cmdName),
 				zap.Error(err),
 			)
 		}
@@ -344,10 +347,11 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		return err
 	}
 
-	p.activeProcesses.AddOrUpdate(contextID, &processInfo{contextID: contextID,
-		process: cmd.Process,
-		RPCHdl:  rpchdl,
-		deleted: false})
+	p.activeProcesses.AddOrUpdate(contextID, &processInfo{
+		contextID: contextID,
+		process:   cmd.Process,
+		RPCHdl:    rpchdl,
+		deleted:   false})
 
 	return nil
 }
