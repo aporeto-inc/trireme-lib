@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"runtime"
 	"strconv"
@@ -420,6 +421,19 @@ func (d *dockerMonitor) syncContainers() error {
 
 		zap.L().Info("Successfully synced container: ", zap.String("ID", container.ID))
 
+	}
+	//Cleanup /var/run/netns of all dead link
+	//Either containers died while we were dead or we have crashed and left stuff behind which we should should
+	if files, err := ioutil.ReadDir(constants.NetNsPath); err == nil {
+		for _, f := range files {
+			fName, err := os.Readlink(constants.NetNsPath + f.Name())
+			if err != nil {
+				continue
+			}
+			if _, err := os.Stat(fName); err != nil {
+				os.Remove(constants.NetNsPath + f.Name())
+			}
+		}
 	}
 
 	return nil
