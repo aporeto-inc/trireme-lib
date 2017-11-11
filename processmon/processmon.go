@@ -4,10 +4,8 @@
 package processmon
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -76,6 +74,9 @@ func init() {
 
 	netnspath = "/var/run/netns/"
 	go collectChildExitStatus()
+
+	// Setup new launcher
+	newProcessMon()
 }
 
 //collectChildExitStatus is an async function which collects status for all launched child processes
@@ -88,19 +89,6 @@ func collectChildExitStatus() {
 			zap.Int("pid", exitStatus.process),
 			zap.Error(exitStatus.exitStatus),
 		)
-	}
-}
-
-// processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader, contextID string, exited chan int) {
-	reader := bufio.NewReader(fd)
-	for {
-		str, err := reader.ReadString('\n')
-		if err != nil {
-			exited <- 1
-			return
-		}
-		fmt.Print("[" + contextID + "]:" + str)
 	}
 }
 
@@ -248,16 +236,6 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		zap.Strings("args", cmdArgs),
 	)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return err
-	}
-
 	statsChannel := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
@@ -299,21 +277,10 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 		return ErrBinaryNotFound
 	}
 
-	exited := make(chan int, 2)
 	go func() {
-		pid := cmd.Process.Pid
-		i := 0
-		for i < 2 {
-			<-exited
-			i++
-		}
 		status := cmd.Wait()
-		childExitStatus <- ExitStatus{process: pid, contextID: contextID, exitStatus: status}
+		childExitStatus <- ExitStatus{process: cmd.Process.Pid, contextID: contextID, exitStatus: status}
 	}()
-
-	// Stdout/err processing
-	go processIOReader(stdout, contextID, exited)
-	go processIOReader(stderr, contextID, exited)
 
 	if err := rpchdl.NewRPCClient(contextID, filepath.Join("/var/run", contextID+".sock"), randomkeystring); err != nil {
 		return err
@@ -327,7 +294,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 	return nil
 }
 
-//NewProcessMon is a method to create a new processmon
+//newProcessMon is a method to create a new processmon
 func newProcessMon() ProcessManager {
 
 	launcher = &ProcessMon{activeProcesses: cache.NewCache(processMonitorCacheName)}
@@ -336,11 +303,7 @@ func newProcessMon() ProcessManager {
 
 //GetProcessManagerHdl will ensure that we return an existing handle if one has been created.
 //or return a new one if there is none
-//This needs locks
 func GetProcessManagerHdl() ProcessManager {
 
-	if launcher == nil {
-		return newProcessMon()
-	}
 	return launcher
 }
