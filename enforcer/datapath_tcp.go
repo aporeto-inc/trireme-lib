@@ -17,8 +17,6 @@ import (
 	"github.com/aporeto-inc/trireme/log"
 	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor/iptablesctrl"
-	"github.com/bvandewalle/go-ipset/ipset"
 )
 
 const (
@@ -896,25 +894,6 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				//Update the port for the context matching the mark this packet has comes with
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
-
-					name, err := iptablesctrl.PuPortSetName(context.ID, p.Mark)
-
-					if err != nil {
-						return nil, nil, err
-					}
-
-					ips := ipset.IPSet{
-						Name: name,
-					}
-
-					port := strconv.Itoa(int(p.SourcePort))
-					//Add an entry for 60 seconds we will rediscover ports every 60 sec
-
-					if adderr := ips.Add(port, portEntryTimeout); adderr != nil {
-						zap.L().Warn("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
-
-					}
-
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 				}
 				//Return an error still we will process the syn successfully on retry and

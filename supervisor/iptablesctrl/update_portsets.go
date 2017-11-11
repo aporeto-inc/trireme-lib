@@ -2,6 +2,7 @@ package iptablesctrl
 
 import (
 	"bufio"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -14,13 +15,6 @@ import (
 	"github.com/bvandewalle/go-ipset/ipset"
 )
 
-/*
-type pamUidCache struct {
-        uidToPort cache.DataStore
-}
-
-var c = pamUidCache{uidToPort: cache.NewCache()}
-*/
 const (
 	procNetTCPFile                    = "/proc/net/tcp"
 	portSetUpdateIntervalMilliseconds = 500
@@ -43,6 +37,7 @@ func InitPortSetTask(i *Instance) {
 	}
 }
 
+// TODO : Handle file handling errors, use zap to log
 func updatePortSets(i *Instance) {
 	file, err := os.Open(procNetTCPFile)
 	localCache := cache.NewCache("localCache")
@@ -88,26 +83,26 @@ func updatePortSets(i *Instance) {
 	// program the iptable.
 	activePUs := i.UIDSet
 	for k, _ := range activePUs {
+		zap.L().Debug("Programming the port set for - Varun")
+		fmt.Println("UID ", k)
 		uidPorts, err := getUIDPortMappings(i, k)
 		if err != nil {
-			zap.L().Warn("Failed To get UID to port mappings", zap.String("UID:", k))
 			return
 		}
 		puPortSetName, err := getUIDPortSetMappings(i, k)
+
 		if err != nil {
 			zap.L().Warn("Failed To get UID to portset mappings", zap.String("UID:", k))
+			// Fatal ?
 			return
 		}
 
-		// ipset it
+		// ipset
 		ips := ipset.IPSet{
 			Name: puPortSetName.(string),
 		}
-		// clear the existing portset
-		if err := ips.Destroy(); err != nil {
-			zap.L().Warn("Failed to clear puport set", zap.Error(err), zap.String("UID:", k))
-			return
-		}
+		// Before we rearm with new PortSet, Do we need to clear the current portset ?
+
 		// rearm the portset with new port List
 		for _, port := range uidPorts.([]int64) {
 			//Add an entry for 60 seconds we will rediscover ports every 60 sec
