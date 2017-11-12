@@ -431,8 +431,8 @@ func (d *dockerMonitor) syncContainers() error {
 				continue
 			}
 			if _, err := os.Stat(fName); err != nil {
-				if rerr := os.Remove(constants.NetNsPath + f.Name());rerr != nil {
-					zap.L().Debug("Failed to remove file",zap.Error(rerr))
+				if rerr := os.Remove(constants.NetNsPath + f.Name()); rerr != nil {
+					zap.L().Debug("Failed to remove file", zap.Error(rerr))
 				}
 			}
 		}
