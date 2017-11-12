@@ -53,6 +53,7 @@ const (
 )
 
 const (
+	//NetNsPath path where we create symlinks for active containers/contextID
 	NetNsPath = "/var/run/netns/"
 )
 const (
