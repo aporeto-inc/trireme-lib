@@ -65,7 +65,7 @@ type AuthInfo struct {
 
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
-	sync.Mutex
+	sync.RWMutex
 
 	state TCPFlowState
 	Auth  AuthInfo

@@ -957,8 +957,8 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*TCPConnection, error) {
 
 // updateTimer updates the timers for the service connections
 func updateTimer(c cache.DataStore, hash string, conn *TCPConnection) error {
-	conn.Lock()
-	defer conn.Unlock()
+	conn.RLock()
+	defer conn.RUnlock()
 
 	if conn.ServiceConnection && conn.TimeOut > 0 {
 		return c.SetTimeOut(hash, conn.TimeOut)
