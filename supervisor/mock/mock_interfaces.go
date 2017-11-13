@@ -111,24 +111,24 @@ func (_mr *_MockImplementorRecorder) ConfigureRules(arg0, arg1, arg2 interface{}
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ConfigureRules", arg0, arg1, arg2)
 }
 
-func (_m *MockImplementor) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
-	ret := _m.ctrl.Call(_m, "UpdateRules", version, contextID, containerInfo)
+func (_m *MockImplementor) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
+	ret := _m.ctrl.Call(_m, "UpdateRules", version, contextID, containerInfo, oldContainerInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockImplementorRecorder) UpdateRules(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (_mr *_MockImplementorRecorder) UpdateRules(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateRules", arg0, arg1, arg2)
 }
 
-func (_m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string) error {
-	ret := _m.ctrl.Call(_m, "DeleteRules", version, context, ipAddresses, port, mark, uid, proxyPort)
+func (_m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+	ret := _m.ctrl.Call(_m, "DeleteRules", version, context, ipAddresses, port, mark, uid, proxyPort, proxyPortSetName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockImplementorRecorder) DeleteRules(arg0, arg1, arg2, arg3, arg4, arg5, arg6 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteRules", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+func (_mr *_MockImplementorRecorder) DeleteRules(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteRules", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
 func (_m *MockImplementor) SetTargetNetworks(_param0 []string, _param1 []string) error {

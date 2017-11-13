@@ -96,7 +96,7 @@ func TestSupervise(t *testing.T) {
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
-		s.impl = (Implementor).impl
+		s.impl = impl
 
 		Convey("When I supervise a new PU with invalid policy", func() {
 			err := s.Supervise("contextID", nil)
