@@ -18,8 +18,8 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme/internal/processmon"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/processmon"
 )
 
 type pkiCertifier interface {

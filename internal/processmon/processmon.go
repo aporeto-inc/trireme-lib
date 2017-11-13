@@ -1,6 +1,4 @@
 // Package processmon is to manage and monitor remote enforcers.
-// When we access the processmanager interface through here it acts as a singleton
-// The ProcessMonitor interface is not a singleton and can be used to monitor a list of processes
 package processmon
 
 import (
@@ -24,11 +22,8 @@ import (
 )
 
 var (
-	// GlobalCommandArgs are command args received while invoking this command
-	GlobalCommandArgs map[string]interface{}
-	launcher          *ProcessMon
-	netnspath         string
-	childExitStatus   = make(chan ExitStatus, 100)
+	// launcher supports only a global processMon instance
+	launcher *processMon
 
 	// ErrEnforcerAlreadyRunning Exported
 	ErrEnforcerAlreadyRunning = errors.New("Enforcer already running in this context")
@@ -38,107 +33,117 @@ var (
 	ErrFailedtoLaunch = errors.New("Failed to launch enforcer")
 	// ErrProcessDoesNotExists Exported
 	ErrProcessDoesNotExists = errors.New("Process in that context does not exist")
-	//ErrBinaryNotFound Exported
+	// ErrBinaryNotFound Exported
 	ErrBinaryNotFound = errors.New("Enforcer Binary not found")
 )
 
 const (
+	// netnspath holds the directory to ensure ip netns command works
+	netnspath               = "/var/run/netns/"
 	processMonitorCacheName = "ProcessMonitorCache"
 	secretLength            = 32
 )
 
-//ProcessMon exported
-type ProcessMon struct {
+// processMon is an instance of processMonitor
+type processMon struct {
+	// netnspath made configurable to enable running tests
+	netnspath       string
 	activeProcesses *cache.Cache
+	childExitStatus chan exitStatus
+	// logToConsole stores if we should log to console
+	logToConsole bool
+	// launcProcessArgs are arguments that are provided to all processes launched by processmon
+	launcProcessArgs []string
 }
 
-//ProcessInfo exported
+// processInfo stores per process information
 type processInfo struct {
 	contextID string
 	RPCHdl    rpcwrapper.RPCClient
 	process   *os.Process
-	deleted   bool
 }
 
-//ExitStatus captures the exit status of a process
-//The contextID is optional and is primarily used by remote enforcer processes
-//and represents the namespace in which the process was running
-type ExitStatus struct {
-	process    int
+// exitStatus captures the exit status of a process
+type exitStatus struct {
+	process int
+	// The contextID is optional and is primarily used by remote enforcer
+	// processes to represent the namespace in which the process was running
 	contextID  string
 	exitStatus error
 }
 
 func init() {
-
-	netnspath = "/var/run/netns/"
-
-	go collectChildExitStatus()
-
 	// Setup new launcher
-	newProcessMon()
+	newProcessMon(netnspath)
 }
 
-//collectChildExitStatus is an async function which collects status for all launched child processes
-func collectChildExitStatus() {
+// contextID2SocketPath returns the socket path to use for a givent context
+func contextID2SocketPath(contextID string) string {
 
-	for {
-		exitStatus := <-childExitStatus
-		zap.L().Debug("Remote enforcer exited",
-			zap.String("nativeContextID", exitStatus.contextID),
-			zap.Int("pid", exitStatus.process),
-			zap.Error(exitStatus.exitStatus),
-		)
-	}
+	return filepath.Join("/var/run/" + contextID + ".sock")
 }
 
 // processIOReader will read from a reader and print it on the calling process
 func processIOReader(fd io.Reader, contextID string, exited chan int) {
+
 	reader := bufio.NewReader(fd)
+
 	for {
+
 		str, err := reader.ReadString('\n')
+
 		if err != nil {
 			exited <- 1
 			return
 		}
+
 		fmt.Print("[" + contextID + "]:" + str)
 	}
 }
 
-//SetnsNetPath -- only planned consumer is unit test
-//Call this function if you expect network namespace links to be created in a separate path
-func (p *ProcessMon) SetnsNetPath(netpath string) {
+// newProcessMon is a method to create a new processmon
+func newProcessMon(netns string) ProcessManager {
 
-	netnspath = netpath
-}
-
-//GetExitStatus reports if the process is marked for deletion or deleted
-func (p *ProcessMon) GetExitStatus(contextID string) bool {
-
-	s, err := p.activeProcesses.Get(contextID)
-	if err != nil {
-		zap.L().Debug("Process already dead", zap.Error(err))
-		return true
-	}
-	return (s.(*processInfo)).deleted
-}
-
-//SetExitStatus marks the process for deletion
-func (p *ProcessMon) SetExitStatus(contextID string, status bool) error {
-
-	s, err := p.activeProcesses.Get(contextID)
-	if err != nil {
-		return err
+	launcher = &processMon{
+		netnspath:       netns,
+		activeProcesses: cache.NewCache(processMonitorCacheName),
+		childExitStatus: make(chan exitStatus, 100),
 	}
 
-	val := s.(*processInfo)
-	val.deleted = status
-	p.activeProcesses.AddOrUpdate(contextID, val)
-	return nil
+	go launcher.collectChildExitStatus()
+
+	return launcher
 }
 
-//KillProcess sends a rpc to the process to exit failing which it will kill the process
-func (p *ProcessMon) KillProcess(contextID string) {
+// GetProcessManagerHdl returns a process manager handle
+func GetProcessManagerHdl() ProcessManager {
+
+	return launcher
+}
+
+// collectChildExitStatus is an async function which collects status for all launched child processes
+func (p *processMon) collectChildExitStatus() {
+
+	for {
+
+		es := <-p.childExitStatus
+		zap.L().Debug("Remote enforcer exited",
+			zap.String("nativeContextID", es.contextID),
+			zap.Int("pid", es.process),
+			zap.Error(es.exitStatus),
+		)
+	}
+}
+
+// SetupLogAndProcessArgs setups args that should be propagated to child processes
+func (p *processMon) SetupLogAndProcessArgs(logToConsole bool, args []string) {
+
+	p.logToConsole = logToConsole
+	p.launcProcessArgs = args
+}
+
+// KillProcess sends a rpc to the process to exit failing which it will kill the process
+func (p *processMon) KillProcess(contextID string) {
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
@@ -173,7 +178,8 @@ func (p *ProcessMon) KillProcess(contextID string) {
 	}
 
 	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
-	if err := os.Remove(netnspath + contextID); err != nil {
+	contextFile := filepath.Join(p.netnspath, contextID)
+	if err := os.Remove(contextFile); err != nil {
 		zap.L().Warn("Failed to remote process from netns path", zap.Error(err))
 	}
 
@@ -183,18 +189,20 @@ func (p *ProcessMon) KillProcess(contextID string) {
 }
 
 // pollStdOutAndErr polls std out and err
-func (p *ProcessMon) pollStdOutAndErr(cmd *exec.Cmd, exited chan int, contextID string) (initializedCount int, err error) {
+func (p *processMon) pollStdOutAndErr(cmd *exec.Cmd, exited chan int, contextID string) (initializedCount int, err error) {
 
 	stdout, erro := cmd.StdoutPipe()
 	if erro != nil {
 		return initializedCount, erro
 	}
+
 	initializedCount++
 
 	stderr, erre := cmd.StderrPipe()
 	if erre != nil {
 		return initializedCount, erre
 	}
+
 	initializedCount++
 
 	// Stdout/err processing
@@ -205,34 +213,26 @@ func (p *ProcessMon) pollStdOutAndErr(cmd *exec.Cmd, exited chan int, contextID 
 }
 
 // getLaunchProcessCmd returns the command used to launch the enforcerd
-func (p *ProcessMon) getLaunchProcessCmd(arg string, contextID string) *exec.Cmd {
+func (p *processMon) getLaunchProcessCmd(arg string, contextID string) *exec.Cmd {
 
 	cmdName, _ := osext.Executable()
 	cmdArgs := []string{arg}
 
-	if _, ok := GlobalCommandArgs["--log-level-remote"]; ok {
-		cmdArgs = append(cmdArgs, "--log-level")
-		cmdArgs = append(cmdArgs, GlobalCommandArgs["--log-level-remote"].(string))
-	}
-
-	if _, ok := GlobalCommandArgs["--log-to-console"]; ok && GlobalCommandArgs["--log-to-console"].(bool) {
-		cmdArgs = append(cmdArgs, "--log-to-console")
-	} else {
-		cmdArgs = append(cmdArgs, "--log-id")
-		cmdArgs = append(cmdArgs, contextID)
-	}
+	cmdArgs = append(cmdArgs, p.launcProcessArgs...)
 
 	zap.L().Debug("Enforcer executed",
 		zap.String("command", cmdName),
 		zap.Strings("args", cmdArgs),
 	)
+
 	return exec.Command(cmdName, cmdArgs...)
 }
 
-func (p *ProcessMon) getLaunchProcessEnvVars(procMountPoint string, contextID string, randomkeystring string, statsServerSecret string, refPid int, refNSPath string) []string {
+// getLaunchProcessEnvVars returns a slice of env variable strings where each string is in the form of key=value
+func (p *processMon) getLaunchProcessEnvVars(procMountPoint string, contextID string, randomkeystring string, statsServerSecret string, refPid int, refNSPath string) []string {
 
 	mountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
-	namedPipe := "APORETO_ENV_SOCKET_PATH=/var/run/" + contextID + ".sock"
+	namedPipe := "APORETO_ENV_SOCKET_PATH=" + contextID2SocketPath(contextID)
 	statsChannel := "STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
 	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
 	envStatsSecret := "STATS_SECRET=" + statsServerSecret
@@ -256,8 +256,8 @@ func (p *ProcessMon) getLaunchProcessEnvVars(procMountPoint string, contextID st
 	return newEnvVars
 }
 
-//LaunchProcess prepares the environment for the new process and launches the process
-func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath string, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
+// LaunchProcess prepares the environment and launches the process
+func (p *processMon) LaunchProcess(contextID string, refPid int, refNSPath string, rpchdl rpcwrapper.RPCClient, arg string, statsServerSecret string, procMountPoint string) error {
 
 	_, err := p.activeProcesses.Get(contextID)
 	if err == nil {
@@ -276,6 +276,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 
 	pidstat, pidstaterr := os.Stat(nsPath)
 	hoststat, hoststaterr := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
+
 	if pidstaterr == nil && hoststaterr == nil {
 		if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
 			zap.L().Error("Refused to launch a remote enforcer in host namespace")
@@ -287,17 +288,18 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 			zap.Error(pidstaterr),
 		)
 	}
-	_, staterr := os.Stat(netnspath)
+	_, staterr := os.Stat(p.netnspath)
 	if staterr != nil {
-		mkerr := os.MkdirAll(netnspath, os.ModeDir)
+		mkerr := os.MkdirAll(p.netnspath, os.ModeDir)
 		if mkerr != nil {
 			zap.L().Error("Could not create directory", zap.Error(mkerr))
 		}
 	}
 
 	// A symlink is created from /var/run/netns/<context> to the NetNSPath
-	if _, lerr := os.Stat(filepath.Join(netnspath, contextID)); lerr != nil {
-		linkErr := os.Symlink(nsPath, netnspath+contextID)
+	contextFile := filepath.Join(p.netnspath, contextID)
+	if _, lerr := os.Stat(contextFile); lerr != nil {
+		linkErr := os.Symlink(nsPath, contextFile)
 		if linkErr != nil {
 			zap.L().Error(ErrSymLinkFailed.Error(), zap.Error(linkErr))
 		}
@@ -307,7 +309,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 
 	exited := make(chan int, 2)
 	waitForExitCount := 0
-	if _, ok := GlobalCommandArgs["--log-to-console"]; ok {
+	if p.logToConsole {
 		if waitForExitCount, err = p.pollStdOutAndErr(cmd, exited, contextID); err != nil {
 			return err
 		}
@@ -325,7 +327,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 	err = cmd.Start()
 	if err != nil {
 		// Cleanup resources
-		if oerr := os.Remove(netnspath + contextID); oerr != nil {
+		if oerr := os.Remove(contextFile); oerr != nil {
 			zap.L().Warn("Failed to clean up netns path",
 				zap.Error(err),
 			)
@@ -340,32 +342,17 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 			i++
 		}
 		status := cmd.Wait()
-		childExitStatus <- ExitStatus{process: cmd.Process.Pid, contextID: contextID, exitStatus: status}
+		p.childExitStatus <- exitStatus{process: cmd.Process.Pid, contextID: contextID, exitStatus: status}
 	}()
 
-	if err := rpchdl.NewRPCClient(contextID, filepath.Join("/var/run", contextID+".sock"), randomkeystring); err != nil {
+	if err := rpchdl.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
 		return err
 	}
 
 	p.activeProcesses.AddOrUpdate(contextID, &processInfo{
 		contextID: contextID,
 		process:   cmd.Process,
-		RPCHdl:    rpchdl,
-		deleted:   false})
+		RPCHdl:    rpchdl})
 
 	return nil
-}
-
-//newProcessMon is a method to create a new processmon
-func newProcessMon() ProcessManager {
-
-	launcher = &ProcessMon{activeProcesses: cache.NewCache(processMonitorCacheName)}
-	return launcher
-}
-
-//GetProcessManagerHdl will ensure that we return an existing handle if one has been created.
-//or return a new one if there is none
-func GetProcessManagerHdl() ProcessManager {
-
-	return launcher
 }

@@ -18,6 +18,7 @@ import (
 )
 
 func LaunchContainer() int {
+
 	var out, out2 bytes.Buffer
 	runcmd := exec.Command("docker", "run", "-d", "--name=testprocessmon", "nginx")
 	runcmd.Stdout = &out
@@ -37,21 +38,24 @@ func LaunchContainer() int {
 	}
 	return 0
 }
+
 func KillContainer() {
+
 	killcmd := exec.Command("docker", "rm", "-f", "testprocessmon")
 	killcmd.Run() // nolint: errcheck
 }
+
 func TestLaunchProcess(t *testing.T) {
+
 	//Will use refPid to be 1 (init) guaranteed to be there
 	//Normal case should launch a process
 	rpchdl := rpcwrapper.NewTestRPCClient()
-	p := newProcessMon()
+	p := newProcessMon("/tmp/")
 	contextID := "12345"
 
 	refPid := 1
 	refNSPath := ""
 	dir, _ := os.Getwd()
-	p.SetnsNetPath("/tmp/")
 	err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
 	if err != nil {
 		t.Errorf("TEST:Launch Process launches a process in the hostnamespace %v -- %s", err, dir)
@@ -60,7 +64,6 @@ func TestLaunchProcess(t *testing.T) {
 
 	refPid = LaunchContainer()
 	dir, _ = os.Getwd()
-	p.SetnsNetPath("/tmp/")
 	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
@@ -106,81 +109,8 @@ func TestLaunchProcess(t *testing.T) {
 	KillContainer()
 }
 
-func TestGetExitStatus(t *testing.T) {
-	contextID := "12345"
-	refPid := LaunchContainer()
-	refNSPath := ""
-	//Lets launch process
-	p := newProcessMon()
-	p.SetnsNetPath("/tmp/")
-	rpchdl := rpcwrapper.NewTestRPCClient()
-	err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
-	if err != nil {
-		t.Errorf("TEST:Launch Process Fails to launch a process")
-	}
-	if p.GetExitStatus(contextID) {
-		t.Errorf("TEST:Process delete status not intialized or getexitstatus returned wrong val")
-	}
-	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
-		return errors.New("Null Error")
-	})
-	p.KillProcess(contextID)
-	//Did we clean all resources when we exited
-	_, err = os.Stat(filepath.Join("/tmp/", strconv.Itoa(refPid)+".sock"))
-	if err == nil {
-		t.Errorf("TEST:Channel resource leaked ")
-	}
-	_, err = os.Stat(filepath.Join("/var/run/netns", contextID))
-	if err == nil {
-		t.Errorf("TEST:Netns resource leaked ")
-	}
-	KillContainer()
-}
-
-func TestSetExitStatus(t *testing.T) {
-	contextID := "12345"
-	refPid := LaunchContainer()
-	refNSPath := ""
-	//Lets launch process
-	p := newProcessMon()
-	p.SetnsNetPath("/tmp/")
-	//Error returned when process does not exists
-	err := p.SetExitStatus(contextID, true)
-	if err == nil {
-		t.Errorf("TEST:Exit status succeeds  when process does not exist")
-	}
-	rpchdl := rpcwrapper.NewTestRPCClient()
-	rpchdl.MockNewRPCClient(t, func(contextID string, channel string, secret string) error {
-		return nil
-	})
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
-	if err != nil {
-		t.Errorf("TEST: Failed to launch process")
-	}
-	err = p.SetExitStatus(contextID, true)
-	if err != nil {
-		t.Errorf("TEST:Exit status failed for enforcer process")
-	}
-	if !p.GetExitStatus(contextID) {
-		t.Errorf("TEST:SetExit Status failed")
-	}
-	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
-		return errors.New("Null Error")
-	})
-	p.KillProcess(contextID)
-	//Did we clean all resources when we exited
-	_, err = os.Stat(filepath.Join("/tmp", strconv.Itoa(refPid)+".sock"))
-	if err == nil {
-		t.Errorf("TEST:Channel resource leaked ")
-	}
-	_, err = os.Stat(filepath.Join("/var/run/netns", contextID))
-	if err == nil {
-		t.Errorf("TEST:Netns resource leaked ")
-	}
-	KillContainer()
-}
-
 func TestKillProcess(t *testing.T) {
+
 	contextID := "12345"
 	refPid := LaunchContainer()
 	refNSPath := ""
@@ -188,8 +118,7 @@ func TestKillProcess(t *testing.T) {
 	// paramvalidate := false
 
 	//Lets launch process
-	p := newProcessMon()
-	p.SetnsNetPath("/tmp/")
+	p := newProcessMon("/tmp/")
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
@@ -209,11 +138,12 @@ func TestKillProcess(t *testing.T) {
 }
 
 func TestGetProcessManagerHdl(t *testing.T) {
-	newProcessMon()
+
+	newProcessMon(netnspath)
 	hdl := GetProcessManagerHdl()
 	cache := cache.NewCache(processMonitorCacheName)
 
-	if !reflect.DeepEqual(hdl.(*ProcessMon).activeProcesses, cache) {
+	if !reflect.DeepEqual(hdl.(*processMon).activeProcesses, cache) {
 		t.Errorf("ProcessManagerhandle don't match with cache")
 	}
 }
