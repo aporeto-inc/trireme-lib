@@ -34,8 +34,6 @@ const (
 	natProxyInputChain        = "RedirProxy-Net"
 	proxyOutputChain          = "Proxy-App"
 	proxyInputChain           = "Proxy-Net"
-	destProxyServiceSet       = "Service-VIP"
-	srcProxyServiceSet        = "Service-PIP"
 	proxyMark                 = "0x40"
 	//ProxyPort DefaultProxyPort
 	ProxyPort = "5000"

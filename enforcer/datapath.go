@@ -234,7 +234,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 	puContext.(*PUContext).Lock()
 	defer puContext.(*PUContext).Unlock()
 	//Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
-	//Datapath is a strict readonly struct for us
+	//Datapath is a strict readonly struct for proxy
 
 	d.proxyhdl.Unenforce(contextID)
 	pu := puContext.(*PUContext)
@@ -329,7 +329,6 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	ip, ok := puInfo.Runtime.DefaultIPAddress()
 	if !ok {
 		if d.mode == constants.LocalContainer {
-			fmt.Println("378")
 			return fmt.Errorf("No IP provided for Local Container")
 		}
 		ip = DefaultNetwork
@@ -341,12 +340,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 		PUType:       puInfo.Runtime.PUType(),
 		IP:           ip,
 	}
-	//This is called from doCreate and not from enforce since policy from the proxy
-	//port should never change
-	pu.ProxyPort = puInfo.Runtime.Options().ProxyPort
 
-	//One more cache for the proxy datapath
-	//d.proxyhdl.PuFromProxyPort(pu.ProxyPort, pu)
 	// Cache PUs for retrieval based on packet information
 	if pu.PUType == constants.LinuxProcessPU {
 		pu.Mark, pu.Ports = d.getProcessKeys(puInfo)
@@ -363,7 +357,6 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PU from contextID for management and policy updates
-
 	d.contextTracker.AddOrUpdate(contextID, pu)
 
 	return d.doUpdatePU(pu, puInfo)

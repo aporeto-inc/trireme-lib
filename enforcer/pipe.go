@@ -64,7 +64,6 @@ func copyBytes(direction string, destFd, srcFd int, wg *sync.WaitGroup) {
 		}
 	}
 
-	// fmt.Printf("Done copying %s: %s -> %s", direction, src.RemoteAddr(), dest.RemoteAddr())
 	syscall.Shutdown(srcFd, syscall.SHUT_RD)
 	syscall.Shutdown(destFd, syscall.SHUT_WR)
 }

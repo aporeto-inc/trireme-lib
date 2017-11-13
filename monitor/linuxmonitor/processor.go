@@ -104,7 +104,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		Tags:      runtimeInfo.Tags(),
 		Event:     collector.ContainerStart,
 	})
-	zap.L().Error("Starting contextID", zap.String("start contextID", contextID))
+
 	// Store the state in the context store for future access
 	return s.contextStore.StoreContext(contextID, eventInfo)
 }

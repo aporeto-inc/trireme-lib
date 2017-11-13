@@ -39,7 +39,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, []string{})
+	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)
 
@@ -96,7 +96,7 @@ func TestSupervise(t *testing.T) {
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
-		s.impl = impl
+		s.impl = (Implementor).impl
 
 		Convey("When I supervise a new PU with invalid policy", func() {
 			err := s.Supervise("contextID", nil)
