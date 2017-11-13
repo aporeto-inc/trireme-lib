@@ -10,7 +10,6 @@ import (
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/proxy"
-	"github.com/aporeto-inc/trireme/internal/processmon"
 	"github.com/aporeto-inc/trireme/monitor"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
@@ -374,14 +373,4 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 		return s
 	}
 	return nil
-}
-
-// SetupCommandArgs sets up arguments to be passed to the remote trireme instances
-func SetupCommandArgs(logToConsole bool, subProcessArgs []string) {
-
-	h := processmon.GetProcessManagerHdl()
-	if h == nil {
-		panic("Unable to find process manager handle")
-	}
-	h.SetupLogAndProcessArgs(logToConsole, subProcessArgs)
 }
