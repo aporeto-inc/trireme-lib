@@ -223,7 +223,6 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	}
 
 	cachedEntry := cacheEntry.(*cacheData)
-
 	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo, cachedEntry.containerInfo); err != nil {
 		if uerr := s.Unsupervise(contextID); uerr != nil {
 			zap.L().Warn("Failed to clean up state while updating the PU",

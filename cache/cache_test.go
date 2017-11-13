@@ -245,7 +245,8 @@ func TestSetTimeOut(t *testing.T) {
 			<-time.After(1 * time.Second)
 			d, err := c.Get("test")
 			So(err, ShouldBeNil)
-			c.SetTimeOut("test", 2*time.Second)
+			err = c.SetTimeOut("test", 2*time.Second)
+			So(err, ShouldBeNil)
 			So(d.(string), ShouldResemble, "test")
 
 			Convey("When I reset the timer to two more seconds", func() {

@@ -1014,23 +1014,55 @@ func (i *Instance) removeMarkRule() error {
 }
 
 func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) error {
-	i.ipt.Delete(natproxyTableContext,
+	err := i.ipt.Delete(natproxyTableContext,
 		inputProxySection,
 		"-j", natProxyInputChain,
 	)
-	i.ipt.Delete(natproxyTableContext,
+	if err != nil {
+		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain))
+	}
+
+	err = i.ipt.Delete(natproxyTableContext,
 		outputProxySection,
 		"-j", natProxyOutputChain,
 	)
-	i.ipt.ClearChain(natproxyTableContext, natProxyInputChain)
-	i.ipt.ClearChain(natproxyTableContext, natProxyOutputChain)
-	i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain)
-	i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain)
+	if err != nil {
+		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain))
+	}
+
+	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
+		zap.L().Warn("Failed to clear chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
+	}
+
+	if err = i.ipt.ClearChain(natproxyTableContext, natProxyOutputChain); err != nil {
+
+		zap.L().Warn("Failed to clear chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
+	}
+
+	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain); err != nil {
+		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
+	}
+
+	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain); err != nil {
+		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
+	}
+
 	//Nat table is clean
-	i.ipt.ClearChain(proxyTableContext, proxyInputChain)
-	i.ipt.DeleteChain(proxyTableContext, proxyInputChain)
-	i.ipt.ClearChain(proxyTableContext, proxyOutputChain)
-	i.ipt.DeleteChain(proxyTableContext, proxyOutputChain)
+	if err = i.ipt.ClearChain(proxyTableContext, proxyInputChain); err != nil {
+		zap.L().Warn("Failed to clear chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
+	}
+
+	if err = i.ipt.DeleteChain(proxyTableContext, proxyInputChain); err != nil {
+		zap.L().Warn("Failed to delete chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
+	}
+
+	if err = i.ipt.ClearChain(proxyTableContext, proxyOutputChain); err != nil {
+		zap.L().Warn("Failed to clear chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
+	}
+
+	if err = i.ipt.DeleteChain(proxyTableContext, proxyOutputChain); err != nil {
+		zap.L().Warn("Failed to clear chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
+	}
 
 	return nil
 }

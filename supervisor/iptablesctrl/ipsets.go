@@ -98,17 +98,24 @@ func (i *Instance) updateProxySet(vipipportset []string, pipipportset []string, 
 	vipTargetSet := ipset.IPSet{
 		Name: dstSetName,
 	}
-	vipTargetSet.Flush()
+	if ferr := vipTargetSet.Flush(); ferr != nil {
+		zap.L().Warn("Unable to flush the vip proxy set")
+	}
+
 	for _, net := range vipipportset {
 		if err := i.vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
 			return fmt.Errorf("Error adding ip %s to target networks IPSet: %s", net, err)
 		}
 	}
+
 	pipTargetSet := ipset.IPSet{
 		Name: srcSetName,
 	}
-	pipTargetSet.Flush()
+	if ferr := pipTargetSet.Flush(); ferr != nil {
+		zap.L().Warn("Unable to flush the pip proxy set")
+	}
+
 	for _, net := range pipipportset {
 		if err := i.pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))

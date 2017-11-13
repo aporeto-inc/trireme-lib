@@ -236,7 +236,9 @@ func (d *Datapath) Unenforce(contextID string) error {
 	//Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
 	//Datapath is a strict readonly struct for proxy
 
-	d.proxyhdl.Unenforce(contextID)
+	if err = d.proxyhdl.Unenforce(contextID); err != nil {
+		zap.L().Error("Failed to unenforce contextID", zap.String("ContextID", contextID))
+	}
 	pu := puContext.(*PUContext)
 	if err := d.puFromIP.Remove(pu.IP); err != nil {
 		zap.L().Warn("Unable to remove cache entry during unenforcement",
@@ -291,7 +293,9 @@ func (d *Datapath) Start() error {
 	go d.nflogger.start()
 	zap.L().Error("Calling Proxy Start")
 	//Does nothing here
-	d.proxyhdl.Start()
+	if err := d.proxyhdl.Start(); err != nil {
+		zap.L().Warn("Proxy datapath Not started")
+	}
 	return nil
 }
 

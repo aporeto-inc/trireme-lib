@@ -12,15 +12,27 @@ import (
 
 // Pipe proxies data bi-directionally between in and out.
 func Pipe(in *net.TCPConn, out int) error {
-	defer in.Close()
-	defer syscall.Close(out)
+	defer func() {
+		if err := in.Close(); err != nil {
+			zap.L().Error("Failed to close inFile")
+		}
+		if err := syscall.Close(out); err != nil {
+			zap.L().Error("Failed to close outFile")
+		}
+	}()
 
 	inFile, err := in.File()
 	if err != nil {
 		return fmt.Errorf("Internal error %s", err.Error())
 	}
-	defer inFile.Close()
-	defer syscall.Close(out)
+	defer func() {
+		if err := inFile.Close(); err != nil {
+			zap.L().Error("Failed to close inFile")
+		}
+		if err := syscall.Close(out); err != nil {
+			zap.L().Error("Failed to close outFile")
+		}
+	}()
 	inFd := int(inFile.Fd())
 
 	var wg sync.WaitGroup
@@ -64,8 +76,12 @@ func copyBytes(direction string, destFd, srcFd int, wg *sync.WaitGroup) {
 		}
 	}
 
-	syscall.Shutdown(srcFd, syscall.SHUT_RD)
-	syscall.Shutdown(destFd, syscall.SHUT_WR)
+	if err = syscall.Shutdown(srcFd, syscall.SHUT_RD); err != nil {
+		zap.L().Error("Could Not Close Source Pipe")
+	}
+	if err = syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
+		zap.L().Error("Could Not Close Dest Pipe")
+	}
 }
 
 // CopyPipe -- Copies in case splice is not possible

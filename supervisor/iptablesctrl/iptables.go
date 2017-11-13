@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -396,13 +397,23 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	if i.mode != constants.LocalServer {
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
 		proxiedServiceList := containerInfo.Policy.ProxiedServices()
-		i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName)
+		if err := i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName); err != nil {
+			zap.L().Error("Failed to update Proxy Set", zap.Error(err),
+				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList[0], ":")),
+				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList[1], ":")),
+			)
+		}
 
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
 		proxiedServiceList := containerInfo.Policy.ProxiedServices()
-		i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName)
+		if err := i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName); err != nil {
+			zap.L().Error("Failed to update Proxy Set", zap.Error(err),
+				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList[0], ":")),
+				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList[1], ":")),
+			)
+		}
 
 	}
 	// Delete the old chain to clean up
@@ -449,15 +460,25 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 
-	// if err := i.createProxySets([]string{}, []string{}); err != nil {
-	// 	return err
-	// }
-	i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain)
-	i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain)
-	i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain)
-	i.ipt.NewChain(i.appAckPacketIPTableContext, proxyOutputChain)
-	i.ipt.NewChain(i.appAckPacketIPTableContext, proxyInputChain)
-	i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain)
+	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+		zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+		return err
+	}
+	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyInputChain))
+	}
+	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
+	}
+	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyOutputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
+	}
+	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyInputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyInputChain))
+	}
+	if err := i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
+		zap.L().Error("Unable to Insert", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+	}
 
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {

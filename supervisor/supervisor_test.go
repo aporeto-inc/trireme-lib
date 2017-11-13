@@ -155,7 +155,7 @@ func TestUnsupervise(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	Convey("Given a properly configured supervisor", t, func() {
+	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")

@@ -157,7 +157,10 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 			go func() {
 				defer p.wg.Done()
 				p.handle(conn, contextID)
-				conn.Close()
+				if connErr := conn.Close(); connErr != nil {
+					zap.L().Error("Failed to close DownConn", zap.String("ContextID", contextID))
+				}
+
 			}()
 		} else {
 			return
@@ -170,9 +173,13 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 func (p *Proxy) Unenforce(contextID string) error {
 	entry, err := p.socketListeners.Get(contextID)
 	if err == nil {
-		entry.(*socketListenerEntry).listen.Close()
+		if cerr := entry.(*socketListenerEntry).listen.Close(); cerr != nil {
+			zap.L().Error("Close failed for downconn", zap.String("ContextID", contextID))
+		}
 	}
-	//p.socketListeners.Remove(contextID)
+	if err = p.socketListeners.Remove(contextID); err != nil {
+		zap.L().Error("Cannot remove Socket Listener", zap.Error(err), zap.String("ContextID", contextID))
+	}
 	return nil
 }
 
@@ -211,7 +218,11 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 
 	var ip []byte
 	var port uint16
-	defer upConn.Close()
+	defer func() {
+		if err := upConn.Close(); err != nil {
+			zap.L().Error("Failed to close UpConn", zap.Error(err))
+		}
+	}()
 
 	//backend := p.Backend
 	if p.Forward {
@@ -224,12 +235,18 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
 		if downConn > 0 {
-			syscall.Close(downConn)
+			if err = syscall.Close(downConn); err != nil {
+				zap.L().Error("Cannot close DownConn", zap.String("ContextID", contextID), zap.Error(err))
+			}
 		}
 		return
 	}
 
-	defer syscall.Close(downConn)
+	defer func() {
+		if err = syscall.Close(downConn); err != nil {
+			zap.L().Error("Unable to close DownConn", zap.Error(err))
+		}
+	}()
 
 	//Now let us handle the state machine for the down connection
 	if err := p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {

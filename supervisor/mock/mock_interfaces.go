@@ -5,6 +5,8 @@
 package mockinterfaces
 
 import (
+	"fmt"
+
 	gomock "github.com/aporeto-inc/mock/gomock"
 	policy "github.com/aporeto-inc/trireme/policy"
 )
@@ -112,13 +114,14 @@ func (_mr *_MockImplementorRecorder) ConfigureRules(arg0, arg1, arg2 interface{}
 }
 
 func (_m *MockImplementor) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
+	fmt.Println(version, contextID)
 	ret := _m.ctrl.Call(_m, "UpdateRules", version, contextID, containerInfo, oldContainerInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 func (_mr *_MockImplementorRecorder) UpdateRules(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateRules", arg0, arg1, arg2)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UpdateRules", arg0, arg1, arg2, arg3)
 }
 
 func (_m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
