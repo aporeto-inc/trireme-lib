@@ -41,7 +41,7 @@ func doTestCreate(t *testing.T, trireme Trireme, tresolver TestPolicyResolver, t
 		}
 
 		ipaddrs := policy.ExtendedMap{policy.DefaultNamespace: "127.0.0.1"}
-		tpolicy := policy.NewPUPolicy("SomeId", policy.Police, nil, nil, nil, nil, nil, nil, ipaddrs, []string{"172.17.0.0/24"}, []string{}, []string{})
+		tpolicy := policy.NewPUPolicy("SomeId", policy.Police, nil, nil, nil, nil, nil, nil, ipaddrs, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 		resolverCount++
 		return tpolicy, nil
 	})
@@ -274,7 +274,7 @@ func TestSimpleUpdate(t *testing.T) {
 	// Generate a new Policy ...
 	ipl := policy.ExtendedMap{policy.DefaultNamespace: "127.0.0.1"}
 	tagsMap := policy.NewTagStoreFromMap(map[string]string{enforcer.TransmitterLabel: contextID})
-	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{}, []string{})
+	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
 

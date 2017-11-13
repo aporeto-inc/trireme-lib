@@ -612,20 +612,17 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000")
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
+			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSetName")
+			So(err, ShouldBeNil)
 		})
 
 		Convey("When I delete the chain rules and it fails", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000")
-			Convey("I should still get no error", func() {
-				So(err, ShouldBeNil)
-			})
+			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSetName")
+			So(err, ShouldBeNil)
+
 		})
 
 	})

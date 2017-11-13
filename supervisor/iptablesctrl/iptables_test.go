@@ -250,17 +250,15 @@ func TestDeleteRules(t *testing.T) {
 		i.ipt = iptables
 
 		Convey("If I try to delete with nil IP addreses", func() {
-			err := i.DeleteRules(1, "context", nil, "0", "0", "", "5000")
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+			err := i.DeleteRules(1, "context", nil, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldNotBeNil)
+
 		})
 
 		Convey("I try to delete with no default IP address ", func() {
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0", "", "5000")
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldNotBeNil)
+
 		})
 
 		Convey("I try to delete with a valid default IP address ", func() {
@@ -273,10 +271,8 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "", "5000")
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldBeNil)
 		})
 
 	})
@@ -305,7 +301,7 @@ func TestUpdateRules(t *testing.T) {
 		}
 
 		Convey("If I try to update with nil IP addreses", func() {
-			err := i.UpdateRules(1, "context", nil)
+			err := i.UpdateRules(1, "context", nil, nil)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -326,7 +322,7 @@ func TestUpdateRules(t *testing.T) {
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
-			err := i.UpdateRules(1, "context", containerinfo)
+			err := i.UpdateRules(1, "context", containerinfo, nil)
 
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -398,7 +394,7 @@ func TestUpdateRules(t *testing.T) {
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
-			err := i.UpdateRules(1, "Context", containerinfo)
+			err := i.UpdateRules(1, "Context", containerinfo, nil)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
