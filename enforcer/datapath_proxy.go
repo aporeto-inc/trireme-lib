@@ -28,17 +28,23 @@ const (
 
 // Proxy connections from Listen to Backend.
 type Proxy struct {
-	Listen   string
-	Backend  string
-	Forward  bool
-	Encrypt  bool
+	//Listen Port to listen on
+	Listen string
+	//Backend address of the backend
+	Backend string
+	//Forward Should We forward connection
+	Forward bool
+	//Encrypt Is this connection encrypted
+	Encrypt bool
+	//certPath certificate path
 	certPath string
-	keyPath  string
-	//listener        net.Listener
+
+	keyPath         string
 	wg              sync.WaitGroup
 	datapath        *Datapath
 	socketListeners *cache.Cache
-	IPList          []string
+	//List of local IP's
+	IPList []string
 }
 
 // ProxyFlowProperties is a struct used to pass flow information up
