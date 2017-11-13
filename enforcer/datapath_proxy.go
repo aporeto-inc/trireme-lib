@@ -501,6 +501,7 @@ E:
 					return fmt.Errorf("Connection dropped because of Policy %v", err)
 				}
 				var action interface{}
+				var index int
 				if index, action = puContext.(*PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
 
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
