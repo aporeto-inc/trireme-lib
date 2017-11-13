@@ -17,8 +17,7 @@ func Pipe(in *net.TCPConn, out int) error {
 
 	inFile, err := in.File()
 	if err != nil {
-		fmt.Printf("Internal error: %v", err)
-		return fmt.Errorf("Internal error")
+		return fmt.Errorf("Internal error %s", err.Error())
 	}
 	defer inFile.Close()
 	defer syscall.Close(out)
@@ -47,9 +46,8 @@ func copyBytes(direction string, destFd, srcFd int, wg *sync.WaitGroup) {
 
 	for {
 		nread, err := syscall.Splice(srcFd, nil, pipe[1], nil, 8192, 0)
-		zap.L().Error("Read", zap.String("Direction", direction), zap.Int64("NumBytes", nread))
 		if err != nil {
-			zap.L().Error("49 = error splicing: %s - %v\n", zap.Error(err))
+			zap.L().Error("error splicing: %s - %v\n", zap.Error(err))
 			return
 		}
 		if nread == 0 {
@@ -59,7 +57,7 @@ func copyBytes(direction string, destFd, srcFd int, wg *sync.WaitGroup) {
 		for total = 0; total < nread; {
 			nwrote, err := syscall.Splice(pipe[0], nil, destFd, nil, int(nread-total), 0)
 			if err != nil {
-				fmt.Printf("59 = error splicing: %s - %v", direction, err)
+				fmt.Printf("error splicing: %s - %v", direction, err)
 				return
 			}
 			total += nwrote

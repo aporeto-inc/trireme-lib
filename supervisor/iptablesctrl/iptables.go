@@ -126,7 +126,7 @@ func PuPortSetName(contextID string, mark string, prefix string) string {
 	hash := md5.New()
 
 	if _, err := io.WriteString(hash, contextID); err != nil {
-		return "", err
+		return ""
 	}
 
 	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
@@ -204,12 +204,6 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		uid := containerInfo.Runtime.Options().UserID
 		if uid != "" {
 
-			portSetName, err := PuPortSetName(contextID, mark)
-
-			if err != nil {
-				return err
-			}
-
 			//We are about to create a uid login pu
 			//This set will be empty and we will only fill it when we find a port for it
 			//The reason to use contextID here is to ensure that we don't need to talk between supervisor and enforcer to share names the id is derivable from information available in the enforcer
@@ -268,7 +262,11 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		}
 	}
 
-	appChain, netChain := i.chainName(contextID, version)
+	appChain, netChain, err := i.chainName(contextID, version)
+	if err != nil {
+		//Don't return here we can still try and reclaims portset and targetnetwork sets
+		zap.L().Error("Count Not get generate Chain Name")
+	}
 	portSetName := PuPortSetName(contextID, mark, PuPortSet)
 	if derr := i.deleteChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
@@ -279,11 +277,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	}
 	if uid != "" {
 
-		portSetName, err := PuPortSetName(contextID, mark)
-
-		if err != nil {
-			return err
-		}
+		portSetName := PuPortSetName(contextID, mark, PuPortSet)
 
 		ips := ipset.IPSet{
 			Name: portSetName,

@@ -2,7 +2,6 @@ package tokens
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -120,7 +119,6 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) (token [
 		copy(token[tokenPosition:], []byte(strtoken))
 
 		token[tokenPosition+len(strtoken)] = []byte("%")[0]
-		zap.L().Error("PUBLIC KEY", zap.String("DUMP", hex.Dump(txKey)))
 		// Copy the public key
 		if len(txKey) > 0 {
 			copy(token[tokenPosition+len(strtoken)+1:], txKey)
@@ -168,7 +166,6 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		token = data[tokenPosition : tokenPosition+tokenLength]
 
 		certBytes := data[tokenPosition+tokenLength+1:]
-		zap.L().Error("PUBLIC KEY", zap.String("DUMP", hex.Dump(certBytes)))
 		ackCert, err = c.secrets.VerifyPublicKey(certBytes)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("bad public key err %s", err.Error())

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -778,7 +777,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 	claims := &tokens.ConnectionClaims{
 		T: context.Identity,
 	}
-	zap.L().Error("Sending Token Indeitied", zap.String("Tags", strings.Join(context.Identity.Tags, ",")))
+
 	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
 		return []byte{}, nil
 	}
