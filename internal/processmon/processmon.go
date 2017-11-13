@@ -219,7 +219,9 @@ func (p *processMon) getLaunchProcessCmd(arg string, contextID string) *exec.Cmd
 	cmdArgs := []string{arg}
 
 	cmdArgs = append(cmdArgs, p.launcProcessArgs...)
-
+	if !p.logToConsole {
+		cmdArgs = append(cmdArgs, contextID)
+	}
 	zap.L().Debug("Enforcer executed",
 		zap.String("command", cmdName),
 		zap.Strings("args", cmdArgs),
