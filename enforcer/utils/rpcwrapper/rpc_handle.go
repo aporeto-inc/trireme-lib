@@ -43,7 +43,7 @@ func NewRPCWrapper() *RPCWrapper {
 	RegisterTypes()
 
 	return &RPCWrapper{
-		rpcClientMap: cache.NewCache(),
+		rpcClientMap: cache.NewCache("RPCWrapper"),
 		contextList:  []string{},
 	}
 }

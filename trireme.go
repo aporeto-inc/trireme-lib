@@ -32,7 +32,7 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[consta
 
 	t := &trireme{
 		serverID:    serverID,
-		cache:       cache.NewCache(),
+		cache:       cache.NewCache("TriremeCache"),
 		supervisors: supervisors,
 		enforcers:   enforcers,
 		resolver:    resolver,

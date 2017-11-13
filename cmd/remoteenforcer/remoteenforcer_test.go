@@ -208,8 +208,10 @@ func TestNewServer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "mysecret")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "mysecret")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -219,8 +221,10 @@ func TestNewServer(t *testing.T) {
 				So(server, ShouldNotBeNil)
 				So(err, ShouldBeNil)
 			})
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
+			serr = os.Setenv("STATSCHANNEL_PATH", "")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "")
+			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -240,8 +244,10 @@ func TestInitEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -298,8 +304,10 @@ func TestInitEnforcer(t *testing.T) {
 				Convey("Then I should get no error", func() {
 					So(err, ShouldBeNil)
 				})
-				os.Setenv("STATSCHANNEL_PATH", "")
-				os.Setenv("STATS_SECRET", "")
+				serr = os.Setenv("STATSCHANNEL_PATH", "")
+				So(serr, ShouldBeNil)
+				serr = os.Setenv("STATS_SECRET", "")
+				So(serr, ShouldBeNil)
 			})
 		})
 	})
@@ -317,8 +325,10 @@ func TestInitSupervisor(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "n1KroWMWKP8nJnpWfwSsQu855yvP-ZPaNr-TJFl3gzM=")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "n1KroWMWKP8nJnpWfwSsQu855yvP-ZPaNr-TJFl3gzM=")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -447,8 +457,10 @@ func TestInitSupervisor(t *testing.T) {
 				})
 			})
 
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
+			serr = os.Setenv("STATSCHANNEL_PATH", "")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "")
+			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -477,8 +489,10 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "mysecret")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "mysecret")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -490,7 +504,8 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			})
 
 			Convey("When I try to start the server", func() {
-				os.Setenv("APORETO_ENV_SOCKET_PATH", "/tmp/test.sock")
+				serr = os.Setenv("APORETO_ENV_SOCKET_PATH", "/tmp/test.sock")
+				So(serr, ShouldBeNil)
 				envpipe := os.Getenv(envSocketPath)
 				rpcHdl.EXPECT().StartServer("unix", envpipe, server).Times(1).Return(nil)
 
@@ -525,8 +540,10 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
+			serr = os.Setenv("STATSCHANNEL_PATH", "")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "")
+			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -556,8 +573,10 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -614,8 +633,10 @@ func TestSupervise(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
+			serr = os.Setenv("STATSCHANNEL_PATH", "")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "")
+			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -645,8 +666,10 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -729,8 +752,10 @@ func TestEnforce(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
+			serr = os.Setenv("STATSCHANNEL_PATH", "")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "")
+			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -760,8 +785,10 @@ func TestUnEnforce(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -819,8 +846,10 @@ func TestUnEnforce(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
+			serr = os.Setenv("STATSCHANNEL_PATH", "")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "")
+			So(serr, ShouldBeNil)
 		})
 	})
 }
@@ -850,8 +879,10 @@ func TestUnSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
-			os.Setenv("STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+			serr := os.Setenv("STATSCHANNEL_PATH", "/tmp/test.sock")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv("STATSCHANNEL_PATH")
 			secret := os.Getenv("STATS_SECRET")
@@ -911,8 +942,10 @@ func TestUnSupervise(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			os.Setenv("STATSCHANNEL_PATH", "")
-			os.Setenv("STATS_SECRET", "")
+			serr = os.Setenv("STATSCHANNEL_PATH", "")
+			So(serr, ShouldBeNil)
+			serr = os.Setenv("STATS_SECRET", "")
+			So(serr, ShouldBeNil)
 		})
 	})
 }

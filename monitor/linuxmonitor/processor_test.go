@@ -85,12 +85,15 @@ func TestStop(t *testing.T) {
 	})
 }
 
+// TODO: remove nolint
+// nolint
 func TestDestroy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	dummyPUPath := "/var/run/trireme/linux/1234"
-	ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
-	defer os.RemoveAll(dummyPUPath)
+	ioutil.WriteFile(dummyPUPath, []byte{}, 0644) //nolint
+
+	defer os.RemoveAll(dummyPUPath) //nolint
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
 		store := mock_contextstore.NewMockContextStore(ctrl)

@@ -5,30 +5,7 @@ package remoteenforcer
 import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/supervisor"
 )
-
-const (
-	envSocketPath     = "APORETO_ENV_SOCKET_PATH"
-	envSecret         = "APORETO_ENV_SECRET"
-	envProcMountPoint = "APORETO_ENV_PROC_MOUNTPOINT"
-	nsErrorState      = "APORETO_ENV_NSENTER_ERROR_STATE"
-	nsEnterLogs       = "APORETO_ENV_NSENTER_LOGS"
-)
-
-// Server is a fake implementation for building on darwin.
-type Server struct {
-	rpcSecret      string
-	rpcchannel     string
-	rpchdl         rpcwrapper.RPCServer
-	statsclient    Stats
-	procMountPoint string
-	Enforcer       enforcer.PolicyEnforcer
-	Supervisor     supervisor.Supervisor
-	Service        enforcer.PacketProcessor
-	secrets        secrets.Secrets
-}
 
 // NewServer is a fake implementation for building on darwin.
 func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, pcchan string, secret string, stats Stats) (*Server, error) {

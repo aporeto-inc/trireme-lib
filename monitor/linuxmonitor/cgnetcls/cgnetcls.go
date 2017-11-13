@@ -20,32 +20,8 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	// TriremeBasePath is the base path of the Trireme tree in cgroups
-	TriremeBasePath = "trireme"
-	// CgroupNameTag is the tag for the cgroup name
-	CgroupNameTag = "@cgroup_name"
-	// CgroupMarkTag is the tag for the cgroup mark
-	CgroupMarkTag = "@cgroup_mark"
-	// PortTag is the tag for a port
-	PortTag = "@usr:port"
-
-	markFile             = "/net_cls.classid"
-	procs                = "/cgroup.procs"
-	releaseAgentConfFile = "/release_agent"
-	notifyOnReleaseFile  = "/notify_on_release"
-	//Initialmarkval is the start of mark values we assign to cgroup
-	Initialmarkval = 100
-)
-
 var basePath = "/sys/fs/cgroup/net_cls"
 var markval uint64 = Initialmarkval
-
-//Empty receiver struct
-type netCls struct {
-	markchan         chan uint64
-	ReleaseAgentPath string
-}
 
 //Initialize only ince
 func init() {
@@ -59,10 +35,14 @@ func (s *netCls) Creategroup(cgroupname string) error {
 	//Create the directory structure
 	_, err := os.Stat(basePath + procs)
 	if os.IsNotExist(err) {
-		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
+		if err = syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
+			return err
+		}
 	}
 
-	os.MkdirAll(filepath.Join(basePath, TriremeBasePath, cgroupname), 0700)
+	if err = os.MkdirAll(filepath.Join(basePath, TriremeBasePath, cgroupname), 0700); err != nil {
+		return err
+	}
 
 	//Write to the notify on release file and release agent files
 
@@ -185,7 +165,9 @@ func GetAssignedMarkVal(cgroupName string) string {
 func (s *netCls) Deletebasepath(cgroupName string) bool {
 
 	if cgroupName == TriremeBasePath {
-		os.Remove(filepath.Join(basePath, cgroupName))
+		if err := os.Remove(filepath.Join(basePath, cgroupName)); err != nil {
+			zap.L().Error("Error when removing Trireme Base Path", zap.Error(err))
+		}
 		return true
 	}
 
@@ -193,7 +175,12 @@ func (s *netCls) Deletebasepath(cgroupName string) bool {
 }
 
 func mountCgroupController() {
-	mounts, _ := ioutil.ReadFile("/proc/mounts")
+	mounts, err := ioutil.ReadFile("/proc/mounts")
+
+	if err != nil {
+		zap.L().Fatal(err.Error())
+	}
+
 	sc := bufio.NewScanner(strings.NewReader(string(mounts)))
 	var netCls = false
 	var cgroupMount string
@@ -214,14 +201,20 @@ func mountCgroupController() {
 		zap.L().Error("Cgroups are not enabled or net_cls is not mounted")
 		return
 	}
+
 	if !netCls {
 		basePath = cgroupMount + "/net_cls"
-		os.MkdirAll(basePath, 0700)
-		syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio")
+
+		if err := os.MkdirAll(basePath, 0700); err != nil {
+			zap.L().Fatal(err.Error())
+		}
+
+		if err := syscall.Mount("cgroup", basePath, "cgroup", 0, "net_cls,net_prio"); err != nil {
+			zap.L().Fatal(err.Error())
+		}
+
 		return
-
 	}
-
 }
 
 // CgroupMemberCount -- Returns the cound of the number of processes in a cgroup

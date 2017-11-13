@@ -34,29 +34,6 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
-const (
-	envSocketPath     = "APORETO_ENV_SOCKET_PATH"
-	envSecret         = "APORETO_ENV_SECRET"
-	envProcMountPoint = "APORETO_ENV_PROC_MOUNTPOINT"
-	nsErrorState      = "APORETO_ENV_NSENTER_ERROR_STATE"
-	nsEnterLogs       = "APORETO_ENV_NSENTER_LOGS"
-)
-
-// Server : This is the structure for maintaining state required by the remote enforcer.
-// It is cache of variables passed by th controller to the remote enforcer and other handles
-// required by the remote enforcer to talk to the external processes
-type Server struct {
-	rpcSecret      string
-	rpcchannel     string
-	rpchdl         rpcwrapper.RPCServer
-	statsclient    Stats
-	procMountPoint string
-	Enforcer       enforcer.PolicyEnforcer
-	Supervisor     supervisor.Supervisor
-	Service        enforcer.PacketProcessor
-	secrets        secrets.Secrets
-}
-
 var cmdLock sync.Mutex
 
 // NewServer starts a new server
@@ -111,6 +88,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 	//Check if successfully switched namespace
 	nsEnterState := getCEnvVariable(nsErrorState)
 	nsEnterLogMsg := getCEnvVariable(nsEnterLogs)
+
 	if len(nsEnterState) != 0 {
 		zap.L().Error("Remote enforcer failed",
 			zap.String("nsErr", nsEnterState),
@@ -230,9 +208,14 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			)
 		}
 	}
-	s.Enforcer.Start()
 
-	s.statsclient.ConnectStatsClient()
+	if err := s.Enforcer.Start(); err != nil {
+		return err
+	}
+
+	if err := s.statsclient.ConnectStatsClient(); err != nil {
+		return err
+	}
 
 	resp.Status = ""
 
@@ -271,13 +254,18 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			s.Supervisor = supervisorHandle
 		}
 
-		s.Supervisor.Start()
+		if err := s.Supervisor.Start(); err != nil {
+			zap.L().Error("Error when starting the supervisor", zap.Error(err))
+		}
+
 		if s.Service != nil {
 			s.Service.Initialize(s.secrets, s.Enforcer.GetFilterQueue())
 		}
 
 	} else {
-		s.Supervisor.SetTargetNetworks(payload.TriremeNetworks)
+		if err := s.Supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
+			zap.L().Error("Error when setting target networks to supervision", zap.Error(err))
+		}
 	}
 
 	resp.Status = ""
@@ -470,13 +458,19 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 		return err
 	}
 
-	go rpchdl.StartServer("unix", namedPipe, server)
+	go func() {
+		if err := rpchdl.StartServer("unix", namedPipe, server); err != nil {
+			zap.L().Fatal("Failed to start the server", zap.Error(err))
+		}
+	}()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-c
 
-	server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
+	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
+		zap.L().Fatal("Failed to stop the server", zap.Error(err))
+	}
 
 	return nil
 }

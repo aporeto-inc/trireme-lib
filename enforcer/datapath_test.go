@@ -33,8 +33,11 @@ func TestInvalidContext(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		PacketFlow := packetgen.NewTemplateFlow()
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpPacket, err := packet.New(0, synPacket, "0")
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
 
@@ -62,8 +65,11 @@ func TestInvalidIPContext(t *testing.T) {
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 		defer enforcer.Unenforce("SomeServerId")
 		PacketFlow := packetgen.NewTemplateFlow()
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
-		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
+		So(err, ShouldBeNil)
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpPacket, err := packet.New(0, synPacket, "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
 
@@ -88,8 +94,8 @@ func TestInvalidTokenContext(t *testing.T) {
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 
 		PacketFlow := packetgen.NewTemplateFlow()
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
 		ip := policy.ExtendedMap{
 			"brige": "164.67.228.152",
 		}
@@ -98,7 +104,9 @@ func TestInvalidTokenContext(t *testing.T) {
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
-		tcpPacket, err := packet.New(0, PacketFlow.GetFirstSynPacket().ToBytes(), "0")
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpPacket, err := packet.New(0, synPacket, "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
 
@@ -159,8 +167,8 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 			Policy: &policy.FlowPolicy{Action: policy.Accept},
 		}
 		PacketFlow := packetgen.NewTemplateFlow()
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
 		iteration = iteration + 1
 		puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
 		puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
@@ -215,8 +223,8 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEvent
 		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 	PacketFlow := packetgen.NewTemplateFlow()
-	PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleIntervenedFlow)
-
+	_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleIntervenedFlow)
+	So(err, ShouldBeNil)
 	iteration = iteration + 1
 	puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
 	puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
@@ -326,16 +334,20 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 
 					}
 					PacketFlow := packetgen.NewTemplateFlow()
-					PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+					_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+					So(err, ShouldBeNil)
 					for i := 0; i < PacketFlow.GetNumPackets(); i++ {
-
-						oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+						oldPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+						So(err, ShouldBeNil)
+						oldPacket, err := packet.New(0, oldPacketFromFlow, "0")
 						if err == nil && oldPacket != nil {
 							oldPacket.UpdateIPChecksum()
 							oldPacket.UpdateTCPChecksum()
 						}
-						tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+
+						tcpPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+						So(err, ShouldBeNil)
+						tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0")
 						if err == nil && tcpPacket != nil {
 							tcpPacket.UpdateIPChecksum()
 							tcpPacket.UpdateTCPChecksum()
@@ -429,16 +441,19 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 						firstSynAckProcessed := false
 
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							oldPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, oldPacketFromFlow, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							tcpPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -512,16 +527,19 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 						firstSynAckProcessed := false
 
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							oldPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, oldPacketFromFlow, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							tcpPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -611,17 +629,19 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 			Convey("When I pass multiple packets through the enforcer", func() {
 
 				PacketFlow := packetgen.NewTemplateFlow()
-				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+				_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+				So(err, ShouldBeNil)
 				for i := 0; i < PacketFlow.GetNumPackets(); i++ {
-
-					oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+					oldPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+					So(err, ShouldBeNil)
+					oldPacket, err := packet.New(0, oldPacketFromFlow, "0")
 					if err == nil && oldPacket != nil {
 						oldPacket.UpdateIPChecksum()
 						oldPacket.UpdateTCPChecksum()
 					}
-
-					tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+					tcpPacketFromFlow, err := PacketFlow.GetNthPacket(i).ToBytes()
+					So(err, ShouldBeNil)
+					tcpPacket, err := packet.New(0, tcpPacketFromFlow, "0")
 					if err == nil && tcpPacket != nil {
 						tcpPacket.UpdateIPChecksum()
 						tcpPacket.UpdateTCPChecksum()
@@ -687,12 +707,13 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 					So(err1, ShouldBeNil)
 					So(err2, ShouldBeNil)
 					PacketFlow := packetgen.NewTemplateFlow()
-					PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+					_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+					So(err, ShouldBeNil)
 					/*first packet in TCPFLOW slice is a syn packet*/
 					Convey("When i pass a syn packet through the enforcer", func() {
 
-						input := PacketFlow.GetFirstSynPacket().ToBytes()
+						input, err := PacketFlow.GetFirstSynPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err := packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -717,7 +738,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 					})
 					Convey("When i pass a SYN and SYN ACK packet through the enforcer", func() {
 
-						input := PacketFlow.GetFirstSynPacket().ToBytes()
+						input, err := PacketFlow.GetFirstSynPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err := packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -737,7 +759,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						So(err, ShouldBeNil)
 
 						//Now lets send the synack packet from the server in response
-						input = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						input, err = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err = packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -762,8 +785,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 					Convey("When i pass a SYN and SYNACK and another ACK packet through the enforcer", func() {
 
-						input := PacketFlow.GetFirstSynPacket().ToBytes()
-
+						input, err := PacketFlow.GetFirstSynPacket().ToBytes()
+						So(err, ShouldBeNil)
 						tcpPacket, err := packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
 							tcpPacket.UpdateIPChecksum()
@@ -781,7 +804,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						So(err, ShouldBeNil)
 
 						//Now lets send the synack packet from the server in response
-						input = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						input, err = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err = packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -799,7 +823,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						err = enforcer.processNetworkTCPPackets(outPacket)
 						So(err, ShouldBeNil)
 
-						input = PacketFlow.GetFirstAckPacket().ToBytes()
+						input, err = PacketFlow.GetFirstAckPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err = packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -829,12 +854,13 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 					So(err1, ShouldBeNil)
 					So(err2, ShouldBeNil)
 					PacketFlow := packetgen.NewTemplateFlow()
-					PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+					_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+					So(err, ShouldBeNil)
 					/*first packet in TCPFLOW slice is a syn packet*/
 					Convey("When i pass a syn packet through the enforcer (server)", func() {
 
-						input := PacketFlow.GetFirstSynPacket().ToBytes()
+						input, err := PacketFlow.GetFirstSynPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err := packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -859,7 +885,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 					})
 					Convey("When i pass a SYN and SYN ACK packet through the enforcer (server)", func() {
 
-						input := PacketFlow.GetFirstSynPacket().ToBytes()
+						input, err := PacketFlow.GetFirstSynPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err := packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -879,7 +906,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						So(err, ShouldBeNil)
 
 						//Now lets send the synack packet from the server in response
-						input = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						input, err = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err = packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -904,7 +932,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 					Convey("When i pass a SYN and SYNACK and another ACK packet through the enforcer (server)", func() {
 
-						input := PacketFlow.GetFirstSynPacket().ToBytes()
+						input, err := PacketFlow.GetFirstSynPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err := packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -923,7 +952,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						So(err, ShouldBeNil)
 
 						//Now lets send the synack packet from the server in response
-						input = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						input, err = PacketFlow.GetFirstSynAckPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err = packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -941,7 +971,8 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 						err = enforcer.processNetworkTCPPackets(outPacket)
 						So(err, ShouldBeNil)
 
-						input = PacketFlow.GetFirstAckPacket().ToBytes()
+						input, err = PacketFlow.GetFirstAckPacket().ToBytes()
+						So(err, ShouldBeNil)
 
 						tcpPacket, err = packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
@@ -1039,12 +1070,14 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 			Convey("When I pass multiple packets through the enforcer", func() {
 
 				PacketFlow := packetgen.NewTemplateFlow()
-				PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+				_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+				So(err, ShouldBeNil)
 				for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
-					start := PacketFlow.GetNthPacket(i).ToBytes()
-					input := PacketFlow.GetNthPacket(i).ToBytes()
+					start, err := PacketFlow.GetNthPacket(i).ToBytes()
+					So(err, ShouldBeNil)
+					input, err := PacketFlow.GetNthPacket(i).ToBytes()
+					So(err, ShouldBeNil)
 
 					oldPacket, err := packet.New(0, start, "0")
 					if err == nil && oldPacket != nil {
@@ -1245,8 +1278,8 @@ func TestDoCreatePU(t *testing.T) {
 			})
 		})
 		PacketFlow := packetgen.NewTemplateFlow()
-		PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
 		for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 			//PacketFlowInBytes = append(PacketFlowInBytes, PacketFlow.GetNthPacket(i).ToBytes())
 		}
@@ -1482,16 +1515,19 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -1625,17 +1661,19 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetSynPackets().GetNumPackets(); i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-
-							tcpPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -1770,17 +1808,20 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetUptoFirstSynAckPacket().GetNumPackets(); i++ {
 
-							oldPacket, err := packet.New(0, PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-
-							tcpPacket, err := packet.New(0, PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -1919,17 +1960,21 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetUptoFirstAckPacket().GetNumPackets(); i++ {
 
-							oldPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
-							tcpPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -2068,16 +2113,20 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -2326,8 +2375,8 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						var isAckPacket, isChecked, isSynPacket, isSynAckPacket, isSynAckNetPacket bool
 						var countSynAckPacket int
 						var checkAfterAppAckFlag, checkBeforeNetAckFlag bool
@@ -2344,13 +2393,16 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 								i = i - 1
 								isAckPacket = true
 							}
-
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -2538,8 +2590,8 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						var isAckPacket, isSynReceived, isSynAckReceived bool
 
 						for i := 0; i < PacketFlow.GetNumPackets(); i++ {
@@ -2549,12 +2601,16 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 								isAckPacket = true
 							}
 
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, input, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, start, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -2660,8 +2716,8 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						var isAckPacket, isChecked bool
 						var countSynAckPacket int
 						var connSynAck [][]byte
@@ -2678,12 +2734,16 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 								isAckPacket = true
 							}
 
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -2824,17 +2884,21 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetSynPackets().GetNumPackets(); i++ {
 
-							oldPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
-							tcpPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -2940,17 +3004,20 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetUptoFirstSynAckPacket().GetNumPackets(); i++ {
+							start, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
 
-							oldPacket, err := packet.New(0, PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes(), "0")
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-
-							tcpPacket, err := packet.New(0, PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -3094,17 +3161,19 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetUptoFirstAckPacket().GetNumPackets(); i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-
-							tcpPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -3272,16 +3341,19 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 						}
 
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetUptoFirstAckPacket().GetNumPackets(); i++ {
-							oldPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-
-							tcpPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -3431,17 +3503,20 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetUptoFirstAckPacket().GetNumPackets(); i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
-							tcpPacket, err := packet.New(0, PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetUptoFirstAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -3596,17 +3671,20 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						var isAckPacket bool
 						for i := 0; i < 3; i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -3753,18 +3831,21 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						var isAckPacket bool
 
 						for i := 0; i < 3; i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-							tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -3912,17 +3993,21 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetSynPackets().GetNumPackets(); i++ {
 
-							oldPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
 
-							tcpPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -4018,17 +4103,19 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(err2, ShouldBeNil)
 						}
 						PacketFlow := packetgen.NewTemplateFlow()
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+						So(err, ShouldBeNil)
 						for i := 0; i < PacketFlow.GetUptoFirstSynAckPacket().GetNumPackets(); i++ {
-
-							oldPacket, err := packet.New(0, PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes(), "0")
+							start, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							oldPacket, err := packet.New(0, start, "0")
 							if err == nil && oldPacket != nil {
 								oldPacket.UpdateIPChecksum()
 								oldPacket.UpdateTCPChecksum()
 							}
-
-							tcpPacket, err := packet.New(0, PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes(), "0")
+							input, err := PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).ToBytes()
+							So(err, ShouldBeNil)
+							tcpPacket, err := packet.New(0, input, "0")
 							if err == nil && tcpPacket != nil {
 								tcpPacket.UpdateIPChecksum()
 								tcpPacket.UpdateTCPChecksum()
@@ -4106,8 +4193,8 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 				Policy: &policy.FlowPolicy{Action: policy.Accept},
 			}
 			PacketFlow := packetgen.NewTemplateFlow()
-			PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-
+			_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+			So(err, ShouldBeNil)
 			iteration = iteration + 1
 			puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
 			puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
@@ -4145,14 +4232,17 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			So(err2, ShouldBeNil)
 
 			for i := 0; i < PacketFlow.GetSynPackets().GetNumPackets(); i++ {
-
-				oldPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+				start, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+				So(err, ShouldBeNil)
+				oldPacket, err := packet.New(0, start, "0")
 				if err == nil && oldPacket != nil {
 					oldPacket.UpdateIPChecksum()
 					oldPacket.UpdateTCPChecksum()
 				}
 
-				tcpPacket, err := packet.New(0, PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes(), "0")
+				input, err := PacketFlow.GetSynPackets().GetNthPacket(i).ToBytes()
+				So(err, ShouldBeNil)
+				tcpPacket, err := packet.New(0, input, "0")
 				if err == nil && tcpPacket != nil {
 					tcpPacket.UpdateIPChecksum()
 					tcpPacket.UpdateTCPChecksum()
@@ -4456,8 +4546,8 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 							Policy: &policy.FlowPolicy{Action: policy.Accept},
 						}
 						PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
+						So(err, ShouldBeNil)
 						iteration = iteration + 1
 						puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
 						puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
@@ -4509,8 +4599,8 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 							Policy: &policy.FlowPolicy{Action: policy.Accept},
 						}
 						PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
-						PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
-
+						_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
+						So(err, ShouldBeNil)
 						iteration = iteration + 1
 						puID1 := "SomeProcessingUnitId" + string(iteration) + "1"
 						puID2 := "SomeProcessingUnitId" + string(iteration) + "2"
@@ -4546,20 +4636,23 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 					}
 					PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "164.67.228.152", 666, 80)
-					PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
-
+					_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGenerateGoodFlow)
+					So(err, ShouldBeNil)
 					for i := 0; i < PacketFlow.GetNumPackets(); i++ {
 						//Setting random TCP flags for all the packets
 						PacketFlow.GetNthPacket(i).SetTCPCwr()
 						PacketFlow.GetNthPacket(i).SetTCPPsh()
 						PacketFlow.GetNthPacket(i).SetTCPEce()
-
-						oldPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+						start, err := PacketFlow.GetNthPacket(i).ToBytes()
+						So(err, ShouldBeNil)
+						oldPacket, err := packet.New(0, start, "0")
 						if err == nil && oldPacket != nil {
 							oldPacket.UpdateIPChecksum()
 							oldPacket.UpdateTCPChecksum()
 						}
-						tcpPacket, err := packet.New(0, PacketFlow.GetNthPacket(i).ToBytes(), "0")
+						input, err := PacketFlow.GetNthPacket(i).ToBytes()
+						So(err, ShouldBeNil)
+						tcpPacket, err := packet.New(0, input, "0")
 						if err == nil && tcpPacket != nil {
 							tcpPacket.UpdateIPChecksum()
 							tcpPacket.UpdateTCPChecksum()

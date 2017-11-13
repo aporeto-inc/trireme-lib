@@ -28,6 +28,8 @@ var (
 	GlobalCommandArgs map[string]interface{}
 )
 
+const processMonitorCacheName = "ProcessMonitorCache"
+
 //ProcessMon exported
 type ProcessMon struct {
 	activeProcesses *cache.Cache
@@ -327,7 +329,7 @@ func (p *ProcessMon) LaunchProcess(contextID string, refPid int, refNSPath strin
 //NewProcessMon is a method to create a new processmon
 func newProcessMon() ProcessManager {
 
-	launcher = &ProcessMon{activeProcesses: cache.NewCache()}
+	launcher = &ProcessMon{activeProcesses: cache.NewCache(processMonitorCacheName)}
 	return launcher
 }
 
