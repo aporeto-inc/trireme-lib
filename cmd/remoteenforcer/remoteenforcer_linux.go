@@ -44,7 +44,7 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 		if err != nil {
 			return nil, err
 		}
-		procMountPoint := os.Getenv(envProcMountPoint)
+		procMountPoint := os.Getenv(constants.AporetoEnvMountPoint)
 		if len(procMountPoint) == 0 {
 			procMountPoint = configurator.DefaultProcMountPoint
 		}
@@ -57,7 +57,7 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 			statsclient:    statsclient,
 		}, nil
 	}
-	procMountPoint := os.Getenv(envProcMountPoint)
+	procMountPoint := os.Getenv(constants.AporetoEnvMountPoint)
 	if len(procMountPoint) == 0 {
 		procMountPoint = configurator.DefaultProcMountPoint
 	}
@@ -86,8 +86,8 @@ func getCEnvVariable(name string) string {
 func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	//Check if successfully switched namespace
-	nsEnterState := getCEnvVariable(nsErrorState)
-	nsEnterLogMsg := getCEnvVariable(nsEnterLogs)
+	nsEnterState := getCEnvVariable(constants.AporetoEnvNsenterErrorState)
+	nsEnterLogMsg := getCEnvVariable(constants.AporetoEnvNsenterLogs)
 
 	if len(nsEnterState) != 0 {
 		zap.L().Error("Remote enforcer failed",
@@ -435,9 +435,9 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
-	namedPipe := os.Getenv(envSocketPath)
+	namedPipe := os.Getenv(constants.AporetoEnvContextSocket)
 
-	secret := os.Getenv(envSecret)
+	secret := os.Getenv(constants.AporetoEnvRPCClientSecret)
 
 	if len(secret) == 0 {
 		os.Exit(-1)

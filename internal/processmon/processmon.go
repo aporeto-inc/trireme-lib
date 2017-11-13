@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/crypto"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/kardianos/osext"
@@ -235,12 +236,12 @@ func (p *processMon) getLaunchProcessEnvVars(
 	refNSPath string,
 ) []string {
 
-	mountPoint := "APORETO_ENV_PROC_MOUNTPOINT=" + procMountPoint
-	namedPipe := "APORETO_ENV_SOCKET_PATH=" + contextID2SocketPath(contextID)
-	statsChannel := "APORETO_STATSCHANNEL_PATH=" + rpcwrapper.StatsChannel
-	rpcClientSecret := "APORETO_ENV_SECRET=" + randomkeystring
-	envStatsSecret := "APORETO_STATS_SECRET=" + statsServerSecret
-	containerPID := "APORETO_CONTAINER_PID=" + strconv.Itoa(refPid)
+	mountPoint := constants.AporetoEnvMountPoint + "=" + procMountPoint
+	namedPipe := constants.AporetoEnvContextSocket + "=" + contextID2SocketPath(contextID)
+	statsChannel := constants.AporetoEnvStatsChannel + "=" + rpcwrapper.StatsChannel
+	rpcClientSecret := constants.AporetoEnvRPCClientSecret + "=" + randomkeystring
+	envStatsSecret := constants.AporetoEnvStatsSecret + "=" + statsServerSecret
+	containerPID := constants.AporetoEnvContainerPID + "=" + strconv.Itoa(refPid)
 
 	newEnvVars := []string{
 		mountPoint,
@@ -253,7 +254,7 @@ func (p *processMon) getLaunchProcessEnvVars(
 
 	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
 	if refNSPath != "" {
-		nsPath := "APORETO_ENV_NS_PATH=" + refNSPath
+		nsPath := constants.AporetoEnvNSPath + "=" + refNSPath
 		newEnvVars = append(newEnvVars, nsPath)
 	}
 

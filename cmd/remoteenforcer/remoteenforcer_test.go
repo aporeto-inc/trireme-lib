@@ -208,22 +208,22 @@ func TestNewServer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "mysecret")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "mysecret")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
 				So(err, ShouldBeNil)
 			})
-			serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+			serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 			So(serr, ShouldBeNil)
 		})
 	})
@@ -244,13 +244,13 @@ func TestInitEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, mockStats)
 
 			Convey("Then I should get no error", func() {
@@ -259,7 +259,7 @@ func TestInitEnforcer(t *testing.T) {
 			})
 
 			Convey("When I try to initiate an enforcer with invalid secret", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv("APORETO_STATS_SECRET")).Times(1).Return(false)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(false)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -282,13 +282,13 @@ func TestInitEnforcer(t *testing.T) {
 			})
 
 			Convey("When I try to initiate an enforcer", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv("APORETO_STATS_SECRET")).Times(1).Return(true)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(true)
 				mockEnf.EXPECT().Start().Times(1).Return(nil)
 				mockStats.EXPECT().ConnectStatsClient().Times(1).Return(nil)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -304,9 +304,9 @@ func TestInitEnforcer(t *testing.T) {
 				Convey("Then I should get no error", func() {
 					So(err, ShouldBeNil)
 				})
-				serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+				serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 				So(serr, ShouldBeNil)
-				serr = os.Setenv("APORETO_STATS_SECRET", "")
+				serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 				So(serr, ShouldBeNil)
 			})
 		})
@@ -325,13 +325,13 @@ func TestInitSupervisor(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "n1KroWMWKP8nJnpWfwSsQu855yvP-ZPaNr-TJFl3gzM=")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "n1KroWMWKP8nJnpWfwSsQu855yvP-ZPaNr-TJFl3gzM=")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
@@ -368,7 +368,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPSets)
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -393,7 +393,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -414,7 +414,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -439,7 +439,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperreq.Payload = initTestSupReqPayload(rpcwrapper.IPTables)
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -457,9 +457,9 @@ func TestInitSupervisor(t *testing.T) {
 				})
 			})
 
-			serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+			serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 			So(serr, ShouldBeNil)
 		})
 	})
@@ -489,13 +489,13 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "mysecret")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "mysecret")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
@@ -504,9 +504,9 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			})
 
 			Convey("When I try to start the server", func() {
-				serr = os.Setenv("APORETO_ENV_SOCKET_PATH", "/tmp/test.sock")
+				serr = os.Setenv(constants.AporetoEnvContextSocket, "/tmp/test.sock")
 				So(serr, ShouldBeNil)
-				envpipe := os.Getenv(envSocketPath)
+				envpipe := os.Getenv(constants.AporetoEnvContextSocket)
 				rpcHdl.EXPECT().StartServer("unix", envpipe, server).Times(1).Return(nil)
 
 				Convey("Then I expect to call start server one time with required parameters", func() {
@@ -540,9 +540,9 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+			serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 			So(serr, ShouldBeNil)
 		})
 	})
@@ -573,13 +573,13 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
@@ -588,7 +588,7 @@ func TestSupervise(t *testing.T) {
 			})
 
 			Convey("When I try to send supervise command with invalid secret", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv("APORETO_STATS_SECRET")).Times(1).Return(false)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(false)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -611,7 +611,7 @@ func TestSupervise(t *testing.T) {
 			})
 
 			Convey("When I try to send supervise command", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv("APORETO_STATS_SECRET")).Times(1).Return(true)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(true)
 				mockSup.EXPECT().Supervise("ac0d3577e808", gomock.Any()).Times(1).Return(nil)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
@@ -620,7 +620,7 @@ func TestSupervise(t *testing.T) {
 				rpcwrperreq.Payload = initTestSupPayload()
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -633,9 +633,9 @@ func TestSupervise(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+			serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 			So(serr, ShouldBeNil)
 		})
 	})
@@ -666,13 +666,13 @@ func TestEnforce(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
@@ -681,7 +681,7 @@ func TestEnforce(t *testing.T) {
 			})
 
 			Convey("When I try to send enforce command with invalid secret", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv("APORETO_STATS_SECRET")).Times(1).Return(false)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(false)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -704,7 +704,7 @@ func TestEnforce(t *testing.T) {
 			})
 
 			Convey("When I try to send enforce command for local container", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv("APORETO_STATS_SECRET")).Times(1).Return(true)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(true)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -712,7 +712,7 @@ func TestEnforce(t *testing.T) {
 				rpcwrperreq.Payload = initTestEnfPayload()
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -730,7 +730,7 @@ func TestEnforce(t *testing.T) {
 			})
 
 			Convey("When I try to send enforce command for local server", func() {
-				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv("APORETO_STATS_SECRET")).Times(1).Return(true)
+				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(true)
 				mockEnf.EXPECT().Enforce("b06f47830f64", gomock.Any()).Times(1).Return(nil)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
@@ -739,7 +739,7 @@ func TestEnforce(t *testing.T) {
 				rpcwrperreq.Payload = initTestEnfPayload()
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -752,9 +752,9 @@ func TestEnforce(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+			serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 			So(serr, ShouldBeNil)
 		})
 	})
@@ -785,13 +785,13 @@ func TestUnEnforce(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
@@ -833,7 +833,7 @@ func TestUnEnforce(t *testing.T) {
 				rpcwrperreq.Payload = initTestUnEnfPayload()
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -846,9 +846,9 @@ func TestUnEnforce(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+			serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 			So(serr, ShouldBeNil)
 		})
 	})
@@ -879,13 +879,13 @@ func TestUnSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with env set", func() {
-			serr := os.Setenv("APORETO_STATSCHANNEL_PATH", "/tmp/test.sock")
+			serr := os.Setenv(constants.AporetoEnvStatsChannel, "/tmp/test.sock")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
 			So(serr, ShouldBeNil)
 			var service enforcer.PacketProcessor
-			pcchan := os.Getenv("APORETO_STATSCHANNEL_PATH")
-			secret := os.Getenv("APORETO_STATS_SECRET")
+			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
+			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
@@ -929,7 +929,7 @@ func TestUnSupervise(t *testing.T) {
 				rpcwrperreq.Payload = initTestUnSupPayload()
 				rpcwrperres.Status = ""
 
-				digest := hmac.New(sha256.New, []byte(os.Getenv("APORETO_STATS_SECRET")))
+				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.AporetoEnvStatsSecret)))
 				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
 					So(err, ShouldBeNil)
 				}
@@ -942,9 +942,9 @@ func TestUnSupervise(t *testing.T) {
 					So(err, ShouldBeNil)
 				})
 			})
-			serr = os.Setenv("APORETO_STATSCHANNEL_PATH", "")
+			serr = os.Setenv(constants.AporetoEnvStatsChannel, "")
 			So(serr, ShouldBeNil)
-			serr = os.Setenv("APORETO_STATS_SECRET", "")
+			serr = os.Setenv(constants.AporetoEnvStatsSecret, "")
 			So(serr, ShouldBeNil)
 		})
 	})
