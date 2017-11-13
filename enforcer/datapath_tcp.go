@@ -23,7 +23,7 @@ import (
 
 const (
 	portEntryTimeout = 60
-	//Temporary this constant should go away as we integrate other uidm changed
+	//PUPortSet - Temporary this constant should go away as we integrate other uidm changed
 	PuPortSet = "PUPort-"
 )
 

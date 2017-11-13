@@ -119,7 +119,6 @@ func (i *Instance) chainName(contextID string, version int) (app, net string, er
 }
 
 //PuPortSetName returns the name of the pu portset
-
 func PuPortSetName(contextID string, mark string, prefix string) string {
 	hash := md5.New()
 

@@ -137,7 +137,7 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().UpdateRules(1, "contextID", gomoyck.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
+			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
 			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
