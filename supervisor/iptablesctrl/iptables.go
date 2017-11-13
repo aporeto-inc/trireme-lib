@@ -272,7 +272,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	if err := ips.Destroy(); err != nil {
 		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", proxyPortSetName), zap.Error(err))
 	}
-	ips := ipset.IPSet{
+	ips = ipset.IPSet{
 		Name: srcPortSetName,
 	}
 	if err := ips.Destroy(); err != nil {

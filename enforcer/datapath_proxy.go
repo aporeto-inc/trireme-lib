@@ -2,6 +2,7 @@ package enforcer
 
 import (
 	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net"
@@ -288,7 +289,7 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 		Port: int(port),
 	}
 	copy(address.Addr[:], ip)
-
+	zap.L().Error("Connecting ")
 	if p.Encrypt && p.Forward {
 		// config, err := p.loadTLS()
 		// if err != nil {
@@ -305,13 +306,14 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 			zap.L().Error("Connect Error", zap.String("Connect Error", err.Error()))
 			return fd, err
 		}
-
+		zap.L().Error("Connected")
 		addr, _ := syscall.Getpeername(fd)
 		remote := addr.(*syscall.SockaddrInet4)
 		addr, _ = syscall.Getsockname(fd)
 		local := addr.(*syscall.SockaddrInet4)
 
 		conntrackHdl := conntrack.NewHandle()
+		zap.L().Error("Established conntrack connection for ip", zap.String("DEST", net.IPv4(ip[0], ip[1], ip[2], ip[3]).String()))
 		if connterror := conntrackHdl.ConntrackTableUpdateMark(net.IPv4(local.Addr[0], local.Addr[1], local.Addr[2], local.Addr[3]).String(),
 			net.IPv4(remote.Addr[0], remote.Addr[1], remote.Addr[2], remote.Addr[3]).String(),
 			syscall.IPPROTO_TCP,
@@ -347,6 +349,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 		}
 		//We are client no advertised port
+		zap.L().Error("Starting Client AUTH")
 		return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 
 	}
@@ -397,6 +400,7 @@ L:
 				if err != nil {
 					zap.L().Error("Failed to create syn token", zap.Error(err))
 				}
+				zap.L().Error("Claims", zap.String("HexDuMP", hex.Dump(token)))
 				if serr := syscall.Sendto(downConn, token, 0, toAddr); serr != nil {
 					zap.L().Error("Sendto failed", zap.Error(serr))
 					return serr
@@ -482,7 +486,7 @@ E:
 					}
 					msg = append(msg, data[:n]...)
 				}
-
+				zap.L().Error("Claims", zap.String("HexDuMP", hex.Dump(msg)))
 				zap.L().Error("SERVER RECEIVE PEER TOKEN")
 				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
 				zap.L().Error("SERVER RECEIVE PEER TOKEN", zap.Error(err))
