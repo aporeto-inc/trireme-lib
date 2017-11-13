@@ -14,8 +14,8 @@ import (
 
 const (
 	defaultStatsIntervalMiliseconds = 1000
-	envStatsChannelPath             = "STATSCHANNEL_PATH"
-	envStatsSecret                  = "STATS_SECRET"
+	envStatsChannelPath             = "APORETO_STATSCHANNEL_PATH"
+	envStatsSecret                  = "APORETO_STATS_SECRET"
 	statsContextID                  = "UNUSED"
 	statsRPCCommand                 = "StatsServer.GetStats"
 )

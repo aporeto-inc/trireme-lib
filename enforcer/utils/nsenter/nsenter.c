@@ -16,7 +16,7 @@ void nsexec(void) {
   char path[STRBUF_SIZE];
   char msg[STRBUF_SIZE];
   char mountpoint[STRBUF_SIZE] = {0};
-  char *container_pid_env = getenv("CONTAINER_PID");
+  char *container_pid_env = getenv("APORETO_CONTAINER_PID");
   char *netns_path_env = getenv("APORETO_ENV_NS_PATH");
   char *proc_mountpoint = getenv("APORETO_ENV_PROC_MOUNTPOINT");
   if(container_pid_env == NULL){
