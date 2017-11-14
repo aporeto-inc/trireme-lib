@@ -5,17 +5,17 @@ import (
 	"testing"
 	"time"
 
-	gomock "github.com/golang/mock/gomock"
 	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-  "github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/internal/processmon"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
+	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	mockprocessmon "github.com/aporeto-inc/trireme/internal/processmon/mock"
 	mockrpcwrapper "github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper/mock"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme/internal/processmon"
+	mockprocessmon "github.com/aporeto-inc/trireme/internal/processmon/mock"
 	"github.com/aporeto-inc/trireme/policy"
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

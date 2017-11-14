@@ -20,6 +20,7 @@ import (
 const (
 	testDirBase = "/tmp"
 )
+
 func LaunchContainer(path string) int {
 
 	var out, out2 bytes.Buffer
@@ -38,7 +39,7 @@ func LaunchContainer(path string) int {
 			fmt.Println(pid)
 			if err := os.MkdirAll(filepath.Join(path, fmt.Sprintf("%d/ns/net", pid)), os.ModePerm); err != nil {
 				return 0
-      }
+			}
 			return pid
 		}
 	}
