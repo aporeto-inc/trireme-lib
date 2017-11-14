@@ -69,7 +69,7 @@ func TestLaunchProcess(t *testing.T) {
 	}
 	err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
 	if err == nil {
-		t.Errorf("TEST:Launch Process launches a process in the hostnamespace -- %s should fail", err, dir)
+		t.Errorf("TEST:Launch Process launches a process in the hostnamespace -- %s should fail", dir)
 		t.SkipNow()
 	}
 
