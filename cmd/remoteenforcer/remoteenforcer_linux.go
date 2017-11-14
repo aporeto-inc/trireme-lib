@@ -39,7 +39,7 @@ var cmdLock sync.Mutex
 // NewServer starts a new server
 func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, stats Stats) (*Server, error) {
 
-	retstats = stats
+	retstats := stats
 	if stats == nil {
 		retstats, err := NewStatsClient()
 		if err != nil {
