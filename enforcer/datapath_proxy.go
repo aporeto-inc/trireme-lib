@@ -219,7 +219,7 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	var ip []byte
 	var port uint16
 	defer func() {
-		if err := upConn.Close(); err != nil {
+		if err = upConn.Close(); err != nil {
 			zap.L().Error("Failed to close UpConn", zap.Error(err))
 		}
 	}()

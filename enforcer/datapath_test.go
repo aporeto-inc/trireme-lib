@@ -63,7 +63,11 @@ func TestInvalidIPContext(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
-		defer enforcer.Unenforce("SomeServerId")
+		defer func() {
+			if err := enforcer.Unenforce("SomeServerId"); err != nil {
+				fmt.Println("Error", err.Error())
+			}
+		}()
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
 		So(err, ShouldBeNil)

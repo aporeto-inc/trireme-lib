@@ -900,13 +900,13 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
-	i.ipt.Insert(i.appAckPacketIPTableContext,
+	err = i.ipt.Insert(i.appAckPacketIPTableContext,
 		i.appPacketIPTableSection,
 		1,
 		"-j", proxyOutputChain,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to add default allow for marked packets at net")
+		return fmt.Errorf("Failed to add proxyOutputChain")
 	}
 	return nil
 
@@ -1084,7 +1084,16 @@ func (i *Instance) cleanACLs() error {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 	}
 	//Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
-	i.removeProxyRules(i.appProxyIPTableContext, i.appAckPacketIPTableContext, ipTableSectionPreRouting, ipTableSectionOutput, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain)
+	if err = i.removeProxyRules(i.appProxyIPTableContext,
+		i.appAckPacketIPTableContext,
+		ipTableSectionPreRouting,
+		ipTableSectionOutput,
+		natProxyInputChain,
+		natProxyOutputChain,
+		proxyInputChain,
+		proxyOutputChain); err != nil {
+		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
+	}
 	// Clean Application Rules/Chains
 	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 
