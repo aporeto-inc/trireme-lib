@@ -397,11 +397,13 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	if i.mode != constants.LocalServer {
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
 		proxiedServiceList := containerInfo.Policy.ProxiedServices()
-		if err := i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName); err != nil {
-			zap.L().Error("Failed to update Proxy Set", zap.Error(err),
-				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList[0], ":")),
-				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList[1], ":")),
-			)
+		if len(proxiedServiceList) != 0 {
+			if err := i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName); err != nil {
+				zap.L().Error("Failed to update Proxy Set", zap.Error(err),
+					zap.String("Public ProxiedService List", strings.Join(proxiedServiceList[0], ":")),
+					zap.String("Private ProxiedService List", strings.Join(proxiedServiceList[1], ":")),
+				)
+			}
 		}
 
 	} else {
