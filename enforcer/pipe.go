@@ -54,10 +54,10 @@ func copyBytes(direction string, destFd, srcFd int, wg *sync.WaitGroup) {
 		return
 	}
 	defer func() {
-		if err := syscall.Close(pipe[0]); err != nil {
+		if err = syscall.Close(pipe[0]); err != nil {
 			zap.L().Warn("Failed to close pipe ", zap.Error(err))
 		}
-		if err := syscall.Close(pipe[1]); err != nil {
+		if err = syscall.Close(pipe[1]); err != nil {
 			zap.L().Warn("Failed to close pipe ", zap.Error(err))
 		}
 
@@ -74,12 +74,13 @@ func copyBytes(direction string, destFd, srcFd int, wg *sync.WaitGroup) {
 		}
 		var total int64
 		for total = 0; total < nread; {
-			nwrote, err := syscall.Splice(pipe[0], nil, destFd, nil, int(nread-total), 0)
-			if err != nil {
-				fmt.Printf("error splicing: %s - %v", direction, err)
+			if nwrote, err := syscall.Splice(pipe[0], nil, destFd, nil, int(nread-total), 0); err != nil {
+				zap.L().Error("error splicing:", zap.String("Direction", direction), zap.Error(err))
 				return
+			} else {
+
+				total += nwrote
 			}
-			total += nwrote
 		}
 	}
 
