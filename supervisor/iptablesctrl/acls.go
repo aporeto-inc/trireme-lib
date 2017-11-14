@@ -1084,7 +1084,7 @@ func (i *Instance) cleanACLs() error {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 	}
 	//Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
-	if err = i.removeProxyRules(i.appProxyIPTableContext,
+	if err := i.removeProxyRules(i.appProxyIPTableContext,
 		i.appAckPacketIPTableContext,
 		ipTableSectionPreRouting,
 		ipTableSectionOutput,
