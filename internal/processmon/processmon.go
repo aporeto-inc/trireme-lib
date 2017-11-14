@@ -275,16 +275,13 @@ func (p *processMon) LaunchProcess(
 		return nil
 	}
 
-	var nsPath string
-
 	// We check if the NetNsPath was given as parameter.
 	// If it was we will use it. Otherwise we will determine it based on the PID.
+	nsPath := refNSPath
 	if refNSPath == "" {
 		nsPath = filepath.Join(procMountPoint, strconv.Itoa(refPid), "ns/net")
-	} else {
-		nsPath = refNSPath
 	}
-
+	
 	hoststat, err := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
 	if err != nil {
 		return err
@@ -340,7 +337,8 @@ func (p *processMon) LaunchProcess(
 		randomkeystring,
 		statsServerSecret,
 		refPid,
-		refNSPath)
+		refNSPath,
+	)
 	cmd.Env = append(os.Environ(), newEnvVars...)
 	if err = cmd.Start(); err != nil {
 		// Cleanup resources
