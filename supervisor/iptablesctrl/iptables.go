@@ -285,17 +285,20 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		ips := ipset.IPSet{
 			Name: portSetName,
 		}
-		if err := ips.Destroy(); err != nil {
+		if err = ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to clear puport set", zap.Error(err))
 		}
-		// delete uid entires in the map
-		zap.L().Debug("In Delete Rules, removing the mappings - Varun")
+
 		// lookup uid for username
 		u, err := user.Lookup(uid)
 		if err != nil {
 			return err
 		}
-		i.UIDToPortSet.Remove(u.Uid)
+		// delete uid entires in the map
+		err = i.UIDToPortSet.Remove(u.Uid)
+		if err != nil {
+			return err
+		}
 		delete(i.UIDSet, u.Uid)
 
 	}
@@ -422,9 +425,10 @@ func (i *Instance) Start() error {
 			return fmt.Errorf("Filter of marked packets was not set")
 		}
 	}
-	// initialize a task to update portsets periodically
-	zap.L().Debug("Started go routine to update portsets")
 
+	zap.L().Debug("Start go routine to update portsets")
+
+	// "initialize a task to update portsets periodically"
 	go InitPortSetTask(i)
 
 	zap.L().Debug("Started the iptables controller")

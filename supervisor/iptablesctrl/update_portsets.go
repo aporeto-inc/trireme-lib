@@ -17,10 +17,10 @@ const (
 	procNetTCPFile                    = "/proc/net/tcp"
 	portSetUpdateIntervalMilliseconds = 500
 	portEntryTimeout                  = 60
-	UIDFieldOffset                    = 7
-	ProcHeaderLineNum                 = 1
-	PortOffset                        = 1
-	IPPortOffset                      = 1
+	uidFieldOffset                    = 7
+	procHeaderLineNum                 = 1
+	portOffset                        = 1
+	ipPortOffset                      = 1
 )
 
 func getUIDPortSetMappings(i *Instance, uid string) (interface{}, error) {
@@ -61,11 +61,11 @@ func updatePortSets(i *Instance) {
 		line := strings.Fields(scanner.Text())
 		lineCnt++
 		portList := make([]int64, 0)
-		if lineCnt == ProcHeaderLineNum {
+		if lineCnt == procHeaderLineNum {
 			continue
 		}
-		uid := line[UIDFieldOffset]
-		portStr := strings.Split(line[IPPortOffset], ":")[PortOffset]
+		uid := line[uidFieldOffset]
+		portStr := strings.Split(line[ipPortOffset], ":")[portOffset]
 
 		portNum, err := strconv.ParseInt(portStr, 16, 64)
 		if err != nil {
