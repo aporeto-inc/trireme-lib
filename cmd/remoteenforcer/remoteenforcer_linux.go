@@ -37,11 +37,11 @@ import (
 var cmdLock sync.Mutex
 
 // NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, stats Stats) (*Server, error) {
+func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, stats Stats) (s *Server, err error) {
 
 	retstats := stats
 	if stats == nil {
-		retstats, err := NewStatsClient()
+		retstats, err = NewStatsClient()
 		if err != nil {
 			return nil, err
 		}
