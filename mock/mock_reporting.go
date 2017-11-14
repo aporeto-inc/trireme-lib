@@ -4,7 +4,7 @@
 package mock_trireme
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 	collector "github.com/aporeto-inc/trireme/collector"
 )
 

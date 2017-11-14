@@ -4,7 +4,7 @@
 package mockenforcer
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 	enforcer "github.com/aporeto-inc/trireme/enforcer"
 	fqconfig "github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	packet "github.com/aporeto-inc/trireme/enforcer/utils/packet"

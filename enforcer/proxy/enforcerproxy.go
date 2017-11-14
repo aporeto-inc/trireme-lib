@@ -190,6 +190,36 @@ func NewProxyEnforcer(mutualAuth bool,
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
 ) enforcer.PolicyEnforcer {
+	return newProxyEnforcer(
+		mutualAuth,
+		filterQueue,
+		collector,
+		service,
+		secrets,
+		serverID,
+		validity,
+		rpchdl,
+		cmdArg,
+		processmon.GetProcessManagerHdl(),
+		procMountPoint,
+		externalIPCacheTimeout,
+	)
+}
+
+// newProxyEnforcer creates a new proxy to remote enforcers.
+func newProxyEnforcer(mutualAuth bool,
+	filterQueue *fqconfig.FilterQueue,
+	collector collector.EventCollector,
+	service enforcer.PacketProcessor,
+	secrets secrets.Secrets,
+	serverID string,
+	validity time.Duration,
+	rpchdl rpcwrapper.RPCClient,
+	cmdArg string,
+	procHdl processmon.ProcessManager,
+	procMountPoint string,
+	externalIPCacheTimeout time.Duration,
+) enforcer.PolicyEnforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
 	if err != nil {
@@ -204,7 +234,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                processmon.GetProcessManagerHdl(),
+		prochdl:                procHdl,
 		rpchdl:                 rpchdl,
 		initDone:               make(map[string]bool),
 		filterQueue:            filterQueue,

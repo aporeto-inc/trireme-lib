@@ -5,7 +5,7 @@
 package mockinterfaces
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 	policy "github.com/aporeto-inc/trireme/policy"
 )
 
