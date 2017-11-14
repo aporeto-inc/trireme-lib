@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	gomock "github.com/aporeto-inc/mock/gomock"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
@@ -17,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme/mock"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

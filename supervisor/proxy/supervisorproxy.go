@@ -12,8 +12,8 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 
+	"github.com/aporeto-inc/trireme/internal/processmon"
 	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/processmon"
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.

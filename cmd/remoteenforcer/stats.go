@@ -9,13 +9,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
 
 const (
 	defaultStatsIntervalMiliseconds = 1000
-	envStatsChannelPath             = "STATSCHANNEL_PATH"
-	envStatsSecret                  = "STATS_SECRET"
 	statsContextID                  = "UNUSED"
 	statsRPCCommand                 = "StatsServer.GetStats"
 )
@@ -34,13 +33,13 @@ type StatsClient struct {
 // NewStatsClient initializes a new stats client
 func NewStatsClient() (Stats, error) {
 
-	statsChannel := os.Getenv(envStatsChannelPath)
-	if len(statsChannel) == 0 {
+	statsChannel := os.Getenv(constants.AporetoEnvStatsChannel)
+	if statsChannel == "" {
 		return nil, fmt.Errorf("No path to stats socket provided")
 	}
 
-	secret := os.Getenv(envStatsSecret)
-	if len(secret) == 0 {
+	secret := os.Getenv(constants.AporetoEnvStatsSecret)
+	if secret == "" {
 		return nil, fmt.Errorf("No secret provided for stats channel")
 	}
 

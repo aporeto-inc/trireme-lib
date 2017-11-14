@@ -5,8 +5,8 @@
 package mockinterfaces
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
 	policy "github.com/aporeto-inc/trireme/policy"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of Supervisor interface

@@ -5,9 +5,9 @@
 package mockprovider
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
 	provider "github.com/aporeto-inc/trireme/supervisor/provider"
 	ipset "github.com/bvandewalle/go-ipset/ipset"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // Mock of IpsetProvider interface

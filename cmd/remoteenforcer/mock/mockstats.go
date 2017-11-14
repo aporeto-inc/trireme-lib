@@ -4,7 +4,7 @@
 package mockstats
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockStats is a mock of Stats interface

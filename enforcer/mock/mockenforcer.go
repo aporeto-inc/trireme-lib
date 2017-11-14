@@ -4,13 +4,13 @@
 package mockenforcer
 
 import (
-	gomock "github.com/aporeto-inc/mock/gomock"
 	enforcer "github.com/aporeto-inc/trireme/enforcer"
 	fqconfig "github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	packet "github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	secrets "github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	tokens "github.com/aporeto-inc/trireme/enforcer/utils/tokens"
 	policy "github.com/aporeto-inc/trireme/policy"
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockPolicyEnforcer is a mock of PolicyEnforcer interface
