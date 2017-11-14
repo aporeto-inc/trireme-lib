@@ -139,7 +139,7 @@ func TestKillProcess(t *testing.T) {
 
 func TestGetProcessManagerHdl(t *testing.T) {
 
-	newProcessMon(netnspath)
+	newProcessMon(netNSPath)
 	hdl := GetProcessManagerHdl()
 	cache := cache.NewCache(processMonitorCacheName)
 
