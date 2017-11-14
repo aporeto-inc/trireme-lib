@@ -52,6 +52,13 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			i.appAckPacketIPTableContext,
 			uidchain,
 			"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", mark,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+		},
+		{
+			i.appAckPacketIPTableContext,
+			uidchain,
+			"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", mark,
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		},
 
 		{
@@ -406,6 +413,24 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 		}
 	}
+	// Accept established connections
+	if err := i.ipt.Append(
+		i.appAckPacketIPTableContext, chain,
+		"-d", "0.0.0.0/0",
+		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT"); err != nil {
+
+		return fmt.Errorf("Failed to add default udp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
+	}
+
+	if err := i.ipt.Append(
+		i.appAckPacketIPTableContext, chain,
+		"-d", "0.0.0.0/0",
+		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT"); err != nil {
+		return fmt.Errorf("Failed to add default tcp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
+	}
+
 	// Log everything else
 	if err := i.ipt.Append(
 		i.appAckPacketIPTableContext,
@@ -674,18 +699,18 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
+	/*
+		err := i.ipt.Insert(
+			i.appAckPacketIPTableContext,
+			appChain, 1,
+			"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+			"-j", "ACCEPT")
 
+		if err != nil {
+			return fmt.Errorf("Failed to add default allow for marked packets at app ")
+		}
+	*/
 	err := i.ipt.Insert(
-		i.appAckPacketIPTableContext,
-		appChain, 1,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT")
-
-	if err != nil {
-		return fmt.Errorf("Failed to add default allow for marked packets at app ")
-	}
-
-	err = i.ipt.Insert(
 		i.appAckPacketIPTableContext,
 		appChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
@@ -731,6 +756,16 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
 
+	if err != nil {
+		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}

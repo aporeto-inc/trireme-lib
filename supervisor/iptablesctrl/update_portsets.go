@@ -21,6 +21,8 @@ const (
 	procHeaderLineNum                 = 1
 	portOffset                        = 1
 	ipPortOffset                      = 1
+	sockStateOffset                   = 3
+	sockListeningState                = "0A"
 )
 
 func getUIDPortSetMappings(i *Instance, uid string) (interface{}, error) {
@@ -61,7 +63,7 @@ func updatePortSets(i *Instance) {
 		line := strings.Fields(scanner.Text())
 		lineCnt++
 		portList := make([]int64, 0)
-		if lineCnt == procHeaderLineNum {
+		if (lineCnt == procHeaderLineNum) || (line[sockStateOffset] != sockListeningState) {
 			continue
 		}
 		uid := line[uidFieldOffset]

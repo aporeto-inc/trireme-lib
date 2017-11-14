@@ -569,6 +569,13 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		var plc *policy.FlowPolicy
 
+		if tcpPacket.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
+			//SYN ACK came through the global rule.
+			//This not from a process we are monitoring
+			//let his packet through
+			return nil, nil, nil
+		}
+
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, perr := context.externalIPCache.Get(flowHash); perr == nil {
 			plc = plci.(*policy.FlowPolicy)
