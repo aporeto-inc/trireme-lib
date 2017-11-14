@@ -27,5 +27,5 @@ const (
 	AporetoEnvNsenterErrorState = "APORETO_ENV_NSENTER_ERROR_STATE"
 
 	// AporetoEnvNsenterLogs stores the logs as reported by remote enforcer
-	nsEnterLogs = "APORETO_ENV_NSENTER_LOGS"
+	AporetoEnvNsenterLogs = "APORETO_ENV_NSENTER_LOGS"
 )

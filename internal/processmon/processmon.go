@@ -72,6 +72,7 @@ func contextID2SocketPath(contextID string) string {
 	if contextID == "" {
 		panic("contextID is empty")
 	}
+
 	return filepath.Join("/var/run/", contextID+".sock")
 }
 
@@ -140,34 +141,41 @@ func (p *processMon) KillProcess(contextID string) {
 		zap.L().Debug("Process already killed or never launched")
 		return
 	}
+
+	procInfo, ok := s.(*processInfo)
+	if !ok {
+		return
+	}
+
 	req := &rpcwrapper.Request{}
 	resp := &rpcwrapper.Response{}
-	req.Payload = s.(*processInfo).process.Pid
+	req.Payload = procInfo.process.Pid
 
 	c := make(chan error, 1)
 	go func() {
-		c <- s.(*processInfo).RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
+		c <- procInfo.RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
 	}()
+
 	select {
-	case kerr := <-c:
-		if kerr != nil {
+	case err := <-c:
+		if err != nil {
 			zap.L().Debug("Failed to stop gracefully",
-				zap.String("Remote error", kerr.Error()))
+				zap.String("Remote error", err.Error()))
 		}
 
-		if perr := s.(*processInfo).process.Kill(); perr != nil {
+		if err := procInfo.process.Kill(); err != nil {
 			zap.L().Debug("Process is already dead",
-				zap.String("Kill error", perr.Error()))
+				zap.String("Kill error", err.Error()))
 		}
 
 	case <-time.After(5 * time.Second):
-		if perr := s.(*processInfo).process.Kill(); perr != nil {
+		if err := procInfo.process.Kill(); err != nil {
 			zap.L().Info("Time out while killing process ",
-				zap.Error(perr))
+				zap.Error(err))
 		}
 	}
 
-	s.(*processInfo).RPCHdl.DestroyRPCClient(contextID)
+	procInfo.RPCHdl.DestroyRPCClient(contextID)
 	if err := os.Remove(filepath.Join(p.netNSPath, contextID)); err != nil {
 		zap.L().Warn("Failed to remote process from netns path", zap.Error(err))
 	}
@@ -213,8 +221,7 @@ func (p *processMon) getLaunchProcessCmd(arg string, contextID string) (*exec.Cm
 		return nil, err
 	}
 
-	cmdArgs := []string{arg}
-	cmdArgs = append(cmdArgs, p.launcProcessArgs...)
+	cmdArgs := append([]string{arg}, p.launcProcessArgs...)
 	if !p.logToConsole {
 		cmdArgs = append(cmdArgs, contextID)
 	}
@@ -236,26 +243,18 @@ func (p *processMon) getLaunchProcessEnvVars(
 	refNSPath string,
 ) []string {
 
-	mountPoint := constants.AporetoEnvMountPoint + "=" + procMountPoint
-	namedPipe := constants.AporetoEnvContextSocket + "=" + contextID2SocketPath(contextID)
-	statsChannel := constants.AporetoEnvStatsChannel + "=" + rpcwrapper.StatsChannel
-	rpcClientSecret := constants.AporetoEnvRPCClientSecret + "=" + randomkeystring
-	envStatsSecret := constants.AporetoEnvStatsSecret + "=" + statsServerSecret
-	containerPID := constants.AporetoEnvContainerPID + "=" + strconv.Itoa(refPid)
-
 	newEnvVars := []string{
-		mountPoint,
-		namedPipe,
-		statsChannel,
-		rpcClientSecret,
-		envStatsSecret,
-		containerPID,
+		constants.AporetoEnvMountPoint + "=" + procMountPoint,
+		constants.AporetoEnvContextSocket + "=" + contextID2SocketPath(contextID),
+		constants.AporetoEnvStatsChannel + "=" + rpcwrapper.StatsChannel,
+		constants.AporetoEnvRPCClientSecret + "=" + randomkeystring,
+		constants.AporetoEnvStatsSecret + "=" + statsServerSecret,
+		constants.AporetoEnvContainerPID + "=" + strconv.Itoa(refPid),
 	}
 
 	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
 	if refNSPath != "" {
-		nsPath := constants.AporetoEnvNSPath + "=" + refNSPath
-		newEnvVars = append(newEnvVars, nsPath)
+		newEnvVars = append(newEnvVars, constants.AporetoEnvNSPath+"="+refNSPath)
 	}
 
 	return newEnvVars
@@ -272,8 +271,7 @@ func (p *processMon) LaunchProcess(
 	procMountPoint string,
 ) error {
 
-	_, err := p.activeProcesses.Get(contextID)
-	if err == nil {
+	if _, err := p.activeProcesses.Get(contextID); err == nil {
 		return nil
 	}
 
@@ -287,14 +285,14 @@ func (p *processMon) LaunchProcess(
 		nsPath = refNSPath
 	}
 
-	hoststat, hoststaterr := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
-	if hoststaterr != nil {
-		return hoststaterr
+	hoststat, err := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
+	if err != nil {
+		return err
 	}
 
-	pidstat, pidstaterr := os.Stat(nsPath)
-	if pidstaterr != nil {
-		return fmt.Errorf("Container pid not found: %d %s", refPid, pidstaterr.Error())
+	pidstat, err := os.Stat(nsPath)
+	if err != nil {
+		return fmt.Errorf("Container pid not found: %d %s", refPid, err.Error())
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
@@ -310,9 +308,9 @@ func (p *processMon) LaunchProcess(
 
 	// A symlink is created from /var/run/netns/<context> to the NetNSPath
 	contextFile := filepath.Join(p.netNSPath, contextID)
-	if _, lerr := os.Stat(contextFile); lerr != nil {
-		if linkErr := os.Symlink(nsPath, contextFile); linkErr != nil {
-			zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(linkErr))
+	if _, err := os.Stat(contextFile); err != nil {
+		if err := os.Symlink(nsPath, contextFile); err != nil {
+			zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(err))
 		}
 	}
 
@@ -353,10 +351,8 @@ func (p *processMon) LaunchProcess(
 	}
 
 	go func() {
-		i := 0
-		for i < waitForExitCount {
+		for i := 0; i < waitForExitCount; i++ {
 			<-exited
-			i++
 		}
 		status := cmd.Wait()
 		p.childExitStatus <- exitStatus{
