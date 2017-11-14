@@ -19,10 +19,6 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 )
 
-const (
-	portEntryTimeout = 60
-)
-
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 

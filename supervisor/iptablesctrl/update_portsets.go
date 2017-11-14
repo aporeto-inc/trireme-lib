@@ -2,8 +2,6 @@ package iptablesctrl
 
 import (
 	"bufio"
-	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -19,6 +17,10 @@ const (
 	procNetTCPFile                    = "/proc/net/tcp"
 	portSetUpdateIntervalMilliseconds = 500
 	portEntryTimeout                  = 60
+	UIDFieldOffset                    = 7
+	ProcHeaderLineNum                 = 1
+	PortOffset                        = 1
+	IPPortOffset                      = 1
 )
 
 func getUIDPortSetMappings(i *Instance, uid string) (interface{}, error) {
@@ -29,6 +31,7 @@ func getUIDPortMappings(i *Instance, uid string) (interface{}, error) {
 	return i.UIDToPorts.Get(uid)
 }
 
+/* This go routine is called on supervisor start */
 func InitPortSetTask(i *Instance) {
 	t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
 	for range t.C {
@@ -37,15 +40,20 @@ func InitPortSetTask(i *Instance) {
 	}
 }
 
-// TODO : Handle file handling errors, use zap to log
 func updatePortSets(i *Instance) {
 	file, err := os.Open(procNetTCPFile)
-	localCache := cache.NewCache("localCache")
 	if err != nil {
-		log.Fatal(err)
+		zap.L().Warn("Failed To open /proc/net/tcp file", zap.Error(err))
+		//log.Fatal(err)
+		return
 	}
-
-	defer file.Close()
+	localCache := cache.NewCache("localCache")
+	defer func() {
+		err := file.Close()
+		if err != nil {
+			zap.L().Warn("Failed To close /proc/net/tcp file", zap.Error(err))
+		}
+	}()
 
 	scanner := bufio.NewScanner(file)
 	lineCnt := 0
@@ -53,15 +61,16 @@ func updatePortSets(i *Instance) {
 		line := strings.Fields(scanner.Text())
 		lineCnt++
 		portList := make([]int64, 0)
-		if lineCnt == 1 {
+		if lineCnt == ProcHeaderLineNum {
 			continue
 		}
-		uid := line[7]
-		portStr := strings.Split(line[1], ":")[1]
+		uid := line[UIDFieldOffset]
+		portStr := strings.Split(line[IPPortOffset], ":")[PortOffset]
 
 		portNum, err := strconv.ParseInt(portStr, 16, 64)
 		if err != nil {
-			log.Fatal(err)
+			zap.L().Warn("Failed to convert port to Int", zap.Error(err))
+			return
 		}
 
 		if v, err := localCache.Get(uid); err == nil {
@@ -75,16 +84,16 @@ func updatePortSets(i *Instance) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
+		zap.L().Warn("Error while parsing /proc/net/tcp ", zap.Error(err))
+		return
+
 	}
 
 	i.UIDToPorts = localCache
 
 	// program the iptable.
 	activePUs := i.UIDSet
-	for k, _ := range activePUs {
-		zap.L().Debug("Programming the port set for - Varun")
-		fmt.Println("UID ", k)
+	for k := range activePUs {
 		uidPorts, err := getUIDPortMappings(i, k)
 		if err != nil {
 			return
@@ -92,8 +101,7 @@ func updatePortSets(i *Instance) {
 		puPortSetName, err := getUIDPortSetMappings(i, k)
 
 		if err != nil {
-			zap.L().Warn("Failed To get UID to portset mappings", zap.String("UID:", k))
-			// Fatal ?
+			// Not Fatal. A normal uidlogin pu will not have a port
 			return
 		}
 
@@ -101,8 +109,6 @@ func updatePortSets(i *Instance) {
 		ips := ipset.IPSet{
 			Name: puPortSetName.(string),
 		}
-		// Before we rearm with new PortSet, Do we need to clear the current portset ?
-
 		// rearm the portset with new port List
 		for _, port := range uidPorts.([]int64) {
 			//Add an entry for 60 seconds we will rediscover ports every 60 sec

@@ -422,7 +422,9 @@ func (i *Instance) Start() error {
 			return fmt.Errorf("Filter of marked packets was not set")
 		}
 	}
-	// initialize a task toupdate portsets periodically
+	// initialize a task to update portsets periodically
+	zap.L().Debug("Started go routine to update portsets")
+
 	go InitPortSetTask(i)
 
 	zap.L().Debug("Started the iptables controller")

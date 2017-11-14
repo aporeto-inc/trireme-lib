@@ -138,6 +138,22 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		})
+
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr(),
+		})
+
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		})
 		//Moving to global rule
 		// Network Packets - SYN
 		rules = append(rules, []string{
@@ -170,6 +186,13 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-m", "set", "--match-set", targetNetworkSet, "dst",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		})
+
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr(),
 		})
 		// Network Packets - SYN
 		rules = append(rules, []string{
@@ -383,26 +406,26 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 		}
 	}
+	/*
+		// Accept established connections
+		if err := i.ipt.Append(
+			i.appAckPacketIPTableContext, chain,
+			"-d", "0.0.0.0/0",
+			"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
+			"-j", "ACCEPT"); err != nil {
 
-	// Accept established connections
-	if err := i.ipt.Append(
-		i.appAckPacketIPTableContext, chain,
-		"-d", "0.0.0.0/0",
-		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
-		"-j", "ACCEPT"); err != nil {
+			return fmt.Errorf("Failed to add default udp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
+		}
 
-		return fmt.Errorf("Failed to add default udp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
-	}
+		if err := i.ipt.Append(
+			i.appAckPacketIPTableContext, chain,
+			"-d", "0.0.0.0/0",
+			"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+			"-j", "ACCEPT"); err != nil {
 
-	if err := i.ipt.Append(
-		i.appAckPacketIPTableContext, chain,
-		"-d", "0.0.0.0/0",
-		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
-		"-j", "ACCEPT"); err != nil {
-
-		return fmt.Errorf("Failed to add default tcp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
-	}
-
+			return fmt.Errorf("Failed to add default tcp acl rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, chain, err.Error())
+		}
+	*/
 	// Log everything else
 	if err := i.ipt.Append(
 		i.appAckPacketIPTableContext,
