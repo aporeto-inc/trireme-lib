@@ -9,16 +9,16 @@ const (
 	AporetoEnvContextSocket = "APORETO_ENV_SOCKET_PATH"
 
 	// AporetoEnvStatsChannel stores the path to the stats channel
-	AporetoEnvStatsChannel = "APORETO_STATSCHANNEL_PATH"
+	AporetoEnvStatsChannel = "APORETO_ENV_STATS_CHANNEL_PATH"
 
 	// AporetoEnvRPCClientSecret is the secret used between RPC client/server
 	AporetoEnvRPCClientSecret = "APORETO_ENV_SECRET"
 
 	// AporetoEnvStatsSecret is the secret to be used for the stats channel
-	AporetoEnvStatsSecret = "APORETO_STATS_SECRET"
+	AporetoEnvStatsSecret = "APORETO_ENV_STATS_SECRET"
 
 	// AporetoEnvContainerPID is the PID of the container
-	AporetoEnvContainerPID = "APORETO_CONTAINER_PID"
+	AporetoEnvContainerPID = "APORETO_ENV_CONTAINER_PID"
 
 	// AporetoEnvNSPath is the path of the network namespace
 	AporetoEnvNSPath = "APORETO_ENV_NS_PATH"
