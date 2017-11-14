@@ -39,35 +39,26 @@ var cmdLock sync.Mutex
 // NewServer starts a new server
 func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, stats Stats) (*Server, error) {
 
+	retstats = stats
 	if stats == nil {
-		statsclient, err := NewStatsClient()
+		retstats, err := NewStatsClient()
 		if err != nil {
 			return nil, err
 		}
-		procMountPoint := os.Getenv(constants.AporetoEnvMountPoint)
-		if len(procMountPoint) == 0 {
-			procMountPoint = configurator.DefaultProcMountPoint
-		}
-		return &Server{
-			Service:        service,
-			rpcchannel:     rpcchan,
-			rpcSecret:      secret,
-			rpchdl:         rpchdl,
-			procMountPoint: procMountPoint,
-			statsclient:    statsclient,
-		}, nil
 	}
+
 	procMountPoint := os.Getenv(constants.AporetoEnvMountPoint)
-	if len(procMountPoint) == 0 {
+	if procMountPoint == "" {
 		procMountPoint = configurator.DefaultProcMountPoint
 	}
+
 	return &Server{
 		Service:        service,
 		rpcchannel:     rpcchan,
 		rpcSecret:      secret,
 		rpchdl:         rpchdl,
 		procMountPoint: procMountPoint,
-		statsclient:    stats,
+		statsclient:    retstats,
 	}, nil
 }
 
@@ -436,21 +427,17 @@ func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response)
 func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
 	namedPipe := os.Getenv(constants.AporetoEnvContextSocket)
-
 	secret := os.Getenv(constants.AporetoEnvRPCClientSecret)
-
-	if len(secret) == 0 {
+	if secret == "" {
 		os.Exit(-1)
 	}
 
 	flag := unix.SIGHUP
-
 	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(flag), 0, 0, 0); err != nil {
 		return fmt.Errorf("Unable to set termination process")
 	}
 
 	rpchdl := rpcwrapper.NewRPCServer()
-
 	server, err := NewServer(service, rpchdl, namedPipe, secret, nil)
 	if err != nil {
 		return err

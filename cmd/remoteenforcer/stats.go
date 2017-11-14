@@ -34,12 +34,12 @@ type StatsClient struct {
 func NewStatsClient() (Stats, error) {
 
 	statsChannel := os.Getenv(constants.AporetoEnvStatsChannel)
-	if len(statsChannel) == 0 {
+	if statsChannel == "" {
 		return nil, fmt.Errorf("No path to stats socket provided")
 	}
 
 	secret := os.Getenv(constants.AporetoEnvStatsSecret)
-	if len(secret) == 0 {
+	if secret == "" {
 		return nil, fmt.Errorf("No secret provided for stats channel")
 	}
 
