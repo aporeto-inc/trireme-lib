@@ -17,7 +17,10 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
 
-func LaunchContainer() int {
+const (
+	testDirBase = "/tmp"
+)
+func LaunchContainer(path string) int {
 
 	var out, out2 bytes.Buffer
 	runcmd := exec.Command("docker", "run", "-d", "--name=testprocessmon", "nginx")
@@ -33,6 +36,9 @@ func LaunchContainer() int {
 			a := strings.Split(scanner.Text(), ":")[1]
 			pid, _ := strconv.Atoi(strings.TrimSpace(a[:len(a)-1]))
 			fmt.Println(pid)
+			if err := os.MkdirAll(filepath.Join(path, fmt.Sprintf("%d/ns/net", pid)), os.ModePerm); err != nil {
+				return 0
+      }
 			return pid
 		}
 	}
@@ -50,27 +56,32 @@ func TestLaunchProcess(t *testing.T) {
 	//Will use refPid to be 1 (init) guaranteed to be there
 	//Normal case should launch a process
 	rpchdl := rpcwrapper.NewTestRPCClient()
-	p := newProcessMon("/tmp/")
+	p := newProcessMon(testDirBase)
 	contextID := "12345"
 
 	refPid := 1
-	refNSPath := ""
 	dir, _ := os.Getwd()
-	err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
-	if err != nil {
-		t.Errorf("TEST:Launch Process launches a process in the hostnamespace %v -- %s", err, dir)
+	refNSPath := ""
+
+	if err := os.MkdirAll("/tmp/1/ns/net", os.ModePerm); err != nil {
+		t.Errorf("TEST:Setup failed")
+		t.SkipNow()
+	}
+	err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
+	if err == nil {
+		t.Errorf("TEST:Launch Process launches a process in the hostnamespace -- %s should fail", err, dir)
 		t.SkipNow()
 	}
 
-	refPid = LaunchContainer()
+	refPid = LaunchContainer(testDirBase)
 	dir, _ = os.Getwd()
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
+	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process %v -- %s", err, dir)
 		t.SkipNow()
 	}
 	//Trying to launch in the same context should succeed
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
+	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
 	if err != nil {
 		t.Errorf("TEST:Launch Process Fails to launch a process")
 	}
@@ -81,7 +92,7 @@ func TestLaunchProcess(t *testing.T) {
 	p.KillProcess(contextID)
 	//Launch Process Should not fail if the /var/run/netns does not exist
 	os.Remove("/var/run/netns") // nolint
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
+	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
 	if err != nil {
 		t.Errorf("TEST:Failed when the directory is missing %v", err)
 	}
@@ -91,14 +102,14 @@ func TestLaunchProcess(t *testing.T) {
 	rpchdl.MockNewRPCClient(t, func(contextID string, channel string, secret string) error {
 		return nil
 	})
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc")
+	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
 	if err != nil {
 		t.Errorf("TEST:Failed to create RPC client %v", err)
 	}
 	//Cleanup
 	p.KillProcess(contextID)
 	//Did we clean all resources when we exited
-	_, err = os.Stat(filepath.Join("/tmp", strconv.Itoa(refPid)+".sock"))
+	_, err = os.Stat(filepath.Join(testDirBase, strconv.Itoa(refPid)+".sock"))
 	if err == nil {
 		t.Errorf("TEST:Channel resource leaked ")
 	}
@@ -112,18 +123,18 @@ func TestLaunchProcess(t *testing.T) {
 func TestKillProcess(t *testing.T) {
 
 	contextID := "12345"
-	refPid := LaunchContainer()
+	refPid := LaunchContainer(testDirBase)
 	refNSPath := ""
 	calledRemoteCall := false
 	// paramvalidate := false
 
 	//Lets launch process
-	p := newProcessMon("/tmp/")
+	p := newProcessMon(testDirBase)
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
 
-	if err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", "/proc"); err != nil {
+	if err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase); err != nil {
 		t.Errorf("Failed to launch process  %s", err.Error())
 	}
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
