@@ -10,7 +10,6 @@ import (
 
 	"github.com/cnf/structhash"
 
-	gomock "github.com/golang/mock/gomock"
 	"github.com/aporeto-inc/trireme/cmd/remoteenforcer/mock"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
@@ -23,6 +22,7 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 	"github.com/aporeto-inc/trireme/supervisor/mock"
+	gomock "github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
