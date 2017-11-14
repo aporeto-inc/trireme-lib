@@ -357,7 +357,7 @@ func TestUpdateRules(t *testing.T) {
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 
-				if chain == app1 || chain == net1 || chain == "RedirProxy-Net" {
+				if chain == app1 || chain == net1 || chain == "RedirProxy-Net" || chain == "RedirProxy-App" {
 					return nil
 				}
 				if matchSpec(app1, rulespec) == nil || matchSpec(net1, rulespec) == nil {
