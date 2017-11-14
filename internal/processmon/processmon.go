@@ -296,8 +296,8 @@ func (p *processMon) LaunchProcess(
 		return fmt.Errorf("Refused to launch a remote enforcer in host namespace")
 	}
 
-	if _, err := os.Stat(p.netNSPath); err != nil {
-		err := os.MkdirAll(p.netNSPath, os.ModeDir)
+	if _, err = os.Stat(p.netNSPath); err != nil {
+		err = os.MkdirAll(p.netNSPath, os.ModeDir)
 		if err != nil {
 			zap.L().Warn("Could not create directory", zap.Error(err))
 		}
@@ -342,7 +342,7 @@ func (p *processMon) LaunchProcess(
 	cmd.Env = append(os.Environ(), newEnvVars...)
 	if err = cmd.Start(); err != nil {
 		// Cleanup resources
-		if oerr := os.Remove(contextFile); oerr != nil {
+		if err = os.Remove(contextFile); err != nil {
 			zap.L().Warn("Failed to clean up netns path", zap.Error(err))
 		}
 		return fmt.Errorf("Enforcer Binary could not start")
