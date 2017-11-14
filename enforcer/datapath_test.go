@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/collector/mock"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme/enforcer/utils/packetgen"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/mock"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 	gomock "github.com/golang/mock/gomock"
@@ -147,7 +147,7 @@ func MyMatcher(x interface{}) gomock.Matcher {
 	return &myMatcher{x: x}
 }
 
-func setupProcessingUnitsInDatapathAndEnforce(collectors *mock_trireme.MockEventCollector, multiFlows bool, modeType string) (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2, err3, err4 error) {
+func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEventCollector, multiFlows bool, modeType string) (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2, err3, err4 error) {
 	var mode constants.ModeType
 	if modeType == "container" {
 		mode = constants.LocalContainer
@@ -1448,7 +1448,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -1598,7 +1598,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -1745,7 +1745,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -1897,7 +1897,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -2050,7 +2050,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -2198,7 +2198,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 // 	ctrl := gomock.NewController(t)
 // 	defer ctrl.Finish()
 //
-// 	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+// 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 //
 // 	SIP := net.IPv4zero
 // 	packetDiffers := false
@@ -2313,7 +2313,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 
@@ -2522,7 +2522,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 
@@ -2819,7 +2819,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -2965,7 +2965,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -3096,7 +3096,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -3275,7 +3275,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 	}()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -3438,7 +3438,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	ipset.New("temp_set", "hash:ip", &ipset.Params{}) // nolint: errcheck
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 	packetDiffers := false
@@ -3606,7 +3606,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 
@@ -3766,7 +3766,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 
@@ -3931,7 +3931,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 
@@ -4066,7 +4066,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 	SIP := net.IPv4zero
 
@@ -4294,7 +4294,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 // 	ctrl := gomock.NewController(t)
 // 	defer ctrl.Finish()
 
-// 	mockCollector := mock_trireme.NewMockEventCollector(ctrl)
+// 	mockCollector := mockcollector.NewMockEventCollector(ctrl)
 
 // 	SIP := net.IPv4zero
 // 	//packetDiffers := false

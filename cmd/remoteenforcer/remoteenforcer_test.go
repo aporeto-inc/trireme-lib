@@ -554,7 +554,7 @@ func TestSupervise(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-		mockSup := mockinterfaces.NewMockSupervisor(ctrl)
+		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -860,7 +860,7 @@ func TestUnSupervise(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := rpcwrapper.NewRPCServer()
-		mockSup := mockinterfaces.NewMockSupervisor(ctrl)
+		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
