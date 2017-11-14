@@ -281,7 +281,7 @@ func (p *processMon) LaunchProcess(
 	if refNSPath == "" {
 		nsPath = filepath.Join(procMountPoint, strconv.Itoa(refPid), "ns/net")
 	}
-	
+
 	hoststat, err := os.Stat(filepath.Join(procMountPoint, "1/ns/net"))
 	if err != nil {
 		return err
@@ -296,17 +296,17 @@ func (p *processMon) LaunchProcess(
 		return fmt.Errorf("Refused to launch a remote enforcer in host namespace")
 	}
 
-	if _, staterr := os.Stat(p.netNSPath); staterr != nil {
-		mkerr := os.MkdirAll(p.netNSPath, os.ModeDir)
-		if mkerr != nil {
-			zap.L().Warn("Could not create directory", zap.Error(mkerr))
+	if _, err := os.Stat(p.netNSPath); err != nil {
+		err := os.MkdirAll(p.netNSPath, os.ModeDir)
+		if err != nil {
+			zap.L().Warn("Could not create directory", zap.Error(err))
 		}
 	}
 
 	// A symlink is created from /var/run/netns/<context> to the NetNSPath
 	contextFile := filepath.Join(p.netNSPath, contextID)
-	if _, err := os.Stat(contextFile); err != nil {
-		if err := os.Symlink(nsPath, contextFile); err != nil {
+	if _, err = os.Stat(contextFile); err != nil {
+		if err = os.Symlink(nsPath, contextFile); err != nil {
 			zap.L().Warn("Failed to create symlink for use by ip netns", zap.Error(err))
 		}
 	}
