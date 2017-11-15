@@ -58,3 +58,10 @@ const (
 	// DefaultConnMark is the default conn mark for all data packets
 	DefaultConnMark = uint32(0xEEEE)
 )
+
+const (
+	//DefaultProcMountPoint The default proc mountpoint
+	DefaultProcMountPoint = "/proc"
+	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
+	DefaultAporetoProcMountPoint = "/aporetoproc"
+)

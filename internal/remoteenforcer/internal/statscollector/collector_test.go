@@ -1,10 +1,10 @@
-package remoteenforcer
+package statscollector
 
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -13,14 +13,14 @@ func TestNewCollector(t *testing.T) {
 		c := NewCollector()
 		Convey("The collector should not be nil ", func() {
 			So(c, ShouldNotBeNil)
-			So(c.Flows, ShouldNotBeNil)
+			So(c.GetAllRecords(), ShouldBeNil)
 		})
 	})
 }
 
 func TestCollectFlowEvent(t *testing.T) {
 	Convey("Given a stats collector", t, func() {
-		c := &CollectorImpl{
+		c := &collectorImpl{
 			Flows: map[string]*collector.FlowRecord{},
 		}
 
