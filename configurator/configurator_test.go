@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aporeto-inc/trireme"
+	"github.com/aporeto-inc/trireme-lib"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
