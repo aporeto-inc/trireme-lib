@@ -182,7 +182,7 @@ func initTestUnSupPayload() rpcwrapper.UnSupervisePayload {
 	return initPayload
 }
 
-func TestnewServer(t *testing.T) {
+func TestNewServer(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

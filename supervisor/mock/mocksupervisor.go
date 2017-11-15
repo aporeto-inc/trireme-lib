@@ -5,9 +5,10 @@
 package mocksupervisor
 
 import (
+	reflect "reflect"
+
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
-	reflect "reflect"
 )
 
 // MockSupervisor is a mock of Supervisor interface

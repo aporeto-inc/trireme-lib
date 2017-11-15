@@ -5,8 +5,9 @@
 package mockstatsclient
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockStatsClient is a mock of StatsClient interface
