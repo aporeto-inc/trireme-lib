@@ -2,7 +2,7 @@
 
 package enforcer
 
-import "github.com/aporeto-inc/trireme/collector"
+import "github.com/aporeto-inc/trireme-lib/collector"
 
 // nfLog TODO
 type nfLog struct {

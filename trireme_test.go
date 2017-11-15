@@ -5,12 +5,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
 
 func createMocks() (TestPolicyResolver, map[constants.PUType]supervisor.Supervisor, map[constants.PUType]enforcer.PolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {

@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 //UIDMetadataExtractor -- metadata extractor for uid/gid

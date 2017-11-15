@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 
-	"github.com/aporeto-inc/trireme/internal/processmon"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/internal/processmon"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.

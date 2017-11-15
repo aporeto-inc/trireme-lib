@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 )
 

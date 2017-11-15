@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/crypto"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"go.uber.org/zap"
 
 	"github.com/dgrijalva/jwt-go"

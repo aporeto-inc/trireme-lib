@@ -5,7 +5,7 @@
 package mockstatscollector
 
 import (
-	collector "github.com/aporeto-inc/trireme/collector"
+	collector "github.com/aporeto-inc/trireme-lib/collector"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )

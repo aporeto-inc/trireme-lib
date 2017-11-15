@@ -9,7 +9,7 @@ import (
 	"time"
 
 	nfqueue "github.com/aporeto-inc/netlink-go/nfqueue"
-	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"go.uber.org/zap"
 )
 

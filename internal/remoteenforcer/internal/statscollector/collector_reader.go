@@ -1,6 +1,6 @@
 package statscollector
 
-import "github.com/aporeto-inc/trireme/collector"
+import "github.com/aporeto-inc/trireme-lib/collector"
 
 // Count returns the current number of flows.
 func (c *collectorImpl) Count() int {

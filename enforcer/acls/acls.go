@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // PortAction captures the minimum and maximum ports for an action

@@ -10,22 +10,22 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/cnimonitor"
-	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/cnimonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 
-	"github.com/aporeto-inc/trireme/enforcer/proxy"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/aporeto-inc/trireme/supervisor/proxy"
+	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/supervisor"
+	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
 
 // TriremeOptions defines all the possible configuration options for Trireme configurator

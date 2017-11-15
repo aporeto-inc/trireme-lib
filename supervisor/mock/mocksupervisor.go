@@ -5,7 +5,7 @@
 package mocksupervisor
 
 import (
-	policy "github.com/aporeto-inc/trireme/policy"
+	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
 )

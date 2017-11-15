@@ -3,10 +3,10 @@ package rpcwrapper
 import (
 	"time"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // CaptureType identifies the type of iptables implementation that should be used

@@ -1,6 +1,6 @@
 package monitor
 
-import "github.com/aporeto-inc/trireme/policy"
+import "github.com/aporeto-inc/trireme-lib/policy"
 
 // A Monitor is the interface to implement low level monitoring functions on some well defined primitive.
 type Monitor interface {

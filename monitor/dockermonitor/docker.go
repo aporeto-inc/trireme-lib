@@ -12,16 +12,16 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/dchest/siphash"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 
 	dockerClient "github.com/docker/docker/client"
 )

@@ -23,15 +23,15 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer"
-	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statsclient"
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statscollector"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	_ "github.com/aporeto-inc/trireme-lib/enforcer/utils/nsenter" // nolint
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statscollector"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
 
 var cmdLock sync.Mutex

@@ -3,9 +3,9 @@
 package remoteenforcer
 
 import (
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statsclient"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
 )
 
 // newServer is a fake implementation for building on darwin.

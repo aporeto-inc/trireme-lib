@@ -11,16 +11,16 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/crypto"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/internal/processmon"
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/processmon"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 type pkiCertifier interface {

@@ -10,14 +10,14 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/netlink-go/conntrack"
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/acls"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.

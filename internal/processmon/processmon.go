@@ -14,11 +14,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/crypto"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 	"github.com/kardianos/osext"
 )
 

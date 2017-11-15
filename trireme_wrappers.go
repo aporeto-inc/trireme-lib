@@ -1,9 +1,9 @@
 package trireme
 
 import (
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/internal/processmon"
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/internal/processmon"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 )
 
 // SetupCommandArgs sets up arguments to be passed to the remote trireme instances.
