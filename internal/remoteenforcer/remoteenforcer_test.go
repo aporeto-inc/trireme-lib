@@ -525,7 +525,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			})
 
 			Convey("When I try to exit the enforcer with no enforcer and supervisor", func() {
-				server.statsclient = nil
+				server.statsClient = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
 
 				Convey("Then I should get no error", func() {
@@ -534,7 +534,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			})
 
 			Convey("When I try to exit the enforcer with supervisor", func() {
-				server.statsclient = nil
+				server.statsClient = nil
 				c := &collector.DefaultCollector{}
 				secrets := secrets.NewPSKSecrets([]byte("test password"))
 				e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")

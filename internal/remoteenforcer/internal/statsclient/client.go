@@ -3,14 +3,13 @@ package statsclient
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statscollector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statscollector"
 )
 
 const (
@@ -33,30 +32,24 @@ type statsClient struct {
 // NewStatsClient initializes a new stats client
 func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 
-	statsChannel := os.Getenv(constants.AporetoEnvStatsChannel)
-	if statsChannel == "" {
+	sc := &statsClient{
+		collector:     cr,
+		rpchdl:        rpcwrapper.NewRPCWrapper(),
+		secret:        os.Getenv(constants.AporetoEnvStatsSecret),
+		statsChannel:  os.Getenv(constants.AporetoEnvStatsChannel),
+		statsInterval: defaultStatsIntervalMiliseconds * time.Millisecond,
+		stop:          make(chan bool),
+	}
+
+	if sc.statsChannel == "" {
 		return nil, fmt.Errorf("No path to stats socket provided")
 	}
 
-	secret := os.Getenv(constants.AporetoEnvStatsSecret)
-	if secret == "" {
+	if sc.secret == "" {
 		return nil, fmt.Errorf("No secret provided for stats channel")
 	}
 
-	statsInterval := defaultStatsIntervalMiliseconds * time.Millisecond
-	envstatsInterval, err := strconv.Atoi(os.Getenv("STATS_INTERVAL"))
-	if err == nil && envstatsInterval != 0 {
-		statsInterval = time.Duration(envstatsInterval) * time.Second
-	}
-
-	return &statsClient{
-		collector:     cr,
-		rpchdl:        rpcwrapper.NewRPCWrapper(),
-		secret:        secret,
-		statsChannel:  statsChannel,
-		statsInterval: statsInterval,
-		stop:          make(chan bool),
-	}, nil
+	return sc, nil
 }
 
 // sendStats  async function which makes a rpc call to send stats every STATS_INTERVAL

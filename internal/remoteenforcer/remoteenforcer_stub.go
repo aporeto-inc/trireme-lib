@@ -32,23 +32,23 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 	return nil
 }
 
-//Supervise This method calls the supervisor method on the supervisor created during initsupervisor
+// Supervise This method calls the supervisor method on the supervisor created during initsupervisor
 func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	return nil
 
 }
 
-//Unenforce this method calls the unenforce method on the enforcer created from initenforcer
+// Unenforce this method calls the unenforce method on the enforcer created from initenforcer
 func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	return nil
 }
 
-//Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
+// Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
 func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	return nil
 }
 
-//Enforce this method calls the enforce method on the enforcer created during initenforcer
+// Enforce this method calls the enforce method on the enforcer created during initenforcer
 func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 	return nil
 }
