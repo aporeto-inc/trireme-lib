@@ -295,8 +295,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 			return err
 		}
 		// delete uid entires in the map
-		err = i.UIDToPortSet.Remove(u.Uid)
-		if err != nil {
+		if err = i.UIDToPortSet.Remove(u.Uid); err != nil {
 			return err
 		}
 		delete(i.UIDSet, u.Uid)
@@ -428,7 +427,7 @@ func (i *Instance) Start() error {
 
 	zap.L().Debug("Start go routine to update portsets")
 
-	// "initialize a task to update portsets periodically"
+	// Spawn a task to update portsets periodically.
 	go InitPortSetTask(i)
 
 	zap.L().Debug("Started the iptables controller")

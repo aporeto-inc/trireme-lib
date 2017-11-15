@@ -933,7 +933,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 	if err != nil {
 		context, err = d.contextFromMark(p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
 		if err != nil {
-			return nil, nil, nil
+			return nil, nil, err
 		}
 	}
 

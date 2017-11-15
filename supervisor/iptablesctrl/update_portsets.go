@@ -35,7 +35,9 @@ func getUIDPortMappings(i *Instance, uid string) (interface{}, error) {
 	return i.UIDToPorts.Get(uid)
 }
 
-// InitPortSetTask This go routine is called on supervisor start
+// InitPortSetTask This go routine periodically scans (500 ms)
+// /proc/net/tcp file for listening ports and programs
+// the portsets.
 func InitPortSetTask(i *Instance) {
 	t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
 	for range t.C {

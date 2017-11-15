@@ -698,17 +698,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
-	/*
-		err := i.ipt.Insert(
-			i.appAckPacketIPTableContext,
-			appChain, 1,
-			"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-			"-j", "ACCEPT")
 
-		if err != nil {
-			return fmt.Errorf("Failed to add default allow for marked packets at app ")
-		}
-	*/
 	err := i.ipt.Insert(
 		i.appAckPacketIPTableContext,
 		appChain, 1,
