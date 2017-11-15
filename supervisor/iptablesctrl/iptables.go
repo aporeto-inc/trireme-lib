@@ -468,12 +468,13 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		}
 	}
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyInputChain))
+		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyInputChain))
 	}
-
+	zap.L().Error("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
+		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	}
+	zap.L().Error("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyOutputChain); err != nil {
 		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
 	}
