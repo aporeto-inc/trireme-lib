@@ -12,6 +12,8 @@ import (
 // RemoteEnforcer : This is the structure for maintaining state required by the remote enforcer.
 // It is cache of variables passed by th controller to the remote enforcer and other handles
 // required by the remote enforcer to talk to the external processes
+//
+// Why is this public when all members are private ? For golang RPC server requirements
 type RemoteEnforcer struct {
 	rpcSecret      string
 	rpcchannel     string
@@ -19,8 +21,8 @@ type RemoteEnforcer struct {
 	collector      statscollector.Collector
 	statsclient    statsclient.StatsClient
 	procMountPoint string
-	Enforcer       enforcer.PolicyEnforcer
-	Supervisor     supervisor.Supervisor
-	Service        enforcer.PacketProcessor
+	enforcer       enforcer.PolicyEnforcer
+	supervisor     supervisor.Supervisor
+	service        enforcer.PacketProcessor
 	secrets        secrets.Secrets
 }

@@ -132,10 +132,10 @@ func testEnforcerMap(sec, config string, pucon constants.PUType, puenfmode const
 
 func testEnforcer(sec string, puenfmode constants.ModeType) enforcer.PolicyEnforcer {
 	if sec == "psk" {
-		newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen(nil, nil, nil), puenfmode, DefaultProcMountPoint)
+		newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen(nil, nil, nil), puenfmode, constants.DefaultProcMountPoint)
 		return newEnf
 	}
-	newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen([]byte(keyPEM), []byte(certPEM), []byte(caPool)), puenfmode, DefaultProcMountPoint)
+	newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen([]byte(keyPEM), []byte(certPEM), []byte(caPool)), puenfmode, constants.DefaultProcMountPoint)
 	return newEnf
 }
 
@@ -193,7 +193,7 @@ func testSupervisorProxy(sec string, puconmode constants.ModeType) (*supervisorp
 }
 
 func testEnforcerProxy() enforcer.PolicyEnforcer {
-	newEnf := enforcerproxy.NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpcwrapper.NewRPCWrapper(), DefaultProcMountPoint)
+	newEnf := enforcerproxy.NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpcwrapper.NewRPCWrapper(), constants.DefaultProcMountPoint)
 	return newEnf
 }
 

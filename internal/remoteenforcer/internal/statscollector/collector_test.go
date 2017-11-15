@@ -13,7 +13,7 @@ func TestNewCollector(t *testing.T) {
 		c := NewCollector()
 		Convey("The collector should not be nil ", func() {
 			So(c, ShouldNotBeNil)
-			So(c.GetAllRecords(), ShouldNotBeNil)
+			So(c.GetAllRecords(), ShouldBeNil)
 		})
 	})
 }

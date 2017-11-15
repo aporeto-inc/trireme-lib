@@ -6,7 +6,7 @@ import (
 	"github.com/aporeto-inc/trireme/internal/remoteenforcer"
 )
 
-// SetupCommandArgs sets up arguments to be passed to the remote trireme instances
+// SetupCommandArgs sets up arguments to be passed to the remote trireme instances.
 func SetupCommandArgs(logToConsole bool, subProcessArgs []string) {
 
 	h := processmon.GetProcessManagerHdl()
@@ -16,7 +16,7 @@ func SetupCommandArgs(logToConsole bool, subProcessArgs []string) {
 	h.SetupLogAndProcessArgs(logToConsole, subProcessArgs)
 }
 
-// LaunchRemoteEnforcer launches a remote enforcer
+// LaunchRemoteEnforcer launches a remote enforcer instance.
 func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 
 	return remoteenforcer.LaunchRemoteEnforcer(service)
