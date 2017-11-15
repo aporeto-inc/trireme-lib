@@ -1,10 +1,10 @@
 package enforcer
 
 import (
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer/lookup"
-	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/enforcer/lookup"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 func (d *Datapath) reportProxiedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme-lib/constants"
 )
 
 // PURuntime holds all data related to the status of the container run time

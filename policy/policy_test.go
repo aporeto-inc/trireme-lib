@@ -3,7 +3,7 @@ package policy
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme-lib/constants"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

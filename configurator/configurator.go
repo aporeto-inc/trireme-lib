@@ -9,30 +9,23 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/cnimonitor"
-	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/cnimonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 
-	"github.com/aporeto-inc/trireme/enforcer/proxy"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/supervisor"
-	"github.com/aporeto-inc/trireme/supervisor/proxy"
-)
-
-const (
-	//DefaultProcMountPoint The default proc mountpoint
-	DefaultProcMountPoint = "/proc"
-	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
-	DefaultAporetoProcMountPoint = "/aporetoproc"
+	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/supervisor"
+	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
 
 // TriremeOptions defines all the possible configuration options for Trireme configurator
@@ -114,8 +107,8 @@ func DefaultTriremeOptions() *TriremeOptions {
 		ModeType: constants.RemoteContainer,
 		ImplType: constants.IPTables,
 
-		ProcMountPoint:        DefaultProcMountPoint,
-		AporetoProcMountPoint: DefaultAporetoProcMountPoint,
+		ProcMountPoint:        constants.DefaultProcMountPoint,
+		AporetoProcMountPoint: constants.DefaultAporetoProcMountPoint,
 
 		RemoteArg: constants.DefaultRemoteArg,
 
@@ -541,7 +534,7 @@ func NewTriremeLinuxProcess(
 			nil,
 			secrets,
 			constants.LocalServer,
-			DefaultProcMountPoint,
+			constants.DefaultProcMountPoint,
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -581,7 +574,7 @@ func NewLocalTriremeDocker(
 			nil,
 			secrets,
 			constants.LocalContainer,
-			DefaultProcMountPoint,
+			constants.DefaultProcMountPoint,
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -622,7 +615,7 @@ func NewDistributedTriremeDocker(serverID string,
 			eventCollector,
 			secrets,
 			rpcwrapper,
-			DefaultProcMountPoint,
+			constants.DefaultProcMountPoint,
 		),
 	}
 
@@ -658,7 +651,7 @@ func NewHybridTrireme(
 		eventCollector,
 		secrets,
 		rpcwrapper,
-		DefaultProcMountPoint,
+		constants.DefaultProcMountPoint,
 	)
 
 	containerSupervisor, cerr := supervisorproxy.NewProxySupervisor(
@@ -675,7 +668,7 @@ func NewHybridTrireme(
 		processor,
 		secrets,
 		constants.LocalServer,
-		DefaultProcMountPoint,
+		constants.DefaultProcMountPoint,
 	)
 
 	processSupervisor, perr := supervisor.NewSupervisor(

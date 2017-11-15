@@ -5,7 +5,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme-lib/constants"
 )
 
 func TestNewPURunTime(t *testing.T) {

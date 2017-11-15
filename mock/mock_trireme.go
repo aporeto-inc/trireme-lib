@@ -5,8 +5,8 @@
 package mock_trireme
 
 import (
-	"github.com/aporeto-inc/trireme/monitor"
-	policy "github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )
 
