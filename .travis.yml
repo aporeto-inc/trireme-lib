@@ -26,6 +26,7 @@ before_install:
 
 install:
   - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd -
+  - mkdir -p $GOPATH/src/github.com/aporeto-inc/trireme && cp -rf * $GOPATH/src/github.com/aporeto-inc/trireme
   - go get -t -v ./...
 
 
