@@ -805,13 +805,14 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
-
-	err = i.ipt.Insert(
-		i.appAckPacketIPTableContext,
-		i.appPacketIPTableSection, 1,
-		"-j", uidchain)
-	if err != nil {
-		return fmt.Errorf("Failed to add UID chain  %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	if i.mode == constants.LocalServer {
+		err = i.ipt.Insert(
+			i.appAckPacketIPTableContext,
+			i.appPacketIPTableSection, 1,
+			"-j", uidchain)
+		if err != nil {
+			return fmt.Errorf("Failed to add UID chain  %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+		}
 	}
 
 	err = i.ipt.Insert(
@@ -971,12 +972,14 @@ func (i *Instance) CleanAllSynAckPacketCaptures() error {
 	if err := i.ipt.ClearChain(i.netPacketIPTableContext, i.netPacketIPTableSection); err != nil {
 		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
-	//We installed UID CHAINS with synack lets remove it here
-	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, uidchain); err != nil {
-		zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
-	}
-	if err := i.ipt.DeleteChain(i.appAckPacketIPTableContext, uidchain); err != nil {
-		zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
+	if i.mode == constants.LocalServer {
+		//We installed UID CHAINS with synack lets remove it here
+		if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
+		}
+		if err := i.ipt.DeleteChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
+		}
 	}
 	return nil
 }

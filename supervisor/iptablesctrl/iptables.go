@@ -480,10 +480,11 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyInputChain); err != nil {
 		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyInputChain))
 	}
-	if err := i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
-		zap.L().Error("Unable to Insert", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+	if i.mode == constants.LocalServer {
+		if err := i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
+			zap.L().Error("Unable to Insert", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+		}
 	}
-
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("Failed to update synack networks")
