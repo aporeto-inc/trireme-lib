@@ -22,5 +22,4 @@ mockgen -source internal/remoteenforcer/internal/statscollector/interfaces.go -a
 echo "Collector Mocks"
 mockgen -source collector/interfaces.go -destination collector/mock/mockcollector.go -package mockcollector -source_package github.com/aporeto-inc/trireme-lib/collector
 
-go get github.com/golang/mock/mockgen
 echo >&2 "OK"
