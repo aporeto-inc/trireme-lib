@@ -1,6 +1,6 @@
 package processmon
 
-import "github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+import "github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 
 // ProcessManager interface exposes methods implemented by a processmon
 type ProcessManager interface {

@@ -14,10 +14,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/crypto"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 	"github.com/kardianos/osext"
 )
 
@@ -153,7 +154,7 @@ func (p *processMon) KillProcess(contextID string) {
 
 	c := make(chan error, 1)
 	go func() {
-		c <- procInfo.RPCHdl.RemoteCall(contextID, "Server.EnforcerExit", req, resp)
+		c <- procInfo.RPCHdl.RemoteCall(contextID, remoteenforcer.EnforcerExit, req, resp)
 	}()
 
 	select {
