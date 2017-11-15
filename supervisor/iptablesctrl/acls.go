@@ -1014,12 +1014,14 @@ func (i *Instance) removeMarkRule() error {
 }
 
 func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) error {
+
+	zap.L().Error("Called remove ProxyRules")
 	err := i.ipt.Delete(natproxyTableContext,
 		inputProxySection,
 		"-j", natProxyInputChain,
 	)
 	if err != nil {
-		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain))
+		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 
 	err = i.ipt.Delete(natproxyTableContext,
@@ -1027,7 +1029,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 		"-j", natProxyOutputChain,
 	)
 	if err != nil {
-		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain))
+		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
 	}
 
 	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
@@ -1083,6 +1085,9 @@ func (i *Instance) cleanACLs() error {
 	if i.mode == constants.LocalContainer {
 		i.cleanACLSection(i.appPacketIPTableContext, i.appPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 	}
+
+	// Clean Application Rules/Chains
+	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
 	//Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
 	if err := i.removeProxyRules(i.appProxyIPTableContext,
 		i.appAckPacketIPTableContext,
@@ -1094,9 +1099,6 @@ func (i *Instance) cleanACLs() error {
 		proxyOutputChain); err != nil {
 		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
 	}
-	// Clean Application Rules/Chains
-	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
-
 	return nil
 }
 

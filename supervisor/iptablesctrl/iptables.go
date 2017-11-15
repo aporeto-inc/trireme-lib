@@ -461,14 +461,16 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.createTargetSet(networks); err != nil {
 		return err
 	}
-
-	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain); err != nil {
-		zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
-		return err
+	if i.mode == constants.LocalServer {
+		if err := i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain); err != nil {
+			zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+			return err
+		}
 	}
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
 		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyInputChain))
 	}
+
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain); err != nil {
 		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	}
