@@ -10,7 +10,6 @@ import (
 
 	"github.com/cnf/structhash"
 
-	"github.com/aporeto-inc/trireme/cmd/remoteenforcer/mock"
 	"github.com/aporeto-inc/trireme/collector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
@@ -182,7 +181,7 @@ func initTestUnSupPayload() rpcwrapper.UnSupervisePayload {
 	return initPayload
 }
 
-func TestNewServer(t *testing.T) {
+func TestnewServer(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -199,7 +198,7 @@ func TestNewServer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -215,7 +214,7 @@ func TestNewServer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -251,7 +250,7 @@ func TestInitEnforcer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, mockStats)
+			server, err := newServer(service, rpcHdl, pcchan, secret, mockStats)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -284,7 +283,7 @@ func TestInitEnforcer(t *testing.T) {
 			Convey("When I try to initiate an enforcer", func() {
 				rpcHdl.EXPECT().CheckValidity(gomock.Any(), os.Getenv(constants.AporetoEnvStatsSecret)).Times(1).Return(true)
 				mockEnf.EXPECT().Start().Times(1).Return(nil)
-				mockStats.EXPECT().ConnectStatsClient().Times(1).Return(nil)
+				mockStats.EXPECT().Start().Times(1).Return(nil)
 				var rpcwrperreq rpcwrapper.Request
 				var rpcwrperres rpcwrapper.Response
 
@@ -332,7 +331,7 @@ func TestInitSupervisor(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -480,7 +479,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -496,7 +495,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -564,7 +563,7 @@ func TestSupervise(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -580,7 +579,7 @@ func TestSupervise(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -657,7 +656,7 @@ func TestEnforce(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -673,7 +672,7 @@ func TestEnforce(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -776,7 +775,7 @@ func TestUnEnforce(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -792,7 +791,7 @@ func TestUnEnforce(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)
@@ -870,7 +869,7 @@ func TestUnSupervise(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
@@ -886,7 +885,7 @@ func TestUnSupervise(t *testing.T) {
 			var service enforcer.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
-			server, err := NewServer(service, rpcHdl, pcchan, secret, nil)
+			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
 
 			Convey("Then I should get no error", func() {
 				So(server, ShouldNotBeNil)

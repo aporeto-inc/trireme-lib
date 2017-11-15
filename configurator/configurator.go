@@ -28,13 +28,6 @@ import (
 	"github.com/aporeto-inc/trireme/supervisor/proxy"
 )
 
-const (
-	//DefaultProcMountPoint The default proc mountpoint
-	DefaultProcMountPoint = "/proc"
-	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
-	DefaultAporetoProcMountPoint = "/aporetoproc"
-)
-
 // TriremeOptions defines all the possible configuration options for Trireme configurator
 type TriremeOptions struct {
 	ServerID string
@@ -114,8 +107,8 @@ func DefaultTriremeOptions() *TriremeOptions {
 		ModeType: constants.RemoteContainer,
 		ImplType: constants.IPTables,
 
-		ProcMountPoint:        DefaultProcMountPoint,
-		AporetoProcMountPoint: DefaultAporetoProcMountPoint,
+		ProcMountPoint:        constants.DefaultProcMountPoint,
+		AporetoProcMountPoint: constants.DefaultAporetoProcMountPoint,
 
 		RemoteArg: constants.DefaultRemoteArg,
 
@@ -541,7 +534,7 @@ func NewTriremeLinuxProcess(
 			nil,
 			secrets,
 			constants.LocalServer,
-			DefaultProcMountPoint,
+			constants.DefaultProcMountPoint,
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -581,7 +574,7 @@ func NewLocalTriremeDocker(
 			nil,
 			secrets,
 			constants.LocalContainer,
-			DefaultProcMountPoint,
+			constants.DefaultProcMountPoint,
 		)}
 
 	s, err := supervisor.NewSupervisor(
@@ -622,7 +615,7 @@ func NewDistributedTriremeDocker(serverID string,
 			eventCollector,
 			secrets,
 			rpcwrapper,
-			DefaultProcMountPoint,
+			constants.DefaultProcMountPoint,
 		),
 	}
 
@@ -658,7 +651,7 @@ func NewHybridTrireme(
 		eventCollector,
 		secrets,
 		rpcwrapper,
-		DefaultProcMountPoint,
+		constants.DefaultProcMountPoint,
 	)
 
 	containerSupervisor, cerr := supervisorproxy.NewProxySupervisor(
@@ -675,7 +668,7 @@ func NewHybridTrireme(
 		processor,
 		secrets,
 		constants.LocalServer,
-		DefaultProcMountPoint,
+		constants.DefaultProcMountPoint,
 	)
 
 	processSupervisor, perr := supervisor.NewSupervisor(

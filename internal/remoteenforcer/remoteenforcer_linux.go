@@ -24,24 +24,26 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/configurator"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer"
 	_ "github.com/aporeto-inc/trireme/enforcer/utils/nsenter" // nolint
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statsclient"
+	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statscollector"
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 )
 
 var cmdLock sync.Mutex
 
-// NewServer starts a new server
-func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, stats Stats) (s *Server, err error) {
+// newServer starts a new server
+func newServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rpcchan string, secret string, statsClient statsclient.StatsClient) (s RemoteIntf, err error) {
 
-	retstats := stats
-	if stats == nil {
-		retstats, err = NewStatsClient()
+	retstats := statsClient
+	collector := statscollector.NewCollector()
+	if statsClient == nil {
+		retstats, err = statsclient.NewStatsClient(collector)
 		if err != nil {
 			return nil, err
 		}
@@ -49,10 +51,11 @@ func NewServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, rp
 
 	procMountPoint := os.Getenv(constants.AporetoEnvMountPoint)
 	if procMountPoint == "" {
-		procMountPoint = configurator.DefaultProcMountPoint
+		procMountPoint = constants.DefaultProcMountPoint
 	}
 
-	return &Server{
+	return &RemoteEnforcer{
+		collector:      collector,
 		Service:        service,
 		rpcchannel:     rpcchan,
 		rpcSecret:      secret,
@@ -72,9 +75,9 @@ func getCEnvVariable(name string) string {
 	return C.GoString(val)
 }
 
-// InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
-// remote enforcer
-func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// InitEnforcer is a function called from the controller using RPC. It intializes
+// data structure required by the remote enforcer
+func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	//Check if successfully switched namespace
 	nsEnterState := getCEnvVariable(constants.AporetoEnvNsenterErrorState)
@@ -136,7 +139,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			s.Enforcer = enforcer.New(
 				payload.MutualAuth,
 				payload.FqConfig,
-				s.statsclient.(*StatsClient).collector,
+				s.collector,
 				s.Service,
 				s.secrets,
 				payload.ServerID,
@@ -151,7 +154,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			s.Enforcer = enforcer.New(
 				payload.MutualAuth,
 				payload.FqConfig,
-				s.statsclient.(*StatsClient).collector,
+				s.collector,
 				s.Service,
 				s.secrets,
 				payload.ServerID,
@@ -169,7 +172,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			s.Enforcer = enforcer.New(
 				payload.MutualAuth,
 				payload.FqConfig,
-				s.statsclient.(*StatsClient).collector,
+				s.collector,
 				s.Service,
 				s.secrets,
 				payload.ServerID,
@@ -188,7 +191,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 			s.Enforcer = enforcer.New(
 				payload.MutualAuth,
 				payload.FqConfig,
-				s.statsclient.(*StatsClient).collector,
+				s.collector,
 				s.Service,
 				s.secrets,
 				payload.ServerID,
@@ -204,7 +207,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 		return err
 	}
 
-	if err := s.statsclient.ConnectStatsClient(); err != nil {
+	if err := s.statsclient.Start(); err != nil {
 		return err
 	}
 
@@ -214,7 +217,7 @@ func (s *Server) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response)
 }
 
 // InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
-func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Supervisor Init Message Auth Failed")
@@ -232,7 +235,7 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 			return fmt.Errorf("IPSets not supported yet")
 		default:
 			supervisorHandle, err := supervisor.NewSupervisor(
-				s.statsclient.(*StatsClient).collector,
+				s.collector,
 				s.Enforcer,
 				constants.RemoteContainer,
 				constants.IPTables,
@@ -264,8 +267,8 @@ func (s *Server) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Respons
 	return nil
 }
 
-//Supervise This method calls the supervisor method on the supervisor created during initsupervisor
-func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// Supervise This method calls the supervisor method on the supervisor created during initsupervisor
+func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Supervise Message Auth Failed")
@@ -311,8 +314,8 @@ func (s *Server) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 
 }
 
-//Unenforce this method calls the unenforce method on the enforcer created from initenforcer
-func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// Unenforce this method calls the unenforce method on the enforcer created from initenforcer
+func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Unenforce Message Auth Failed")
@@ -326,8 +329,8 @@ func (s *Server) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) er
 	return s.Enforcer.Unenforce(payload.ContextID)
 }
 
-//Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
-func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
+func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Unsupervise Message Auth Failed")
@@ -341,8 +344,8 @@ func (s *Server) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) 
 	return s.Supervisor.Unsupervise(payload.ContextID)
 }
 
-//Enforce this method calls the enforce method on the enforcer created during initenforcer
-func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+// Enforce this method calls the enforce method on the enforcer created during initenforcer
+func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpchdl.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = ("Enforce Message Auth Failed")
@@ -388,14 +391,14 @@ func (s *Server) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) erro
 
 // EnforcerExit this method is called when  we received a killrpocess message from the controller
 // This allows a graceful exit of the enforcer
-func (s *Server) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
 	msgErrors := ""
 
-	//Cleanup resources held in this namespace
+	// Cleanup resources held in this namespace
 	if s.Supervisor != nil {
 		if err := s.Supervisor.Stop(); err != nil {
 			msgErrors = msgErrors + "SuperVisor Error:" + err.Error() + "-"
@@ -438,7 +441,7 @@ func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
 	}
 
 	rpchdl := rpcwrapper.NewRPCServer()
-	server, err := NewServer(service, rpchdl, namedPipe, secret, nil)
+	server, err := newServer(service, rpchdl, namedPipe, secret, nil)
 	if err != nil {
 		return err
 	}

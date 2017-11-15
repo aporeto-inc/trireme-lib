@@ -1,4 +1,4 @@
-package remoteenforcer
+package statsclient
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/collector"
+	"github.com/aporeto-inc/trireme/internal/remoteenforcer/internal/statscollector"
 	"github.com/aporeto-inc/trireme/constants"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 )
@@ -19,10 +19,10 @@ const (
 	statsRPCCommand                 = "StatsServer.GetStats"
 )
 
-//StatsClient  This is the struct for storing state for the rpc client
-//which reports flow stats back to the controller process
-type StatsClient struct {
-	collector     *CollectorImpl
+// statsClient  This is the struct for storing state for the rpc client
+// which reports flow stats back to the controller process
+type statsClient struct {
+	collector     statscollector.Collector
 	rpchdl        *rpcwrapper.RPCWrapper
 	secret        string
 	statsChannel  string
@@ -31,7 +31,7 @@ type StatsClient struct {
 }
 
 // NewStatsClient initializes a new stats client
-func NewStatsClient() (Stats, error) {
+func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 
 	statsChannel := os.Getenv(constants.AporetoEnvStatsChannel)
 	if statsChannel == "" {
@@ -49,8 +49,8 @@ func NewStatsClient() (Stats, error) {
 		statsInterval = time.Duration(envstatsInterval) * time.Second
 	}
 
-	return &StatsClient{
-		collector:     NewCollector(),
+	return &statsClient{
+		collector:     cr,
 		rpchdl:        rpcwrapper.NewRPCWrapper(),
 		secret:        secret,
 		statsChannel:  statsChannel,
@@ -59,8 +59,8 @@ func NewStatsClient() (Stats, error) {
 	}, nil
 }
 
-//SendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
-func (s *StatsClient) SendStats() {
+// sendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
+func (s *statsClient) sendStats() {
 
 	ticker := time.NewTicker(s.statsInterval)
 	// nolint : gosimple
@@ -68,15 +68,10 @@ func (s *StatsClient) SendStats() {
 		select {
 		case <-ticker.C:
 
-			s.collector.Lock()
-			if len(s.collector.Flows) == 0 {
-				s.collector.Unlock()
+			if s.collector.Count() == 0 {
 				break
 			}
-			collected := s.collector.Flows
-			s.collector.Flows = map[string]*collector.FlowRecord{}
-			s.collector.Unlock()
-
+			collected := s.collector.GetAllRecords()
 			if len(collected) == 0 {
 				continue
 			}
@@ -107,22 +102,22 @@ func (s *StatsClient) SendStats() {
 
 }
 
-// ConnectStatsClient  This is an private function called by the remoteenforcer to connect back
+// Start This is an private function called by the remoteenforcer to connect back
 // to the controller over a stats channel
-func (s *StatsClient) ConnectStatsClient() error {
+func (s *statsClient) Start() error {
 
 	if err := s.rpchdl.NewRPCClient(statsContextID, s.statsChannel, s.secret); err != nil {
 		zap.L().Error("Stats RPC client cannot connect", zap.Error(err))
 		return err
 	}
 
-	go s.SendStats()
+	go s.sendStats()
 
 	return nil
 }
 
 // Stop stops the stats client at clean up
-func (s *StatsClient) Stop() {
+func (s *statsClient) Stop() {
 
 	s.stop <- true
 

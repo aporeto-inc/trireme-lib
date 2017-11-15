@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme/internal/remoteenforcer"
 
 	"github.com/aporeto-inc/trireme/internal/processmon"
 	"github.com/aporeto-inc/trireme/policy"
@@ -61,7 +62,7 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 		},
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, &rpcwrapper.Response{}); err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Supervise, req, &rpcwrapper.Response{}); err != nil {
 		s.Lock()
 		delete(s.initDone, contextID)
 		s.Unlock()
@@ -96,7 +97,7 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 				},
 			}
 
-			if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
+			if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
 				return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 			}
 		}
@@ -154,7 +155,7 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 		},
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
 		return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 	}
 

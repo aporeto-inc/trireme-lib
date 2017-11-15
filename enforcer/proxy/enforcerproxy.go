@@ -19,6 +19,7 @@ import (
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme/internal/processmon"
+	"github.com/aporeto-inc/trireme/internal/remoteenforcer"
 	"github.com/aporeto-inc/trireme/policy"
 )
 
@@ -88,7 +89,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
 		return fmt.Errorf("Failed to initialize remote enforcer: status %s, error: %s", resp.Status, err.Error())
 	}
 
@@ -138,7 +139,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		},
 	}
 
-	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
+	err = s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{})
 	if err != nil {
 		// We can't talk to the enforcer. Kill it and restart it
 		s.Lock()
