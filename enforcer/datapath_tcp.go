@@ -928,22 +928,13 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
 	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
-
+	// if PU context could be not obtained from the IP for the Syn packet,
+	// try to fetch it from packet Mark
 	if err != nil {
-		//This needs to hit only for local processes never for containers
-		//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
-		if d.mode != constants.RemoteContainer {
-
-			context = &PUContext{
-				PUType: constants.TransientPU,
-			}
-			//we will create the bare minimum needed to exercise our stack
-			//We need this syn to look similar to what we will pass on the retry
-			//so we setup enought for us to identify this request in the later stages
-			return context, nil, nil
+		context, err = d.contextFromMark(p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
+		if err != nil {
+			return nil, nil, nil
 		}
-
-		return nil, nil, fmt.Errorf("No Context in net Processing")
 	}
 
 	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
@@ -1020,6 +1011,17 @@ func updateTimer(c cache.DataStore, hash string, conn *TCPConnection) error {
 		return c.SetTimeOut(hash, conn.TimeOut)
 	}
 	return nil
+}
+
+func (d *Datapath) contextFromMark(packetIP string, mark string, port string) (*PUContext, error) {
+	pu, err := d.puFromMark.Get(mark)
+	if err != nil {
+		return nil, fmt.Errorf("PU context cannot be found using mark %v ", mark)
+	}
+	// Update the puFromPort cache
+	d.puFromPort.AddOrUpdate(port, pu)
+
+	return pu.(*PUContext), nil
 }
 
 // contextFromIP returns the PU context from the default IP if remote. Otherwise

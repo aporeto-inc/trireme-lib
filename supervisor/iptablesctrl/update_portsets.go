@@ -23,6 +23,8 @@ const (
 	ipPortOffset                      = 1
 	sockStateOffset                   = 3
 	sockListeningState                = "0A"
+	hexFormat                         = 16
+	integerSize                       = 64
 )
 
 func getUIDPortSetMappings(i *Instance, uid string) (interface{}, error) {
@@ -49,7 +51,6 @@ func updatePortSets(i *Instance) {
 		//log.Fatal(err)
 		return
 	}
-	localCache := cache.NewCache("localCache")
 	defer func() {
 		err := file.Close()
 		if err != nil {
@@ -57,6 +58,7 @@ func updatePortSets(i *Instance) {
 		}
 	}()
 
+	localCache := cache.NewCache("localCache")
 	scanner := bufio.NewScanner(file)
 	lineCnt := 0
 	for scanner.Scan() {
@@ -69,7 +71,7 @@ func updatePortSets(i *Instance) {
 		uid := line[uidFieldOffset]
 		portStr := strings.Split(line[ipPortOffset], ":")[portOffset]
 
-		portNum, err := strconv.ParseInt(portStr, 16, 64)
+		portNum, err := strconv.ParseInt(portStr, hexFormat, integerSize)
 		if err != nil {
 			zap.L().Warn("Failed to convert port to Int", zap.Error(err))
 			return
