@@ -1,8 +1,6 @@
 package remoteenforcer
 
 import (
-	"sync"
-
 	"github.com/aporeto-inc/trireme/enforcer"
 	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
@@ -18,7 +16,6 @@ import (
 //
 // Why is this public when all members are private ? For golang RPC server requirements
 type RemoteEnforcer struct {
-	sync.Mutex
 	rpcSecret      string
 	rpcChannel     string
 	rpcHandle      rpcwrapper.RPCServer

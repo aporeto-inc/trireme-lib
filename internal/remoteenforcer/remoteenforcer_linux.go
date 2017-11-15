@@ -16,6 +16,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -32,6 +33,8 @@ import (
 	"github.com/aporeto-inc/trireme/policy"
 	"github.com/aporeto-inc/trireme/supervisor"
 )
+
+var cmdLock sync.Mutex
 
 // newServer starts a new server
 func newServer(
@@ -183,8 +186,8 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		return fmt.Errorf(resp.Status)
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	cmdLock.Lock()
+	defer cmd.Unlock()
 
 	if err := s.setupEnforcer(req); err != nil {
 		resp.Status = err.Error()
@@ -213,8 +216,8 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 		return fmt.Errorf(resp.Status)
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	cmdLock.Lock()
+	defer cmd.Unlock()
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
 	if s.supervisor == nil {
@@ -264,8 +267,8 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 		return fmt.Errorf(resp.Status)
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	cmdLock.Lock()
+	defer cmd.Unlock()
 
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 	pupolicy := policy.NewPUPolicy(payload.ManagementID,
@@ -311,8 +314,8 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 		return fmt.Errorf(resp.Status)
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	cmdLock.Lock()
+	defer cmd.Unlock()
 
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.enforcer.Unenforce(payload.ContextID)
@@ -326,8 +329,8 @@ func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Re
 		return fmt.Errorf(resp.Status)
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	cmdLock.Lock()
+	defer cmd.Unlock()
 
 	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
 	return s.supervisor.Unsupervise(payload.ContextID)
@@ -341,8 +344,8 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		return fmt.Errorf(resp.Status)
 	}
 
-	s.Lock()
-	defer s.Unlock()
+	cmdLock.Lock()
+	defer cmd.Unlock()
 
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 
@@ -382,8 +385,8 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 // This allows a graceful exit of the enforcer
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	s.Lock()
-	defer s.Unlock()
+	cmdLock.Lock()
+	defer cmd.Unlock()
 
 	msgErrors := ""
 
