@@ -187,7 +187,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	}
 
 	cmdLock.Lock()
-	defer cmd.Unlock()
+	defer cmdLock.Unlock()
 
 	if err := s.setupEnforcer(req); err != nil {
 		resp.Status = err.Error()
@@ -217,7 +217,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 	}
 
 	cmdLock.Lock()
-	defer cmd.Unlock()
+	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
 	if s.supervisor == nil {
@@ -268,7 +268,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	}
 
 	cmdLock.Lock()
-	defer cmd.Unlock()
+	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
 	pupolicy := policy.NewPUPolicy(payload.ManagementID,
@@ -315,7 +315,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	}
 
 	cmdLock.Lock()
-	defer cmd.Unlock()
+	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.UnEnforcePayload)
 	return s.enforcer.Unenforce(payload.ContextID)
@@ -330,7 +330,7 @@ func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Re
 	}
 
 	cmdLock.Lock()
-	defer cmd.Unlock()
+	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
 	return s.supervisor.Unsupervise(payload.ContextID)
@@ -345,7 +345,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	}
 
 	cmdLock.Lock()
-	defer cmd.Unlock()
+	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 
@@ -386,7 +386,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	cmdLock.Lock()
-	defer cmd.Unlock()
+	defer cmdLock.Unlock()
 
 	msgErrors := ""
 
