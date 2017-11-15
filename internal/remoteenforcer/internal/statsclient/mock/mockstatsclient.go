@@ -11,17 +11,20 @@ import (
 )
 
 // MockStatsClient is a mock of StatsClient interface
+// nolint
 type MockStatsClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockStatsClientMockRecorder
 }
 
 // MockStatsClientMockRecorder is the mock recorder for MockStatsClient
+// nolint
 type MockStatsClientMockRecorder struct {
 	mock *MockStatsClient
 }
 
 // NewMockStatsClient creates a new mock instance
+// nolint
 func NewMockStatsClient(ctrl *gomock.Controller) *MockStatsClient {
 	mock := &MockStatsClient{ctrl: ctrl}
 	mock.recorder = &MockStatsClientMockRecorder{mock}
@@ -29,11 +32,13 @@ func NewMockStatsClient(ctrl *gomock.Controller) *MockStatsClient {
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
+// nolint
 func (m *MockStatsClient) EXPECT() *MockStatsClientMockRecorder {
 	return m.recorder
 }
 
 // Start mocks base method
+// nolint
 func (m *MockStatsClient) Start() error {
 	ret := m.ctrl.Call(m, "Start")
 	ret0, _ := ret[0].(error)
@@ -41,16 +46,19 @@ func (m *MockStatsClient) Start() error {
 }
 
 // Start indicates an expected call of Start
+// nolint
 func (mr *MockStatsClientMockRecorder) Start() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockStatsClient)(nil).Start))
 }
 
 // Stop mocks base method
+// nolint
 func (m *MockStatsClient) Stop() {
 	m.ctrl.Call(m, "Stop")
 }
 
 // Stop indicates an expected call of Stop
+// nolint
 func (mr *MockStatsClientMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockStatsClient)(nil).Stop))
 }

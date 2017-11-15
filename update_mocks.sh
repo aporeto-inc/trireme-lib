@@ -6,7 +6,8 @@ go get golang.org/x/tools/cmd/goimports
 
 goimport_sanitize () {
   goimports $1 > $1.bk
-  mv $1.bk $1
+  cat $1.bk | sed  $'s/^func /\/\/ nolint\\\nfunc /g' | sed  $'s/^type /\/\/ nolint\\\ntype /g' > $1
+  rm -f $1.bk
 }
 
 echo "Supervisor Mocks"

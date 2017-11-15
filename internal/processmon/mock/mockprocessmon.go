@@ -12,17 +12,20 @@ import (
 )
 
 // MockProcessManager is a mock of ProcessManager interface
+// nolint
 type MockProcessManager struct {
 	ctrl     *gomock.Controller
 	recorder *MockProcessManagerMockRecorder
 }
 
 // MockProcessManagerMockRecorder is the mock recorder for MockProcessManager
+// nolint
 type MockProcessManagerMockRecorder struct {
 	mock *MockProcessManager
 }
 
 // NewMockProcessManager creates a new mock instance
+// nolint
 func NewMockProcessManager(ctrl *gomock.Controller) *MockProcessManager {
 	mock := &MockProcessManager{ctrl: ctrl}
 	mock.recorder = &MockProcessManagerMockRecorder{mock}
@@ -30,21 +33,25 @@ func NewMockProcessManager(ctrl *gomock.Controller) *MockProcessManager {
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
+// nolint
 func (m *MockProcessManager) EXPECT() *MockProcessManagerMockRecorder {
 	return m.recorder
 }
 
 // KillProcess mocks base method
+// nolint
 func (m *MockProcessManager) KillProcess(contextID string) {
 	m.ctrl.Call(m, "KillProcess", contextID)
 }
 
 // KillProcess indicates an expected call of KillProcess
+// nolint
 func (mr *MockProcessManagerMockRecorder) KillProcess(contextID interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KillProcess", reflect.TypeOf((*MockProcessManager)(nil).KillProcess), contextID)
 }
 
 // LaunchProcess mocks base method
+// nolint
 func (m *MockProcessManager) LaunchProcess(contextID string, refPid int, refNsPath string, rpchdl rpcwrapper.RPCClient, arg, statssecret, procMountPoint string) error {
 	ret := m.ctrl.Call(m, "LaunchProcess", contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint)
 	ret0, _ := ret[0].(error)
@@ -52,16 +59,19 @@ func (m *MockProcessManager) LaunchProcess(contextID string, refPid int, refNsPa
 }
 
 // LaunchProcess indicates an expected call of LaunchProcess
+// nolint
 func (mr *MockProcessManagerMockRecorder) LaunchProcess(contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchProcess", reflect.TypeOf((*MockProcessManager)(nil).LaunchProcess), contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint)
 }
 
 // SetupLogAndProcessArgs mocks base method
+// nolint
 func (m *MockProcessManager) SetupLogAndProcessArgs(logToConsole bool, cmdArgs []string) {
 	m.ctrl.Call(m, "SetupLogAndProcessArgs", logToConsole, cmdArgs)
 }
 
 // SetupLogAndProcessArgs indicates an expected call of SetupLogAndProcessArgs
+// nolint
 func (mr *MockProcessManagerMockRecorder) SetupLogAndProcessArgs(logToConsole, cmdArgs interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupLogAndProcessArgs", reflect.TypeOf((*MockProcessManager)(nil).SetupLogAndProcessArgs), logToConsole, cmdArgs)
 }

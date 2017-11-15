@@ -12,17 +12,20 @@ import (
 )
 
 // MockSupervisor is a mock of Supervisor interface
+// nolint
 type MockSupervisor struct {
 	ctrl     *gomock.Controller
 	recorder *MockSupervisorMockRecorder
 }
 
 // MockSupervisorMockRecorder is the mock recorder for MockSupervisor
+// nolint
 type MockSupervisorMockRecorder struct {
 	mock *MockSupervisor
 }
 
 // NewMockSupervisor creates a new mock instance
+// nolint
 func NewMockSupervisor(ctrl *gomock.Controller) *MockSupervisor {
 	mock := &MockSupervisor{ctrl: ctrl}
 	mock.recorder = &MockSupervisorMockRecorder{mock}
@@ -30,11 +33,13 @@ func NewMockSupervisor(ctrl *gomock.Controller) *MockSupervisor {
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
+// nolint
 func (m *MockSupervisor) EXPECT() *MockSupervisorMockRecorder {
 	return m.recorder
 }
 
 // Supervise mocks base method
+// nolint
 func (m *MockSupervisor) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	ret := m.ctrl.Call(m, "Supervise", contextID, puInfo)
 	ret0, _ := ret[0].(error)
@@ -42,11 +47,13 @@ func (m *MockSupervisor) Supervise(contextID string, puInfo *policy.PUInfo) erro
 }
 
 // Supervise indicates an expected call of Supervise
+// nolint
 func (mr *MockSupervisorMockRecorder) Supervise(contextID, puInfo interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Supervise", reflect.TypeOf((*MockSupervisor)(nil).Supervise), contextID, puInfo)
 }
 
 // Unsupervise mocks base method
+// nolint
 func (m *MockSupervisor) Unsupervise(contextID string) error {
 	ret := m.ctrl.Call(m, "Unsupervise", contextID)
 	ret0, _ := ret[0].(error)
@@ -54,11 +61,13 @@ func (m *MockSupervisor) Unsupervise(contextID string) error {
 }
 
 // Unsupervise indicates an expected call of Unsupervise
+// nolint
 func (mr *MockSupervisorMockRecorder) Unsupervise(contextID interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unsupervise", reflect.TypeOf((*MockSupervisor)(nil).Unsupervise), contextID)
 }
 
 // Start mocks base method
+// nolint
 func (m *MockSupervisor) Start() error {
 	ret := m.ctrl.Call(m, "Start")
 	ret0, _ := ret[0].(error)
@@ -66,11 +75,13 @@ func (m *MockSupervisor) Start() error {
 }
 
 // Start indicates an expected call of Start
+// nolint
 func (mr *MockSupervisorMockRecorder) Start() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockSupervisor)(nil).Start))
 }
 
 // Stop mocks base method
+// nolint
 func (m *MockSupervisor) Stop() error {
 	ret := m.ctrl.Call(m, "Stop")
 	ret0, _ := ret[0].(error)
@@ -78,11 +89,13 @@ func (m *MockSupervisor) Stop() error {
 }
 
 // Stop indicates an expected call of Stop
+// nolint
 func (mr *MockSupervisorMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockSupervisor)(nil).Stop))
 }
 
 // SetTargetNetworks mocks base method
+// nolint
 func (m *MockSupervisor) SetTargetNetworks(arg0 []string) error {
 	ret := m.ctrl.Call(m, "SetTargetNetworks", arg0)
 	ret0, _ := ret[0].(error)
@@ -90,22 +103,26 @@ func (m *MockSupervisor) SetTargetNetworks(arg0 []string) error {
 }
 
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
+// nolint
 func (mr *MockSupervisorMockRecorder) SetTargetNetworks(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockSupervisor)(nil).SetTargetNetworks), arg0)
 }
 
 // MockImplementor is a mock of Implementor interface
+// nolint
 type MockImplementor struct {
 	ctrl     *gomock.Controller
 	recorder *MockImplementorMockRecorder
 }
 
 // MockImplementorMockRecorder is the mock recorder for MockImplementor
+// nolint
 type MockImplementorMockRecorder struct {
 	mock *MockImplementor
 }
 
 // NewMockImplementor creates a new mock instance
+// nolint
 func NewMockImplementor(ctrl *gomock.Controller) *MockImplementor {
 	mock := &MockImplementor{ctrl: ctrl}
 	mock.recorder = &MockImplementorMockRecorder{mock}
@@ -113,11 +130,13 @@ func NewMockImplementor(ctrl *gomock.Controller) *MockImplementor {
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
+// nolint
 func (m *MockImplementor) EXPECT() *MockImplementorMockRecorder {
 	return m.recorder
 }
 
 // ConfigureRules mocks base method
+// nolint
 func (m *MockImplementor) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 	ret := m.ctrl.Call(m, "ConfigureRules", version, contextID, containerInfo)
 	ret0, _ := ret[0].(error)
@@ -125,11 +144,13 @@ func (m *MockImplementor) ConfigureRules(version int, contextID string, containe
 }
 
 // ConfigureRules indicates an expected call of ConfigureRules
+// nolint
 func (mr *MockImplementorMockRecorder) ConfigureRules(version, contextID, containerInfo interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigureRules", reflect.TypeOf((*MockImplementor)(nil).ConfigureRules), version, contextID, containerInfo)
 }
 
 // UpdateRules mocks base method
+// nolint
 func (m *MockImplementor) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 	ret := m.ctrl.Call(m, "UpdateRules", version, contextID, containerInfo)
 	ret0, _ := ret[0].(error)
@@ -137,11 +158,13 @@ func (m *MockImplementor) UpdateRules(version int, contextID string, containerIn
 }
 
 // UpdateRules indicates an expected call of UpdateRules
+// nolint
 func (mr *MockImplementorMockRecorder) UpdateRules(version, contextID, containerInfo interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRules", reflect.TypeOf((*MockImplementor)(nil).UpdateRules), version, contextID, containerInfo)
 }
 
 // DeleteRules mocks base method
+// nolint
 func (m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port, mark, uid string) error {
 	ret := m.ctrl.Call(m, "DeleteRules", version, context, ipAddresses, port, mark, uid)
 	ret0, _ := ret[0].(error)
@@ -149,11 +172,13 @@ func (m *MockImplementor) DeleteRules(version int, context string, ipAddresses p
 }
 
 // DeleteRules indicates an expected call of DeleteRules
+// nolint
 func (mr *MockImplementorMockRecorder) DeleteRules(version, context, ipAddresses, port, mark, uid interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, ipAddresses, port, mark, uid)
 }
 
 // SetTargetNetworks mocks base method
+// nolint
 func (m *MockImplementor) SetTargetNetworks(arg0, arg1 []string) error {
 	ret := m.ctrl.Call(m, "SetTargetNetworks", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -161,11 +186,13 @@ func (m *MockImplementor) SetTargetNetworks(arg0, arg1 []string) error {
 }
 
 // SetTargetNetworks indicates an expected call of SetTargetNetworks
+// nolint
 func (mr *MockImplementorMockRecorder) SetTargetNetworks(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockImplementor)(nil).SetTargetNetworks), arg0, arg1)
 }
 
 // Start mocks base method
+// nolint
 func (m *MockImplementor) Start() error {
 	ret := m.ctrl.Call(m, "Start")
 	ret0, _ := ret[0].(error)
@@ -173,11 +200,13 @@ func (m *MockImplementor) Start() error {
 }
 
 // Start indicates an expected call of Start
+// nolint
 func (mr *MockImplementorMockRecorder) Start() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockImplementor)(nil).Start))
 }
 
 // Stop mocks base method
+// nolint
 func (m *MockImplementor) Stop() error {
 	ret := m.ctrl.Call(m, "Stop")
 	ret0, _ := ret[0].(error)
@@ -185,6 +214,7 @@ func (m *MockImplementor) Stop() error {
 }
 
 // Stop indicates an expected call of Stop
+// nolint
 func (mr *MockImplementorMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockImplementor)(nil).Stop))
 }
