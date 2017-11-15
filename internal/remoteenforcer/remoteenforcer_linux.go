@@ -282,7 +282,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
 		payload.ExcludedNetworks,
-		payload.ExcludedNetworks)
+		payload.ProxiedServices)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 
