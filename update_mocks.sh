@@ -19,7 +19,7 @@ echo "Internal/RemoteEnforcer/StatsCollector Mocks"
 mockgen -source internal/remoteenforcer/internal/statscollector/interfaces.go -aux_files collector=collector/interfaces.go -destination internal/remoteenforcer/internal/statscollector/mock/mockstatscollector.go -package mockstatscollector
 
 echo "Collector Mocks"
-mockgen -source collector/interfaces.go -destination collector/mock/mockcollector.go -package mockcollector -source_package github.com/aporeto-inc/trireme/collector
+mockgen -source collector/interfaces.go -destination collector/mock/mockcollector.go -package mockcollector -source_package github.com/aporeto-inc/trireme-lib/collector
 
 go get github.com/golang/mock/mockgen
 echo >&2 "OK"
