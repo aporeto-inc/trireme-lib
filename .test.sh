@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 
 set -e
-
-./update_mocks.sh
-
 echo "" > coverage.txt
 
 for d in $(go list ./...); do
