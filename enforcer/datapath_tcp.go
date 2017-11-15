@@ -17,8 +17,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/log"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/supervisor/iptablesctrl"
-	"github.com/bvandewalle/go-ipset/ipset"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
