@@ -1,4 +1,4 @@
-package uipam
+package portset
 
 import (
 	"bufio"
@@ -29,38 +29,28 @@ const (
 	decFormat                         = 10
 )
 
-// PortSet : This provides an interface to update the
-// look up table required to program the ipset portsets.
-type PortSet interface {
-	AddToUIDToPortSetCache(uid string, value string) (err error)
-	GetFromUIDToPortSetCache(uid string) (err error)
-	AddToUIDToPortsCache(uid string, value string) (ok bool)
-	RemoveFromUIDToPortSetCache(uid string) (err error)
-	RemoveFromUIDToPortsCache(uid string) (err error)
-	UpdatePortSet(uid string, port string)
-}
-
-// UIDCacheInstance : This type contains look up tables
+// portSetInstance : This type contains look up tables
 // to help update the ipset portsets.
-type UIDCacheInstance struct {
-	UIDToPortSet *cache.Cache
-	UIDToPorts   *cache.Cache
-	UIDSet       map[string]bool
+type portSetInstance struct {
+	uidToPortSet *cache.Cache
+	uidToPorts   *cache.Cache
+	uidSet       map[string]bool
 }
 
-// NewInstance : creates a new UIDCache instance
-func NewInstance() (p *UIDCacheInstance, err error) {
+// New : returns a portset interface
+func New() (PortSet, error) {
 
-	p = &UIDCacheInstance{
-		UIDToPortSet: cache.NewCache("UIDToPortSet"),
-		UIDToPorts:   cache.NewCache("UIDToPorts"),
-		UIDSet:       make(map[string]bool), // updated on portset create/delete
+	p := &portSetInstance{
+		uidToPortSet: cache.NewCache("uidToPortSet"),
+		uidToPorts:   cache.NewCache("uidToPorts"),
+		uidSet:       make(map[string]bool), // updated on portset create/delete
 	}
+	initPortSetTask(p)
 
 	return p, nil
 }
 
-func (p *UIDCacheInstance) getUserID(username string) (string, error) {
+func getUserID(username string) (string, error) {
 	u, err := user.Lookup(username)
 	if err != nil {
 		return "", err
@@ -68,9 +58,9 @@ func (p *UIDCacheInstance) getUserID(username string) (string, error) {
 	return u.Uid, nil
 }
 
-// AddToUIDToPortsCache This adds/updates UIDToPorts cache. This cache
+// AddPortToUID This adds/updates uidToPorts cache. This cache
 // maps UID to list of active listening ports.
-func (p *UIDCacheInstance) AddToUIDToPortsCache(username string, portStr string) (ok bool, err error) {
+func (p *portSetInstance) AddPortToUID(username string, portStr string) (ok bool, err error) {
 	ok = false
 	portList := make([]int64, 0)
 	portNum, err := strconv.ParseInt(portStr, decFormat, integerSize)
@@ -79,72 +69,67 @@ func (p *UIDCacheInstance) AddToUIDToPortsCache(username string, portStr string)
 		return ok, err
 	}
 
-	uid, err := p.getUserID(username)
+	uid, err := getUserID(username)
 	if err != nil {
 		return ok, err
 	}
 
-	if v, err := p.UIDToPortSet.Get(uid); err == nil {
+	if v, err := p.uidToPortSet.Get(uid); err == nil {
 		portList = append(v.([]int64), portNum)
-		p.UIDToPorts.AddOrUpdate(uid, portList)
+		p.uidToPorts.AddOrUpdate(uid, portList)
 		ok = true
 	} else {
 		portList = append(portList, portNum)
-		p.UIDToPorts.Add(uid, portList)
+		p.uidToPorts.Add(uid, portList)
 	}
 
 	return ok, nil
 }
 
-// AddToUIDToPortSetCache : This adds/updates UIDToPortSet cache. This cache
+// AddToUIDPortSet : This adds/updates uidToPortSet cache. This cache
 // maps UID to the portset associated with its PU. This is called during
 // creation of PU/on reception of application SYN-ACK packet.
-func (p *UIDCacheInstance) AddToUIDToPortSetCache(username string, portset string) (err error) {
-	uid, err := p.getUserID(username)
+func (p *portSetInstance) AddToUIDPortSet(username string, portset string) (err error) {
+	uid, err := getUserID(username)
 	if err != nil {
 		return err
 	}
 
-	p.UIDToPortSet.AddOrUpdate(uid, portset)
-	p.UIDSet[uid] = true
+	p.uidToPortSet.AddOrUpdate(uid, portset)
+	p.uidSet[uid] = true
 	return nil
 
 }
 
-// GetFromUIDToPortSetCache : This returns the portset associated with UID.
-func (p *UIDCacheInstance) GetFromUIDToPortSetCache(username string) (port string, err error) {
-	uid, err := p.getUserID(username)
+// GetFromuidToPortSetCache : This returns the portset associated with UID.
+func (p *portSetInstance) GetFromUIDPortSet(username string) (port string, err error) {
+	uid, err := getUserID(username)
 	if err != nil {
 		return "", err
 	}
-	portSetName, err := p.UIDToPortSet.Get(uid)
+	portSetName, err := p.uidToPortSet.Get(uid)
 	if err != nil {
 		return "", err
 	}
 	return portSetName.(string), nil
 }
 
-// RemoveFromUIDToPortSetCache : This deletes UID from UIDToPortSet cache. This is called
+// RemoveFromuidToPortSetCache : This deletes UID from uidToPortSet cache. This is called
 // during removal of PU.
-func (p *UIDCacheInstance) RemoveFromUIDToPortSetCache(username string) (err error) {
-	uid, err := p.getUserID(username)
+func (p *portSetInstance) DeleteFromUIDPortSet(username string) (err error) {
+	uid, err := getUserID(username)
 	if err != nil {
 		return err
 	}
-	delete(p.UIDSet, uid)
-	return p.UIDToPortSet.Remove(uid)
-}
-
-// RemoveFromUIDToPortsCache : Is this ever required ? Go routine updates the Port
-func (p *UIDCacheInstance) RemoveFromUIDToPortsCache(uid string) (err error) {
-	return nil
+	delete(p.uidSet, uid)
+	return p.uidToPortSet.Remove(uid)
 }
 
 // UpdatePortSet : This API programs the ipset portset with port. The
-// portset name is derived from UIDToPortSet cache.
-func (p *UIDCacheInstance) UpdatePortSet(username string, port string) (err error) {
+// portset name is derived from uidToPortSet cache.
+func (p *portSetInstance) AddPortSet(username string, port string) (err error) {
 
-	puPortSetName, err := p.GetFromUIDToPortSetCache(username)
+	puPortSetName, err := p.GetFromUIDPortSet(username)
 	if err != nil {
 		return fmt.Errorf("Unable to get portset from uid")
 	}
@@ -163,15 +148,15 @@ func (p *UIDCacheInstance) UpdatePortSet(username string, port string) (err erro
 	return nil
 }
 
-// InitPortSetTask This go routine periodically scans (1s)
+// initPortSetTask This go routine periodically scans (1s)
 // /proc/net/tcp file for listening ports and programs
 // the portsets. This worker thread is setup during datapath
 // initilisation.
-func InitPortSetTask(p *UIDCacheInstance) {
+func initPortSetTask(p *portSetInstance) {
 	go startPortSetTask(p)
 }
 
-func startPortSetTask(p *UIDCacheInstance) {
+func startPortSetTask(p *portSetInstance) {
 	t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
 	for range t.C {
 		// Update PortSet periodically.
@@ -179,7 +164,7 @@ func startPortSetTask(p *UIDCacheInstance) {
 	}
 }
 
-func (p *UIDCacheInstance) updateIPPortSets() {
+func (p *portSetInstance) updateIPPortSets() {
 	file, err := os.Open(procNetTCPFile)
 	if err != nil {
 		zap.L().Warn("Failed To open /proc/net/tcp file", zap.Error(err))
@@ -227,16 +212,16 @@ func (p *UIDCacheInstance) updateIPPortSets() {
 
 	}
 
-	p.UIDToPorts = localCache
+	p.uidToPorts = localCache
 
 	// program the iptable.
-	activePUs := p.UIDSet
+	activePUs := p.uidSet
 	for k := range activePUs {
-		uidPorts, err := p.UIDToPorts.Get(k) //getUIDPortMappings(k)
+		uidPorts, err := p.uidToPorts.Get(k) //getUIDPortMappings(k)
 		if err != nil {
 			continue
 		}
-		puPortSetName, err := p.UIDToPortSet.Get(k) //getUIDPortSetMappings(k)
+		puPortSetName, err := p.uidToPortSet.Get(k) //getUIDPortSetMappings(k)
 
 		if err != nil {
 			// Not Fatal. A normal uidlogin pu will not have a port
