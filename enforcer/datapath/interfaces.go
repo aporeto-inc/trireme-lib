@@ -23,8 +23,8 @@ type RuleProcessor interface {
 	CheckAcceptTxRules(contextID string) (int, bool)
 }
 
-// DatapathAccessor is an interface for datapth to access contexts/rules/tokens
-type DatapathAccessor interface {
+// Accessor is an interface for datapth to access contexts/rules/tokens
+type Accessor interface {
 	ContextProcessor
 	TokenProcessor
 	RuleProcessor
