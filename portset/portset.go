@@ -23,6 +23,9 @@ const (
 	ipPortOffset                      = 1
 	sockStateOffset                   = 3
 	sockListeningState                = "0A"
+	hexFormat                         = 16
+	integerSize                       = 64
+	decFormat                         = 10
 )
 
 // portSetInstance : This type contains look up tables
@@ -183,8 +186,9 @@ func (p *portSetInstance) updateIPPortSets() {
 	}
 
 	s := string(buffer)
-
-	lines := strings.Split(s, "/n")
+	// Ignoring the last \n
+	s = s[:len(s)-1]
+	lines := strings.Split(s, "\n")
 
 	for cnt, line := range lines {
 		line := strings.Fields(line)
@@ -195,7 +199,14 @@ func (p *portSetInstance) updateIPPortSets() {
 		uid := line[uidFieldOffset]
 		port := strings.Split(line[ipPortOffset], ":")[portOffset]
 
-		portKey := uid + ":" + port
+		// conver the hex port to int
+		portNum, err := strconv.ParseInt(port, hexFormat, integerSize)
+		if err != nil {
+			zap.L().Warn("Failed to convert port to Int", zap.Error(err))
+			return
+		}
+
+		portKey := uid + ":" + strconv.Itoa(int(portNum))
 		if updated := p.userPortMap.AddOrUpdate(portKey, p); updated {
 			continue
 		}
