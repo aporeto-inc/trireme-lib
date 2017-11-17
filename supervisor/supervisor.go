@@ -17,11 +17,12 @@ import (
 )
 
 type cacheData struct {
-	version int
-	ips     policy.ExtendedMap
-	mark    string
-	port    string
-	uid     string
+	version       int
+	ips           policy.ExtendedMap
+	mark          string
+	port          string
+	uid           string
+	containerInfo *policy.PUInfo
 }
 
 // Config is the structure holding all information about the supervisor
@@ -116,8 +117,9 @@ func (s *Config) Unsupervise(contextID string) error {
 	}
 
 	cacheEntry := version.(*cacheData)
-
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid); err != nil {
+	port := cacheEntry.containerInfo.Runtime.Options().ProxyPort
+	proxyPortSetName := iptablesctrl.PuPortSetName(contextID, cacheEntry.mark, "Proxy-")
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port, proxyPortSetName); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -186,11 +188,12 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	uid := containerInfo.Runtime.Options().UserID
 
 	cacheEntry := &cacheData{
-		version: version,
-		ips:     containerInfo.Policy.IPAddresses(),
-		mark:    mark,
-		port:    port,
-		uid:     uid,
+		version:       version,
+		ips:           containerInfo.Policy.IPAddresses(),
+		mark:          mark,
+		port:          port,
+		uid:           uid,
+		containerInfo: containerInfo,
 	}
 
 	// Version the policy so that we can do hitless policy changes
@@ -220,8 +223,7 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	}
 
 	cachedEntry := cacheEntry.(*cacheData)
-
-	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo); err != nil {
+	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo, cachedEntry.containerInfo); err != nil {
 		if uerr := s.Unsupervise(contextID); uerr != nil {
 			zap.L().Warn("Failed to clean up state while updating the PU",
 				zap.String("contextID", contextID),

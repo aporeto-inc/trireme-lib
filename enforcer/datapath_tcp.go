@@ -23,6 +23,8 @@ import (
 
 const (
 	portEntryTimeout = 60
+	// PuPortSet  Temporary this constant should go away as we integrate other uidm changed
+	PuPortSet = "PUPort-"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -294,7 +296,6 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	context.Unlock()
 
 	// We are now processing as a Trireme packet that needs authorization headers
-
 	// Create TCP Option
 	tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
@@ -313,7 +314,6 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 	hash := tcpPacket.L4FlowHash()
 	d.appOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
-
 	// Attach the tags to the packet and accept the packet
 	return nil, tcpPacket.TCPDataAttach(tcpOptions, tcpData)
 
@@ -897,14 +897,8 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
 
-					name, err := iptablesctrl.PuPortSetName(context.ID, p.Mark)
-
-					if err != nil {
-						return nil, nil, err
-					}
-
 					ips := ipset.IPSet{
-						Name: name,
+						Name: iptablesctrl.PuPortSetName(context.ID, p.Mark, PuPortSet),
 					}
 
 					port := strconv.Itoa(int(p.SourcePort))

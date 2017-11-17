@@ -19,6 +19,9 @@ var (
 // TCPFlowState identifies the constants of the state of a TCP connectioncon
 type TCPFlowState int
 
+// ProxyConnState identifies the constants of the state of a proxied connection
+type ProxyConnState int
+
 const (
 
 	// TCPSynSend is the state where the Syn packets has been send, but no response has been received
@@ -44,6 +47,25 @@ const (
 )
 
 const (
+	// ClientTokenSend Init token send for client
+	ClientTokenSend ProxyConnState = iota
+
+	// ServerReceivePeerToken -- waiting to receive peer token
+	ServerReceivePeerToken
+
+	// ServerSendToken -- Send our own token and the client tokens
+	ServerSendToken
+
+	// ClientPeerTokenReceive -- Receive signed tokens from server
+	ClientPeerTokenReceive
+
+	// ClientSendSignedPair -- Sign the (token/nonce pair) and send
+	ClientSendSignedPair
+
+	// ServerAuthenticatePair -- Authenticate pair of tokens
+	ServerAuthenticatePair
+)
+const (
 
 	// RejectReported represents that flow was reported as rejected
 	RejectReported bool = true
@@ -60,6 +82,16 @@ type AuthInfo struct {
 	RemotePublicKey interface{}
 	RemoteIP        string
 	RemotePort      string
+}
+
+//ProxyConnection -- Connection to track state of proxy auth
+type ProxyConnection struct {
+	sync.Mutex
+
+	state      ProxyConnState
+	Auth       AuthInfo
+	FlowPolicy *policy.FlowPolicy
+	reported   bool
 }
 
 // TCPConnection is information regarding TCP Connection
@@ -198,4 +230,29 @@ func NewTCPConnection() *TCPConnection {
 	}
 
 	return c
+}
+
+// NewProxyConnection returns a new Proxy Connection
+func NewProxyConnection() *ProxyConnection {
+
+	return &ProxyConnection{
+		state: ClientTokenSend,
+	}
+}
+
+// GetState returns the state of a proxy connection
+func (c *ProxyConnection) GetState() ProxyConnState {
+
+	return c.state
+}
+
+// SetState is used to setup the state for the Proxy Connection
+func (c *ProxyConnection) SetState(state ProxyConnState) {
+
+	c.state = state
+}
+
+//SetReported -- Set the flag to reported when the conn is reported
+func (c *ProxyConnection) SetReported(reported bool) {
+	c.reported = reported
 }

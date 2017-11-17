@@ -72,6 +72,7 @@ type EnforcePayload struct {
 	TransmitterRules policy.TagSelectorList `json:",omitempty"`
 	TriremeNetworks  []string               `json:",omitempty"`
 	ExcludedNetworks []string               `json:",omitempty"`
+	ProxiedServices  [][]string             `json:",omitempty"`
 }
 
 //SuperviseRequestPayload for Supervise request
@@ -88,6 +89,7 @@ type SuperviseRequestPayload struct {
 	TransmitterRules policy.TagSelectorList `json:",omitempty"`
 	ExcludedNetworks []string               `json:",omitempty"`
 	TriremeNetworks  []string               `json:",omitempty"`
+	ProxiedServices  [][]string             `json:",omitempty"`
 }
 
 //UnEnforcePayload payload for unenforce request

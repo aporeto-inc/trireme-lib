@@ -7,6 +7,29 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
+func (d *Datapath) reportProxiedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
+	c := &collector.FlowRecord{
+		ContextID: context.ID,
+		Source: &collector.EndPoint{
+			ID:   sourceID,
+			IP:   flowproperties.SourceIP.String(),
+			Port: flowproperties.SourcePort,
+			Type: collector.PU,
+		},
+		Destination: &collector.EndPoint{
+			ID:   destID,
+			IP:   flowproperties.DestIP.String(),
+			Port: flowproperties.DestPort,
+			Type: collector.PU,
+		},
+		Tags:       context.Annotations,
+		Action:     plc.Action,
+		DropReason: mode,
+		PolicyID:   plc.PolicyID,
+	}
+	d.collector.CollectFlowEvent(c)
+}
+
 func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{

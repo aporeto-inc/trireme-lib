@@ -140,7 +140,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -168,7 +168,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -191,7 +191,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -222,7 +222,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -250,17 +250,15 @@ func TestDeleteRules(t *testing.T) {
 		i.ipt = iptables
 
 		Convey("If I try to delete with nil IP addreses", func() {
-			err := i.DeleteRules(1, "context", nil, "0", "0", "")
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+			err := i.DeleteRules(1, "context", nil, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldNotBeNil)
+
 		})
 
 		Convey("I try to delete with no default IP address ", func() {
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0", "")
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldNotBeNil)
+
 		})
 
 		Convey("I try to delete with a valid default IP address ", func() {
@@ -273,10 +271,8 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "")
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldBeNil)
 		})
 
 	})
@@ -305,7 +301,7 @@ func TestUpdateRules(t *testing.T) {
 		}
 
 		Convey("If I try to update with nil IP addreses", func() {
-			err := i.UpdateRules(1, "context", nil)
+			err := i.UpdateRules(1, "context", nil, nil)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -320,13 +316,13 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
-			err := i.UpdateRules(1, "context", containerinfo)
+			err := i.UpdateRules(1, "context", containerinfo, nil)
 
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -360,7 +356,9 @@ func TestUpdateRules(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if chain == app1 || chain == net1 {
+
+				if chain == app1 || chain == net1 || chain == "RedirProxy-Net" || chain == "RedirProxy-App" ||
+					chain == "Proxy-Net" || chain == "Proxy-App" {
 					return nil
 				}
 				if matchSpec(app1, rulespec) == nil || matchSpec(net1, rulespec) == nil {
@@ -375,6 +373,7 @@ func TestUpdateRules(t *testing.T) {
 				return fmt.Errorf("Error")
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
+
 				if chain == app1 || chain == net1 {
 					return nil
 				}
@@ -390,13 +389,13 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
-			err := i.UpdateRules(1, "Context", containerinfo)
+			err := i.UpdateRules(1, "Context", containerinfo, nil)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})

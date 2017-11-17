@@ -33,6 +33,7 @@ type Datapath struct {
 	service        PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nfLogger
+	proxyhdl       PolicyEnforcer
 	procMountPoint string
 
 	// Internal structures and caches
@@ -148,7 +149,8 @@ func New(
 	}
 
 	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
-
+	//passing d here since we can reuse the caches and func here rather than redefining them again in proxy.
+	d.proxyhdl = NewProxy(":5000", true, false, d)
 	return d
 }
 
@@ -192,10 +194,32 @@ func NewWithDefaults(
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	puContext, err := d.contextTracker.Get(contextID)
-	if err != nil {
-		return d.doCreatePU(contextID, puInfo)
-	}
 
+	if err != nil {
+		//Call proxy enforce from here and not from trireme like for other calls
+		//We will call enforce every time on the enforce so no need to propagate this info out of enforcer package
+		zap.L().Error("Called Proxy Enforce")
+
+		proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
+
+		if proxyerr != nil {
+			zap.L().Error("Failed Called Proxy Enforce", zap.Error(proxyerr))
+			return proxyerr
+		}
+		createerr := d.doCreatePU(contextID, puInfo)
+
+		if createerr != nil {
+			zap.L().Error("Called Do Create Returned error")
+			return createerr
+		}
+
+		return nil
+	}
+	//In case of update
+	proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
+	if proxyerr != nil {
+		return proxyerr
+	}
 	return d.doUpdatePU(puContext.(*PUContext), puInfo)
 }
 
@@ -209,7 +233,12 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	puContext.(*PUContext).Lock()
 	defer puContext.(*PUContext).Unlock()
+	//Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
+	//Datapath is a strict readonly struct for proxy
 
+	if err = d.proxyhdl.Unenforce(contextID); err != nil {
+		zap.L().Error("Failed to unenforce contextID", zap.String("ContextID", contextID))
+	}
 	pu := puContext.(*PUContext)
 	if err := d.puFromIP.Remove(pu.IP); err != nil {
 		zap.L().Warn("Unable to remove cache entry during unenforcement",
@@ -262,7 +291,11 @@ func (d *Datapath) Start() error {
 	d.startNetworkInterceptor()
 
 	go d.nflogger.start()
-
+	zap.L().Error("Calling Proxy Start")
+	//Does nothing here
+	if err := d.proxyhdl.Start(); err != nil {
+		zap.L().Warn("Proxy datapath Not started")
+	}
 	return nil
 }
 

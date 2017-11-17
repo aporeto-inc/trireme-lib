@@ -151,30 +151,30 @@ func (mr *MockImplementorMockRecorder) ConfigureRules(version, contextID, contai
 
 // UpdateRules mocks base method
 // nolint
-func (m *MockImplementor) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
-	ret := m.ctrl.Call(m, "UpdateRules", version, contextID, containerInfo)
+func (m *MockImplementor) UpdateRules(version int, contextID string, containerInfo, oldContainerInfo *policy.PUInfo) error {
+	ret := m.ctrl.Call(m, "UpdateRules", version, contextID, containerInfo, oldContainerInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateRules indicates an expected call of UpdateRules
 // nolint
-func (mr *MockImplementorMockRecorder) UpdateRules(version, contextID, containerInfo interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRules", reflect.TypeOf((*MockImplementor)(nil).UpdateRules), version, contextID, containerInfo)
+func (mr *MockImplementorMockRecorder) UpdateRules(version, contextID, containerInfo, oldContainerInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateRules", reflect.TypeOf((*MockImplementor)(nil).UpdateRules), version, contextID, containerInfo, oldContainerInfo)
 }
 
 // DeleteRules mocks base method
 // nolint
-func (m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port, mark, uid string) error {
-	ret := m.ctrl.Call(m, "DeleteRules", version, context, ipAddresses, port, mark, uid)
+func (m *MockImplementor) DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port, mark, uid, proxyPort, proxyPortSetName string) error {
+	ret := m.ctrl.Call(m, "DeleteRules", version, context, ipAddresses, port, mark, uid, proxyPort, proxyPortSetName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteRules indicates an expected call of DeleteRules
 // nolint
-func (mr *MockImplementorMockRecorder) DeleteRules(version, context, ipAddresses, port, mark, uid interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, ipAddresses, port, mark, uid)
+func (mr *MockImplementorMockRecorder) DeleteRules(version, context, ipAddresses, port, mark, uid, proxyPort, proxyPortSetName interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRules", reflect.TypeOf((*MockImplementor)(nil).DeleteRules), version, context, ipAddresses, port, mark, uid, proxyPort, proxyPortSetName)
 }
 
 // SetTargetNetworks mocks base method
