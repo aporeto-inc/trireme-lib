@@ -4,8 +4,9 @@ package portset
 // to update  add/delete users to portset mappings.
 type UserManipulator interface {
 	AddUserPortSet(userName string, portset string, mark string) (err error)
-	DelUserPortSet(userName string) error
+	DelUserPortSet(userName string, mark string) error
 	getUserPortSet(userName string) (string, error)
+
 	GetUserMark(mark string) (string, error)
 }
 

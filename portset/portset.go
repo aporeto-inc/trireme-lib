@@ -121,10 +121,15 @@ func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 	return "", fmt.Errorf("Invalid portset name")
 }
 
-// DelUserPortSet  deletes user from userPortSet cache.
-func (p *portSetInstance) DelUserPortSet(userName string) (err error) {
+// DelUserPortSet  deletes user from userPortSet cache. Also deletes mark
+// entry from the cache.
+func (p *portSetInstance) DelUserPortSet(userName string, mark string) (err error) {
 
-	return p.userPortSet.Remove(userName)
+	if err = p.userPortSet.Remove(userName); err != nil {
+		return fmt.Errorf("Unable to remove uid from portset Cache")
+	}
+
+	return p.markUserMap.Remove(mark)
 }
 
 // GetuserMark return username associated with packet mark

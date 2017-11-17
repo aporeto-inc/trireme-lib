@@ -37,6 +37,8 @@ type Config struct {
 
 	triremeNetworks []string
 
+	portSetInstance *portset.PortSet
+
 	sync.Mutex
 }
 
@@ -60,6 +62,12 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, fmt.Errorf("Enforcer FilterQueues cannot be nil")
 	}
 
+	portSetInstance := enforcerInstance.GetPortSetInstance()
+
+	if portSetInstance == nil {
+		return nil, fmt.Errorf("Enforcer portset instance cannot be nil")
+	}
+
 	s := &Config{
 		mode:            mode,
 		impl:            nil,
@@ -68,6 +76,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		filterQueue:     filterQueue,
 		excludedIPs:     []string{},
 		triremeNetworks: networks,
+		portSetInstance: portSetInstance
 	}
 
 	var err error
@@ -75,7 +84,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	case constants.IPSets:
 		s.impl, err = ipsetctrl.NewInstance(s.filterQueue, false, mode)
 	default:
-		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode)
+		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, portSetInstance)
 	}
 
 	if err != nil {

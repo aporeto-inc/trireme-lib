@@ -13,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 // A PolicyEnforcer is implementing the enforcer that will modify//analyze the capture packets
@@ -26,6 +27,9 @@ type PolicyEnforcer interface {
 
 	// GetFilterQueue returns the current FilterQueueConfig.
 	GetFilterQueue() *fqconfig.FilterQueue
+
+	// GetPortSetInstance returns the current portset Instance
+	GetPortSetInstance() portset.PortSet
 
 	// Start starts the PolicyEnforcer.
 	Start() error

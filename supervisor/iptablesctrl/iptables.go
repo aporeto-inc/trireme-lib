@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 	"github.com/bvandewalle/go-ipset/ipset"
 
 	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
@@ -45,10 +46,11 @@ type Instance struct {
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
 	mode                       constants.ModeType
+	portSetInstance            portset.PortSet
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset portset.PortSet) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -67,7 +69,8 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
-		mode: mode,
+		mode:            mode,
+		portSetInstance: portset,
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
@@ -191,6 +194,12 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			if puseterr := i.createPUPortSet(portSetName); puseterr != nil {
 				return puseterr
 			}
+
+			// update the portset cache, so that it can program the portset
+			if err = i.portSetInstance.AddUserPortSet(uid, portSetName, mark); err != nil {
+				return err
+			}
+
 		}
 
 		portSetName, err := PuPortSetName(contextID, mark)
@@ -273,6 +282,12 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		if err := ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to clear puport set", zap.Error(err))
 		}
+
+		// delete the entry in the portset cache
+		if err = i.portSetInstance.DelUserPortSet(uid, mark); err != nil {
+			return err
+		}
+
 	}
 	return nil
 }

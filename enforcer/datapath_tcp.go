@@ -958,6 +958,10 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 			//we will create the bare minimum needed to exercise our stack
 			//We need this syn to look similar to what we will pass on the retry
 			//so we setup enought for us to identify this request in the later stages
+
+			// update the unknownSynConnectionTracer cache to keep track of
+			// syn packet that has no context yet.
+			d.unknownSynConnectionTracer.Add(p.L4FlowHash(), nil)
 			return context, nil, nil
 		}
 
