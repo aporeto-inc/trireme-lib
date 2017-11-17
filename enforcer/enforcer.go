@@ -6,6 +6,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"go.uber.org/zap"
@@ -33,6 +34,7 @@ func NewWithDefaults(
 		defaultExternalIPCacheTimeout = time.Second
 	}
 
+	//passing d here since we can reuse the caches and func here rather than redefining them again in proxy.
 	return datapath.New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
@@ -44,5 +46,6 @@ func NewWithDefaults(
 		mode,
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
+		tcp.NewProxy(":5000", true, false, d),
 	)
 }

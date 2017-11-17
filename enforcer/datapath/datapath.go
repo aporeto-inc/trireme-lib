@@ -16,7 +16,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
-	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
@@ -92,6 +91,7 @@ func New(
 	mode constants.ModeType,
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
+	proxyhdl PolicyEnforcer,
 ) PolicyEnforcer {
 
 	if externalIPCacheTimeout <= 0 {
@@ -145,6 +145,7 @@ func New(
 		mode:                      mode,
 		procMountPoint:            procMountPoint,
 		conntrackHdl:              conntrack.NewHandle(),
+		proxyhdl:                  proxyhdl,
 	}
 
 	if d.tokenEngine == nil {
@@ -152,8 +153,6 @@ func New(
 	}
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
-	//passing d here since we can reuse the caches and func here rather than redefining them again in proxy.
-	d.proxyhdl = tcp.NewProxy(":5000", true, false, d)
 	return d
 }
 
@@ -373,7 +372,7 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-//CreateSynToken -- retrieves auth tokens and claims and returns a signed token.
+// CreateSynToken -- retrieves auth tokens and claims and returns a signed token.
 func (d *Datapath) CreateSynToken(contextID string, Auth *connection.AuthInfo) ([]byte, error) {
 	if puContext, err := d.contextTracker.Get(contextID); err == nil {
 		puContext.(*PUContext).Lock()
@@ -386,6 +385,7 @@ func (d *Datapath) CreateSynToken(contextID string, Auth *connection.AuthInfo) (
 	return []byte{}, nil
 }
 
+// CreateSynAckToken
 func (d *Datapath) CreateSynAckToken(contextID string, payload []byte) {
 	if puContext, err := d.contextTracker.Get(contextID); err == nil {
 		puContext.(*PUContext).Lock()
