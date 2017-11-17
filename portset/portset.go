@@ -25,13 +25,13 @@ const (
 	sockListeningState                = "0A"
 	hexFormat                         = 16
 	integerSize                       = 64
+	minimumFields                     = 2
 )
 
 // portSetInstance : This type contains look up tables
 // to help update the ipset portsets.
 type portSetInstance struct {
 	userPortSet *cache.Cache
-
 	userPortMap *cache.Cache
 }
 
@@ -41,6 +41,11 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 
 	userPort := strings.Split(id.(string), ":")
 	portSetObject := item.(*portSetInstance)
+
+	if len(userPort) < minimumFields {
+		zap.L().Warn("Failed to remove key from the cache")
+	}
+
 	user := userPort[0]
 	port := userPort[1]
 
@@ -76,21 +81,14 @@ func getUserName(uid string) (string, error) {
 // true if user key is already present
 func (p *portSetInstance) AddPortToUser(userName string, port string) (bool, error) {
 
-	ok := false
 	key := userName + ":" + port
-
-	if _, err := p.userPortMap.Get(key); err == nil {
-		ok = true
-	} else {
-		p.userPortMap.AddOrUpdate(key, p)
-	}
+	updated := p.userPortMap.AddOrUpdate(key, p)
 
 	// program the ipset
 	if err := p.addPortSet(userName, port); err != nil {
 		return false, err
 	}
-
-	return ok, nil
+	return updated, nil
 }
 
 // AddUserPortSet : This adds/updates userPortSet cache. This cache
@@ -106,11 +104,13 @@ func (p *portSetInstance) AddUserPortSet(userName string, portset string) (err e
 // GetUserPortSet returns the portset associated with user.
 func (p *portSetInstance) getUserPortSet(userName string) (port string, err error) {
 
-	portSetName, err := p.userPortSet.Get(userName)
-	if err != nil {
-		return "", err
+	if portSetName, err := p.userPortSet.Get(userName); err == nil {
+		if port, ok := portSetName.(string); ok {
+			return port, nil
+		}
+		err = fmt.Errorf("Invalid portset name")
 	}
-	return portSetName.(string), nil
+	return "", err
 }
 
 // DelUserPortSet  deletes user from userPortSet cache.
@@ -170,6 +170,7 @@ func (p *portSetInstance) deletePortSet(userName string, port string) (err error
 // the portsets. This worker thread is setup during datapath
 // initilisation.
 func startPortSetTask(p *portSetInstance) {
+
 	t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
 	for range t.C {
 		// Update PortSet periodically.
@@ -178,6 +179,7 @@ func startPortSetTask(p *portSetInstance) {
 }
 
 func (p *portSetInstance) updateIPPortSets() {
+
 	buffer, err := ioutil.ReadFile(procNetTCPFile)
 	if err != nil {
 		zap.L().Warn("Failed to read /proc/net/tcp file", zap.Error(err))
@@ -186,24 +188,33 @@ func (p *portSetInstance) updateIPPortSets() {
 	}
 
 	s := string(buffer)
-	// Ignoring the last \n
-	s = s[:len(s)-1]
-	lines := strings.Split(s, "\n")
 
-	for cnt, line := range lines {
+	for cnt, line := range strings.Split(s, "\n") {
+
 		line := strings.Fields(line)
+		// continue if not a valid line
+		if len(line) < uidFieldOffset {
+			continue
+		}
 
 		if (cnt == procHeaderLineNum) || (line[sockStateOffset] != sockListeningState) {
 			continue
 		}
-		uid := line[uidFieldOffset]
-		port := strings.Split(line[ipPortOffset], ":")[portOffset]
 
+		uid := line[uidFieldOffset]
+		ipPort := strings.Split(line[ipPortOffset], ":")
+
+		if len(ipPort) < minimumFields {
+			zap.L().Warn("Failed to convert port to Int")
+			continue
+		}
+
+		port := ipPort[portOffset]
 		// conver the hex port to int
 		portNum, err := strconv.ParseInt(port, hexFormat, integerSize)
 		if err != nil {
 			zap.L().Warn("Failed to convert port to Int", zap.Error(err))
-			return
+			continue
 		}
 
 		portKey := uid + ":" + strconv.Itoa(int(portNum))
@@ -216,10 +227,11 @@ func (p *portSetInstance) updateIPPortSets() {
 		userName, err := getUserName(uid)
 		if err != nil {
 			zap.L().Warn("Error converting to username", zap.Error(err))
+			continue
 		}
 
 		if err = p.addPortSet(userName, port); err != nil {
-			zap.L().Warn("Error while parsing /proc/net/tcp ", zap.Error(err))
+			zap.L().Warn("Unable to add port to portset ", zap.Error(err))
 		}
 	}
 }
