@@ -15,7 +15,7 @@ type ExpirationNotifier func(c DataStore, id interface{}, item interface{})
 // DataStore is the interface to a datastore.
 type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
-	AddOrUpdate(u interface{}, value interface{}) (added bool)
+	AddOrUpdate(u interface{}, value interface{}) bool
 	Get(u interface{}) (i interface{}, err error)
 	GetReset(u interface{}, duration time.Duration) (interface{}, error)
 	Remove(u interface{}) (err error)

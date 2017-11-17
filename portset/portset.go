@@ -23,9 +23,6 @@ const (
 	ipPortOffset                      = 1
 	sockStateOffset                   = 3
 	sockListeningState                = "0A"
-	hexFormat                         = 16
-	integerSize                       = 64
-	decFormat                         = 10
 )
 
 // portSetInstance : This type contains look up tables
@@ -40,12 +37,12 @@ type portSetInstance struct {
 // expires
 func expirer(c cache.DataStore, id interface{}, item interface{}) {
 
-	uidPort := strings.Split(id.(string), ":")
+	userPort := strings.Split(id.(string), ":")
 	portSetObject := item.(*portSetInstance)
-	uid := uidPort[0]
-	port := uidPort[1]
+	user := userPort[0]
+	port := userPort[1]
 
-	if err := portSetObject.deletePortSet(uid, port); err != nil {
+	if err := portSetObject.deletePortSet(user, port); err != nil {
 		zap.L().Warn("Failed to delete port from set", zap.Error(err))
 	}
 
@@ -103,7 +100,7 @@ func (p *portSetInstance) AddUserPortSet(userName string, portset string) (err e
 
 }
 
-// GetFromuidToPortSetCache  returns the portset associated with user.
+// GetUserPortSet returns the portset associated with user.
 func (p *portSetInstance) getUserPortSet(userName string) (port string, err error) {
 
 	portSetName, err := p.userPortSet.Get(userName)
