@@ -264,7 +264,7 @@ func NewDefaultProxyEnforcer(serverID string,
 	secrets secrets.Secrets,
 	rpchdl rpcwrapper.RPCClient,
 	procMountPoint string,
-) enforcer.PolicyEnforcer {
+) policyenforcer.Enforcer {
 
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()

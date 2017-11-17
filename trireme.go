@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/portmap"
@@ -21,14 +22,14 @@ type trireme struct {
 	serverID    string
 	cache       cache.DataStore
 	supervisors map[constants.PUType]supervisor.Supervisor
-	enforcers   map[constants.PUType]enforcer.PolicyEnforcer
+	enforcers   map[constants.PUType]policyenforcer.Enforcer
 	resolver    PolicyResolver
 	collector   collector.EventCollector
 	port        *portmap.ProxyPortMap
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
+func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]policyenforcer.Enforcer, eventCollector collector.EventCollector) Trireme {
 
 	t := &trireme{
 		serverID:    serverID,

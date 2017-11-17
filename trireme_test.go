@@ -8,17 +8,18 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
 
-func createMocks() (TestPolicyResolver, map[constants.PUType]supervisor.Supervisor, map[constants.PUType]enforcer.PolicyEnforcer, monitor.TestMonitor, collector.EventCollector) {
+func createMocks() (TestPolicyResolver, map[constants.PUType]supervisor.Supervisor, map[constants.PUType]policyenforcer.Enforcer, monitor.TestMonitor, collector.EventCollector) {
 	tresolver := NewTestPolicyResolver()
 	s := supervisor.NewTestSupervisor()
 	tsupervisor := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
 
-	tenforcer := map[constants.PUType]enforcer.PolicyEnforcer{constants.ContainerPU: enforcer.NewTestPolicyEnforcer()}
+	tenforcer := map[constants.PUType]policyenforcer.Enforcer{constants.ContainerPU: enforcer.NewTestPolicyEnforcer()}
 	tmonitor := monitor.NewTestMonitor()
 	tcollector := &collector.DefaultCollector{}
 	return tresolver, tsupervisor, tenforcer, tmonitor, tcollector

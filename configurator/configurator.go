@@ -19,6 +19,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 
@@ -132,7 +133,7 @@ func DefaultTriremeOptions() *TriremeOptions {
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
 func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{}
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{}
 	supervisors := map[constants.PUType]supervisor.Supervisor{}
 
 	var publicKeyAdder enforcer.PublicKeyAdder
@@ -528,7 +529,7 @@ func NewTriremeLinuxProcess(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.LinuxProcessPU: enforcer.NewWithDefaults(serverID,
 			eventCollector,
 			nil,
@@ -568,7 +569,7 @@ func NewLocalTriremeDocker(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.ContainerPU: enforcer.NewWithDefaults(serverID,
 			eventCollector,
 			nil,
@@ -609,7 +610,7 @@ func NewDistributedTriremeDocker(serverID string,
 
 	rpcwrapper := rpcwrapper.NewRPCWrapper()
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.ContainerPU: enforcerproxy.NewDefaultProxyEnforcer(
 			serverID,
 			eventCollector,
@@ -683,7 +684,7 @@ func NewHybridTrireme(
 		zap.L().Fatal("Failed to load Supervisor", zap.Error(perr))
 	}
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.ContainerPU:    containerEnforcer,
 		constants.LinuxProcessPU: processEnforcer,
 	}

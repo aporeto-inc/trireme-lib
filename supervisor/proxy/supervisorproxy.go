@@ -8,7 +8,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
@@ -123,7 +123,7 @@ func (s *ProxyInfo) Stop() error {
 }
 
 // NewProxySupervisor creates a new IptablesSupervisor launcher
-func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
+func NewProxySupervisor(collector collector.EventCollector, enforcer policyenforcer.Enforcer, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")

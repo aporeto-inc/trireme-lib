@@ -4,7 +4,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -35,7 +34,7 @@ type testEnforcerLauncher struct {
 }
 
 // NewTestEnforcerLauncher mocks an enforcer
-func NewTestEnforcerLauncher() enforcer.PolicyEnforcer {
+func NewTestEnforcerLauncher() policyenforcer.Enforcer {
 	return &testEnforcerLauncher{
 		lock:  &sync.Mutex{},
 		mocks: map[*testing.T]*mockedMethods{},
