@@ -1,11 +1,26 @@
 package portset
 
-// PortSet : This provides an interface to update the
-// look up table required to program the ipset portsets.
+// UserManipulator provides a manipulator interface
+// to update  add/delete users to portset mappings.
+type UserManipulator interface {
+	AddUserPortSet(userName string, name string) (err error)
+	DelUserPortSet(userName string) error
+	getUserPortSet(userName string) (string, error)
+}
+
+// PortManipulator provides a manipulator interface
+// to update user to port mappings.
+type PortManipulator interface {
+	AddPortToUser(userName string, port string) (bool, error)
+}
+
+// PortSet provides an interface to update the
+// mappings required to program the ipset portsets.
 type PortSet interface {
-	AddToUIDPortSet(uid string, value string) (err error)
-	GetFromUIDPortSet(uid string) (string, error)
-	AddPortToUID(uid string, value string) (bool, error)
-	DeleteFromUIDPortSet(uid string) error
-	AddPortSet(uid string, port string) error
+	UserManipulator
+
+	PortManipulator
+
+	addPortSet(userName string, port string) error
+	deletePortSet(userName string, port string) error
 }

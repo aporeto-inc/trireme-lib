@@ -15,7 +15,7 @@ type ExpirationNotifier func(c DataStore, id interface{}, item interface{})
 // DataStore is the interface to a datastore.
 type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
-	AddOrUpdate(u interface{}, value interface{})
+	AddOrUpdate(u interface{}, value interface{}) (added bool)
 	Get(u interface{}) (i interface{}, err error)
 	GetReset(u interface{}, duration time.Duration) (interface{}, error)
 	Remove(u interface{}) (err error)
@@ -216,7 +216,8 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 
 // AddOrUpdate adds a new value in the cache or updates the existing value
 // if needed. If an update happens the timestamp is also updated.
-func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
+// Returns true if key was updated.
+func (c *Cache) AddOrUpdate(u interface{}, value interface{}) (updated bool) {
 
 	var timer *time.Timer
 	if c.lifetime != -1 {
@@ -232,7 +233,7 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 	c.Lock()
 	defer c.Unlock()
 
-	if _, ok := c.data[u]; ok {
+	if _, updated = c.data[u]; updated {
 		if c.data[u].timer != nil {
 			c.data[u].timer.Stop()
 		}
@@ -247,6 +248,8 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 	if len(c.data) > c.max {
 		c.max = len(c.data)
 	}
+
+	return updated
 }
 
 // SetTimeOut sets the time out of an entry to a new value
