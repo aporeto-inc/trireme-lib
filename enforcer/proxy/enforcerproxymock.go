@@ -6,6 +6,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -15,6 +16,7 @@ type mockedMethods struct {
 	GetFilterQueueMock func() *fqconfig.FilterQueue
 	StartMock          func() error
 	StopMock           func() error
+	UpdateSecretsMock  func(secrets.Secrets) error
 }
 
 // TestEnforcerLauncher is a mock
@@ -25,6 +27,7 @@ type TestEnforcerLauncher interface {
 	MockGetFilterQueue(t *testing.T, impl func() *fqconfig.FilterQueue)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
+	MockUpdateSecrets(t *testing.T, impl func(secrets.Secrets) error)
 }
 
 type testEnforcerLauncher struct {
@@ -68,6 +71,11 @@ func (m *testEnforcerLauncher) MockGetFilterQueue(t *testing.T, impl func() *fqc
 func (m *testEnforcerLauncher) MockStart(t *testing.T, impl func() error) {
 	m.currentMocks(t).StartMock = impl
 }
+
+func (m *testEnforcerLauncher) MockUpdateSecrets(t *testing.T, impl func(secrets.Secrets) error) {
+
+	m.currentMocks(t).UpdateSecretsMock = impl
+}
 func (m *testEnforcerLauncher) MockStop(t *testing.T, impl func() error) {
 	m.currentMocks(t).StartMock = impl
 }
@@ -105,5 +113,13 @@ func (m *testEnforcerLauncher) Stop() error {
 		return mock.StartMock()
 
 	}
+	return nil
+}
+
+func (m *testEnforcerLauncher) UpdateSecrets(token secrets.Secrets) error {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.UpdateSecretsMock != nil {
+		return mock.UpdateSecretsMock(token)
+	}
+
 	return nil
 }

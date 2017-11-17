@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,6 +21,60 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
+// LockedtokenEngine is a wrapper around tokenEngine to provide locks for accessing
+type LockedtokenEngine struct {
+	sync.RWMutex
+	tokens   tokens.TokenEngine
+	serverID string
+	validity time.Duration
+}
+
+// TokenAccessor define an interface to access LockedTokenEngine
+type TokenAccessor interface {
+	GetToken() tokens.TokenEngine
+	SetToken(serverID string, validity time.Duration, secret secrets.Secrets) error
+	GetTokenValidity() time.Duration
+	GetTokenServerID() string
+}
+
+// GetToken gets the embded token
+func (t *LockedtokenEngine) GetToken() tokens.TokenEngine {
+	t.RLock()
+	defer t.RUnlock()
+	return t.tokens
+}
+
+// SetToken updates sthe stored token in the struct
+func (t *LockedtokenEngine) SetToken(serverID string, validity time.Duration, secret secrets.Secrets) error {
+	t.Lock()
+	defer t.Unlock()
+	tokenEngine, err := tokens.NewJWT(validity, serverID, secret)
+	if err != nil {
+		t.tokens = tokenEngine
+	}
+	return err
+}
+func (t *LockedtokenEngine) GetTokenValidity() time.Duration {
+	return t.validity
+}
+
+func (t *LockedtokenEngine) GetTokenServerID() string {
+	return t.serverID
+}
+
+// newLockedTokenEngine creates a new instance of struct and return a token accessor interface
+func newLockedTokenEngine(serverID string, validity time.Duration, secret secrets.Secrets) (TokenAccessor, error) {
+
+	tokenEngine, err := tokens.NewJWT(validity, serverID, secret)
+	if err != nil {
+		return nil, err
+	}
+	return &LockedtokenEngine{tokens: tokenEngine,
+		serverID: serverID,
+		validity: validity,
+	}, nil
+}
+
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
 
@@ -28,7 +83,7 @@ type Datapath struct {
 
 	// Configuration parameters
 	filterQueue    *fqconfig.FilterQueue
-	tokenEngine    tokens.TokenEngine
+	tokenEngine    TokenAccessor
 	collector      collector.EventCollector
 	service        PacketProcessor
 	secrets        secrets.Secrets
@@ -113,11 +168,10 @@ func New(
 
 	}
 
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
+	tokenAccessor, err := newLockedTokenEngine(serverID, validity, secrets)
 	if err != nil {
-		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
+		zap.L().Fatal("Cannot create a token engine")
 	}
-
 	d := &Datapath{
 		puFromIP:   cache.NewCache("puFromIP"),
 		puFromMark: cache.NewCache("puFromMark"),
@@ -135,16 +189,12 @@ func New(
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
 		collector:                 collector,
-		tokenEngine:               tokenEngine,
+		tokenEngine:               tokenAccessor,
 		secrets:                   secrets,
 		ackSize:                   secrets.AckSize(),
 		mode:                      mode,
 		procMountPoint:            procMountPoint,
 		conntrackHdl:              conntrack.NewHandle(),
-	}
-
-	if d.tokenEngine == nil {
-		zap.L().Fatal("Unable to create enforcer")
 	}
 
 	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
@@ -371,4 +421,10 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	ctx.Unlock()
 
 	return
+}
+
+// UpdateSecrets updates the secrets used for signing communication between trireme instances
+func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
+	return d.tokenEngine.SetToken(d.tokenEngine.GetTokenServerID(), d.tokenEngine.GetTokenValidity(), token)
+
 }

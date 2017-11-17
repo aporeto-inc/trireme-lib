@@ -60,7 +60,7 @@ type ProxyInfo struct {
 	procMountPoint         string
 	externalIPCacheTimeout time.Duration
 
-	sync.Mutex
+	sync.RWMutex
 }
 
 // InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -100,11 +100,16 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	return nil
 }
 
+// UpdateSecrets updates the secrets used for signing communication between trireme instances
+func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
+	s.Lock()
+	defer s.Unlock()
+	s.Secrets = token
+	return nil
+}
+
 // Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
-	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
-	zap.L().Debug("NSPath of container", zap.String("ns", puInfo.Runtime.NSPath()))
 
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), puInfo.Runtime.NSPath(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
 	if err != nil {
@@ -121,22 +126,30 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			return err
 		}
 	}
-
+	pkier := s.Secrets.(pkiCertifier)
+	enforcerPayload := &rpcwrapper.EnforcePayload{
+		ContextID:        contextID,
+		ManagementID:     puInfo.Policy.ManagementID(),
+		TriremeAction:    puInfo.Policy.TriremeAction(),
+		ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
+		NetworkACLs:      puInfo.Policy.NetworkACLs(),
+		PolicyIPs:        puInfo.Policy.IPAddresses(),
+		Annotations:      puInfo.Policy.Annotations(),
+		Identity:         puInfo.Policy.Identity(),
+		ReceiverRules:    puInfo.Policy.ReceiverRules(),
+		TransmitterRules: puInfo.Policy.TransmitterRules(),
+		TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
+		ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
+	}
+	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
+	s.RLock()
+	enforcerPayload.CAPEM = pkier.AuthPEM()
+	enforcerPayload.PublicPEM = pkier.TransmittedPEM()
+	enforcerPayload.PrivatePEM = pkier.EncodingPEM()
+	enforcerPayload.SecretType = s.Secrets.Type()
+	s.RUnlock()
 	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.EnforcePayload{
-			ContextID:        contextID,
-			ManagementID:     puInfo.Policy.ManagementID(),
-			TriremeAction:    puInfo.Policy.TriremeAction(),
-			ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
-			NetworkACLs:      puInfo.Policy.NetworkACLs(),
-			PolicyIPs:        puInfo.Policy.IPAddresses(),
-			Annotations:      puInfo.Policy.Annotations(),
-			Identity:         puInfo.Policy.Identity(),
-			ReceiverRules:    puInfo.Policy.ReceiverRules(),
-			TransmitterRules: puInfo.Policy.TransmitterRules(),
-			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
-			ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
-		},
+		Payload: enforcerPayload,
 	}
 
 	err = s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{})

@@ -32,6 +32,9 @@ type PolicyEnforcer interface {
 
 	// Stop stops the PolicyEnforcer.
 	Stop() error
+
+	// UpdateSecrets updates the secrets used for signing communication between trireme instances
+	UpdateSecrets(token secrets.Secrets) error
 }
 
 // PublicKeyAdder register a publicKey for a Node.

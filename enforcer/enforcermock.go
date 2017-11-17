@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -24,6 +25,9 @@ type mockedMethodsPolicyEnforcer struct {
 
 	// Stop stops the Supervisor.
 	stopMock func() error
+
+	//updatesecrets mock moks updatesecrets
+	updateSecretsMock func(secrets.Secrets) error
 }
 
 type mockedMethodsPublicKeyAdder struct {
@@ -39,6 +43,7 @@ type TestPolicyEnforcer interface {
 	MockGetFilterQueue(t *testing.T, impl func() *fqconfig.FilterQueue)
 	MockStart(t *testing.T, impl func() error)
 	MockStop(t *testing.T, impl func() error)
+	MockUpdateSecrets(t *testing.T, impl func(secrets.Secrets) error)
 }
 
 // TestPublicKeyAdder vxcv
@@ -97,6 +102,10 @@ func (m *testPolicyEnforcer) MockStart(t *testing.T, impl func() error) {
 	m.currentMocksPolicyEnforcer(t).startMock = impl
 }
 
+func (m *testPolicyEnforcer) MockUpdateSecrets(t *testing.T, impl func(secrets.Secrets) error) {
+
+	m.currentMocksPolicyEnforcer(t).updateSecretsMock = impl
+}
 func (m *testPolicyEnforcer) MockStop(t *testing.T, impl func() error) {
 
 	m.currentMocksPolicyEnforcer(t).stopMock = impl
@@ -147,6 +156,13 @@ func (m *testPolicyEnforcer) Stop() error {
 	return nil
 }
 
+func (m *testPolicyEnforcer) UpdateSecrets(token secrets.Secrets) error {
+	if mock := m.currentMocksPolicyEnforcer(m.currentTest); mock != nil && mock.updateSecretsMock != nil {
+		return mock.updateSecretsMock(token)
+	}
+
+	return nil
+}
 func (m *testPolicyEnforcer) currentMocksPolicyEnforcer(t *testing.T) *mockedMethodsPolicyEnforcer {
 	m.lock.Lock()
 	defer m.lock.Unlock()

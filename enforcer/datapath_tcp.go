@@ -635,7 +635,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 
 	claims, err = d.parsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 	// // Validate the certificate and parse the token
-	// claims, nonce, cert, err := d.tokenEngine.Decode(false, tcpData, nil)
+	// claims, nonce, cert, err := d.tokenEngine.GetToken().Decode(false, tcpData, nil)
 	if err != nil || claims == nil {
 		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID, context, collector.MissingToken, nil)
 		return nil, nil, fmt.Errorf("Synack packet dropped because of bad claims %v", claims)
@@ -754,7 +754,7 @@ func (d *Datapath) createAckPacketToken(context *PUContext, auth *AuthInfo) ([]b
 		RMT: auth.RemoteContext,
 	}
 
-	token, _, err := d.tokenEngine.CreateAndSign(true, claims)
+	token, _, err := d.tokenEngine.GetToken().CreateAndSign(true, claims)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -767,7 +767,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 
 	if context.synExpiration.After(time.Now()) && len(context.synToken) > 0 {
 		// Randomize the nonce and send it
-		auth.LocalContext, err = d.tokenEngine.Randomize(context.synToken)
+		auth.LocalContext, err = d.tokenEngine.GetToken().Randomize(context.synToken)
 		if err == nil {
 			return context.synToken, nil
 		}
@@ -778,7 +778,7 @@ func (d *Datapath) createSynPacketToken(context *PUContext, auth *AuthInfo) (tok
 		T: context.Identity,
 	}
 
-	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
+	if context.synToken, auth.LocalContext, err = d.tokenEngine.GetToken().CreateAndSign(false, claims); err != nil {
 		return []byte{}, nil
 	}
 
@@ -797,7 +797,7 @@ func (d *Datapath) createSynAckPacketToken(context *PUContext, auth *AuthInfo) (
 		RMT: auth.RemoteContext,
 	}
 
-	if context.synToken, auth.LocalContext, err = d.tokenEngine.CreateAndSign(false, claims); err != nil {
+	if context.synToken, auth.LocalContext, err = d.tokenEngine.GetToken().CreateAndSign(false, claims); err != nil {
 		return []byte{}, nil
 	}
 
@@ -810,7 +810,7 @@ func (d *Datapath) createSynAckPacketToken(context *PUContext, auth *AuthInfo) (
 func (d *Datapath) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, nonce, cert, err := d.tokenEngine.Decode(false, data, auth.RemotePublicKey)
+	claims, nonce, cert, err := d.tokenEngine.GetToken().Decode(false, data, auth.RemotePublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -833,7 +833,7 @@ func (d *Datapath) parsePacketToken(auth *AuthInfo, data []byte) (*tokens.Connec
 func (d *Datapath) parseAckToken(auth *AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
 	// Validate the certificate and parse the token
-	claims, _, _, err := d.tokenEngine.Decode(true, data, auth.RemotePublicKey)
+	claims, _, _, err := d.tokenEngine.GetToken().Decode(true, data, auth.RemotePublicKey)
 	if err != nil {
 		return nil, err
 	}
