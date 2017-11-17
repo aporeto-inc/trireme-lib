@@ -7,7 +7,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	mockrpcwrapper "github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper/mock"
@@ -119,7 +119,7 @@ func createPUInfo() *policy.PUInfo {
 
 }
 
-func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessManager) enforcer.PolicyEnforcer {
+func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessManager) policyenforcer.Enforcer {
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
 	defaultExternalIPCacheTimeout := time.Second * 40

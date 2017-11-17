@@ -16,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
@@ -35,7 +36,7 @@ type Datapath struct {
 	service        PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
-	proxyhdl       PolicyEnforcer
+	proxyhdl       policyenforcer.Enforcer
 	procMountPoint string
 
 	// Internal structures and caches
@@ -91,8 +92,8 @@ func New(
 	mode constants.ModeType,
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
-	proxyhdl PolicyEnforcer,
-) PolicyEnforcer {
+	proxyhdl policyenforcer.Enforcer,
+) *Datapath {
 
 	if externalIPCacheTimeout <= 0 {
 		var err error

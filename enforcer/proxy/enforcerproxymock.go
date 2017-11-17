@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -19,7 +20,7 @@ type mockedMethods struct {
 
 // TestEnforcerLauncher is a mock
 type TestEnforcerLauncher interface {
-	enforcer.PolicyEnforcer
+	policyenforcer.Enforcer
 	MockEnforce(t *testing.T, impl func(contextID string, puInfo *policy.PUInfo) error)
 	MockUnenforce(t *testing.T, impl func(contextID string) error)
 	MockGetFilterQueue(t *testing.T, impl func() *fqconfig.FilterQueue)

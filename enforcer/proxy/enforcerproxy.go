@@ -15,6 +15,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
@@ -191,7 +192,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	cmdArg string,
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
-) enforcer.PolicyEnforcer {
+) policyenforcer.Enforcer {
 	return newProxyEnforcer(
 		mutualAuth,
 		filterQueue,
@@ -221,7 +222,7 @@ func newProxyEnforcer(mutualAuth bool,
 	procHdl processmon.ProcessManager,
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
-) enforcer.PolicyEnforcer {
+) policyenforcer.Enforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
 	if err != nil {

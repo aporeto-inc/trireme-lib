@@ -7,6 +7,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"go.uber.org/zap"
@@ -20,7 +21,7 @@ func NewWithDefaults(
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
-) PolicyEnforcer {
+) policyenforcer.Enforcer {
 
 	if collector == nil {
 		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
@@ -35,7 +36,7 @@ func NewWithDefaults(
 	}
 
 	//passing d here since we can reuse the caches and func here rather than redefining them again in proxy.
-	return datapath.New(
+	policyEnforcer := datapath.New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
 		collector,

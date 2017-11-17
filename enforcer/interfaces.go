@@ -16,25 +16,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-// A PolicyEnforcer is implementing the enforcer that will modify//analyze the capture packets
-type PolicyEnforcer interface {
-
-	// Enforce starts enforcing policies for the given policy.PUInfo.
-	Enforce(contextID string, puInfo *policy.PUInfo) error
-
-	// Unenforce stops enforcing policy for the given IP.
-	Unenforce(contextID string) error
-
-	// GetFilterQueue returns the current FilterQueueConfig.
-	GetFilterQueue() *fqconfig.FilterQueue
-
-	// Start starts the PolicyEnforcer.
-	Start() error
-
-	// Stop stops the PolicyEnforcer.
-	Stop() error
-}
-
 // PublicKeyAdder register a publicKey for a Node.
 type PublicKeyAdder interface {
 
