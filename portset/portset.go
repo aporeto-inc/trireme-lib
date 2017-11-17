@@ -25,7 +25,6 @@ const (
 	sockListeningState                = "0A"
 	hexFormat                         = 16
 	integerSize                       = 64
-	decFormat                         = 10
 )
 
 // portSetInstance : This type contains look up tables
@@ -64,29 +63,30 @@ func New() PortSet {
 	return p
 }
 
-func getUserName(uid string) (s string, err error) {
+func getUserName(uid string) (string, error) {
 
-	if u, err := user.LookupId(uid); err == nil {
-		return u.Username, nil
+	u, err := user.LookupId(uid)
+	if err != nil {
+		return "", err
 	}
-	return "", err
+	return u.Username, nil
 }
 
 // AddPortToUser adds/updates userPortMap cache. returns
 // true if user key is already present
-func (p *portSetInstance) AddPortToUser(userName string, port string) (ok bool, err error) {
+func (p *portSetInstance) AddPortToUser(userName string, port string) (bool, error) {
 
-	ok = false
+	ok := false
 	key := userName + ":" + port
 
 	if _, err := p.userPortMap.Get(key); err == nil {
 		ok = true
 	} else {
-		p.userPortMap.Add(key, p)
+		p.userPortMap.AddOrUpdate(key, p)
 	}
 
 	// program the ipset
-	if err = p.addPortSet(userName, port); err != nil {
+	if err := p.addPortSet(userName, port); err != nil {
 		return false, err
 	}
 
