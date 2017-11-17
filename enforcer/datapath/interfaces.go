@@ -1,4 +1,4 @@
-package datapathproxy
+package datapath
 
 type ContextProcessor interface {
 	DoesContextExist(contextID string) bool

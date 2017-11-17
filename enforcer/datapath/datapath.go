@@ -1,4 +1,4 @@
-package enforcer
+package datapath
 
 // Go libraries
 import (
@@ -155,42 +155,6 @@ func New(
 	//passing d here since we can reuse the caches and func here rather than redefining them again in proxy.
 	d.proxyhdl = tcp.NewProxy(":5000", true, false, d)
 	return d
-}
-
-// NewWithDefaults create a new data path with most things used by default
-func NewWithDefaults(
-	serverID string,
-	collector collector.EventCollector,
-	service PacketProcessor,
-	secrets secrets.Secrets,
-	mode constants.ModeType,
-	procMountPoint string,
-) PolicyEnforcer {
-
-	if collector == nil {
-		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
-	}
-
-	defaultMutualAuthorization := false
-	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultValidity := time.Hour * 8760
-	defaultExternalIPCacheTimeout, err := time.ParseDuration(DefaultExternalIPTimeout)
-	if err != nil {
-		defaultExternalIPCacheTimeout = time.Second
-	}
-
-	return New(
-		defaultMutualAuthorization,
-		defaultFQConfig,
-		collector,
-		service,
-		secrets,
-		serverID,
-		defaultValidity,
-		mode,
-		procMountPoint,
-		defaultExternalIPCacheTimeout,
-	)
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU

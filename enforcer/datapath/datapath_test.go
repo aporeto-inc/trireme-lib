@@ -1,4 +1,4 @@
-package enforcer
+package datapath
 
 import (
 	"encoding/binary"

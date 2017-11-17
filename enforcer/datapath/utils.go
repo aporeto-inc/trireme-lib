@@ -1,4 +1,4 @@
-package enforcer
+package datapath
 
 import (
 	"github.com/aporeto-inc/trireme-lib/collector"
