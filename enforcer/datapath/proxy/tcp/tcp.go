@@ -1,4 +1,4 @@
-package tcpproxy
+package proxy
 
 import (
 	"crypto/tls"
