@@ -44,6 +44,7 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 
 	if len(userPort) < minimumFields {
 		zap.L().Warn("Failed to remove key from the cache")
+		return
 	}
 
 	user := userPort[0]
@@ -205,7 +206,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		ipPort := strings.Split(line[ipPortOffset], ":")
 
 		if len(ipPort) < minimumFields {
-			zap.L().Warn("Failed to convert port to Int")
+			zap.L().Warn("Failed to extract port")
 			continue
 		}
 
@@ -217,7 +218,8 @@ func (p *portSetInstance) updateIPPortSets() {
 			continue
 		}
 
-		portKey := uid + ":" + strconv.Itoa(int(portNum))
+		port = strconv.Itoa(int(portNum))
+		portKey := uid + ":" + port
 		if updated := p.userPortMap.AddOrUpdate(portKey, p); updated {
 			continue
 		}
