@@ -47,6 +47,12 @@ var (
 		Operator: policy.KeyNotExists,
 	}
 
+	vulnerKey = policy.KeyValueOperator{
+		Key:      "vulnerability",
+		Value:    []string{"high"},
+		Operator: policy.Equal,
+	}
+
 	appEqWebAndenvEqDemo = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{appEqWeb, envEqDemo},
 		Policy: &policy.FlowPolicy{Action: policy.Accept},
@@ -74,6 +80,11 @@ var (
 
 	envKeyNotExistsAndAppEqWeb = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{envKeyNotExists, appEqWeb},
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
+	}
+
+	vulnTagPolicy = policy.TagSelector{
+		Clause: []policy.KeyValueOperator{vulnerKey},
 		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
@@ -209,6 +220,7 @@ func TestFuncSearch(t *testing.T) {
 			index7 := policyDB.AddPolicy(policyDomainParent)
 			index8 := policyDB.AddPolicy(policyDomainFull)
 			index9 := policyDB.AddPolicy(policyEnvDoesNotExist)
+			index10 := policyDB.AddPolicy(vulnTagPolicy)
 
 			So(index1, ShouldEqual, 1)
 			So(index2, ShouldEqual, 2)
@@ -217,6 +229,17 @@ func TestFuncSearch(t *testing.T) {
 			So(index5, ShouldEqual, 5)
 			So(index6, ShouldEqual, 6)
 			So(index9, ShouldEqual, 9)
+
+			Convey("The random tag policy should match", func() {
+				for i := 0; i < 50; i++ {
+					tags := policy.NewTagStore()
+					tags.AppendKeyValue("vulnerability", "high")
+
+					index, action := policyDB.Search(tags)
+					So(index, ShouldEqual, index10)
+					So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
+				}
+			})
 
 			Convey("Given that I search for a single matching that matches the equal rules, it should return the correct index,", func() {
 				tags := policy.NewTagStore()
