@@ -33,6 +33,7 @@ const (
 type portSetInstance struct {
 	userPortSet *cache.Cache
 	userPortMap *cache.Cache
+	markUserMap *cache.Cache
 }
 
 // deletes the port entry in the portset when the key uid:port
@@ -67,6 +68,7 @@ func New() PortSet {
 	p := &portSetInstance{
 		userPortSet: cache.NewCache("userPortSet"),
 		userPortMap: cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout, expirer),
+		markUserMap: cache.NewCache("markUserMap"),
 	}
 
 	go startPortSetTask(p)
@@ -97,12 +99,13 @@ func (p *portSetInstance) AddPortToUser(userName string, port string) (bool, err
 	return updated, nil
 }
 
-// AddUserPortSet : This adds/updates userPortSet cache. This cache
-// maps user to the portset associated with its PU. This is called during
-// creation of PU/on reception of application SYN-ACK packet.
-func (p *portSetInstance) AddUserPortSet(userName string, portset string) (err error) {
+// AddUserPortSet : This adds/updates userPortSet/markUserMap cache. userPortSet cache
+// maps user to the portset associated with its PU. markUserMap maps the packet mark
+// the userName. This gets called during the creation of PU/on reception of application SYN-ACK packet.
+func (p *portSetInstance) AddUserPortSet(userName string, portset string, mark string) (err error) {
 
 	p.userPortSet.AddOrUpdate(userName, portset)
+	p.markUserMap.AddOrUpdate(mark, userName)
 	return nil
 
 }
@@ -122,6 +125,16 @@ func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 func (p *portSetInstance) DelUserPortSet(userName string) (err error) {
 
 	return p.userPortSet.Remove(userName)
+}
+
+// GetuserMark return username associated with packet mark
+func (p *portSetInstance) GetUserMark(mark string) (string, error) {
+	if userName, err := p.markUserMap.Get(mark); err == nil {
+		if user, ok := userName.(string); ok {
+			return user, nil
+		}
+	}
+	return "", fmt.Errorf("Invalid Mark")
 }
 
 // addPortSet  programs the ipset portset with port. The
@@ -215,7 +228,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		}
 
 		port := ipPort[portOffset]
-		// conver the hex port to int
+		// convert the hex port to int
 		portNum, err := strconv.ParseInt(port, hexFormat, integerSize)
 		if err != nil {
 			zap.L().Warn("Failed to convert port to Int", zap.Error(err))
