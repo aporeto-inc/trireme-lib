@@ -1,6 +1,6 @@
 // +build darwin !linux
 
-package enforcer
+package nflog
 
 import "github.com/aporeto-inc/trireme-lib/collector"
 
@@ -8,7 +8,8 @@ import "github.com/aporeto-inc/trireme-lib/collector"
 type nfLog struct {
 }
 
-func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) nfLogger {
+// NewNFLogger provides an NFLog instance
+func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) NFLogger {
 	return &nfLog{}
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
@@ -33,7 +34,7 @@ type Datapath struct {
 	collector      collector.EventCollector
 	service        PacketProcessor
 	secrets        secrets.Secrets
-	nflogger       nfLogger
+	nflogger       nflog.NFLogger
 	proxyhdl       PolicyEnforcer
 	procMountPoint string
 
@@ -149,7 +150,7 @@ func New(
 		zap.L().Fatal("Unable to create enforcer")
 	}
 
-	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
+	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 	//passing d here since we can reuse the caches and func here rather than redefining them again in proxy.
 	d.proxyhdl = NewProxy(":5000", true, false, d)
 	return d

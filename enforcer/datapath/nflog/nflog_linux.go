@@ -1,6 +1,6 @@
 // +build linux
 
-package enforcer
+package nflog
 
 import (
 	"fmt"
@@ -24,7 +24,8 @@ type nfLog struct {
 	sync.Mutex
 }
 
-func newNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) nfLogger {
+// NewNFLogger provides an NFLog instance
+func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) NFLogger {
 
 	return &nfLog{
 		ipv4groupSource: ipv4groupSource,

@@ -1,10 +1,11 @@
-package enforcer
+package nflog
 
 import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-type nfLogger interface {
+// NFLogger provides an interface for NFLog
+type NFLogger interface {
 	start()
 	stop()
 }
