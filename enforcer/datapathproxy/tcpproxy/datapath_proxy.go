@@ -1,4 +1,4 @@
-package enforcer
+package tcpproxy
 
 import (
 	"crypto/tls"
@@ -16,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -396,7 +397,7 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
-	conn := NewProxyConnection()
+	conn := connection.NewProxyConnection()
 	toAddr, _ := syscall.Getpeername(downConn)
 	localaddr, _ := syscall.Getsockname(downConn)
 	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
@@ -409,11 +410,11 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 	}
 
 L:
-	for conn.GetState() == ClientTokenSend {
+	for conn.GetState() == connection.ClientTokenSend {
 		msg := make([]byte, 1024)
 		for {
 			switch conn.GetState() {
-			case ClientTokenSend:
+			case connection.ClientTokenSend:
 				token, err := p.datapath.createSynPacketToken(puContext.(*PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create syn token", zap.Error(err))
@@ -423,9 +424,9 @@ L:
 					zap.L().Error("Sendto failed", zap.Error(serr))
 					return serr
 				}
-				conn.SetState(ClientPeerTokenReceive)
+				conn.SetState(connection.ClientPeerTokenReceive)
 
-			case ClientPeerTokenReceive:
+			case connection.ClientPeerTokenReceive:
 
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
@@ -448,9 +449,9 @@ L:
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Dropping because of reject rule on receiver")
 				}
-				conn.SetState(ClientSendSignedPair)
+				conn.SetState(connection.ClientSendSignedPair)
 
-			case ClientSendSignedPair:
+			case connection.ClientSendSignedPair:
 				token, err := p.datapath.createAckPacketToken(puContext.(*PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create ack token", zap.Error(err))
@@ -484,15 +485,15 @@ func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16
 		SourcePort: uint16(localinet4ip.Port),
 		DestPort:   uint16(remoteinet4ip.Port),
 	}
-	conn := NewProxyConnection()
-	conn.SetState(ServerReceivePeerToken)
+	conn := connection.NewProxyConnection()
+	conn.SetState(connection.ServerReceivePeerToken)
 E:
-	for conn.GetState() == ServerReceivePeerToken {
+	for conn.GetState() == connection.ServerReceivePeerToken {
 		for {
 			msg := []byte{}
 
 			switch conn.GetState() {
-			case ServerReceivePeerToken:
+			case connection.ServerReceivePeerToken:
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
@@ -525,9 +526,9 @@ E:
 					return fmt.Errorf("Connection dropped because No Accept Policy")
 				}
 				conn.FlowPolicy = action.(*policy.FlowPolicy)
-				conn.SetState(ServerSendToken)
+				conn.SetState(connection.ServerSendToken)
 
-			case ServerSendToken:
+			case connection.ServerSendToken:
 				claims, err := p.datapath.createSynAckPacketToken(puContext.(*PUContext), &conn.Auth)
 				if err != nil {
 					return fmt.Errorf("Unable to create synack token")
@@ -538,8 +539,8 @@ E:
 				} else {
 					zap.L().Error("Failed to write", zap.Error(err))
 				}
-				conn.SetState(ServerAuthenticatePair)
-			case ServerAuthenticatePair:
+				conn.SetState(connection.ServerAuthenticatePair)
+			case connection.ServerAuthenticatePair:
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
@@ -567,12 +568,12 @@ E:
 
 }
 
-func (p *Proxy) reportAcceptedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, plc *policy.FlowPolicy) {
+func (p *Proxy) reportAcceptedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *PUContext, plc *policy.FlowPolicy) {
 	//conn.Reported = true
 	p.datapath.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, "N/A", plc)
 }
 
-func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
+func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
 
 	if plc == nil {
 		plc = &policy.FlowPolicy{

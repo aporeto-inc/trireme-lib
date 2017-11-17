@@ -1,4 +1,4 @@
-package enforcer
+package connection
 
 import (
 	"fmt"
@@ -84,16 +84,6 @@ type AuthInfo struct {
 	RemotePort      string
 }
 
-//ProxyConnection -- Connection to track state of proxy auth
-type ProxyConnection struct {
-	sync.Mutex
-
-	state      ProxyConnState
-	Auth       AuthInfo
-	FlowPolicy *policy.FlowPolicy
-	reported   bool
-}
-
 // TCPConnection is information regarding TCP Connection
 type TCPConnection struct {
 	sync.Mutex
@@ -110,7 +100,8 @@ type TCPConnection struct {
 
 	// Context is the PUContext that is associated with this connection
 	// Minimizes the number of caches and lookups
-	Context *PUContext
+	//we can store opaque data here
+	Context interface{}
 
 	// TimeOut signals the timeout to be used by the state machines
 	TimeOut time.Duration
@@ -230,6 +221,16 @@ func NewTCPConnection() *TCPConnection {
 	}
 
 	return c
+}
+
+//ProxyConnection -- Connection to track state of proxy auth
+type ProxyConnection struct {
+	sync.Mutex
+
+	state      ProxyConnState
+	Auth       AuthInfo
+	FlowPolicy *policy.FlowPolicy
+	reported   bool
 }
 
 // NewProxyConnection returns a new Proxy Connection

@@ -14,6 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
+	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
@@ -404,4 +405,102 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	ctx.Unlock()
 
 	return
+}
+
+//CreateSynToken -- retrieves auth tokens and claims and returns a signed token.
+func (d *Datapath) CreateSynToken(contextID string, Auth *connection.AuthInfo) ([]byte, error) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
+}
+
+func (d *Datapath) CreateSynAckToken(contextID string, payload []byte) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
+
+}
+
+func (d *Datapath) ParsePacketToken(payload []byte, data []byte) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
+
+}
+func (d *Datapath) CreateAckToken(contextID string, payload []byte) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
+}
+
+func (d *Datapath) ParseAckToken(contextID string, data []byte) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
+}
+
+func (d *Datapath) CheckRejectRecvRules(contextID string) (int, bool) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
+}
+
+func (d *Datapath) CheckAcceptRecvRules(contextID string) (int, bool) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
+}
+
+func (d *Datapath) CheckRejectTxRules(contextID string) (int, bool) {
+	if puContext, err := d.contextTracker.Get(contextID); err == nil {
+		puContext.(*PUContext).Lock()
+		defer puContext.(*PUContext).Lock()
+		if _, err = d.contextTracker.Get(contextID); err != nil {
+			return []byte{}, nil
+		}
+
+	}
+	return []byte{}, nil
 }
