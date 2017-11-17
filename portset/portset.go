@@ -47,6 +47,11 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 		return
 	}
 
+	if portSetObject == nil {
+		zap.L().Warn("Invalid portSetObject")
+		return
+	}
+
 	user := userPort[0]
 	port := userPort[1]
 
@@ -103,15 +108,14 @@ func (p *portSetInstance) AddUserPortSet(userName string, portset string) (err e
 }
 
 // GetUserPortSet returns the portset associated with user.
-func (p *portSetInstance) getUserPortSet(userName string) (port string, err error) {
+func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 
 	if portSetName, err := p.userPortSet.Get(userName); err == nil {
 		if port, ok := portSetName.(string); ok {
 			return port, nil
 		}
-		err = fmt.Errorf("Invalid portset name")
 	}
-	return "", err
+	return "", fmt.Errorf("Invalid portset name")
 }
 
 // DelUserPortSet  deletes user from userPortSet cache.
