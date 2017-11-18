@@ -53,6 +53,18 @@ var (
 		Operator: policy.Equal,
 	}
 
+	vulnerLowKey = policy.KeyValueOperator{
+		Key:      "vulnerability",
+		Value:    []string{"low"},
+		Operator: policy.Equal,
+	}
+
+	namespaceKey = policy.KeyValueOperator{
+		Key:      "namespace",
+		Value:    []string{"/a/b/*"},
+		Operator: policy.Equal,
+	}
+
 	appEqWebAndenvEqDemo = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{appEqWeb, envEqDemo},
 		Policy: &policy.FlowPolicy{Action: policy.Accept},
@@ -85,6 +97,11 @@ var (
 
 	vulnTagPolicy = policy.TagSelector{
 		Clause: []policy.KeyValueOperator{vulnerKey},
+		Policy: &policy.FlowPolicy{Action: policy.Accept},
+	}
+
+	policyNamespace = policy.TagSelector{
+		Clause: []policy.KeyValueOperator{namespaceKey, vulnerLowKey},
 		Policy: &policy.FlowPolicy{Action: policy.Accept},
 	}
 
@@ -207,6 +224,8 @@ func TestFuncSearch(t *testing.T) {
 	// policy7: domain IN ("com.*", "com.example.*")
 	// policy8: domain=com.example.web
 	// policy9: env doesn't exist
+	// policy10: vulnerability=high
+	// policy11: namespace=/a/b/* and vulnerability=low
 
 	Convey("Given an empty policyDB", t, func() {
 		policyDB := NewPolicyDB()
@@ -221,6 +240,7 @@ func TestFuncSearch(t *testing.T) {
 			index8 := policyDB.AddPolicy(policyDomainFull)
 			index9 := policyDB.AddPolicy(policyEnvDoesNotExist)
 			index10 := policyDB.AddPolicy(vulnTagPolicy)
+			index11 := policyDB.AddPolicy(policyNamespace)
 
 			So(index1, ShouldEqual, 1)
 			So(index2, ShouldEqual, 2)
@@ -230,15 +250,34 @@ func TestFuncSearch(t *testing.T) {
 			So(index6, ShouldEqual, 6)
 			So(index9, ShouldEqual, 9)
 
-			Convey("The random tag policy should match", func() {
-				for i := 0; i < 50; i++ {
-					tags := policy.NewTagStore()
-					tags.AppendKeyValue("vulnerability", "high")
+			Convey("The vulnerability tag policy should match", func() {
+				tags := policy.NewTagStore()
+				tags.AppendKeyValue("vulnerability", "high")
 
-					index, action := policyDB.Search(tags)
-					So(index, ShouldEqual, index10)
-					So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
-				}
+				index, action := policyDB.Search(tags)
+				So(index, ShouldEqual, index10)
+				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
+			})
+
+			Convey("A policy that matches only the namespace, shoud not match", func() {
+				tags := policy.NewTagStore()
+				tags.AppendKeyValue("namespace", "/a/b/c/d")
+				tags.AppendKeyValue("env", "privatedemo")
+
+				index, action := policyDB.Search(tags)
+				So(action, ShouldBeNil)
+				So(index, ShouldEqual, -1)
+			})
+
+			Convey("A policy that matches namespace and vulnerability low, shoud match", func() {
+				tags := policy.NewTagStore()
+				tags.AppendKeyValue("namespace", "/a/b/c/d")
+				tags.AppendKeyValue("vulnerability", "low")
+				tags.AppendKeyValue("env", "privatedemo")
+
+				index, action := policyDB.Search(tags)
+				So(action, ShouldNotBeNil)
+				So(index, ShouldEqual, index11)
 			})
 
 			Convey("Given that I search for a single matching that matches the equal rules, it should return the correct index,", func() {
