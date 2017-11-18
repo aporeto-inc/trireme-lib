@@ -16,7 +16,7 @@ import (
 const (
 	procNetTCPFile                    = "/proc/net/tcp"
 	portSetUpdateIntervalMilliseconds = 1000
-	portEntryTimeout                  = portSetUpdateIntervalMilliseconds * 3
+	portEntryTimeout                  = 60 //portSetUpdateIntervalMilliseconds * 3
 	uidFieldOffset                    = 7
 	procHeaderLineNum                 = 0
 	portOffset                        = 1
@@ -57,7 +57,7 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 	port := userPort[1]
 
 	if err := portSetObject.deletePortSet(user, port); err != nil {
-		zap.L().Warn("Failed to delete port from set", zap.Error(err))
+		zap.L().Warn("Cache: Failed to delete port from set", zap.Error(err))
 	}
 
 }
@@ -67,7 +67,7 @@ func New() PortSet {
 
 	p := &portSetInstance{
 		userPortSet: cache.NewCache("userPortSet"),
-		userPortMap: cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout, expirer),
+		userPortMap: cache.NewCacheWithExpirationNotifier("userPortMap", 20*time.Second, expirer),
 		markUserMap: cache.NewCache("markUserMap"),
 	}
 
@@ -148,7 +148,7 @@ func (p *portSetInstance) addPortSet(userName string, port string) (err error) {
 
 	puPortSetName, err := p.getUserPortSet(userName)
 	if err != nil {
-		return fmt.Errorf("Unable to get portset from uid")
+		//return fmt.Errorf("Unable to get portset from uid")
 	}
 
 	ips := ipset.IPSet{
@@ -194,7 +194,8 @@ func (p *portSetInstance) deletePortSet(userName string, port string) (err error
 // initilisation.
 func startPortSetTask(p *portSetInstance) {
 
-	t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
+	//t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
+	t := time.NewTicker(5 * time.Minute)
 	for range t.C {
 		// Update PortSet periodically.
 		p.updateIPPortSets()
@@ -240,17 +241,23 @@ func (p *portSetInstance) updateIPPortSets() {
 			continue
 		}
 
-		port = strconv.Itoa(int(portNum))
-		portKey := uid + ":" + port
-		if updated := p.userPortMap.AddOrUpdate(portKey, p); updated {
-			continue
-		}
-
 		// /proc/net/tcp file contains uid. Conversion to
 		// userName is required as they are keys to lookup tables.
 		userName, err := getUserName(uid)
 		if err != nil {
 			zap.L().Warn("Error converting to username", zap.Error(err))
+			continue
+		}
+
+		port = strconv.Itoa(int(portNum))
+		portKey := userName + ":" + port
+
+		// check if username corresponds to a valid uidloginpu
+		if _, err := p.userPortSet.Get(userName); err != nil {
+			continue
+		}
+
+		if updated := p.userPortMap.AddOrUpdate(portKey, p); updated {
 			continue
 		}
 
