@@ -725,6 +725,17 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option",
+		"34", "-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynStr())
+
+	if err != nil {
+		return fmt.Errorf("Failed to add capture Syn rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
+	}
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
 

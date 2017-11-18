@@ -17,8 +17,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/log"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/supervisor/iptablesctrl"
-	"github.com/bvandewalle/go-ipset/ipset"
 )
 
 const (
@@ -896,26 +894,26 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				//Update the port for the context matching the mark this packet has comes with
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
-
-					name, err := iptablesctrl.PuPortSetName(context.ID, p.Mark)
-
+					// check cache and update portset cache accordingly.
+					err = d.unknownSynConnectionTracer.Remove(p.L4ReverseFlowHash())
 					if err != nil {
-						return nil, nil, err
-					}
-
-					ips := ipset.IPSet{
-						Name: name,
-					}
-
-					port := strconv.Itoa(int(p.SourcePort))
-					//Add an entry for 60 seconds we will rediscover ports every 60 sec
-
-					if adderr := ips.Add(port, portEntryTimeout); adderr != nil {
-						zap.L().Warn("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
-
+						// syn ack for which there is no record for syn. drop it
+						return nil, nil, fmt.Errorf("Did not find a matching syn for syn ack")
 					}
 
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
+					// Find the uid for which mark was asserted.
+					if uid, markerr := d.portSetInstance.GetUserMark(p.Mark); markerr == nil {
+						// Add port to the cache and program the portset
+						if _, updateerr := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); updateerr != nil {
+							return nil, nil, fmt.Errorf("Unable to update portset cache")
+						}
+
+					} else {
+						// Every outgoing packet has a mark. We should never come here
+						return nil, nil, fmt.Errorf("Did not find uid for the packet mark")
+					}
+
 				}
 				//Return an error still we will process the syn successfully on retry and
 			}
@@ -961,7 +959,16 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 			// update the unknownSynConnectionTracer cache to keep track of
 			// syn packet that has no context yet.
-			d.unknownSynConnectionTracer.Add(p.L4FlowHash(), nil)
+			if err := d.unknownSynConnectionTracer.Add(p.L4FlowHash(), nil); err != nil {
+				return context, nil, fmt.Errorf("Unable to keep track of SYN packet")
+			}
+
+			// Remove any of our data from the packet.
+			if err := p.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
+				return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
+			}
+			p.DropDetachedBytes()
+
 			return context, nil, nil
 		}
 
