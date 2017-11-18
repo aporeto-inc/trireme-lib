@@ -13,18 +13,17 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/cnimonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
-
-	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-
-	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
@@ -86,7 +85,7 @@ type TriremeResult struct {
 	Trireme        trireme.Trireme
 	DockerMonitor  monitor.Monitor
 	RPCMonitor     rpcmonitor.RPCMonitor
-	PublicKeyAdder enforcer.PublicKeyAdder
+	PublicKeyAdder secrets.PublicKeyAdder
 	Secret         secrets.Secrets
 }
 
@@ -136,7 +135,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	enforcers := map[constants.PUType]policyenforcer.Enforcer{}
 	supervisors := map[constants.PUType]supervisor.Supervisor{}
 
-	var publicKeyAdder enforcer.PublicKeyAdder
+	var publicKeyAdder secrets.PublicKeyAdder
 	var secretInstance secrets.Secrets
 	var dockerMonitorInstance monitor.Monitor
 	var rpcMonitorInstance *rpcmonitor.RPCMonitor
@@ -408,7 +407,7 @@ func NewPKITriremeWithDockerMonitor(
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
 	killContainerError bool,
-) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
+) (trireme.Trireme, monitor.Monitor, secrets.PublicKeyAdder) {
 
 	if eventCollector == nil {
 		zap.L().Warn("Using a default collector for events")

@@ -17,6 +17,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
@@ -35,7 +36,7 @@ type Datapath struct {
 	filterQueue    *fqconfig.FilterQueue
 	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
-	tokenprocessor tokenprocessor.TokenProcessor
+	tokenProcessor tokenprocessor.TokenProcessor
 	service        packetprocessor.PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
@@ -88,16 +89,22 @@ func New(
 	mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	tokenprocessor tokenprocessor.TokenProcessor,
-	contextTracker cache.DataStore,
-	tokenEngine tokens.TokenEngine,
+	serverID string,
+	validity time.Duration,
 	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
-	proxyhdl policyenforcer.Enforcer,
 ) *Datapath {
+
+	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
+	if err != nil {
+		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
+	}
+	tokenProcessor := tokenprocessor.New(tokenEngine)
+	contextTracker := cache.NewCache("contextTracker")
+	tcpProxy := tcp.NewProxy(":5000", true, false, tokenProcessor, collector, contextTracker, mutualAuth)
 
 	if ExternalIPCacheTimeout <= 0 {
 		var err error
@@ -139,14 +146,14 @@ func New(
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
 		collector:                 collector,
-		tokenprocessor:            tokenprocessor,
+		tokenProcessor:            tokenProcessor,
 		tokenEngine:               tokenEngine,
 		secrets:                   secrets,
 		ackSize:                   secrets.AckSize(),
 		mode:                      mode,
 		procMountPoint:            procMountPoint,
 		conntrackHdl:              conntrack.NewHandle(),
-		proxyhdl:                  proxyhdl,
+		proxyhdl:                  tcpProxy,
 	}
 
 	if d.tokenEngine == nil {
@@ -155,6 +162,41 @@ func New(
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 	return d
+}
+
+// NewWithDefaults create a new data path with most things used by default
+func NewWithDefaults(
+	serverID string,
+	collector collector.EventCollector,
+	service packetprocessor.PacketProcessor,
+	secrets secrets.Secrets,
+	mode constants.ModeType,
+	procMountPoint string,
+) *Datapath {
+
+	if collector == nil {
+		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
+	}
+
+	defaultMutualAuthorization := false
+	defaultFQConfig := fqconfig.NewFilterQueueWithDefaults()
+	defaultValidity := time.Hour * 8760
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
+	if err != nil {
+		defaultExternalIPCacheTimeout = time.Second
+	}
+	return New(
+		defaultMutualAuthorization,
+		defaultFQConfig,
+		collector,
+		serverID,
+		defaultValidity,
+		service,
+		secrets,
+		mode,
+		procMountPoint,
+		defaultExternalIPCacheTimeout,
+	)
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU

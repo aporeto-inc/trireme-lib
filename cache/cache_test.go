@@ -255,7 +255,7 @@ func TestSetTimeOut(t *testing.T) {
 				So(err, ShouldBeNil)
 
 				Convey("If I wait 1100, the data should still be there ", func() {
-					<-time.After(1100 * time.Millisecond)
+					<-time.After(1500 * time.Millisecond)
 					d, err := c.Get("test")
 					So(err, ShouldBeNil)
 					So(d.(string), ShouldResemble, "test")

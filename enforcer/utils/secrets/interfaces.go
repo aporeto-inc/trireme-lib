@@ -1,4 +1,4 @@
-package enforcer
+package secrets
 
 // PublicKeyAdder register a publicKey for a Node.
 type PublicKeyAdder interface {

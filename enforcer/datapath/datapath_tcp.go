@@ -302,7 +302,7 @@ func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context
 
 	// Create a token
 	context.Lock()
-	tcpData, err := d.tokenprocessor.CreateSynPacketToken(context, &conn.Auth)
+	tcpData, err := d.tokenProcessor.CreateSynPacketToken(context, &conn.Auth)
 	context.Unlock()
 	if err != nil {
 		return nil, err
@@ -363,7 +363,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 
 		// Create a token
 		context.Lock()
-		tcpData, err := d.tokenprocessor.CreateSynAckPacketToken(context, &conn.Auth)
+		tcpData, err := d.tokenProcessor.CreateSynAckPacketToken(context, &conn.Auth)
 		context.Unlock()
 
 		if err != nil {
@@ -397,7 +397,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
 		context.Lock()
-		token, err := d.tokenprocessor.CreateAckPacketToken(context, &conn.Auth)
+		token, err := d.tokenProcessor.CreateAckPacketToken(context, &conn.Auth)
 		context.Unlock()
 		if err != nil {
 			return nil, err
@@ -507,7 +507,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
-	claims, err = d.tokenprocessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
+	claims, err = d.tokenProcessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 
 	// If the token signature is not valid or there are no claims
 	// we must drop the connection and we drop the Syn packet. The source will
@@ -634,7 +634,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of missing token")
 	}
 
-	claims, err = d.tokenprocessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
+	claims, err = d.tokenProcessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 	// // Validate the certificate and parse the token
 	// claims, nonce, cert, err := d.tokenEngine.Decode(false, tcpData, nil)
 	if err != nil || claims == nil {
@@ -697,7 +697,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			return nil, nil, fmt.Errorf("TCP Authentication Option not found")
 		}
 
-		if _, err := d.tokenprocessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
+		if _, err := d.tokenProcessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID, context, collector.InvalidFormat, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 		}

@@ -23,16 +23,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer/datapath"
-	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
-	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	_ "github.com/aporeto-inc/trireme-lib/enforcer/utils/nsenter" // nolint
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statscollector"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -123,25 +119,18 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		}
 	}
 
-	tokenEngine, err := tokens.NewJWT(payload.Validity, payload.ServerID, s.secrets)
-	if err != nil {
-		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
-	}
-	tp := tokenprocessor.New(tokenEngine)
-	contextTracker := cache.NewCache("contextTracker")
-	if s.enforcer = datapath.New(
+	// New returns a new policy enforcer
+	if s.enforcer = enforcer.New(
 		payload.MutualAuth,
 		payload.FqConfig,
 		s.collector,
-		tp,
-		contextTracker,
-		tokenEngine,
 		s.service,
 		s.secrets,
+		payload.ServerID,
+		payload.Validity,
 		constants.RemoteContainer,
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
-		tcp.NewProxy(":5000", true, false, tp, s.collector, contextTracker, payload.MutualAuth),
 	); s.enforcer == nil {
 		return fmt.Errorf("Unable to setup enforcer")
 	}

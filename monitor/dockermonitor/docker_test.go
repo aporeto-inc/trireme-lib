@@ -16,7 +16,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -39,7 +39,7 @@ func initTestDockerInfo(id string, nwmode container.NetworkMode, state bool) *ty
 	var testInfo types.ContainerJSONBase
 	var testConfig container.Config
 	var testNetwork types.NetworkSettings
-	var testDefaultNW types.enforcerconstants.DefaultNetworkSettings
+	var testDefaultNW types.DefaultNetworkSettings
 	var testContainer types.ContainerState
 	var testHostConfig container.HostConfig
 
@@ -54,7 +54,7 @@ func initTestDockerInfo(id string, nwmode container.NetworkMode, state bool) *ty
 
 	testDefaultNW.IPAddress = "172.17.0.2"
 
-	testNetwork.enforcerconstants.DefaultNetworkSettings = testDefaultNW
+	testNetwork.DefaultNetworkSettings = testDefaultNW
 
 	testConfig.Image = "centos"
 	testConfig.Labels = m

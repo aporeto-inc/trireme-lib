@@ -10,9 +10,9 @@ goimport_sanitize () {
   rm -f $1.bk
 }
 
-echo "Enforcer Mocks"
-mockgen -source enforcer/interfaces.go -destination enforcer/mock/mockenforcer.go -package mockenforcer -source_package github.com/aporeto-inc/trireme-lib/enforcer
-goimport_sanitize enforcer/mock/mockenforcer.go
+echo "Enforcer/PolicyEnforcer Mocks"
+mockgen -source enforcer/policyenforcer/interfaces.go -destination enforcer/policyenforcer/mock/mockpolicyenforcer.go -package mockpolicyenforcer -source_package github.com/aporeto-inc/trireme-lib/enforcer
+goimport_sanitize enforcer/policyenforcer/mock/mockpolicyenforcer.go
 
 echo "Supervisor Mocks"
 mockgen -source supervisor/interfaces.go -destination supervisor/mock/mocksupervisor.go -package mocksupervisor

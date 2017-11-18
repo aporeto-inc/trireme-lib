@@ -13,7 +13,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
-	"github.com/aporeto-inc/trireme-lib/enforcer/mock"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer/mock"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper/mock"
@@ -22,7 +24,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/mock"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -236,7 +238,7 @@ func TestInitEnforcer(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-		mockEnf := mockenforcer.NewMockPolicyEnforcer(ctrl)
+		mockEnf := mockpolicyenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
@@ -380,7 +382,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -426,7 +428,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -451,7 +453,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.LocalContainer, constants.IPTables, []string{})
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
@@ -655,7 +657,7 @@ func TestEnforce(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-		mockEnf := mockenforcer.NewMockPolicyEnforcer(ctrl)
+		mockEnf := mockpolicyenforcer.NewMockEnforcer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -730,7 +732,7 @@ func TestEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
@@ -776,7 +778,7 @@ func TestUnEnforce(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := rpcwrapper.NewRPCServer()
-		mockEnf := mockenforcer.NewMockPolicyEnforcer(ctrl)
+		mockEnf := mockpolicyenforcer.NewMockEnforcer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -827,7 +829,7 @@ func TestUnEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 
