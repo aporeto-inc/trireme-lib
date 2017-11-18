@@ -13,6 +13,7 @@ import (
 	secrets "github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	tokens "github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
+	portset "github.com/aporeto-inc/trireme-lib/portset"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -83,6 +84,20 @@ func (m *MockPolicyEnforcer) GetFilterQueue() *fqconfig.FilterQueue {
 // nolint
 func (mr *MockPolicyEnforcerMockRecorder) GetFilterQueue() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilterQueue", reflect.TypeOf((*MockPolicyEnforcer)(nil).GetFilterQueue))
+}
+
+// GetPortSetInstance mocks base method
+// nolint
+func (m *MockPolicyEnforcer) GetPortSetInstance() portset.PortSet {
+	ret := m.ctrl.Call(m, "GetPortSetInstance")
+	ret0, _ := ret[0].(portset.PortSet)
+	return ret0
+}
+
+// GetPortSetInstance indicates an expected call of GetPortSetInstance
+// nolint
+func (mr *MockPolicyEnforcerMockRecorder) GetPortSetInstance() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPortSetInstance", reflect.TypeOf((*MockPolicyEnforcer)(nil).GetPortSetInstance))
 }
 
 // Start mocks base method
