@@ -199,7 +199,6 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			if err = i.portSetInstance.AddUserPortSet(uid, portSetName, mark); err != nil {
 				return err
 			}
-			zap.L().Debug("varks: Created portset and updated cache")
 
 		}
 
@@ -280,7 +279,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		ips := ipset.IPSet{
 			Name: portSetName,
 		}
-		if err := ips.Destroy(); err != nil {
+		if err = ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to clear puport set", zap.Error(err))
 		}
 
@@ -288,8 +287,6 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		if err = i.portSetInstance.DelUserPortSet(uid, mark); err != nil {
 			return err
 		}
-		zap.L().Debug("varks: Delete portset and update cache")
-
 	}
 	return nil
 }

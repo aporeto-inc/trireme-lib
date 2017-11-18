@@ -16,7 +16,7 @@ import (
 const (
 	procNetTCPFile                    = "/proc/net/tcp"
 	portSetUpdateIntervalMilliseconds = 1000
-	portEntryTimeout                  = 60 //portSetUpdateIntervalMilliseconds * 3
+	portEntryTimeout                  = portSetUpdateIntervalMilliseconds / 1000 * 3
 	uidFieldOffset                    = 7
 	procHeaderLineNum                 = 0
 	portOffset                        = 1
@@ -194,8 +194,7 @@ func (p *portSetInstance) deletePortSet(userName string, port string) (err error
 // initilisation.
 func startPortSetTask(p *portSetInstance) {
 
-	//t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
-	t := time.NewTicker(5 * time.Minute)
+	t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
 	for range t.C {
 		// Update PortSet periodically.
 		p.updateIPPortSets()
@@ -253,7 +252,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		portKey := userName + ":" + port
 
 		// check if username corresponds to a valid uidloginpu
-		if _, err := p.userPortSet.Get(userName); err != nil {
+		if _, err = p.userPortSet.Get(userName); err != nil {
 			continue
 		}
 

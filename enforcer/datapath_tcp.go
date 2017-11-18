@@ -965,11 +965,19 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 			// Remove any of our data from the packet.
 			zap.L().Debug("varks: Stripped the options/tokens")
+
+			if err = p.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+				return context, nil, nil
+			}
+
 			if err := p.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 				return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 			}
+
 			p.DropDetachedBytes()
+
 			p.UpdateTCPChecksum()
+
 			zap.L().Debug("varks: Checksum updated")
 			return context, nil, nil
 		}
