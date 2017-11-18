@@ -780,7 +780,6 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		appChain, 1,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT")
-
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at app ")
 	}
@@ -791,7 +790,6 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
-
 	if err != nil {
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
@@ -805,6 +803,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
+
 	if i.mode == constants.LocalServer {
 		err = i.ipt.Insert(
 			i.appAckPacketIPTableContext,
@@ -841,10 +840,10 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		netChain, 1,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT")
-
 	if err != nil {
 		return fmt.Errorf("Failed to add capture SynAck rule for table %s, chain %s, with error: %s", i.appAckPacketIPTableContext, i.appPacketIPTableSection, err.Error())
 	}
+
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-j", natProxyInputChain)
@@ -867,6 +866,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
+
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		natProxyOutputChain, 1,
 		"-m", "mark",
@@ -901,6 +901,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add default allow for marked packets at net")
 	}
+
 	err = i.ipt.Insert(i.appAckPacketIPTableContext,
 		i.appPacketIPTableSection,
 		1,
@@ -909,8 +910,8 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to add proxyOutputChain")
 	}
-	return nil
 
+	return nil
 }
 
 // CleanGlobalRules cleans the capture rules for SynAck packets
@@ -922,7 +923,6 @@ func (i *Instance) CleanGlobalRules() error {
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueAckStr()); err != nil {
-
 		zap.L().Debug("Can not clear the SynAck packet capcture app chain", zap.Error(err))
 	}
 
@@ -932,7 +932,6 @@ func (i *Instance) CleanGlobalRules() error {
 		"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueAckStr()); err != nil {
-
 		zap.L().Debug("Can not clear the SynAck packet capcture net chain", zap.Error(err))
 	}
 
@@ -941,7 +940,6 @@ func (i *Instance) CleanGlobalRules() error {
 		i.appPacketIPTableSection,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT"); err != nil {
-
 		zap.L().Debug("Can not clear the global app mark rule", zap.Error(err))
 		return fmt.Errorf("Failed to add default allow for marked packets at app ")
 	}
@@ -952,7 +950,6 @@ func (i *Instance) CleanGlobalRules() error {
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT"); err != nil {
 		zap.L().Debug("Can not clear the global net mark rule", zap.Error(err))
-
 	}
 
 	if err := i.ipset.DestroyAll(); err != nil {
@@ -1009,7 +1006,6 @@ func (i *Instance) removeMarkRule() error {
 		"-m", "mark",
 		"--mark", strconv.Itoa(i.fqc.GetMarkValue()),
 		"-j", "ACCEPT"); err != nil {
-
 		zap.L().Warn("Can not clear mark rule", zap.Error(err))
 	}
 
