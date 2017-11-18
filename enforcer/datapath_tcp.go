@@ -60,7 +60,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			//The option should always be present since our rules looks for this option
 			//context is destroyed here if we are a transient PU
 			//Verdict get set to pass
-			zap.L().Debug("varks: Sent Syn with Transient PU")
 			return nil
 		}
 
@@ -186,7 +185,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				//SYN ACK came through the global rule.
 				//This not from a process we are monitoring
 				//let his packet through
-				zap.L().Debug("varks: Global rule")
 				return nil
 			}
 			return err
@@ -893,13 +891,11 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
 					// check cache and update portset cache accordingly.
-					zap.L().Debug("varks: Got Syn ack ")
 					err = d.unknownSynConnectionTracer.Remove(p.L4ReverseFlowHash())
 					if err != nil {
 						// syn ack for which there is no record for syn. drop it
 						return nil, nil, fmt.Errorf("Did not find a matching syn for syn ack")
 					}
-					zap.L().Debug("varks: syn connection entry removed")
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 					// Find the uid for which mark was asserted.
 					if uid, markerr := d.portSetInstance.GetUserMark(p.Mark); markerr == nil {
@@ -907,7 +903,6 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 						if _, updateerr := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); updateerr != nil {
 							return nil, nil, fmt.Errorf("Unable to update portset cache")
 						}
-						zap.L().Debug("varks: Program portset")
 					} else {
 						// Every outgoing packet has a mark. We should never come here
 						return nil, nil, fmt.Errorf("Did not find uid for the packet mark")
@@ -958,19 +953,16 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 			// update the unknownSynConnectionTracer cache to keep track of
 			// syn packet that has no context yet.
-			zap.L().Debug("varks: Created Transient PU and update syn cache")
-			if err := d.unknownSynConnectionTracer.Add(p.L4FlowHash(), nil); err != nil {
+			if err = d.unknownSynConnectionTracer.Add(p.L4FlowHash(), nil); err != nil {
 				return context, nil, fmt.Errorf("Unable to keep track of SYN packet")
 			}
 
 			// Remove any of our data from the packet.
-			zap.L().Debug("varks: Stripped the options/tokens")
-
 			if err = p.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 				return context, nil, nil
 			}
 
-			if err := p.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
+			if err = p.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
 				return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 			}
 
@@ -978,7 +970,6 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 
 			p.UpdateTCPChecksum()
 
-			zap.L().Debug("varks: Checksum updated")
 			return context, nil, nil
 		}
 

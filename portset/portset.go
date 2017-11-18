@@ -148,7 +148,7 @@ func (p *portSetInstance) addPortSet(userName string, port string) (err error) {
 
 	puPortSetName, err := p.getUserPortSet(userName)
 	if err != nil {
-		//return fmt.Errorf("Unable to get portset from uid")
+		return fmt.Errorf("Unable to get portset from uid")
 	}
 
 	ips := ipset.IPSet{
