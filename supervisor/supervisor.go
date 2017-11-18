@@ -12,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 	"github.com/aporeto-inc/trireme-lib/supervisor/ipsetctrl"
 	"github.com/aporeto-inc/trireme-lib/supervisor/iptablesctrl"
 )
@@ -37,7 +38,7 @@ type Config struct {
 
 	triremeNetworks []string
 
-	portSetInstance *portset.PortSet
+	portSetInstance portset.PortSet
 
 	sync.Mutex
 }
@@ -76,7 +77,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		filterQueue:     filterQueue,
 		excludedIPs:     []string{},
 		triremeNetworks: networks,
-		portSetInstance: portSetInstance
+		portSetInstance: portSetInstance,
 	}
 
 	var err error

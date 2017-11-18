@@ -138,6 +138,14 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		})
+
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN, ACK",
+			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		})
 		//Moving to global rule
 		// Network Packets - SYN
 		rules = append(rules, []string{
@@ -171,6 +179,14 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		})
+
+		rules = append(rules, []string{
+			i.appAckPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		})
+
 		// Network Packets - SYN
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,

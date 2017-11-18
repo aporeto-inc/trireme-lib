@@ -21,6 +21,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 type pkiCertifier interface {
@@ -59,6 +60,7 @@ type ProxyInfo struct {
 	statsServerSecret      string
 	procMountPoint         string
 	externalIPCacheTimeout time.Duration
+	portSetInstance        portset.PortSet
 
 	sync.Mutex
 }
@@ -168,6 +170,11 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
 }
 
+// GetPortSetInstance returns nil for the proxy
+func (s *ProxyInfo) GetPortSetInstance() portset.PortSet {
+	return s.portSetInstance
+}
+
 // Start starts the the remote enforcer proxy.
 func (s *ProxyInfo) Start() error {
 	return nil
@@ -204,6 +211,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		processmon.GetProcessManagerHdl(),
 		procMountPoint,
 		externalIPCacheTimeout,
+		nil,
 	)
 }
 
@@ -220,6 +228,7 @@ func newProxyEnforcer(mutualAuth bool,
 	procHdl processmon.ProcessManager,
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
+	portSetInstance portset.PortSet,
 ) enforcer.PolicyEnforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
@@ -243,6 +252,7 @@ func newProxyEnforcer(mutualAuth bool,
 		statsServerSecret:      statsServersecret,
 		procMountPoint:         procMountPoint,
 		externalIPCacheTimeout: externalIPCacheTimeout,
+		portSetInstance:        portSetInstance,
 	}
 
 	zap.L().Debug("Called NewDataPathEnforcer")
