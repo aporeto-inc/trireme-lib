@@ -1017,7 +1017,7 @@ func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Pac
 func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
 	tcpData := tcpPacket.ReadTCPData()
 
-	claims, _, _, nerr := enforcer.tokenEngine.Decode(false, tcpData, nil)
+	claims, _, _, nerr := enforcer.tokenEngine.GetToken().Decode(false, tcpData, nil)
 
 	So(nerr, ShouldBeNil)
 

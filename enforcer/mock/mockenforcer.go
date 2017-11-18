@@ -113,6 +113,20 @@ func (mr *MockPolicyEnforcerMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockPolicyEnforcer)(nil).Stop))
 }
 
+// UpdateSecrets mocks base method
+// nolint
+func (m *MockPolicyEnforcer) UpdateSecrets(token secrets.Secrets) error {
+	ret := m.ctrl.Call(m, "UpdateSecrets", token)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateSecrets indicates an expected call of UpdateSecrets
+// nolint
+func (mr *MockPolicyEnforcerMockRecorder) UpdateSecrets(token interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockPolicyEnforcer)(nil).UpdateSecrets), token)
+}
+
 // MockPublicKeyAdder is a mock of PublicKeyAdder interface
 // nolint
 type MockPublicKeyAdder struct {
