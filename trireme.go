@@ -8,7 +8,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/monitor"
@@ -132,16 +132,16 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 
 }
 
-// addTransmitterLabel adds the TransmitterLabel as a fixed label in the policy.
-// The ManagementID part of the policy is used as the TransmitterLabel.
+// addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.
+// The ManagementID part of the policy is used as the enforcerconstants.TransmitterLabel.
 // If the Policy didn't set the ManagementID, we use the Local contextID as the
-// default TransmitterLabel.
+// default enforcerconstants.TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
 	if containerInfo.Policy.ManagementID() == "" {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
+		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, contextID)
 	} else {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID())
+		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, containerInfo.Policy.ManagementID())
 	}
 }
 

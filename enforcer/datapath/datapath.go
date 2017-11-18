@@ -15,16 +15,18 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
-
-// DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
-const DefaultExternalIPTimeout = "500ms"
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
@@ -33,7 +35,8 @@ type Datapath struct {
 	filterQueue    *fqconfig.FilterQueue
 	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
-	service        PacketProcessor
+	tokenprocessor tokenprocessor.TokenProcessor
+	service        packetprocessor.PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
 	proxyhdl       policyenforcer.Enforcer
@@ -60,7 +63,7 @@ type Datapath struct {
 	netReplyConnectionTracker cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
-	externalIPCacheTimeout time.Duration
+	ExternalIPCacheTimeout time.Duration
 
 	// connctrack handle
 	conntrackHdl conntrack.Conntrack
@@ -85,21 +88,22 @@ func New(
 	mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service PacketProcessor,
+	tokenprocessor tokenprocessor.TokenProcessor,
+	contextTracker cache.DataStore,
+	tokenEngine tokens.TokenEngine,
+	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
-	serverID string,
-	validity time.Duration,
 	mode constants.ModeType,
 	procMountPoint string,
-	externalIPCacheTimeout time.Duration,
+	ExternalIPCacheTimeout time.Duration,
 	proxyhdl policyenforcer.Enforcer,
 ) *Datapath {
 
-	if externalIPCacheTimeout <= 0 {
+	if ExternalIPCacheTimeout <= 0 {
 		var err error
-		externalIPCacheTimeout, err = time.ParseDuration(DefaultExternalIPTimeout)
+		ExternalIPCacheTimeout, err = time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 		if err != nil {
-			externalIPCacheTimeout = time.Second
+			ExternalIPCacheTimeout = time.Second
 		}
 	}
 
@@ -118,28 +122,24 @@ func New(
 
 	}
 
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
-	if err != nil {
-		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
-	}
-
 	d := &Datapath{
 		puFromIP:   cache.NewCache("puFromIP"),
 		puFromMark: cache.NewCache("puFromMark"),
 		puFromPort: cache.NewCache("puFromPort"),
 
-		contextTracker: cache.NewCache("contextTracker"),
+		contextTracker: contextTracker,
 
 		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
 		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
 		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
 		netOrigConnectionTracker:  cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
 		netReplyConnectionTracker: cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
-		externalIPCacheTimeout:    externalIPCacheTimeout,
+		ExternalIPCacheTimeout:    ExternalIPCacheTimeout,
 		filterQueue:               filterQueue,
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
 		collector:                 collector,
+		tokenprocessor:            tokenprocessor,
 		tokenEngine:               tokenEngine,
 		secrets:                   secrets,
 		ackSize:                   secrets.AckSize(),
@@ -187,7 +187,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if proxyerr != nil {
 		return proxyerr
 	}
-	return d.doUpdatePU(puContext.(*PUContext), puInfo)
+	return d.doUpdatePU(puContext.(*pucontext.PUContext), puInfo)
 }
 
 // Unenforce removes the configuration for the given PU
@@ -198,15 +198,15 @@ func (d *Datapath) Unenforce(contextID string) error {
 		return fmt.Errorf("ContextID not found in Enforcer")
 	}
 
-	puContext.(*PUContext).Lock()
-	defer puContext.(*PUContext).Unlock()
+	puContext.(*pucontext.PUContext).Lock()
+	defer puContext.(*pucontext.PUContext).Unlock()
 	//Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
 	//Datapath is a strict readonly struct for proxy
 
 	if err = d.proxyhdl.Unenforce(contextID); err != nil {
 		zap.L().Error("Failed to unenforce contextID", zap.String("ContextID", contextID))
 	}
-	pu := puContext.(*PUContext)
+	pu := puContext.(*pucontext.PUContext)
 	if err := d.puFromIP.Remove(pu.IP); err != nil {
 		zap.L().Warn("Unable to remove cache entry during unenforcement",
 			zap.String("IP", pu.IP),
@@ -257,7 +257,7 @@ func (d *Datapath) Start() error {
 	d.startApplicationInterceptor()
 	d.startNetworkInterceptor()
 
-	go d.nflogger.start()
+	go d.nflogger.Start()
 	zap.L().Error("Calling Proxy Start")
 	//Does nothing here
 	if err := d.proxyhdl.Start(); err != nil {
@@ -279,7 +279,7 @@ func (d *Datapath) Stop() error {
 		d.netStop[i] <- true
 	}
 
-	d.nflogger.stop()
+	d.nflogger.Stop()
 
 	return nil
 }
@@ -302,10 +302,10 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 		if d.mode == constants.LocalContainer {
 			return fmt.Errorf("No IP provided for Local Container")
 		}
-		ip = DefaultNetwork
+		ip = enforcerconstants.DefaultNetwork
 	}
 
-	pu := &PUContext{
+	pu := &pucontext.PUContext{
 		ID:           contextID,
 		ManagementID: puInfo.Policy.ManagementID(),
 		PUType:       puInfo.Runtime.PUType(),
@@ -323,7 +323,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
 			d.puFromIP.AddOrUpdate(ip, pu)
 		} else {
-			d.puFromIP.AddOrUpdate(DefaultNetwork, pu)
+			d.puFromIP.AddOrUpdate(enforcerconstants.DefaultNetwork, pu)
 		}
 	}
 
@@ -333,7 +333,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	return d.doUpdatePU(pu, puInfo)
 }
 
-func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo) error {
+func (d *Datapath) doUpdatePU(puContext *pucontext.PUContext, containerInfo *policy.PUInfo) error {
 
 	puContext.Lock()
 	defer puContext.Unlock()
@@ -346,7 +346,7 @@ func (d *Datapath) doUpdatePU(puContext *PUContext, containerInfo *policy.PUInfo
 
 	puContext.Annotations = containerInfo.Policy.Annotations()
 
-	puContext.externalIPCache = cache.NewCacheWithExpiration(fmt.Sprintf("externalIPCache:%s", puContext.ID), d.externalIPCacheTimeout)
+	puContext.ExternalIPCache = cache.NewCacheWithExpiration(fmt.Sprintf("ExternalIPCache:%s", puContext.ID), d.ExternalIPCacheTimeout)
 
 	puContext.ApplicationACLs = acls.NewACLCache()
 	if err := puContext.ApplicationACLs.AddRuleList(containerInfo.Policy.ApplicationACLs()); err != nil {
@@ -364,7 +364,7 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 		return
 	}
 
-	ctx := item.(*PUContext)
+	ctx := item.(*pucontext.PUContext)
 	ctx.Lock()
 	ID = ctx.ManagementID
 	tags = ctx.Annotations.Copy()
@@ -373,101 +373,27 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-// CreateSynToken -- retrieves auth tokens and claims and returns a signed token.
-func (d *Datapath) CreateSynToken(contextID string, Auth *connection.AuthInfo) ([]byte, error) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
+func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
 
+	c := &collector.FlowRecord{
+		ContextID: context.ID,
+		Source: &collector.EndPoint{
+			ID:   sourceID,
+			IP:   p.SourceAddress.String(),
+			Port: p.SourcePort,
+			Type: collector.PU,
+		},
+		Destination: &collector.EndPoint{
+			ID:   destID,
+			IP:   p.DestinationAddress.String(),
+			Port: p.DestinationPort,
+			Type: collector.PU,
+		},
+		Tags:       context.Annotations,
+		Action:     plc.Action,
+		DropReason: mode,
+		PolicyID:   plc.PolicyID,
 	}
-	return []byte{}, nil
-}
 
-// CreateSynAckToken
-func (d *Datapath) CreateSynAckToken(contextID string, payload []byte) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
-
-	}
-	return []byte{}, nil
-
-}
-
-func (d *Datapath) ParsePacketToken(payload []byte, data []byte) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
-
-	}
-	return []byte{}, nil
-
-}
-func (d *Datapath) CreateAckToken(contextID string, payload []byte) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
-
-	}
-	return []byte{}, nil
-}
-
-func (d *Datapath) ParseAckToken(contextID string, data []byte) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
-
-	}
-	return []byte{}, nil
-}
-
-func (d *Datapath) CheckRejectRecvRules(contextID string) (int, bool) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
-
-	}
-	return []byte{}, nil
-}
-
-func (d *Datapath) CheckAcceptRecvRules(contextID string) (int, bool) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
-
-	}
-	return []byte{}, nil
-}
-
-func (d *Datapath) CheckRejectTxRules(contextID string) (int, bool) {
-	if puContext, err := d.contextTracker.Get(contextID); err == nil {
-		puContext.(*PUContext).Lock()
-		defer puContext.(*PUContext).Lock()
-		if _, err = d.contextTracker.Get(contextID); err != nil {
-			return []byte{}, nil
-		}
-
-	}
-	return []byte{}, nil
+	d.collector.CollectFlowEvent(c)
 }

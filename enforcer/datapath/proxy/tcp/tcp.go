@@ -17,13 +17,17 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 const (
-	SO_ORIGINAL_DST = 80   //nolint
-	proxyMarkInt    = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
+	sockOptOriginalDst = 80   //nolint
+	proxyMarkInt       = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
 
 )
 
@@ -40,10 +44,13 @@ type Proxy struct {
 	//certPath certificate path
 	certPath string
 
-	keyPath         string
-	wg              sync.WaitGroup
-	datapath        *Datapath
-	socketListeners *cache.Cache
+	keyPath             string
+	wg                  sync.WaitGroup
+	collector           collector.EventCollector
+	mutualAuthorization bool
+	tokenprocessor      tokenprocessor.TokenProcessor
+	contextTracker      cache.DataStore
+	socketListeners     *cache.Cache
 	//List of local IP's
 	IPList []string
 }
@@ -66,7 +73,7 @@ type sockaddr struct {
 }
 
 //NewProxy -- Create a new instance of Proxy
-func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnforcer {
+func NewProxy(listen string, forward bool, encrypt bool, tp tokenprocessor.TokenProcessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool) policyenforcer.Enforcer {
 	ifaces, _ := net.Interfaces()
 	iplist := []string{}
 	for _, intf := range ifaces {
@@ -81,19 +88,45 @@ func NewProxy(listen string, forward bool, encrypt bool, d *Datapath) PolicyEnfo
 
 	return &Proxy{
 		//Listen:  listen,
-		Forward:         forward,
-		Encrypt:         encrypt,
-		wg:              sync.WaitGroup{},
-		datapath:        d,
-		socketListeners: cache.NewCache("socketlisterner"),
-		IPList:          iplist,
+		Forward:             forward,
+		Encrypt:             encrypt,
+		wg:                  sync.WaitGroup{},
+		mutualAuthorization: mutualAuthorization,
+		collector:           c,
+		tokenprocessor:      tp,
+		contextTracker:      contextTracker,
+		socketListeners:     cache.NewCache("socketlisterner"),
+		IPList:              iplist,
 	}
+}
+
+func (p *Proxy) reportProxiedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
+	c := &collector.FlowRecord{
+		ContextID: context.ID,
+		Source: &collector.EndPoint{
+			ID:   sourceID,
+			IP:   flowproperties.SourceIP.String(),
+			Port: flowproperties.SourcePort,
+			Type: collector.PU,
+		},
+		Destination: &collector.EndPoint{
+			ID:   destID,
+			IP:   flowproperties.DestIP.String(),
+			Port: flowproperties.DestPort,
+			Type: collector.PU,
+		},
+		Tags:       context.Annotations,
+		Action:     plc.Action,
+		DropReason: mode,
+		PolicyID:   plc.PolicyID,
+	}
+	p.collector.CollectFlowEvent(c)
 }
 
 //Enforce -- Enforce function policyenforcer interface
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
-	_, err := p.datapath.contextTracker.Get(contextID)
 
+	_, err := p.contextTracker.Get(contextID)
 	if err != nil {
 		//Start proxy
 		errChan := make(chan error, 1)
@@ -279,7 +312,7 @@ func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
 		return []byte{}, 0, err
 	}
 
-	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, SO_ORIGINAL_DST, uintptr(unsafe.Pointer(&addr)), &size)
+	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size)
 	if err != nil {
 		return []byte{}, 0, err
 	}
@@ -354,19 +387,20 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 //CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
 //We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
-	puContext, err := p.datapath.contextTracker.Get(contextID)
+
+	puContext, err := p.contextTracker.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
-	puContext.(*PUContext).Lock()
-	defer puContext.(*PUContext).Unlock()
-	pu := puContext.(*PUContext)
+	puContext.(*pucontext.PUContext).Lock()
+	defer puContext.(*pucontext.PUContext).Unlock()
+	pu := puContext.(*pucontext.PUContext)
 	//addr := upConn.RemoteAddr().String()
 
 	if pu.PUType == constants.LinuxProcessPU {
 		//Are we client or server proxy
 
-		if len(puContext.(*PUContext).Ports) > 0 && puContext.(*PUContext).Ports[0] != "0" {
+		if len(puContext.(*pucontext.PUContext).Ports) > 0 && puContext.(*pucontext.PUContext).Ports[0] != "0" {
 			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 		}
 		//We are client no advertised port
@@ -393,7 +427,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 	//We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
-	puContext, err := p.datapath.contextTracker.Get(contextID)
+	puContext, err := p.contextTracker.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
@@ -415,7 +449,7 @@ L:
 		for {
 			switch conn.GetState() {
 			case connection.ClientTokenSend:
-				token, err := p.datapath.createSynPacketToken(puContext.(*PUContext), &conn.Auth)
+				token, err := p.tokenprocessor.CreateSynPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create syn token", zap.Error(err))
 				}
@@ -435,24 +469,24 @@ L:
 				}
 
 				msg = msg[:n]
-				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
+				claims, err := p.tokenprocessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidToken, nil)
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidToken, nil)
 					return fmt.Errorf("Peer token reject because of bad claims %v", claims)
 				}
 
-				if index, _ := puContext.(*PUContext).RejectTxtRules.Search(claims.T); p.datapath.mutualAuthorization && index >= 0 {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
+				if index, _ := puContext.(*pucontext.PUContext).RejectTxtRules.Search(claims.T); p.mutualAuthorization && index >= 0 {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Dropping because of reject rule on transmitter")
 				}
-				if index, _ := puContext.(*PUContext).AcceptTxtRules.Search(claims.T); !p.datapath.mutualAuthorization || index < 0 {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
+				if index, _ := puContext.(*pucontext.PUContext).AcceptTxtRules.Search(claims.T); !p.mutualAuthorization || index < 0 {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Dropping because of reject rule on receiver")
 				}
 				conn.SetState(connection.ClientSendSignedPair)
 
 			case connection.ClientSendSignedPair:
-				token, err := p.datapath.createAckPacketToken(puContext.(*PUContext), &conn.Auth)
+				token, err := p.tokenprocessor.CreateAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create ack token", zap.Error(err))
 				}
@@ -471,7 +505,7 @@ L:
 
 //StartServerAuthStateMachine -- Start the aporeto handshake for a server application
 func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
-	puContext, err := p.datapath.contextTracker.Get(contextID)
+	puContext, err := p.contextTracker.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
@@ -506,30 +540,30 @@ E:
 					}
 					msg = append(msg, data[:n]...)
 				}
-				claims, err := p.datapath.parsePacketToken(&conn.Auth, msg)
+				claims, err := p.tokenprocessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidToken, nil)
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidToken, nil)
 					zap.L().Error("REPORTED FLOW REJECTED")
 					return err
 				}
-				claims.T.AppendKeyValue(PortNumberLabelString, strconv.Itoa(int(backendport)))
-				if index, plc := puContext.(*PUContext).RejectRcvRules.Search(claims.T); index >= 0 {
+				claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
+				if index, plc := puContext.(*pucontext.PUContext).RejectRcvRules.Search(claims.T); index >= 0 {
 					zap.L().Error("Connection Dropped", zap.String("Policy ID", plc.(*policy.FlowPolicy).PolicyID))
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, plc.(*policy.FlowPolicy))
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, plc.(*policy.FlowPolicy))
 					return fmt.Errorf("Connection dropped because of Policy %v", err)
 				}
 				var action interface{}
 				var index int
-				if index, action = puContext.(*PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
+				if index, action = puContext.(*pucontext.PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
 
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.PolicyDrop, nil)
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Connection dropped because No Accept Policy")
 				}
 				conn.FlowPolicy = action.(*policy.FlowPolicy)
 				conn.SetState(connection.ServerSendToken)
 
 			case connection.ServerSendToken:
-				claims, err := p.datapath.createSynAckPacketToken(puContext.(*PUContext), &conn.Auth)
+				claims, err := p.tokenprocessor.CreateSynAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
 					return fmt.Errorf("Unable to create synack token")
 				}
@@ -553,8 +587,8 @@ E:
 					}
 					msg = append(msg, data[:n]...)
 				}
-				if _, err := p.datapath.parseAckToken(&conn.Auth, msg); err != nil {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*PUContext).ManagementID, puContext.(*PUContext), collector.InvalidFormat, nil)
+				if _, err := p.tokenprocessor.ParseAckToken(&conn.Auth, msg); err != nil {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidFormat, nil)
 					return fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 				}
 
@@ -563,17 +597,16 @@ E:
 		}
 	}
 
-	p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.(*PUContext).ManagementID, puContext.(*PUContext), conn.FlowPolicy)
+	p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), conn.FlowPolicy)
 	return nil
-
 }
 
-func (p *Proxy) reportAcceptedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *PUContext, plc *policy.FlowPolicy) {
+func (p *Proxy) reportAcceptedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, plc *policy.FlowPolicy) {
 	//conn.Reported = true
-	p.datapath.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, "N/A", plc)
+	p.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, "N/A", plc)
 }
 
-func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
+func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
 
 	if plc == nil {
 		plc = &policy.FlowPolicy{
@@ -581,6 +614,5 @@ func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *co
 			PolicyID: "",
 		}
 	}
-	p.datapath.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, mode, plc)
-
+	p.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, mode, plc)
 }

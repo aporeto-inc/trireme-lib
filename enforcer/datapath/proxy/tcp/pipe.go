@@ -1,4 +1,4 @@
-package datapath
+package tcp
 
 import (
 	"fmt"

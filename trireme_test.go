@@ -274,7 +274,7 @@ func TestSimpleUpdate(t *testing.T) {
 
 	// Generate a new Policy ...
 	ipl := policy.ExtendedMap{policy.DefaultNamespace: "127.0.0.1"}
-	tagsMap := policy.NewTagStoreFromMap(map[string]string{enforcer.TransmitterLabel: contextID})
+	tagsMap := policy.NewTagStoreFromMap(map[string]string{enforcerconstants.TransmitterLabel: contextID})
 	newPolicy := policy.NewPUPolicy("", policy.Police, nil, nil, nil, nil, tagsMap, nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
 	doTestUpdate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime, newPolicy)
 }
@@ -335,15 +335,15 @@ func TestStop(t *testing.T) {
 	doTestCreate(t, trireme, tresolver, tsupervisor[constants.ContainerPU].(supervisor.TestSupervisor), tenforcer[constants.ContainerPU].(enforcer.TestPolicyEnforcer), tmonitor, contextID, runtime)
 }
 
-func TestTransmitterLabel(t *testing.T) {
+func Testenforcerconstants.TransmitterLabel(t *testing.T) {
 
-	// If management ID is set, use it as the TransmitterLabel
+	// If management ID is set, use it as the enforcerconstants.TransmitterLabel
 
 	mgmtID := "mgmt"
 	contextID := "mgmt"
 	containerInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
-	addTransmitterLabel(contextID, containerInfo)
-	label, ok := containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
+	addenforcerconstants.TransmitterLabel(contextID, containerInfo)
+	label, ok := containerInfo.Policy.Identity().Get(enforcerconstants.TransmitterLabel)
 	if !ok {
 		t.Errorf("Expecting Transmitter label to be set but it is missing")
 	}
@@ -351,12 +351,12 @@ func TestTransmitterLabel(t *testing.T) {
 		t.Errorf("Expecting Transmitter label to be set to MgmtID: %s , but was set to: %s", mgmtID, label)
 	}
 
-	// If management ID is not set, use contextID as the TransmitterLabel
+	// If management ID is not set, use contextID as the enforcerconstants.TransmitterLabel
 
 	contextID = "Context"
 	containerInfo = policy.NewPUInfo(contextID, constants.ContainerPU)
-	addTransmitterLabel(contextID, containerInfo)
-	label, ok = containerInfo.Policy.Identity().Get(enforcer.TransmitterLabel)
+	addenforcerconstants.TransmitterLabel(contextID, containerInfo)
+	label, ok = containerInfo.Policy.Identity().Get(enforcerconstants.TransmitterLabel)
 	if !ok {
 		t.Errorf("Expecting Transmitter label to be set but it is missing")
 	}

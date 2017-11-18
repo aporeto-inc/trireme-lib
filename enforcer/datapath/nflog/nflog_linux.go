@@ -15,7 +15,7 @@ import (
 )
 
 type nfLog struct {
-	getPUInfo       puInfoFunc
+	getPUInfo       GetPUInfoFunc
 	ipv4groupSource uint16
 	ipv4groupDest   uint16
 	collector       collector.EventCollector
@@ -25,7 +25,7 @@ type nfLog struct {
 }
 
 // NewNFLogger provides an NFLog instance
-func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, collector collector.EventCollector) NFLogger {
+func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo GetPUInfoFunc, collector collector.EventCollector) NFLogger {
 
 	return &nfLog{
 		ipv4groupSource: ipv4groupSource,
@@ -35,14 +35,14 @@ func NewNFLogger(ipv4groupSource, ipv4groupDest uint16, getPUInfo puInfoFunc, co
 	}
 }
 
-func (a *nfLog) start() {
+func (a *nfLog) Start() {
 	a.Lock()
 	a.srcNflogHandle, _ = nflog.BindAndListenForLogs([]uint16{a.ipv4groupSource}, 64, a.sourceNFLogsHanlder, a.nflogErrorHandler)
 	a.dstNflogHandle, _ = nflog.BindAndListenForLogs([]uint16{a.ipv4groupDest}, 64, a.destNFLogsHandler, a.nflogErrorHandler)
 	a.Unlock()
 }
 
-func (a *nfLog) stop() {
+func (a *nfLog) Stop() {
 	a.Lock()
 	a.srcNflogHandle.NFlogClose()
 	a.dstNflogHandle.NFlogClose()

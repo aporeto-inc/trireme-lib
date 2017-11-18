@@ -165,7 +165,7 @@ func (_mr *MockPacketProcessorMockRecorder) Initialize(arg0, arg1 interface{}) *
 }
 
 // PostProcessTCPAppPacket mocks base method
-func (_m *MockPacketProcessor) PostProcessTCPAppPacket(_param0 *packet.Packet, _param1 interface{}, _param2 *enforcer.PUContext, _param3 *enforcer.TCPConnection) bool {
+func (_m *MockPacketProcessor) PostProcessTCPAppPacket(_param0 *packet.Packet, _param1 interface{}, _param2 *enforcer.pucontext.PUContext, _param3 *enforcer.TCPConnection) bool {
 	ret := _m.ctrl.Call(_m, "PostProcessTCPAppPacket", _param0, _param1, _param2, _param3)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -177,7 +177,7 @@ func (_mr *MockPacketProcessorMockRecorder) PostProcessTCPAppPacket(arg0, arg1, 
 }
 
 // PostProcessTCPNetPacket mocks base method
-func (_m *MockPacketProcessor) PostProcessTCPNetPacket(_param0 *packet.Packet, _param1 interface{}, _param2 *tokens.ConnectionClaims, _param3 *enforcer.PUContext, _param4 *enforcer.TCPConnection) bool {
+func (_m *MockPacketProcessor) PostProcessTCPNetPacket(_param0 *packet.Packet, _param1 interface{}, _param2 *tokens.ConnectionClaims, _param3 *enforcer.pucontext.PUContext, _param4 *enforcer.TCPConnection) bool {
 	ret := _m.ctrl.Call(_m, "PostProcessTCPNetPacket", _param0, _param1, _param2, _param3, _param4)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -189,7 +189,7 @@ func (_mr *MockPacketProcessorMockRecorder) PostProcessTCPNetPacket(arg0, arg1, 
 }
 
 // PreProcessTCPAppPacket mocks base method
-func (_m *MockPacketProcessor) PreProcessTCPAppPacket(_param0 *packet.Packet, _param1 *enforcer.PUContext, _param2 *enforcer.TCPConnection) bool {
+func (_m *MockPacketProcessor) PreProcessTCPAppPacket(_param0 *packet.Packet, _param1 *enforcer.pucontext.PUContext, _param2 *enforcer.TCPConnection) bool {
 	ret := _m.ctrl.Call(_m, "PreProcessTCPAppPacket", _param0, _param1, _param2)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -201,7 +201,7 @@ func (_mr *MockPacketProcessorMockRecorder) PreProcessTCPAppPacket(arg0, arg1, a
 }
 
 // PreProcessTCPNetPacket mocks base method
-func (_m *MockPacketProcessor) PreProcessTCPNetPacket(_param0 *packet.Packet, _param1 *enforcer.PUContext, _param2 *enforcer.TCPConnection) bool {
+func (_m *MockPacketProcessor) PreProcessTCPNetPacket(_param0 *packet.Packet, _param1 *enforcer.pucontext.PUContext, _param2 *enforcer.TCPConnection) bool {
 	ret := _m.ctrl.Call(_m, "PreProcessTCPNetPacket", _param0, _param1, _param2)
 	ret0, _ := ret[0].(bool)
 	return ret0

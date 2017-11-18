@@ -14,7 +14,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/crypto"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
@@ -59,7 +60,7 @@ type ProxyInfo struct {
 	commandArg             string
 	statsServerSecret      string
 	procMountPoint         string
-	externalIPCacheTimeout time.Duration
+	ExternalIPCacheTimeout time.Duration
 
 	sync.Mutex
 }
@@ -80,7 +81,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			CAPEM:                  pkier.AuthPEM(),
 			PublicPEM:              pkier.TransmittedPEM(),
 			PrivatePEM:             pkier.EncodingPEM(),
-			ExternalIPCacheTimeout: s.externalIPCacheTimeout,
+			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
 		},
 	}
 
@@ -184,14 +185,14 @@ func (s *ProxyInfo) Stop() error {
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service enforcer.PacketProcessor,
+	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
 	procMountPoint string,
-	externalIPCacheTimeout time.Duration,
+	ExternalIPCacheTimeout time.Duration,
 ) policyenforcer.Enforcer {
 	return newProxyEnforcer(
 		mutualAuth,
@@ -205,7 +206,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		cmdArg,
 		processmon.GetProcessManagerHdl(),
 		procMountPoint,
-		externalIPCacheTimeout,
+		ExternalIPCacheTimeout,
 	)
 }
 
@@ -213,7 +214,7 @@ func NewProxyEnforcer(mutualAuth bool,
 func newProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service enforcer.PacketProcessor,
+	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
@@ -221,7 +222,7 @@ func newProxyEnforcer(mutualAuth bool,
 	cmdArg string,
 	procHdl processmon.ProcessManager,
 	procMountPoint string,
-	externalIPCacheTimeout time.Duration,
+	ExternalIPCacheTimeout time.Duration,
 ) policyenforcer.Enforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
@@ -244,7 +245,7 @@ func newProxyEnforcer(mutualAuth bool,
 		commandArg:             cmdArg,
 		statsServerSecret:      statsServersecret,
 		procMountPoint:         procMountPoint,
-		externalIPCacheTimeout: externalIPCacheTimeout,
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 	}
 
 	zap.L().Debug("Called NewDataPathEnforcer")
@@ -268,7 +269,7 @@ func NewDefaultProxyEnforcer(serverID string,
 
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcer.DefaultExternalIPTimeout)
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}

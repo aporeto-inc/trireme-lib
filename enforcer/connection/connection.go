@@ -98,7 +98,7 @@ type TCPConnection struct {
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
 
-	// Context is the PUContext that is associated with this connection
+	// Context is the pucontext.PUContext that is associated with this connection
 	// Minimizes the number of caches and lookups
 	//we can store opaque data here
 	Context interface{}

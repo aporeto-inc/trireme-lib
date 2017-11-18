@@ -1,4 +1,4 @@
-package enforcer
+package enforcerconstants
 
 const (
 	// TCPAuthenticationOptionBaseLen specifies the length of base TCP Authentication Option packet
@@ -11,4 +11,6 @@ const (
 	TransmitterLabel = "AporetoContextID"
 	// DefaultNetwork to be used
 	DefaultNetwork = "0.0.0.0/0"
+	// DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
+	DefaultExternalIPTimeout = "500ms"
 )

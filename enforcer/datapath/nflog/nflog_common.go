@@ -6,8 +6,9 @@ import (
 
 // NFLogger provides an interface for NFLog
 type NFLogger interface {
-	start()
-	stop()
+	Start()
+	Stop()
 }
 
-type puInfoFunc func(string) (string, *policy.TagStore)
+// GetPUInfoFunc provides PU information given the id
+type GetPUInfoFunc func(id string) (string, *policy.TagStore)

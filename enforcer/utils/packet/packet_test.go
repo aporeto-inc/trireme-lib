@@ -137,7 +137,7 @@ func TestEmptyPacketNoTags(t *testing.T) {
 		t.Error("Test SYN packet should have no extractable labels")
 	}
 
-	pkt.TCPDataDetach()
+	pkt.connection.TCPDataDetach()
 	if len(pkt.Bytes) != 60 {
 		t.Error("Test SYN packet should have no TCP data at all")
 	}
@@ -244,7 +244,7 @@ func TestAddTag(t *testing.T) {
 		s2 := pkt.String()
 		t.Log(s2)
 
-		data := string(pkt.Bytes[pkt.TCPDataStartBytes():])
+		data := string(pkt.Bytes[pkt.connection.TCPDataStartBytes():])
 		t.Log("Tag extracted from payload:", data)
 		if data != " "+labels[0] {
 			t.Error("Tag extracted from payload data doesn't match input")

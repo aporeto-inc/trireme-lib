@@ -39,7 +39,7 @@ func initTestDockerInfo(id string, nwmode container.NetworkMode, state bool) *ty
 	var testInfo types.ContainerJSONBase
 	var testConfig container.Config
 	var testNetwork types.NetworkSettings
-	var testDefaultNW types.DefaultNetworkSettings
+	var testDefaultNW types.enforcerconstants.DefaultNetworkSettings
 	var testContainer types.ContainerState
 	var testHostConfig container.HostConfig
 
@@ -54,7 +54,7 @@ func initTestDockerInfo(id string, nwmode container.NetworkMode, state bool) *ty
 
 	testDefaultNW.IPAddress = "172.17.0.2"
 
-	testNetwork.DefaultNetworkSettings = testDefaultNW
+	testNetwork.enforcerconstants.DefaultNetworkSettings = testDefaultNW
 
 	testConfig.Image = "centos"
 	testConfig.Labels = m

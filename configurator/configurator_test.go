@@ -8,6 +8,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
@@ -77,8 +78,8 @@ func policyResolver() trireme.PolicyResolver {
 	return newResolver
 }
 
-func procPacket() enforcer.PacketProcessor {
-	var newProc enforcer.PacketProcessor
+func procPacket() packetprocessor.PacketProcessor {
+	var newProc packetprocessor.PacketProcessor
 
 	return newProc
 }

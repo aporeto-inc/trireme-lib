@@ -44,7 +44,7 @@ type TriremeOptions struct {
 
 	Resolver       trireme.PolicyResolver
 	EventCollector collector.EventCollector
-	Processor      enforcer.PacketProcessor
+	Processor      packetprocessor.PacketProcessor
 
 	CNIMetadataExtractor    rpcmonitor.RPCMetadataExtractor
 	DockerMetadataExtractor dockermonitor.DockerMetadataExtractor
@@ -342,7 +342,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 func NewPSKTriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
@@ -399,7 +399,7 @@ func NewPSKTriremeWithDockerMonitor(
 func NewPKITriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	keyPEM []byte,
@@ -461,7 +461,7 @@ func NewPSKHybridTriremeWithMonitor(
 	serverID string,
 	networks []string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
@@ -520,7 +520,7 @@ func NewPSKHybridTriremeWithMonitor(
 func NewTriremeLinuxProcess(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets) trireme.Trireme {
 
@@ -559,7 +559,7 @@ func NewTriremeLinuxProcess(
 func NewLocalTriremeDocker(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets,
 	impl constants.ImplementationType) trireme.Trireme {
@@ -598,7 +598,7 @@ func NewLocalTriremeDocker(
 // the container namespaces
 func NewDistributedTriremeDocker(serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets,
 	impl constants.ImplementationType) trireme.Trireme {
@@ -635,7 +635,7 @@ func NewDistributedTriremeDocker(serverID string,
 func NewHybridTrireme(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets,
 	networks []string,
@@ -723,7 +723,7 @@ func NewHybridCompactPKIWithDocker(
 	serverID string,
 	networks []string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	keyPEM []byte,
@@ -796,7 +796,7 @@ func NewCompactPKIWithDocker(
 	serverID string,
 	networks []string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	keyPEM []byte,
@@ -846,7 +846,7 @@ func NewCompactPKIWithDocker(
 func NewPSKTriremeWithCNIMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	key []byte,
 	cniMetadataExtractor rpcmonitor.RPCMetadataExtractor,

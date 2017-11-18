@@ -2,70 +2,23 @@ package datapath
 
 import (
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/lookup"
+	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-func (d *Datapath) reportProxiedFlow(flowproperties *ProxyFlowProperties, conn *ProxyConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
-	c := &collector.FlowRecord{
-		ContextID: context.ID,
-		Source: &collector.EndPoint{
-			ID:   sourceID,
-			IP:   flowproperties.SourceIP.String(),
-			Port: flowproperties.SourcePort,
-			Type: collector.PU,
-		},
-		Destination: &collector.EndPoint{
-			ID:   destID,
-			IP:   flowproperties.DestIP.String(),
-			Port: flowproperties.DestPort,
-			Type: collector.PU,
-		},
-		Tags:       context.Annotations,
-		Action:     plc.Action,
-		DropReason: mode,
-		PolicyID:   plc.PolicyID,
-	}
-	d.collector.CollectFlowEvent(c)
-}
-
-func (d *Datapath) reportFlow(p *packet.Packet, connection *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
-
-	c := &collector.FlowRecord{
-		ContextID: context.ID,
-		Source: &collector.EndPoint{
-			ID:   sourceID,
-			IP:   p.SourceAddress.String(),
-			Port: p.SourcePort,
-			Type: collector.PU,
-		},
-		Destination: &collector.EndPoint{
-			ID:   destID,
-			IP:   p.DestinationAddress.String(),
-			Port: p.DestinationPort,
-			Type: collector.PU,
-		},
-		Tags:       context.Annotations,
-		Action:     plc.Action,
-		DropReason: mode,
-		PolicyID:   plc.PolicyID,
-	}
-
-	d.collector.CollectFlowEvent(c)
-
-}
-
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, plc *policy.FlowPolicy) {
+func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, plc *policy.FlowPolicy) {
 	if conn != nil {
-		conn.SetReported(RejectReported)
+		conn.SetReported(connection.RejectReported)
 	}
 	d.reportFlow(p, conn, sourceID, destID, context, "NA", plc)
 }
 
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sourceID string, destID string, context *PUContext, mode string, plc *policy.FlowPolicy) {
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
 	if conn != nil {
-		conn.SetReported(AcceptReported)
+		conn.SetReported(connection.AcceptReported)
 	}
 
 	if plc == nil {
@@ -74,11 +27,10 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *TCPConnection, sou
 			PolicyID: "",
 		}
 	}
-
 	d.reportFlow(p, conn, sourceID, destID, context, mode, plc)
 }
 
-func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
+func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
 		IP:   p.SourceAddress.String(),
@@ -122,7 +74,7 @@ func (d *Datapath) reportExternalServiceFlow(context *PUContext, flowpolicy *pol
 	d.collector.CollectFlowEvent(record)
 }
 
-func (d *Datapath) reportReverseExternalServiceFlow(context *PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
+func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {
 
 	src := &collector.EndPoint{
 		IP:   p.DestinationAddress.String(),
