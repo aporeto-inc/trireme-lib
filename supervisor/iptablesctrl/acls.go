@@ -1016,23 +1016,25 @@ func (i *Instance) removeMarkRule() error {
 	return nil
 }
 
-func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) error {
+func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableContext string, inputProxySection string, outputProxySection string, natProxyInputChain, natProxyOutputChain, proxyInputChain, proxyOutputChain string) (err error) {
 
-	zap.L().Error("Called remove ProxyRules")
-	err := i.ipt.Delete(natproxyTableContext,
-		inputProxySection,
-		"-j", natProxyInputChain,
+	zap.L().Debug("Called remove ProxyRules",
+		zap.String("natproxyTableContext", natproxyTableContext),
+		zap.String("proxyTableContext", proxyTableContext),
+		zap.String("inputProxySection", inputProxySection),
+		zap.String("outputProxySection", outputProxySection),
+		zap.String("natProxyInputChain", natProxyInputChain),
+		zap.String("natProxyOutputChain", natProxyOutputChain),
+		zap.String("proxyInputChain", proxyInputChain),
+		zap.String("proxyOutputChain", proxyOutputChain),
 	)
-	if err != nil {
-		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
+
+	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
+		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 
-	err = i.ipt.Delete(natproxyTableContext,
-		outputProxySection,
-		"-j", natProxyOutputChain,
-	)
-	if err != nil {
-		zap.L().Warn("Cannot Remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
+	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
+		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
 	}
 
 	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
@@ -1040,7 +1042,6 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	}
 
 	if err = i.ipt.ClearChain(natproxyTableContext, natProxyOutputChain); err != nil {
-
 		zap.L().Warn("Failed to clear chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
 	}
 
@@ -1071,6 +1072,7 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 
 	return nil
 }
+
 func (i *Instance) cleanACLs() error {
 
 	// Clean the mark rule
@@ -1091,7 +1093,8 @@ func (i *Instance) cleanACLs() error {
 
 	// Clean Application Rules/Chains
 	i.cleanACLSection(i.appAckPacketIPTableContext, i.netPacketIPTableSection, i.appPacketIPTableSection, ipTableSectionPreRouting, chainPrefix)
-	//Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
+
+	// Cannot clear chains in nat table there are masquerade rules in nat table which we don't want to touch
 	if err := i.removeProxyRules(i.appProxyIPTableContext,
 		i.appAckPacketIPTableContext,
 		ipTableSectionPreRouting,
@@ -1102,6 +1105,7 @@ func (i *Instance) cleanACLs() error {
 		proxyOutputChain); err != nil {
 		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
 	}
+
 	return nil
 }
 

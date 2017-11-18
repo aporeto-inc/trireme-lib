@@ -171,7 +171,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return fmt.Errorf("No ip address found ")
 	}
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
-	zap.L().Error("COnfigureRules", zap.String("proxyPort", proxyPort))
+	zap.L().Debug("COnfigureRules", zap.String("proxyPort", proxyPort))
 	proxiedServices := containerInfo.Policy.ProxiedServices()
 
 	// Configure all the ACLs
@@ -470,11 +470,11 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
 		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyInputChain))
 	}
-	zap.L().Error("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
+	zap.L().Debug("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain); err != nil {
 		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	}
-	zap.L().Error("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
+	zap.L().Debug("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyOutputChain); err != nil {
 		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
 	}

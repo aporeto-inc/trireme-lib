@@ -203,22 +203,20 @@ func NewWithDefaults(
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	puContext, err := d.contextTracker.Get(contextID)
-
 	if err != nil {
-		//Call proxy enforce from here and not from trireme like for other calls
-		//We will call enforce every time on the enforce so no need to propagate this info out of enforcer package
-		zap.L().Error("Called Proxy Enforce")
+		// Call proxy enforce from here and not from trireme like for other calls
+		// We will call enforce every time on the enforce so no need to propagate this info out of enforcer package
+		zap.L().Debug("Called Proxy Enforce")
 
 		proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
-
 		if proxyerr != nil {
-			zap.L().Error("Failed Called Proxy Enforce", zap.Error(proxyerr))
+			zap.L().Error("Unable to Enforce", zap.Error(proxyerr))
 			return proxyerr
 		}
-		createerr := d.doCreatePU(contextID, puInfo)
 
+		createerr := d.doCreatePU(contextID, puInfo)
 		if createerr != nil {
-			zap.L().Error("Called Do Create Returned error")
+			zap.L().Error("Called Do Create Returned error", zap.Error(createerr))
 			return createerr
 		}
 
@@ -300,11 +298,11 @@ func (d *Datapath) Start() error {
 	d.startNetworkInterceptor()
 
 	go d.nflogger.Start()
-	zap.L().Error("Calling Proxy Start")
-	//Does nothing here
+
 	if err := d.proxyhdl.Start(); err != nil {
-		zap.L().Warn("Proxy datapath Not started")
+		return err
 	}
+
 	return nil
 }
 

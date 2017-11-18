@@ -31,7 +31,7 @@ const (
 
 )
 
-// Proxy connections from Listen to Backend.
+// Proxy maintains state for proxies connections from listen to backend.
 type Proxy struct {
 	//Listen Port to listen on
 	Listen string
@@ -55,8 +55,8 @@ type Proxy struct {
 	IPList []string
 }
 
-// ProxyFlowProperties is a struct used to pass flow information up
-type ProxyFlowProperties struct {
+// proxyFlowProperties is a struct used to pass flow information up
+type proxyFlowProperties struct {
 	SourceIP   net.IP
 	DestIP     net.IP
 	SourcePort uint16
@@ -72,7 +72,7 @@ type sockaddr struct {
 	data   [14]byte
 }
 
-//NewProxy -- Create a new instance of Proxy
+// NewProxy creates a new instance of proxy reate a new instance of Proxy
 func NewProxy(listen string, forward bool, encrypt bool, tp tokenprocessor.TokenProcessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool) policyenforcer.Enforcer {
 	ifaces, _ := net.Interfaces()
 	iplist := []string{}
@@ -87,7 +87,6 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenprocessor.Token
 	}
 
 	return &Proxy{
-		//Listen:  listen,
 		Forward:             forward,
 		Encrypt:             encrypt,
 		wg:                  sync.WaitGroup{},
@@ -100,7 +99,7 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenprocessor.Token
 	}
 }
 
-func (p *Proxy) reportProxiedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
+func (p *Proxy) reportProxiedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
 	c := &collector.FlowRecord{
 		ContextID: context.ID,
 		Source: &collector.EndPoint{
@@ -123,7 +122,7 @@ func (p *Proxy) reportProxiedFlow(flowproperties *ProxyFlowProperties, conn *con
 	p.collector.CollectFlowEvent(c)
 }
 
-//Enforce -- Enforce function policyenforcer interface
+// Enforce implements policyenforcer.Enforcer interface
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	_, err := p.contextTracker.Get(contextID)
@@ -142,13 +141,14 @@ func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			return err
 		}
 	}
-	//Nothing required for the update case we will use the parent datapath structures to store state about PU
+	// Nothing required for the update case we will use the parent datapath structures to store state about PU
 	return nil
 
 }
 
-//StartListener returns error only during init. After init it never returns
+// StartListener implements policyenforcer.Enforcer interface
 func (p *Proxy) StartListener(contextID string, reterr chan error, port string) {
+
 	var err error
 	var listener net.Listener
 	port = ":" + port
@@ -203,8 +203,9 @@ func (p *Proxy) StartListener(contextID string, reterr chan error, port string) 
 	}
 }
 
-//Unenforce - Unenforce from the policyenforcer interfaces
+// Unenforce implements policyenforcer.Enforcer interface
 func (p *Proxy) Unenforce(contextID string) error {
+
 	entry, err := p.socketListeners.Get(contextID)
 	if err == nil {
 		if cerr := entry.(*socketListenerEntry).listen.Close(); cerr != nil {
@@ -217,19 +218,18 @@ func (p *Proxy) Unenforce(contextID string) error {
 	return nil
 }
 
-//GetFilterQueue -- PolicyEnforcer interface function not required here implemented for interface
+// GetFilterQueue is a stub for TCP proxy
 func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
 	return nil
 }
 
-//Start -- Does nothing we do proxy start on an enforce when we know the port
+// Start is a stub for TCP proxy
 func (p *Proxy) Start() error {
-	//Do Nothing
 	return nil
 
 }
 
-//Stop -- Wait for go routine to exit . From policyenforcer interface
+// Stop stops and waits proxy to stop.
 func (p *Proxy) Stop() error {
 	p.wg.Wait()
 	return nil
@@ -282,7 +282,7 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		}
 	}()
 
-	//Now let us handle the state machine for the down connection
+	// Now let us handle the state machine for the down connection
 	if err := p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
@@ -302,7 +302,7 @@ func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err er
 	return
 }
 
-//getOriginalDestination -- Func to get original destination of redirected packet. Used to figure out backend destination
+// getOriginalDestination -- Func to get original destination of redirected packet. Used to figure out backend destination
 func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
 	var addr sockaddr
 	size := uint32(unsafe.Sizeof(addr))
@@ -384,8 +384,8 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 	return fd, nil
 }
 
-//CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
-//We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
+// CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
+// We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 
 	puContext, err := p.contextTracker.Get(contextID)
@@ -436,7 +436,7 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 	localaddr, _ := syscall.Getsockname(downConn)
 	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
 	remoteinet4ip, _ := toAddr.(*syscall.SockaddrInet4)
-	flowProperties := &ProxyFlowProperties{
+	flowProperties := &proxyFlowProperties{
 		SourceIP:   net.IPv4(localinet4ip.Addr[0], localinet4ip.Addr[1], localinet4ip.Addr[2], localinet4ip.Addr[3]),
 		DestIP:     net.IPv4(remoteinet4ip.Addr[0], remoteinet4ip.Addr[1], remoteinet4ip.Addr[2], remoteinet4ip.Addr[3]),
 		SourcePort: uint16(localinet4ip.Port),
@@ -503,7 +503,7 @@ L:
 
 }
 
-//StartServerAuthStateMachine -- Start the aporeto handshake for a server application
+// StartServerAuthStateMachine -- Start the aporeto handshake for a server application
 func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
 	puContext, err := p.contextTracker.Get(contextID)
 	if err != nil {
@@ -513,7 +513,7 @@ func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16
 	localaddr, _ := syscall.Getsockname(downConn)
 	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
 	remoteinet4ip, _ := toAddr.(*syscall.SockaddrInet4)
-	flowProperties := &ProxyFlowProperties{
+	flowProperties := &proxyFlowProperties{
 		SourceIP:   net.IPv4(localinet4ip.Addr[0], localinet4ip.Addr[1], localinet4ip.Addr[2], localinet4ip.Addr[3]),
 		DestIP:     net.IPv4(remoteinet4ip.Addr[0], remoteinet4ip.Addr[1], remoteinet4ip.Addr[2], remoteinet4ip.Addr[3]),
 		SourcePort: uint16(localinet4ip.Port),
@@ -601,12 +601,12 @@ E:
 	return nil
 }
 
-func (p *Proxy) reportAcceptedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, plc *policy.FlowPolicy) {
+func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, plc *policy.FlowPolicy) {
 	//conn.Reported = true
 	p.reportProxiedFlow(flowproperties, conn, sourceID, destID, context, "N/A", plc)
 }
 
-func (p *Proxy) reportRejectedFlow(flowproperties *ProxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
+func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
 
 	if plc == nil {
 		plc = &policy.FlowPolicy{
