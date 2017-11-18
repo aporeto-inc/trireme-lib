@@ -54,10 +54,13 @@ func (t *LockedtokenEngine) SetToken(serverID string, validity time.Duration, se
 	}
 	return err
 }
+
+// GetTokenValidity returns the duration the token is valid for
 func (t *LockedtokenEngine) GetTokenValidity() time.Duration {
 	return t.validity
 }
 
+// GetTokenServerID returns the server ID which is used the generate the token.
 func (t *LockedtokenEngine) GetTokenServerID() string {
 	return t.serverID
 }
