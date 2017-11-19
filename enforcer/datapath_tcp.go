@@ -893,10 +893,10 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 					// check cache and update portset cache accordingly.
 					err = d.unknownSynConnectionTracer.Remove(p.L4ReverseFlowHash())
 					if err != nil {
-						return context, conn.(*TCPConnection), nil
+						// we are seeing a syn-ack for a syn we have not seen
+						return nil, nil, fmt.Errorf("Dropping syn-ack for an unknown syn")
 					}
 
-					// Program the IPSet
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 					// Find the uid for which mark was asserted.
 					uid, markerr := d.portSetInstance.GetUserMark(p.Mark)
@@ -909,12 +909,9 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 					if _, updateerr := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); updateerr != nil {
 						return nil, nil, fmt.Errorf("Unable to update portset cache")
 					}
-
-					// syn ack for which there is no record for syn. drop it
+					// syn ack for which there is no corresponding syn context, so drop it.
 					return nil, nil, fmt.Errorf("Dropped SynAck for an unknown Syn")
 				}
-
-				return nil, nil, fmt.Errorf("Context not found")
 			}
 
 			return nil, nil, fmt.Errorf("App state not found")
