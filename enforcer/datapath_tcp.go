@@ -17,12 +17,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/log"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/supervisor/iptablesctrl"
-	"github.com/bvandewalle/go-ipset/ipset"
-)
-
-const (
-	portEntryTimeout = 60
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -68,6 +62,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 			//Verdict get set to pass
 			return nil
 		}
+
 	case packet.TCPSynAckMask:
 		context, conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
@@ -192,7 +187,6 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 				//let his packet through
 				return nil
 			}
-
 			return err
 		}
 	default:
@@ -885,8 +879,8 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 // appRetrieveState retrieves the state for the rest of the application packets. It
 // returns an error if it cannot find the state
 func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
-	hash := p.L4FlowHash()
 
+	hash := p.L4FlowHash()
 	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
 		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
@@ -896,28 +890,31 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				//Update the port for the context matching the mark this packet has comes with
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
-
-					name, err := iptablesctrl.PuPortSetName(context.ID, p.Mark)
-
+					// check cache and update portset cache accordingly.
+					err = d.unknownSynConnectionTracer.Remove(p.L4ReverseFlowHash())
 					if err != nil {
-						return nil, nil, err
+						return context, conn.(*TCPConnection), nil
 					}
 
-					ips := ipset.IPSet{
-						Name: name,
-					}
-
-					port := strconv.Itoa(int(p.SourcePort))
-					//Add an entry for 60 seconds we will rediscover ports every 60 sec
-
-					if adderr := ips.Add(port, portEntryTimeout); adderr != nil {
-						zap.L().Warn("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
-
-					}
-
+					// Program the IPSet
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
+					// Find the uid for which mark was asserted.
+					uid, markerr := d.portSetInstance.GetUserMark(p.Mark)
+					if markerr != nil {
+						// Every outgoing packet has a mark. We should never come here
+						return nil, nil, fmt.Errorf("Did not find uid for the packet mark")
+					}
+
+					// Add port to the cache and program the portset
+					if _, updateerr := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); updateerr != nil {
+						return nil, nil, fmt.Errorf("Unable to update portset cache")
+					}
+
+					// syn ack for which there is no record for syn. drop it
+					return nil, nil, fmt.Errorf("Dropped SynAck for an unknown Syn")
 				}
-				//Return an error still we will process the syn successfully on retry and
+
+				return nil, nil, fmt.Errorf("Context not found")
 			}
 
 			return nil, nil, fmt.Errorf("App state not found")
@@ -958,6 +955,26 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 			//we will create the bare minimum needed to exercise our stack
 			//We need this syn to look similar to what we will pass on the retry
 			//so we setup enought for us to identify this request in the later stages
+
+			// update the unknownSynConnectionTracer cache to keep track of
+			// syn packet that has no context yet.
+			if err = d.unknownSynConnectionTracer.Add(p.L4FlowHash(), nil); err != nil {
+				return context, nil, fmt.Errorf("Unable to keep track of SYN packet")
+			}
+
+			// Remove any of our data from the packet.
+			if err = p.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+				return context, nil, nil
+			}
+
+			if err = p.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
+				return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
+			}
+
+			p.DropDetachedBytes()
+
+			p.UpdateTCPChecksum()
+
 			return context, nil, nil
 		}
 
