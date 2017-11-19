@@ -286,6 +286,12 @@ func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 	return d.filterQueue
 }
 
+// GetPuFromPortCache returns the puFromPort cache used by the data path
+func (d *Datapath) GetPuFromPortCache() cache.DataStore {
+
+	return d.puFromPort
+}
+
 // Start starts the application and network interceptors
 func (d *Datapath) Start() error {
 

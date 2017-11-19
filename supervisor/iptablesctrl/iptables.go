@@ -10,7 +10,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
@@ -57,10 +59,11 @@ type Instance struct {
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
 	mode                       constants.ModeType
+	puFromPort                 cache.DataStore
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, puFromPort cache.DataStore) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -80,7 +83,8 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
 		appProxyIPTableContext:     "nat",
-		mode: mode,
+		mode:       mode,
+		puFromPort: puFromPort,
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
@@ -283,6 +287,9 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		if err := ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to clear puport set", zap.Error(err))
 		}
+
+		// remove ports associated with this pu from cache.
+		i.clearPuPorts()
 	}
 	dstPortSetName, srcPortSetName := i.getSetNamePair(proxyPortSetName)
 	ips := ipset.IPSet{
@@ -492,6 +499,22 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	}
 
 	return nil
+}
+
+func (i *Instance) clearPuPorts() {
+
+	puFromPortKeys := (i.puFromPort.GetKeys()).([]string)
+
+	for k := range puFromPortKeys {
+		pu, err := i.puFromPort.Get(k)
+		if err != nil || pu.(*pucontext.PUContext) != nil {
+			// key is not there or active pu
+			continue
+		}
+		if err := i.puFromPort.Remove(k); err != nil {
+			zap.L().Warn("Cannot remove key, may already be deleted")
+		}
+	}
 }
 
 // Stop stops the supervisor
