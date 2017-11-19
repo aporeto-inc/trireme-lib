@@ -1,4 +1,4 @@
-package enforcer
+package datapath
 
 import (
 	"encoding/binary"
@@ -11,12 +11,15 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/collector/mock"
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packetgen"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -31,7 +34,7 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
@@ -61,9 +64,17 @@ func TestInvalidIPContext(t *testing.T) {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.ContainerPU)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
-		enforcer.Enforce("SomeServerId", puInfo) // nolint
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
+		Convey("Then enforcer instance must be initialized", func() {
+			So(enforcer, ShouldNotBeNil)
+		})
 
+		enforcer.Enforce("SomeServerId", puInfo) // nolint
+		defer func() {
+			if err := enforcer.Unenforce("SomeServerId"); err != nil {
+				fmt.Println("Error", err.Error())
+			}
+		}()
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
 		So(err, ShouldBeNil)
@@ -101,7 +112,7 @@ func TestInvalidTokenContext(t *testing.T) {
 		}
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
@@ -159,7 +170,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 
 			Clause: []policy.KeyValueOperator{
 				{
-					Key:      TransmitterLabel,
+					Key:      enforcerconstants.TransmitterLabel,
 					Value:    []string{"value"},
 					Operator: policy.Equal,
 				},
@@ -184,26 +195,27 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		puInfo1.Runtime.SetIPAddresses(ip1)
 		ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
 		puInfo1.Policy.SetIPAddresses(ipl1)
-		puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+		puInfo1.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 		puInfo1.Policy.AddReceiverRules(tagSelector)
 
 		// Create processing unit 2
 		puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+
 		ip2 := policy.ExtendedMap{"bridge": puIP2}
 		puInfo2.Runtime.SetIPAddresses(ip2)
 		ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
 		puInfo2.Policy.SetIPAddresses(ipl2)
-		puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+		puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 		puInfo2.Policy.AddReceiverRules(tagSelector)
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		if collectors != nil {
-			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc").(*Datapath)
+			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
 			err1 = enforcer.Enforce(puID1, puInfo1)
 			err2 = enforcer.Enforce(puID2, puInfo2)
 		} else {
 			collector := &collector.DefaultCollector{}
-			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc").(*Datapath)
+			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc")
 			err1 = enforcer.Enforce(puID1, puInfo1)
 			err2 = enforcer.Enforce(puID2, puInfo2)
 		}
@@ -214,7 +226,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 
 		Clause: []policy.KeyValueOperator{
 			{
-				Key:      TransmitterLabel,
+				Key:      enforcerconstants.TransmitterLabel,
 				Value:    []string{"value"},
 				Operator: policy.Equal,
 			},
@@ -249,27 +261,27 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	ip1 := policy.ExtendedMap{}
 	ip1["bridge"] = puIP1
 	puInfo1.Runtime.SetIPAddresses(ip1)
-	ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
+	ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1, "proxyPort": "5000"}
 	puInfo1.Policy.SetIPAddresses(ipl1)
-	puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo1.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 	puInfo1.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 2
 	puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
-	ip2 := policy.ExtendedMap{"bridge": puIP2}
+	ip2 := policy.ExtendedMap{"bridge": puIP2, "proxyPort": "5001"}
 	puInfo2.Runtime.SetIPAddresses(ip2)
-	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
+	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2, "proxyPort": "5002"}
 	puInfo2.Policy.SetIPAddresses(ipl2)
-	puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 	puInfo2.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 3
 	puInfo3 := policy.NewPUInfo(puID3, constants.ContainerPU)
-	ip3 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
+	ip3 := policy.ExtendedMap{policy.DefaultNamespace: puIP2, "proxyPort": "5003"}
 	puInfo3.Runtime.SetIPAddresses(ip3)
-	ipl3 := policy.ExtendedMap{policy.DefaultNamespace: puIP3}
+	ipl3 := policy.ExtendedMap{policy.DefaultNamespace: puIP3, "proxyPort": "5004"}
 	puInfo3.Policy.SetIPAddresses(ipl3)
-	puInfo3.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo3.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 	puInfo3.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 4
@@ -278,20 +290,20 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	puInfo4.Runtime.SetIPAddresses(ip4)
 	ipl4 := policy.ExtendedMap{policy.DefaultNamespace: puIP4}
 	puInfo4.Policy.SetIPAddresses(ipl4)
-	puInfo4.Policy.AddIdentityTag(TransmitterLabel, "value")
+	puInfo4.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 	puInfo4.Policy.AddReceiverRules(tagSelector)
 
 	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 	if collectors != nil {
 
-		enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc").(*Datapath)
+		enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
 		err1 = enforcer.Enforce(puID1, puInfo1)
 		err2 = enforcer.Enforce(puID2, puInfo2)
 		err3 = enforcer.Enforce(puID3, puInfo3)
 		err4 = enforcer.Enforce(puID4, puInfo4)
 	} else {
 		collector := &collector.DefaultCollector{}
-		enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc").(*Datapath)
+		enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc")
 		err1 = enforcer.Enforce(puID1, puInfo1)
 		err2 = enforcer.Enforce(puID2, puInfo2)
 		err3 = enforcer.Enforce(puID3, puInfo3)
@@ -1001,7 +1013,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 func CheckAfterAppSynPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
 
 	appConn, err := enforcer.appOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
-	So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPSynSend)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPSynSend)
 	So(err, ShouldBeNil)
 
 }
@@ -1010,7 +1022,7 @@ func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Pac
 
 	appConn, err := enforcer.netOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
-	So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPSynReceived)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPSynReceived)
 
 }
 
@@ -1023,9 +1035,9 @@ func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outP
 
 	netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 	So(err, ShouldBeNil)
-	So(netconn.(*TCPConnection).GetState(), ShouldEqual, TCPSynAckReceived)
+	So(netconn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPSynAckReceived)
 
-	if !reflect.DeepEqual(netconn.(*TCPConnection).Auth.LocalContext, claims.RMT) {
+	if !reflect.DeepEqual(netconn.(*connection.TCPConnection).Auth.LocalContext, claims.RMT) {
 		t.Error("Token parsing Failed")
 	}
 }
@@ -1033,7 +1045,7 @@ func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outP
 func CheckAfterAppAckPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
 	appConn, err := enforcer.appOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
-	So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPAckSend)
+	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPAckSend)
 
 }
 
@@ -1042,9 +1054,9 @@ func CheckBeforeNetAckPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Pa
 	appConn, err := enforcer.netOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
 	if !isReplay {
-		So(appConn.(*TCPConnection).GetState(), ShouldEqual, TCPSynAckSend)
+		So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPSynAckSend)
 	} else {
-		So(appConn.(*TCPConnection).GetState(), ShouldBeGreaterThan, TCPSynAckSend)
+		So(appConn.(*connection.TCPConnection).GetState(), ShouldBeGreaterThan, connection.TCPSynAckSend)
 	}
 
 }
@@ -1161,7 +1173,7 @@ func TestCacheState(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 		contextID := "123"
 
 		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
@@ -1208,7 +1220,7 @@ func TestDoCreatePU(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
@@ -1234,7 +1246,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err1, ShouldBeNil)
 				_, err2 := enforcer.puFromPort.Get("80")
 				So(err2, ShouldBeNil)
-				_, err3 := enforcer.puFromIP.Get(DefaultNetwork)
+				_, err3 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
 				So(err3, ShouldNotBeNil)
 			})
 		})
@@ -1243,7 +1255,7 @@ func TestDoCreatePU(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
@@ -1255,7 +1267,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err, ShouldBeNil)
 				_, err := enforcer.contextTracker.Get(contextID)
 				So(err, ShouldBeNil)
-				_, err4 := enforcer.puFromIP.Get(DefaultNetwork)
+				_, err4 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
 				So(err4, ShouldNotBeNil)
 			})
 		})
@@ -1264,7 +1276,7 @@ func TestDoCreatePU(t *testing.T) {
 	Convey("Given an initialized enforcer for local Linux Containers", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
@@ -1300,7 +1312,7 @@ func TestDoCreatePU(t *testing.T) {
 	Convey("Given an initialized enforcer for remote Linux Containers", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 		enforcer.mode = constants.RemoteContainer
 
 		contextID := "123"
@@ -1311,7 +1323,7 @@ func TestDoCreatePU(t *testing.T) {
 
 			Convey("It should succeed ", func() {
 				So(err, ShouldBeNil)
-				_, err2 := enforcer.puFromIP.Get(DefaultNetwork)
+				_, err2 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
 				So(err2, ShouldBeNil)
 			})
 		})
@@ -1323,9 +1335,9 @@ func TestContextFromIP(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 
-		context := &PUContext{
+		context := &pucontext.PUContext{
 			ID: "SomePU",
 			IP: "10.1.1.1",
 		}
@@ -1345,7 +1357,7 @@ func TestContextFromIP(t *testing.T) {
 		})
 
 		Convey("If I try to get context based on IP and a remote container, it should try the default ", func() {
-			enforcer.puFromIP.AddOrUpdate(DefaultNetwork, context)
+			enforcer.puFromIP.AddOrUpdate(enforcerconstants.DefaultNetwork, context)
 			enforcer.mode = constants.LocalServer
 
 			ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "", "")
@@ -1394,7 +1406,7 @@ func TestContextFromIP(t *testing.T) {
 func TestInvalidPacket(t *testing.T) {
 	// collector := &collector.DefaultCollector{}
 	// secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-	// enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+	// enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalContainer, "/proc")
 	var puInfo1, puInfo2 *policy.PUInfo
 	var enforcer *Datapath
 	var err1, err2 error
@@ -2466,7 +2478,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
-								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
+								connSynAck = append(connSynAck, netconn.(*connection.TCPConnection).Auth.LocalContext)
 
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -2782,7 +2794,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 
 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
-								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
+								connSynAck = append(connSynAck, netconn.(*connection.TCPConnection).Auth.LocalContext)
 
 							}
 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
@@ -4044,7 +4056,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							So(errp, ShouldBeNil)
 
 							//changing the option length
-							outPacket.Buffer[outPacket.TCPDataStartBytes()-TCPAuthenticationOptionBaseLen] = 233
+							outPacket.Buffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 
 							err = enforcer.processNetworkTCPPackets(outPacket)
 							So(err, ShouldNotBeNil)
@@ -4153,7 +4165,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							if PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPSyn() && PacketFlow.GetUptoFirstSynAckPacket().GetNthPacket(i).GetTCPAck() {
 								//changing the option length of SynAck packet
-								outPacket.Buffer[outPacket.TCPDataStartBytes()-TCPAuthenticationOptionBaseLen] = 233
+								outPacket.Buffer[outPacket.TCPDataStartBytes()-enforcerconstants.TCPAuthenticationOptionBaseLen] = 233
 								err = enforcer.processNetworkTCPPackets(outPacket)
 								So(err, ShouldNotBeNil)
 							} else {
@@ -4184,7 +4196,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 				Clause: []policy.KeyValueOperator{
 					{
-						Key:      TransmitterLabel,
+						Key:      enforcerconstants.TransmitterLabel,
 						Value:    []string{"non-value"},
 						Operator: policy.Equal,
 					},
@@ -4209,7 +4221,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			puInfo1.Runtime.SetIPAddresses(ip1)
 			ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
 			puInfo1.Policy.SetIPAddresses(ipl1)
-			puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+			puInfo1.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 			puInfo1.Policy.AddReceiverRules(tagSelector)
 
 			// Create processing unit 2
@@ -4218,13 +4230,13 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
 			puInfo2.Policy.SetIPAddresses(ipl2)
-			puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+			puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 			puInfo2.Policy.AddReceiverRules(tagSelector)
 
 			secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 
 			collector := &collector.DefaultCollector{}
-			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc")
 			err1 := enforcer.Enforce(puID1, puInfo1)
 			err2 := enforcer.Enforce(puID2, puInfo2)
 			So(err1, ShouldBeNil)
@@ -4434,7 +4446,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 // 							if PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() {
 // 								netconn, _ := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
-// 								connSynAck = append(connSynAck, netconn.(*TCPConnection).Auth.LocalContext)
+// 								connSynAck = append(connSynAck, netconn.(*connection.TCPConnection).Auth.LocalContext)
 // 							}
 // 							//
 // 							// if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() && !checkBeforeNetAckFlag {
@@ -4537,7 +4549,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 							Clause: []policy.KeyValueOperator{
 								{
-									Key:      TransmitterLabel,
+									Key:      enforcerconstants.TransmitterLabel,
 									Value:    []string{"value"},
 									Operator: policy.Equal,
 								},
@@ -4562,7 +4574,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Runtime.SetIPAddresses(ip1)
 						ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
 						puInfo1.Policy.SetIPAddresses(ipl1)
-						puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo1.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
@@ -4571,12 +4583,12 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
 						puInfo2.Policy.SetIPAddresses(ipl2)
-						puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo2.Policy.AddReceiverRules(tagSelector)
 
 						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 						collector := &collector.DefaultCollector{}
-						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc").(*Datapath)
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalContainer, "/proc")
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
 						So(puInfo1, ShouldNotBeNil)
@@ -4590,7 +4602,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 							Clause: []policy.KeyValueOperator{
 								{
-									Key:      TransmitterLabel,
+									Key:      enforcerconstants.TransmitterLabel,
 									Value:    []string{"value"},
 									Operator: policy.Equal,
 								},
@@ -4615,7 +4627,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Runtime.SetIPAddresses(ip1)
 						ipl1 := policy.ExtendedMap{policy.DefaultNamespace: puIP1}
 						puInfo1.Policy.SetIPAddresses(ipl1)
-						puInfo1.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo1.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
@@ -4624,12 +4636,12 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
 						puInfo2.Policy.SetIPAddresses(ipl2)
-						puInfo2.Policy.AddIdentityTag(TransmitterLabel, "value")
+						puInfo2.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, "value")
 						puInfo2.Policy.AddReceiverRules(tagSelector)
 
 						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 						collector := &collector.DefaultCollector{}
-						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc").(*Datapath)
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc")
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
 

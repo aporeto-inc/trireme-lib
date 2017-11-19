@@ -13,17 +13,17 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/cnimonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
-
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-
-	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
@@ -43,7 +43,7 @@ type TriremeOptions struct {
 
 	Resolver       trireme.PolicyResolver
 	EventCollector collector.EventCollector
-	Processor      enforcer.PacketProcessor
+	Processor      packetprocessor.PacketProcessor
 
 	CNIMetadataExtractor    rpcmonitor.RPCMetadataExtractor
 	DockerMetadataExtractor dockermonitor.DockerMetadataExtractor
@@ -85,7 +85,7 @@ type TriremeResult struct {
 	Trireme        trireme.Trireme
 	DockerMonitor  monitor.Monitor
 	RPCMonitor     rpcmonitor.RPCMonitor
-	PublicKeyAdder enforcer.PublicKeyAdder
+	PublicKeyAdder secrets.PublicKeyAdder
 	Secret         secrets.Secrets
 }
 
@@ -132,10 +132,10 @@ func DefaultTriremeOptions() *TriremeOptions {
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
 func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{}
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{}
 	supervisors := map[constants.PUType]supervisor.Supervisor{}
 
-	var publicKeyAdder enforcer.PublicKeyAdder
+	var publicKeyAdder secrets.PublicKeyAdder
 	var secretInstance secrets.Secrets
 	var dockerMonitorInstance monitor.Monitor
 	var rpcMonitorInstance *rpcmonitor.RPCMonitor
@@ -341,7 +341,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 func NewPSKTriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
@@ -398,7 +398,7 @@ func NewPSKTriremeWithDockerMonitor(
 func NewPKITriremeWithDockerMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	keyPEM []byte,
@@ -407,7 +407,7 @@ func NewPKITriremeWithDockerMonitor(
 	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
 	remoteEnforcer bool,
 	killContainerError bool,
-) (trireme.Trireme, monitor.Monitor, enforcer.PublicKeyAdder) {
+) (trireme.Trireme, monitor.Monitor, secrets.PublicKeyAdder) {
 
 	if eventCollector == nil {
 		zap.L().Warn("Using a default collector for events")
@@ -460,7 +460,7 @@ func NewPSKHybridTriremeWithMonitor(
 	serverID string,
 	networks []string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
@@ -519,7 +519,7 @@ func NewPSKHybridTriremeWithMonitor(
 func NewTriremeLinuxProcess(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets) trireme.Trireme {
 
@@ -528,7 +528,7 @@ func NewTriremeLinuxProcess(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.LinuxProcessPU: enforcer.NewWithDefaults(serverID,
 			eventCollector,
 			nil,
@@ -558,7 +558,7 @@ func NewTriremeLinuxProcess(
 func NewLocalTriremeDocker(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets,
 	impl constants.ImplementationType) trireme.Trireme {
@@ -568,7 +568,7 @@ func NewLocalTriremeDocker(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.ContainerPU: enforcer.NewWithDefaults(serverID,
 			eventCollector,
 			nil,
@@ -597,7 +597,7 @@ func NewLocalTriremeDocker(
 // the container namespaces
 func NewDistributedTriremeDocker(serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets,
 	impl constants.ImplementationType) trireme.Trireme {
@@ -609,7 +609,7 @@ func NewDistributedTriremeDocker(serverID string,
 
 	rpcwrapper := rpcwrapper.NewRPCWrapper()
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.ContainerPU: enforcerproxy.NewDefaultProxyEnforcer(
 			serverID,
 			eventCollector,
@@ -634,7 +634,7 @@ func NewDistributedTriremeDocker(serverID string,
 func NewHybridTrireme(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	secrets secrets.Secrets,
 	networks []string,
@@ -683,7 +683,7 @@ func NewHybridTrireme(
 		zap.L().Fatal("Failed to load Supervisor", zap.Error(perr))
 	}
 
-	enforcers := map[constants.PUType]enforcer.PolicyEnforcer{
+	enforcers := map[constants.PUType]policyenforcer.Enforcer{
 		constants.ContainerPU:    containerEnforcer,
 		constants.LinuxProcessPU: processEnforcer,
 	}
@@ -722,7 +722,7 @@ func NewHybridCompactPKIWithDocker(
 	serverID string,
 	networks []string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	keyPEM []byte,
@@ -795,7 +795,7 @@ func NewCompactPKIWithDocker(
 	serverID string,
 	networks []string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	keyPEM []byte,
@@ -845,7 +845,7 @@ func NewCompactPKIWithDocker(
 func NewPSKTriremeWithCNIMonitor(
 	serverID string,
 	resolver trireme.PolicyResolver,
-	processor enforcer.PacketProcessor,
+	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	key []byte,
 	cniMetadataExtractor rpcmonitor.RPCMetadataExtractor,

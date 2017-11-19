@@ -25,6 +25,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	_ "github.com/aporeto-inc/trireme-lib/enforcer/utils/nsenter" // nolint
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
@@ -38,7 +39,7 @@ var cmdLock sync.Mutex
 
 // newServer starts a new server
 func newServer(
-	service enforcer.PacketProcessor,
+	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	rpcChannel string,
 	secret string,
@@ -118,6 +119,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		}
 	}
 
+	// New returns a new policy enforcer
 	if s.enforcer = enforcer.New(
 		payload.MutualAuth,
 		payload.FqConfig,
@@ -281,7 +283,8 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 		payload.Annotations,
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
-		payload.ExcludedNetworks)
+		payload.ExcludedNetworks,
+		payload.ProxiedServices)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -359,7 +362,8 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		payload.Annotations,
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
-		payload.ExcludedNetworks)
+		payload.ExcludedNetworks,
+		payload.ProxiedServices)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
@@ -418,7 +422,7 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error {
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
 	namedPipe := os.Getenv(constants.AporetoEnvContextSocket)
 	secret := os.Getenv(constants.AporetoEnvRPCClientSecret)

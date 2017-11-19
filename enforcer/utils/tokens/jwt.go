@@ -166,10 +166,9 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		token = data[tokenPosition : tokenPosition+tokenLength]
 
 		certBytes := data[tokenPosition+tokenLength+1:]
-
 		ackCert, err = c.secrets.VerifyPublicKey(certBytes)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("bad public key")
+			return nil, nil, nil, fmt.Errorf("bad public key err %s", err.Error())
 		}
 
 		if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
