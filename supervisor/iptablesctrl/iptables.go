@@ -289,9 +289,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		}
 
 		// remove ports associated with this pu from cache.
-		if err := i.clearPuPorts(); err != nil {
-			return err
-		}
+		i.clearPuPorts()
 	}
 	dstPortSetName, srcPortSetName := i.getSetNamePair(proxyPortSetName)
 	ips := ipset.IPSet{
@@ -503,7 +501,7 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	return nil
 }
 
-func (i *Instance) clearPuPorts() error {
+func (i *Instance) clearPuPorts() {
 
 	puFromPortKeys := (i.puFromPort.GetKeys()).([]string)
 
@@ -514,11 +512,9 @@ func (i *Instance) clearPuPorts() error {
 			continue
 		}
 		if err := i.puFromPort.Remove(k); err != nil {
-			return fmt.Errorf("Unable to delete port from puFromPort cache")
+			zap.L().Warn("Cannot remove key, may already be deleted")
 		}
 	}
-
-	return nil
 }
 
 // Stop stops the supervisor
