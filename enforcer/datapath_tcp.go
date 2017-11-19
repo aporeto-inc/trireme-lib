@@ -17,12 +17,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/log"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/supervisor/iptablesctrl"
-	"github.com/bvandewalle/go-ipset/ipset"
-)
-
-const (
-	portEntryTimeout = 60
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -575,6 +569,13 @@ func (d *Datapath) processNetworkSynAckPacket(context *PUContext, conn *TCPConne
 	if err = tcpPacket.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
 		var plc *policy.FlowPolicy
 
+		if tcpPacket.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
+			//SYN ACK came through the global rule.
+			//This not from a process we are monitoring
+			//let his packet through
+			return nil, nil, nil
+		}
+
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, perr := context.externalIPCache.Get(flowHash); perr == nil {
 			plc = plci.(*policy.FlowPolicy)
@@ -896,25 +897,6 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 				//Update the port for the context matching the mark this packet has comes with
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
-
-					name, err := iptablesctrl.PuPortSetName(context.ID, p.Mark)
-
-					if err != nil {
-						return nil, nil, err
-					}
-
-					ips := ipset.IPSet{
-						Name: name,
-					}
-
-					port := strconv.Itoa(int(p.SourcePort))
-					//Add an entry for 60 seconds we will rediscover ports every 60 sec
-
-					if adderr := ips.Add(port, portEntryTimeout); adderr != nil {
-						zap.L().Warn("Failed To add port to set", zap.Error(adderr), zap.String("Setname", ips.Name))
-
-					}
-
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 				}
 				//Return an error still we will process the syn successfully on retry and
@@ -946,22 +928,13 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
 
 	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
-
+	// if PU context could be not obtained from the IP for the Syn packet,
+	// try to fetch it from packet Mark
 	if err != nil {
-		//This needs to hit only for local processes never for containers
-		//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
-		if d.mode != constants.RemoteContainer {
-
-			context = &PUContext{
-				PUType: constants.TransientPU,
-			}
-			//we will create the bare minimum needed to exercise our stack
-			//We need this syn to look similar to what we will pass on the retry
-			//so we setup enought for us to identify this request in the later stages
-			return context, nil, nil
+		context, err = d.contextFromMark(p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
+		if err != nil {
+			return nil, nil, err
 		}
-
-		return nil, nil, fmt.Errorf("No Context in net Processing")
 	}
 
 	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
@@ -1038,6 +1011,17 @@ func updateTimer(c cache.DataStore, hash string, conn *TCPConnection) error {
 		return c.SetTimeOut(hash, conn.TimeOut)
 	}
 	return nil
+}
+
+func (d *Datapath) contextFromMark(packetIP string, mark string, port string) (*PUContext, error) {
+	pu, err := d.puFromMark.Get(mark)
+	if err != nil {
+		return nil, fmt.Errorf("PU context cannot be found using mark %v ", mark)
+	}
+	// Update the puFromPort cache
+	d.puFromPort.AddOrUpdate(port, pu)
+
+	return pu.(*PUContext), nil
 }
 
 // contextFromIP returns the PU context from the default IP if remote. Otherwise

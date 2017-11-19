@@ -13,6 +13,7 @@ import (
 
 // MockEventCollector is a mock of EventCollector interface
 // nolint
+// nolint
 type MockEventCollector struct {
 	ctrl     *gomock.Controller
 	recorder *MockEventCollectorMockRecorder
@@ -20,11 +21,13 @@ type MockEventCollector struct {
 
 // MockEventCollectorMockRecorder is the mock recorder for MockEventCollector
 // nolint
+// nolint
 type MockEventCollectorMockRecorder struct {
 	mock *MockEventCollector
 }
 
 // NewMockEventCollector creates a new mock instance
+// nolint
 // nolint
 func NewMockEventCollector(ctrl *gomock.Controller) *MockEventCollector {
 	mock := &MockEventCollector{ctrl: ctrl}
@@ -34,11 +37,13 @@ func NewMockEventCollector(ctrl *gomock.Controller) *MockEventCollector {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
+// nolint
 func (m *MockEventCollector) EXPECT() *MockEventCollectorMockRecorder {
 	return m.recorder
 }
 
 // CollectFlowEvent mocks base method
+// nolint
 // nolint
 func (m *MockEventCollector) CollectFlowEvent(record *collector.FlowRecord) {
 	m.ctrl.Call(m, "CollectFlowEvent", record)
@@ -46,17 +51,20 @@ func (m *MockEventCollector) CollectFlowEvent(record *collector.FlowRecord) {
 
 // CollectFlowEvent indicates an expected call of CollectFlowEvent
 // nolint
+// nolint
 func (mr *MockEventCollectorMockRecorder) CollectFlowEvent(record interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectFlowEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectFlowEvent), record)
 }
 
 // CollectContainerEvent mocks base method
 // nolint
+// nolint
 func (m *MockEventCollector) CollectContainerEvent(record *collector.ContainerRecord) {
 	m.ctrl.Call(m, "CollectContainerEvent", record)
 }
 
 // CollectContainerEvent indicates an expected call of CollectContainerEvent
+// nolint
 // nolint
 func (mr *MockEventCollectorMockRecorder) CollectContainerEvent(record interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectContainerEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectContainerEvent), record)

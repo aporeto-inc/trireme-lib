@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"os/user"
 	"strconv"
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -45,6 +47,9 @@ type Instance struct {
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
 	mode                       constants.ModeType
+	UIDToPortSet               *cache.Cache
+	UIDToPorts                 *cache.Cache
+	UIDSet                     map[string]bool
 }
 
 // NewInstance creates a new iptables controller instance
@@ -67,7 +72,10 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appPacketIPTableContext:    "raw",
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
-		mode: mode,
+		mode:         mode,
+		UIDToPortSet: cache.NewCache("UIDToPortSet"),
+		UIDToPorts:   cache.NewCache("UIDToPorts"),
+		UIDSet:       make(map[string]bool),
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
@@ -202,6 +210,13 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		if err = i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid); err != nil {
 			return err
 		}
+		// lookup UID for username
+		u, err := user.Lookup(uid)
+		if err != nil {
+			return err
+		}
+		i.UIDToPortSet.AddOrUpdate(u.Uid, portSetName)
+		i.UIDSet[u.Uid] = true
 	}
 
 	if err := i.addPacketTrap(appChain, netChain, ipAddress, containerInfo.Policy.TriremeNetworks()); err != nil {
@@ -270,9 +285,21 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		ips := ipset.IPSet{
 			Name: portSetName,
 		}
-		if err := ips.Destroy(); err != nil {
+		if err = ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to clear puport set", zap.Error(err))
 		}
+
+		// lookup uid for username
+		u, err := user.Lookup(uid)
+		if err != nil {
+			return err
+		}
+		// delete uid entires in the map
+		if err = i.UIDToPortSet.Remove(u.Uid); err != nil {
+			return err
+		}
+		delete(i.UIDSet, u.Uid)
+
 	}
 	return nil
 }
@@ -397,6 +424,11 @@ func (i *Instance) Start() error {
 			return fmt.Errorf("Filter of marked packets was not set")
 		}
 	}
+
+	zap.L().Debug("Start go routine to update portsets")
+
+	// Spawn a task to update portsets periodically.
+	go InitPortSetTask(i)
 
 	zap.L().Debug("Started the iptables controller")
 
