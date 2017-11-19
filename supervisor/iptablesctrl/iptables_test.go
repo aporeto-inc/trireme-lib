@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -16,7 +17,7 @@ func TestNewInstance(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 
 		Convey("If I create a local implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -26,7 +27,7 @@ func TestNewInstance(t *testing.T) {
 		})
 
 		Convey("If I create a remote implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, cache.NewCache("iptables test cache"))
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -39,7 +40,7 @@ func TestNewInstance(t *testing.T) {
 
 func TestChainName(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net, err := i.chainName("Context", 1)
 			So(err, ShouldBeNil)
@@ -56,7 +57,7 @@ func TestChainName(t *testing.T) {
 
 func TestDefaultIP(t *testing.T) {
 	Convey("Given an iptables controller with remote off ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -81,7 +82,7 @@ func TestDefaultIP(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller with remote on ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -109,7 +110,7 @@ func TestDefaultIP(t *testing.T) {
 
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -245,7 +246,7 @@ func TestConfigureRules(t *testing.T) {
 
 func TestDeleteRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -280,7 +281,7 @@ func TestDeleteRules(t *testing.T) {
 
 func TestUpdateRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -406,7 +407,7 @@ func TestUpdateRules(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	Convey("Given an iptables controllers,", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, cache.NewCache("iptables test cache"))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -452,7 +453,7 @@ func TestStart(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, cache.NewCache("iptables test cache"))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 

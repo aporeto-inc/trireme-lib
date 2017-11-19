@@ -1,6 +1,7 @@
 package policyenforcer
 
 import (
+	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -16,6 +17,9 @@ type Enforcer interface {
 
 	// GetFilterQueue returns the current FilterQueueConfig.
 	GetFilterQueue() *fqconfig.FilterQueue
+
+	// GetPuFromPortCache returns the puFromPort cache used by the data path
+	GetPuFromPortCache() cache.DataStore
 
 	// Start starts the PolicyEnforcer.
 	Start() error

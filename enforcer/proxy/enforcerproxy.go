@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/crypto"
@@ -169,6 +170,11 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 // GetFilterQueue returns the current FilterQueueConfig.
 func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
+}
+
+// GetPuFromPortCache returns nil for Proxy.
+func (s *ProxyInfo) GetPuFromPortCache() cache.DataStore {
+	return nil
 }
 
 // Start starts the the remote enforcer proxy.

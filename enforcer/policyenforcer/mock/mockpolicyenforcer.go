@@ -7,6 +7,7 @@ package mockpolicyenforcer
 import (
 	reflect "reflect"
 
+	cache "github.com/aporeto-inc/trireme-lib/cache"
 	fqconfig "github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
@@ -79,6 +80,20 @@ func (m *MockEnforcer) GetFilterQueue() *fqconfig.FilterQueue {
 // nolint
 func (mr *MockEnforcerMockRecorder) GetFilterQueue() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFilterQueue", reflect.TypeOf((*MockEnforcer)(nil).GetFilterQueue))
+}
+
+// GetPuFromPortCache mocks base method
+// nolint
+func (m *MockEnforcer) GetPuFromPortCache() cache.DataStore {
+	ret := m.ctrl.Call(m, "GetPuFromPortCache")
+	ret0, _ := ret[0].(cache.DataStore)
+	return ret0
+}
+
+// GetPuFromPortCache indicates an expected call of GetPuFromPortCache
+// nolint
+func (mr *MockEnforcerMockRecorder) GetPuFromPortCache() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPuFromPortCache", reflect.TypeOf((*MockEnforcer)(nil).GetPuFromPortCache))
 }
 
 // Start mocks base method

@@ -61,6 +61,12 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 		return nil, fmt.Errorf("Enforcer FilterQueues cannot be nil")
 	}
 
+	puFromPort := enforcerInstance.GetPuFromPortCache()
+
+	if puFromPort == nil {
+		return nil, fmt.Errorf("Enforcer puFromPort cannot be nil")
+	}
+
 	s := &Config{
 		mode:            mode,
 		impl:            nil,
@@ -76,7 +82,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 	case constants.IPSets:
 		s.impl, err = ipsetctrl.NewInstance(s.filterQueue, false, mode)
 	default:
-		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode)
+		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, puFromPort)
 	}
 
 	if err != nil {

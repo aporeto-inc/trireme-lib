@@ -223,6 +223,11 @@ func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
 	return nil
 }
 
+// GetPuFromPortCache is a stub for TCP proxy
+func (p *Proxy) GetPuFromPortCache() cache.DataStore {
+	return nil
+}
+
 // Start is a stub for TCP proxy
 func (p *Proxy) Start() error {
 	return nil

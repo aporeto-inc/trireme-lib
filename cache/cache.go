@@ -23,6 +23,7 @@ type DataStore interface {
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 	SetTimeOut(u interface{}, timeout time.Duration) (err error)
 	ToString() string
+	GetKeys() interface{}
 }
 
 // Cache is the structure that involves the map of entries. The cache
@@ -389,4 +390,18 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 
 	return e.value, nil
 
+}
+
+// GetKeys Returns list of keys
+func (c *Cache) GetKeys() interface{} {
+
+	keyList := make([]interface{}, 0)
+
+	c.Lock()
+	for k := range c.data {
+		keyList = append(keyList, k)
+	}
+	c.Unlock()
+
+	return keyList
 }
