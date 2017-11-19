@@ -879,8 +879,8 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*PUContext, *TCPConnec
 // appRetrieveState retrieves the state for the rest of the application packets. It
 // returns an error if it cannot find the state
 func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnection, error) {
-	hash := p.L4FlowHash()
 
+	hash := p.L4FlowHash()
 	conn, err := d.appReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
 		conn, err = d.appOrigConnectionTracker.GetReset(hash, 0)
@@ -893,23 +893,28 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*PUContext, *TCPConnectio
 					// check cache and update portset cache accordingly.
 					err = d.unknownSynConnectionTracer.Remove(p.L4ReverseFlowHash())
 					if err != nil {
-						// syn ack for which there is no record for syn. drop it
-						return nil, nil, fmt.Errorf("Did not find a matching syn for syn ack")
+						return context, conn.(*TCPConnection), nil
 					}
+
+					// Program the IPSet
 					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
 					// Find the uid for which mark was asserted.
-					if uid, markerr := d.portSetInstance.GetUserMark(p.Mark); markerr == nil {
-						// Add port to the cache and program the portset
-						if _, updateerr := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); updateerr != nil {
-							return nil, nil, fmt.Errorf("Unable to update portset cache")
-						}
-					} else {
+					uid, markerr := d.portSetInstance.GetUserMark(p.Mark)
+					if markerr != nil {
 						// Every outgoing packet has a mark. We should never come here
 						return nil, nil, fmt.Errorf("Did not find uid for the packet mark")
 					}
 
+					// Add port to the cache and program the portset
+					if _, updateerr := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); updateerr != nil {
+						return nil, nil, fmt.Errorf("Unable to update portset cache")
+					}
+
+					// syn ack for which there is no record for syn. drop it
+					return nil, nil, fmt.Errorf("Dropped SynAck for an unknown Syn")
 				}
-				//Return an error still we will process the syn successfully on retry and
+
+				return nil, nil, fmt.Errorf("Context not found")
 			}
 
 			return nil, nil, fmt.Errorf("App state not found")
