@@ -1,7 +1,8 @@
 package remoteenforcer
 
 import (
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
@@ -22,8 +23,8 @@ type RemoteEnforcer struct {
 	collector      statscollector.Collector
 	statsClient    statsclient.StatsClient
 	procMountPoint string
-	enforcer       enforcer.PolicyEnforcer
+	enforcer       policyenforcer.Enforcer
 	supervisor     supervisor.Supervisor
-	service        enforcer.PacketProcessor
+	service        packetprocessor.PacketProcessor
 	secrets        secrets.Secrets
 }

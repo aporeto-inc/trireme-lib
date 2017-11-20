@@ -116,6 +116,7 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+
 	if contextID == "/trireme" {
 		return nil
 	}
@@ -131,6 +132,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	if err != nil {
 		return err
 	}
+
 	if contextID == "/trireme" {
 		contextID = strings.TrimLeft(contextID, "/")
 		s.netcls.Deletebasepath(contextID)
@@ -138,6 +140,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	contextID = contextID[strings.LastIndex(contextID, "/")+1:]
+
 	// Send the event upstream
 	if err := s.puHandler.HandlePUEvent(contextID, monitor.EventDestroy); err != nil {
 		zap.L().Warn("Failed to clean trireme ",

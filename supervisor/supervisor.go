@@ -9,7 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/portset"
@@ -18,11 +18,12 @@ import (
 )
 
 type cacheData struct {
-	version int
-	ips     policy.ExtendedMap
-	mark    string
-	port    string
-	uid     string
+	version       int
+	ips           policy.ExtendedMap
+	mark          string
+	port          string
+	uid           string
+	containerInfo *policy.PUInfo
 }
 
 // Config is the structure holding all information about the supervisor
@@ -47,7 +48,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.PolicyEnforcer, mode constants.ModeType, implementation constants.ImplementationType, networks []string) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, implementation constants.ImplementationType, networks []string) (*Config, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -126,8 +127,9 @@ func (s *Config) Unsupervise(contextID string) error {
 	}
 
 	cacheEntry := version.(*cacheData)
-
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid); err != nil {
+	port := cacheEntry.containerInfo.Runtime.Options().ProxyPort
+	proxyPortSetName := iptablesctrl.PuPortSetName(contextID, cacheEntry.mark, "Proxy-")
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port, proxyPortSetName); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -196,11 +198,12 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 	uid := containerInfo.Runtime.Options().UserID
 
 	cacheEntry := &cacheData{
-		version: version,
-		ips:     containerInfo.Policy.IPAddresses(),
-		mark:    mark,
-		port:    port,
-		uid:     uid,
+		version:       version,
+		ips:           containerInfo.Policy.IPAddresses(),
+		mark:          mark,
+		port:          port,
+		uid:           uid,
+		containerInfo: containerInfo,
 	}
 
 	// Version the policy so that we can do hitless policy changes
@@ -230,8 +233,7 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	}
 
 	cachedEntry := cacheEntry.(*cacheData)
-
-	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo); err != nil {
+	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo, cachedEntry.containerInfo); err != nil {
 		if uerr := s.Unsupervise(contextID); uerr != nil {
 			zap.L().Warn("Failed to clean up state while updating the PU",
 				zap.String("contextID", contextID),

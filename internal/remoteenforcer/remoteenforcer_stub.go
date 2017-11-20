@@ -3,13 +3,13 @@
 package remoteenforcer
 
 import (
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
 )
 
 // newServer is a fake implementation for building on darwin.
-func newServer(service enforcer.PacketProcessor, rpchdl rpcwrapper.RPCServer, pcchan string, secret string, stats statsclient.StatsClient) (RemoteIntf, error) {
+func newServer(service packetprocessor.PacketProcessor, rpchdl rpcwrapper.RPCServer, pcchan string, secret string, stats statsclient.StatsClient) (RemoteIntf, error) {
 	return nil, nil
 }
 
@@ -19,7 +19,7 @@ func getCEnvVariable(name string) string {
 }
 
 // LaunchRemoteEnforcer is a fake implementation for building on darwin.
-func LaunchRemoteEnforcer(service enforcer.PacketProcessor) error { return nil }
+func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error { return nil }
 
 // InitEnforcer is a function called from the controller using RPC. It intializes data structure required by the
 // remote enforcer
