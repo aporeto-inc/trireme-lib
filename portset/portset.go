@@ -16,7 +16,7 @@ import (
 const (
 	procNetTCPFile                    = "/proc/net/tcp"
 	portSetUpdateIntervalMilliseconds = 1000
-	portEntryTimeout                  = portSetUpdateIntervalMilliseconds / 1000 * 3
+	portEntryTimeout                  = 60 //portSetUpdateIntervalMilliseconds / 1000 * 3
 	uidFieldOffset                    = 7
 	procHeaderLineNum                 = 0
 	portOffset                        = 1
@@ -67,7 +67,7 @@ func New() PortSet {
 
 	p := &portSetInstance{
 		userPortSet: cache.NewCache("userPortSet"),
-		userPortMap: cache.NewCacheWithExpirationNotifier("userPortMap", 20*time.Second, expirer),
+		userPortMap: cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout*time.Second, expirer),
 		markUserMap: cache.NewCache("markUserMap"),
 	}
 
