@@ -23,6 +23,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 const (
@@ -220,6 +221,11 @@ func (p *Proxy) Unenforce(contextID string) error {
 
 // GetFilterQueue is a stub for TCP proxy
 func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
+	return nil
+}
+
+// GetPortSetInstance returns nil for the proxy
+func (s *Proxy) GetPortSetInstance() portset.PortSet {
 	return nil
 }
 

@@ -208,7 +208,9 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			//We are about to create a uid login pu
 			//This set will be empty and we will only fill it when we find a port for it
 			//The reason to use contextID here is to ensure that we don't need to talk between supervisor and enforcer to share names the id is derivable from information available in the enforcer
-			if puseterr := i.createPUPortSet(PuPortSetName(contextID, mark, PuPortSet)); puseterr != nil {
+			portSetName := PuPortSetName(contextID, mark, PuPortSet)
+
+			if puseterr := i.createPUPortSet(portSetName); puseterr != nil {
 				return puseterr
 			}
 

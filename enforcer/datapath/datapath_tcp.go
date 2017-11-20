@@ -20,12 +20,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-const (
-	portEntryTimeout = 60
-	// PuPortSet  Temporary this constant should go away as we integrate other uidm changed
-	PuPortSet = "PUPort-"
-)
-
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
@@ -863,11 +857,11 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*pucontext.PUContext, 
 			}
 
 			// Remove any of our data from the packet.
-			if err = p.CheckTCPAuthenticationOption(TCPAuthenticationOptionBaseLen); err != nil {
+			if err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 				return context, nil, nil
 			}
 
-			if err = p.TCPDataDetach(TCPAuthenticationOptionBaseLen); err != nil {
+			if err = p.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 				return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format %v", err)
 			}
 
