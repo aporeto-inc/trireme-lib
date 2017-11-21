@@ -316,11 +316,7 @@ func (d *Datapath) Start() error {
 
 	go d.nflogger.Start()
 
-	if err := d.proxyhdl.Start(); err != nil {
-		return err
-	}
-
-	return nil
+	return d.proxyhdl.Start()
 }
 
 // Stop stops the enforcer
