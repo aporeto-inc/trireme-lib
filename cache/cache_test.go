@@ -32,6 +32,7 @@ func TestElements(t *testing.T) {
 	newid := uuid.NewV4()
 	value := "element"
 	secondValue := "element2"
+	thirdValue := "element3"
 
 	Convey("Given that I want to test elemenets, I must initialize a cache", t, func() {
 
@@ -76,10 +77,20 @@ func TestElements(t *testing.T) {
 
 		Convey("Given that I try to add or update an element in the cache, I should not get an error", func() {
 
-			c.AddOrUpdate(newid, secondValue)
+			ok := c.AddOrUpdate(newid, secondValue)
 			newvalue, err := c.Get(newid)
 			So(newvalue, ShouldEqual, secondValue)
 			So(err, ShouldBeNil)
+			So(ok, ShouldBeFalse)
+		})
+
+		Convey("Given that I try to update an element in the cache, I should not get an error", func() {
+
+			ok := c.AddOrUpdate(newid, thirdValue)
+			newvalue, err := c.Get(newid)
+			So(newvalue, ShouldEqual, thirdValue)
+			So(err, ShouldBeNil)
+			So(ok, ShouldBeTrue)
 		})
 
 		Convey("Given that I have an element in the cache, I should be able to delete it", func() {
