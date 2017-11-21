@@ -1,6 +1,6 @@
 // +build !linux
 
-package enforcer
+package datapath
 
 // Go libraries
 

@@ -8,6 +8,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
@@ -76,8 +78,8 @@ func policyResolver() trireme.PolicyResolver {
 	return newResolver
 }
 
-func procPacket() enforcer.PacketProcessor {
-	var newProc enforcer.PacketProcessor
+func procPacket() packetprocessor.PacketProcessor {
+	var newProc packetprocessor.PacketProcessor
 
 	return newProc
 }
@@ -97,40 +99,40 @@ func secretGen(keyPEM, certPEM, caPool []byte) secrets.Secrets {
 	return newSecret
 }
 
-func testEnforcerMap(sec, config string, pucon constants.PUType, puenfmode constants.ModeType) map[constants.PUType]enforcer.PolicyEnforcer {
+func testEnforcerMap(sec, config string, pucon constants.PUType, puenfmode constants.ModeType) map[constants.PUType]policyenforcer.Enforcer {
 	if sec == "psk" {
 		if config == "hybrid" {
-			return map[constants.PUType]enforcer.PolicyEnforcer{
+			return map[constants.PUType]policyenforcer.Enforcer{
 				constants.ContainerPU:    testEnforcerProxy(),
 				constants.LinuxProcessPU: testEnforcer(sec, puenfmode),
 			}
 		} else if config == "distributeddocker" {
-			return map[constants.PUType]enforcer.PolicyEnforcer{
+			return map[constants.PUType]policyenforcer.Enforcer{
 				pucon: testEnforcerProxy(),
 			}
 		} else {
-			return map[constants.PUType]enforcer.PolicyEnforcer{
+			return map[constants.PUType]policyenforcer.Enforcer{
 				pucon: testEnforcer(sec, puenfmode),
 			}
 		}
 	}
 	if config == "hybrid" {
-		return map[constants.PUType]enforcer.PolicyEnforcer{
+		return map[constants.PUType]policyenforcer.Enforcer{
 			constants.ContainerPU:    testEnforcerProxy(),
 			constants.LinuxProcessPU: testEnforcer(sec, puenfmode),
 		}
 	} else if config == "distributeddocker" {
-		return map[constants.PUType]enforcer.PolicyEnforcer{
+		return map[constants.PUType]policyenforcer.Enforcer{
 			pucon: testEnforcerProxy(),
 		}
 	} else {
-		return map[constants.PUType]enforcer.PolicyEnforcer{
+		return map[constants.PUType]policyenforcer.Enforcer{
 			pucon: testEnforcer(sec, puenfmode),
 		}
 	}
 }
 
-func testEnforcer(sec string, puenfmode constants.ModeType) enforcer.PolicyEnforcer {
+func testEnforcer(sec string, puenfmode constants.ModeType) policyenforcer.Enforcer {
 	if sec == "psk" {
 		newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen(nil, nil, nil), puenfmode, constants.DefaultProcMountPoint)
 		return newEnf
@@ -192,7 +194,7 @@ func testSupervisorProxy(sec string, puconmode constants.ModeType) (*supervisorp
 	return newSup, nil
 }
 
-func testEnforcerProxy() enforcer.PolicyEnforcer {
+func testEnforcerProxy() policyenforcer.Enforcer {
 	newEnf := enforcerproxy.NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpcwrapper.NewRPCWrapper(), constants.DefaultProcMountPoint)
 	return newEnf
 }

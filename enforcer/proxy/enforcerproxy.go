@@ -14,7 +14,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/crypto"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
@@ -58,7 +60,7 @@ type ProxyInfo struct {
 	commandArg             string
 	statsServerSecret      string
 	procMountPoint         string
-	externalIPCacheTimeout time.Duration
+	ExternalIPCacheTimeout time.Duration
 
 	sync.RWMutex
 }
@@ -79,7 +81,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			CAPEM:                  pkier.AuthPEM(),
 			PublicPEM:              pkier.TransmittedPEM(),
 			PrivatePEM:             pkier.EncodingPEM(),
-			ExternalIPCacheTimeout: s.externalIPCacheTimeout,
+			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
 		},
 	}
 
@@ -140,6 +142,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		TransmitterRules: puInfo.Policy.TransmitterRules(),
 		TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
 		ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
+		ProxiedServices:  puInfo.Policy.ProxiedServices(),
 	}
 	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
 	s.RLock()
@@ -195,15 +198,15 @@ func (s *ProxyInfo) Stop() error {
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service enforcer.PacketProcessor,
+	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
 	procMountPoint string,
-	externalIPCacheTimeout time.Duration,
-) enforcer.PolicyEnforcer {
+	ExternalIPCacheTimeout time.Duration,
+) policyenforcer.Enforcer {
 	return newProxyEnforcer(
 		mutualAuth,
 		filterQueue,
@@ -216,7 +219,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		cmdArg,
 		processmon.GetProcessManagerHdl(),
 		procMountPoint,
-		externalIPCacheTimeout,
+		ExternalIPCacheTimeout,
 	)
 }
 
@@ -224,7 +227,7 @@ func NewProxyEnforcer(mutualAuth bool,
 func newProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service enforcer.PacketProcessor,
+	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
@@ -232,8 +235,8 @@ func newProxyEnforcer(mutualAuth bool,
 	cmdArg string,
 	procHdl processmon.ProcessManager,
 	procMountPoint string,
-	externalIPCacheTimeout time.Duration,
-) enforcer.PolicyEnforcer {
+	ExternalIPCacheTimeout time.Duration,
+) policyenforcer.Enforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
 	if err != nil {
@@ -255,7 +258,7 @@ func newProxyEnforcer(mutualAuth bool,
 		commandArg:             cmdArg,
 		statsServerSecret:      statsServersecret,
 		procMountPoint:         procMountPoint,
-		externalIPCacheTimeout: externalIPCacheTimeout,
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 	}
 
 	zap.L().Debug("Called NewDataPathEnforcer")
@@ -275,11 +278,11 @@ func NewDefaultProxyEnforcer(serverID string,
 	secrets secrets.Secrets,
 	rpchdl rpcwrapper.RPCClient,
 	procMountPoint string,
-) enforcer.PolicyEnforcer {
+) policyenforcer.Enforcer {
 
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcer.DefaultExternalIPTimeout)
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}

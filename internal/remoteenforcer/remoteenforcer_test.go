@@ -13,7 +13,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
-	"github.com/aporeto-inc/trireme-lib/enforcer/mock"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer/mock"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper/mock"
@@ -22,7 +24,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/mock"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -196,7 +198,7 @@ func TestNewServer(t *testing.T) {
 
 		Convey("When I try to create new server with no env set", func() {
 			rpcHdl.EXPECT().StartServer(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
 			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -212,7 +214,7 @@ func TestNewServer(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "mysecret")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -236,7 +238,7 @@ func TestInitEnforcer(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-		mockEnf := mockenforcer.NewMockPolicyEnforcer(ctrl)
+		mockEnf := mockpolicyenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
@@ -248,7 +250,7 @@ func TestInitEnforcer(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "T6UYZGcKW-aum_vi-XakafF3vHV7F6x8wdofZs7akGU=")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			remoteIntf, err := newServer(service, rpcHdl, pcchan, secret, mockStats)
@@ -331,7 +333,7 @@ func TestInitSupervisor(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "n1KroWMWKP8nJnpWfwSsQu855yvP-ZPaNr-TJFl3gzM=")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			remoteIntf, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -380,7 +382,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -426,7 +428,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -451,7 +453,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.LocalContainer, constants.IPTables, []string{})
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
@@ -481,7 +483,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with no env set", func() {
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
 			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -497,7 +499,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "mysecret")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			remoteIntf, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -567,7 +569,7 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with no env set", func() {
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
 			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -583,7 +585,7 @@ func TestSupervise(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			remoteIntf, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -655,14 +657,14 @@ func TestEnforce(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
-		mockEnf := mockenforcer.NewMockPolicyEnforcer(ctrl)
+		mockEnf := mockpolicyenforcer.NewMockEnforcer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
 		})
 
 		Convey("When I try to create new server with no env set", func() {
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
 			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -678,7 +680,7 @@ func TestEnforce(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			remoteIntf, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -730,7 +732,7 @@ func TestEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
@@ -776,14 +778,14 @@ func TestUnEnforce(t *testing.T) {
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
 		rpcHdl := rpcwrapper.NewRPCServer()
-		mockEnf := mockenforcer.NewMockPolicyEnforcer(ctrl)
+		mockEnf := mockpolicyenforcer.NewMockEnforcer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
 		})
 
 		Convey("When I try to create new server with no env set", func() {
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
 			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -799,7 +801,7 @@ func TestUnEnforce(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "KMvm4a6kgLLma5NitOMGx2f9k21G3nrAaLbgA5zNNHM=")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			remoteIntf, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -827,7 +829,7 @@ func TestUnEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.LocalContainer, "/proc").(*enforcer.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.LocalContainer, "/proc").(*datapath.Datapath)
 
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 
@@ -879,7 +881,7 @@ func TestUnSupervise(t *testing.T) {
 		})
 
 		Convey("When I try to create new server with no env set", func() {
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := "/tmp/test.sock"
 			secret := "mysecret"
 			server, err := newServer(service, rpcHdl, pcchan, secret, nil)
@@ -895,7 +897,7 @@ func TestUnSupervise(t *testing.T) {
 			So(serr, ShouldBeNil)
 			serr = os.Setenv(constants.AporetoEnvStatsSecret, "zsGt6jhc1DkE0cHcv8HtJl_iP-8K_zPX4u0TUykDJSg=")
 			So(serr, ShouldBeNil)
-			var service enforcer.PacketProcessor
+			var service packetprocessor.PacketProcessor
 			pcchan := os.Getenv(constants.AporetoEnvStatsChannel)
 			secret := os.Getenv(constants.AporetoEnvStatsSecret)
 			remoteIntf, err := newServer(service, rpcHdl, pcchan, secret, nil)

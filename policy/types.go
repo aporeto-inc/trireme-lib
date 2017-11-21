@@ -210,4 +210,7 @@ type OptionsType struct {
 
 	// PolicyExtensions is policy resolution extensions
 	PolicyExtensions interface{}
+
+	//ProxyPort -- the port on which the proxy listens
+	ProxyPort string
 }
