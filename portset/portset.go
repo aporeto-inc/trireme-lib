@@ -34,6 +34,7 @@ type portSetInstance struct {
 	userPortSet *cache.Cache
 	userPortMap *cache.Cache
 	markUserMap *cache.Cache
+	puFromPort  *cache.Cache
 }
 
 // deletes the port entry in the portset when the key uid:port
@@ -60,15 +61,21 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 		zap.L().Warn("Cache: Failed to delete port from set", zap.Error(err))
 	}
 
+	// delete the port from puFromPort cache
+	if err := portSetObject.puFromPort.Remove(port); err != nil {
+		zap.L().Warn("Unable to remove port from puFromPort Cache")
+	}
+
 }
 
 // New creates a portset interface
-func New() PortSet {
+func New(puFromPort *cache.Cache) PortSet {
 
 	p := &portSetInstance{
 		userPortSet: cache.NewCache("userPortSet"),
 		userPortMap: cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout*time.Second, expirer),
 		markUserMap: cache.NewCache("markUserMap"),
+		puFromPort:  puFromPort,
 	}
 
 	go startPortSetTask(p)

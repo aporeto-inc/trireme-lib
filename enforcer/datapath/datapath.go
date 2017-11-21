@@ -133,10 +133,15 @@ func New(
 
 	}
 
+	// This cache is shared with portSetInstance. The portSetInstance
+	// cleans up the entry corresponding to port when port is no longer
+	// part of ipset portset.
+	puFromPort := cache.NewCache("puFromPort")
+
 	d := &Datapath{
 		puFromIP:   cache.NewCache("puFromIP"),
 		puFromMark: cache.NewCache("puFromMark"),
-		puFromPort: cache.NewCache("puFromPort"),
+		puFromPort: puFromPort,
 
 		contextTracker: contextTracker,
 
@@ -159,7 +164,7 @@ func New(
 		procMountPoint:              procMountPoint,
 		conntrackHdl:                conntrack.NewHandle(),
 		proxyhdl:                    tcpProxy,
-		portSetInstance:             portset.New(),
+		portSetInstance:             portset.New(puFromPort),
 	}
 
 	if d.tokenEngine == nil {
