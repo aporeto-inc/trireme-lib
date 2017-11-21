@@ -315,7 +315,7 @@ func (d *Datapath) Start() error {
 		return err
 	}
 
-	return err
+	return nil
 }
 
 // Stop stops the enforcer
