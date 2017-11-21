@@ -166,7 +166,7 @@ func (p *portSetInstance) addPortSet(userName string, port string) (err error) {
 		return fmt.Errorf("Not a valid Port")
 	}
 
-	if adderr := ips.Add(port, portEntryTimeout); adderr != nil {
+	if adderr := ips.Add(port, 0); adderr != nil {
 		return fmt.Errorf("Unable to add port to set")
 	}
 	return nil
