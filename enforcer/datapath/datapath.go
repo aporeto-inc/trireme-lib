@@ -14,6 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
+	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
@@ -22,8 +23,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -35,7 +36,6 @@ type Datapath struct {
 
 	// Configuration parameters
 	filterQueue    *fqconfig.FilterQueue
-	tokenEngine    TokenAccessor
 	collector      collector.EventCollector
 	tokenAccessor  tokenaccessor.TokenAccessor
 	service        packetprocessor.PacketProcessor
@@ -99,12 +99,7 @@ func New(
 	ExternalIPCacheTimeout time.Duration,
 ) *Datapath {
 
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
-	if err != nil {
-		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
-	}
-
-	tokenAccessor, err := tokenAccessor.New(serverID, validity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
@@ -152,7 +147,7 @@ func New(
 		mutualAuthorization:       mutualAuth,
 		service:                   service,
 		collector:                 collector,
-		tokenEngine:               tokenAccessor,
+		tokenAccessor:             tokenAccessor,
 		secrets:                   secrets,
 		ackSize:                   secrets.AckSize(),
 		mode:                      mode,
@@ -161,7 +156,7 @@ func New(
 		proxyhdl:                  tcpProxy,
 	}
 
-	d.nflogger = newNFLogger(11, 10, d.puInfoDelegate, collector)
+	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 
 	return d
 }
@@ -326,6 +321,11 @@ func (d *Datapath) Stop() error {
 	return nil
 }
 
+// UpdateSecrets updates the secrets used for signing communication between trireme instances
+func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
+	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
+}
+
 func (d *Datapath) getProcessKeys(puInfo *policy.PUInfo) (string, []string) {
 
 	mark := puInfo.Runtime.Options().CgroupMark
@@ -415,7 +415,27 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-// UpdateSecrets updates the secrets used for signing communication between trireme instances
-func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
-	return d.tokenEngine.SetToken(d.tokenEngine.GetTokenServerID(), d.tokenEngine.GetTokenValidity(), token)
+func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
+
+	c := &collector.FlowRecord{
+		ContextID: context.ID,
+		Source: &collector.EndPoint{
+			ID:   sourceID,
+			IP:   p.SourceAddress.String(),
+			Port: p.SourcePort,
+			Type: collector.PU,
+		},
+		Destination: &collector.EndPoint{
+			ID:   destID,
+			IP:   p.DestinationAddress.String(),
+			Port: p.DestinationPort,
+			Type: collector.PU,
+		},
+		Tags:       context.Annotations,
+		Action:     plc.Action,
+		DropReason: mode,
+		PolicyID:   plc.PolicyID,
+	}
+
+	d.collector.CollectFlowEvent(c)
 }

@@ -49,6 +49,6 @@ type PolicyResolver interface {
 
 // SecretsUpdater provides an interface to update the secrets of enforcers managed by trireme at runtime
 type SecretsUpdater interface {
-	//UpdateSecrets -- updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
+	// UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
 }

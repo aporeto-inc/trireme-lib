@@ -22,6 +22,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -48,7 +49,7 @@ type Proxy struct {
 	wg                  sync.WaitGroup
 	collector           collector.EventCollector
 	mutualAuthorization bool
-	tokenaccessor      tokenaccessor.TokenAccessor
+	tokenaccessor       tokenaccessor.TokenAccessor
 	contextTracker      cache.DataStore
 	socketListeners     *cache.Cache
 	//List of local IP's
@@ -92,7 +93,7 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenA
 		wg:                  sync.WaitGroup{},
 		mutualAuthorization: mutualAuthorization,
 		collector:           c,
-		tokenaccessor:      tp,
+		tokenaccessor:       tp,
 		contextTracker:      contextTracker,
 		socketListeners:     cache.NewCache("socketlisterner"),
 		IPList:              iplist,
@@ -232,6 +233,11 @@ func (p *Proxy) Start() error {
 // Stop stops and waits proxy to stop.
 func (p *Proxy) Stop() error {
 	p.wg.Wait()
+	return nil
+}
+
+// UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
+func (p *Proxy) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
