@@ -31,10 +31,10 @@ const (
 // portSetInstance : This type contains look up tables
 // to help update the ipset portsets.
 type portSetInstance struct {
-	userPortSet *cache.Cache
-	userPortMap *cache.Cache
-	markUserMap *cache.Cache
-	puFromPort  *cache.Cache
+	userPortSet cache.DataStore
+	userPortMap cache.DataStore
+	markUserMap cache.DataStore
+	puFromPort  cache.DataStore
 }
 
 // deletes the port entry in the portset when the key uid:port
