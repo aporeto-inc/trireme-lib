@@ -773,6 +773,30 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*pucontext.PUContext, 
 	return context, conn.(*connection.TCPConnection), nil
 }
 
+func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) (*pucontext.PUContext, *connection.TCPConnection, error) {
+
+	err := d.unknownSynConnectionTracker.Remove(p.L4ReverseFlowHash())
+	if err != nil {
+		// we are seeing a syn-ack for a syn we have not seen
+		return nil, nil, fmt.Errorf("Dropping syn-ack for an unknown syn")
+	}
+
+	d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
+	// Find the uid for which mark was asserted.
+	uid, err := d.portSetInstance.GetUserMark(p.Mark)
+	if err != nil {
+		// Every outgoing packet has a mark. We should never come here
+		return nil, nil, fmt.Errorf("Did not find uid for the packet mark")
+	}
+
+	// Add port to the cache and program the portset
+	if _, err := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); err != nil {
+		return nil, nil, fmt.Errorf("Unable to update portset cache")
+	}
+	// syn ack for which there is no corresponding syn context, so drop it.
+	return nil, nil, fmt.Errorf("Dropped SynAck for an unknown Syn")
+}
+
 // appRetrieveState retrieves the state for the rest of the application packets. It
 // returns an error if it cannot find the state
 func (d *Datapath) appRetrieveState(p *packet.Packet) (*pucontext.PUContext, *connection.TCPConnection, error) {
@@ -788,26 +812,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*pucontext.PUContext, *co
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
 					// check cache and update portset cache accordingly.
-					err = d.unknownSynConnectionTracker.Remove(p.L4ReverseFlowHash())
-					if err != nil {
-						// we are seeing a syn-ack for a syn we have not seen
-						return nil, nil, fmt.Errorf("Dropping syn-ack for an unknown syn")
-					}
-
-					d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
-					// Find the uid for which mark was asserted.
-					uid, markerr := d.portSetInstance.GetUserMark(p.Mark)
-					if markerr != nil {
-						// Every outgoing packet has a mark. We should never come here
-						return nil, nil, fmt.Errorf("Did not find uid for the packet mark")
-					}
-
-					// Add port to the cache and program the portset
-					if _, updateerr := d.portSetInstance.AddPortToUser(uid, strconv.Itoa(int(p.SourcePort))); updateerr != nil {
-						return nil, nil, fmt.Errorf("Unable to update portset cache")
-					}
-					// syn ack for which there is no corresponding syn context, so drop it.
-					return nil, nil, fmt.Errorf("Dropped SynAck for an unknown Syn")
+					return processSynAck(d, p, context)
 				}
 			}
 
