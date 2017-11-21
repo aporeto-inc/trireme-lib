@@ -16,7 +16,7 @@ import (
 const (
 	procNetTCPFile                    = "/proc/net/tcp"
 	portSetUpdateIntervalMilliseconds = 1000
-	portEntryTimeout                  = 60 * portSetUpdateIntervalMilliseconds / 1000 * 3
+	portEntryTimeout                  = portSetUpdateIntervalMilliseconds / 1000 * 3
 	uidFieldOffset                    = 7
 	procHeaderLineNum                 = 0
 	portOffset                        = 1
