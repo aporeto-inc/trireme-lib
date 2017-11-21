@@ -24,7 +24,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/portset"
-	"github.com/aporeto-inc/trireme/enforcer"
 )
 
 type pkiCertifier interface {
@@ -62,7 +61,7 @@ type ProxyInfo struct {
 	commandArg             string
 	statsServerSecret      string
 	procMountPoint         string
-	externalIPCacheTimeout time.Duration
+	ExternalIPCacheTimeout time.Duration
 	portSetInstance        portset.PortSet
 
 	sync.Mutex
@@ -214,7 +213,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		cmdArg,
 		processmon.GetProcessManagerHdl(),
 		procMountPoint,
-		externalIPCacheTimeout,
+		ExternalIPCacheTimeout,
 		nil,
 	)
 }
@@ -231,9 +230,9 @@ func newProxyEnforcer(mutualAuth bool,
 	cmdArg string,
 	procHdl processmon.ProcessManager,
 	procMountPoint string,
-	externalIPCacheTimeout time.Duration,
+	ExternalIPCacheTimeout time.Duration,
 	portSetInstance portset.PortSet,
-) enforcer.PolicyEnforcer {
+) policyenforcer.Enforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
 	if err != nil {
@@ -255,7 +254,7 @@ func newProxyEnforcer(mutualAuth bool,
 		commandArg:             cmdArg,
 		statsServerSecret:      statsServersecret,
 		procMountPoint:         procMountPoint,
-		externalIPCacheTimeout: externalIPCacheTimeout,
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		portSetInstance:        portSetInstance,
 	}
 
