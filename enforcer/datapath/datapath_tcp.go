@@ -788,7 +788,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*pucontext.PUContext, *co
 				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if err == nil {
 					// check cache and update portset cache accordingly.
-					err = d.unknownSynConnectionTracer.Remove(p.L4ReverseFlowHash())
+					err = d.unknownSynConnectionTracker.Remove(p.L4ReverseFlowHash())
 					if err != nil {
 						// we are seeing a syn-ack for a syn we have not seen
 						return nil, nil, fmt.Errorf("Dropping syn-ack for an unknown syn")
@@ -850,9 +850,9 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*pucontext.PUContext, 
 			//We need this syn to look similar to what we will pass on the retry
 			//so we setup enought for us to identify this request in the later stages
 
-			// update the unknownSynConnectionTracer cache to keep track of
+			// update the unknownSynConnectionTracker cache to keep track of
 			// syn packet that has no context yet.
-			if err = d.unknownSynConnectionTracer.Add(p.L4FlowHash(), nil); err != nil {
+			if err = d.unknownSynConnectionTracker.Add(p.L4FlowHash(), nil); err != nil {
 				return context, nil, fmt.Errorf("Unable to keep track of SYN packet")
 			}
 

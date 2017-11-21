@@ -59,11 +59,11 @@ type Datapath struct {
 
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
-	appOrigConnectionTracker   cache.DataStore
-	appReplyConnectionTracker  cache.DataStore
-	netOrigConnectionTracker   cache.DataStore
-	netReplyConnectionTracker  cache.DataStore
-	unknownSynConnectionTracer cache.DataStore
+	appOrigConnectionTracker    cache.DataStore
+	appReplyConnectionTracker   cache.DataStore
+	netOrigConnectionTracker    cache.DataStore
+	netReplyConnectionTracker   cache.DataStore
+	unknownSynConnectionTracker cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
@@ -140,26 +140,26 @@ func New(
 
 		contextTracker: contextTracker,
 
-		sourcePortConnectionCache:  cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appOrigConnectionTracker:   cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
-		appReplyConnectionTracker:  cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netOrigConnectionTracker:   cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
-		netReplyConnectionTracker:  cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
-		unknownSynConnectionTracer: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
-		ExternalIPCacheTimeout:     ExternalIPCacheTimeout,
-		filterQueue:                filterQueue,
-		mutualAuthorization:        mutualAuth,
-		service:                    service,
-		collector:                  collector,
-		tokenProcessor:             tokenProcessor,
-		tokenEngine:                tokenEngine,
-		secrets:                    secrets,
-		ackSize:                    secrets.AckSize(),
-		mode:                       mode,
-		procMountPoint:             procMountPoint,
-		conntrackHdl:               conntrack.NewHandle(),
-		proxyhdl:                   tcpProxy,
-		portSetInstance:            portset.New(),
+		sourcePortConnectionCache:   cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
+		appOrigConnectionTracker:    cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
+		appReplyConnectionTracker:   cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
+		netOrigConnectionTracker:    cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
+		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
+		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
+		ExternalIPCacheTimeout:      ExternalIPCacheTimeout,
+		filterQueue:                 filterQueue,
+		mutualAuthorization:         mutualAuth,
+		service:                     service,
+		collector:                   collector,
+		tokenProcessor:              tokenProcessor,
+		tokenEngine:                 tokenEngine,
+		secrets:                     secrets,
+		ackSize:                     secrets.AckSize(),
+		mode:                        mode,
+		procMountPoint:              procMountPoint,
+		conntrackHdl:                conntrack.NewHandle(),
+		proxyhdl:                    tcpProxy,
+		portSetInstance:             portset.New(),
 	}
 
 	if d.tokenEngine == nil {
