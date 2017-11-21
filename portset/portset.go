@@ -14,18 +14,18 @@ import (
 )
 
 const (
-	procNetTCPFile                    = "/proc/net/tcp"
-	portSetUpdateIntervalMilliseconds = 1000
-	portEntryTimeout                  = portSetUpdateIntervalMilliseconds / 1000 * 3
-	uidFieldOffset                    = 7
-	procHeaderLineNum                 = 0
-	portOffset                        = 1
-	ipPortOffset                      = 1
-	sockStateOffset                   = 3
-	sockListeningState                = "0A"
-	hexFormat                         = 16
-	integerSize                       = 64
-	minimumFields                     = 2
+	procNetTCPFile                 = "/proc/net/tcp"
+	portSetUpdateIntervalinSeconds = 2
+	portEntryTimeout               = 5 * portSetUpdateIntervalinSeconds
+	uidFieldOffset                 = 7
+	procHeaderLineNum              = 0
+	portOffset                     = 1
+	ipPortOffset                   = 1
+	sockStateOffset                = 3
+	sockListeningState             = "0A"
+	hexFormat                      = 16
+	integerSize                    = 64
+	minimumFields                  = 2
 )
 
 // portSetInstance : This type contains look up tables
@@ -69,7 +69,7 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 }
 
 // New creates a portset interface
-func New(puFromPort *cache.Cache) PortSet {
+func New(puFromPort cache.DataStore) PortSet {
 
 	p := &portSetInstance{
 		userPortSet: cache.NewCache("userPortSet"),
@@ -201,7 +201,7 @@ func (p *portSetInstance) deletePortSet(userName string, port string) (err error
 // initilisation.
 func startPortSetTask(p *portSetInstance) {
 
-	t := time.NewTicker(portSetUpdateIntervalMilliseconds * time.Millisecond)
+	t := time.NewTicker(portSetUpdateIntervalinSeconds * time.Second)
 	for range t.C {
 		// Update PortSet periodically.
 		p.updateIPPortSets()
