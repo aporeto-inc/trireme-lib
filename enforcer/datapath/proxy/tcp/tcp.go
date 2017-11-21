@@ -225,7 +225,7 @@ func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
 }
 
 // GetPortSetInstance returns nil for the proxy
-func (s *Proxy) GetPortSetInstance() portset.PortSet {
+func (p *Proxy) GetPortSetInstance() portset.PortSet {
 	return nil
 }
 
