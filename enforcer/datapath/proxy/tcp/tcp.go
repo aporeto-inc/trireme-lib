@@ -23,6 +23,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 const (
@@ -33,25 +34,24 @@ const (
 
 // Proxy maintains state for proxies connections from listen to backend.
 type Proxy struct {
-	//Listen Port to listen on
+	// Listen Port to listen on
 	Listen string
-	//Backend address of the backend
+	// Backend address of the backend
 	Backend string
-	//Forward Should We forward connection
-	Forward bool
-	//Encrypt Is this connection encrypted
-	Encrypt bool
-	//certPath certificate path
+	// certPath certificate path
 	certPath string
-
-	keyPath             string
-	wg                  sync.WaitGroup
-	collector           collector.EventCollector
+	keyPath  string
+	wg       sync.WaitGroup
+	// Forward Should We forward connection
+	Forward bool
+	// Encrypt Is this connection encrypted
+	Encrypt             bool
 	mutualAuthorization bool
+	collector           collector.EventCollector
 	tokenprocessor      tokenprocessor.TokenProcessor
 	contextTracker      cache.DataStore
 	socketListeners     *cache.Cache
-	//List of local IP's
+	// List of local IP's
 	IPList []string
 }
 
@@ -220,6 +220,11 @@ func (p *Proxy) Unenforce(contextID string) error {
 
 // GetFilterQueue is a stub for TCP proxy
 func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
+	return nil
+}
+
+// GetPortSetInstance returns nil for the proxy
+func (p *Proxy) GetPortSetInstance() portset.PortSet {
 	return nil
 }
 

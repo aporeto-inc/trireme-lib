@@ -13,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 	"github.com/bvandewalle/go-ipset/ipset"
 
 	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
@@ -57,10 +58,11 @@ type Instance struct {
 	appCgroupIPTableSection    string
 	appSynAckIPTableSection    string
 	mode                       constants.ModeType
+	portSetInstance            portset.PortSet
 }
 
 // NewInstance creates a new iptables controller instance
-func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance, error) {
+func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset portset.PortSet) (*Instance, error) {
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
@@ -80,7 +82,8 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType) (*Instance,
 		appAckPacketIPTableContext: "mangle",
 		netPacketIPTableContext:    "mangle",
 		appProxyIPTableContext:     "nat",
-		mode: mode,
+		mode:            mode,
+		portSetInstance: portset,
 	}
 
 	if mode == constants.LocalServer || mode == constants.RemoteContainer {
@@ -175,7 +178,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	proxiedServices := containerInfo.Policy.ProxiedServices()
 
 	// Configure all the ACLs
-	if err := i.addContainerChain(appChain, netChain); err != nil {
+	if err = i.addContainerChain(appChain, netChain); err != nil {
 		return err
 	}
 
@@ -183,11 +186,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
 		if len(proxiedServices) > 0 {
 
-			if err := i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
+			if err = i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
 				zap.L().Error("Failed to create ProxySets", zap.Error(err))
 			}
 		}
-		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
+		if err = i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 
@@ -205,9 +208,17 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			//We are about to create a uid login pu
 			//This set will be empty and we will only fill it when we find a port for it
 			//The reason to use contextID here is to ensure that we don't need to talk between supervisor and enforcer to share names the id is derivable from information available in the enforcer
-			if puseterr := i.createPUPortSet(PuPortSetName(contextID, mark, PuPortSet)); puseterr != nil {
+			portSetName := PuPortSetName(contextID, mark, PuPortSet)
+
+			if puseterr := i.createPUPortSet(portSetName); puseterr != nil {
 				return puseterr
 			}
+
+			// update the portset cache, so that it can program the portset
+			if err := i.portSetInstance.AddUserPortSet(uid, portSetName, mark); err != nil {
+				return err
+			}
+
 		}
 
 		portSetName := PuPortSetName(contextID, mark, PuPortSet)
@@ -270,7 +281,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
-	if err := i.deleteAllContainerChains(appChain, netChain); err != nil {
+	if err = i.deleteAllContainerChains(appChain, netChain); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 	if uid != "" {
@@ -280,8 +291,13 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		ips := ipset.IPSet{
 			Name: portSetName,
 		}
-		if err := ips.Destroy(); err != nil {
+		if err = ips.Destroy(); err != nil {
 			zap.L().Warn("Failed to clear puport set", zap.Error(err))
+		}
+
+		// delete the entry in the portset cache
+		if err = i.portSetInstance.DelUserPortSet(uid, mark); err != nil {
+			return err
 		}
 	}
 	dstPortSetName, srcPortSetName := i.getSetNamePair(proxyPortSetName)
