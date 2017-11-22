@@ -26,6 +26,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -59,10 +60,11 @@ type Datapath struct {
 
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
-	appOrigConnectionTracker  cache.DataStore
-	appReplyConnectionTracker cache.DataStore
-	netOrigConnectionTracker  cache.DataStore
-	netReplyConnectionTracker cache.DataStore
+	appOrigConnectionTracker    cache.DataStore
+	appReplyConnectionTracker   cache.DataStore
+	netOrigConnectionTracker    cache.DataStore
+	netReplyConnectionTracker   cache.DataStore
+	unknownSynConnectionTracker cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
@@ -81,6 +83,8 @@ type Datapath struct {
 	ackSize uint32
 
 	mutualAuthorization bool
+
+	portSetInstance portset.PortSet
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -130,30 +134,37 @@ func New(
 
 	}
 
+	// This cache is shared with portSetInstance. The portSetInstance
+	// cleans up the entry corresponding to port when port is no longer
+	// part of ipset portset.
+	puFromPort := cache.NewCache("puFromPort")
+
 	d := &Datapath{
 		puFromIP:   cache.NewCache("puFromIP"),
 		puFromMark: cache.NewCache("puFromMark"),
-		puFromPort: cache.NewCache("puFromPort"),
+		puFromPort: puFromPort,
 
 		contextTracker: contextTracker,
 
-		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
-		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netOrigConnectionTracker:  cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
-		netReplyConnectionTracker: cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
-		ExternalIPCacheTimeout:    ExternalIPCacheTimeout,
-		filterQueue:               filterQueue,
-		mutualAuthorization:       mutualAuth,
-		service:                   service,
-		collector:                 collector,
-		tokenAccessor:             tokenAccessor,
-		secrets:                   secrets,
-		ackSize:                   secrets.AckSize(),
-		mode:                      mode,
-		procMountPoint:            procMountPoint,
-		conntrackHdl:              conntrack.NewHandle(),
-		proxyhdl:                  tcpProxy,
+		sourcePortConnectionCache:   cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
+		appOrigConnectionTracker:    cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
+		appReplyConnectionTracker:   cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
+		netOrigConnectionTracker:    cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
+		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
+		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
+		ExternalIPCacheTimeout:      ExternalIPCacheTimeout,
+		filterQueue:                 filterQueue,
+		mutualAuthorization:         mutualAuth,
+		service:                     service,
+		collector:                   collector,
+		tokenAccessor:               tokenAccessor,
+		secrets:                     secrets,
+		ackSize:                     secrets.AckSize(),
+		mode:                        mode,
+		procMountPoint:              procMountPoint,
+		conntrackHdl:                conntrack.NewHandle(),
+		proxyhdl:                    tcpProxy,
+		portSetInstance:             portset.New(puFromPort),
 	}
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
@@ -283,6 +294,12 @@ func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 	return d.filterQueue
 }
 
+// GetPortSetInstance returns the portset instance used by data path
+func (d *Datapath) GetPortSetInstance() portset.PortSet {
+
+	return d.portSetInstance
+}
+
 // Start starts the application and network interceptors
 func (d *Datapath) Start() error {
 
@@ -296,11 +313,7 @@ func (d *Datapath) Start() error {
 
 	go d.nflogger.Start()
 
-	if err := d.proxyhdl.Start(); err != nil {
-		return err
-	}
-
-	return nil
+	return d.proxyhdl.Start()
 }
 
 // Stop stops the enforcer
