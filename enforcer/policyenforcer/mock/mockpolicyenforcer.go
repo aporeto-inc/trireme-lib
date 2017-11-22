@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	fqconfig "github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	secrets "github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	portset "github.com/aporeto-inc/trireme-lib/portset"
 	gomock "github.com/golang/mock/gomock"
@@ -122,4 +123,18 @@ func (m *MockEnforcer) Stop() error {
 // nolint
 func (mr *MockEnforcerMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockEnforcer)(nil).Stop))
+}
+
+// UpdateSecrets mocks base method
+// nolint
+func (m *MockEnforcer) UpdateSecrets(secrets secrets.Secrets) error {
+	ret := m.ctrl.Call(m, "UpdateSecrets", secrets)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateSecrets indicates an expected call of UpdateSecrets
+// nolint
+func (mr *MockEnforcerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockEnforcer)(nil).UpdateSecrets), secrets)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/portmap"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -380,6 +381,15 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 	if s, ok := t.supervisors[kind]; ok {
 		return s
+	}
+	return nil
+}
+
+func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
+	for _, enforcer := range t.enforcers {
+		if err := enforcer.UpdateSecrets(secrets); err != nil {
+			zap.L().Error("Unable to update secrets")
+		}
 	}
 	return nil
 }

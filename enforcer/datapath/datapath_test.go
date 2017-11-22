@@ -1023,30 +1023,20 @@ func CheckAfterNetSynPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Pac
 	appConn, err := enforcer.netOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
 	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPSynReceived)
-
 }
 
 func CheckAfterNetSynAckPacket(t *testing.T, enforcer *Datapath, tcpPacket, outPacket *packet.Packet) {
-	tcpData := tcpPacket.ReadTCPData()
-
-	claims, _, _, nerr := enforcer.tokenEngine.Decode(false, tcpData, nil)
-
-	So(nerr, ShouldBeNil)
 
 	netconn, err := enforcer.sourcePortConnectionCache.Get(outPacket.SourcePortHash(packet.PacketTypeNetwork))
 	So(err, ShouldBeNil)
 	So(netconn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPSynAckReceived)
-
-	if !reflect.DeepEqual(netconn.(*connection.TCPConnection).Auth.LocalContext, claims.RMT) {
-		t.Error("Token parsing Failed")
-	}
 }
 
 func CheckAfterAppAckPacket(enforcer *Datapath, tcpPacket *packet.Packet) {
+
 	appConn, err := enforcer.appOrigConnectionTracker.Get(tcpPacket.L4FlowHash())
 	So(err, ShouldBeNil)
 	So(appConn.(*connection.TCPConnection).GetState(), ShouldEqual, connection.TCPAckSend)
-
 }
 
 func CheckBeforeNetAckPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Packet, isReplay bool) {
@@ -1058,7 +1048,6 @@ func CheckBeforeNetAckPacket(enforcer *Datapath, tcpPacket, outPacket *packet.Pa
 	} else {
 		So(appConn.(*connection.TCPConnection).GetState(), ShouldBeGreaterThan, connection.TCPSynAckSend)
 	}
-
 }
 
 func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {

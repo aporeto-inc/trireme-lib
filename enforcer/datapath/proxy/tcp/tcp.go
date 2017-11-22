@@ -18,10 +18,11 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/portset"
 )
@@ -47,8 +48,8 @@ type Proxy struct {
 	// Encrypt Is this connection encrypted
 	Encrypt             bool
 	mutualAuthorization bool
+	tokenaccessor       tokenaccessor.TokenAccessor
 	collector           collector.EventCollector
-	tokenprocessor      tokenprocessor.TokenProcessor
 	contextTracker      cache.DataStore
 	socketListeners     *cache.Cache
 	// List of local IP's
@@ -73,7 +74,7 @@ type sockaddr struct {
 }
 
 // NewProxy creates a new instance of proxy reate a new instance of Proxy
-func NewProxy(listen string, forward bool, encrypt bool, tp tokenprocessor.TokenProcessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool) policyenforcer.Enforcer {
+func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool) policyenforcer.Enforcer {
 	ifaces, _ := net.Interfaces()
 	iplist := []string{}
 	for _, intf := range ifaces {
@@ -92,7 +93,7 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenprocessor.Token
 		wg:                  sync.WaitGroup{},
 		mutualAuthorization: mutualAuthorization,
 		collector:           c,
-		tokenprocessor:      tp,
+		tokenaccessor:       tp,
 		contextTracker:      contextTracker,
 		socketListeners:     cache.NewCache("socketlisterner"),
 		IPList:              iplist,
@@ -237,6 +238,11 @@ func (p *Proxy) Start() error {
 // Stop stops and waits proxy to stop.
 func (p *Proxy) Stop() error {
 	p.wg.Wait()
+	return nil
+}
+
+// UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
+func (p *Proxy) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
@@ -454,7 +460,7 @@ L:
 		for {
 			switch conn.GetState() {
 			case connection.ClientTokenSend:
-				token, err := p.tokenprocessor.CreateSynPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
+				token, err := p.tokenaccessor.CreateSynPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create syn token", zap.Error(err))
 				}
@@ -474,7 +480,7 @@ L:
 				}
 
 				msg = msg[:n]
-				claims, err := p.tokenprocessor.ParsePacketToken(&conn.Auth, msg)
+				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidToken, nil)
 					return fmt.Errorf("Peer token reject because of bad claims %v", claims)
@@ -491,7 +497,7 @@ L:
 				conn.SetState(connection.ClientSendSignedPair)
 
 			case connection.ClientSendSignedPair:
-				token, err := p.tokenprocessor.CreateAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
+				token, err := p.tokenaccessor.CreateAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
 					zap.L().Error("Failed to create ack token", zap.Error(err))
 				}
@@ -545,7 +551,7 @@ E:
 					}
 					msg = append(msg, data[:n]...)
 				}
-				claims, err := p.tokenprocessor.ParsePacketToken(&conn.Auth, msg)
+				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidToken, nil)
 					zap.L().Error("REPORTED FLOW REJECTED")
@@ -568,7 +574,7 @@ E:
 				conn.SetState(connection.ServerSendToken)
 
 			case connection.ServerSendToken:
-				claims, err := p.tokenprocessor.CreateSynAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
+				claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
 					return fmt.Errorf("Unable to create synack token")
 				}
@@ -592,7 +598,7 @@ E:
 					}
 					msg = append(msg, data[:n]...)
 				}
-				if _, err := p.tokenprocessor.ParseAckToken(&conn.Auth, msg); err != nil {
+				if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidFormat, nil)
 					return fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
 				}

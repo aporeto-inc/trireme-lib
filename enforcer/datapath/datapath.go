@@ -18,26 +18,27 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
-	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/portset"
 )
+
+// DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
+const DefaultExternalIPTimeout = "500ms"
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
 
 	// Configuration parameters
 	filterQueue    *fqconfig.FilterQueue
-	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
-	tokenProcessor tokenprocessor.TokenProcessor
+	tokenAccessor  tokenaccessor.TokenAccessor
 	service        packetprocessor.PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
@@ -102,13 +103,13 @@ func New(
 	ExternalIPCacheTimeout time.Duration,
 ) *Datapath {
 
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
 	if err != nil {
-		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
+		zap.L().Fatal("Cannot create a token engine")
 	}
-	tokenProcessor := tokenprocessor.New(tokenEngine)
+
 	contextTracker := cache.NewCache("contextTracker")
-	tcpProxy := tcp.NewProxy(":5000", true, false, tokenProcessor, collector, contextTracker, mutualAuth)
+	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, contextTracker, mutualAuth)
 
 	if ExternalIPCacheTimeout <= 0 {
 		var err error
@@ -156,8 +157,7 @@ func New(
 		mutualAuthorization:         mutualAuth,
 		service:                     service,
 		collector:                   collector,
-		tokenProcessor:              tokenProcessor,
-		tokenEngine:                 tokenEngine,
+		tokenAccessor:               tokenAccessor,
 		secrets:                     secrets,
 		ackSize:                     secrets.AckSize(),
 		mode:                        mode,
@@ -167,11 +167,8 @@ func New(
 		portSetInstance:             portset.New(puFromPort),
 	}
 
-	if d.tokenEngine == nil {
-		zap.L().Fatal("Unable to create enforcer")
-	}
-
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
+
 	return d
 }
 
@@ -335,6 +332,11 @@ func (d *Datapath) Stop() error {
 	d.nflogger.Stop()
 
 	return nil
+}
+
+// UpdateSecrets updates the secrets used for signing communication between trireme instances
+func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
+	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
 func (d *Datapath) getProcessKeys(puInfo *policy.PUInfo) (string, []string) {

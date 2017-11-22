@@ -2,6 +2,7 @@ package policyenforcer
 
 import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/portset"
 )
@@ -26,4 +27,7 @@ type Enforcer interface {
 
 	// Stop stops the PolicyEnforcer.
 	Stop() error
+
+	// UpdateSecrets -- updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
+	UpdateSecrets(secrets secrets.Secrets) error
 }
