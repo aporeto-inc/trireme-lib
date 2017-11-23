@@ -18,25 +18,27 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/proxy/tcp"
-	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/datapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 )
+
+// DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
+const DefaultExternalIPTimeout = "500ms"
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
 
 	// Configuration parameters
 	filterQueue    *fqconfig.FilterQueue
-	tokenEngine    tokens.TokenEngine
 	collector      collector.EventCollector
-	tokenProcessor tokenprocessor.TokenProcessor
+	tokenAccessor  tokenaccessor.TokenAccessor
 	service        packetprocessor.PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
@@ -58,10 +60,11 @@ type Datapath struct {
 
 	// Hash on full five-tuple and return the connection
 	// These are auto-expired connections after 60 seconds of inactivity.
-	appOrigConnectionTracker  cache.DataStore
-	appReplyConnectionTracker cache.DataStore
-	netOrigConnectionTracker  cache.DataStore
-	netReplyConnectionTracker cache.DataStore
+	appOrigConnectionTracker    cache.DataStore
+	appReplyConnectionTracker   cache.DataStore
+	netOrigConnectionTracker    cache.DataStore
+	netReplyConnectionTracker   cache.DataStore
+	unknownSynConnectionTracker cache.DataStore
 
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
@@ -80,6 +83,8 @@ type Datapath struct {
 	ackSize uint32
 
 	mutualAuthorization bool
+
+	portSetInstance portset.PortSet
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -98,13 +103,13 @@ func New(
 	ExternalIPCacheTimeout time.Duration,
 ) *Datapath {
 
-	tokenEngine, err := tokens.NewJWT(validity, serverID, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
 	if err != nil {
-		zap.L().Fatal("Unable to create TokenEngine in enforcer", zap.Error(err))
+		zap.L().Fatal("Cannot create a token engine")
 	}
-	tokenProcessor := tokenprocessor.New(tokenEngine)
+
 	contextTracker := cache.NewCache("contextTracker")
-	tcpProxy := tcp.NewProxy(":5000", true, false, tokenProcessor, collector, contextTracker, mutualAuth)
+	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, contextTracker, mutualAuth)
 
 	if ExternalIPCacheTimeout <= 0 {
 		var err error
@@ -129,38 +134,41 @@ func New(
 
 	}
 
+	// This cache is shared with portSetInstance. The portSetInstance
+	// cleans up the entry corresponding to port when port is no longer
+	// part of ipset portset.
+	puFromPort := cache.NewCache("puFromPort")
+
 	d := &Datapath{
 		puFromIP:   cache.NewCache("puFromIP"),
 		puFromMark: cache.NewCache("puFromMark"),
-		puFromPort: cache.NewCache("puFromPort"),
+		puFromPort: puFromPort,
 
 		contextTracker: contextTracker,
 
-		sourcePortConnectionCache: cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
-		appOrigConnectionTracker:  cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
-		appReplyConnectionTracker: cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
-		netOrigConnectionTracker:  cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
-		netReplyConnectionTracker: cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
-		ExternalIPCacheTimeout:    ExternalIPCacheTimeout,
-		filterQueue:               filterQueue,
-		mutualAuthorization:       mutualAuth,
-		service:                   service,
-		collector:                 collector,
-		tokenProcessor:            tokenProcessor,
-		tokenEngine:               tokenEngine,
-		secrets:                   secrets,
-		ackSize:                   secrets.AckSize(),
-		mode:                      mode,
-		procMountPoint:            procMountPoint,
-		conntrackHdl:              conntrack.NewHandle(),
-		proxyhdl:                  tcpProxy,
-	}
-
-	if d.tokenEngine == nil {
-		zap.L().Fatal("Unable to create enforcer")
+		sourcePortConnectionCache:   cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
+		appOrigConnectionTracker:    cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
+		appReplyConnectionTracker:   cache.NewCacheWithExpiration("appReplyConnectionTracker", time.Second*24),
+		netOrigConnectionTracker:    cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
+		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
+		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
+		ExternalIPCacheTimeout:      ExternalIPCacheTimeout,
+		filterQueue:                 filterQueue,
+		mutualAuthorization:         mutualAuth,
+		service:                     service,
+		collector:                   collector,
+		tokenAccessor:               tokenAccessor,
+		secrets:                     secrets,
+		ackSize:                     secrets.AckSize(),
+		mode:                        mode,
+		procMountPoint:              procMountPoint,
+		conntrackHdl:                conntrack.NewHandle(),
+		proxyhdl:                    tcpProxy,
+		portSetInstance:             portset.New(puFromPort),
 	}
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
+
 	return d
 }
 
@@ -286,6 +294,12 @@ func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 	return d.filterQueue
 }
 
+// GetPortSetInstance returns the portset instance used by data path
+func (d *Datapath) GetPortSetInstance() portset.PortSet {
+
+	return d.portSetInstance
+}
+
 // Start starts the application and network interceptors
 func (d *Datapath) Start() error {
 
@@ -299,11 +313,7 @@ func (d *Datapath) Start() error {
 
 	go d.nflogger.Start()
 
-	if err := d.proxyhdl.Start(); err != nil {
-		return err
-	}
-
-	return nil
+	return d.proxyhdl.Start()
 }
 
 // Stop stops the enforcer
@@ -322,6 +332,11 @@ func (d *Datapath) Stop() error {
 	d.nflogger.Stop()
 
 	return nil
+}
+
+// UpdateSecrets updates the secrets used for signing communication between trireme instances
+func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
+	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
 func (d *Datapath) getProcessKeys(puInfo *policy.PUInfo) (string, []string) {

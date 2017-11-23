@@ -2,6 +2,7 @@ package trireme
 
 import (
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
@@ -25,6 +26,7 @@ type Trireme interface {
 	monitor.ProcessingUnitsHandler
 
 	PolicyUpdater
+	SecretsUpdater
 }
 
 // A PolicyUpdater has the ability to receive an update for a specific policy.
@@ -43,4 +45,10 @@ type PolicyResolver interface {
 
 	// HandleDeletePU is called when a PU is stopped/killed.
 	HandlePUEvent(contextID string, eventType monitor.Event)
+}
+
+// SecretsUpdater provides an interface to update the secrets of enforcers managed by trireme at runtime
+type SecretsUpdater interface {
+	// UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
+	UpdateSecrets(secrets secrets.Secrets) error
 }

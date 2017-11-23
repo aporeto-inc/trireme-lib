@@ -1,13 +1,20 @@
-package tokenprocessor
+package tokenaccessor
 
 import (
+	"time"
+
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 )
 
-// TokenProcessor is an interface to process tokens
-type TokenProcessor interface {
+// TokenAccessor define an interface to access LockedTokenEngine
+type TokenAccessor interface {
+	SetToken(serverID string, validity time.Duration, secret secrets.Secrets) error
+	GetTokenValidity() time.Duration
+	GetTokenServerID() string
+
 	CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) ([]byte, error)
 	CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error)
 	CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error)
