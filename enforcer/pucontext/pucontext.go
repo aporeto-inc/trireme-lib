@@ -31,7 +31,7 @@ type PUContext struct {
 	Ports             []string
 	PUType            constants.PUType
 	SynToken          []byte
-	synServiceContext []byte
+	SynServiceContext []byte
 	SynExpiration     time.Time
 	sync.Mutex
 }
