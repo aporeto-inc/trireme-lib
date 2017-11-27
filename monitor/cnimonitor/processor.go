@@ -6,10 +6,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/contextstore"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/contextstore"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 )
 
 // CniProcessor captures all the monitor processor information

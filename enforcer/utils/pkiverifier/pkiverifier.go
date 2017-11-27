@@ -10,7 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 
-	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme-lib/cache"
 )
 
 const (
@@ -62,7 +62,7 @@ func NewPKIVerifier(publicKeys []*ecdsa.PublicKey, cacheValidity time.Duration) 
 	return &tokenManager{
 		publicKeys: publicKeys,
 		signMethod: jwt.SigningMethodES256,
-		keycache:   cache.NewCacheWithExpiration(validity),
+		keycache:   cache.NewCacheWithExpiration("PKIVerifierKey", validity),
 		validity:   validity,
 	}
 }

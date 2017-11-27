@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme-lib/constants"
 )
 
 // PURuntime holds all data related to the status of the container run time
@@ -61,7 +61,11 @@ func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips Exten
 	if i == nil {
 		i = ExtendedMap{}
 	}
-
+	if options == nil {
+		options = &OptionsType{
+			ProxyPort: "5000",
+		}
+	}
 	return &PURuntime{
 		puType:     puType,
 		tags:       t,

@@ -6,10 +6,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
 )
 
 const (
@@ -112,7 +112,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
@@ -144,7 +144,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 }
 
 // UpdateRules implements the update part of the interface
-func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
 	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 

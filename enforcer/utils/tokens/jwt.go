@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/crypto"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"go.uber.org/zap"
 
 	"github.com/dgrijalva/jwt-go"
@@ -71,7 +71,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 		Issuer:         issuer,
 		signMethod:     signMethod,
 		secrets:        s,
-		tokenCache:     cache.NewCacheWithExpiration(time.Millisecond * 500),
+		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
 	}, nil
 }
 
@@ -166,10 +166,9 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		token = data[tokenPosition : tokenPosition+tokenLength]
 
 		certBytes := data[tokenPosition+tokenLength+1:]
-
 		ackCert, err = c.secrets.VerifyPublicKey(certBytes)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("bad public key")
+			return nil, nil, nil, fmt.Errorf("bad public key err %s", err.Error())
 		}
 
 		if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {

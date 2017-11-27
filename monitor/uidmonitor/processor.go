@@ -10,13 +10,13 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/contextstore"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/contextstore"
+	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // UIDProcessor captures all the monitor processor information for a UIDLoginPU
@@ -71,8 +71,8 @@ func NewCustomUIDProcessor(storePath string,
 		storePath:         storePath,
 		regStart:          regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$"),
 		regStop:           regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$"),
-		putoPidMap:        cache.NewCache(),
-		pidToPU:           cache.NewCache(),
+		putoPidMap:        cache.NewCache("putoPidMap"),
+		pidToPU:           cache.NewCache("pidToPU"),
 	}
 }
 

@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"net"
 	"testing"
+	"time"
 
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -36,7 +37,7 @@ func TestComputeMd5(t *testing.T) {
 
 func TestFindFQDN(t *testing.T) {
 	Convey("When I try to get the hostname of a good host", t, func() {
-		hostname := findFQFN()
+		hostname := findFQDN(1000 * time.Second)
 
 		Convey("I should be able to resolve this hostname", func() {
 			addr, err := net.LookupHost(hostname)

@@ -5,14 +5,17 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/proxy"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/portmap"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
 
 // trireme contains references to all the different components involved.
@@ -20,21 +23,23 @@ type trireme struct {
 	serverID    string
 	cache       cache.DataStore
 	supervisors map[constants.PUType]supervisor.Supervisor
-	enforcers   map[constants.PUType]enforcer.PolicyEnforcer
+	enforcers   map[constants.PUType]policyenforcer.Enforcer
 	resolver    PolicyResolver
 	collector   collector.EventCollector
+	port        *portmap.ProxyPortMap
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]enforcer.PolicyEnforcer, eventCollector collector.EventCollector) Trireme {
+func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]policyenforcer.Enforcer, eventCollector collector.EventCollector) Trireme {
 
 	t := &trireme{
 		serverID:    serverID,
-		cache:       cache.NewCache(),
+		cache:       cache.NewCache("TriremeCache"),
 		supervisors: supervisors,
 		enforcers:   enforcers,
 		resolver:    resolver,
 		collector:   eventCollector,
+		port:        portmap.New(5000, 100),
 	}
 
 	return t
@@ -128,16 +133,16 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 
 }
 
-// addTransmitterLabel adds the TransmitterLabel as a fixed label in the policy.
-// The ManagementID part of the policy is used as the TransmitterLabel.
+// addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.
+// The ManagementID part of the policy is used as the enforcerconstants.TransmitterLabel.
 // If the Policy didn't set the ManagementID, we use the Local contextID as the
-// default TransmitterLabel.
+// default enforcerconstants.TransmitterLabel.
 func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
 
 	if containerInfo.Policy.ManagementID() == "" {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, contextID)
+		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, contextID)
 	} else {
-		containerInfo.Policy.AddIdentityTag(enforcer.TransmitterLabel, containerInfo.Policy.ManagementID())
+		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, containerInfo.Policy.ManagementID())
 	}
 }
 
@@ -190,6 +195,9 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	ip, _ := policyInfo.DefaultIPAddress()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
+	newOptions := containerInfo.Runtime.Options()
+	newOptions.ProxyPort = t.port.GetPort()
+	containerInfo.Runtime.SetOptions(newOptions)
 
 	addTransmitterLabel(contextID, containerInfo)
 
@@ -264,7 +272,9 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 	errS := t.supervisors[runtime.PUType()].Unsupervise(contextID)
 	errE := t.enforcers[runtime.PUType()].Unenforce(contextID)
-
+	port := runtime.Options().ProxyPort
+	zap.L().Info("Releasing Port", zap.String("Port", port))
+	t.port.ReleasePort(port)
 	if err := t.cache.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to remove context from cache during cleanup. Entry doesn't exist",
 			zap.String("contextID", contextID),
@@ -371,6 +381,15 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 	if s, ok := t.supervisors[kind]; ok {
 		return s
+	}
+	return nil
+}
+
+func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
+	for _, enforcer := range t.enforcers {
+		if err := enforcer.UpdateSecrets(secrets); err != nil {
+			zap.L().Error("Unable to update secrets")
+		}
 	}
 	return nil
 }

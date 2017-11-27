@@ -15,22 +15,25 @@ type ExpirationNotifier func(c DataStore, id interface{}, item interface{})
 // DataStore is the interface to a datastore.
 type DataStore interface {
 	Add(u interface{}, value interface{}) (err error)
-	AddOrUpdate(u interface{}, value interface{})
+	AddOrUpdate(u interface{}, value interface{}) bool
 	Get(u interface{}) (i interface{}, err error)
 	GetReset(u interface{}, duration time.Duration) (interface{}, error)
 	Remove(u interface{}) (err error)
 	RemoveWithDelay(u interface{}, duration time.Duration) (err error)
 	LockedModify(u interface{}, add func(a, b interface{}) interface{}, increment interface{}) (interface{}, error)
 	SetTimeOut(u interface{}, timeout time.Duration) (err error)
+	ToString() string
 }
 
 // Cache is the structure that involves the map of entries. The cache
 // provides a sync mechanism and allows multiple clients at the same time.
 type Cache struct {
+	name     string
 	data     map[interface{}]entry
 	lifetime time.Duration
 	sync.RWMutex
 	expirer ExpirationNotifier
+	max     int
 }
 
 // entry is a single line in the datastore that includes the actual entry
@@ -42,34 +45,81 @@ type entry struct {
 	expirer   ExpirationNotifier
 }
 
-// NewCache creates a new data cache
-func NewCache() *Cache {
+// cacheRegistry keeps handles of all caches initialized through this library
+// for book keeping
+type cacheRegistry struct {
+	sync.RWMutex
+	items map[string]*Cache
+}
 
-	c := &Cache{
-		data:     make(map[interface{}]entry),
-		lifetime: -1,
+var registry *cacheRegistry
+
+func init() {
+
+	registry = &cacheRegistry{
+		items: make(map[string]*Cache),
 	}
+}
 
-	return c
+// Add adds a cache to a registry
+func (r *cacheRegistry) Add(c *Cache) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.items[c.name] = c
+}
+
+// ToString generates information about all caches initialized through this lib
+func (r *cacheRegistry) ToString() string {
+	r.Lock()
+	defer r.Unlock()
+
+	buffer := fmt.Sprintf("Cache Registry: %d\n", len(r.items))
+	buffer += fmt.Sprintf(" %32s : %s\n\n", "Cache Name", "max/curr")
+	for k, c := range r.items {
+		buffer += fmt.Sprintf(" %32s : %s\n", k, c.ToString())
+	}
+	return buffer
+}
+
+// NewCache creates a new data cache
+func NewCache(name string) *Cache {
+
+	return NewCacheWithExpirationNotifier(name, -1, nil)
 }
 
 // NewCacheWithExpiration creates a new data cache
-func NewCacheWithExpiration(lifetime time.Duration) *Cache {
+func NewCacheWithExpiration(name string, lifetime time.Duration) *Cache {
 
-	return &Cache{
-		data:     make(map[interface{}]entry),
-		lifetime: lifetime,
-	}
+	return NewCacheWithExpirationNotifier(name, lifetime, nil)
 }
 
 // NewCacheWithExpirationNotifier creates a new data cache with notifier
-func NewCacheWithExpirationNotifier(lifetime time.Duration, expirer ExpirationNotifier) *Cache {
+func NewCacheWithExpirationNotifier(name string, lifetime time.Duration, expirer ExpirationNotifier) *Cache {
 
-	return &Cache{
+	c := &Cache{
+		name:     name,
 		data:     make(map[interface{}]entry),
 		lifetime: lifetime,
 		expirer:  expirer,
 	}
+	c.max = len(c.data)
+	registry.Add(c)
+	return c
+}
+
+// ToString generates information about all caches initialized through this lib
+func ToString() string {
+
+	return registry.ToString()
+}
+
+// ToString provides statistics about this cache
+func (c *Cache) ToString() string {
+	c.Lock()
+	defer c.Unlock()
+
+	return fmt.Sprintf("%d/%d", c.max, len(c.data))
 }
 
 // Add stores an entry into the cache and updates the timestamp
@@ -96,6 +146,9 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 			timestamp: t,
 			timer:     timer,
 			expirer:   c.expirer,
+		}
+		if len(c.data) > c.max {
+			c.max = len(c.data)
 		}
 		return nil
 	}
@@ -163,7 +216,8 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 
 // AddOrUpdate adds a new value in the cache or updates the existing value
 // if needed. If an update happens the timestamp is also updated.
-func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
+// Returns true if key was updated.
+func (c *Cache) AddOrUpdate(u interface{}, value interface{}) (updated bool) {
 
 	var timer *time.Timer
 	if c.lifetime != -1 {
@@ -179,7 +233,7 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 	c.Lock()
 	defer c.Unlock()
 
-	if _, ok := c.data[u]; ok {
+	if _, updated = c.data[u]; updated {
 		if c.data[u].timer != nil {
 			c.data[u].timer.Stop()
 		}
@@ -191,7 +245,11 @@ func (c *Cache) AddOrUpdate(u interface{}, value interface{}) {
 		timer:     timer,
 		expirer:   c.expirer,
 	}
+	if len(c.data) > c.max {
+		c.max = len(c.data)
+	}
 
+	return updated
 }
 
 // SetTimeOut sets the time out of an entry to a new value

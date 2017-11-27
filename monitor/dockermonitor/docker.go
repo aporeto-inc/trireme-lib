@@ -12,16 +12,16 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/dchest/siphash"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -318,8 +318,10 @@ func (d *dockerMonitor) eventProcessors() {
 								)
 							}
 						} else {
-							zap.L().Debug("Docker event not handled.", zap.String("action", event.Action))
+							zap.L().Info("Docker event not handled.", zap.String("action", event.Action), zap.String("ID", event.ID))
 						}
+					} else {
+						zap.L().Info("Empty Event for", zap.String("ID", event.ID))
 					}
 				case <-d.stopprocessor[i]:
 					return
@@ -346,7 +348,7 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 	for {
 		select {
 		case message := <-messages:
-			zap.L().Debug("Got message from docker client", zap.String("action", message.Action))
+			zap.L().Info("Got message from docker client", zap.String("action", message.Action), zap.String("ID", message.ID))
 			d.sendRequestToQueue(&message)
 
 		case err := <-errs:

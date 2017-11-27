@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // ForwardingPolicy is an instance of the forwarding policy
@@ -109,9 +109,9 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 				m.equalMapTable[keyValueOp.Key] = map[string][]*ForwardingPolicy{}
 			}
 			for _, v := range keyValueOp.Value {
-				if v[len(v)-1] == "*"[0] {
-					m.equalPrefixes[keyValueOp.Key] = m.equalPrefixes[keyValueOp.Key].sortedInsert(len(v) - 1)
-					m.equalMapTable[keyValueOp.Key][v[:len(v)-1]] = append(m.equalMapTable[keyValueOp.Key][v[:len(v)-1]], &e)
+				if end := len(v) - 1; v[end] == '*' {
+					m.equalPrefixes[keyValueOp.Key] = m.equalPrefixes[keyValueOp.Key].sortedInsert(end)
+					m.equalMapTable[keyValueOp.Key][v[:end]] = append(m.equalMapTable[keyValueOp.Key][v[:end]], &e)
 				} else {
 					m.equalMapTable[keyValueOp.Key][v] = append(m.equalMapTable[keyValueOp.Key][v], &e)
 				}

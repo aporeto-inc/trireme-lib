@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/aporeto-inc/trireme/monitor/dockermonitor"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/docker/docker/api/types"
 )
 

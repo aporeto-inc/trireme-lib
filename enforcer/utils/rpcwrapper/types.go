@@ -3,10 +3,10 @@ package rpcwrapper
 import (
 	"time"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // CaptureType identifies the type of iptables implementation that should be used
@@ -60,18 +60,25 @@ type InitSupervisorPayload struct {
 
 // EnforcePayload Payload for enforce request
 type EnforcePayload struct {
-	ContextID        string                 `json:",omitempty"`
-	ManagementID     string                 `json:",omitempty"`
-	TriremeAction    policy.PUAction        `json:",omitempty"`
-	ApplicationACLs  policy.IPRuleList      `json:",omitempty"`
-	NetworkACLs      policy.IPRuleList      `json:",omitempty"`
-	Identity         *policy.TagStore       `json:",omitempty"`
-	Annotations      *policy.TagStore       `json:",omitempty"`
-	PolicyIPs        policy.ExtendedMap     `json:",omitempty"`
-	ReceiverRules    policy.TagSelectorList `json:",omitempty"`
-	TransmitterRules policy.TagSelectorList `json:",omitempty"`
-	TriremeNetworks  []string               `json:",omitempty"`
-	ExcludedNetworks []string               `json:",omitempty"`
+	ContextID        string                     `json:",omitempty"`
+	ManagementID     string                     `json:",omitempty"`
+	TriremeAction    policy.PUAction            `json:",omitempty"`
+	ApplicationACLs  policy.IPRuleList          `json:",omitempty"`
+	NetworkACLs      policy.IPRuleList          `json:",omitempty"`
+	Identity         *policy.TagStore           `json:",omitempty"`
+	Annotations      *policy.TagStore           `json:",omitempty"`
+	PolicyIPs        policy.ExtendedMap         `json:",omitempty"`
+	ReceiverRules    policy.TagSelectorList     `json:",omitempty"`
+	TransmitterRules policy.TagSelectorList     `json:",omitempty"`
+	TriremeNetworks  []string                   `json:",omitempty"`
+	ExcludedNetworks []string                   `json:",omitempty"`
+	ProxiedServices  [][]string                 `json:",omitempty"`
+	SecretType       secrets.PrivateSecretsType `json:",omitempty"`
+	CAPEM            []byte                     `json:",omitempty"`
+	TokenKeyPEMs     [][]byte                   `json:",omitempty"`
+	PublicPEM        []byte                     `json:",omitempty"`
+	PrivatePEM       []byte                     `json:",omitempty"`
+	Token            []byte                     `json:",omitempty"`
 }
 
 //SuperviseRequestPayload for Supervise request
@@ -88,6 +95,7 @@ type SuperviseRequestPayload struct {
 	TransmitterRules policy.TagSelectorList `json:",omitempty"`
 	ExcludedNetworks []string               `json:",omitempty"`
 	TriremeNetworks  []string               `json:",omitempty"`
+	ProxiedServices  [][]string             `json:",omitempty"`
 }
 
 //UnEnforcePayload payload for unenforce request

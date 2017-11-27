@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/processmon"
+	"github.com/aporeto-inc/trireme-lib/internal/processmon"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.
@@ -58,10 +59,11 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 			TransmitterRules: puInfo.Policy.TransmitterRules(),
 			ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
 			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
+			ProxiedServices:  puInfo.Policy.ProxiedServices(),
 		},
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, "Server.Supervise", req, &rpcwrapper.Response{}); err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Supervise, req, &rpcwrapper.Response{}); err != nil {
 		s.Lock()
 		delete(s.initDone, contextID)
 		s.Unlock()
@@ -96,7 +98,7 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 				},
 			}
 
-			if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
+			if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
 				return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 			}
 		}
@@ -121,7 +123,7 @@ func (s *ProxyInfo) Stop() error {
 }
 
 // NewProxySupervisor creates a new IptablesSupervisor launcher
-func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.PolicyEnforcer, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
+func NewProxySupervisor(collector collector.EventCollector, enforcer policyenforcer.Enforcer, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
 
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
@@ -131,7 +133,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer enforcer.Po
 	}
 
 	s := &ProxyInfo{
-		versionTracker: cache.NewCache(),
+		versionTracker: cache.NewCache("SupProxyVersionTracker"),
 		collector:      collector,
 		filterQueue:    enforcer.GetFilterQueue(),
 		prochdl:        processmon.GetProcessManagerHdl(),
@@ -154,7 +156,7 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 		},
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, "Server.InitSupervisor", request, &rpcwrapper.Response{}); err != nil {
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
 		return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
 	}
 
