@@ -18,7 +18,7 @@ import (
 
 	"net/rpc"
 
-	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/cnf/structhash"
 )
 
@@ -43,7 +43,7 @@ func NewRPCWrapper() *RPCWrapper {
 	RegisterTypes()
 
 	return &RPCWrapper{
-		rpcClientMap: cache.NewCache(),
+		rpcClientMap: cache.NewCache("RPCWrapper"),
 		contextList:  []string{},
 	}
 }

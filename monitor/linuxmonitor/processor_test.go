@@ -6,13 +6,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/mock"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/contextstore/mock"
-	"github.com/aporeto-inc/trireme/monitor/linuxmonitor/cgnetcls/mock"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/mock"
+	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/contextstore/mock"
+	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls/mock"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -85,12 +85,15 @@ func TestStop(t *testing.T) {
 	})
 }
 
+// TODO: remove nolint
+// nolint
 func TestDestroy(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	dummyPUPath := "/var/run/trireme/linux/1234"
-	ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
-	defer os.RemoveAll(dummyPUPath)
+	ioutil.WriteFile(dummyPUPath, []byte{}, 0644) //nolint
+
+	defer os.RemoveAll(dummyPUPath) //nolint
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
 		store := mock_contextstore.NewMockContextStore(ctrl)

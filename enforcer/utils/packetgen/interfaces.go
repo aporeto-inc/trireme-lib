@@ -58,11 +58,11 @@ type TCPPacketManipulator interface {
 	//Used to return TCP Checksum
 	GetTCPChecksum() uint16
 	//Used to set TCP Sequence number
-	SetTCPSequenceNumber(seqNum uint32) error
+	SetTCPSequenceNumber(seqNum uint32)
 	//Used to set TCP Acknowledgement number
-	SetTCPAcknowledgementNumber(ackNum uint32) error
+	SetTCPAcknowledgementNumber(ackNum uint32)
 	//Used to set TCP Window
-	SetTCPWindow(window uint16) error
+	SetTCPWindow(window uint16)
 	//Used to set TCP Syn flag to true
 	SetTCPSyn()
 	//Used to set TCP Syn and Ack flag to true
@@ -88,7 +88,7 @@ type TCPPacketManipulator interface {
 //PacketHelper interface is a helper for packets and packet flows
 //Optional: not needed for actual usage
 type PacketHelper interface {
-	ToBytes() []byte
+	ToBytes() ([]byte, error)
 	AddPacket(packet gopacket.Packet)
 	DecodePacket() PacketManipulator
 }
@@ -106,7 +106,7 @@ type PacketManipulator interface {
 //Used to create/manipulate packet flows
 type PacketFlowManipulator interface {
 	//Used to create a flow of TCP packets
-	GenerateTCPFlow(pt PacketFlowType) PacketFlowManipulator
+	GenerateTCPFlow(pt PacketFlowType) (PacketFlowManipulator, error)
 	//Used to return first TCP Syn packet
 	GetFirstSynPacket() PacketManipulator
 	//Used to return first TCP SynAck packet

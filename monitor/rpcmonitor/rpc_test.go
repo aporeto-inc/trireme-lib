@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/monitor"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -136,6 +136,8 @@ func TestStart(t *testing.T) {
 	})
 }
 
+// TODO: remove nolint
+// nolint
 func TestHandleEvent(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
@@ -190,7 +192,9 @@ func TestHandleEvent(t *testing.T) {
 				PUID:      "/trireme/1234",
 				PID:       "123",
 			}
-			ioutil.WriteFile(dummyPUPath, []byte{}, 0644)
+
+			ioutil.WriteFile(dummyPUPath, []byte{}, 0644) //nolint
+
 			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
 			Convey("We should get no error", func() {
 
