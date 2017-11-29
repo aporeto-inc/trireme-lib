@@ -7,13 +7,13 @@ import (
 )
 
 // SetupCommandArgs sets up arguments to be passed to the remote trireme instances.
-func SetupCommandArgs(logToConsole bool, subProcessArgs []string) {
+func SetupCommandArgs(logToConsole, logWithID bool, subProcessArgs []string) {
 
 	h := processmon.GetProcessManagerHdl()
 	if h == nil {
 		panic("Unable to find process manager handle")
 	}
-	h.SetupLogAndProcessArgs(logToConsole, subProcessArgs)
+	h.SetupLogAndProcessArgs(logToConsole, logWithID, subProcessArgs)
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer instance.
