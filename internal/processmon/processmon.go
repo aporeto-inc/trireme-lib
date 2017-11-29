@@ -42,6 +42,8 @@ type processMon struct {
 	childExitStatus chan exitStatus
 	// logToConsole stores if we should log to console
 	logToConsole bool
+	// logWithID controls whether the context ID should be provided while create a remote command
+	logWithID bool
 	// launcProcessArgs are arguments that are provided to all processes launched by processmon
 	launcProcessArgs []string
 }
@@ -128,9 +130,10 @@ func (p *processMon) collectChildExitStatus() {
 }
 
 // SetupLogAndProcessArgs setups args that should be propagated to child processes
-func (p *processMon) SetupLogAndProcessArgs(logToConsole bool, args []string) {
+func (p *processMon) SetupLogAndProcessArgs(logToConsole, logWithID bool, args []string) {
 
 	p.logToConsole = logToConsole
+	p.logWithID = logWithID
 	p.launcProcessArgs = args
 }
 
@@ -223,7 +226,7 @@ func (p *processMon) getLaunchProcessCmd(arg string, contextID string) (*exec.Cm
 	}
 
 	cmdArgs := append([]string{arg}, p.launcProcessArgs...)
-	if !p.logToConsole {
+	if p.logWithID {
 		cmdArgs = append(cmdArgs, contextID)
 	}
 	zap.L().Debug("Enforcer executed",
