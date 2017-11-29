@@ -66,12 +66,12 @@ func (mr *MockProcessManagerMockRecorder) LaunchProcess(contextID, refPid, refNs
 
 // SetupLogAndProcessArgs mocks base method
 // nolint
-func (m *MockProcessManager) SetupLogAndProcessArgs(logToConsole bool, cmdArgs []string) {
-	m.ctrl.Call(m, "SetupLogAndProcessArgs", logToConsole, cmdArgs)
+func (m *MockProcessManager) SetupLogAndProcessArgs(logToConsole, logWithID bool, cmdArgs []string) {
+	m.ctrl.Call(m, "SetupLogAndProcessArgs", logToConsole, logWithID, cmdArgs)
 }
 
 // SetupLogAndProcessArgs indicates an expected call of SetupLogAndProcessArgs
 // nolint
-func (mr *MockProcessManagerMockRecorder) SetupLogAndProcessArgs(logToConsole, cmdArgs interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupLogAndProcessArgs", reflect.TypeOf((*MockProcessManager)(nil).SetupLogAndProcessArgs), logToConsole, cmdArgs)
+func (mr *MockProcessManagerMockRecorder) SetupLogAndProcessArgs(logToConsole, logWithID, cmdArgs interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupLogAndProcessArgs", reflect.TypeOf((*MockProcessManager)(nil).SetupLogAndProcessArgs), logToConsole, logWithID, cmdArgs)
 }
