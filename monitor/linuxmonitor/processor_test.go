@@ -28,7 +28,7 @@ func TestCreate(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -63,7 +63,7 @@ func TestStop(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -96,7 +96,7 @@ func TestDestroy(t *testing.T) {
 	defer os.RemoveAll(dummyPUPath) //nolint
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -127,7 +127,7 @@ func TestPause(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -153,7 +153,7 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -265,7 +265,7 @@ func TestResync(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 		cls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 
 		p := testLinuxProcessor()
