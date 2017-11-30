@@ -145,7 +145,6 @@ func TestHandleEvent(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	dummyPUPath := "/var/run/trireme/linux/1234"
 	Convey("Given an RPC monitor", t, func() {
 		contextlist := make(chan string, 2)
 		contextlist <- "test1"
@@ -285,6 +284,5 @@ func TestDefaultEventMetadataExtractor(t *testing.T) {
 				So(runtime, ShouldNotBeNil)
 			})
 		})
-
 	})
 }
