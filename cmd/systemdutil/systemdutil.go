@@ -16,6 +16,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -232,7 +233,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 	//This is added since the release_notification comes in this format
 	//Easier to massage it while creation rather than change at the receiving end depending on event
-	request := &rpcmonitor.EventInfo{
+	request := &eventinfo.EventInfo{
 		PUType:             constants.LinuxProcessPU,
 		Name:               c.ServiceName,
 		Tags:               c.Labels,
@@ -271,7 +272,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		host = true
 	}
 
-	request := &rpcmonitor.EventInfo{
+	request := &eventinfo.EventInfo{
 		PUType:      constants.LinuxProcessPU,
 		PUID:        puid,
 		Cgroup:      c.Cgroup,
@@ -317,7 +318,7 @@ func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
 }
 
 // sendRPC sends an RPC request to the provided address
-func sendRPC(address string, request *rpcmonitor.EventInfo) error {
+func sendRPC(address string, request *eventinfo.EventInfo) error {
 	// Make RPC call and only retry if the resource is temporarily unavailable
 	numRetries := 0
 	client, err := net.Dial("unix", address)

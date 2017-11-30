@@ -6,8 +6,6 @@ import (
 	"net/rpc"
 	"net/rpc/jsonrpc"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"go.uber.org/zap"
@@ -15,15 +13,26 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/processor"
 )
 
-// RPCMetadataExtractor is a function used to extract a *policy.PURuntime from a given
-// EventInfo.
-type RPCMetadataExtractor func(*EventInfo) (*policy.PURuntime, error)
+const (
+
+	// DefaultRPCAddress is the default Linux socket for the RPC monitor
+	DefaultRPCAddress = "/var/run/trireme.sock"
+
+	// DefaultRootRPCAddress creates an RPC listener that requires root credentials
+	DefaultRootRPCAddress = "/var/run/triremeroot.sock"
+)
 
 // A RPCEventHandler is type of event handler functions.
-type RPCEventHandler func(*EventInfo) error
+type RPCEventHandler func(*eventinfo.EventInfo) error
+
+// RPCResponse encapsulate the error response if any.
+type RPCResponse struct {
+	Error string
+}
 
 // RPCMonitor implements the RPC connection
 type RPCMonitor struct {
@@ -32,6 +41,8 @@ type RPCMonitor struct {
 	monitorServer *Server
 	listensock    net.Listener
 	collector     collector.EventCollector
+	puHandler     monitor.ProcessingUnitsHandler
+	syncHandler   monitor.SynchronizationHandler
 	root          bool
 }
 
@@ -76,21 +87,9 @@ func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root b
 
 // RegisterProcessor registers an event processor for a given PUTYpe. Only one
 // processor is allowed for a given PU Type.
-func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor MonitorProcessor) error {
-	if _, ok := r.monitorServer.handlers[puType]; ok {
-		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
-	}
+func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, p processor.EventProcessor) error {
 
-	r.monitorServer.handlers[puType] = map[monitor.Event]RPCEventHandler{}
-
-	r.monitorServer.addHandler(puType, monitor.EventStart, processor.Start)
-	r.monitorServer.addHandler(puType, monitor.EventStop, processor.Stop)
-	r.monitorServer.addHandler(puType, monitor.EventCreate, processor.Create)
-	r.monitorServer.addHandler(puType, monitor.EventDestroy, processor.Destroy)
-	r.monitorServer.addHandler(puType, monitor.EventPause, processor.Pause)
-	r.monitorServer.addHandler(puType, monitor.EventResync, processor.ReSync)
-
-	return nil
+	return r.monitorServer.RegisterProcessor(puType, p)
 }
 
 // processRequests processes the RPC requests
@@ -107,6 +106,13 @@ func (r *RPCMonitor) processRequests() {
 
 		go r.rpcServer.ServeCodec(jsonrpc.NewServerCodec(conn))
 	}
+}
+
+// SetupHandlers installs handlers
+func (r *RPCMonitor) SetupHandlers(p monitor.ProcessingUnitsHandler, s monitor.SynchronizationHandler) {
+
+	r.puHandler = p
+	r.syncHandler = s
 }
 
 // Start starts the RPC monitoring.
@@ -150,122 +156,6 @@ func (r *RPCMonitor) Stop() error {
 
 	if err := os.RemoveAll(r.rpcAddress); err != nil {
 		zap.L().Warn("Failed to cleanup rpc monitor socket", zap.Error(err))
-	}
-
-	return nil
-}
-
-// Server represents the Monitor RPC Server implementation
-type Server struct {
-	handlers map[constants.PUType]map[monitor.Event]RPCEventHandler
-	root     bool
-}
-
-// HandleEvent Gets called when clients generate events.
-func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
-	if err := validateEvent(eventInfo); err != nil {
-		return err
-	}
-	if eventInfo.HostService && !s.root {
-		return fmt.Errorf("Operation Requires Root Access")
-	}
-
-	strtokens := eventInfo.PUID[strings.LastIndex(eventInfo.PUID, "/")+1:]
-	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
-		eventInfo.PUType = constants.UIDLoginPU
-	}
-	if _, ok := s.handlers[eventInfo.PUType]; ok {
-		f, present := s.handlers[eventInfo.PUType][eventInfo.EventType]
-		if present {
-			if err := f(eventInfo); err != nil {
-				result.Error = err.Error()
-				return err
-			}
-			return nil
-		}
-	}
-
-	err := fmt.Errorf("No handler found for the event")
-	result.Error = err.Error()
-	return err
-
-}
-
-// addHandler adds a hadler for a given PU and monitor event
-func (s *Server) addHandler(puType constants.PUType, event monitor.Event, handler RPCEventHandler) {
-	s.handlers[puType][event] = handler
-}
-
-// ReSync handles a server resync
-func (s *Server) reSync() error {
-
-	for _, h := range s.handlers {
-		if err := h[monitor.EventResync](nil); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// DefaultRPCMetadataExtractor is a default RPC metadata extractor for testing
-func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
-
-	runtimeTags := policy.NewTagStore()
-	runtimeTags.Tags = event.Tags
-
-	runtimeIps := event.IPs
-	runtimePID, err := strconv.Atoi(event.PID)
-	if err != nil {
-		return nil, fmt.Errorf("PID is invalid: %s", err)
-	}
-
-	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
-}
-
-func validateEvent(event *EventInfo) error {
-
-	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
-		if len(event.Name) > maxEventNameLength {
-			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 64 characters")
-		}
-
-		if event.PID == "" {
-			return fmt.Errorf("PID cannot be empty")
-		}
-
-		pid, err := strconv.Atoi(event.PID)
-		if err != nil || pid < 0 {
-			return fmt.Errorf("Invalid PID - Must be a positive number")
-		}
-
-		if event.HostService {
-			if event.NetworkOnlyTraffic {
-				if event.Name == "" || event.Name == "default" {
-					return fmt.Errorf("Service name must be provided and must be not be default")
-				}
-				event.PUID = event.Name
-			} else {
-				event.Name = "DefaultServer"
-				event.PUID = "default"
-			}
-
-		} else {
-			if event.PUType != constants.UIDLoginPU || event.PUID == "" {
-				event.PUID = event.PID
-			}
-
-			// if event.EventType == monitor.EventDestroy {
-			// 	event.PUID = event.PID
-			// }
-		}
-	}
-
-	if event.EventType == monitor.EventStop || event.EventType == monitor.EventDestroy {
-		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
-		if event.Cgroup != "" && !regStop.Match([]byte(event.Cgroup)) {
-			return fmt.Errorf("Cgroup is not of the right format")
-		}
 	}
 
 	return nil

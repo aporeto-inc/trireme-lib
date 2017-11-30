@@ -8,25 +8,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestSystemRPCMetadataExtractor(t *testing.T) {
+func TestSystemEventMetadataExtractor(t *testing.T) {
 
 }
 
-func TestComputeMd5(t *testing.T) {
+func TestcomputeFileMd5(t *testing.T) {
 	Convey("When I calculate the MD5 of a bad file", t, func() {
-		_, err := ComputeMd5("testdata/nofile")
+		_, err := computeFileMd5("testdata/nofile")
 		Convey("I should get an error", func() {
 			So(err, ShouldNotBeNil)
 		})
 	})
 
 	Convey("When I calculate the MD5 of a good file", t, func() {
-		hash, err := ComputeMd5("testdata/curl")
+		hash, err := computeFileMd5("testdata/curl")
 		Convey("I should get no error and the right value", func() {
 			So(err, ShouldBeNil)
 			So(hex.EncodeToString(hash), ShouldResemble, "bf7e66d7bbd0465cfcba5b1cf68a9b59")
@@ -67,18 +67,18 @@ func TestLibs(t *testing.T) {
 	})
 }
 
-func TestSystemdRPCMetadataExtractor(t *testing.T) {
+func TestSystemdEventMetadataExtractor(t *testing.T) {
 	Convey("When I call the metadata extrator", t, func() {
 
 		Convey("If all data are present", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name: "./testdata/curl",
 				PID:  "1234",
 				PUID: "/1234",
 				Tags: []string{"app=web"},
 			}
 
-			pu, err := SystemdRPCMetadataExtractor(event)
+			pu, err := SystemdEventMetadataExtractor(event)
 			Convey("I should get no error and a valid PU runitime", func() {
 				So(err, ShouldBeNil)
 				So(pu, ShouldNotBeNil)
@@ -99,7 +99,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 				},
 			}
 
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name:     "Web",
 				PID:      "1234",
 				PUID:     "Web",
@@ -118,7 +118,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 		Convey("If I get invalid tags", func() {
 
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name: "Web",
 				PID:  "1234",
 				PUID: "Web",
@@ -133,7 +133,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 		Convey("If I get an invalid PID", func() {
 
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name: "Web",
 				PID:  "zxczxc",
 				PUID: "Web",

@@ -246,12 +246,11 @@ func testMonitorInstance(triremeInstance trireme.Trireme) monitor.Monitor {
 	mon = dockermonitor.NewDockerMonitor(
 		constants.DefaultDockerSocketType,
 		constants.DefaultDockerSocket,
-		triremeInstance,
 		dm,
 		nil,
 		false,
-		nil,
 		false)
+	mon.SetupHandlers(triremeInstance, nil)
 	return mon
 }
 

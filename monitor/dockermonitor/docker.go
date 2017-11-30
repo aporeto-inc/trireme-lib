@@ -183,11 +183,9 @@ type dockerMonitor struct {
 func NewDockerMonitor(
 	socketType string,
 	socketAddress string,
-	p monitor.ProcessingUnitsHandler,
 	m DockerMetadataExtractor,
 	l collector.EventCollector,
 	syncAtStart bool,
-	s monitor.SynchronizationHandler,
 	killContainerOnPolicyError bool,
 ) monitor.Monitor {
 
@@ -199,14 +197,12 @@ func NewDockerMonitor(
 	}
 
 	d := &dockerMonitor{
-		puHandler:                  p,
 		collector:                  l,
 		handlers:                   make(map[DockerEvent]func(event *events.Message) error),
 		stoplistener:               make(chan bool),
 		metadataExtractor:          m,
 		dockerClient:               cli,
 		syncAtStart:                syncAtStart,
-		syncHandler:                s,
 		killContainerOnPolicyError: killContainerOnPolicyError,
 		netcls: cgnetcls.NewDockerCgroupNetController(),
 	}
@@ -250,6 +246,13 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
 
+// SetupHandlers installs handlers
+func (d *dockerMonitor) SetupHandlers(p monitor.ProcessingUnitsHandler, s monitor.SynchronizationHandler) {
+
+	d.puHandler = p
+	d.syncHandler = s
+}
+
 // Start will start the DockerPolicy Enforcement.
 // It applies a policy to each Container already Up and Running.
 // It listens to all ContainerEvents
@@ -257,7 +260,11 @@ func (d *dockerMonitor) Start() error {
 
 	zap.L().Debug("Starting the docker monitor")
 
-	//Check if the server is running before you go ahead
+	if d.puHandler == nil || d.syncHandler == nil {
+		return fmt.Errorf("SetupHandlers() not called")
+	}
+
+	// Check if the server is running before you go ahead
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, pingerr := d.dockerClient.Ping(ctx)
@@ -477,7 +484,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return fmt.Errorf("Error getting some of the Docker primitives: %s", err)
 	}
 
-	if err := d.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
+	if err := d.puHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
 

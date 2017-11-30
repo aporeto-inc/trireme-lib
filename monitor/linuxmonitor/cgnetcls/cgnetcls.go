@@ -20,9 +20,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var basePath = "/sys/fs/cgroup/net_cls"
-var markval uint64 = Initialmarkval
-
 //Initialize only ince
 func init() {
 	mountCgroupController()
@@ -150,17 +147,6 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 	return nil
 }
 
-// GetAssignedMarkVal -- returns the mark val assigned to the group
-func GetAssignedMarkVal(cgroupName string) string {
-	mark, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupName, markFile))
-
-	if err != nil || len(mark) < 1 {
-		zap.L().Error("Unable to read markval for cgroup", zap.String("Cgroup Name", cgroupName), zap.Error(err))
-		return ""
-	}
-	return string(mark[:len(mark)-1])
-}
-
 //Deletebasepath removes the base aporeto directory which comes as a separate event when we are not managing any processes
 func (s *netCls) Deletebasepath(cgroupName string) bool {
 
@@ -284,19 +270,4 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	}
 
 	return procs, nil
-}
-
-// GetCgroupList geta list of all cgroup names
-func GetCgroupList() []string {
-	var cgroupList []string
-	filelist, err := ioutil.ReadDir(filepath.Join(basePath, TriremeBasePath))
-	if err != nil {
-		return cgroupList
-	}
-	for _, file := range filelist {
-		if file.IsDir() {
-			cgroupList = append(cgroupList, file.Name())
-		}
-	}
-	return cgroupList
 }

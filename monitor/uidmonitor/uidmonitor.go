@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-//UIDMetadataExtractor -- metadata extractor for uid/gid
-func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
+// UIDMetadataExtractor is a metadata extractor for uid/gid.
+func UIDMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 
@@ -29,7 +29,7 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 		user = ""
 	}
 
-	//Addd more thing here later
+	// TODO: improve with additional information here.
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
 		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
@@ -39,5 +39,6 @@ func UIDMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	runtimePID, _ := strconv.Atoi(event.PID)
+
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
 }

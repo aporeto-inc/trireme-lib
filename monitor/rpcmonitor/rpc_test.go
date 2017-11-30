@@ -12,6 +12,9 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/processor/mock"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -51,7 +54,7 @@ func stoptestserver() {
 }
 
 type CustomProcessor struct {
-	MonitorProcessor
+	processor.EventProcessor
 }
 
 func TestNewRPCMonitor(t *testing.T) {
@@ -154,7 +157,7 @@ func TestHandleEvent(t *testing.T) {
 		So(monerr, ShouldBeNil)
 
 		Convey("If we receive an event with wrong type", func() {
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				EventType: "",
 			}
 
@@ -166,7 +169,7 @@ func TestHandleEvent(t *testing.T) {
 		})
 
 		Convey("If we receive an event with no registered processor", func() {
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				EventType: monitor.EventCreate,
 				PUType:    constants.LinuxProcessPU,
 			}
@@ -180,13 +183,13 @@ func TestHandleEvent(t *testing.T) {
 
 		Convey("If we receive a good event with a registered processor", func() {
 
-			processor := NewMockMonitorProcessor(ctrl)
+			processor := mockprocessor.NewMockEventProcessor(ctrl)
 			processor.EXPECT().Start(gomock.Any()).Return(nil)
 			fmt.Printf("Calling Register %v\n", processor)
 			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 			So(monerr, ShouldBeNil)
 
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				EventType: monitor.EventStart,
 				PUType:    constants.LinuxProcessPU,
 				PUID:      "/trireme/1234",
@@ -205,12 +208,12 @@ func TestHandleEvent(t *testing.T) {
 
 		Convey("If we receive an event that fails processing", func() {
 
-			processor := NewMockMonitorProcessor(ctrl)
+			processor := mockprocessor.NewMockEventProcessor(ctrl)
 			processor.EXPECT().Create(gomock.Any()).Return(fmt.Errorf("Error"))
 			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
 			So(monerr, ShouldBeNil)
 
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				EventType: monitor.EventCreate,
 				PUType:    constants.LinuxProcessPU,
 				PID:       "123",
@@ -225,35 +228,35 @@ func TestHandleEvent(t *testing.T) {
 	})
 }
 
-func TestDefaultRPCMetadataExtractor(t *testing.T) {
+func TestDefaultEventMetadataExtractor(t *testing.T) {
 	Convey("Given an event", t, func() {
 		Convey("If the event name is empty", func() {
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				EventType: monitor.EventStop,
 				PUType:    constants.LinuxProcessPU,
 			}
 
 			Convey("The default extractor must return an error ", func() {
-				_, err := DefaultRPCMetadataExtractor(eventInfo)
+				_, err := DefaultEventMetadataExtractor(eventInfo)
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("If the event PID is empty", func() {
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				Name:      "PU",
 				EventType: monitor.EventStop,
 				PUType:    constants.LinuxProcessPU,
 			}
 
 			Convey("The default extractor must return an error ", func() {
-				_, err := DefaultRPCMetadataExtractor(eventInfo)
+				_, err := DefaultEventMetadataExtractor(eventInfo)
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("If the PID is not a number", func() {
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				Name:      "PU",
 				PID:       "abcera",
 				PUID:      "12345",
@@ -262,13 +265,13 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			}
 
 			Convey("The default extractor must return an error ", func() {
-				_, err := DefaultRPCMetadataExtractor(eventInfo)
+				_, err := DefaultEventMetadataExtractor(eventInfo)
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("If all parameters are correct", func() {
-			eventInfo := &EventInfo{
+			eventInfo := &eventinfo.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
@@ -277,7 +280,7 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 			}
 
 			Convey("The default extractor must return no error ", func() {
-				runtime, err := DefaultRPCMetadataExtractor(eventInfo)
+				runtime, err := DefaultEventMetadataExtractor(eventInfo)
 				So(err, ShouldBeNil)
 				So(runtime, ShouldNotBeNil)
 			})

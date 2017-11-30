@@ -9,20 +9,20 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
 )
 
 // CniProcessor captures all the monitor processor information
-// It implements the MonitorProcessor interface of the rpc monitor
+// It implements the EventProcessor interface of the rpc monitor
 type CniProcessor struct {
 	collector         collector.EventCollector
 	puHandler         monitor.ProcessingUnitsHandler
-	metadataExtractor rpcmonitor.RPCMetadataExtractor
+	metadataExtractor eventinfo.EventMetadataExtractor
 	contextStore      contextstore.ContextStore
 }
 
 // NewCniProcessor initializes a processor
-func NewCniProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor) *CniProcessor {
+func NewCniProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor eventinfo.EventMetadataExtractor) *CniProcessor {
 
 	contextStorePath := "/var/run/trireme/cni"
 
@@ -35,13 +35,13 @@ func NewCniProcessor(collector collector.EventCollector, puHandler monitor.Proce
 }
 
 // Create handles create events
-func (p *CniProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
+func (p *CniProcessor) Create(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Create: %+v \n", eventInfo)
 	return nil
 }
 
 // Start handles start events
-func (p *CniProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
+func (p *CniProcessor) Start(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Start: %+v \n", eventInfo)
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
@@ -53,7 +53,7 @@ func (p *CniProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 		return err
 	}
 
-	if err = p.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
+	if err = p.puHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
 
@@ -76,7 +76,7 @@ func (p *CniProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Stop handles a stop event
-func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
+func (p *CniProcessor) Stop(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Stop: %+v \n", eventInfo)
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
@@ -87,19 +87,19 @@ func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Destroy handles a destroy event
-func (p *CniProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
+func (p *CniProcessor) Destroy(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Destroy: %+v \n", eventInfo)
 	return nil
 }
 
 // Pause handles a pause event
-func (p *CniProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
+func (p *CniProcessor) Pause(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Pause: %+v \n", eventInfo)
 	return nil
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
+func (p *CniProcessor) ReSync(e *eventinfo.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -124,7 +124,7 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 			break
 		}
 
-		eventInfo := rpcmonitor.EventInfo{}
+		eventInfo := eventinfo.EventInfo{}
 		if err := p.contextStore.Retrieve("/"+contextID, &eventInfo); err != nil {
 			continue
 		}
@@ -144,7 +144,7 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 }
 
 // generateContextID creates the contextID from the event information
-func generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
+func generateContextID(eventInfo *eventinfo.EventInfo) (string, error) {
 
 	if eventInfo.PUID == "" {
 		return "", fmt.Errorf("PUID is empty from eventInfo")

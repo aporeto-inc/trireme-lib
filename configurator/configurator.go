@@ -22,6 +22,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/cnimonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
@@ -45,7 +46,7 @@ type TriremeOptions struct {
 	EventCollector collector.EventCollector
 	Processor      packetprocessor.PacketProcessor
 
-	CNIMetadataExtractor    rpcmonitor.RPCMetadataExtractor
+	CNIMetadataExtractor    eventinfo.EventMetadataExtractor
 	DockerMetadataExtractor dockermonitor.DockerMetadataExtractor
 
 	DockerSocketType string
@@ -270,12 +271,13 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		dockerMonitorInstance = dockermonitor.NewDockerMonitor(
 			options.DockerSocketType,
 			options.DockerSocket,
-			triremeInstance,
 			options.DockerMetadataExtractor,
 			options.EventCollector,
 			options.SyncAtStart,
-			nil,
 			options.KillContainerError)
+		if dockerMonitorInstance != nil {
+			dockerMonitorInstance.SetupHandlers(triremeInstance, nil)
+		}
 	}
 
 	if options.CNI || options.LocalProcess {
@@ -292,14 +294,14 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	if options.LocalProcess {
 		// configure a LinuxServices processor for the rpc monitor
-		linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(
+		linuxEventProcessor := linuxmonitor.NewLinuxProcessor(
 			options.EventCollector,
 			triremeInstance,
-			linuxmonitor.SystemdRPCMetadataExtractor,
+			linuxmonitor.SystemdEventMetadataExtractor,
 			options.LinuxProcessReleasePath)
 		if err := rpcMonitorInstance.RegisterProcessor(
 			constants.LinuxProcessPU,
-			linuxMonitorProcessor); err != nil {
+			linuxEventProcessor); err != nil {
 			zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 		}
 	}
@@ -380,12 +382,13 @@ func NewPSKTriremeWithDockerMonitor(
 	monitorInstance := dockermonitor.NewDockerMonitor(
 		constants.DefaultDockerSocketType,
 		constants.DefaultDockerSocket,
-		triremeInstance,
 		dockerMetadataExtractor,
 		eventCollector,
 		syncAtStart,
-		nil,
 		killContainerError)
+	if monitorInstance != nil {
+		monitorInstance.SetupHandlers(triremeInstance, nil)
+	}
 
 	return triremeInstance, monitorInstance
 
@@ -442,12 +445,13 @@ func NewPKITriremeWithDockerMonitor(
 	monitorInstance := dockermonitor.NewDockerMonitor(
 		constants.DefaultDockerSocketType,
 		constants.DefaultDockerSocket,
-		triremeInstance,
 		dockerMetadataExtractor,
 		eventCollector,
 		syncAtStart,
-		nil,
 		killContainerError)
+	if monitorInstance != nil {
+		monitorInstance.SetupHandlers(triremeInstance, nil)
+	}
 
 	return triremeInstance, monitorInstance, publicKeyAdder
 
@@ -487,13 +491,15 @@ func NewPSKHybridTriremeWithMonitor(
 	monitorDocker := dockermonitor.NewDockerMonitor(
 		constants.DefaultDockerSocketType,
 		constants.DefaultDockerSocket,
-		triremeInstance,
 		dockerMetadataExtractor,
 		eventCollector,
 		syncAtStart,
-		nil,
 		killContainerError,
 	)
+	if monitorDocker != nil {
+		monitorDocker.SetupHandlers(triremeInstance, nil)
+	}
+
 	// use rpcmonitor no need to return it since no other consumer for it
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
 		rpcmonitor.DefaultRPCAddress,
@@ -506,8 +512,8 @@ func NewPSKHybridTriremeWithMonitor(
 	}
 
 	// configure a LinuxServices processor for the rpc monitor
-	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
-	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
+	linuxEventProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdEventMetadataExtractor, "")
+	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxEventProcessor); err != nil {
 		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 	}
 
@@ -756,13 +762,14 @@ func NewHybridCompactPKIWithDocker(
 	monitorDocker := dockermonitor.NewDockerMonitor(
 		constants.DefaultDockerSocketType,
 		constants.DefaultDockerSocket,
-		triremeInstance,
 		dockerMetadataExtractor,
 		eventCollector,
 		syncAtStart,
-		nil,
 		killContainerError,
 	)
+	if monitorDocker != nil {
+		monitorDocker.SetupHandlers(triremeInstance, nil)
+	}
 
 	// use rpcmonitor no need to return it since no other consumer for it
 	rpcmon, err := rpcmonitor.NewRPCMonitor(
@@ -776,8 +783,8 @@ func NewHybridCompactPKIWithDocker(
 	}
 
 	// configure a LinuxServices processor for the rpc monitor
-	linuxMonitorProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdRPCMetadataExtractor, "")
-	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxMonitorProcessor); err != nil {
+	linuxEventProcessor := linuxmonitor.NewLinuxProcessor(eventCollector, triremeInstance, linuxmonitor.SystemdEventMetadataExtractor, "")
+	if err := rpcmon.RegisterProcessor(constants.LinuxProcessPU, linuxEventProcessor); err != nil {
 		zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
 	}
 
@@ -829,13 +836,14 @@ func NewCompactPKIWithDocker(
 	monitorDocker := dockermonitor.NewDockerMonitor(
 		constants.DefaultDockerSocketType,
 		constants.DefaultDockerSocket,
-		triremeInstance,
 		dockerMetadataExtractor,
 		eventCollector,
 		syncAtStart,
-		nil,
 		killContainerError,
 	)
+	if monitorDocker != nil {
+		monitorDocker.SetupHandlers(triremeInstance, nil)
+	}
 
 	return triremeInstance, monitorDocker
 
@@ -848,7 +856,7 @@ func NewPSKTriremeWithCNIMonitor(
 	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	key []byte,
-	cniMetadataExtractor rpcmonitor.RPCMetadataExtractor,
+	cniMetadataExtractor eventinfo.EventMetadataExtractor,
 	remoteEnforcer bool,
 ) (trireme.Trireme, monitor.Monitor) {
 

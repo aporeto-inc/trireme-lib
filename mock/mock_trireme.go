@@ -72,16 +72,16 @@ func (_m *MockProcessingUnitsHandler) EXPECT() *_MockProcessingUnitsHandlerRecor
 	return _m.recorder
 }
 
-func (_m *MockProcessingUnitsHandler) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
+func (_m *MockProcessingUnitsHandler) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 
-	ret := _m.ctrl.Call(_m, "SetPURuntime", contextID, runtimeInfo)
+	ret := _m.ctrl.Call(_m, "CreatePURuntime", contextID, runtimeInfo)
 
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockProcessingUnitsHandlerRecorder) SetPURuntime(arg0, arg1 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetPURuntime", arg0, arg1)
+func (_mr *_MockProcessingUnitsHandlerRecorder) CreatePURuntime(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreatePURuntime", arg0, arg1)
 }
 
 func (_m *MockProcessingUnitsHandler) HandlePUEvent(contextID string, event monitor.Event) error {

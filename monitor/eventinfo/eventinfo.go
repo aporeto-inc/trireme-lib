@@ -1,18 +1,9 @@
-package rpcmonitor
+package eventinfo
 
 import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
-)
-
-const (
-
-	// DefaultRPCAddress is the default Linux socket for the RPC monitor
-	DefaultRPCAddress = "/var/run/trireme.sock"
-
-	// DefaultRootRPCAddress creates an RPC listener that requires root credentials
-	DefaultRootRPCAddress = "/var/run/triremeroot.sock"
 )
 
 // EventInfo is a generic structure that defines all the information related to a PU event.
@@ -59,30 +50,6 @@ type EventInfo struct {
 	Root bool
 }
 
-// RPCResponse encapsulate the error response if any.
-type RPCResponse struct {
-	Error string
-}
-
-// MonitorProcessor is a generic interface that processes monitor events using
-// a normalized event structure.
-type MonitorProcessor interface {
-
-	// Start processes PU start events
-	Start(eventInfo *EventInfo) error
-
-	// Event processes PU stop events
-	Stop(eventInfo *EventInfo) error
-
-	// Create process a PU create event
-	Create(eventInfo *EventInfo) error
-
-	// Event process a PU destroy event
-	Destroy(eventInfo *EventInfo) error
-
-	// Event processes a pause event
-	Pause(eventInfo *EventInfo) error
-
-	// ReSync resyncs all PUs handled by this processor
-	ReSync(EventInfo *EventInfo) error
-}
+// EventMetadataExtractor is a function used to extract a *policy.PURuntime from a given
+// EventInfo.
+type EventMetadataExtractor func(*EventInfo) (*policy.PURuntime, error)

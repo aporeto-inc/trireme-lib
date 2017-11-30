@@ -13,17 +13,17 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // LinuxProcessor captures all the monitor processor information
-// It implements the MonitorProcessor interface of the rpc monitor
+// It implements the EventProcessor interface of the rpc monitor
 type LinuxProcessor struct {
 	collector         collector.EventCollector
 	puHandler         monitor.ProcessingUnitsHandler
-	metadataExtractor rpcmonitor.RPCMetadataExtractor
+	metadataExtractor eventinfo.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore
 	regStart          *regexp.Regexp
@@ -32,7 +32,7 @@ type LinuxProcessor struct {
 }
 
 // NewCustomLinuxProcessor initializes a processor with a custom path
-func NewCustomLinuxProcessor(storePath string, collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
+func NewCustomLinuxProcessor(storePath string, collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor eventinfo.EventMetadataExtractor, releasePath string) *LinuxProcessor {
 
 	return &LinuxProcessor{
 		collector:         collector,
@@ -47,12 +47,12 @@ func NewCustomLinuxProcessor(storePath string, collector collector.EventCollecto
 }
 
 // NewLinuxProcessor creates a default Linux processor with the standard trireme path
-func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor rpcmonitor.RPCMetadataExtractor, releasePath string) *LinuxProcessor {
+func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor eventinfo.EventMetadataExtractor, releasePath string) *LinuxProcessor {
 	return NewCustomLinuxProcessor("/var/run/trireme/linux", collector, puHandler, metadataExtractor, releasePath)
 }
 
 // Create handles create events
-func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
+func (s *LinuxProcessor) Create(eventInfo *eventinfo.EventInfo) error {
 
 	if !s.regStart.Match([]byte(eventInfo.PUID)) {
 		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
@@ -62,7 +62,7 @@ func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Start handles start events
-func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
+func (s *LinuxProcessor) Start(eventInfo *eventinfo.EventInfo) error {
 
 	// Validate the PUID format
 
@@ -78,7 +78,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	}
 
 	// Setup the run time
-	if err = s.puHandler.SetPURuntime(contextID, runtimeInfo); err != nil {
+	if err = s.puHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
 
@@ -110,7 +110,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Stop handles a stop event
-func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
+func (s *LinuxProcessor) Stop(eventInfo *eventinfo.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
@@ -126,7 +126,7 @@ func (s *LinuxProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Destroy handles a destroy event
-func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
+func (s *LinuxProcessor) Destroy(eventInfo *eventinfo.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
@@ -174,7 +174,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // Pause handles a pause event
-func (s *LinuxProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
+func (s *LinuxProcessor) Pause(eventInfo *eventinfo.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
@@ -185,7 +185,7 @@ func (s *LinuxProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
+func (s *LinuxProcessor) ReSync(e *eventinfo.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -210,7 +210,7 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 			break
 		}
 
-		eventInfo := rpcmonitor.EventInfo{}
+		eventInfo := eventinfo.EventInfo{}
 		if err := s.contextStore.Retrieve("/"+contextID, &eventInfo); err != nil {
 			continue
 		}
@@ -260,7 +260,7 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 }
 
 // generateContextID creates the contextID from the event information
-func (s *LinuxProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
+func (s *LinuxProcessor) generateContextID(eventInfo *eventinfo.EventInfo) (string, error) {
 
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
@@ -273,7 +273,7 @@ func (s *LinuxProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (str
 	return contextID, nil
 }
 
-func (s *LinuxProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, runtimeInfo *policy.PURuntime) error {
+func (s *LinuxProcessor) processLinuxServiceStart(event *eventinfo.EventInfo, runtimeInfo *policy.PURuntime) error {
 	list, err := cgnetcls.ListCgroupProcesses(event.PUID)
 	if err == nil {
 		//cgroup exists and pid might be a member
@@ -331,7 +331,7 @@ func (s *LinuxProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, r
 	return nil
 }
 
-func (s *LinuxProcessor) processHostServiceStart(event *rpcmonitor.EventInfo, runtimeInfo *policy.PURuntime) error {
+func (s *LinuxProcessor) processHostServiceStart(event *eventinfo.EventInfo, runtimeInfo *policy.PURuntime) error {
 
 	if !event.NetworkOnlyTraffic {
 

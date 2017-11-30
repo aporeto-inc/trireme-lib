@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/golang/mock/gomock"
@@ -18,7 +19,7 @@ import (
 )
 
 func testLinuxProcessor() *LinuxProcessor {
-	return NewCustomLinuxProcessor("/tmp", &collector.DefaultCollector{}, nil, rpcmonitor.DefaultRPCMetadataExtractor, "./")
+	return NewCustomLinuxProcessor("/tmp", &collector.DefaultCollector{}, nil, rpcmonitor.DefaultEventMetadataExtractor, "./")
 
 }
 
@@ -35,7 +36,7 @@ func TestCreate(t *testing.T) {
 		p.contextStore = store
 
 		Convey("When I try a create event with invalid PU ID, ", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				PUID: "/@#$@",
 			}
 			Convey("I should get an error", func() {
@@ -45,7 +46,7 @@ func TestCreate(t *testing.T) {
 		})
 
 		Convey("When I get a create event that is valid", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				PUID: "1234",
 			}
 			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
@@ -71,7 +72,7 @@ func TestStop(t *testing.T) {
 		p.netcls = mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("When I get a stop event that is valid", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				PUID: "/trireme/1234",
 			}
 
@@ -105,7 +106,7 @@ func TestDestroy(t *testing.T) {
 		p.netcls = mockcls
 
 		Convey("When I get a destroy event that is valid", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				PUID: "/trireme/1234",
 			}
 			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
@@ -134,7 +135,7 @@ func TestPause(t *testing.T) {
 		p.contextStore = store
 
 		Convey("When I get a pause event that is valid", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				PUID: "/trireme/1234",
 			}
 
@@ -160,7 +161,7 @@ func TestStart(t *testing.T) {
 		p.contextStore = store
 
 		Convey("When I get a start event with no PUID", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				PUID: "",
 			}
 			Convey("I should get an error", func() {
@@ -170,7 +171,7 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event that is valid that fails on the metadata extractor", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name: "PU",
 			}
 			Convey("I should get an error", func() {
@@ -180,7 +181,7 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event and setting the PU runtime fails", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
@@ -188,14 +189,14 @@ func TestStart(t *testing.T) {
 				PUType:    constants.LinuxProcessPU,
 			}
 			Convey("I should get an error ", func() {
-				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
+				puHandler.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
 				err := p.Start(event)
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("When I get a start event and the upstream returns an error ", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
@@ -203,7 +204,7 @@ func TestStart(t *testing.T) {
 				PUType:    constants.LinuxProcessPU,
 			}
 			Convey("I should get an error ", func() {
-				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
+				puHandler.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Return(nil)
 
 				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
 				err := p.Start(event)
@@ -212,7 +213,7 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event and create group fails ", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
@@ -224,7 +225,7 @@ func TestStart(t *testing.T) {
 			p.netcls = mockcls
 
 			Convey("I should get an error ", func() {
-				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
+				puHandler.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Return(nil)
 				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(fmt.Errorf("error"))
@@ -234,7 +235,7 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event and the runtime options don't have a mark value", func() {
-			event := &rpcmonitor.EventInfo{
+			event := &eventinfo.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
@@ -246,7 +247,7 @@ func TestStart(t *testing.T) {
 			p.netcls = mockcls
 
 			Convey("I should get an error ", func() {
-				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
+				puHandler.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Return(nil)
 				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
@@ -301,7 +302,7 @@ func TestResync(t *testing.T) {
 			contextlist <- "test1"
 			contextlist <- ""
 
-			eventInfo := rpcmonitor.EventInfo{
+			eventInfo := eventinfo.EventInfo{
 				PUType:    constants.LinuxProcessPU,
 				EventType: monitor.EventStart,
 				PUID:      "/test1",

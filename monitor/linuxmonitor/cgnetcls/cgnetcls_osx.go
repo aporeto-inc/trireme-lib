@@ -34,6 +34,10 @@ func (s *netCls) Deletebasepath(contextID string) bool {
 	return true
 }
 
+func (s *netCls) GetCgroupList() {
+
+}
+
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(releasePath string) Cgroupnetcls {
 	return &netCls{}

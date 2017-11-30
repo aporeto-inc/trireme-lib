@@ -85,23 +85,6 @@ func (t *trireme) Stop() error {
 	return nil
 }
 
-// HandlePUEvent implements the logic needed between all the Trireme components for
-// explicitly adding a new PU.
-func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) error {
-
-	// Notify The PolicyResolver that an event occurred:
-	t.resolver.HandlePUEvent(contextID, event)
-
-	switch event {
-	case monitor.EventStart:
-		return t.doHandleCreate(contextID)
-	case monitor.EventStop:
-		return t.doHandleDelete(contextID)
-	default:
-		return nil
-	}
-}
-
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) error {
 
@@ -120,8 +103,8 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 	return container.(*policy.PURuntime), nil
 }
 
-// SetPURuntime returns the RuntimeInfo based on the contextID.
-func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
+// CreatePURuntime implements monitor.ProcessingUnitsHandler
+func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 
 	if _, err := t.cache.Get(contextID); err == nil {
 		return fmt.Errorf("PU Exists Already")
@@ -130,7 +113,22 @@ func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) 
 	t.cache.AddOrUpdate(contextID, runtimeInfo)
 
 	return nil
+}
 
+// HandlePUEvent implements monitor.ProcessingUnitsHandler
+func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) error {
+
+	// Notify The PolicyResolver that an event occurred:
+	t.resolver.HandlePUEvent(contextID, event)
+
+	switch event {
+	case monitor.EventStart:
+		return t.doHandleCreate(contextID)
+	case monitor.EventStop:
+		return t.doHandleDelete(contextID)
+	default:
+		return nil
+	}
 }
 
 // addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.
@@ -392,4 +390,13 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 		}
 	}
 	return nil
+}
+
+// HandleSynchronization stub implmentation.
+func (t *trireme) HandleSynchronization(nativeID string, state monitor.State, runtime policy.RuntimeReader, syncType monitor.SynchronizationType) error {
+	return nil
+}
+
+// HandleSynchronizationComplete stub implmentation.
+func (t *trireme) HandleSynchronizationComplete(syncType monitor.SynchronizationType) {
 }

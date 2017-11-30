@@ -43,7 +43,11 @@ mockgen -source collector/interfaces.go -destination collector/mock/mockcollecto
 goimport_sanitize collector/mock/mockcollector.go
 
 echo "Monitor Mocks"
-mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
+mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -aux_files policy=policy/interfaces.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
 goimport_sanitize monitor/mock/mockmonitor.go
+
+echo "Monitor/Processor Mocks"
+mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mock/mockprocessor.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/monitor/processor
+goimport_sanitize monitor/processor/mock/mockprocessor.go
 
 echo >&2 "OK"

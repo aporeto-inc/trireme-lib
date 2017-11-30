@@ -39,6 +39,18 @@ func (m *MockMonitor) EXPECT() *MockMonitorMockRecorder {
 	return m.recorder
 }
 
+// SetupHandlers mocks base method
+// nolint
+func (m *MockMonitor) SetupHandlers(puHandler monitor.ProcessingUnitsHandler, syncHandler monitor.SynchronizationHandler) {
+	m.ctrl.Call(m, "SetupHandlers", puHandler, syncHandler)
+}
+
+// SetupHandlers indicates an expected call of SetupHandlers
+// nolint
+func (mr *MockMonitorMockRecorder) SetupHandlers(puHandler, syncHandler interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupHandlers", reflect.TypeOf((*MockMonitor)(nil).SetupHandlers), puHandler, syncHandler)
+}
+
 // Start mocks base method
 // nolint
 func (m *MockMonitor) Start() error {
@@ -94,18 +106,18 @@ func (m *MockProcessingUnitsHandler) EXPECT() *MockProcessingUnitsHandlerMockRec
 	return m.recorder
 }
 
-// SetPURuntime mocks base method
+// CreatePURuntime mocks base method
 // nolint
-func (m *MockProcessingUnitsHandler) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
-	ret := m.ctrl.Call(m, "SetPURuntime", contextID, runtimeInfo)
+func (m *MockProcessingUnitsHandler) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
+	ret := m.ctrl.Call(m, "CreatePURuntime", contextID, runtimeInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetPURuntime indicates an expected call of SetPURuntime
+// CreatePURuntime indicates an expected call of CreatePURuntime
 // nolint
-func (mr *MockProcessingUnitsHandlerMockRecorder) SetPURuntime(contextID, runtimeInfo interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPURuntime", reflect.TypeOf((*MockProcessingUnitsHandler)(nil).SetPURuntime), contextID, runtimeInfo)
+func (mr *MockProcessingUnitsHandlerMockRecorder) CreatePURuntime(contextID, runtimeInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePURuntime", reflect.TypeOf((*MockProcessingUnitsHandler)(nil).CreatePURuntime), contextID, runtimeInfo)
 }
 
 // HandlePUEvent mocks base method
