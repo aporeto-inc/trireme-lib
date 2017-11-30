@@ -13,7 +13,7 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 	if conn != nil {
 		conn.SetReported(connection.RejectReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, "NA", plc)
+	d.reportFlow(p, conn, sourceID, destID, context, "", plc)
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
