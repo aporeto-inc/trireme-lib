@@ -18,6 +18,10 @@ echo "Supervisor Mocks"
 mockgen -source supervisor/interfaces.go -destination supervisor/mock/mocksupervisor.go -package mocksupervisor
 goimport_sanitize supervisor/mock/mocksupervisor.go
 
+echo "Internal/ContextStore Mocks"
+mockgen -source internal/contextstore/interfaces.go -destination internal/contextstore/mock/mockcontextstore.go -package mockcontextstore
+goimport_sanitize internal/contextstore/mock/mockcontextstore.go
+
 echo "Internal/Processmon Mocks"
 mockgen -source internal/processmon/interfaces.go -destination internal/processmon/mock/mockprocessmon.go -package mockprocessmon
 goimport_sanitize internal/processmon/mock/mockprocessmon.go
