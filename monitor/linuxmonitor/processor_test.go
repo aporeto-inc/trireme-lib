@@ -8,9 +8,9 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/golang/mock/gomock"
@@ -28,7 +28,7 @@ func TestCreate(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -63,7 +63,7 @@ func TestStop(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -96,7 +96,7 @@ func TestDestroy(t *testing.T) {
 	defer os.RemoveAll(dummyPUPath) //nolint
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -109,7 +109,7 @@ func TestDestroy(t *testing.T) {
 				PUID: "/trireme/1234",
 			}
 			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
-			store.EXPECT().RemoveContext(gomock.Any()).Return(nil)
+			store.EXPECT().Remove(gomock.Any()).Return(nil)
 
 			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 			Convey("I should get the status of the upstream function", func() {
@@ -127,7 +127,7 @@ func TestPause(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -153,7 +153,7 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 
 		p := testLinuxProcessor()
 		p.puHandler = puHandler
@@ -265,7 +265,7 @@ func TestResync(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
-		store := mock_contextstore.NewMockContextStore(ctrl)
+		store := mockcontextstore.NewMockContextStore(ctrl)
 		cls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 
 		p := testLinuxProcessor()
@@ -274,7 +274,7 @@ func TestResync(t *testing.T) {
 		p.netcls = cls
 
 		Convey("When we cannot open the context store it returns an error", func() {
-			store.EXPECT().WalkStore().Return(nil, fmt.Errorf("No store"))
+			store.EXPECT().Walk().Return(nil, fmt.Errorf("No store"))
 
 			Convey("Start server returns no error", func() {
 				err := p.ReSync(nil)
@@ -287,8 +287,8 @@ func TestResync(t *testing.T) {
 			contextlist <- "test1"
 			contextlist <- ""
 
-			store.EXPECT().WalkStore().Return(contextlist, nil)
-			store.EXPECT().GetContextInfo("/test1", gomock.Any()).Return(fmt.Errorf("Invalid context"))
+			store.EXPECT().Walk().Return(contextlist, nil)
+			store.EXPECT().Retrieve("/test1", gomock.Any()).Return(fmt.Errorf("Invalid context"))
 
 			Convey("Start server returns no error", func() {
 				err := p.ReSync(nil)
@@ -307,9 +307,9 @@ func TestResync(t *testing.T) {
 				PUID:      "/test1",
 			}
 
-			store.EXPECT().WalkStore().Return(contextlist, nil)
-			store.EXPECT().GetContextInfo("/test1", gomock.Any()).SetArg(1, eventInfo).Return(nil)
-			store.EXPECT().RemoveContext("/test1").Return(nil)
+			store.EXPECT().Walk().Return(contextlist, nil)
+			store.EXPECT().Retrieve("/test1", gomock.Any()).SetArg(1, eventInfo).Return(nil)
+			store.EXPECT().Remove("/test1").Return(nil)
 
 			Convey("Start server returns no error", func() {
 				err := p.ReSync(nil)

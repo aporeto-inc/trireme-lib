@@ -12,8 +12,8 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -67,7 +67,7 @@ func NewCustomUIDProcessor(storePath string,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
 		netcls:            cgnetcls.NewCgroupNetController(releasePath),
-		contextStore:      contextstore.NewContextStore(storePath),
+		contextStore:      contextstore.NewFileContextStore(storePath),
 		storePath:         storePath,
 		regStart:          regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$"),
 		regStop:           regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$"),
@@ -142,7 +142,7 @@ func (s *UIDProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 			zap.L().Warn("Failed to add eventInfoID/contextID in the cache", zap.Error(err), zap.String("contextID", contextID))
 		}
 		// Store the state in the context store for future access
-		return s.contextStore.StoreContext(contextID, &StoredContext{
+		return s.contextStore.Store(contextID, &StoredContext{
 			EventInfo: eventInfo,
 			MarkVal:   runtimeInfo.Options().CgroupMark,
 		})
@@ -206,7 +206,7 @@ func (s *UIDProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("contextID", contextID))
 		}
 
-		if err = s.contextStore.RemoveContext(contextID); err != nil {
+		if err = s.contextStore.Remove(contextID); err != nil {
 			zap.L().Error("Failed to clean cache while destroying process",
 				zap.String("contextID", contextID),
 				zap.Error(err),
@@ -262,7 +262,7 @@ func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 		}
 	}()
 
-	walker, err := s.contextStore.WalkStore()
+	walker, err := s.contextStore.Walk()
 
 	if err != nil {
 		return fmt.Errorf("error in accessing context store")
@@ -295,14 +295,14 @@ func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 		storedPU := &StoredContext{}
 
-		if err := s.contextStore.GetContextInfo("/"+contextID, &storedPU); err != nil {
+		if err := s.contextStore.Retrieve("/"+contextID, &storedPU); err != nil {
 			continue
 		}
 		eventInfo := storedPU.EventInfo
 		mark := storedPU.MarkVal
 		if pids, ok := marktoPID[mark]; !ok {
 			//No pids with stored mark destroy the context record and go to next context
-			if err := s.contextStore.RemoveContext("/" + contextID); err != nil {
+			if err := s.contextStore.Remove("/" + contextID); err != nil {
 				zap.L().Warn("Error when removing context in the store", zap.Error(err))
 			}
 		} else {

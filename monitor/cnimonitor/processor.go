@@ -7,8 +7,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 )
 
@@ -30,7 +30,7 @@ func NewCniProcessor(collector collector.EventCollector, puHandler monitor.Proce
 		collector:         collector,
 		puHandler:         puHandler,
 		metadataExtractor: metadataExtractor,
-		contextStore:      contextstore.NewContextStore(contextStorePath),
+		contextStore:      contextstore.NewFileContextStore(contextStorePath),
 	}
 }
 
@@ -72,7 +72,7 @@ func (p *CniProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	})
 
 	// Store the state in the context store for future access
-	return p.contextStore.StoreContext(contextID, eventInfo)
+	return p.contextStore.Store(contextID, eventInfo)
 }
 
 // Stop handles a stop event
@@ -113,7 +113,7 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 		}
 	}()
 
-	walker, err := p.contextStore.WalkStore()
+	walker, err := p.contextStore.Walk()
 	if err != nil {
 		return fmt.Errorf("error in accessing context store")
 	}
@@ -125,7 +125,7 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 		}
 
 		eventInfo := rpcmonitor.EventInfo{}
-		if err := p.contextStore.GetContextInfo("/"+contextID, &eventInfo); err != nil {
+		if err := p.contextStore.Retrieve("/"+contextID, &eventInfo); err != nil {
 			continue
 		}
 

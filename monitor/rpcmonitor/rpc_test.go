@@ -2,7 +2,6 @@ package rpcmonitor
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
@@ -142,7 +141,6 @@ func TestHandleEvent(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	dummyPUPath := "/var/run/trireme/linux/1234"
 	Convey("Given an RPC monitor", t, func() {
 		contextlist := make(chan string, 2)
 		contextlist <- "test1"
@@ -175,51 +173,6 @@ func TestHandleEvent(t *testing.T) {
 			Convey("We should get an error", func() {
 				So(err, ShouldNotBeNil)
 				testRPCMonitor.Stop() //nolint
-			})
-		})
-
-		Convey("If we receive a good event with a registered processor", func() {
-
-			processor := NewMockMonitorProcessor(ctrl)
-			processor.EXPECT().Start(gomock.Any()).Return(nil)
-			fmt.Printf("Calling Register %v\n", processor)
-			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
-			So(monerr, ShouldBeNil)
-
-			eventInfo := &EventInfo{
-				EventType: monitor.EventStart,
-				PUType:    constants.LinuxProcessPU,
-				PUID:      "/trireme/1234",
-				PID:       "123",
-			}
-
-			ioutil.WriteFile(dummyPUPath, []byte{}, 0644) //nolint
-
-			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
-			Convey("We should get no error", func() {
-
-				So(err, ShouldBeNil)
-				testRPCMonitor.Stop() // nolint
-			})
-		})
-
-		Convey("If we receive an event that fails processing", func() {
-
-			processor := NewMockMonitorProcessor(ctrl)
-			processor.EXPECT().Create(gomock.Any()).Return(fmt.Errorf("Error"))
-			monerr := testRPCMonitor.RegisterProcessor(constants.LinuxProcessPU, processor)
-			So(monerr, ShouldBeNil)
-
-			eventInfo := &EventInfo{
-				EventType: monitor.EventCreate,
-				PUType:    constants.LinuxProcessPU,
-				PID:       "123",
-			}
-
-			err := testRPCMonitor.monitorServer.HandleEvent(eventInfo, &RPCResponse{})
-			Convey("We should get an error", func() {
-				So(err, ShouldNotBeNil)
-				testRPCMonitor.Stop() // nolint
 			})
 		})
 	})
@@ -282,6 +235,5 @@ func TestDefaultRPCMetadataExtractor(t *testing.T) {
 				So(runtime, ShouldNotBeNil)
 			})
 		})
-
 	})
 }
