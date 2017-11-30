@@ -8,9 +8,9 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/golang/mock/gomock"
