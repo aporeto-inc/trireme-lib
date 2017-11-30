@@ -42,4 +42,8 @@ echo "Collector Mocks"
 mockgen -source collector/interfaces.go -destination collector/mock/mockcollector.go -package mockcollector -source_package github.com/aporeto-inc/trireme-lib/collector
 goimport_sanitize collector/mock/mockcollector.go
 
+echo "Monitor Mocks"
+mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
+goimport_sanitize monitor/mock/mockmonitor.go
+
 echo >&2 "OK"
