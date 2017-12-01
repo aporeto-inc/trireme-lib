@@ -273,7 +273,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	errS := t.supervisors[runtime.PUType()].Unsupervise(contextID)
 	errE := t.enforcers[runtime.PUType()].Unenforce(contextID)
 	port := runtime.Options().ProxyPort
-	zap.L().Info("Releasing Port", zap.String("Port", port))
+	zap.L().Debug("Releasing Port", zap.String("Port", port))
 	t.port.Release(port)
 	if err := t.cache.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to remove context from cache during cleanup. Entry doesn't exist",
