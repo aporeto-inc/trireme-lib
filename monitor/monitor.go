@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"go.uber.org/zap"
 )
 
 // Type specifies the type of monitors supported.
@@ -40,6 +41,35 @@ type monitors struct {
 	userRegisterer  processor.Registerer
 	rootRPCListener rpcmonitor.Listener
 	rootRegisterer  processor.Registerer
+}
+
+// GetDefaultMonitors can be used as an example on how to setup configuration or
+// use a set of defaults that work.
+func GetDefaultMonitors(linuxProcess, linuxHost, uid, docker, cni bool) map[Type]interface{} {
+
+	monitorsToEnable := make(map[Type]interface{})
+
+	if cni {
+		zap.L().Fatal("CNI not supported yet")
+	}
+
+	if linuxProcess {
+		monitorsToEnable[LinuxProcess] = linuxmonitor.DefaultConfig(false)
+	}
+
+	if linuxHost {
+		monitorsToEnable[LinuxHost] = linuxmonitor.DefaultConfig(true)
+	}
+
+	if uid {
+		monitorsToEnable[UID] = uidmonitor.DefaultConfig()
+	}
+
+	if docker {
+		monitorsToEnable[Docker] = dockermonitor.DefaultConfig()
+	}
+
+	return monitorsToEnable
 }
 
 // New instantiates all/any combination of monitors supported.

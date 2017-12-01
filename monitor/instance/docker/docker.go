@@ -165,6 +165,35 @@ type Config struct {
 	KillContainerOnPolicyError bool
 }
 
+// DefaultConfig provides a default configuration
+func DefaultConfig() *Config {
+	return &Config{
+		EventMetadataExtractor:     defaultMetadataExtractor,
+		SocketType:                 string(constants.DefaultDockerSocketType),
+		SocketAddress:              constants.DefaultDockerSocket,
+		SyncAtStart:                true,
+		KillContainerOnPolicyError: false,
+	}
+}
+
+// SetupDefaultConfig adds defaults to a partial configuration
+func SetupDefaultConfig(dockerConfig *Config) *Config {
+
+	defaultConfig := DefaultConfig()
+
+	if dockerConfig.EventMetadataExtractor == nil {
+		dockerConfig.EventMetadataExtractor = defaultConfig.EventMetadataExtractor
+	}
+	if dockerConfig.SocketType == "" {
+		dockerConfig.SocketType = defaultConfig.SocketType
+	}
+	if dockerConfig.SocketAddress == "" {
+		dockerConfig.SocketAddress = defaultConfig.SocketAddress
+	}
+
+	return dockerConfig
+}
+
 // dockerMonitor implements the connection to Docker and monitoring based on events
 type dockerMonitor struct {
 	dockerClient       *dockerClient.Client
@@ -194,12 +223,10 @@ func New() monitorinstance.Implementation {
 // can have its own config type.
 func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) (err error) {
 
+	defaultConfig := DefaultConfig()
+
 	if cfg == nil {
-		// Use Defaults
-		cfg = &Config{
-			KillContainerOnPolicyError: false,
-			SyncAtStart:                true,
-		}
+		cfg = defaultConfig
 	}
 
 	dockerConfig, ok := cfg.(*Config)
@@ -207,23 +234,16 @@ func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interfa
 		return fmt.Errorf("Invalid configuration specified")
 	}
 
-	if dockerConfig.EventMetadataExtractor == nil {
-		dockerConfig.EventMetadataExtractor = defaultMetadataExtractor
-	}
-	d.metadataExtractor = dockerConfig.EventMetadataExtractor
+	// Setup defaults
+	dockerConfig = SetupDefaultConfig(dockerConfig)
 
-	if dockerConfig.SocketType == "" {
-		dockerConfig.SocketType = constants.DefaultDockerSocketType
-	}
-	if dockerConfig.SocketAddress == "" {
-		dockerConfig.SocketAddress = constants.DefaultDockerSocket
-	}
-
+	// Setup configuration
 	if d.dockerClient, err = initDockerClient(dockerConfig.SocketType, dockerConfig.SocketAddress); err != nil {
 		zap.L().Debug("Unable to initialize Docker client", zap.Error(err))
 		return nil
 	}
 
+	d.metadataExtractor = dockerConfig.EventMetadataExtractor
 	d.syncAtStart = dockerConfig.SyncAtStart
 	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
 	d.handlers = make(map[Event]func(event *events.Message) error)

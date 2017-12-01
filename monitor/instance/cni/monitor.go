@@ -17,6 +17,29 @@ type Config struct {
 	ContextStorePath       string
 }
 
+// DefaultConfig provides a default configuration
+func DefaultConfig() *Config {
+	return &Config{
+		EventMetadataExtractor: DockerMetadataExtractor,
+		ContextStorePath:       "/var/run/trireme/cni",
+	}
+}
+
+// SetupDefaultConfig adds defaults to a partial configuration
+func SetupDefaultConfig(cniConfig *Config) *Config {
+
+	defaultConfig := DefaultConfig()
+
+	if cniConfig.ContextStorePath == "" {
+		cniConfig.ContextStorePath = defaultConfig.ContextStorePath
+	}
+	if cniConfig.EventMetadataExtractor == nil {
+		cniConfig.EventMetadataExtractor = defaultConfig.EventMetadataExtractor
+	}
+
+	return cniConfig
+}
+
 // cniMonitor captures all the monitor processor information
 // It implements the EventProcessor interface of the rpc monitor
 type cniMonitor struct {
@@ -59,8 +82,9 @@ func (c *cniMonitor) Stop() error {
 // can have its own config type.
 func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
 
+	defaultConfig := DefaultConfig()
 	if cfg == nil {
-		cfg = &Config{}
+		cfg = defaultConfig
 	}
 
 	cniConfig, ok := cfg.(*Config)
@@ -72,16 +96,13 @@ func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 		registerer.RegisterProcessor(constants.KubernetesPU, c.proc)
 	}
 
-	if cniConfig.ContextStorePath == "" {
-		cniConfig.ContextStorePath = "/var/run/trireme/cni"
-	}
+	// Setup defaults
+	cniConfig = SetupDefaultConfig(cniConfig)
+
+	// Setup configuration
 	c.proc.contextStore = contextstore.NewFileContextStore(cniConfig.ContextStorePath)
 	if c.proc.contextStore == nil {
 		return fmt.Errorf("Unable to create new context store")
-	}
-
-	if cniConfig.EventMetadataExtractor == nil {
-		cniConfig.EventMetadataExtractor = DockerMetadataExtractor
 	}
 	c.proc.metadataExtractor = cniConfig.EventMetadataExtractor
 	if c.proc.metadataExtractor == nil {
@@ -97,7 +118,8 @@ func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 func (c *cniMonitor) SetupHandlers(
 	collector collector.EventCollector,
 	puHandler monitorinstance.ProcessingUnitsHandler,
-	syncHandler monitorinstance.SynchronizationHandler) {
+	syncHandler monitorinstance.SynchronizationHandler,
+) {
 
 	c.proc.collector = collector
 	c.proc.puHandler = puHandler

@@ -20,6 +20,43 @@ type Config struct {
 	ReleasePath            string
 }
 
+// DefaultConfig provides a default configuration
+func DefaultConfig(host bool) *Config {
+
+	if host {
+		return &Config{
+			EventMetadataExtractor: DefaultHostMetadataExtractor,
+			StoredPath:             "/var/run/trireme/host",
+			ReleasePath:            "/var/lib/aporeto/cleaner",
+		}
+	}
+
+	return &Config{
+		EventMetadataExtractor: DefaultHostMetadataExtractor,
+		StoredPath:             "/var/run/trireme/linux",
+		ReleasePath:            "/var/lib/aporeto/cleaner",
+	}
+}
+
+// SetupDefaultConfig adds defaults to a partial configuration
+func SetupDefaultConfig(linuxConfig *Config) *Config {
+
+	defaultConfig := DefaultConfig(false)
+
+	if linuxConfig.ReleasePath == "" {
+		linuxConfig.ReleasePath = defaultConfig.ReleasePath
+	}
+
+	if linuxConfig.StoredPath == "" {
+		linuxConfig.StoredPath = defaultConfig.StoredPath
+	}
+	if linuxConfig.EventMetadataExtractor == nil {
+		linuxConfig.EventMetadataExtractor = defaultConfig.EventMetadataExtractor
+	}
+
+	return linuxConfig
+}
+
 // linuxMonitor captures all the monitor processor information
 // It implements the EventProcessor interface of the rpc monitor
 type linuxMonitor struct {
@@ -62,8 +99,9 @@ func (l *linuxMonitor) Stop() error {
 // can have its own config type.
 func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
 
+	defaultConfig := DefaultConfig(false)
 	if cfg == nil {
-		cfg = &Config{}
+		cfg = defaultConfig
 	}
 
 	linuxConfig, ok := cfg.(*Config)
@@ -75,14 +113,10 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 		registerer.RegisterProcessor(constants.LinuxProcessPU, l.proc)
 	}
 
-	if linuxConfig.ReleasePath == "" {
-		linuxConfig.ReleasePath = "/var/lib/aporeto/cleaner"
-	}
+	// Setup defaults
+	linuxConfig = SetupDefaultConfig(linuxConfig)
 
-	if linuxConfig.StoredPath == "" {
-		linuxConfig.StoredPath = "/var/run/trireme/linux"
-	}
-
+	// Setup config
 	l.proc.netcls = cgnetcls.NewCgroupNetController(linuxConfig.ReleasePath)
 	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StoredPath)
 	l.proc.storePath = linuxConfig.StoredPath
@@ -90,9 +124,6 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
 	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
 
-	if linuxConfig.EventMetadataExtractor == nil {
-		linuxConfig.EventMetadataExtractor = DefaultHostMetadataExtractor
-	}
 	l.proc.metadataExtractor = linuxConfig.EventMetadataExtractor
 	if l.proc.metadataExtractor == nil {
 		return fmt.Errorf("Unable to setup a metadata extractor")
