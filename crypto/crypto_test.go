@@ -360,7 +360,7 @@ IG7Nv+YlTVp5qA==
 						So(key, ShouldBeNil)
 						So(cert, ShouldBeNil)
 						So(certPool, ShouldBeNil)
-						So(err, ShouldResemble, fmt.Errorf("Failed to Parse PEM block"))
+						So(err, ShouldResemble, fmt.Errorf("Failed to Parse PEM block: -----BEGIN EC PRIVATE KEY-----\n\t\t\t-----END EC PRIVATE KEY-----"))
 					})
 				})
 

@@ -390,19 +390,19 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	msgErrors := []error{}
+	msgErrors := []string{}
 
 	// Cleanup resources held in this namespace
 	if s.supervisor != nil {
 		if err := s.supervisor.Stop(); err != nil {
-			msgErrors = append(msgErrors, fmt.Errorf("Supervisor error: %s", err))
+			msgErrors = append(msgErrors, fmt.Sprintf("Supervisor error: %s", err))
 		}
 		s.supervisor = nil
 	}
 
 	if s.enforcer != nil {
 		if err := s.enforcer.Stop(); err != nil {
-			msgErrors = append(msgErrors, fmt.Errorf("Enforcer error: %s", err))
+			msgErrors = append(msgErrors, fmt.Sprintf("Enforcer error: %s", err))
 		}
 		s.enforcer = nil
 	}
