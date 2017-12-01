@@ -40,7 +40,7 @@ func createPortAction(rule policy.IPRule) (*PortAction, error) {
 	if strings.Contains(rule.Port, ":") {
 		parts := strings.Split(rule.Port, ":")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid port: %s", rule.Port)
+			return nil, fmt.Errorf("invalid port: %s", rule.Port)
 		}
 
 		port, err := strconv.Atoi(parts[0])
@@ -66,7 +66,7 @@ func createPortAction(rule policy.IPRule) (*PortAction, error) {
 	}
 
 	if p.min > p.max {
-		return nil, fmt.Errorf("Min port is greater than max port")
+		return nil, fmt.Errorf("min port is greater than max port")
 	}
 
 	p.policy = rule.Policy
@@ -86,7 +86,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) error {
 
 	subnetSlice := net.ParseIP(parts[0])
 	if subnetSlice == nil {
-		return fmt.Errorf("Invalid IP address: %s", parts[0])
+		return fmt.Errorf("invalid ip address: %s", parts[0])
 	}
 
 	subnet = binary.BigEndian.Uint32(subnetSlice.To4())
@@ -97,14 +97,14 @@ func (c *ACLCache) AddRule(rule policy.IPRule) error {
 	case 2:
 		maskvalue, err := strconv.Atoi(parts[1])
 		if err != nil {
-			return fmt.Errorf("Invalid address: %s", err)
+			return fmt.Errorf("invalid address: %s", err)
 		}
 		if mask > 32 {
-			return fmt.Errorf("Invalid mask value: %d", mask)
+			return fmt.Errorf("invalid mask value: %d", mask)
 		}
 		mask = binary.BigEndian.Uint32(net.CIDRMask(maskvalue, 32))
 	default:
-		return fmt.Errorf("Invalid address: %s", rule.Address)
+		return fmt.Errorf("invalid address: %s", rule.Address)
 	}
 
 	if _, ok := c.prefixMap[mask]; !ok {
@@ -113,7 +113,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) error {
 
 	a, err := createPortAction(rule)
 	if err != nil {
-		return fmt.Errorf("Unable to create port action: %s", err)
+		return fmt.Errorf("unable to create port action: %s", err)
 	}
 
 	subnet = subnet & mask
@@ -154,5 +154,5 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (*policy.FlowPolicy
 		}
 	}
 
-	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}, fmt.Errorf("No match")
+	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}, fmt.Errorf("no match")
 }

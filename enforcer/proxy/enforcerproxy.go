@@ -94,7 +94,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
-		return fmt.Errorf("Failed to initialize remote enforcer: status: %s, error: %s", resp.Status, err)
+		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
 	}
 
 	s.Lock()

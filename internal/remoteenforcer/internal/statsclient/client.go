@@ -42,11 +42,11 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 	}
 
 	if sc.statsChannel == "" {
-		return nil, fmt.Errorf("No path to stats socket provided")
+		return nil, fmt.Errorf("no path to stats socket provided")
 	}
 
 	if sc.secret == "" {
-		return nil, fmt.Errorf("No secret provided for stats channel")
+		return nil, fmt.Errorf("no secret provided for stats channel")
 	}
 
 	return sc, nil

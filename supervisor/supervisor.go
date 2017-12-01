@@ -51,23 +51,23 @@ type Config struct {
 func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, implementation constants.ImplementationType, networks []string) (*Config, error) {
 
 	if collector == nil {
-		return nil, fmt.Errorf("Collector cannot be nil")
+		return nil, fmt.Errorf("collector cannot be nil")
 	}
 
 	if enforcerInstance == nil {
-		return nil, fmt.Errorf("Enforcer cannot be nil")
+		return nil, fmt.Errorf("enforcer cannot be nil")
 	}
 
 	filterQueue := enforcerInstance.GetFilterQueue()
 
 	if filterQueue == nil {
-		return nil, fmt.Errorf("Enforcer FilterQueues cannot be nil")
+		return nil, fmt.Errorf("enforcer filter queues cannot be nil")
 	}
 
 	portSetInstance := enforcerInstance.GetPortSetInstance()
 
 	if portSetInstance == nil {
-		return nil, fmt.Errorf("Enforcer portset instance cannot be nil")
+		return nil, fmt.Errorf("enforcer portset instance cannot be nil")
 	}
 
 	s := &Config{
@@ -89,7 +89,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, portSetInstance)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Unable to initialize supervisor controllers: %s", err)
+		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
 	return s, nil
@@ -100,13 +100,13 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil {
-		return fmt.Errorf("ContainerInfo must not be nil")
+		return fmt.Errorf("containerinfo must not be nil")
 	}
 	if containerInfo.Policy == nil {
-		return fmt.Errorf("containerInfo.Policy must not be nil")
+		return fmt.Errorf("containerinfo.policy must not be nil")
 	}
 	if containerInfo.Runtime == nil {
-		return fmt.Errorf("containerInfo.Runtime must not be nil")
+		return fmt.Errorf("containerinfo.runtime must not be nil")
 	}
 
 	_, err := s.versionTracker.Get(contextID)
@@ -128,7 +128,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	version, err := s.versionTracker.Get(contextID)
 
 	if err != nil {
-		return fmt.Errorf("Cannot find policy version: %s", err)
+		return fmt.Errorf("cannot find policy version: %s", err)
 	}
 
 	cacheEntry := version.(*cacheData)
@@ -149,7 +149,7 @@ func (s *Config) Unsupervise(contextID string) error {
 func (s *Config) Start() error {
 
 	if err := s.impl.Start(); err != nil {
-		return fmt.Errorf("Unable to start the implementer: %s", err)
+		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
 
 	s.Lock()
@@ -167,7 +167,7 @@ func (s *Config) Start() error {
 func (s *Config) Stop() error {
 
 	if err := s.impl.Stop(); err != nil {
-		return fmt.Errorf("Unable to stop the implementer: %s", err)
+		return fmt.Errorf("unable to stop the implementer: %s", err)
 	}
 
 	return nil
@@ -234,7 +234,7 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
 
 	if err != nil {
-		return fmt.Errorf("Unable to find PU %s in cache: %s", contextID, err)
+		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
 
 	cachedEntry := cacheEntry.(*cacheData)

@@ -360,7 +360,7 @@ IG7Nv+YlTVp5qA==
 						So(key, ShouldBeNil)
 						So(cert, ShouldBeNil)
 						So(certPool, ShouldBeNil)
-						So(err, ShouldResemble, fmt.Errorf("Failed to Parse PEM block: -----BEGIN EC PRIVATE KEY-----\n\t\t\t-----END EC PRIVATE KEY-----"))
+						So(err, ShouldResemble, fmt.Errorf("unable to parse pem block: -----BEGIN EC PRIVATE KEY-----\n\t\t\t-----END EC PRIVATE KEY-----"))
 					})
 				})
 
@@ -373,7 +373,7 @@ IG7Nv+YlTVp5qA==
 						So(key, ShouldBeNil)
 						So(cert, ShouldBeNil)
 						So(certPool, ShouldBeNil)
-						So(err, ShouldResemble, fmt.Errorf("Failed to load root certificate pool"))
+						So(err, ShouldResemble, fmt.Errorf("unable to load root certificate pool"))
 					})
 				})
 
@@ -386,7 +386,7 @@ IG7Nv+YlTVp5qA==
 						So(key, ShouldBeNil)
 						So(cert, ShouldBeNil)
 						So(certPool, ShouldBeNil)
-						So(err, ShouldResemble, fmt.Errorf("Failed to decode PEM block: -----BEGIN CERTIFICATE-----\n\t\t-----END CERTIFICATE-----"))
+						So(err, ShouldResemble, fmt.Errorf("unable to decode pem block: -----BEGIN CERTIFICATE-----\n\t\t-----END CERTIFICATE-----"))
 					})
 				})
 			})

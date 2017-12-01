@@ -108,7 +108,7 @@ func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(keyPEM)
 
 	if block == nil {
-		return nil, fmt.Errorf("Failed to parse PEM block: %s", string(keyPEM))
+		return nil, fmt.Errorf("unable to parse pem block: %s", string(keyPEM))
 	}
 
 	// Parse the key
@@ -154,7 +154,7 @@ func LoadAndVerifyECSecrets(keyPEM, certPEM, caCertPEM []byte) (key *ecdsa.Priva
 
 	rootCertPool = LoadRootCertificates(caCertPEM)
 	if rootCertPool == nil {
-		return nil, nil, nil, fmt.Errorf("Failed to load root certificate pool")
+		return nil, nil, nil, fmt.Errorf("unable to load root certificate pool")
 	}
 
 	cert, err = LoadAndVerifyCertificate(certPEM, rootCertPool)
@@ -174,7 +174,7 @@ func LoadCertificate(certPEM []byte) (*x509.Certificate, error) {
 	// Decode the certificate
 	certBlock, _ := pem.Decode(certPEM)
 	if certBlock == nil {
-		return nil, fmt.Errorf("Failed to decode PEM block: %s", string(certPEM))
+		return nil, fmt.Errorf("unable to parse pem block: %s", string(certPEM))
 	}
 
 	// Create the certificate structure

@@ -293,17 +293,17 @@ func (p *processMon) LaunchProcess(
 
 	pidstat, err := os.Stat(nsPath)
 	if err != nil {
-		return fmt.Errorf("Container pid %d not found: %s", refPid, err)
+		return fmt.Errorf("container pid %d not found: %s", refPid, err)
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return fmt.Errorf("Refused to launch a remote enforcer in host namespace")
+		return fmt.Errorf("refused to launch a remote enforcer in host namespace")
 	}
 
 	if _, err = os.Stat(p.netNSPath); err != nil {
 		err = os.MkdirAll(p.netNSPath, os.ModeDir)
 		if err != nil {
-			zap.L().Warn("Could not create directory", zap.Error(err))
+			zap.L().Warn("could not create directory", zap.Error(err))
 		}
 	}
 
@@ -317,7 +317,7 @@ func (p *processMon) LaunchProcess(
 
 	cmd, err := p.getLaunchProcessCmd(arg, contextID)
 	if err != nil {
-		return fmt.Errorf("Enforcer binary not found: %s", err)
+		return fmt.Errorf("enforcer binary not found: %s", err)
 	}
 
 	exited := make(chan int, 2)
@@ -331,7 +331,7 @@ func (p *processMon) LaunchProcess(
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
 		// This is a more serious failure. We can't reliably control the remote enforcer
-		return fmt.Errorf("Failed to generate secret: %s", err)
+		return fmt.Errorf("unable to generate secret: %s", err)
 	}
 
 	// Start command
@@ -349,7 +349,7 @@ func (p *processMon) LaunchProcess(
 		if err1 := os.Remove(contextFile); err1 != nil {
 			zap.L().Warn("Failed to clean up netns path", zap.Error(err1))
 		}
-		return fmt.Errorf("Enforcer Binary could not start: %s", err)
+		return fmt.Errorf("unable to start enforcer binary: %s", err)
 	}
 
 	go func() {

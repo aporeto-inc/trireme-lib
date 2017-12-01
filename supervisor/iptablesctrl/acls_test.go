@@ -21,7 +21,8 @@ func matchSpec(term string, rulespec []string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("error: Rule not found %s ", term)
+
+	return fmt.Errorf("rule not found: %s ", term)
 }
 
 func TestAddContainerChain(t *testing.T) {
@@ -44,7 +45,7 @@ func TestAddContainerChain(t *testing.T) {
 		Convey("When the appPacketChain fails", func() {
 			iptables.MockNewChain(t, func(table string, chain string) error {
 				if table == i.appPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -57,7 +58,7 @@ func TestAddContainerChain(t *testing.T) {
 		Convey("When the appAckPacket chain fails", func() {
 			iptables.MockNewChain(t, func(table string, chain string) error {
 				if table == i.appAckPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -70,7 +71,7 @@ func TestAddContainerChain(t *testing.T) {
 		Convey("When I add a container chain and it fails on the third  rule", func() {
 			iptables.MockNewChain(t, func(table string, chain string) error {
 				if table == i.netPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -102,7 +103,7 @@ func TestAddChainRules(t *testing.T) {
 		Convey("When I add the chain rules and the appPacketIPTableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -113,7 +114,7 @@ func TestAddChainRules(t *testing.T) {
 		Convey("When I add the chain rules and the appAckPacketIPTableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -125,7 +126,7 @@ func TestAddChainRules(t *testing.T) {
 		Convey("When I add the chain rules and the netPacketIPtableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.netPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -152,7 +153,7 @@ func TestAddChainRules(t *testing.T) {
 		Convey("When I add the chain rules and the appAckPacketIPTableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -163,7 +164,7 @@ func TestAddChainRules(t *testing.T) {
 		Convey("When I add the chain rules and the netPacketIPtableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.netPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -185,7 +186,7 @@ func TestAddChainRules(t *testing.T) {
 					return nil
 				}
 
-				return fmt.Errorf("Added to different chain %s", chain)
+				return fmt.Errorf("added to different chain: %s", chain)
 			})
 			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "80", "0", "1001", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
@@ -215,7 +216,7 @@ func TestAddPacketTrap(t *testing.T) {
 		Convey("When I add the packet trap rules and the appPacketIPTableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -228,7 +229,7 @@ func TestAddPacketTrap(t *testing.T) {
 		Convey("When I add the packet trap rules and the appAckPacketIPTableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -241,7 +242,7 @@ func TestAddPacketTrap(t *testing.T) {
 		Convey("When I add the packet trap rules and the netPacketIPtableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.netPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -271,7 +272,7 @@ func TestAddPacketTrap(t *testing.T) {
 		Convey("When I add the packet trap rules and the appAckPacketIPTableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -284,7 +285,7 @@ func TestAddPacketTrap(t *testing.T) {
 		Convey("When I add the packet trap rules and the netPacketIPtableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.netPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -317,7 +318,7 @@ func TestAddAppACLs(t *testing.T) {
 						return nil
 					}
 				}
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 
 			err := i.addAppACLs("", "chain", "", policy.IPRuleList{})
@@ -329,7 +330,7 @@ func TestAddAppACLs(t *testing.T) {
 		Convey("When I add app ACLs with no rules and it fails", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext && chain == "chain" {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -465,7 +466,7 @@ func TestAddNetAcls(t *testing.T) {
 						return nil
 					}
 				}
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 
 			err := i.addNetACLs("", "chain", "", policy.IPRuleList{})
@@ -477,7 +478,7 @@ func TestAddNetAcls(t *testing.T) {
 		Convey("When I add net ACLs with no rules and it fails", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.netPacketIPTableContext && chain == "chain" {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -655,7 +656,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 				return nil
 			})
 			iptables.MockClearChain(t, func(table string, chain string) error {
-				return fmt.Errorf("Error ")
+				return fmt.Errorf("error")
 			})
 			err := i.deleteAllContainerChains("appchain", "netchain")
 			Convey("I should stil get no error ", func() {
@@ -665,7 +666,7 @@ func TestDeleteAllContainerChains(t *testing.T) {
 
 		Convey("When I delete all container chains and it fails in delete chain ", func() {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 			iptables.MockClearChain(t, func(table string, chain string) error {
 				return nil
@@ -692,7 +693,7 @@ func TestAcceptMarkedPackets(t *testing.T) {
 				if matchSpec("mark", rulespec) == nil && matchSpec("--mark", rulespec) == nil && matchSpec("ACCEPT", rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 			err := i.acceptMarkedPackets()
 			Convey("I should get no error ", func() {
@@ -702,7 +703,7 @@ func TestAcceptMarkedPackets(t *testing.T) {
 
 		Convey("When I install the rule for marked packets and it fails ", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 			err := i.acceptMarkedPackets()
 			Convey("I should get no error ", func() {
@@ -730,7 +731,7 @@ func TestRemoveMarkRule(t *testing.T) {
 		})
 		Convey("When I delete the rule for marked packets and it fails  ", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 			err := i.removeMarkRule()
 			Convey("I should STILL get no error ", func() {
@@ -760,7 +761,7 @@ func TestAddExclusionACLs(t *testing.T) {
 		Convey("When I add the exclusion chain rules and the appPacketIPTableContext fails ", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if table == i.appAckPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -773,7 +774,7 @@ func TestAddExclusionACLs(t *testing.T) {
 		Convey("When I add the exclusion chain rules and the netPacketIPTableContext fails ", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if table == i.netPacketIPTableContext {
-					return fmt.Errorf("Error")
+					return fmt.Errorf("error")
 				}
 				return nil
 			})
@@ -811,7 +812,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 				if chain == "PREROUTING" || strings.Contains(rulestring, "UIDCHAIN") {
 // 					return nil
 // 				}
-// 				return fmt.Errorf("Failed")
+// 				return fmt.Errorf("failed")
 // 			})
 //
 // 			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
@@ -822,7 +823,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 					})
 // 					return testset, nil
 // 				}
-// 				return nil, fmt.Errorf("Wrong set")
+// 				return nil, fmt.Errorf("wrong set")
 // 			})
 //
 // 			err := i.setGlobalRules("OUTPUT", "INPUT")
@@ -834,7 +835,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 		Convey("When I add the capture, but iptables fails in the app chain", func() {
 // 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 // 				if table == i.appAckPacketIPTableContext {
-// 					return fmt.Errorf("Error")
+// 					return fmt.Errorf("error")
 // 				}
 // 				return nil
 // 			})
@@ -847,7 +848,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 					})
 // 					return testset, nil
 // 				}
-// 				return nil, fmt.Errorf("Wrong set")
+// 				return nil, fmt.Errorf("wrong set")
 // 			})
 //
 // 			err := i.setGlobalRules("OUTPUT", "INPUT")
@@ -859,7 +860,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 		Convey("When I add the capture, but iptables fails in the net chain", func() {
 // 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 // 				if table == i.netPacketIPTableContext {
-// 					return fmt.Errorf("Error")
+// 					return fmt.Errorf("error")
 // 				}
 // 				return nil
 // 			})
@@ -872,7 +873,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 					})
 // 					return testset, nil
 // 				}
-// 				return nil, fmt.Errorf("Wrong set")
+// 				return nil, fmt.Errorf("wrong set")
 // 			})
 //
 // 			err := i.setGlobalRules("OUTPUT", "INPUT")
@@ -899,7 +900,7 @@ func TestClearCaptureSynAckPackets(t *testing.T) {
 				if table == i.netPacketIPTableContext && chain == i.netPacketIPTableSection {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 
 			err := i.CleanGlobalRules()
@@ -927,19 +928,19 @@ func TestUpdateTargetNetworks(t *testing.T) {
 						if entry == "10.1.1.0/24" || entry == "20.1.1.0/24" || entry == "30.1.1.0/24" {
 							return nil
 						}
-						return fmt.Errorf("Error")
+						return fmt.Errorf("error")
 					})
 
 					testset.MockDel(t, func(entry string) error {
 						if entry == "10.1.1.0/24" {
 							return nil
 						}
-						return fmt.Errorf("Error")
+						return fmt.Errorf("error")
 					})
 
 					return testset, nil
 				}
-				return nil, fmt.Errorf("Wrong set")
+				return nil, fmt.Errorf("wrong set")
 			})
 
 			err := i.createTargetSet([]string{"10.1.1.0/24", "20.1.1.0/24"})

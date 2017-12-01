@@ -24,14 +24,14 @@ func (i *Instance) updateTargetNetworks(old, new []string) error {
 		}
 
 		if err := i.targetSet.Add(net, 0); err != nil {
-			return fmt.Errorf("Unable to update target set: %s", err)
+			return fmt.Errorf("unable to update target set: %s", err)
 		}
 	}
 
 	for net, delete := range deleteMap {
 		if delete {
 			if err := i.targetSet.Del(net); err != nil {
-				zap.L().Debug("Unable to remove network from set", zap.Error(err))
+				zap.L().Debug("unable to remove network from set", zap.Error(err))
 			}
 		}
 	}
@@ -43,14 +43,14 @@ func (i *Instance) createTargetSet(networks []string) error {
 
 	ips, err := i.ipset.NewIpset(targetNetworkSet, "hash:net", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create IPSet for %s: %s", targetNetworkSet, err)
+		return fmt.Errorf("unable to create ipset for %s: %s", targetNetworkSet, err)
 	}
 
 	i.targetSet = ips
 
 	for _, net := range networks {
 		if err := i.targetSet.Add(net, 0); err != nil {
-			return fmt.Errorf("Unable to add ip %s to target networks IPSet: %s", net, err)
+			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 
@@ -63,7 +63,7 @@ func (i *Instance) createProxySets(vipipportset []string, pipipportset []string,
 
 	ips, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create IPSet for %s: %s", destSetName, err)
+		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
 	}
 
 	i.vipTargetSet = ips
@@ -71,13 +71,13 @@ func (i *Instance) createProxySets(vipipportset []string, pipipportset []string,
 	for _, net := range vipipportset {
 		if err = i.vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("Unable to add ip %s to target networks IPSet: %s", net, err)
+			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 
 	ips, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create IPSet for %s: %s", srcSetName, err)
+		return fmt.Errorf("unable to create ipset for %s: %s", srcSetName, err)
 	}
 
 	i.pipTargetSet = ips
@@ -86,7 +86,7 @@ func (i *Instance) createProxySets(vipipportset []string, pipipportset []string,
 		zap.L().Error("Adding Net", zap.String("IPPORT", net))
 		if err := i.pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add pip", zap.Error(err))
-			return fmt.Errorf("Unable to add ip %s to target networks IPSet: %s", net, err)
+			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 
@@ -105,7 +105,7 @@ func (i *Instance) updateProxySet(vipipportset []string, pipipportset []string, 
 	for _, net := range vipipportset {
 		if err := i.vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("Unable to add ip %s to target networks IPSet: %s", net, err)
+			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 
@@ -119,7 +119,7 @@ func (i *Instance) updateProxySet(vipipportset []string, pipipportset []string, 
 	for _, net := range pipipportset {
 		if err := i.pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("Unable to add ip %s to target networks IPSet: %s", net, err)
+			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 	return nil

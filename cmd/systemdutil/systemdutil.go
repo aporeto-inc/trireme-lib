@@ -167,7 +167,7 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 
 	// Process the rest of the arguments of the create command
 	if value, ok := arguments["run"]; !ok || value == nil {
-		return nil, fmt.Errorf("No valid command provided")
+		return nil, fmt.Errorf("invalid command")
 	}
 
 	// This is a create request - proceed
@@ -211,7 +211,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 	// If its not hostPolicy and the command doesn't exist we return an error
 	if !c.HostPolicy {
 		if c.Executable == "" {
-			return fmt.Errorf("Command must be provided")
+			return fmt.Errorf("command must be provided")
 		}
 		if !path.IsAbs(c.Executable) {
 			c.Executable, err = exec.LookPath(c.Executable)
@@ -257,7 +257,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 // Delete will issue a delete command
 func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
-		return fmt.Errorf("Cgroup, serviceID and serviceName must be defined: cgroup: '%s', serviceName: '%s', serviceID: '%s'", c.Cgroup, c.ServiceName, c.ServiceID)
+		return fmt.Errorf("cgroup, service id and service name must all be defined: cgroup=%s servicename=%s serviceid=%s", c.Cgroup, c.ServiceName, c.ServiceID)
 	}
 
 	rpcAdress := rpcmonitor.DefaultRPCAddress
@@ -282,7 +282,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	if c.Cgroup != "" {
 		parts := strings.Split(c.Cgroup, "/")
 		if len(parts) != 3 {
-			return fmt.Errorf("Invalid cgroup: %s", c.Cgroup)
+			return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
 		}
 
 		if !c.HostPolicy {
@@ -312,7 +312,7 @@ func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
 	case DeleteCgroupRequest, DeleteServiceRequest:
 		return r.Delete(c)
 	default:
-		return fmt.Errorf("Unknown request: %d", c.Request)
+		return fmt.Errorf("unknown request: %d", c.Request)
 	}
 }
 
@@ -326,7 +326,7 @@ func sendRPC(address string, request *rpcmonitor.EventInfo) error {
 		nerr, ok := err.(*net.OpError)
 
 		if numRetries >= maxRetries || !(ok && nerr.Err == syscall.EAGAIN) {
-			return fmt.Errorf("Cannot connect to policy process: %s", nerr)
+			return fmt.Errorf("cannot connect to policy process: %s", nerr)
 		}
 
 		time.Sleep(5 * time.Millisecond)
@@ -343,7 +343,7 @@ func sendRPC(address string, request *rpcmonitor.EventInfo) error {
 	}
 
 	if response.Error != "" {
-		return fmt.Errorf("Policy does not allow to run this command: %s", response.Error)
+		return fmt.Errorf("policy does not allow to run this command: %s", response.Error)
 	}
 
 	return nil
@@ -365,7 +365,7 @@ func ParseServices(ports []string) ([]policy.Service, error) {
 			return nil, err
 		}
 		if intPort > 0xFFFF || intPort < 0 {
-			return nil, fmt.Errorf("Invalid service: port must be greater than 0xFFFF and lesser than 0: %d", intPort)
+			return nil, fmt.Errorf("invalid service: port must be greater than 0xffff and lesser than 0: %d", intPort)
 		}
 
 		// TODO: Assumes only TCP here until we add UDP support

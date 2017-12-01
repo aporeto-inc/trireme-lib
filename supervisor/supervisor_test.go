@@ -116,7 +116,7 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I supervise a new PU with valid policy, but there is an error", func() {
-			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(fmt.Errorf("Error"))
+			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(fmt.Errorf("error"))
 			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			err := s.Supervise("errorPU", puInfo)
 			Convey("I should  get an error", func() {
@@ -137,7 +137,7 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
+			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
 			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
@@ -213,7 +213,7 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I try to start it and the implementor returns an error", func() {
-			impl.EXPECT().Start().Return(fmt.Errorf("Error"))
+			impl.EXPECT().Start().Return(fmt.Errorf("error"))
 			err := s.Start()
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)

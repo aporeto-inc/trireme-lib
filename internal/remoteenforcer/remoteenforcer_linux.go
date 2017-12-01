@@ -96,7 +96,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		// PKI params
 		s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
 		if err != nil {
-			return fmt.Errorf("Failed to initialize secrets: %s", err)
+			return fmt.Errorf("unable to initialize secrets: %s", err)
 		}
 
 	case secrets.PSKType:
@@ -107,7 +107,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		// Compact PKI Parameters
 		s.secrets, err = secrets.NewCompactPKIWithTokenCA(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.TokenKeyPEMs, payload.Token)
 		if err != nil {
-			return fmt.Errorf("Failed to initialize secrets: %s", err)
+			return fmt.Errorf("unable to initialize secrets: %s", err)
 		}
 
 	case secrets.PKINull:
@@ -115,7 +115,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		zap.L().Info("Using Null Secrets")
 		s.secrets, err = secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
 		if err != nil {
-			return fmt.Errorf("Failed to initialize secrets: %s", err)
+			return fmt.Errorf("unable to initialize secrets: %s", err)
 		}
 	}
 
@@ -133,7 +133,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 	); s.enforcer == nil {
-		return fmt.Errorf("Unable to setup enforcer")
+		return fmt.Errorf("unable to setup enforcer: we don't know as this function does not return an error...")
 	}
 
 	return nil
@@ -224,7 +224,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 		switch payload.CaptureMethod {
 		case rpcwrapper.IPSets:
 			//TO DO
-			return fmt.Errorf("IPSets not supported yet")
+			return fmt.Errorf("ipsets not supported yet")
 		default:
 			supervisorHandle, err := supervisor.NewSupervisor(
 				s.collector,
@@ -234,14 +234,14 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 				payload.TriremeNetworks,
 			)
 			if err != nil {
-				zap.L().Error("Failed to instantiate the iptables supervisor", zap.Error(err))
+				zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
 				return err
 			}
 			s.supervisor = supervisorHandle
 		}
 
 		if err := s.supervisor.Start(); err != nil {
-			zap.L().Error("Error when starting the supervisor", zap.Error(err))
+			zap.L().Error("unabbke to start the supervisor", zap.Error(err))
 		}
 
 		if s.service != nil {
@@ -250,7 +250,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 
 	} else {
 		if err := s.supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
-			zap.L().Error("Error when setting target networks to supervision", zap.Error(err))
+			zap.L().Error("unable to set target networks", zap.Error(err))
 		}
 	}
 
@@ -263,7 +263,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("Supervise message auth failed")
+		resp.Status = fmt.Sprintf("supervise message auth failed")
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -366,7 +366,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
-		return fmt.Errorf("Unable to instantiate puInfo")
+		return fmt.Errorf("unable to instantiate pu info")
 	}
 	if s.enforcer == nil {
 		zap.L().Fatal("Enforcer not initialized")

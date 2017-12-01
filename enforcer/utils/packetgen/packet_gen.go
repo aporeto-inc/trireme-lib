@@ -21,7 +21,7 @@ func NewPacket() PacketManipulator {
 func (p *Packet) AddEthernetLayer(srcMACstr string, dstMACstr string) error {
 
 	if p.ethernetLayer != nil {
-		return fmt.Errorf("Ethernet layer already exists")
+		return fmt.Errorf("ethernet layer already exists")
 	}
 
 	var srcMAC, dstMAC net.HardwareAddr
@@ -30,14 +30,14 @@ func (p *Packet) AddEthernetLayer(srcMACstr string, dstMACstr string) error {
 	srcMAC, _ = net.ParseMAC(srcMACstr)
 
 	if srcMAC == nil {
-		return fmt.Errorf("No source MAC given")
+		return fmt.Errorf("no source mac given")
 	}
 
 	//MAC address of the destination
 	dstMAC, _ = net.ParseMAC(dstMACstr)
 
 	if dstMAC == nil {
-		return fmt.Errorf("No destination MAC given")
+		return fmt.Errorf("no destination mac given")
 	}
 
 	//Ethernet packet header
@@ -60,7 +60,7 @@ func (p *Packet) GetEthernetPacket() layers.Ethernet {
 func (p *Packet) AddIPLayer(srcIPstr string, dstIPstr string) error {
 
 	if p.ipLayer != nil {
-		return fmt.Errorf("IP Layer already exists")
+		return fmt.Errorf("ip layer already exists")
 	}
 
 	var srcIP, dstIP net.IP
@@ -69,14 +69,14 @@ func (p *Packet) AddIPLayer(srcIPstr string, dstIPstr string) error {
 	srcIP = net.ParseIP(srcIPstr)
 
 	if srcIP == nil {
-		return fmt.Errorf("No source IP given")
+		return fmt.Errorf("no source ip given")
 	}
 
 	//IP address of the destination
 	dstIP = net.ParseIP(dstIPstr)
 
 	if dstIP == nil {
-		return fmt.Errorf("No destination IP given")
+		return fmt.Errorf("no destination ip given")
 	}
 
 	//IP packet header
@@ -107,15 +107,15 @@ func (p *Packet) GetIPPacket() layers.IPv4 {
 func (p *Packet) AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error {
 
 	if p.tcpLayer != nil {
-		return fmt.Errorf("TCP Layer already exists")
+		return fmt.Errorf("tcp layer already exists")
 	}
 
 	if srcPort == 0 {
-		return fmt.Errorf("No source TCP port given")
+		return fmt.Errorf("no source tcp port given")
 	}
 
 	if dstPort == 0 {
-		return fmt.Errorf("No destination TCP port given")
+		return fmt.Errorf("no destination tcp port given")
 	}
 
 	//TCP packet header
@@ -267,7 +267,7 @@ func (p *Packet) SetTCPFin() {
 func (p *Packet) NewTCPPayload(newPayload string) error {
 
 	if p.tcpLayer.Payload != nil {
-		return fmt.Errorf("Payload already exists")
+		return fmt.Errorf("payload already exists")
 	}
 
 	p.tcpLayer.Payload = []byte(newPayload)
@@ -284,14 +284,14 @@ func (p *Packet) ToBytes() ([]byte, error) {
 	}
 
 	if err := p.tcpLayer.SetNetworkLayerForChecksum(p.ipLayer); err != nil {
-		return nil, fmt.Errorf("Unable to compute checksum: %s", err)
+		return nil, fmt.Errorf("unable to compute checksum: %s", err)
 	}
 
 	//Creating a packet buffer by serializing the ethernet, IP and TCP layers/packets
 	packetBuf := gopacket.NewSerializeBuffer()
 	tcpPayload := gopacket.Payload(p.tcpLayer.Payload)
 	if err := gopacket.SerializeLayers(packetBuf, opts, p.ethernetLayer, p.ipLayer, p.tcpLayer, tcpPayload); err != nil {
-		return nil, fmt.Errorf("Unable to serialize layers: %s", err)
+		return nil, fmt.Errorf("unable to serialize layers: %s", err)
 	}
 	//Converting into bytes and removing the ethernet from the layers
 	bytes := packetBuf.Bytes()
@@ -399,13 +399,13 @@ func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) (PacketFlowManipulator, 
 		//Create a SYN packet to initialize the flow
 		firstPacket := NewPacket()
 		if err := firstPacket.AddEthernetLayer(p.sMAC, p.dMAC); err != nil {
-			return nil, fmt.Errorf("Unable tp add ethernet layer: %s", err)
+			return nil, fmt.Errorf("unable tp add ethernet layer: %s", err)
 		}
 		if err := firstPacket.AddIPLayer(p.sIP, p.dIP); err != nil {
-			return nil, fmt.Errorf("Unable to add IP layer: %s", err)
+			return nil, fmt.Errorf("unable to add ip layer: %s", err)
 		}
 		if err := firstPacket.AddTCPLayer(p.sPort, p.dPort); err != nil {
-			return nil, fmt.Errorf("Unable to add TCP layer: %s", err)
+			return nil, fmt.Errorf("unable to add tcp layer: %s", err)
 		}
 		firstPacket.SetTCPSyn()
 		firstPacket.SetTCPSequenceNumber(firstPacket.GetTCPSequenceNumber())
@@ -417,13 +417,13 @@ func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) (PacketFlowManipulator, 
 		//Create a SynAck packet
 		secondPacket := NewPacket()
 		if err := secondPacket.AddEthernetLayer(p.sMAC, p.dMAC); err != nil {
-			return nil, fmt.Errorf("Unable to add ethernet layer: %s", err)
+			return nil, fmt.Errorf("unable to add ethernet layer: %s", err)
 		}
 		if err := secondPacket.AddIPLayer(p.dIP, p.sIP); err != nil {
-			return nil, fmt.Errorf("Unable to add IP layer: %s", err)
+			return nil, fmt.Errorf("unable to add ip layer: %s", err)
 		}
 		if err := secondPacket.AddTCPLayer(p.dPort, p.sPort); err != nil {
-			return nil, fmt.Errorf("Unable to add TCP layer: %s", err)
+			return nil, fmt.Errorf("unable to add tcp layer: %s", err)
 		}
 		secondPacket.SetTCPSynAck()
 		secondPacket.SetTCPSequenceNumber(0)
@@ -435,13 +435,13 @@ func (p *PacketFlow) GenerateTCPFlow(pt PacketFlowType) (PacketFlowManipulator, 
 		//Create an Ack Packet
 		thirdPacket := NewPacket()
 		if err := thirdPacket.AddEthernetLayer(p.sMAC, p.dMAC); err != nil {
-			return nil, fmt.Errorf("Unable tp add ethernet layer: %s", err)
+			return nil, fmt.Errorf("unable tp add ethernet layer: %s", err)
 		}
 		if err := thirdPacket.AddIPLayer(p.sIP, p.dIP); err != nil {
-			return nil, fmt.Errorf("Unable tp add IP layer: %s", err)
+			return nil, fmt.Errorf("unable to add ip layer: %s", err)
 		}
 		if err := thirdPacket.AddTCPLayer(p.sPort, p.dPort); err != nil {
-			return nil, fmt.Errorf("Unable tp add TCP layer: %s", err)
+			return nil, fmt.Errorf("unable to add tcp layer: %s", err)
 		}
 		thirdPacket.SetTCPAck()
 		thirdPacket.SetTCPSequenceNumber(secondPacket.GetTCPAcknowledgementNumber())

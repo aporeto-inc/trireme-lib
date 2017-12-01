@@ -49,22 +49,22 @@ func (s *netCls) Creategroup(cgroupname string) error {
 	if s.ReleaseAgentPath != "" {
 		err = ioutil.WriteFile(filepath.Join(basePath, releaseAgentConfFile), []byte(s.ReleaseAgentPath), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to register a release agent error: %s", err)
+			return fmt.Errorf("unable to register a release agent error: %s", err)
 		}
 
 		err = ioutil.WriteFile(filepath.Join(basePath, notifyOnReleaseFile), []byte("1"), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to write to the notify file: %s", err)
+			return fmt.Errorf("unable to write to the notify file: %s", err)
 		}
 
 		err = ioutil.WriteFile(filepath.Join(basePath, TriremeBasePath, notifyOnReleaseFile), []byte("1"), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to write to the notify file: %s", err)
+			return fmt.Errorf("unable to write to the notify file: %s", err)
 		}
 
 		err = ioutil.WriteFile(filepath.Join(basePath, TriremeBasePath, cgroupname, notifyOnReleaseFile), []byte("1"), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to write to the notify file: %s", err)
+			return fmt.Errorf("unable to write to the notify file: %s", err)
 		}
 	}
 
@@ -144,7 +144,7 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 
 	err = os.Remove(filepath.Join(basePath, TriremeBasePath, cgroupname))
 	if err != nil {
-		return fmt.Errorf("Failed to delete cgroup %s error returned %s", cgroupname, err.Error())
+		return fmt.Errorf("unable to delete cgroup %s: %s", cgroupname, err.Error())
 	}
 
 	return nil

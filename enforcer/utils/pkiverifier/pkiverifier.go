@@ -99,7 +99,7 @@ func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 		return pk, nil
 	}
 
-	return nil, fmt.Errorf("Unable to verify token against any available public key")
+	return nil, fmt.Errorf("unable to verify token against any available public key")
 }
 
 // CreateTokenFromCertificate creates and signs a token

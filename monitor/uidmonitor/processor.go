@@ -241,7 +241,7 @@ func (s *UIDProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Unable to generate contextID: %s", err)
+		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
@@ -264,7 +264,7 @@ func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 	walker, err := s.contextStore.Walk()
 	if err != nil {
-		return fmt.Errorf("Unable to walk context store: %s", err)
+		return fmt.Errorf("unable to walk context store: %s", err)
 	}
 
 	cgroups := cgnetcls.GetCgroupList()
@@ -326,7 +326,7 @@ func (s *UIDProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (strin
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
 		if !s.regStop.Match([]byte(eventInfo.Cgroup)) {
-			return "", fmt.Errorf("Invalid PUID %s", eventInfo.Cgroup)
+			return "", fmt.Errorf("invalid pu id: %s", eventInfo.Cgroup)
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}

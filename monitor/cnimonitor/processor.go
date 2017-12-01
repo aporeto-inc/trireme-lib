@@ -80,7 +80,7 @@ func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
 	return p.puHandler.HandlePUEvent(contextID, monitor.EventStop)
@@ -115,7 +115,7 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 	walker, err := p.contextStore.Walk()
 	if err != nil {
-		return fmt.Errorf("Unable to access context store: %s", err)
+		return fmt.Errorf("unable to walk the context store: %s", err)
 	}
 
 	for {
@@ -150,11 +150,11 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 func generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
 
 	if eventInfo.PUID == "" {
-		return "", fmt.Errorf("PUID is empty from eventInfo")
+		return "", fmt.Errorf("puid is empty from event info")
 	}
 
 	if len(eventInfo.PUID) < 12 {
-		return "", fmt.Errorf("PUID smaller than 12 characters")
+		return "", fmt.Errorf("puid smaller than 12 characters")
 	}
 
 	return eventInfo.PUID[:12], nil

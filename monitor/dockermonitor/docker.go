@@ -68,11 +68,11 @@ type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, erro
 func contextIDFromDockerID(dockerID string) (string, error) {
 
 	if dockerID == "" {
-		return "", fmt.Errorf("Unable to generate contextID: empty DockerID")
+		return "", fmt.Errorf("unable to generate context id: empty docker id")
 	}
 
 	if len(dockerID) < 12 {
-		return "", fmt.Errorf("Unable to generate contextID: dockerID smaller than 12 characters: %s", dockerID)
+		return "", fmt.Errorf("unable to generate context id: dockerid smaller than 12 characters: %s", dockerID)
 	}
 
 	return dockerID[:12], nil
@@ -94,14 +94,14 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 		socket = "unix://" + socketAddress
 
 	default:
-		return nil, fmt.Errorf("Bad socket type: %s", socketType)
+		return nil, fmt.Errorf("bad socket type: %s", socketType)
 	}
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
 	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 
 	if err != nil {
-		return nil, fmt.Errorf("Unable to create Docker client: %s", err)
+		return nil, fmt.Errorf("unable to create docker client: %s", err)
 	}
 
 	return dockerClient, nil
@@ -262,7 +262,7 @@ func (d *dockerMonitor) Start() error {
 	defer cancel()
 	_, err := d.dockerClient.Ping(ctx)
 	if err != nil {
-		return fmt.Errorf("Unable to ping docker daemon: %s", err)
+		return fmt.Errorf("unable to ping docker daemon: %s", err)
 	}
 
 	// Starting the eventListener First.
@@ -382,7 +382,7 @@ func (d *dockerMonitor) syncContainers() error {
 	containers, err := d.dockerClient.ContainerList(context.Background(), options)
 
 	if err != nil {
-		return fmt.Errorf("Unable to get container list: %s", err)
+		return fmt.Errorf("unable to get container list: %s", err)
 	}
 
 	if d.syncHandler != nil {
@@ -391,7 +391,7 @@ func (d *dockerMonitor) syncContainers() error {
 
 			container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 			if err != nil {
-				zap.L().Error("Unable to sync existing container",
+				zap.L().Error("unable to sync existing container",
 					zap.String("dockerID", c.ID),
 					zap.Error(err),
 				)
@@ -524,14 +524,14 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 					zap.Error(derr),
 				)
 			}
-			return fmt.Errorf("Unable to set policy: killed container %s: %s", contextID, err)
+			return fmt.Errorf("unable to set policy: killed container %s: %s", contextID, err)
 		}
-		return fmt.Errorf("Unable to set policy: container %s kept alive per policy: %s", contextID, err)
+		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", contextID, err)
 	}
 
 	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
 		if err := d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
-			return fmt.Errorf("Unable to setup host mode for container %s: %s", contextID, err)
+			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
 		}
 	}
 
@@ -552,7 +552,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
 
 	if dockerInfo == nil {
-		return nil, fmt.Errorf("DockerInfo is empty")
+		return nil, fmt.Errorf("docker info is empty")
 	}
 
 	if d.metadataExtractor != nil {
@@ -605,10 +605,10 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 				Event:     collector.ContainerFailed,
 			})
 
-			return fmt.Errorf("Unable to read container information: container %s killed: %s", contextID, err)
+			return fmt.Errorf("unable to read container information: container %s killed: %s", contextID, err)
 		}
 
-		return fmt.Errorf("Unable to read container information: container %s kept alive per policy: %s", contextID, err)
+		return fmt.Errorf("unable to read container information: container %s kept alive per policy: %s", contextID, err)
 	}
 
 	return d.startDockerContainer(&info)

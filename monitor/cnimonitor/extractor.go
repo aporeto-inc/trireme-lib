@@ -16,14 +16,14 @@ type CNIMetadataExtractor func(event *rpcmonitor.EventInfo) (*policy.PURuntime, 
 func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
-		return nil, fmt.Errorf("NamespacePath is required when using CNI")
+		return nil, fmt.Errorf("namespace path is required when using cni")
 	}
 
 	runtimeTags := policy.NewTagStore()
 	for _, tag := range event.Tags {
 		parts := strings.Split(tag, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid tag: %s", tag)
+			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
@@ -37,14 +37,14 @@ func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURunt
 func DockerCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
-		return nil, fmt.Errorf("NamespacePath is required when using CNI")
+		return nil, fmt.Errorf("namespace path is required when using cni")
 	}
 
 	runtimeTags := policy.NewTagStore()
 	for _, tag := range event.Tags {
 		parts := strings.Split(tag, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid tag: %s", tag)
+			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}

@@ -122,12 +122,12 @@ func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 
 	portSetName, err := p.userPortSet.Get(userName)
 	if err != nil {
-		return "", fmt.Errorf("Invalid portset name: %s", err)
+		return "", fmt.Errorf("invalid portset name: %s", err)
 	}
 
 	port, ok := portSetName.(string)
 	if !ok {
-		return "", fmt.Errorf("Invalid portset name: portSetName is not a string")
+		return "", fmt.Errorf("invalid portset name: portset name is not a string")
 	}
 
 	return port, nil
@@ -138,7 +138,7 @@ func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 func (p *portSetInstance) DelUserPortSet(userName string, mark string) (err error) {
 
 	if err = p.userPortSet.Remove(userName); err != nil {
-		return fmt.Errorf("Unable to remove uid from portset cache: %s", err)
+		return fmt.Errorf("unable to remove uid from portset cache: %s", err)
 	}
 
 	return p.markUserMap.Remove(mark)
@@ -149,12 +149,12 @@ func (p *portSetInstance) GetUserMark(mark string) (string, error) {
 
 	userName, err := p.markUserMap.Get(mark)
 	if err != nil {
-		return "", fmt.Errorf("Invalid mark: %s", err)
+		return "", fmt.Errorf("invalid mark: %s", err)
 	}
 
 	user, ok := userName.(string)
 	if !ok {
-		return "", fmt.Errorf("Invalid mark: not a string")
+		return "", fmt.Errorf("invalid mark: not a string")
 	}
 
 	return user, nil
@@ -166,7 +166,7 @@ func (p *portSetInstance) addPortSet(userName string, port string) (err error) {
 
 	puPortSetName, err := p.getUserPortSet(userName)
 	if err != nil {
-		return fmt.Errorf("Unable to get portset from uid: %s", err)
+		return fmt.Errorf("unable to get portset from uid: %s", err)
 	}
 
 	ips := ipset.IPSet{
@@ -174,11 +174,11 @@ func (p *portSetInstance) addPortSet(userName string, port string) (err error) {
 	}
 
 	if _, err = strconv.Atoi(port); err != nil {
-		return fmt.Errorf("Invalid port: %s", err)
+		return fmt.Errorf("invalid port: %s", err)
 	}
 
 	if err = ips.Add(port, 0); err != nil {
-		return fmt.Errorf("Unable to add port to set: %s", err)
+		return fmt.Errorf("unable to add port to set: %s", err)
 	}
 
 	return nil
@@ -189,7 +189,7 @@ func (p *portSetInstance) deletePortSet(userName string, port string) error {
 
 	puPortSetName, err := p.getUserPortSet(userName)
 	if err != nil {
-		return fmt.Errorf("Unable to get portset from uid: %s", err)
+		return fmt.Errorf("unable to get portset from uid: %s", err)
 	}
 
 	ips := ipset.IPSet{
@@ -197,11 +197,11 @@ func (p *portSetInstance) deletePortSet(userName string, port string) error {
 	}
 
 	if _, err = strconv.Atoi(port); err != nil {
-		return fmt.Errorf("Invalid port: %s", err)
+		return fmt.Errorf("invalid port: %s", err)
 	}
 
 	if err = ips.Del(port); err != nil {
-		return fmt.Errorf("Unable to delete port from portset: %s", err)
+		return fmt.Errorf("unable to delete port from portset: %s", err)
 	}
 
 	return nil

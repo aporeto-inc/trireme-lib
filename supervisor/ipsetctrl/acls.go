@@ -21,12 +21,12 @@ func (i *Instance) createACLSets(version string, set string, rules policy.IPRule
 
 	allowSet, err := i.ips.NewIpset(set+allowPrefix+version, "hash:net,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create IPSet for Trireme: %s", err)
+		return fmt.Errorf("unable to create ipset for trireme: %s", err)
 	}
 
 	rejectSet, err := i.ips.NewIpset(set+rejectPrefix+version, "hash:net,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create IPSet for Trireme: %s", err)
+		return fmt.Errorf("unable to create ipset for trireme: %s", err)
 	}
 
 	for _, rule := range rules {
@@ -40,7 +40,7 @@ func (i *Instance) createACLSets(version string, set string, rules policy.IPRule
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("Unable to create IPSet for Trireme: %s", err)
+			return fmt.Errorf("unable to create ipset for trireme: %s", err)
 		}
 	}
 
@@ -61,7 +61,7 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
 			zap.Error(err),
 		)
-		return fmt.Errorf("Unable to add app acl rule: %s", err)
+		return fmt.Errorf("unable to add app acl rule: %s", err)
 
 	}
 
@@ -76,7 +76,7 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
 			zap.Error(err),
 		)
-		return fmt.Errorf("Unable to add app acl rule: %s", err)
+		return fmt.Errorf("unable to add app acl rule: %s", err)
 
 	}
 
@@ -97,7 +97,7 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 			zap.String("netPacketIPTableContext", i.netPacketIPTableContext),
 			zap.Error(err),
 		)
-		return fmt.Errorf("Unable to add net acl rule: %s", err)
+		return fmt.Errorf("unable to add net acl rule: %s", err)
 	}
 
 	if err := i.ipt.Insert(
@@ -111,7 +111,7 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 			zap.String("netPacketIPTableContext", i.netPacketIPTableContext),
 			zap.Error(err),
 		)
-		return fmt.Errorf("Unable to add net acl rule: %s", err)
+		return fmt.Errorf("unable to add net acl rule: %s", err)
 	}
 	return nil
 }
@@ -187,7 +187,7 @@ func (i *Instance) deleteSet(set string) error {
 
 	ipSet, err := i.ips.NewIpset(set, "hash:net,port", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create IPSet for trireme: %s", err)
+		return fmt.Errorf("unable to create ipset for trireme: %s", err)
 	}
 
 	return ipSet.Destroy()
@@ -198,14 +198,14 @@ func (i *Instance) setupIpset(target, container string) error {
 
 	ips, err := i.ips.NewIpset(target, "hash:net", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create IPSet for %s: %s", target, err)
+		return fmt.Errorf("unable to create ipset for %s: %s", target, err)
 	}
 
 	i.targetSet = ips
 
 	cSet, err := i.ips.NewIpset(container, "hash:ip", &ipset.Params{})
 	if err != nil {
-		return fmt.Errorf("Unable to create container IPSet: %s", err)
+		return fmt.Errorf("unable to create container ipset: %s", err)
 	}
 
 	i.containerSet = cSet
@@ -217,12 +217,12 @@ func (i *Instance) setupIpset(target, container string) error {
 func (i *Instance) addTargetNets(networks []string) error {
 
 	if i.targetSet == nil {
-		return fmt.Errorf("Target set not configured")
+		return fmt.Errorf("target net set not configured")
 	}
 
 	for _, net := range networks {
 		if err := i.targetSet.Add(net, 0); err != nil {
-			return fmt.Errorf("Unable to add IP %s to target networks IPSet: %s", net, err)
+			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 	return nil
@@ -231,11 +231,11 @@ func (i *Instance) addTargetNets(networks []string) error {
 func (i *Instance) addContainerToSet(ip string) error {
 
 	if i.containerSet == nil {
-		return fmt.Errorf("Container set is nil. Invalid operation")
+		return fmt.Errorf("invalid operation: container set is nil")
 	}
 
 	if err := i.containerSet.Add(ip, 0); err != nil {
-		return fmt.Errorf("Unable to add IP %s to container IPSet : %s", ip, err)
+		return fmt.Errorf("unable to add ip %s to container ipset : %s", ip, err)
 	}
 	return nil
 }
@@ -243,11 +243,11 @@ func (i *Instance) addContainerToSet(ip string) error {
 func (i *Instance) delContainerFromSet(ip string) error {
 
 	if i.containerSet == nil {
-		return fmt.Errorf("Container set is nil. Invalid operation")
+		return fmt.Errorf("invalid operation: container set is nil")
 	}
 
 	if err := i.containerSet.Del(ip); err != nil {
-		return fmt.Errorf("Unable to add IP %s to container IPSet: %s", ip, err)
+		return fmt.Errorf("unable to add ip %s to container ipset: %s", ip, err)
 	}
 	return nil
 }
@@ -256,7 +256,7 @@ func (i *Instance) delContainerFromSet(ip string) error {
 func (i *Instance) addIpsetOption(ip string) error {
 
 	if i.targetSet == nil {
-		return fmt.Errorf("Target set is nil. Cannot add option")
+		return fmt.Errorf("cannot add option: target set is nil")
 	}
 
 	return i.targetSet.AddOption(ip, "nomatch", 0)
@@ -266,7 +266,7 @@ func (i *Instance) addIpsetOption(ip string) error {
 func (i *Instance) deleteIpsetOption(ip string) error {
 
 	if i.targetSet == nil {
-		return fmt.Errorf("Target set is nil. Cannot remove option")
+		return fmt.Errorf("cannot remove option: target set is nil")
 	}
 	return i.targetSet.Del(ip)
 }
@@ -336,7 +336,7 @@ func (i *Instance) setupTrapRules(set string) error {
 
 	for _, tr := range rules {
 		if err := i.ipt.Append(tr[0], tr[1], tr[2:]...); err != nil {
-			return fmt.Errorf("Unable to add initial rules for TriremeNet IPSet: %s", err)
+			return fmt.Errorf("unable to add initial rules for triremenet ipset: %s", err)
 		}
 	}
 

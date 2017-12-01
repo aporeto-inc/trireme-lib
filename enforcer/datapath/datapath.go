@@ -243,7 +243,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	puContext, err := d.contextTracker.Get(contextID)
 	if err != nil {
-		return fmt.Errorf("ContextID not found in enforcer: %s", err)
+		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
 
 	puContext.(*pucontext.PUContext).Lock()
@@ -359,7 +359,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	ip, ok := puInfo.Runtime.DefaultIPAddress()
 	if !ok {
 		if d.mode == constants.LocalContainer {
-			return fmt.Errorf("No IP provided for local container ID: %s", contextID)
+			return fmt.Errorf("no ip provided for local container id: %s", contextID)
 		}
 		ip = enforcerconstants.DefaultNetwork
 	}

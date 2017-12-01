@@ -55,7 +55,7 @@ func NewLinuxProcessor(collector collector.EventCollector, puHandler monitor.Pro
 func (s *LinuxProcessor) Create(eventInfo *rpcmonitor.EventInfo) error {
 
 	if !s.regStart.Match([]byte(eventInfo.PUID)) {
-		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
+		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
 	return s.puHandler.HandlePUEvent(eventInfo.PUID, monitor.EventCreate)
@@ -67,7 +67,7 @@ func (s *LinuxProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 	// Validate the PUID format
 
 	if !s.regStart.Match([]byte(eventInfo.PUID)) {
-		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
+		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
 	contextID := eventInfo.PUID
@@ -151,7 +151,7 @@ func (s *LinuxProcessor) Destroy(eventInfo *rpcmonitor.EventInfo) error {
 
 	if eventInfo.HostService {
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte("0"), 0644); err != nil {
-			return fmt.Errorf("Unable to write to net_cls.classid file for new cgroup: %s", err)
+			return fmt.Errorf("unable to write to net_cls.classid file for new cgroup: %s", err)
 		}
 	}
 
@@ -178,7 +178,7 @@ func (s *LinuxProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Unable to generate contextID: %s", err)
+		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
@@ -201,7 +201,7 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 	walker, err := s.contextStore.Walk()
 	if err != nil {
-		return fmt.Errorf("Unable to walk context store: %s", err)
+		return fmt.Errorf("unable to walk context store: %s", err)
 	}
 
 	for {
@@ -251,7 +251,7 @@ func (s *LinuxProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 		if err := s.Start(&eventInfo); err != nil {
 			zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
-			return fmt.Errorf("Unable to start pu: %s", err)
+			return fmt.Errorf("unable to start pu: %s", err)
 		}
 
 	}
@@ -265,7 +265,7 @@ func (s *LinuxProcessor) generateContextID(eventInfo *rpcmonitor.EventInfo) (str
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
 		if !s.regStop.Match([]byte(eventInfo.Cgroup)) {
-			return "", fmt.Errorf("Invalid PU ID %s", eventInfo.Cgroup)
+			return "", fmt.Errorf("invalid pu id: %s", eventInfo.Cgroup)
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}

@@ -201,7 +201,7 @@ func TestConfigureRules(t *testing.T) {
 
 		Convey("When I try to configure rules and iptables fails", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("Error")
+				return fmt.Errorf("error")
 			})
 			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get an error", func() {
@@ -279,14 +279,14 @@ func TestUpdateRules(t *testing.T) {
 			if chain == "context-R-0" || chain == "context-A-0" {
 				return nil
 			}
-			return fmt.Errorf("Error")
+			return fmt.Errorf("error")
 		})
 
 		iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 			if chain == "context-R-1" || chain == "context-A-1" {
 				return nil
 			}
-			return fmt.Errorf("Error")
+			return fmt.Errorf("error")
 		})
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 

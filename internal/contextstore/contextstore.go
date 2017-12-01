@@ -69,19 +69,19 @@ func (s *store) Retrieve(contextID string, context interface{}) error {
 	folder := filepath.Join(s.storebasePath, contextID)
 
 	if _, err := os.Stat(folder); os.IsNotExist(err) {
-		return fmt.Errorf("Unknown ContextID: %s", contextID)
+		return fmt.Errorf("unknown contextid: %s", contextID)
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(folder, itemFile))
 	if err != nil {
-		return fmt.Errorf("Unable to retrieve context from store: %s", err)
+		return fmt.Errorf("unable to retrieve context from store: %s", err)
 	}
 
 	if err = json.Unmarshal(data, context); err != nil {
 		if err = s.Remove(contextID); err != nil {
-			return fmt.Errorf("Invalid format of data detected, cleanup failed: %s", err)
+			return fmt.Errorf("invalid format of data detected, cleanup failed: %s", err)
 		}
-		return fmt.Errorf("Invalid format of data: %s", err)
+		return fmt.Errorf("invalid format of data: %s", err)
 	}
 
 	return nil
@@ -92,7 +92,7 @@ func (s *store) Remove(contextID string) error {
 
 	folder := filepath.Join(s.storebasePath, contextID)
 	if _, err := os.Stat(folder); os.IsNotExist(err) {
-		return fmt.Errorf("Unknown ContextID: %s", contextID)
+		return fmt.Errorf("unknown context id: %s", contextID)
 	}
 
 	return os.RemoveAll(folder)
@@ -102,7 +102,7 @@ func (s *store) Remove(contextID string) error {
 func (s *store) DestroyStore() error {
 
 	if _, err := os.Stat(s.storebasePath); os.IsNotExist(err) {
-		return fmt.Errorf("Store not initialized: %s", err)
+		return fmt.Errorf("store not initialized: %s", err)
 	}
 
 	return os.RemoveAll(s.storebasePath)
@@ -113,7 +113,7 @@ func (s *store) Walk() (chan string, error) {
 
 	files, err := ioutil.ReadDir(s.storebasePath)
 	if err != nil {
-		return nil, fmt.Errorf("Store is empty: %s", err)
+		return nil, fmt.Errorf("store is empty: %s", err)
 	}
 
 	contextChannel := make(chan string, 1)
