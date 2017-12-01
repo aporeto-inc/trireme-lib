@@ -1,58 +1,134 @@
 package monitor
 
-// Event represents the event picked up by the monitor.
-type Event string
-
-const (
-	// EventStart is the event generated when a PU starts.
-	EventStart Event = "start"
-
-	// EventStop is the event generated when a PU stops/dies.
-	EventStop Event = "stop"
-
-	// EventCreate is the event generated when a PU gets created.
-	EventCreate Event = "create"
-
-	// EventDestroy is the event generated when a PU is definitely removed.
-	EventDestroy Event = "destroy"
-
-	// EventPause is the event generated when a PU is set to pause.
-	EventPause Event = "pause"
-
-	// EventUnpause is the event generated when a PU is unpaused.
-	EventUnpause Event = "unpause"
-
-	// EventResync instructs the processors to resync
-	EventResync Event = "resync"
+import (
+	"github.com/aporeto-inc/trireme-lib.k/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl/docker"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 )
 
-// A State describes the state of the PU.
-type State int
+// Type specifies the type of monitors supported.
+type Type int
 
+// Types supported.
 const (
-	// StateStarted is the state of a started PU.
-	StateStarted State = iota + 1
-
-	// StateStopped is the state of stopped PU.
-	StateStopped
-
-	// StatePaused is the state of a paused PU.
-	StatePaused
-
-	// StateDestroyed is the state of destroyed PU.
-	StateDestroyed
-
-	// StateUnknwown is the state of PU in an unknown state.
-	StateUnknwown
+	CNI Type = iota + 1
+	Docker
+	LinuxProcess
+	LinuxHost
+	UID
 )
 
-// A SynchronizationType represents the type of synchronization job.
-type SynchronizationType int
+// Config specifies the configs for monitors.
+type Config struct {
+	Collector   trireme.EventCollector
+	PUHandler   monitorimpl.ProcessingUnitsHandler
+	SyncHandler monitorimpl.SynchronizationHandler
+	Monitors    map[Type]interface{}
+}
 
-const (
-	// SynchronizationTypeInitial indicates the initial synchronization job.
-	SynchronizationTypeInitial SynchronizationType = iota + 1
+type monitors struct {
+	config   *Config
+	monitors map[Type]impl.Implementation
+}
 
-	// SynchronizationTypePeriodic indicates subsequent synchronization jobs.
-	SynchronizationTypePeriodic
-)
+// NewMonitors instantiates all/any combination of monitors supported.
+func NewMonitors(c *Config) Monitor {
+
+	userRPCListener := rpc.New(
+		rpcmonitor.DefaultRPCAddress,
+		false,
+	)
+
+	rootRPCListener := rpc.New(
+		rpcmonitor.DefaultRootRPCAddress,
+		true,
+	)
+
+	m := &monitors{
+		config:   c,
+		monitors: make(map[Type]impl.Implementation),
+	}
+
+	for k, v := range c.Monitors {
+		switch k {
+		case CNI:
+			monitor := cni.New()
+			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
+				return err
+			}
+			if err := monitor.SetupCfg(userRPCListener, v); err != nil {
+				return err
+			}
+			m.monitors[CNI] = monitor
+
+		case Docker:
+			monitor := docker.New()
+			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
+				return err
+			}
+			if err := monitor.SetupCfg(nil, v); err != nil {
+				return err
+			}
+			m.monitors[Docker] = monitor
+
+		case LinuxProcess:
+			m.monitors[LinuxProcess] = linux.New()
+			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
+				return err
+			}
+			if err := monitor.SetupCfg(userRPCListener, v); err != nil {
+				return err
+			}
+			m.monitors[LinuxProcess] = monitor
+
+		case LinuxHost:
+			m.monitors[LinuxHost] = linux.New()
+			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
+				return err
+			}
+			if err := monitor.SetupCfg(rootRPCListener, v); err != nil {
+				return err
+			}
+			m.monitors[LinuxHost] = monitor
+
+		case UID:
+			m.monitors[UID] = uid.New()
+			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
+				return err
+			}
+			if err := monitor.SetupCfg(userRPCListener, v); err != nil {
+				return err
+			}
+			m.monitors[UID] = monitor
+
+		default:
+			return nil
+		}
+	}
+
+	return m
+}
+
+func (m *monitors) Start() (err error) {
+
+	for k, v := range m.monitors {
+		if err = v.Start(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *monitors) Stop() error {
+
+	for k, v := range m.monitors {
+		if err = v.Stop(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

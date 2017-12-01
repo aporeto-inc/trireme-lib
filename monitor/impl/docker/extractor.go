@@ -1,4 +1,4 @@
-package cliextractor
+package dockermonitor
 
 import (
 	"encoding/json"
@@ -6,15 +6,22 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/docker/docker/api/types"
 )
 
+// defaultMetadataExtractor is the metadata extractor of the agent
+func defaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
+
+	return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, constants.ContainerPU, nil), nil
+}
+
 // NewExternalExtractor returns a new bash metadata extractor for Docker that will call
 // the executable given in parameter and will generate a Policy Runtime as standard output
 // The format of Input/Output of the executable are in standard JSON.
-func NewExternalExtractor(filePath string) (dockermonitor.DockerMetadataExtractor, error) {
+func NewExternalExtractor(filePath string) (MetadataExtractor, error) {
+
 	if filePath == "" {
 		return nil, fmt.Errorf("file argument is empty in NewBashExtractor")
 	}

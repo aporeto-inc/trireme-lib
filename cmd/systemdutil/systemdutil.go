@@ -336,7 +336,7 @@ func sendRPC(address string, request *eventinfo.EventInfo) error {
 		client, err = net.Dial("unix", address)
 	}
 
-	response := &rpcmonitor.RPCResponse{}
+	response := &rpcmonitor.EventResponse{}
 
 	rpcClient := jsonrpc.NewClient(client)
 

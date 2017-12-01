@@ -1,4 +1,4 @@
-package cliextractor
+package dockermonitor
 
 import (
 	"bufio"
@@ -27,6 +27,7 @@ echo '{"Pid":16823,"Name":"/stoic_snyder","IPAddresses":{"bridge":"172.17.0.2"},
 `
 
 func createFileTest(destination string) error {
+
 	fileHandle, err := os.Create(destination)
 	if err != nil {
 		return err
@@ -38,6 +39,7 @@ func createFileTest(destination string) error {
 }
 
 func TestReturnedFunc(t *testing.T) {
+
 	if err := createFileTest("/tmp/test.sh"); err != nil {
 		t.Skipf("Skip test because no support for writing files to /tmp")
 	}
@@ -53,5 +55,4 @@ func TestReturnedFunc(t *testing.T) {
 	if ip != "172.17.0.2" {
 		t.Errorf("Unmarshalled information %s didn't correspond to Mock data %s", ip, "172.17.0.2")
 	}
-
 }

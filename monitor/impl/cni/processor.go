@@ -7,41 +7,116 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 )
 
-// CniProcessor captures all the monitor processor information
+// Config is the configuration options to start a CNI monitor
+type Config struct {
+	EventMetadataExtractor eventinfo.EventMetadataExtractor
+	ContextStorePath       string
+}
+
+// cniMonitor captures all the monitor processor information
 // It implements the EventProcessor interface of the rpc monitor
-type CniProcessor struct {
+type cniMonitor struct {
 	collector         collector.EventCollector
-	puHandler         monitor.ProcessingUnitsHandler
+	puHandler         monitorimpl.ProcessingUnitsHandler
+	syncHandler       monitorimpl.SynchronizationHandler
 	metadataExtractor eventinfo.EventMetadataExtractor
 	contextStore      contextstore.ContextStore
 }
 
-// NewCniProcessor initializes a processor
-func NewCniProcessor(collector collector.EventCollector, puHandler monitor.ProcessingUnitsHandler, metadataExtractor eventinfo.EventMetadataExtractor) *CniProcessor {
+// New returns a new implmentation of a monitor implmentation
+func New() monitorimpl.Implementation {
 
-	contextStorePath := "/var/run/trireme/cni"
+	return &cniMonitor{}
+}
 
-	return &CniProcessor{
-		collector:         collector,
-		puHandler:         puHandler,
-		metadataExtractor: metadataExtractor,
-		contextStore:      contextstore.NewFileContextStore(contextStorePath),
+// Start implements Implementation interface
+func (c *cniMonitor) Start() error {
+
+	if c.collector == nil {
+		return fmt.Errorf("Missing configuration: collector")
 	}
+
+	if c.syncHandler == nil {
+		return fmt.Errorf("Missing configuration: syncHandler")
+	}
+
+	if c.puHandler == nil {
+		return fmt.Errorf("Missing configuration: puHandler")
+	}
+
+	return nil
+}
+
+// Stop implements Implementation interface
+func (c *cniMonitor) Stop() error {
+
+	return nil
+}
+
+// SetupConfig provides a configuration to implmentations. Every implmentation
+// can have its own config type.
+func (c *cniMonitor) SetupConfig(registerer eventserver.Registerer, cfg interface{}) error {
+
+	if cfg == nil {
+		cfg = &Config{}
+	}
+
+	cniConfig, ok := cfg.(Config)
+	if !ok {
+		return fmt.Errorf("Invalid configuration specified")
+	}
+
+	if registerer != nil {
+		registerer.RegisterProcessor(constants.KubernetesPU, c)
+	}
+
+	if cniConfig.ContextStorePath == "" {
+		cniConfig.ContextStorePath = "/var/run/trireme/cni"
+	}
+	c.contextStore = contextstore.NewFileContextStore(cniConfig.ContextStorePath)
+	if c.contextStore == nil {
+		return fmt.Errorf("Unable to create new context store")
+	}
+
+	if cniConfig.EventMetadataExtractor == nil {
+		cniConfig.EventMetadataExtractor = DockerMetadataExtractor
+	}
+	c.metadataExtractor = cniConfig.EventMetadataExtractor
+	if c.metadataExtractor == nil {
+		return fmt.Errorf("Unable to setup a metadata extractor")
+	}
+
+	return nil
+}
+
+// SetupHandlers sets up handlers for monitors to invoke for various events such as
+// processing unit events and synchronization events. This will be called before Start()
+// by the consumer of the monitor
+func (c *cniMonitor) SetupHandlers(
+	collector trireme.EventCollector,
+	puHandler monitor.ProcessingUnitsHandler,
+	syncHandler monitor.SynchronizationHandler) {
+
+	c.collector = collector
+	c.puHandler = puHandler
+	c.syncHandler = syncHandler
 }
 
 // Create handles create events
-func (p *CniProcessor) Create(eventInfo *eventinfo.EventInfo) error {
+func (c *cniMonitor) Create(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Create: %+v \n", eventInfo)
 	return nil
 }
 
 // Start handles start events
-func (p *CniProcessor) Start(eventInfo *eventinfo.EventInfo) error {
+func (c *cniMonitor) Start(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Start: %+v \n", eventInfo)
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
@@ -76,7 +151,7 @@ func (p *CniProcessor) Start(eventInfo *eventinfo.EventInfo) error {
 }
 
 // Stop handles a stop event
-func (p *CniProcessor) Stop(eventInfo *eventinfo.EventInfo) error {
+func (c *cniMonitor) Stop(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Stop: %+v \n", eventInfo)
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
@@ -87,19 +162,19 @@ func (p *CniProcessor) Stop(eventInfo *eventinfo.EventInfo) error {
 }
 
 // Destroy handles a destroy event
-func (p *CniProcessor) Destroy(eventInfo *eventinfo.EventInfo) error {
+func (c *cniMonitor) Destroy(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Destroy: %+v \n", eventInfo)
 	return nil
 }
 
 // Pause handles a pause event
-func (p *CniProcessor) Pause(eventInfo *eventinfo.EventInfo) error {
+func (c *cniMonitor) Pause(eventInfo *eventinfo.EventInfo) error {
 	fmt.Printf("Pause: %+v \n", eventInfo)
 	return nil
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (p *CniProcessor) ReSync(e *eventinfo.EventInfo) error {
+func (c *cniMonitor) ReSync(e *eventinfo.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}

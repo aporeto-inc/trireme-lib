@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
-	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-// UIDMetadataExtractor is a metadata extractor for uid/gid.
-func UIDMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime, error) {
+// MetadataExtractor is a metadata extractor for uid/gid.
+func MetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 

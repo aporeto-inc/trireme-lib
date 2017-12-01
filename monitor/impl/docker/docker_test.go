@@ -11,8 +11,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls/mock"
-	"github.com/aporeto-inc/trireme-lib/monitor/mock"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -21,7 +19,7 @@ import (
 )
 
 var (
-	testDockerMetadataExtractor DockerMetadataExtractor
+	testDockerMetadataExtractor MetadataExtractor
 	ID                          string
 )
 

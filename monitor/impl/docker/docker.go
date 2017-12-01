@@ -21,35 +21,36 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl/linux/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
 
 	dockerClient "github.com/docker/docker/client"
 )
 
-// DockerEvent is the type of various docker events.
-type DockerEvent string
+// Event is the type of various docker events.
+type Event string
 
 const (
-	// DockerEventCreate represents the Docker "create" event.
-	DockerEventCreate DockerEvent = "create"
+	// EventCreate represents the Docker "create" event.
+	EventCreate Event = "create"
 
-	// DockerEventStart represents the Docker "start" event.
-	DockerEventStart DockerEvent = "start"
+	// EventStart represents the Docker "start" event.
+	EventStart Event = "start"
 
-	// DockerEventDie represents the Docker "die" event.
-	DockerEventDie DockerEvent = "die"
+	// EventDie represents the Docker "die" event.
+	EventDie Event = "die"
 
-	// DockerEventDestroy represents the Docker "destroy" event.
-	DockerEventDestroy DockerEvent = "destroy"
+	// EventDestroy represents the Docker "destroy" event.
+	EventDestroy Event = "destroy"
 
-	// DockerEventPause represents the Docker "destroy" event.
-	DockerEventPause DockerEvent = "pause"
+	// EventPause represents the Docker "destroy" event.
+	EventPause Event = "pause"
 
-	// DockerEventUnpause represents the Docker "destroy" event.
-	DockerEventUnpause DockerEvent = "unpause"
+	// EventUnpause represents the Docker "destroy" event.
+	EventUnpause Event = "unpause"
 
-	// DockerEventConnect represents the Docker "connect" event.
-	DockerEventConnect DockerEvent = "connect"
+	// EventConnect represents the Docker "connect" event.
+	EventConnect Event = "connect"
 
 	// DockerClientVersion is the version sent out as the client
 	DockerClientVersion = "v1.23"
@@ -58,12 +59,12 @@ const (
 	DockerHostMode = "host"
 )
 
-// A DockerEventHandler is type of docker event handler functions.
-type DockerEventHandler func(event *events.Message) error
+// A EventHandler is type of docker event handler functions.
+type EventHandler func(event *events.Message) error
 
-// A DockerMetadataExtractor is a function used to extract a *policy.PURuntime from a given
+// A MetadataExtractor is a function used to extract a *policy.PURuntime from a given
 // docker ContainerJSON.
-type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, error)
+type MetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, error)
 
 func contextIDFromDockerID(dockerID string) (string, error) {
 
@@ -107,8 +108,8 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 	return dockerClient, nil
 }
 
-// defaultDockerMetadataExtractor is the default metadata extractor for Docker
-func defaultDockerMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
+// defaultMetadataExtractor is the default metadata extractor for Docker
+func defaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
 
 	tags := policy.NewTagStore()
 	tags.AppendKeyValue("@sys:image", info.Config.Image)
@@ -154,19 +155,28 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 	return &options
 }
 
+// Config is the configuration options to start a CNI monitor
+type Config struct {
+	EventMetadataExtractor     eventinfo.EventMetadataExtractor
+	SocketType                 string
+	SocketAddress              string
+	SyncAtStart                bool
+	KillContainerOnPolicyError bool
+}
+
 // dockerMonitor implements the connection to Docker and monitoring based on events
 type dockerMonitor struct {
 	dockerClient       *dockerClient.Client
-	metadataExtractor  DockerMetadataExtractor
-	handlers           map[DockerEvent]func(event *events.Message) error
+	metadataExtractor  MetadataExtractor
+	handlers           map[Event]func(event *events.Message) error
 	eventnotifications []chan *events.Message
 	stopprocessor      []chan bool
 	numberOfQueues     int
 	stoplistener       chan bool
-	syncHandler        monitor.SynchronizationHandler
 
-	collector collector.EventCollector
-	puHandler monitor.ProcessingUnitsHandler
+	collector   collector.EventCollector
+	puHandler   monitor.ProcessingUnitsHandler
+	syncHandler monitor.SynchronizationHandler
 
 	netcls cgnetcls.Cgroupnetcls
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
@@ -174,39 +184,68 @@ type dockerMonitor struct {
 	syncAtStart                bool
 }
 
-// NewDockerMonitor returns a pointer to a DockerMonitor initialized with the given
-// socketType ('tcp' or 'unix') and socketAddress (a port for 'tcp' or
-// a socket file for 'unix').
-//
-// After creating a new DockerMonitor, call addHandler to install one
-// or more callback handlers for the events to monitor. Then call Start.
-func NewDockerMonitor(
-	socketType string,
-	socketAddress string,
-	m DockerMetadataExtractor,
-	l collector.EventCollector,
-	syncAtStart bool,
-	killContainerOnPolicyError bool,
-) monitor.Monitor {
+// New returns a new docker monitor
+func New() monitorimpl.Implementation {
+	return &dockerMonitor{}
+}
 
-	cli, err := initDockerClient(socketType, socketAddress)
+// Start implements Implementation interface
+func (d *dockerMonitor) Start() error {
 
-	if err != nil {
+	if c.collector == nil {
+		return fmt.Errorf("Missing configuration: collector")
+	}
+
+	if c.syncHandler == nil {
+		return fmt.Errorf("Missing configuration: syncHandler")
+	}
+
+	if c.puHandler == nil {
+		return fmt.Errorf("Missing configuration: puHandler")
+	}
+
+	return nil
+}
+
+// Stop implements Implementation interface
+func (d *dockerMonitor) Stop() error {
+
+	return nil
+}
+
+// SetupConfig provides a configuration to implmentations. Every implmentation
+// can have its own config type.
+func (d *dockerMonitor) SetupConfig(cfg interface{}) (err error) {
+
+	if cfg == nil {
+		// Use Defaults
+		cfg = &DockerConfig{
+			KillContainerOnPolicyError: false,
+			SyncAtStart:                true,
+		}
+	}
+
+	dockerConfig, ok := cfg.(DockerConfig)
+	if !ok {
+		return fmt.Errorf("Invalid configuration specified")
+	}
+
+	if dockerConfig.EventMetadataExtractor == nil {
+		dockerConfig.EventMetadataExtractor = defaultMetadataExtractor
+	}
+
+	d.metadataExtractor = dockerConfig.EventMetadataExtractor
+	d.syncAtStart = dockerConfig.SyncAtStart
+	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
+
+	if d.dockerClient, err = initDockerClient(socketType, socketAddress); err != nil {
 		zap.L().Debug("Unable to initialize Docker client", zap.Error(err))
 		return nil
 	}
 
-	d := &dockerMonitor{
-		collector:                  l,
-		handlers:                   make(map[DockerEvent]func(event *events.Message) error),
-		stoplistener:               make(chan bool),
-		metadataExtractor:          m,
-		dockerClient:               cli,
-		syncAtStart:                syncAtStart,
-		killContainerOnPolicyError: killContainerOnPolicyError,
-		netcls: cgnetcls.NewDockerCgroupNetController(),
-	}
-
+	d.handlers = make(map[Event]func(event *events.Message) error)
+	d.stoplistener = make(chan bool)
+	d.netcls = cgnetcls.NewDockerCgroupNetController()
 	d.numberOfQueues = runtime.NumCPU() * 8
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
@@ -217,21 +256,31 @@ func NewDockerMonitor(
 	}
 
 	// Add handlers for the events that we know how to process
-	d.addHandler(DockerEventCreate, d.handleCreateEvent)
-	d.addHandler(DockerEventStart, d.handleStartEvent)
-	d.addHandler(DockerEventDie, d.handleDieEvent)
-	d.addHandler(DockerEventDestroy, d.handleDestroyEvent)
-	d.addHandler(DockerEventPause, d.handlePauseEvent)
-	d.addHandler(DockerEventUnpause, d.handleUnpauseEvent)
+	d.addHandler(EventCreate, d.handleCreateEvent)
+	d.addHandler(EventStart, d.handleStartEvent)
+	d.addHandler(EventDie, d.handleDieEvent)
+	d.addHandler(EventDestroy, d.handleDestroyEvent)
+	d.addHandler(EventPause, d.handlePauseEvent)
+	d.addHandler(EventUnpause, d.handleUnpauseEvent)
 
-	return d
+	return nil
+}
+
+// SetupHandlers sets up handlers for monitors to invoke for various events such as
+// processing unit events and synchronization events. This will be called before Start()
+// by the consumer of the monitor
+func (d *dockerMonitor) SetupHandlers(collector trireme.EventCollector, puHandler monitor.ProcessingUnitsHandler, syncHandler monitor.SynchronizationHandler) {
+
+	c.collector = collector
+	c.puHandler = puHandler
+	c.syncHandler = syncHandler
 }
 
 // addHandler adds a callback handler for the given docker event.
 // Interesting event names include 'start' and 'die'. For more on events see
 // https://docs.docker.com/engine/reference/api/docker_remote_api/
 // under the section 'Docker Events'.
-func (d *dockerMonitor) addHandler(event DockerEvent, handler DockerEventHandler) {
+func (d *dockerMonitor) addHandler(event Event, handler EventHandler) {
 	d.handlers[event] = handler
 }
 
@@ -315,7 +364,7 @@ func (d *dockerMonitor) eventProcessors() {
 				select {
 				case event := <-d.eventnotifications[i]:
 					if event.Action != "" {
-						f, ok := d.handlers[DockerEvent(event.Action)]
+						f, ok := d.handlers[Event(event.Action)]
 						if ok {
 							err := f(event)
 							if err != nil {
@@ -529,7 +578,7 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 		return d.metadataExtractor(dockerInfo)
 	}
 
-	return defaultDockerMetadataExtractor(dockerInfo)
+	return defaultMetadataExtractor(dockerInfo)
 }
 
 // handleCreateEvent generates a create event type.

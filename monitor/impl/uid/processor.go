@@ -12,18 +12,29 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
-	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-// UIDProcessor captures all the monitor processor information for a UIDLoginPU
+// UIDConfig is the configuration options to start a CNI monitor
+type UIDConfig struct {
+	EventMetadataExtractor eventinfo.EventMetadataExtractor
+	StoredPath             string
+	ReleasePath            string
+}
+
+// uidMonitor captures all the monitor processor information for a UIDLoginPU
 // It implements the EventProcessor interface of the rpc monitor
-type UIDProcessor struct {
-	collector         collector.EventCollector
-	puHandler         monitor.ProcessingUnitsHandler
+type uidMonitor struct {
+	collector   collector.EventCollector
+	puHandler   monitorimpl.ProcessingUnitsHandler
+	syncHandler monitorimpl.SynchronizationHandler
+
 	metadataExtractor eventinfo.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore
@@ -33,6 +44,90 @@ type UIDProcessor struct {
 	putoPidMap        *cache.Cache
 	pidToPU           *cache.Cache
 	sync.Mutex
+}
+
+// New returns a new implmentation of a monitor implmentation
+func New() monitorimpl.Implementation {
+
+	return &uidMonitor{}
+}
+
+// Start implements Implementation interface
+func (u *uidMonitor) Start() error {
+
+	if c.collector == nil {
+		return fmt.Errorf("Missing configuration: collector")
+	}
+
+	if c.syncHandler == nil {
+		return fmt.Errorf("Missing configuration: syncHandler")
+	}
+
+	if c.puHandler == nil {
+		return fmt.Errorf("Missing configuration: puHandler")
+	}
+
+	return nil
+}
+
+// Stop implements Implementation interface
+func (u *uidMonitor) Stop() error {
+
+	return nil
+}
+
+// SetupConfig provides a configuration to implmentations. Every implmentation
+// can have its own config type.
+func (u *uidMonitor) SetupConfig(registerer eventserver.Registerer, cfg interface{}) error {
+
+	if cfg == nil {
+		cfg = &UIDConfig{}
+	}
+
+	uidConfig, ok := cfg.(UIDConfig)
+	if !ok {
+		return fmt.Errorf("Invalid configuration specified")
+	}
+
+	if registerer != nil {
+		registerer.RegisterProcessor(constants.UIDLoginPU, u)
+	}
+
+	if uidConfig.ReleasePath == "" {
+		uidConfig.ReleasePath = "/var/lib/aporeto/cleaner"
+	}
+	u.netcls = cgnetcls.NewCgroupNetController(uidConfig.ReleasePath)
+
+	if uidConfig.StorePath == "" {
+		uidConfig.StorePath = "/var/run/trireme/uid"
+	}
+	u.contextStore = contextstore.NewFileContextStore(uidConfig.StorePath)
+	u.storePath = uidConfig.StorePath
+
+	regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
+	regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
+	putoPidMap = cache.NewCache("putoPidMap")
+	pidToPU = cache.NewCache("pidToPU")
+
+	if uidConfig.EventMetadataExtractor == nil {
+		uidConfig.EventMetadataExtractor = DockerMetadataExtractor
+	}
+	c.metadataExtractor = uidConfig.EventMetadataExtractor
+	if c.metadataExtractor == nil {
+		return fmt.Errorf("Unable to setup a metadata extractor")
+	}
+
+	return nil
+}
+
+// SetupHandlers sets up handlers for monitors to invoke for various events such as
+// processing unit events and synchronization events. This will be called before Start()
+// by the consumer of the monitor
+func (u *uidMonitor) SetupHandlers(collector trireme.EventCollector, puHandler monitor.ProcessingUnitsHandler, syncHandler monitor.SynchronizationHandler) {
+
+	c.collector = collector
+	c.puHandler = puHandler
+	c.syncHandler = syncHandler
 }
 
 const (
@@ -52,32 +147,8 @@ type StoredContext struct {
 	EventInfo *eventinfo.EventInfo
 }
 
-// New initializes a processor with a custom path
-func New(storePath string,
-	collector collector.EventCollector,
-	puHandler monitor.ProcessingUnitsHandler,
-	metadataExtractor eventinfo.EventMetadataExtractor,
-	releasePath string) *UIDProcessor {
-	if puHandler == nil {
-		zap.L().Error("PuHandler cannot be nil")
-		return nil
-	}
-	return &UIDProcessor{
-		collector:         collector,
-		puHandler:         puHandler,
-		metadataExtractor: metadataExtractor,
-		netcls:            cgnetcls.NewCgroupNetController(releasePath),
-		contextStore:      contextstore.NewFileContextStore(storePath),
-		storePath:         storePath,
-		regStart:          regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$"),
-		regStop:           regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$"),
-		putoPidMap:        cache.NewCache("putoPidMap"),
-		pidToPU:           cache.NewCache("pidToPU"),
-	}
-}
-
 // Start handles start events
-func (s *UIDProcessor) Start(eventInfo *eventinfo.EventInfo) error {
+func (u *uidMonitor) Start(eventInfo *eventinfo.EventInfo) error {
 	s.Lock()
 	defer s.Unlock()
 	contextID := eventInfo.PUID
@@ -146,7 +217,7 @@ func (s *UIDProcessor) Start(eventInfo *eventinfo.EventInfo) error {
 }
 
 // Stop handles a stop event and destroy as well. Destroy does nothing for the uid monitor
-func (s *UIDProcessor) Stop(eventInfo *eventinfo.EventInfo) error {
+func (u *uidMonitor) Stop(eventInfo *eventinfo.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
@@ -214,13 +285,13 @@ func (s *UIDProcessor) Stop(eventInfo *eventinfo.EventInfo) error {
 }
 
 // Create handles create events
-func (s *UIDProcessor) Create(eventInfo *eventinfo.EventInfo) error {
+func (u *uidMonitor) Create(eventInfo *eventinfo.EventInfo) error {
 
 	return s.puHandler.HandlePUEvent(eventInfo.PUID, monitor.EventCreate)
 }
 
 // Destroy handles a destroy event
-func (s *UIDProcessor) Destroy(eventInfo *eventinfo.EventInfo) error {
+func (u *uidMonitor) Destroy(eventInfo *eventinfo.EventInfo) error {
 	//Destroy is not used for the UIDMonitor since we will destroy when we get stop
 	//This is to try and save some time .Stop/Destroy is two RPC calls.
 	//We don't define pause on uid monitor so stop is always followed by destroy
@@ -229,7 +300,7 @@ func (s *UIDProcessor) Destroy(eventInfo *eventinfo.EventInfo) error {
 }
 
 // Pause handles a pause event
-func (s *UIDProcessor) Pause(eventInfo *eventinfo.EventInfo) error {
+func (u *uidMonitor) Pause(eventInfo *eventinfo.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
@@ -240,7 +311,7 @@ func (s *UIDProcessor) Pause(eventInfo *eventinfo.EventInfo) error {
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (s *UIDProcessor) ReSync(e *eventinfo.EventInfo) error {
+func (u *uidMonitor) ReSync(e *eventinfo.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -311,7 +382,7 @@ func (s *UIDProcessor) ReSync(e *eventinfo.EventInfo) error {
 }
 
 // generateContextID creates the contextID from the event information
-func (s *UIDProcessor) generateContextID(eventInfo *eventinfo.EventInfo) (string, error) {
+func (u *uidMonitor) generateContextID(eventInfo *eventinfo.EventInfo) (string, error) {
 
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
@@ -324,7 +395,7 @@ func (s *UIDProcessor) generateContextID(eventInfo *eventinfo.EventInfo) (string
 	return contextID, nil
 }
 
-func (s *UIDProcessor) processLinuxServiceStart(event *eventinfo.EventInfo, runtimeInfo *policy.PURuntime) error {
+func (u *uidMonitor) processLinuxServiceStart(event *eventinfo.EventInfo, runtimeInfo *policy.PURuntime) error {
 
 	//It is okay to launch this so let us create a cgroup for it
 	if err := s.netcls.Creategroup(event.PID); err != nil {

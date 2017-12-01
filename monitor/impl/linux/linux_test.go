@@ -13,11 +13,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestSystemEventMetadataExtractor(t *testing.T) {
-
-}
-
 func TestcomputeFileMd5(t *testing.T) {
+
 	Convey("When I calculate the MD5 of a bad file", t, func() {
 		_, err := computeFileMd5("testdata/nofile")
 		Convey("I should get an error", func() {
@@ -32,10 +29,10 @@ func TestcomputeFileMd5(t *testing.T) {
 			So(hex.EncodeToString(hash), ShouldResemble, "bf7e66d7bbd0465cfcba5b1cf68a9b59")
 		})
 	})
-
 }
 
 func TestFindFQDN(t *testing.T) {
+
 	Convey("When I try to get the hostname of a good host", t, func() {
 		hostname := findFQDN(1000 * time.Second)
 
@@ -48,6 +45,7 @@ func TestFindFQDN(t *testing.T) {
 }
 
 func TestLibs(t *testing.T) {
+
 	Convey("When I try to get the libraries of a known binary", t, func() {
 		libraries := libs("./testdata/curl")
 		Convey("I should get the execpted libraries", func() {
@@ -60,6 +58,7 @@ func TestLibs(t *testing.T) {
 	})
 
 	Convey("When I try to get the libraries of a bad binary", t, func() {
+
 		libraries := libs("./testdata/nofile")
 		Convey("I should get an empty array", func() {
 			So(len(libraries), ShouldEqual, 0)
@@ -68,6 +67,7 @@ func TestLibs(t *testing.T) {
 }
 
 func TestSystemdEventMetadataExtractor(t *testing.T) {
+
 	Convey("When I call the metadata extrator", t, func() {
 
 		Convey("If all data are present", func() {
@@ -84,12 +84,13 @@ func TestSystemdEventMetadataExtractor(t *testing.T) {
 				So(pu, ShouldNotBeNil)
 			})
 		})
-
 	})
 }
 
 func TestDefaultHostMetadataExtractor(t *testing.T) {
+
 	Convey("When I call the host metadata extractor", t, func() {
+
 		Convey("If its valid data", func() {
 
 			services := []policy.Service{

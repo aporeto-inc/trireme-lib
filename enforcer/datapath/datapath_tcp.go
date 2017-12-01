@@ -16,7 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
 	"github.com/aporeto-inc/trireme-lib/log"
-	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
