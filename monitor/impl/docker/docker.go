@@ -22,7 +22,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 
 	dockerClient "github.com/docker/docker/client"
 )

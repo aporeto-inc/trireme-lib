@@ -16,7 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/impl"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -74,7 +74,7 @@ func (l *linuxMonitor) Stop() error {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (l *linuxMonitor) SetupConfig(registerer eventserver.Registerer, cfg interface{}) error {
+func (l *linuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
 	if cfg == nil {
 		cfg = &Config{}

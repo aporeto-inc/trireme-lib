@@ -16,7 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -78,7 +78,7 @@ func (u *uidMonitor) Stop() error {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (u *uidMonitor) SetupConfig(registerer eventserver.Registerer, cfg interface{}) error {
+func (u *uidMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
 	if cfg == nil {
 		cfg = &UIDConfig{}

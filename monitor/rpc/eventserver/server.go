@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
 
 const (
@@ -18,26 +18,23 @@ const (
 
 // server represents the Monitor RPC Server implementation
 type server struct {
-	root      bool
-	processor *processor
+	root       bool
+	registerer processor.Registerer
 }
 
 // New provides a new event server. This server will be responsible for listening
 // events over the incoming RPC channel
-func New(root bool) (Processor, Registerer) {
+func New(root bool) (Processor, processor.Registerer) {
 
-	ep := &processor{
-		handlers: map[constants.PUType]map[monitor.Event]EventHandler{},
-	}
 	es := &server{
-		root:      root,
-		processor: ep,
+		root:       root,
+		registerer: processor.New(),
 	}
-	return es, ep
+	return es, es.registerer
 }
 
 // HandleEvent Gets called when clients generate events.
-func (e *server) HandleEvent(eventInfo *eventinfo.EventInfo, result *EventResponse) (err error) {
+func (s *server) HandleEvent(eventInfo *events.EventInfo, result *events.EventResponse) (err error) {
 
 	if err = validateEvent(eventInfo); err != nil {
 		return err
@@ -54,19 +51,14 @@ func (e *server) HandleEvent(eventInfo *eventinfo.EventInfo, result *EventRespon
 
 	puID := eventInfo.PUID[lastSlash:]
 	if _, err = os.Stat("/var/run/trireme/linux/" + puID); os.IsNotExist(err) &&
-		eventInfo.EventType != monitor.EventCreate &&
-		eventInfo.EventType != monitor.EventStart {
+		eventInfo.EventType != events.EventCreate &&
+		eventInfo.EventType != events.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
 
-	if _, ok := s.handlers[eventInfo.PUType]; !ok {
-		err = fmt.Errorf("PUType %d not registered", eventInfo.PUType)
-		result.Error = err.Error()
-		return err
-	}
-
-	if f, ok := s.handlers[eventInfo.PUType][eventInfo.EventType]; !ok {
-		err = fmt.Errorf("PUType %d Event %d not registered", eventInfo.PUType, eventInfo.EventType)
+	f, err := s.registerer.GetHandler(eventInfo.PUType, eventInfo.EventType)
+	if err != nil {
+		err = fmt.Errorf("Handler not found: %s", err.Error())
 		result.Error = err.Error()
 		return err
 	}
@@ -79,9 +71,9 @@ func (e *server) HandleEvent(eventInfo *eventinfo.EventInfo, result *EventRespon
 	return nil
 }
 
-func validateEvent(event *eventinfo.EventInfo) error {
+func validateEvent(event *events.EventInfo) error {
 
-	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
+	if event.EventType == events.EventCreate || event.EventType == events.EventStart {
 		if len(event.Name) > maxEventNameLength {
 			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 64 characters")
 		}
@@ -113,7 +105,7 @@ func validateEvent(event *eventinfo.EventInfo) error {
 		}
 	}
 
-	if event.EventType == monitor.EventStop || event.EventType == monitor.EventDestroy {
+	if event.EventType == events.EventStop || event.EventType == events.EventDestroy {
 		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
 		if event.Cgroup != "" && !regStop.Match([]byte(event.Cgroup)) {
 			return fmt.Errorf("Cgroup is not of the right format")

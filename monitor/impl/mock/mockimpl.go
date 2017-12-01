@@ -71,7 +71,7 @@ func (mr *MockImplementationMockRecorder) Stop() *gomock.Call {
 
 // SetupConfig mocks base method
 // nolint
-func (m *MockImplementation) SetupConfig(registerer eventserver.Registerer, cfg interface{}) error {
+func (m *MockImplementation) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 	ret := m.ctrl.Call(m, "SetupConfig", registerer, cfg)
 	ret0, _ := ret[0].(error)
 	return ret0

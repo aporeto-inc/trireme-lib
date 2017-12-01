@@ -1,8 +1,9 @@
 package monitor
 
 import (
-	"github.com/aporeto-inc/trireme-lib.k/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme-lib/"
+	"fmt"
+
+	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/impl"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 )
@@ -21,7 +22,7 @@ const (
 
 // Config specifies the configs for monitors.
 type Config struct {
-	Collector   trireme.EventCollector
+	Collector   collector.EventCollector
 	PUHandler   monitorimpl.ProcessingUnitsHandler
 	SyncHandler monitorimpl.SynchronizationHandler
 	Monitors    map[Type]interface{}
@@ -34,8 +35,8 @@ type monitors struct {
 	rootRPCListener rpcmonitor.Listener
 }
 
-// NewMonitors instantiates all/any combination of monitors supported.
-func NewMonitors(c *Config) Monitor {
+// New instantiates all/any combination of monitors supported.
+func New(c *Config) (Monitor, error) {
 
 	m := &monitors{
 		config:   c,
@@ -57,59 +58,59 @@ func NewMonitors(c *Config) Monitor {
 		case CNI:
 			monitor := cni.New()
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return err
+				return nil, err
 			}
 			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
-				return err
+				return nil, err
 			}
 			m.monitors[CNI] = monitor
 
 		case Docker:
 			monitor := docker.New()
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return err
+				return nil, err
 			}
 			if err := monitor.SetupCfg(nil, v); err != nil {
-				return err
+				return nil, err
 			}
 			m.monitors[Docker] = monitor
 
 		case LinuxProcess:
 			m.monitors[LinuxProcess] = linux.New()
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return err
+				return nil, err
 			}
 			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
-				return err
+				return nil, err
 			}
 			m.monitors[LinuxProcess] = monitor
 
 		case LinuxHost:
 			m.monitors[LinuxHost] = linux.New()
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return err
+				return nil, err
 			}
 			if err := monitor.SetupCfg(m.rootRPCListener, v); err != nil {
-				return err
+				return nil, err
 			}
 			m.monitors[LinuxHost] = monitor
 
 		case UID:
 			m.monitors[UID] = uid.New()
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return err
+				return nil, err
 			}
 			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
-				return err
+				return nil, err
 			}
 			m.monitors[UID] = monitor
 
 		default:
-			return nil
+			return nil, fmt.Errorf("Unsupported type %d", k)
 		}
 	}
 
-	return m
+	return m, nil
 }
 
 func (m *monitors) Start() (err error) {

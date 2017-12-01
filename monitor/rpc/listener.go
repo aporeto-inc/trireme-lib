@@ -25,7 +25,7 @@ type listener struct {
 }
 
 // New returns a base RPC listener. Processors must be registered externally
-func New(rpcAddress string, root bool) (Listener, eventserver.Registerer, error) {
+func New(rpcAddress string, root bool) (Listener, registerer.Registerer, error) {
 
 	l := &listener{
 		rpcServer:      rpcserver.New(root),

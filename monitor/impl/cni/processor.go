@@ -10,7 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 )
 
@@ -62,7 +62,7 @@ func (c *cniMonitor) Stop() error {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (c *cniMonitor) SetupConfig(registerer eventserver.Registerer, cfg interface{}) error {
+func (c *cniMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
 	if cfg == nil {
 		cfg = &Config{}
