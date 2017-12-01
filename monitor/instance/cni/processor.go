@@ -8,14 +8,14 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 )
 
 type cniProcessor struct {
 	collector         collector.EventCollector
-	puHandler         monitorimpl.ProcessingUnitsHandler
-	syncHandler       monitorimpl.SynchronizationHandler
+	puHandler         monitorinstance.ProcessingUnitsHandler
+	syncHandler       monitorinstance.SynchronizationHandler
 	metadataExtractor events.EventMetadataExtractor
 	contextStore      contextstore.ContextStore
 }

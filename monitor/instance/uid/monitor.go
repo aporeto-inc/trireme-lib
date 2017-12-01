@@ -9,15 +9,15 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
 
-// UIDConfig is the configuration options to start a CNI monitor
-type UIDConfig struct {
+// Config is the configuration options to start a CNI monitor
+type Config struct {
 	EventMetadataExtractor events.EventMetadataExtractor
-	StorePath              string
+	StoredPath             string
 	ReleasePath            string
 }
 
@@ -28,7 +28,7 @@ type uidMonitor struct {
 }
 
 // New returns a new implmentation of a monitor implmentation
-func New() monitorimpl.Implementation {
+func New() monitorinstance.Implementation {
 
 	return &uidMonitor{
 		proc: &uidProcessor{},
@@ -64,10 +64,10 @@ func (u *uidMonitor) Stop() error {
 func (u *uidMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
 
 	if cfg == nil {
-		cfg = &UIDConfig{}
+		cfg = &Config{}
 	}
 
-	uidConfig, ok := cfg.(UIDConfig)
+	uidConfig, ok := cfg.(*Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified")
 	}
@@ -81,11 +81,11 @@ func (u *uidMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 	}
 	u.proc.netcls = cgnetcls.NewCgroupNetController(uidConfig.ReleasePath)
 
-	if uidConfig.StorePath == "" {
-		uidConfig.StorePath = "/var/run/trireme/uid"
+	if uidConfig.StoredPath == "" {
+		uidConfig.StoredPath = "/var/run/trireme/uid"
 	}
-	u.proc.contextStore = contextstore.NewFileContextStore(uidConfig.StorePath)
-	u.proc.storePath = uidConfig.StorePath
+	u.proc.contextStore = contextstore.NewFileContextStore(uidConfig.StoredPath)
+	u.proc.storePath = uidConfig.StoredPath
 
 	u.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
 	u.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
@@ -106,7 +106,7 @@ func (u *uidMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (u *uidMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorimpl.ProcessingUnitsHandler, syncHandler monitorimpl.SynchronizationHandler) {
+func (u *uidMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorinstance.ProcessingUnitsHandler, syncHandler monitorinstance.SynchronizationHandler) {
 
 	u.proc.collector = collector
 	u.proc.puHandler = puHandler

@@ -106,14 +106,3 @@ const (
 	// StateUnknwown is the state of PU in an unknown state.
 	StateUnknwown
 )
-
-// A SynchronizationType represents the type of synchronization job.
-type SynchronizationType int
-
-const (
-	// SynchronizationTypeInitial indicates the initial synchronization job.
-	SynchronizationTypeInitial SynchronizationType = iota + 1
-
-	// SynchronizationTypePeriodic indicates subsequent synchronization jobs.
-	SynchronizationTypePeriodic
-)

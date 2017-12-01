@@ -1,4 +1,4 @@
-package monitorimpl
+package monitorinstance
 
 import (
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -37,12 +37,23 @@ type ProcessingUnitsHandler interface {
 	HandlePUEvent(contextID string, event events.Event) error
 }
 
+// A SynchronizationType represents the type of synchronization job.
+type SynchronizationType int
+
+const (
+	// SynchronizationTypeInitial indicates the initial synchronization job.
+	SynchronizationTypeInitial SynchronizationType = iota + 1
+
+	// SynchronizationTypePeriodic indicates subsequent synchronization jobs.
+	SynchronizationTypePeriodic
+)
+
 // A SynchronizationHandler must be implemnted by the monitor instantiators or components thereof.
 type SynchronizationHandler interface {
 
 	// HandleSynchronization handles a synchronization routine.
-	HandleSynchronization(contextID string, state events.State, RuntimeReader policy.RuntimeReader, syncType events.SynchronizationType) error
+	HandleSynchronization(contextID string, state events.State, RuntimeReader policy.RuntimeReader, syncType SynchronizationType) error
 
 	// HandleSynchronizationComplete is called when a synchronization job is complete.
-	HandleSynchronizationComplete(syncType events.SynchronizationType)
+	HandleSynchronizationComplete(syncType SynchronizationType)
 }

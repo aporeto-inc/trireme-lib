@@ -8,7 +8,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
@@ -27,7 +27,7 @@ type linuxMonitor struct {
 }
 
 // New returns a new implmentation of a monitor implmentation
-func New() monitorimpl.Implementation {
+func New() monitorinstance.Implementation {
 
 	return &linuxMonitor{
 		proc: &linuxProcessor{},
@@ -66,7 +66,7 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 		cfg = &Config{}
 	}
 
-	linuxConfig, ok := cfg.(Config)
+	linuxConfig, ok := cfg.(*Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified")
 	}
@@ -104,7 +104,7 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (l *linuxMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorimpl.ProcessingUnitsHandler, syncHandler monitorimpl.SynchronizationHandler) {
+func (l *linuxMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorinstance.ProcessingUnitsHandler, syncHandler monitorinstance.SynchronizationHandler) {
 
 	l.proc.collector = collector
 	l.proc.puHandler = puHandler

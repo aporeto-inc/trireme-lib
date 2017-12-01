@@ -11,7 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl/mock"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/mock"
 	tevents "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -646,7 +646,7 @@ func TestSyncContainers(t *testing.T) {
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), tevents.SynchronizationTypeInitial)
+				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), monitorinstance.SynchronizationTypeInitial)
 				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.(*dockerMonitor).puHandler = mockPU
 				err = dm.(*dockerMonitor).syncContainers()
@@ -675,8 +675,8 @@ func TestSyncContainers(t *testing.T) {
 			options := types.ContainerListOptions{All: true}
 			containers, err := dm.(*dockerMonitor).dockerClient.ContainerList(context.Background(), options)
 			if err == nil && len(containers) > 0 {
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), gomock.Any(), gomock.Any(), tevents.SynchronizationTypeInitial).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronizationComplete(tevents.SynchronizationTypeInitial).AnyTimes()
+				mockSH.EXPECT().HandleSynchronization(gomock.Any(), gomock.Any(), gomock.Any(), monitorinstance.SynchronizationTypeInitial).AnyTimes().Return(nil)
+				mockSH.EXPECT().HandleSynchronizationComplete(monitorinstance.SynchronizationTypeInitial).AnyTimes()
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
 				dm.(*dockerMonitor).puHandler = mockPU
@@ -746,7 +746,7 @@ func TestStart(t *testing.T) {
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), tevents.SynchronizationTypeInitial)
+				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), monitorinstance.SynchronizationTypeInitial)
 				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.(*dockerMonitor).puHandler = mockPU
 				err := dm.(*dockerMonitor).Start()

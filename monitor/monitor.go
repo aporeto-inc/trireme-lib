@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl/uid"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
@@ -28,14 +28,14 @@ const (
 // Config specifies the configs for monitors.
 type Config struct {
 	Collector   collector.EventCollector
-	PUHandler   monitorimpl.ProcessingUnitsHandler
-	SyncHandler monitorimpl.SynchronizationHandler
+	PUHandler   monitorinstance.ProcessingUnitsHandler
+	SyncHandler monitorinstance.SynchronizationHandler
 	Monitors    map[Type]interface{}
 }
 
 type monitors struct {
 	config          *Config
-	monitors        map[Type]monitorimpl.Implementation
+	monitors        map[Type]monitorinstance.Implementation
 	userRPCListener rpcmonitor.Listener
 	userRegisterer  processor.Registerer
 	rootRPCListener rpcmonitor.Listener
@@ -49,7 +49,7 @@ func New(c *Config) (Monitor, error) {
 
 	m := &monitors{
 		config:   c,
-		monitors: make(map[Type]monitorimpl.Implementation),
+		monitors: make(map[Type]monitorinstance.Implementation),
 	}
 
 	if m.userRPCListener, m.userRegisterer, err = rpcmonitor.New(
@@ -72,7 +72,7 @@ func New(c *Config) (Monitor, error) {
 			mon := cnimonitor.New()
 			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("CNI: %s", err.Error())
 			}
 			m.monitors[CNI] = mon
 
@@ -80,7 +80,7 @@ func New(c *Config) (Monitor, error) {
 			mon := dockermonitor.New()
 			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
 			if err := mon.SetupConfig(nil, v); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Docker: %s", err.Error())
 			}
 			m.monitors[Docker] = mon
 
@@ -88,7 +88,7 @@ func New(c *Config) (Monitor, error) {
 			mon := linuxmonitor.New()
 			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
 			m.monitors[LinuxProcess] = mon
 
@@ -96,7 +96,7 @@ func New(c *Config) (Monitor, error) {
 			mon := linuxmonitor.New()
 			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
 			if err := mon.SetupConfig(m.rootRegisterer, v); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
 			m.monitors[LinuxHost] = mon
 
@@ -104,7 +104,7 @@ func New(c *Config) (Monitor, error) {
 			mon := uidmonitor.New()
 			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("UID: %s", err.Error())
 			}
 			m.monitors[UID] = mon
 

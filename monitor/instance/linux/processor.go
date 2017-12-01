@@ -13,7 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -22,8 +22,8 @@ import (
 // It implements the EventProcessor interface of the rpc monitor
 type linuxProcessor struct {
 	collector         collector.EventCollector
-	puHandler         monitorimpl.ProcessingUnitsHandler
-	syncHandler       monitorimpl.SynchronizationHandler
+	puHandler         monitorinstance.ProcessingUnitsHandler
+	syncHandler       monitorinstance.SynchronizationHandler
 	metadataExtractor events.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore

@@ -16,8 +16,8 @@ const (
 	maxEventNameLength = 64
 )
 
-// server represents the Monitor RPC Server implementation
-type server struct {
+// Server represents the Monitor RPC Server implementation
+type Server struct {
 	root       bool
 	registerer processor.Registerer
 }
@@ -26,7 +26,7 @@ type server struct {
 // events over the incoming RPC channel
 func New(root bool) (Processor, processor.Registerer) {
 
-	es := &server{
+	es := &Server{
 		root:       root,
 		registerer: processor.New(),
 	}
@@ -34,7 +34,7 @@ func New(root bool) (Processor, processor.Registerer) {
 }
 
 // HandleEvent Gets called when clients generate events.
-func (s *server) HandleEvent(eventInfo *events.EventInfo, result *events.EventResponse) (err error) {
+func (s *Server) HandleEvent(eventInfo *events.EventInfo, result *events.EventResponse) (err error) {
 
 	if err = validateEvent(eventInfo); err != nil {
 		return err

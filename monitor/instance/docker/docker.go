@@ -21,7 +21,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	tevents "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 
@@ -176,8 +176,8 @@ type dockerMonitor struct {
 	stoplistener       chan bool
 
 	collector   collector.EventCollector
-	puHandler   monitorimpl.ProcessingUnitsHandler
-	syncHandler monitorimpl.SynchronizationHandler
+	puHandler   monitorinstance.ProcessingUnitsHandler
+	syncHandler monitorinstance.SynchronizationHandler
 
 	netcls cgnetcls.Cgroupnetcls
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
@@ -186,7 +186,7 @@ type dockerMonitor struct {
 }
 
 // New returns a new docker monitor
-func New() monitorimpl.Implementation {
+func New() monitorinstance.Implementation {
 	return &dockerMonitor{}
 }
 
@@ -202,7 +202,7 @@ func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interfa
 		}
 	}
 
-	dockerConfig, ok := cfg.(Config)
+	dockerConfig, ok := cfg.(*Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified")
 	}
@@ -252,7 +252,7 @@ func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interfa
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (d *dockerMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorimpl.ProcessingUnitsHandler, syncHandler monitorimpl.SynchronizationHandler) {
+func (d *dockerMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorinstance.ProcessingUnitsHandler, syncHandler monitorinstance.SynchronizationHandler) {
 
 	d.collector = collector
 	d.puHandler = puHandler
@@ -439,12 +439,12 @@ func (d *dockerMonitor) syncContainers() error {
 			} else {
 				state = tevents.StateStopped
 			}
-			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, tevents.SynchronizationTypeInitial); err != nil {
+			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitorinstance.SynchronizationTypeInitial); err != nil {
 				zap.L().Error("Error Syncing existing Container", zap.Error(err))
 			}
 		}
 
-		d.syncHandler.HandleSynchronizationComplete(tevents.SynchronizationTypeInitial)
+		d.syncHandler.HandleSynchronizationComplete(monitorinstance.SynchronizationTypeInitial)
 	}
 
 	for _, c := range containers {

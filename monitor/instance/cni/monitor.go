@@ -6,7 +6,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
@@ -24,7 +24,7 @@ type cniMonitor struct {
 }
 
 // New returns a new implmentation of a monitor implmentation
-func New() monitorimpl.Implementation {
+func New() monitorinstance.Implementation {
 
 	return &cniMonitor{
 		proc: &cniProcessor{},
@@ -63,7 +63,7 @@ func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 		cfg = &Config{}
 	}
 
-	cniConfig, ok := cfg.(Config)
+	cniConfig, ok := cfg.(*Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified")
 	}
@@ -96,8 +96,8 @@ func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 // by the consumer of the monitor
 func (c *cniMonitor) SetupHandlers(
 	collector collector.EventCollector,
-	puHandler monitorimpl.ProcessingUnitsHandler,
-	syncHandler monitorimpl.SynchronizationHandler) {
+	puHandler monitorinstance.ProcessingUnitsHandler,
+	syncHandler monitorinstance.SynchronizationHandler) {
 
 	c.proc.collector = collector
 	c.proc.puHandler = puHandler

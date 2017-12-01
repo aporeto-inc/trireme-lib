@@ -50,8 +50,8 @@ echo "Monitor Mocks"
 mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
 goimport_sanitize monitor/mock/mockmonitor.go
 
-echo "Monitor/Impl Mocks"
-mockgen -source monitor/impl/interfaces.go -destination monitor/impl/mock/mockimpl.go -aux_files collector=collector/interfaces.go -package mockimpl -source_package github.com/aporeto-inc/trireme-lib/monitor/impl
-goimport_sanitize monitor/impl/mock/mockimpl.go
+echo "Monitor/Instance Mocks"
+mockgen -source monitor/instance/interfaces.go -destination monitor/instance/mock/mockimpl.go -aux_files collector=collector/interfaces.go -package mockimpl -source_package github.com/aporeto-inc/trireme-lib/monitor/instance
+goimport_sanitize monitor/instance/mock/mockimpl.go
 
 echo >&2 "OK"
