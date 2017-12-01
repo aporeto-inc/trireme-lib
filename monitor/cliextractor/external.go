@@ -2,6 +2,7 @@ package cliextractor
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -17,7 +18,7 @@ import (
 func NewExternalExtractor(filePath string) (dockermonitor.DockerMetadataExtractor, error) {
 
 	if filePath == "" {
-		return nil, fmt.Errorf("file argument is empty in bash extractor")
+		return nil, errors.New("file argument is empty in bash extractor")
 	}
 
 	path, err := exec.LookPath(filePath)

@@ -1,6 +1,7 @@
 package portset
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os/user"
@@ -127,7 +128,7 @@ func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 
 	port, ok := portSetName.(string)
 	if !ok {
-		return "", fmt.Errorf("invalid portset name: portset name is not a string")
+		return "", errors.New("invalid portset name: portset name is not a string")
 	}
 
 	return port, nil
@@ -154,7 +155,7 @@ func (p *portSetInstance) GetUserMark(mark string) (string, error) {
 
 	user, ok := userName.(string)
 	if !ok {
-		return "", fmt.Errorf("invalid mark: not a string")
+		return "", errors.New("invalid mark: not a string")
 	}
 
 	return user, nil

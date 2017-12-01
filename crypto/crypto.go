@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -154,7 +155,7 @@ func LoadAndVerifyECSecrets(keyPEM, certPEM, caCertPEM []byte) (key *ecdsa.Priva
 
 	rootCertPool = LoadRootCertificates(caCertPEM)
 	if rootCertPool == nil {
-		return nil, nil, nil, fmt.Errorf("unable to load root certificate pool")
+		return nil, nil, nil, errors.New("unable to load root certificate pool")
 	}
 
 	cert, err = LoadAndVerifyCertificate(certPEM, rootCertPool)

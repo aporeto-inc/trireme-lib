@@ -2,6 +2,7 @@ package datapath
 
 // Go libraries
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -98,7 +99,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	if d.service != nil {
 		if !d.service.PreProcessTCPNetPacket(p, context, conn) {
 			p.Print(packet.PacketFailureService)
-			return fmt.Errorf("pre service processing failed for network packet")
+			return errors.New("pre service processing failed for network packet")
 		}
 	}
 
@@ -124,7 +125,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPNetPacket(p, action, claims, context, conn) {
 			p.Print(packet.PacketFailureService)
-			return fmt.Errorf("post service processing failed for network packet")
+			return errors.New("post service processing failed for network packet")
 		}
 
 		if conn.ServiceConnection && conn.TimeOut > 0 {
@@ -213,7 +214,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 		// PreProcessServiceInterface
 		if !d.service.PreProcessTCPAppPacket(p, context, conn) {
 			p.Print(packet.PacketFailureService)
-			return fmt.Errorf("pre service processing failed for application packet")
+			return errors.New("pre service processing failed for application packet")
 		}
 	}
 
@@ -239,7 +240,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessTCPAppPacket(p, action, context, conn) {
 			p.Print(packet.PacketFailureService)
-			return fmt.Errorf("post service processing failed for application packet")
+			return errors.New("post service processing failed for application packet")
 		}
 	}
 
@@ -623,7 +624,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
 		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID, context, collector.MissingToken, nil)
-		return nil, nil, fmt.Errorf("synack packet dropped because of missing token")
+		return nil, nil, errors.New("synack packet dropped because of missing token")
 	}
 
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
@@ -654,7 +655,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// become a very strong condition
 	if index, _ := context.RejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
-		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter")
+		return nil, nil, errors.New("dropping because of reject rule on transmitter")
 	}
 
 	if index, action := context.AcceptTxtRules.Search(claims.T); !d.mutualAuthorization || index >= 0 {
@@ -666,7 +667,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
-	return nil, nil, fmt.Errorf("dropping packet synack at the network")
+	return nil, nil, errors.New("dropping packet synack at the network")
 }
 
 // processNetworkAckPacket processes an Ack packet arriving from the network
@@ -794,7 +795,7 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 		return nil, nil, fmt.Errorf("unable to update portset cache: %s", err)
 	}
 	// syn ack for which there is no corresponding syn context, so drop it.
-	return nil, nil, fmt.Errorf("dropped synack for an unknown syn")
+	return nil, nil, errors.New("dropped synack for an unknown syn")
 }
 
 // appRetrieveState retrieves the state for the rest of the application packets. It
@@ -831,7 +832,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*pucontext.PUContext, *co
 	defer conn.(*connection.TCPConnection).Unlock()
 	context := conn.(*connection.TCPConnection).Context
 	if context == nil {
-		return nil, nil, fmt.Errorf("no context found")
+		return nil, nil, errors.New("no context found")
 	}
 
 	return context.(*pucontext.PUContext), conn.(*connection.TCPConnection), nil
@@ -877,7 +878,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*pucontext.PUContext, 
 			return context, nil, nil
 		}
 
-		return nil, nil, fmt.Errorf("no context in net processing")
+		return nil, nil, errors.New("no context in net processing")
 	}
 
 	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
@@ -909,7 +910,7 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*pucontext.PUContex
 	defer conn.(*connection.TCPConnection).Unlock()
 	context := conn.(*connection.TCPConnection).Context
 	if context == nil {
-		return nil, nil, fmt.Errorf("no context found")
+		return nil, nil, errors.New("no context found")
 	}
 
 	return context.(*pucontext.PUContext), conn.(*connection.TCPConnection), nil
@@ -938,7 +939,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*pucontext.PUContext, *co
 	defer conn.(*connection.TCPConnection).Unlock()
 	context := conn.(*connection.TCPConnection).Context
 	if context == nil {
-		return nil, nil, fmt.Errorf("no context found")
+		return nil, nil, errors.New("no context found")
 	}
 
 	return context.(*pucontext.PUContext), conn.(*connection.TCPConnection), nil

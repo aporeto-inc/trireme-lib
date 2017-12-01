@@ -1,6 +1,7 @@
 package cnimonitor
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -16,7 +17,7 @@ type CNIMetadataExtractor func(event *rpcmonitor.EventInfo) (*policy.PURuntime, 
 func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
-		return nil, fmt.Errorf("namespace path is required when using cni")
+		return nil, errors.New("namespace path is required when using cni")
 	}
 
 	runtimeTags := policy.NewTagStore()
@@ -37,7 +38,7 @@ func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURunt
 func DockerCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
-		return nil, fmt.Errorf("namespace path is required when using cni")
+		return nil, errors.New("namespace path is required when using cni")
 	}
 
 	runtimeTags := policy.NewTagStore()

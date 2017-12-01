@@ -1,7 +1,7 @@
 package linuxmonitor
 
 import (
-	"fmt"
+	"errors"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -188,7 +188,7 @@ func TestStart(t *testing.T) {
 				PUType:    constants.LinuxProcessPU,
 			}
 			Convey("I should get an error ", func() {
-				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(errors.New("error"))
 				err := p.Start(event)
 				So(err, ShouldNotBeNil)
 			})
@@ -205,7 +205,7 @@ func TestStart(t *testing.T) {
 			Convey("I should get an error ", func() {
 				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
 
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(fmt.Errorf("error"))
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(errors.New("error"))
 				err := p.Start(event)
 				So(err, ShouldNotBeNil)
 			})
@@ -227,7 +227,7 @@ func TestStart(t *testing.T) {
 				puHandler.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Return(nil)
 				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 
-				mockcls.EXPECT().Creategroup(gomock.Any()).Return(fmt.Errorf("error"))
+				mockcls.EXPECT().Creategroup(gomock.Any()).Return(errors.New("error"))
 				err := p.Start(event)
 				So(err, ShouldNotBeNil)
 			})
@@ -274,7 +274,7 @@ func TestResync(t *testing.T) {
 		p.netcls = cls
 
 		Convey("When we cannot open the context store it returns an error", func() {
-			store.EXPECT().Walk().Return(nil, fmt.Errorf("no store"))
+			store.EXPECT().Walk().Return(nil, errors.New("no store"))
 
 			Convey("Start server returns no error", func() {
 				err := p.ReSync(nil)
@@ -288,7 +288,7 @@ func TestResync(t *testing.T) {
 			contextlist <- ""
 
 			store.EXPECT().Walk().Return(contextlist, nil)
-			store.EXPECT().Retrieve("/test1", gomock.Any()).Return(fmt.Errorf("invalid context"))
+			store.EXPECT().Retrieve("/test1", gomock.Any()).Return(errors.New("invalid context"))
 
 			Convey("Start server returns no error", func() {
 				err := p.ReSync(nil)

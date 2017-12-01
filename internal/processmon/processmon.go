@@ -3,6 +3,7 @@ package processmon
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -297,7 +298,7 @@ func (p *processMon) LaunchProcess(
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return fmt.Errorf("refused to launch a remote enforcer in host namespace")
+		return errors.New("refused to launch a remote enforcer in host namespace")
 	}
 
 	if _, err = os.Stat(p.netNSPath); err != nil {

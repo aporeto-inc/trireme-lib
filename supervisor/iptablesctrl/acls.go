@@ -1,6 +1,7 @@
 package iptablesctrl
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -336,18 +337,18 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 		switch methodType {
 		case "Append":
 			if err := i.ipt.Append(cr[0], cr[1], cr[2:]...); err != nil {
-				return fmt.Errorf("unable to %s rule for table %s and chain %s with error %s ", methodType, cr[0], cr[1], err)
+				return fmt.Errorf("unable to %s rule for table %s and chain %s with error %s", methodType, cr[0], cr[1], err)
 			}
 		case "Insert":
 			if err := i.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
-				return fmt.Errorf("unable to %s rule for table %s and chain %s with error %s ", methodType, cr[0], cr[1], err)
+				return fmt.Errorf("unable to %s rule for table %s and chain %s with error %s", methodType, cr[0], cr[1], err)
 			}
 		case "Delete":
 			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
 				zap.L().Warn("Unabble to delete rule from chain", zap.Error(err))
 			}
 		default:
-			return fmt.Errorf("invalid method type")
+			return errors.New("invalid method type")
 		}
 	}
 	return nil
@@ -837,7 +838,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"-j", "ACCEPT")
 
 	if err != nil {
-		return fmt.Errorf("unable to add default allow for marked packets at net")
+		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
 	err = i.ipt.Insert(
@@ -968,7 +969,7 @@ func (i *Instance) CleanGlobalRules() error {
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT"); err != nil {
 		zap.L().Debug("Can not clear the global app mark rule", zap.Error(err))
-		return fmt.Errorf("unable to add default allow for marked packets at app ")
+		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
 
 	if err := i.ipt.Delete(

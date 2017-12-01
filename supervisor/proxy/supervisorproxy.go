@@ -3,6 +3,7 @@
 package supervisorproxy
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -126,11 +127,11 @@ func (s *ProxyInfo) Stop() error {
 func NewProxySupervisor(collector collector.EventCollector, enforcer policyenforcer.Enforcer, rpchdl rpcwrapper.RPCClient) (*ProxyInfo, error) {
 
 	if collector == nil {
-		return nil, fmt.Errorf("collector cannot be nil")
+		return nil, errors.New("collector cannot be nil")
 	}
 
 	if enforcer == nil {
-		return nil, fmt.Errorf("enforcer cannot be nil")
+		return nil, errors.New("enforcer cannot be nil")
 	}
 
 	s := &ProxyInfo{

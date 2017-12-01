@@ -2,6 +2,7 @@ package acls
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -66,7 +67,7 @@ func createPortAction(rule policy.IPRule) (*PortAction, error) {
 	}
 
 	if p.min > p.max {
-		return nil, fmt.Errorf("min port is greater than max port")
+		return nil, errors.New("min port is greater than max port")
 	}
 
 	p.policy = rule.Policy
@@ -154,5 +155,5 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (*policy.FlowPolicy
 		}
 	}
 
-	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}, fmt.Errorf("no match")
+	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}, errors.New("no match")
 }

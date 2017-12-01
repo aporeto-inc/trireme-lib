@@ -1,7 +1,7 @@
 package statsclient
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"time"
 
@@ -42,11 +42,11 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 	}
 
 	if sc.statsChannel == "" {
-		return nil, fmt.Errorf("no path to stats socket provided")
+		return nil, errors.New("no path to stats socket provided")
 	}
 
 	if sc.secret == "" {
-		return nil, fmt.Errorf("no secret provided for stats channel")
+		return nil, errors.New("no secret provided for stats channel")
 	}
 
 	return sc, nil

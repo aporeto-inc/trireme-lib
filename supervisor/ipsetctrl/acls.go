@@ -1,6 +1,7 @@
 package ipsetctrl
 
 import (
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -217,7 +218,7 @@ func (i *Instance) setupIpset(target, container string) error {
 func (i *Instance) addTargetNets(networks []string) error {
 
 	if i.targetSet == nil {
-		return fmt.Errorf("target net set not configured")
+		return errors.New("target net set not configured")
 	}
 
 	for _, net := range networks {
@@ -231,7 +232,7 @@ func (i *Instance) addTargetNets(networks []string) error {
 func (i *Instance) addContainerToSet(ip string) error {
 
 	if i.containerSet == nil {
-		return fmt.Errorf("invalid operation: container set is nil")
+		return errors.New("invalid operation: container set is nil")
 	}
 
 	if err := i.containerSet.Add(ip, 0); err != nil {
@@ -243,7 +244,7 @@ func (i *Instance) addContainerToSet(ip string) error {
 func (i *Instance) delContainerFromSet(ip string) error {
 
 	if i.containerSet == nil {
-		return fmt.Errorf("invalid operation: container set is nil")
+		return errors.New("invalid operation: container set is nil")
 	}
 
 	if err := i.containerSet.Del(ip); err != nil {
@@ -256,7 +257,7 @@ func (i *Instance) delContainerFromSet(ip string) error {
 func (i *Instance) addIpsetOption(ip string) error {
 
 	if i.targetSet == nil {
-		return fmt.Errorf("cannot add option: target set is nil")
+		return errors.New("cannot add option: target set is nil")
 	}
 
 	return i.targetSet.AddOption(ip, "nomatch", 0)
@@ -266,7 +267,7 @@ func (i *Instance) addIpsetOption(ip string) error {
 func (i *Instance) deleteIpsetOption(ip string) error {
 
 	if i.targetSet == nil {
-		return fmt.Errorf("cannot remove option: target set is nil")
+		return errors.New("cannot remove option: target set is nil")
 	}
 	return i.targetSet.Del(ip)
 }

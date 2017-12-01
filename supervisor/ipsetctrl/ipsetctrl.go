@@ -1,6 +1,7 @@
 package ipsetctrl
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -84,20 +85,20 @@ func (i *Instance) setPrefix(contextID string) (app, net string) {
 func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil {
-		return fmt.Errorf("container info cannot be nil")
+		return errors.New("container info cannot be nil")
 	}
 
 	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	if policyrules == nil {
-		return fmt.Errorf("no policy rules provided")
+		return errors.New("no policy rules provided")
 	}
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
-		return fmt.Errorf("no ip address found")
+		return errors.New("no ip address found")
 	}
 
 	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
@@ -115,7 +116,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(ipAddresses)
 	if !ok {
-		return fmt.Errorf("no ip address found")
+		return errors.New("no ip address found")
 	}
 
 	var errvector [8]error
@@ -147,7 +148,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
-		return fmt.Errorf("no ip address found")
+		return errors.New("no ip address found")
 	}
 
 	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {

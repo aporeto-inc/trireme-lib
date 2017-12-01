@@ -10,6 +10,7 @@ import "C"
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -133,7 +134,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 	); s.enforcer == nil {
-		return fmt.Errorf("unable to setup enforcer: we don't know as this function does not return an error...")
+		return errors.New("unable to setup enforcer: we don't know as this function does not return an error...")
 	}
 
 	return nil
@@ -173,7 +174,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			zap.String("nsErr", nsEnterState),
 			zap.String("nsLogs", nsEnterLogMsg),
 		)
-		resp.Status = "Not running in a namespace"
+		resp.Status = "not running in a namespace"
 		// Dont return error to close RPC channel
 	}
 
@@ -182,7 +183,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	)
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("Init message authentication failed: %s", resp.Status)
+		resp.Status = fmt.Sprintf("init message authentication failed: %s", resp.Status)
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -212,7 +213,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = fmt.Sprintf("Supervisor init message auth failed")
+		resp.Status = fmt.Sprintf("supervisor init message auth failed")
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -224,7 +225,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 		switch payload.CaptureMethod {
 		case rpcwrapper.IPSets:
 			//TO DO
-			return fmt.Errorf("ipsets not supported yet")
+			return errors.New("ipsets not supported yet")
 		default:
 			supervisorHandle, err := supervisor.NewSupervisor(
 				s.collector,
@@ -241,7 +242,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 		}
 
 		if err := s.supervisor.Start(); err != nil {
-			zap.L().Error("unabbke to start the supervisor", zap.Error(err))
+			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
 
 		if s.service != nil {
@@ -311,7 +312,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "Unenforce message auth failed"
+		resp.Status = "unenforce message auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -326,7 +327,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "Unsupervise message auth failed"
+		resp.Status = "unsupervise message auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -341,7 +342,7 @@ func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Re
 func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = "Enforce message auth failed"
+		resp.Status = "enforce message auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -366,7 +367,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
 	if puInfo == nil {
-		return fmt.Errorf("unable to instantiate pu info")
+		return errors.New("unable to instantiate pu info")
 	}
 	if s.enforcer == nil {
 		zap.L().Fatal("Enforcer not initialized")
@@ -395,14 +396,14 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	// Cleanup resources held in this namespace
 	if s.supervisor != nil {
 		if err := s.supervisor.Stop(); err != nil {
-			msgErrors = append(msgErrors, fmt.Sprintf("Supervisor error: %s", err))
+			msgErrors = append(msgErrors, fmt.Sprintf("supervisor error: %s", err))
 		}
 		s.supervisor = nil
 	}
 
 	if s.enforcer != nil {
 		if err := s.enforcer.Stop(); err != nil {
-			msgErrors = append(msgErrors, fmt.Sprintf("Enforcer error: %s", err))
+			msgErrors = append(msgErrors, fmt.Sprintf("enforcer error: %s", err))
 		}
 		s.enforcer = nil
 	}

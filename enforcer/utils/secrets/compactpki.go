@@ -3,7 +3,7 @@ package secrets
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
-	"fmt"
+	"errors"
 
 	"github.com/aporeto-inc/trireme-lib/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/pkiverifier"
@@ -52,7 +52,7 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 	}
 
 	if len(txKey) == 0 {
-		return nil, fmt.Errorf("transmit token missing")
+		return nil, errors.New("transmit token missing")
 	}
 
 	p := &CompactPKI{
@@ -98,7 +98,7 @@ func (p *CompactPKI) DecodingKey(server string, ackKey interface{}, prevKey inte
 		return prevKey, nil
 	}
 
-	return nil, fmt.Errorf("invalid certificate")
+	return nil, errors.New("invalid certificate")
 }
 
 // VerifyPublicKey verifies if the inband public key is correct.

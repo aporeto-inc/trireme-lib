@@ -1,7 +1,6 @@
 package linuxmonitor
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -305,7 +304,7 @@ func (s *LinuxProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, r
 		if derr := s.netcls.DeleteCgroup(event.PUID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
-		return errors.New("Mark value not found")
+		return fmt.Errorf("mark value %s not found", markval)
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
@@ -340,7 +339,7 @@ func (s *LinuxProcessor) processHostServiceStart(event *rpcmonitor.EventInfo, ru
 		hexmark := "0x" + (strconv.FormatUint(mark, 16))
 
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644); err != nil {
-			return errors.New("Failed to  write to net_cls.classid file for new cgroup")
+			return fmt.Errorf("failed to write to net_cls.classid file for new cgroup: %s", err)
 		}
 	}
 

@@ -68,7 +68,7 @@ type DockerMetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, erro
 func contextIDFromDockerID(dockerID string) (string, error) {
 
 	if dockerID == "" {
-		return "", fmt.Errorf("unable to generate context id: empty docker id")
+		return "", errors.New("unable to generate context id: empty docker id")
 	}
 
 	if len(dockerID) < 12 {
@@ -465,7 +465,7 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 			)
 		}
 
-		return errors.New("Mark value not found")
+		return errors.New("mark value not found")
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
@@ -552,7 +552,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
 
 	if dockerInfo == nil {
-		return nil, fmt.Errorf("docker info is empty")
+		return nil, errors.New("docker info is empty")
 	}
 
 	if d.metadataExtractor != nil {

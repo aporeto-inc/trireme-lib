@@ -1,6 +1,7 @@
 package cnimonitor
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -150,11 +151,11 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 func generateContextID(eventInfo *rpcmonitor.EventInfo) (string, error) {
 
 	if eventInfo.PUID == "" {
-		return "", fmt.Errorf("puid is empty from event info")
+		return "", errors.New("puid is empty from event info")
 	}
 
 	if len(eventInfo.PUID) < 12 {
-		return "", fmt.Errorf("puid smaller than 12 characters")
+		return "", errors.New("puid smaller than 12 characters")
 	}
 
 	return eventInfo.PUID[:12], nil

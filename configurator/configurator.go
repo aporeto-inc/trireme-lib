@@ -4,6 +4,7 @@ package configurator
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"time"
 
@@ -145,7 +146,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	// Only a type of Container (remote or local) can be enabled
 	if options.RemoteContainer && options.LocalContainer {
-		return nil, fmt.Errorf("cannot have remote and local container enabled at the same time")
+		return nil, errors.New("cannot have remote and local container enabled at the same time")
 	}
 
 	if options.PKI {

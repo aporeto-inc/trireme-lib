@@ -1,7 +1,7 @@
 package ipsetctrl
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/bvandewalle/go-ipset/ipset"
@@ -40,7 +40,7 @@ func TestCreateACLSets(t *testing.T) {
 					})
 					return testset, nil
 				}
-				return nil, fmt.Errorf("error")
+				return nil, errors.New("error")
 			})
 
 			rules := policy.IPRuleList{
@@ -69,7 +69,7 @@ func TestCreateACLSets(t *testing.T) {
 
 		Convey("When I create the ACL sets for APP1 with version 1 and set create fails", func() {
 			ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
-				return nil, fmt.Errorf("error")
+				return nil, errors.New("error")
 			})
 
 			err := i.createACLSets("0", "APP1-", policy.IPRuleList{})
@@ -84,11 +84,11 @@ func TestCreateACLSets(t *testing.T) {
 				if (name == "APP1-A-0" || name == "APP1-R-0") && hasht == "hash:net,port" {
 					testset := provider.NewTestIpset()
 					testset.MockAdd(t, func(entry string, timeout int) error {
-						return fmt.Errorf("error adding a rule")
+						return errors.New("error adding a rule")
 					})
 					return testset, nil
 				}
-				return nil, fmt.Errorf("error")
+				return nil, errors.New("error")
 			})
 
 			rules := policy.IPRuleList{
@@ -127,7 +127,7 @@ func TestAddAppSetRuleS(t *testing.T) {
 		Convey("When I add the app set rules with the right parameters", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if !matchSpec("172.17.0.2", rulespec) {
-					return fmt.Errorf("error in ip")
+					return errors.New("error in ip")
 				}
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-R-0", rulespec) {
 					return nil
@@ -135,7 +135,7 @@ func TestAddAppSetRuleS(t *testing.T) {
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-A-0", rulespec) {
 					return nil
 				}
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.addAppSetRules("0", "SET-", "172.17.0.2")
@@ -146,7 +146,7 @@ func TestAddAppSetRuleS(t *testing.T) {
 
 		Convey("When I add the app set rules and the command fails ", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.addAppSetRules("0", "SET-", "172.17.0.2")
@@ -169,7 +169,7 @@ func TestAddNetSetRules(t *testing.T) {
 		Convey("When I add the app set rules with the right parameters", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if !matchSpec("172.17.0.2", rulespec) {
-					return fmt.Errorf("error in ip")
+					return errors.New("error in ip")
 				}
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-R-0", rulespec) {
 					return nil
@@ -177,7 +177,7 @@ func TestAddNetSetRules(t *testing.T) {
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-A-0", rulespec) {
 					return nil
 				}
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.addNetSetRules("0", "SET-", "172.17.0.2")
@@ -188,7 +188,7 @@ func TestAddNetSetRules(t *testing.T) {
 
 		Convey("When I add the app set rules and the command fails ", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.addNetSetRules("0", "SET-", "172.17.0.2")
@@ -211,7 +211,7 @@ func TestDeleteAppSetRules(t *testing.T) {
 		Convey("When I add the app set rules with the right parameters", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				if !matchSpec("172.17.0.2", rulespec) {
-					return fmt.Errorf("error in ip")
+					return errors.New("error in ip")
 				}
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-R-0", rulespec) {
 					return nil
@@ -219,7 +219,7 @@ func TestDeleteAppSetRules(t *testing.T) {
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-A-0", rulespec) {
 					return nil
 				}
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.deleteAppSetRules("0", "SET-", "172.17.0.2")
@@ -230,7 +230,7 @@ func TestDeleteAppSetRules(t *testing.T) {
 
 		Convey("When I add the app set rules and the command fails ", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.deleteAppSetRules("0", "SET-", "172.17.0.2")
@@ -253,7 +253,7 @@ func TestDeleteNetSetRules(t *testing.T) {
 		Convey("When I add the app set rules with the right parameters", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				if !matchSpec("172.17.0.2", rulespec) {
-					return fmt.Errorf("error in ip")
+					return errors.New("error in ip")
 				}
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-R-0", rulespec) {
 					return nil
@@ -261,7 +261,7 @@ func TestDeleteNetSetRules(t *testing.T) {
 				if matchSpec("--match-set", rulespec) && matchSpec("SET-A-0", rulespec) {
 					return nil
 				}
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.deleteNetSetRules("0", "SET-", "172.17.0.2")
@@ -272,7 +272,7 @@ func TestDeleteNetSetRules(t *testing.T) {
 
 		Convey("When I add the app set rules and the command fails ", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.deleteNetSetRules("0", "SET-", "172.17.0.2")
@@ -301,7 +301,7 @@ func TestSetupIpset(t *testing.T) {
 					})
 					return testset, nil
 				}
-				return nil, fmt.Errorf("error")
+				return nil, errors.New("error")
 			})
 
 			err := i.setupIpset("target", "container")
@@ -319,7 +319,7 @@ func TestSetupIpset(t *testing.T) {
 					})
 					return testset, nil
 				}
-				return nil, fmt.Errorf("error")
+				return nil, errors.New("error")
 			})
 
 			err := i.setupIpset("target", "container")
@@ -337,7 +337,7 @@ func TestSetupIpset(t *testing.T) {
 					})
 					return testset, nil
 				}
-				return nil, fmt.Errorf("error")
+				return nil, errors.New("error")
 			})
 
 			err := i.setupIpset("target", "container")
@@ -403,7 +403,7 @@ func TestAddContainerToSet(t *testing.T) {
 		ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
 			testset := provider.NewTestIpset()
 			testset.MockAdd(t, func(entry string, timeout int) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 			return testset, nil
 		})
@@ -475,7 +475,7 @@ func TestDelContainerFromSet(t *testing.T) {
 		ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
 			testset := provider.NewTestIpset()
 			testset.MockDel(t, func(entry string) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 			return testset, nil
 		})
@@ -545,7 +545,7 @@ func TestAddIpsetOption(t *testing.T) {
 		ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
 			testset := provider.NewTestIpset()
 			testset.MockAddOption(t, func(entry string, option string, timeout int) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 			return testset, nil
 		})
@@ -616,7 +616,7 @@ func TestDelIPsetOption(t *testing.T) {
 		ipsets.MockNewIpset(t, func(name string, hasht string, p *ipset.Params) (provider.Ipset, error) {
 			testset := provider.NewTestIpset()
 			testset.MockDel(t, func(entry string) error {
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 			return testset, nil
 		})
@@ -646,7 +646,7 @@ func TestSetupTrapRules(t *testing.T) {
 				if matchSpec("ContainerSet", rulespec) {
 					return nil
 				}
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.setupTrapRules("set")
@@ -658,9 +658,9 @@ func TestSetupTrapRules(t *testing.T) {
 		Convey("When I add the trap rules and iptables fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("ContainerSet", rulespec) {
-					return fmt.Errorf("error")
+					return errors.New("error")
 				}
-				return fmt.Errorf("error")
+				return errors.New("error")
 			})
 
 			err := i.setupTrapRules("set")

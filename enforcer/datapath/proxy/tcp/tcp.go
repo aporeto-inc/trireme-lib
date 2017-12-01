@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -330,7 +331,7 @@ func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
 
 	var ip net.IP
 	if addr.family != syscall.AF_INET {
-		return []byte{}, 0, fmt.Errorf("invalid address family")
+		return []byte{}, 0, errors.New("invalid address family")
 
 	}
 
@@ -488,11 +489,11 @@ L:
 
 				if index, _ := puContext.(*pucontext.PUContext).RejectTxtRules.Search(claims.T); p.mutualAuthorization && index >= 0 {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
-					return fmt.Errorf("dropping because of reject rule on transmitter")
+					return errors.New("dropping because of reject rule on transmitter")
 				}
 				if index, _ := puContext.(*pucontext.PUContext).AcceptTxtRules.Search(claims.T); !p.mutualAuthorization || index < 0 {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
-					return fmt.Errorf("dropping because of reject rule on receiver")
+					return errors.New("dropping because of reject rule on receiver")
 				}
 				conn.SetState(connection.ClientSendSignedPair)
 
@@ -567,7 +568,7 @@ E:
 				var index int
 				if index, action = puContext.(*pucontext.PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
-					return fmt.Errorf("connection dropped by no accept policy")
+					return errors.New("connection dropped by no accept policy")
 				}
 				conn.FlowPolicy = action.(*policy.FlowPolicy)
 				conn.SetState(connection.ServerSendToken)

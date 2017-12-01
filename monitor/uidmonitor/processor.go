@@ -346,7 +346,7 @@ func (s *UIDProcessor) processLinuxServiceStart(event *rpcmonitor.EventInfo, run
 		if derr := s.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
-		return errors.New("Mark value not found")
+		return errors.New("mark value not found")
 	}
 
 	mark, err := strconv.ParseUint(markval, 10, 32)

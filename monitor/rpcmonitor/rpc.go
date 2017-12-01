@@ -1,6 +1,7 @@
 package rpcmonitor
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -43,7 +44,7 @@ const (
 func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root bool) (*RPCMonitor, error) {
 
 	if rpcAddress == "" {
-		return nil, fmt.Errorf("empty rpc endpoint address")
+		return nil, errors.New("empty rpc endpoint address")
 	}
 
 	if _, err := os.Stat(rpcAddress); err == nil {
@@ -78,7 +79,7 @@ func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root b
 // processor is allowed for a given PU Type.
 func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor MonitorProcessor) error {
 	if _, ok := r.monitorServer.handlers[puType]; ok {
-		return fmt.Errorf("processor already registered for this pu of type %d ", puType)
+		return fmt.Errorf("processor already registered for this pu of type %d", puType)
 	}
 
 	r.monitorServer.handlers[puType] = map[monitor.Event]RPCEventHandler{}
@@ -169,7 +170,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 	}
 
 	if eventInfo.HostService && !s.root {
-		return fmt.Errorf("operation requires root access")
+		return errors.New("operation requires root access")
 	}
 
 	strtokens := eventInfo.PUID[strings.LastIndex(eventInfo.PUID, "/")+1:]
@@ -188,7 +189,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		}
 	}
 
-	err := fmt.Errorf("no handler found for the event")
+	err := errors.New("no handler found for the event")
 	result.Error = err.Error()
 	return err
 
@@ -231,11 +232,11 @@ func validateEvent(event *EventInfo) error {
 
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
 		if len(event.Name) > maxEventNameLength {
-			return fmt.Errorf("invalid event name: must not be nil or greater than 64 characters")
+			return errors.New("invalid event name: must not be nil or greater than 64 characters")
 		}
 
 		if event.PID == "" {
-			return fmt.Errorf("invalid pid: empty")
+			return errors.New("invalid pid: empty")
 		}
 
 		pid, err := strconv.Atoi(event.PID)
@@ -243,13 +244,13 @@ func validateEvent(event *EventInfo) error {
 			return fmt.Errorf("invalid pid: %s", err)
 		}
 		if pid < 0 {
-			return fmt.Errorf("invalid pid: must be a positive number")
+			return errors.New("invalid pid: must be a positive number")
 		}
 
 		if event.HostService {
 			if event.NetworkOnlyTraffic {
 				if event.Name == "" || event.Name == "default" {
-					return fmt.Errorf("service name must be provided and must be not be default")
+					return errors.New("service name must be provided and must be not be default")
 				}
 				event.PUID = event.Name
 			} else {
@@ -271,7 +272,7 @@ func validateEvent(event *EventInfo) error {
 	if event.EventType == monitor.EventStop || event.EventType == monitor.EventDestroy {
 		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
 		if event.Cgroup != "" && !regStop.Match([]byte(event.Cgroup)) {
-			return fmt.Errorf("cgroup is not of the right format")
+			return errors.New("cgroup is not of the right format")
 		}
 	}
 

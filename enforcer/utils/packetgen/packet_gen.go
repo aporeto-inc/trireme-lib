@@ -4,6 +4,7 @@ package packetgen
 
 //Go libraries
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -21,7 +22,7 @@ func NewPacket() PacketManipulator {
 func (p *Packet) AddEthernetLayer(srcMACstr string, dstMACstr string) error {
 
 	if p.ethernetLayer != nil {
-		return fmt.Errorf("ethernet layer already exists")
+		return errors.New("ethernet layer already exists")
 	}
 
 	var srcMAC, dstMAC net.HardwareAddr
@@ -30,14 +31,14 @@ func (p *Packet) AddEthernetLayer(srcMACstr string, dstMACstr string) error {
 	srcMAC, _ = net.ParseMAC(srcMACstr)
 
 	if srcMAC == nil {
-		return fmt.Errorf("no source mac given")
+		return errors.New("no source mac given")
 	}
 
 	//MAC address of the destination
 	dstMAC, _ = net.ParseMAC(dstMACstr)
 
 	if dstMAC == nil {
-		return fmt.Errorf("no destination mac given")
+		return errors.New("no destination mac given")
 	}
 
 	//Ethernet packet header
@@ -60,7 +61,7 @@ func (p *Packet) GetEthernetPacket() layers.Ethernet {
 func (p *Packet) AddIPLayer(srcIPstr string, dstIPstr string) error {
 
 	if p.ipLayer != nil {
-		return fmt.Errorf("ip layer already exists")
+		return errors.New("ip layer already exists")
 	}
 
 	var srcIP, dstIP net.IP
@@ -69,14 +70,14 @@ func (p *Packet) AddIPLayer(srcIPstr string, dstIPstr string) error {
 	srcIP = net.ParseIP(srcIPstr)
 
 	if srcIP == nil {
-		return fmt.Errorf("no source ip given")
+		return errors.New("no source ip given")
 	}
 
 	//IP address of the destination
 	dstIP = net.ParseIP(dstIPstr)
 
 	if dstIP == nil {
-		return fmt.Errorf("no destination ip given")
+		return errors.New("no destination ip given")
 	}
 
 	//IP packet header
@@ -107,15 +108,15 @@ func (p *Packet) GetIPPacket() layers.IPv4 {
 func (p *Packet) AddTCPLayer(srcPort layers.TCPPort, dstPort layers.TCPPort) error {
 
 	if p.tcpLayer != nil {
-		return fmt.Errorf("tcp layer already exists")
+		return errors.New("tcp layer already exists")
 	}
 
 	if srcPort == 0 {
-		return fmt.Errorf("no source tcp port given")
+		return errors.New("no source tcp port given")
 	}
 
 	if dstPort == 0 {
-		return fmt.Errorf("no destination tcp port given")
+		return errors.New("no destination tcp port given")
 	}
 
 	//TCP packet header
@@ -267,7 +268,7 @@ func (p *Packet) SetTCPFin() {
 func (p *Packet) NewTCPPayload(newPayload string) error {
 
 	if p.tcpLayer.Payload != nil {
-		return fmt.Errorf("payload already exists")
+		return errors.New("payload already exists")
 	}
 
 	p.tcpLayer.Payload = []byte(newPayload)

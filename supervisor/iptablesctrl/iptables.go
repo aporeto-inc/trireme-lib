@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"crypto/md5"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -165,14 +166,12 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	// policyrules.DefaultIPAddress()
-
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
-
 	if !ok {
-		return fmt.Errorf("no ip address found")
+		return errors.New("no ip address found")
 	}
+
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
 	zap.L().Debug("Configure rules", zap.String("proxyPort", proxyPort))
 	proxiedServices := containerInfo.Policy.ProxiedServices()
@@ -197,7 +196,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		if mark == "" {
-			return fmt.Errorf("no mark value found")
+			return errors.New("no mark value found")
 		}
 
 		port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
@@ -258,12 +257,12 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	// Supporting only one ip
 	if i.mode != constants.LocalServer {
 		if ipAddresses == nil {
-			return fmt.Errorf("provided map of ip addresses is nil")
+			return errors.New("provided map of ip addresses is nil")
 		}
 
 		ipAddress, ok = i.defaultIP(ipAddresses)
 		if !ok {
-			return fmt.Errorf("no ip address found")
+			return errors.New("no ip address found")
 		}
 	}
 
@@ -316,18 +315,18 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil {
-		return fmt.Errorf("container info cannot be nil")
+		return errors.New("container info cannot be nil")
 	}
 
 	policyrules := containerInfo.Policy
 	if policyrules == nil {
-		return fmt.Errorf("policy rules cannot be nil")
+		return errors.New("policy rules cannot be nil")
 	}
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
-		return fmt.Errorf("no ip address found")
+		return errors.New("no ip address found")
 	}
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
 
@@ -373,7 +372,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		if mark == "" {
-			return fmt.Errorf("no mark value found")
+			return errors.New("no mark value found")
 		}
 		portlist := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
 		uid := containerInfo.Runtime.Options().UserID
@@ -445,7 +444,7 @@ func (i *Instance) Start() error {
 
 	if i.mode == constants.LocalContainer {
 		if i.acceptMarkedPackets() != nil {
-			return fmt.Errorf("filter of marked packets is not set")
+			return errors.New("filter of marked packets is not set")
 		}
 	}
 

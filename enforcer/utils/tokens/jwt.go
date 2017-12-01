@@ -2,6 +2,7 @@ package tokens
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -53,7 +54,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	var signMethod jwt.SigningMethod
 
 	if s == nil {
-		return nil, fmt.Errorf("secrets can not be nil")
+		return nil, errors.New("secrets can not be nil")
 	}
 
 	switch s.Type() {
@@ -151,13 +152,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		// We must have at least enough data to get the length
 		if len(data) < tokenPosition {
-			return nil, nil, nil, fmt.Errorf("invalid token length")
+			return nil, nil, nil, errors.New("invalid token length")
 		}
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:noncePosition]))
 		// Data must be enought to accommodate the token
 		if len(data) < tokenPosition+tokenLength+1 {
-			return nil, nil, nil, fmt.Errorf("invalid token length")
+			return nil, nil, nil, errors.New("invalid token length")
 		}
 
 		copy(nonce, data[noncePosition:tokenPosition])
@@ -187,7 +188,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		return nil, nil, nil, fmt.Errorf("unable to parse token: %s", err)
 	}
 	if !jwttoken.Valid {
-		return nil, nil, nil, fmt.Errorf("invalid token")
+		return nil, nil, nil, errors.New("invalid token")
 	}
 
 	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)
@@ -199,7 +200,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 func (c *JWTConfig) Randomize(token []byte) (nonce []byte, err error) {
 
 	if len(token) < tokenPosition {
-		return []byte{}, fmt.Errorf("token is too small")
+		return []byte{}, errors.New("token is too small")
 	}
 
 	nonce, err = crypto.GenerateRandomBytes(NonceLength)
@@ -216,7 +217,7 @@ func (c *JWTConfig) Randomize(token []byte) (nonce []byte, err error) {
 func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
 
 	if len(token) < tokenPosition {
-		return []byte{}, fmt.Errorf("invalid token")
+		return []byte{}, errors.New("invalid token")
 	}
 
 	nonce := make([]byte, NonceLength)

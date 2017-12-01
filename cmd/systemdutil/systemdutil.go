@@ -1,6 +1,7 @@
 package systemdutil
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -167,7 +168,7 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 
 	// Process the rest of the arguments of the create command
 	if value, ok := arguments["run"]; !ok || value == nil {
-		return nil, fmt.Errorf("invalid command")
+		return nil, errors.New("invalid command")
 	}
 
 	// This is a create request - proceed
@@ -211,7 +212,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 	// If its not hostPolicy and the command doesn't exist we return an error
 	if !c.HostPolicy {
 		if c.Executable == "" {
-			return fmt.Errorf("command must be provided")
+			return errors.New("command must be provided")
 		}
 		if !path.IsAbs(c.Executable) {
 			c.Executable, err = exec.LookPath(c.Executable)

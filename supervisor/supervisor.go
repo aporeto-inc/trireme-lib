@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -51,23 +52,23 @@ type Config struct {
 func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, implementation constants.ImplementationType, networks []string) (*Config, error) {
 
 	if collector == nil {
-		return nil, fmt.Errorf("collector cannot be nil")
+		return nil, errors.New("collector cannot be nil")
 	}
 
 	if enforcerInstance == nil {
-		return nil, fmt.Errorf("enforcer cannot be nil")
+		return nil, errors.New("enforcer cannot be nil")
 	}
 
 	filterQueue := enforcerInstance.GetFilterQueue()
 
 	if filterQueue == nil {
-		return nil, fmt.Errorf("enforcer filter queues cannot be nil")
+		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
 	portSetInstance := enforcerInstance.GetPortSetInstance()
 
 	if portSetInstance == nil {
-		return nil, fmt.Errorf("enforcer portset instance cannot be nil")
+		return nil, errors.New("enforcer portset instance cannot be nil")
 	}
 
 	s := &Config{
@@ -100,13 +101,13 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil {
-		return fmt.Errorf("containerinfo must not be nil")
+		return errors.New("containerinfo must not be nil")
 	}
 	if containerInfo.Policy == nil {
-		return fmt.Errorf("containerinfo.policy must not be nil")
+		return errors.New("containerinfo.policy must not be nil")
 	}
 	if containerInfo.Runtime == nil {
-		return fmt.Errorf("containerinfo.runtime must not be nil")
+		return errors.New("containerinfo.runtime must not be nil")
 	}
 
 	_, err := s.versionTracker.Get(contextID)

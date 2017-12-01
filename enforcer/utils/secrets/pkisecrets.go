@@ -3,6 +3,7 @@ package secrets
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -80,7 +81,7 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 		return prevCert, nil
 	}
 
-	return nil, fmt.Errorf("no valid certificate")
+	return nil, errors.New("no valid certificate")
 }
 
 // VerifyPublicKey verifies if the inband public key is correct.
