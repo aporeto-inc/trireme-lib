@@ -256,7 +256,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			ContextID: contextID,
 			IPAddress: "N/A",
 			Tags:      nil,
-			Event:     collector.UnknownContainerDelete,
+			Event:     collector.ContainerDeleteUnknown,
 		})
 		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s: %s", contextID, err)
 	}

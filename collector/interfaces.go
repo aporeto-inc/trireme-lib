@@ -6,6 +6,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
+// Flow event description
 const (
 	// FlowReject indicates that a flow was rejected
 	FlowReject = "reject"
@@ -27,6 +28,10 @@ const (
 	InvalidNonse = "nonse"
 	// PolicyDrop indicates that the flow is rejected because of the policy decision
 	PolicyDrop = "policy"
+)
+
+// Container event description
+const (
 	// ContainerStart indicates a container start event
 	ContainerStart = "start"
 	// ContainerStop indicates a container stop event
@@ -41,8 +46,11 @@ const (
 	ContainerFailed = "forcestop"
 	// ContainerIgnored indicates that the container will be ignored by Trireme
 	ContainerIgnored = "ignore"
-	// UnknownContainerDelete indicates that policy for an unknown  container was deleted
-	UnknownContainerDelete = "unknowncontainer"
+	// ContainerDeleteUnknown indicates that policy for an unknown  container was deleted
+	ContainerDeleteUnknown = "unknowncontainer"
+)
+
+const (
 	// PolicyValid Normal flow accept
 	PolicyValid = "V"
 	// DefaultEndPoint  provides a string for unknown container sources
