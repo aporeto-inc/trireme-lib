@@ -427,7 +427,7 @@ func (d *dockerMonitor) syncContainers() error {
 
 		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 		if err != nil {
-			zap.L().Error("Unable to sync exsiting container during inspect",
+			zap.L().Error("Unable to sync existing container during inspect",
 				zap.String("dockerID", c.ID),
 				zap.Error(err),
 			)
