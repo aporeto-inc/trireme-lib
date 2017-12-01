@@ -317,7 +317,7 @@ func (d *dockerMonitor) eventProcessors() {
 								)
 							}
 						} else {
-							zap.L().Info("Docker event not handled",
+							zap.L().Debug("Docker event not handled",
 								zap.String("action", event.Action),
 								zap.String("ID", event.ID),
 							)
@@ -352,7 +352,7 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 	for {
 		select {
 		case message := <-messages:
-			zap.L().Info("Got message from docker client",
+			zap.L().Debug("Got message from docker client",
 				zap.String("action", message.Action),
 				zap.String("ID", message.ID),
 			)
