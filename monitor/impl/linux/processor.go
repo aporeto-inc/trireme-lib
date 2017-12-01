@@ -10,20 +10,19 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/impl"
-	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventinfo"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-// LinuxConfig is the configuration options to start a CNI monitor
-type LinuxConfig struct {
-	Registerer             eventserver.Registerer
+// Config is the configuration options to start a CNI monitor
+type Config struct {
 	EventMetadataExtractor eventinfo.EventMetadataExtractor
 	StoredPath             string
 	ReleasePath            string
@@ -78,10 +77,10 @@ func (l *linuxMonitor) Stop() error {
 func (l *linuxMonitor) SetupConfig(registerer eventserver.Registerer, cfg interface{}) error {
 
 	if cfg == nil {
-		cfg = &LinuxConfig{}
+		cfg = &Config{}
 	}
 
-	linuxConfig, ok := cfg.(LinuxConfig)
+	linuxConfig, ok := cfg.(Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified")
 	}
