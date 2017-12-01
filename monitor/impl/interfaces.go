@@ -1,7 +1,7 @@
 package monitorimpl
 
 import (
-	"github.com/aporeto-inc/trireme-lib"
+	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
@@ -22,7 +22,7 @@ type Implementation interface {
 	// SetupHandlers sets up handlers for monitors to invoke for various events such as
 	// processing unit events and synchronization events. This will be called before Start()
 	// by the consumer of the monitor
-	SetupHandlers(collector trireme.EventCollector, puHandler ProcessingUnitsHandler, syncHandler SynchronizationHandler)
+	SetupHandlers(collector collector.EventCollector, puHandler ProcessingUnitsHandler, syncHandler SynchronizationHandler)
 }
 
 // A ProcessingUnitsHandler must be implemnted by the monitor instantiators or components thereof.

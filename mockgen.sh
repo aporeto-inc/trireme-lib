@@ -10,6 +10,10 @@ goimport_sanitize () {
   rm -f $1.bk
 }
 
+echo "Cgnetcls Mocks"
+mockgen -source cgnetcls/interfaces.go -destination cgnetcls/mock/mockcgnetcls.go -package mockcgnetcls -source_package github.com/aporeto-inc/trireme-lib/cgnetcls
+goimport_sanitize cgnetcls/mock/mockcgnetcls.go
+
 echo "Enforcer/PolicyEnforcer Mocks"
 mockgen -source enforcer/policyenforcer/interfaces.go -destination enforcer/policyenforcer/mock/mockpolicyenforcer.go -package mockpolicyenforcer -source_package github.com/aporeto-inc/trireme-lib/enforcer
 goimport_sanitize enforcer/policyenforcer/mock/mockpolicyenforcer.go
@@ -46,8 +50,8 @@ echo "Monitor Mocks"
 mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -aux_files policy=policy/interfaces.go eventinfo=monitor/eventinfo/eventinfo.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
 goimport_sanitize monitor/mock/mockmonitor.go
 
-echo "Monitor/Processor Mocks"
-mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mock/mockprocessor.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/monitor/processor
-goimport_sanitize monitor/processor/mock/mockprocessor.go
+echo "Monitor/Impl Mocks"
+mockgen -source monitor/impl/interfaces.go -destination monitor/impl/mock/mockimpl.go -aux_files collector=collector/interfaces.go -package mockimpl -source_package github.com/aporeto-inc/trireme-lib/monitor/impl
+goimport_sanitize monitor/impl/mock/mockimpl.go
 
 echo >&2 "OK"
