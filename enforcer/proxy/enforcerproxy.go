@@ -36,18 +36,6 @@ type tokenPKICertifier interface {
 	TokenPEMs() [][]byte
 }
 
-// ErrFailedtoLaunch exported.
-var ErrFailedtoLaunch = errors.New("Failed to Launch")
-
-// ErrExpectedEnforcer exported
-var ErrExpectedEnforcer = errors.New("Process was not launched")
-
-// ErrEnforceFailed exported
-var ErrEnforceFailed = errors.New("Failed to enforce rules")
-
-// ErrInitFailed exported
-var ErrInitFailed = errors.New("Failed remote Init")
-
 // ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
 	MutualAuth             bool
@@ -94,7 +82,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
-		return fmt.Errorf("Failed to initialize remote enforcer: status %s, error: %s", resp.Status, err.Error())
+		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
 	}
 
 	s.Lock()
@@ -164,8 +152,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		delete(s.initDone, contextID)
 		s.Unlock()
 		s.prochdl.KillProcess(contextID)
-		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
-		return ErrEnforceFailed
+		return fmt.Errorf("failed to enforce rules: %s", err)
 	}
 
 	return nil
@@ -325,7 +312,7 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
 		zap.L().Error("Message sender cannot be verified")
-		return errors.New("Message sender cannot be verified")
+		return errors.New("message sender cannot be verified")
 	}
 
 	payload := req.Payload.(rpcwrapper.StatsPayload)

@@ -89,7 +89,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 
 	puID, tags := a.getPUInfo(contextID)
 	if puID == "" {
-		return nil, fmt.Errorf("nflog: unable to find pu ID associated given contexID: %s", contextID)
+		return nil, fmt.Errorf("nflog: unable to find pu id associated given contex id: %s", contextID)
 	}
 
 	var action policy.ActionType

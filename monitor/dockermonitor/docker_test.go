@@ -2,7 +2,7 @@ package dockermonitor
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"syscall"
 	"testing"
@@ -114,11 +114,11 @@ func TestInitDockerClient(t *testing.T) {
 	})
 
 	Convey("When I try to initialize a new docker client with some random type", t, func() {
-		dc, err := initDockerClient("wrongType", constants.DefaultDockerSocket)
+		dc, err := initDockerClient("wrongtype", constants.DefaultDockerSocket)
 
 		Convey("Then docker client should be nil and I should get error", func() {
 			So(dc, ShouldBeNil)
-			So(err, ShouldResemble, fmt.Errorf("Bad socket type wrongType"))
+			So(err, ShouldResemble, errors.New("bad socket type: wrongtype"))
 		})
 	})
 
@@ -148,7 +148,7 @@ func TestContextIDFromDockerID(t *testing.T) {
 
 		Convey("Then I should get error", func() {
 			So(cID, ShouldEqual, "")
-			So(err, ShouldResemble, fmt.Errorf("dockerID smaller than 12 characters"))
+			So(err, ShouldResemble, errors.New("unable to generate context id: dockerid smaller than 12 characters: 6f47830f64"))
 		})
 	})
 
@@ -157,7 +157,7 @@ func TestContextIDFromDockerID(t *testing.T) {
 
 		Convey("Then I should get error", func() {
 			So(cID, ShouldEqual, "")
-			So(err, ShouldResemble, fmt.Errorf("Empty DockerID String"))
+			So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 		})
 	})
 }
@@ -218,30 +218,30 @@ func TestStartDockerContainer(t *testing.T) {
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo("", "default", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Couldn't generate ContextID: Empty DockerID String"))
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 			})
 		})
 
 		Convey("When I try to start default docker container with invalid context ID and killContainerOnPolicyError not set", func() {
 			mockPU.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(fmt.Errorf("Error"))
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(errors.New("error"))
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Policy cound't be set - container was kept alive per policy 74cc486f9ec3 Error"))
+				So(err, ShouldResemble, errors.New("unable to set policy: container 74cc486f9ec3 kept alive per policy: error"))
 			})
 		})
 
 		Convey("When I try to start from default docker container with invalid context ID", func() {
 			mockPU.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(fmt.Errorf("Error"))
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(errors.New("error"))
 			dm.(*dockerMonitor).puHandler = mockPU
 			dm.(*dockerMonitor).killContainerOnPolicyError = true
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Policy cound't be set - container was killed 74cc486f9ec3 Error"))
+				So(err, ShouldResemble, errors.New("unable to set policy: killed container 74cc486f9ec3: error"))
 			})
 		})
 
@@ -264,14 +264,14 @@ func TestStartDockerContainer(t *testing.T) {
 			mockPU.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(nil)
 			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
-			mockCG.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
+			mockCG.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("error"))
 			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			dm.(*dockerMonitor).netcls = mockCG
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "host", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Failed to setup host mode "))
+				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: error"))
 			})
 		})
 
@@ -280,37 +280,37 @@ func TestStartDockerContainer(t *testing.T) {
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(nil)
 			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
 			mockCG.EXPECT().AssignMark("74cc486f9ec3", uint64(104)).Times(1).Return(nil)
-			mockCG.EXPECT().AddProcess(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
+			mockCG.EXPECT().AddProcess(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("error"))
 			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			dm.(*dockerMonitor).netcls = mockCG
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "host", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Failed to setup host mode "))
+				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: error"))
 			})
 		})
 
 		Convey("When I try to start host docker container with error in create group", func() {
 			mockPU.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(nil)
-			mockCG.EXPECT().Creategroup(gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
+			mockCG.EXPECT().Creategroup(gomock.Any()).Times(1).Return(errors.New("error"))
 			dm.(*dockerMonitor).puHandler = mockPU
 			dm.(*dockerMonitor).netcls = mockCG
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "host", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Failed to setup host mode "))
+				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: error"))
 			})
 		})
 
 		Convey("When I try to start host docker container with error in set PU", func() {
-			mockPU.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
+			mockPU.EXPECT().SetPURuntime(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("error"))
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "host", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Error"))
+				So(err, ShouldResemble, errors.New("error"))
 			})
 		})
 	})
@@ -342,7 +342,7 @@ func TestStopDockerContainer(t *testing.T) {
 			err := dm.(*dockerMonitor).stopDockerContainer("")
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Couldn't generate ContextID: Empty DockerID String"))
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 			})
 		})
 	})
@@ -374,7 +374,7 @@ func TestHandleCreateEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleCreateEvent(initTestMessage(""))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Error Generating ContextID: Empty DockerID String"))
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 			})
 		})
 	})
@@ -398,7 +398,7 @@ func TestHandleStartEvent(t *testing.T) {
 				err = dm.(*dockerMonitor).handleStartEvent(initTestMessage(ID))
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, fmt.Errorf("Cannot read container information. Container still alive per policy. "))
+					So(err, ShouldResemble, errors.New("cannot read container information. container still alive per policy"))
 				})
 			}
 		})
@@ -407,7 +407,7 @@ func TestHandleStartEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleStartEvent(initTestMessage(""))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Error Generating ContextID: Empty DockerID String"))
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 			})
 		})
 
@@ -416,7 +416,7 @@ func TestHandleStartEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleStartEvent(initTestMessage("74cc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Cannot read container information. Killing container. "))
+				So(err, ShouldResemble, errors.New("unable to read container information: container 74cc486f9ec3 killed: Error: No such container: 74cc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 			})
 		})
 
@@ -424,7 +424,7 @@ func TestHandleStartEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleStartEvent(initTestMessage("abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Cannot read container information. Container still alive per policy. "))
+				So(err, ShouldResemble, errors.New("unable to read container information: container abcc486f9ec3 kept alive per policy: Error: No such container: abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 			})
 		})
 	})
@@ -483,7 +483,7 @@ func TestHandleDestroyEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleDestroyEvent(initTestMessage(""))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Error Generating ContextID: Empty DockerID String"))
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 			})
 		})
 	})
@@ -514,7 +514,7 @@ func TestHandlePauseEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handlePauseEvent(initTestMessage(""))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Error Generating ContextID: Empty DockerID String"))
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 			})
 		})
 	})
@@ -545,7 +545,7 @@ func TestHandleUnpauseEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleUnpauseEvent(initTestMessage(""))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, fmt.Errorf("Error Generating ContextID: Empty DockerID String"))
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
 			})
 		})
 	})
@@ -565,7 +565,7 @@ func TestExtractMetadata(t *testing.T) {
 
 			Convey("I should get error", func() {
 				So(puR, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("DockerInfo is empty"))
+				So(err, ShouldResemble, errors.New("docker info is empty"))
 			})
 		})
 	})
@@ -646,7 +646,7 @@ func TestStart(t *testing.T) {
 			if pingerr != nil {
 				err := dm.(*dockerMonitor).Start()
 				Convey("I should get error", func() {
-					So(err, ShouldResemble, fmt.Errorf("Docker daemon not running"))
+					So(err, ShouldResemble, errors.New("docker daemon not running"))
 				})
 			} else {
 

@@ -4,6 +4,7 @@ package configurator
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"time"
 
@@ -145,22 +146,21 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	// Only a type of Container (remote or local) can be enabled
 	if options.RemoteContainer && options.LocalContainer {
-		return nil, fmt.Errorf("Cannot have remote and local container enabled at the same time")
+		return nil, errors.New("cannot have remote and local container enabled at the same time")
 	}
 
 	if options.PKI {
 		if options.SmartToken != nil {
 
-			zap.L().Info("Initializing Trireme with Smart PKI Auth")
+			zap.L().Debug("Initializing Trireme with Smart PKI Auth")
 			pkiSecrets, err = secrets.NewCompactPKI(options.KeyPEM, options.CertPEM, options.CaCertPEM, options.SmartToken)
-			zap.L().Info("Finished Initializing Trireme with PKI Auth")
 			if err != nil {
-				return nil, fmt.Errorf("Error Instantiating new Compact PKI: %s", err)
+				return nil, fmt.Errorf("unable to instantiate new compact pki: %s", err)
 			}
 		} else {
 			pkiTriremeSecret, err2 := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
 			if err2 != nil {
-				return nil, fmt.Errorf("Error Instantiating New PKI Secret: %s", err)
+				return nil, fmt.Errorf("unable to instantiate new pki secret: %s", err)
 			}
 			pkiSecrets = pkiTriremeSecret
 			publicKeyAdder = pkiTriremeSecret
@@ -286,7 +286,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			false,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to initialize RPC monitor %s", err)
+			return nil, fmt.Errorf("unable to initialize rpc monitor: %s", err)
 		}
 	}
 
@@ -300,7 +300,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		if err := rpcMonitorInstance.RegisterProcessor(
 			constants.LinuxProcessPU,
 			linuxMonitorProcessor); err != nil {
-			zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+			zap.L().Fatal("Unable to initialize RPC monitor", zap.Error(err))
 		}
 	}
 
