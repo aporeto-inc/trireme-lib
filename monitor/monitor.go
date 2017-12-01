@@ -4,7 +4,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib.k/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/"
 	"github.com/aporeto-inc/trireme-lib/monitor/impl"
-	"github.com/aporeto-inc/trireme-lib/monitor/impl/docker"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 )
 
@@ -29,27 +28,29 @@ type Config struct {
 }
 
 type monitors struct {
-	config   *Config
-	monitors map[Type]impl.Implementation
+	config          *Config
+	monitors        map[Type]impl.Implementation
+	userRPCListener rpcmonitor.Listener
+	rootRPCListener rpcmonitor.Listener
 }
 
 // NewMonitors instantiates all/any combination of monitors supported.
 func NewMonitors(c *Config) Monitor {
 
-	userRPCListener := rpc.New(
-		rpcmonitor.DefaultRPCAddress,
-		false,
-	)
-
-	rootRPCListener := rpc.New(
-		rpcmonitor.DefaultRootRPCAddress,
-		true,
-	)
-
 	m := &monitors{
 		config:   c,
 		monitors: make(map[Type]impl.Implementation),
 	}
+
+	m.userRPCListener = rpc.New(
+		rpcmonitor.DefaultRPCAddress,
+		false,
+	)
+
+	m.rootRPCListener = rpc.New(
+		rpcmonitor.DefaultRootRPCAddress,
+		true,
+	)
 
 	for k, v := range c.Monitors {
 		switch k {
@@ -58,7 +59,7 @@ func NewMonitors(c *Config) Monitor {
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
 				return err
 			}
-			if err := monitor.SetupCfg(userRPCListener, v); err != nil {
+			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
 				return err
 			}
 			m.monitors[CNI] = monitor
@@ -78,7 +79,7 @@ func NewMonitors(c *Config) Monitor {
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
 				return err
 			}
-			if err := monitor.SetupCfg(userRPCListener, v); err != nil {
+			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
 				return err
 			}
 			m.monitors[LinuxProcess] = monitor
@@ -88,7 +89,7 @@ func NewMonitors(c *Config) Monitor {
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
 				return err
 			}
-			if err := monitor.SetupCfg(rootRPCListener, v); err != nil {
+			if err := monitor.SetupCfg(m.rootRPCListener, v); err != nil {
 				return err
 			}
 			m.monitors[LinuxHost] = monitor
@@ -98,7 +99,7 @@ func NewMonitors(c *Config) Monitor {
 			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
 				return err
 			}
-			if err := monitor.SetupCfg(userRPCListener, v); err != nil {
+			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
 				return err
 			}
 			m.monitors[UID] = monitor
