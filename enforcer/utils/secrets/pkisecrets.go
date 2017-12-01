@@ -25,7 +25,7 @@ type PKISecrets struct {
 func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) (*PKISecrets, error) {
 	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid certificates")
+		return nil, fmt.Errorf("Invalid certificates: %s", err)
 	}
 
 	p := &PKISecrets{
