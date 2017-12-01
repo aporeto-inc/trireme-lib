@@ -483,7 +483,7 @@ L:
 				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidToken, nil)
-					return fmt.Errorf("Peer token reject because of bad claims %v", claims)
+					return fmt.Errorf("Peer token reject because of bad claims: error: %s, claims: %v", err, claims)
 				}
 
 				if index, _ := puContext.(*pucontext.PUContext).RejectTxtRules.Search(claims.T); p.mutualAuthorization && index >= 0 {
@@ -561,12 +561,11 @@ E:
 				if index, plc := puContext.(*pucontext.PUContext).RejectRcvRules.Search(claims.T); index >= 0 {
 					zap.L().Error("Connection Dropped", zap.String("Policy ID", plc.(*policy.FlowPolicy).PolicyID))
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, plc.(*policy.FlowPolicy))
-					return fmt.Errorf("Connection dropped because of Policy %v", err)
+					return fmt.Errorf("Connection dropped because of Policy: %s", err)
 				}
 				var action interface{}
 				var index int
 				if index, action = puContext.(*pucontext.PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
-
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
 					return fmt.Errorf("Connection dropped because No Accept Policy")
 				}
@@ -576,7 +575,7 @@ E:
 			case connection.ServerSendToken:
 				claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
-					return fmt.Errorf("Unable to create synack token")
+					return fmt.Errorf("Unable to create synack token: %s", err)
 				}
 				synackn, err := upConn.Write(claims)
 				if err == nil {
@@ -600,7 +599,7 @@ E:
 				}
 				if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidFormat, nil)
-					return fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
+					return fmt.Errorf("Ack packet dropped because signature validation failed %s", err)
 				}
 
 				break E

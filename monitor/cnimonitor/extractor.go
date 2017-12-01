@@ -23,7 +23,7 @@ func KubernetesCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURunt
 	for _, tag := range event.Tags {
 		parts := strings.Split(tag, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid Tag")
+			return nil, fmt.Errorf("Invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
@@ -44,7 +44,7 @@ func DockerCNIMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime,
 	for _, tag := range event.Tags {
 		parts := strings.Split(tag, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid Tag")
+			return nil, fmt.Errorf("Invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}

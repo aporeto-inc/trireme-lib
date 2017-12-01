@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"go.uber.org/zap"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -152,13 +151,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		// We must have at least enough data to get the length
 		if len(data) < tokenPosition {
-			return nil, nil, nil, fmt.Errorf("bad token length")
+			return nil, nil, nil, fmt.Errorf("Bad token length")
 		}
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:noncePosition]))
 		// Data must be enought to accommodate the token
 		if len(data) < tokenPosition+tokenLength+1 {
-			return nil, nil, nil, fmt.Errorf("bad token length")
+			return nil, nil, nil, fmt.Errorf("Bad token length")
 		}
 
 		copy(nonce, data[noncePosition:tokenPosition])
@@ -168,7 +167,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		certBytes := data[tokenPosition+tokenLength+1:]
 		ackCert, err = c.secrets.VerifyPublicKey(certBytes)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("bad public key err %s", err.Error())
+			return nil, nil, nil, fmt.Errorf("Bad public key: %s", err)
 		}
 
 		if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
@@ -184,8 +183,10 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 	})
 
 	// If error is returned or the token is not valid, reject it
-	if err != nil || !jwttoken.Valid {
-		zap.L().Error("ParseWithClaim failed", zap.Error(err))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("Unable to parse token: %s", err)
+	}
+	if !jwttoken.Valid {
 		return nil, nil, nil, fmt.Errorf("Invalid token")
 	}
 
@@ -213,11 +214,13 @@ func (c *JWTConfig) Randomize(token []byte) (nonce []byte, err error) {
 
 // RetrieveNonce returns the nonce of a token. It copies the value
 func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
+
 	if len(token) < tokenPosition {
 		return []byte{}, fmt.Errorf("Invalid token")
 	}
 
 	nonce := make([]byte, NonceLength)
 	copy(nonce, token[noncePosition:tokenPosition])
+
 	return nonce, nil
 }

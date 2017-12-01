@@ -137,7 +137,7 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	// We always a need a valid remote context ID
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
-		return nil, fmt.Errorf("No Transmitter Label ")
+		return nil, fmt.Errorf("No transmitter label")
 	}
 
 	auth.RemotePublicKey = cert

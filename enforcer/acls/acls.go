@@ -34,49 +34,48 @@ func NewACLCache() *ACLCache {
 }
 
 // createPortAction parses a port spec and creates the action
-func createPortAction(rule policy.IPRule) *PortAction {
+func createPortAction(rule policy.IPRule) (*PortAction, error) {
 
 	p := &PortAction{}
 	if strings.Contains(rule.Port, ":") {
 		parts := strings.Split(rule.Port, ":")
 		if len(parts) != 2 {
-			return nil
+			return nil, fmt.Errorf("Invalid port: %s", rule.Port)
 		}
 
 		port, err := strconv.Atoi(parts[0])
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		p.min = uint16(port)
 
 		port, err = strconv.Atoi(parts[1])
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		p.max = uint16(port)
 
 	} else {
 		port, err := strconv.Atoi(rule.Port)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 
 		p.min = uint16(port)
-
 		p.max = p.min
 	}
 
 	if p.min > p.max {
-		return nil
+		return nil, fmt.Errorf("Min port is greater than max port")
 	}
 
 	p.policy = rule.Policy
 
-	return p
+	return p, nil
 }
 
 // AddRule adds a single rule to the ACL Cache
-func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
+func (c *ACLCache) AddRule(rule policy.IPRule) error {
 	var subnet, mask uint32
 
 	if strings.ToLower(rule.Protocol) != "tcp" {
@@ -87,7 +86,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 
 	subnetSlice := net.ParseIP(parts[0])
 	if subnetSlice == nil {
-		return fmt.Errorf("Invalid address")
+		return fmt.Errorf("Invalid IP address: %s", parts[0])
 	}
 
 	subnet = binary.BigEndian.Uint32(subnetSlice.To4())
@@ -97,21 +96,24 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 		mask = 0xFFFFFFFF
 	case 2:
 		maskvalue, err := strconv.Atoi(parts[1])
-		if err != nil || mask > 32 {
-			return fmt.Errorf("Invalid address")
+		if err != nil {
+			return fmt.Errorf("Invalid address: %s", err)
+		}
+		if mask > 32 {
+			return fmt.Errorf("Invalid mask value: %d", mask)
 		}
 		mask = binary.BigEndian.Uint32(net.CIDRMask(maskvalue, 32))
 	default:
-		return fmt.Errorf("Invalid address")
+		return fmt.Errorf("Invalid address: %s", rule.Address)
 	}
 
 	if _, ok := c.prefixMap[mask]; !ok {
 		c.prefixMap[mask] = make(map[uint32]PortActionList)
 	}
 
-	a := createPortAction(rule)
-	if a == nil {
-		return fmt.Errorf("Invalid port")
+	a, err := createPortAction(rule)
+	if err != nil {
+		return fmt.Errorf("Unable to create port action: %s", err)
 	}
 
 	subnet = subnet & mask

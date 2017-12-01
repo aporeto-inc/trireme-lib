@@ -88,9 +88,8 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 	default:
 		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, portSetInstance)
 	}
-
 	if err != nil {
-		return nil, fmt.Errorf("Unable to initialize supervisor controllers")
+		return nil, fmt.Errorf("Unable to initialize supervisor controllers: %s", err)
 	}
 
 	return s, nil
@@ -100,8 +99,14 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 // it invokes the various handlers that process the parameter policy.
 func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error {
 
-	if containerInfo == nil || containerInfo.Policy == nil || containerInfo.Runtime == nil {
-		return fmt.Errorf("Runtime, Policy and ContainerInfo should not be nil")
+	if containerInfo == nil {
+		return fmt.Errorf("ContainerInfo must not be nil")
+	}
+	if containerInfo.Policy == nil {
+		return fmt.Errorf("containerInfo.Policy must not be nil")
+	}
+	if containerInfo.Runtime == nil {
+		return fmt.Errorf("containerInfo.Runtime must not be nil")
 	}
 
 	_, err := s.versionTracker.Get(contextID)
@@ -123,7 +128,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	version, err := s.versionTracker.Get(contextID)
 
 	if err != nil {
-		return fmt.Errorf("Cannot find policy version")
+		return fmt.Errorf("Cannot find policy version: %s", err)
 	}
 
 	cacheEntry := version.(*cacheData)
@@ -144,7 +149,7 @@ func (s *Config) Unsupervise(contextID string) error {
 func (s *Config) Start() error {
 
 	if err := s.impl.Start(); err != nil {
-		return fmt.Errorf("Filter of marked packets was not set")
+		return fmt.Errorf("Unable to start the implementer: %s", err)
 	}
 
 	s.Lock()
@@ -162,7 +167,7 @@ func (s *Config) Start() error {
 func (s *Config) Stop() error {
 
 	if err := s.impl.Stop(); err != nil {
-		return fmt.Errorf("Failed to stop the implementer: %s", err)
+		return fmt.Errorf("Unable to stop the implementer: %s", err)
 	}
 
 	return nil
@@ -229,7 +234,7 @@ func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) erro
 	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
 
 	if err != nil {
-		return fmt.Errorf("Error finding PU in cache %s", err)
+		return fmt.Errorf("Unable to find PU %s in cache: %s", contextID, err)
 	}
 
 	cachedEntry := cacheEntry.(*cacheData)

@@ -15,17 +15,18 @@ import (
 // the executable given in parameter and will generate a Policy Runtime as standard output
 // The format of Input/Output of the executable are in standard JSON.
 func NewExternalExtractor(filePath string) (dockermonitor.DockerMetadataExtractor, error) {
+
 	if filePath == "" {
-		return nil, fmt.Errorf("file argument is empty in NewBashExtractor")
+		return nil, fmt.Errorf("File argument is empty in NewBashExtractor")
 	}
 
 	path, err := exec.LookPath(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("Exec file was not found at filePath %s: %s", filePath, err)
+		return nil, fmt.Errorf("Exec file not found %s: %s", filePath, err)
 	}
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("Exec file was not found at filePath %s: %s", filePath, err)
+		return nil, fmt.Errorf("Exec file not found %s: %s", filePath, err)
 	}
 
 	// Generate a new function

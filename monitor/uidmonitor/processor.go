@@ -241,7 +241,7 @@ func (s *UIDProcessor) Pause(eventInfo *rpcmonitor.EventInfo) error {
 
 	contextID, err := s.generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+		return fmt.Errorf("Unable to generate contextID: %s", err)
 	}
 
 	return s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
@@ -263,9 +263,8 @@ func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 	}()
 
 	walker, err := s.contextStore.Walk()
-
 	if err != nil {
-		return fmt.Errorf("error in accessing context store")
+		return fmt.Errorf("Unable to walk context store: %s", err)
 	}
 
 	cgroups := cgnetcls.GetCgroupList()
@@ -274,7 +273,10 @@ func (s *UIDProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 		pidlist, _ := cgnetcls.ListCgroupProcesses(cgroup)
 		if len(pidlist) == 0 {
 			if err := s.netcls.DeleteCgroup(cgroup); err != nil {
-				zap.L().Warn("Error when deleting cgroup", zap.Error(err), zap.String("cgroup", cgroup))
+				zap.L().Warn("Unable to delete cgroup",
+					zap.String("cgroup", cgroup),
+					zap.Error(err),
+				)
 			}
 			continue
 		}

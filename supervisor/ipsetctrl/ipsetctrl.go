@@ -37,7 +37,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, remote bool, mode constants.ModeType
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize IPtables provider")
+		return nil, fmt.Errorf("Unable to initialize IPtables provider: %s", err)
 	}
 
 	ips := provider.NewGoIPsetProvider()
@@ -91,7 +91,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	if policyrules == nil {
-		return fmt.Errorf("No policy rules provided -nil ")
+		return fmt.Errorf("No policy rules provided")
 	}
 
 	// Currently processing only containers with one IP address
@@ -104,11 +104,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	if err := i.addTargetNets(containerInfo.Policy.TriremeNetworks()); err != nil {
-		return err
-	}
-
-	return nil
+	return i.addTargetNets(containerInfo.Policy.TriremeNetworks())
 }
 
 // DeleteRules implements the DeleteRules interface
@@ -119,7 +115,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(ipAddresses)
 	if !ok {
-		return fmt.Errorf("No ip address found")
+		return fmt.Errorf("No IP address found")
 	}
 
 	var errvector [8]error
@@ -151,7 +147,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
-		return fmt.Errorf("No ip address found")
+		return fmt.Errorf("No IP address found")
 	}
 
 	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
@@ -200,10 +196,7 @@ func (i *Instance) addAllRules(version int, appSetPrefix, netSetPrefix string, a
 		return err
 	}
 
-	if err := i.addNetSetRules(versionstring, netSetPrefix, ip); err != nil {
-		return err
-	}
-	return nil
+	return i.addNetSetRules(versionstring, netSetPrefix, ip)
 }
 
 // Start implements the start of the interface
@@ -213,10 +206,7 @@ func (i *Instance) Start() error {
 		return err
 	}
 
-	if err := i.setupTrapRules(triremeSet); err != nil {
-		return err
-	}
-	return nil
+	return i.setupTrapRules(triremeSet)
 }
 
 // Stop implements the stop interface

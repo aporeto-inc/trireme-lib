@@ -120,6 +120,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 	}
 
 	// New returns a new policy enforcer
+	// TODO: return an err to tell why!
 	if s.enforcer = enforcer.New(
 		payload.MutualAuth,
 		payload.FqConfig,
@@ -146,13 +147,11 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	nsEnterState := getCEnvVariable(constants.AporetoEnvNsenterErrorState)
 	nsEnterLogMsg := getCEnvVariable(constants.AporetoEnvNsenterLogs)
 	if nsEnterState != "" {
-
 		zap.L().Error("Remote enforcer failed",
 			zap.String("nsErr", nsEnterState),
 			zap.String("nsLogs", nsEnterLogMsg),
 		)
-
-		resp.Status = (nsEnterState)
+		resp.Status = fmt.Sprintf("Remote enforcer failed: %s", nsEnterState)
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -164,7 +163,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			zap.String("nsLogs", nsEnterLogMsg),
 			zap.Error(err),
 		)
-		resp.Status = err.Error()
+		resp.Status = fmt.Sprintf("Remote enforcer failed: unable to identify namespace: %s", err)
 		// Dont return error to close RPC channel
 	}
 
@@ -173,7 +172,6 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 		zap.L().Error("Remote enforcer failed: not running in a namespace",
 			zap.String("nsErr", nsEnterState),
 			zap.String("nsLogs", nsEnterLogMsg),
-			zap.Error(err),
 		)
 		resp.Status = "Not running in a namespace"
 		// Dont return error to close RPC channel
@@ -184,7 +182,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 	)
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Init message authentication failed")
+		resp.Status = fmt.Sprintf("Init message authentication failed: %s", resp.Status)
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -214,7 +212,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Supervisor Init Message Auth Failed")
+		resp.Status = fmt.Sprintf("Supervisor init message auth failed")
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -265,7 +263,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Supervise Message Auth Failed")
+		resp.Status = fmt.Sprintf("Supervise message auth failed")
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -313,7 +311,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Unenforce Message Auth Failed")
+		resp.Status = "Unenforce message auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -328,7 +326,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Unsupervise Message Auth Failed")
+		resp.Status = "Unsupervise message auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -343,7 +341,7 @@ func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Re
 func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
-		resp.Status = ("Enforce Message Auth Failed")
+		resp.Status = "Enforce message auth failed"
 		return fmt.Errorf(resp.Status)
 	}
 
@@ -371,7 +369,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		return fmt.Errorf("Unable to instantiate puInfo")
 	}
 	if s.enforcer == nil {
-		zap.L().Fatal("Enforcer not inited")
+		zap.L().Fatal("Enforcer not initialized")
 	}
 	if err := s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
@@ -392,19 +390,19 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 
-	msgErrors := ""
+	msgErrors := []error{}
 
 	// Cleanup resources held in this namespace
 	if s.supervisor != nil {
 		if err := s.supervisor.Stop(); err != nil {
-			msgErrors = msgErrors + "SuperVisor Error:" + err.Error() + "-"
+			msgErrors = append(msgErrors, fmt.Errorf("Supervisor error: %s", err))
 		}
 		s.supervisor = nil
 	}
 
 	if s.enforcer != nil {
 		if err := s.enforcer.Stop(); err != nil {
-			msgErrors = msgErrors + "Enforcer Error:" + err.Error() + "-"
+			msgErrors = append(msgErrors, fmt.Errorf("Enforcer error: %s", err))
 		}
 		s.enforcer = nil
 	}
@@ -415,7 +413,7 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	}
 
 	if len(msgErrors) > 0 {
-		return fmt.Errorf(msgErrors)
+		return fmt.Errorf(strings.Join(msgErrors, ", "))
 	}
 
 	return nil
@@ -432,7 +430,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
 	flag := unix.SIGHUP
 	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(flag), 0, 0, 0); err != nil {
-		return fmt.Errorf("Unable to set termination process")
+		return err
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()

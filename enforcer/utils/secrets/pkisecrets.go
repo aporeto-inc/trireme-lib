@@ -112,10 +112,10 @@ func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 
 	cert, err := crypto.LoadAndVerifyCertificate(newCert, p.certPool)
 	if err != nil {
-		return fmt.Errorf("Error loading new Cert: %s", err)
+		return fmt.Errorf("Error loading new certificate: %s", err)
 	}
 
-	zap.L().Debug("Adding Cert for host", zap.String("host", host))
+	zap.L().Debug("Adding cert for host", zap.String("host", host))
 
 	p.CertificateCache[host] = cert.PublicKey.(*ecdsa.PublicKey)
 	return nil

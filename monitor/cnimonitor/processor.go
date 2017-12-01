@@ -77,7 +77,7 @@ func (p *CniProcessor) Start(eventInfo *rpcmonitor.EventInfo) error {
 
 // Stop handles a stop event
 func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
-	fmt.Printf("Stop: %+v \n", eventInfo)
+
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
@@ -115,7 +115,7 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 
 	walker, err := p.contextStore.Walk()
 	if err != nil {
-		return fmt.Errorf("error in accessing context store")
+		return fmt.Errorf("Unable to access context store: %s", err)
 	}
 
 	for {
@@ -134,8 +134,11 @@ func (p *CniProcessor) ReSync(e *rpcmonitor.EventInfo) error {
 		reacquired = append(reacquired, eventInfo.PUID)
 
 		if err := p.Start(&eventInfo); err != nil {
-			zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
-			return fmt.Errorf("error in processing existing data: %s", err.Error())
+			zap.L().Error("Failed to start PU ",
+				zap.String("PUID", eventInfo.PUID),
+				zap.Error(err),
+			)
+			return fmt.Errorf("error in processing existing data: %s", err)
 		}
 
 	}

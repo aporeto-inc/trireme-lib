@@ -48,7 +48,7 @@ func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root b
 
 	if _, err := os.Stat(rpcAddress); err == nil {
 		if err := os.Remove(rpcAddress); err != nil {
-			return nil, fmt.Errorf("Failed to clean up rpc socket")
+			return nil, fmt.Errorf("Failed to clean up rpc socket: %s", err)
 		}
 	}
 
@@ -122,7 +122,7 @@ func (r *RPCMonitor) Start() error {
 	}
 
 	if r.listensock, err = net.Listen("unix", r.rpcAddress); err != nil {
-		return fmt.Errorf("Failed to start RPC monitor: couldn't create binding: %s", err.Error())
+		return fmt.Errorf("Failed to start RPC monitor: couldn't create binding: %s", err)
 	}
 
 	if r.root {
@@ -132,7 +132,7 @@ func (r *RPCMonitor) Start() error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("Failed to start RPC monitor: cannot adjust permissions %s", err.Error())
+		return fmt.Errorf("Failed to start RPC monitor: cannot adjust permissions: %s", err)
 	}
 
 	//Launch a go func to accept connections
@@ -163,17 +163,20 @@ type Server struct {
 
 // HandleEvent Gets called when clients generate events.
 func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
+
 	if err := validateEvent(eventInfo); err != nil {
 		return err
 	}
+
 	if eventInfo.HostService && !s.root {
-		return fmt.Errorf("Operation Requires Root Access")
+		return fmt.Errorf("Operation requires root access")
 	}
 
 	strtokens := eventInfo.PUID[strings.LastIndex(eventInfo.PUID, "/")+1:]
 	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
+
 	if _, ok := s.handlers[eventInfo.PUType]; ok {
 		f, present := s.handlers[eventInfo.PUType][eventInfo.EventType]
 		if present {
@@ -193,6 +196,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 
 // addHandler adds a hadler for a given PU and monitor event
 func (s *Server) addHandler(puType constants.PUType, event monitor.Event, handler RPCEventHandler) {
+
 	s.handlers[puType][event] = handler
 }
 
@@ -217,7 +221,7 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 	runtimeIps := event.IPs
 	runtimePID, err := strconv.Atoi(event.PID)
 	if err != nil {
-		return nil, fmt.Errorf("PID is invalid: %s", err)
+		return nil, fmt.Errorf("Invalid PID: %s", err)
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
@@ -227,16 +231,19 @@ func validateEvent(event *EventInfo) error {
 
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
 		if len(event.Name) > maxEventNameLength {
-			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 64 characters")
+			return fmt.Errorf("Invalid event name: must not be nil or greater than 64 characters")
 		}
 
 		if event.PID == "" {
-			return fmt.Errorf("PID cannot be empty")
+			return fmt.Errorf("Empty PID")
 		}
 
 		pid, err := strconv.Atoi(event.PID)
-		if err != nil || pid < 0 {
-			return fmt.Errorf("Invalid PID - Must be a positive number")
+		if err != nil {
+			return fmt.Errorf("Invalid PID: %s", err)
+		}
+		if pid < 0 {
+			return fmt.Errorf("Invalid PID: must be a positive number")
 		}
 
 		if event.HostService {

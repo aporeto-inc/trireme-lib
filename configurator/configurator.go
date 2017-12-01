@@ -151,16 +151,15 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	if options.PKI {
 		if options.SmartToken != nil {
 
-			zap.L().Info("Initializing Trireme with Smart PKI Auth")
+			zap.L().Debug("Initializing Trireme with Smart PKI Auth")
 			pkiSecrets, err = secrets.NewCompactPKI(options.KeyPEM, options.CertPEM, options.CaCertPEM, options.SmartToken)
-			zap.L().Info("Finished Initializing Trireme with PKI Auth")
 			if err != nil {
-				return nil, fmt.Errorf("Error Instantiating new Compact PKI: %s", err)
+				return nil, fmt.Errorf("Error instantiating new compact pki: %s", err)
 			}
 		} else {
 			pkiTriremeSecret, err2 := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
 			if err2 != nil {
-				return nil, fmt.Errorf("Error Instantiating New PKI Secret: %s", err)
+				return nil, fmt.Errorf("Error instantiating new pki secret: %s", err)
 			}
 			pkiSecrets = pkiTriremeSecret
 			publicKeyAdder = pkiTriremeSecret
@@ -286,7 +285,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			false,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to initialize RPC monitor %s", err)
+			return nil, fmt.Errorf("Failed to initialize RPC monitor: %s", err)
 		}
 	}
 

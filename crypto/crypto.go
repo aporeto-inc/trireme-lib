@@ -108,7 +108,7 @@ func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
 	block, _ := pem.Decode(keyPEM)
 
 	if block == nil {
-		return nil, fmt.Errorf("Failed to Parse PEM block")
+		return nil, fmt.Errorf("Failed to parse PEM block: %s", string(keyPEM))
 	}
 
 	// Parse the key

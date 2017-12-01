@@ -257,7 +257,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 // Delete will issue a delete command
 func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
-		return fmt.Errorf("cgroup, service ID, or service name must be defined")
+		return fmt.Errorf("Cgroup, serviceID and serviceName must be defined: cgroup: '%s', serviceName: '%s', serviceID: '%s'", c.Cgroup, c.ServiceName, c.ServiceID)
 	}
 
 	rpcAdress := rpcmonitor.DefaultRPCAddress
@@ -282,7 +282,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	if c.Cgroup != "" {
 		parts := strings.Split(c.Cgroup, "/")
 		if len(parts) != 3 {
-			return fmt.Errorf("Invalid Cgroup")
+			return fmt.Errorf("Invalid cgroup: %s", c.Cgroup)
 		}
 
 		if !c.HostPolicy {
@@ -312,7 +312,7 @@ func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
 	case DeleteCgroupRequest, DeleteServiceRequest:
 		return r.Delete(c)
 	default:
-		return fmt.Errorf("Unknown command")
+		return fmt.Errorf("Unknown request: %d", c.Request)
 	}
 }
 
@@ -326,9 +326,7 @@ func sendRPC(address string, request *rpcmonitor.EventInfo) error {
 		nerr, ok := err.(*net.OpError)
 
 		if numRetries >= maxRetries || !(ok && nerr.Err == syscall.EAGAIN) {
-			err = fmt.Errorf("Cannot connect to policy process %s", err)
-			stderrlogger.Print(err)
-			return err
+			return fmt.Errorf("Cannot connect to policy process: %s", nerr)
 		}
 
 		time.Sleep(5 * time.Millisecond)
@@ -341,15 +339,11 @@ func sendRPC(address string, request *rpcmonitor.EventInfo) error {
 
 	err = rpcClient.Call(remoteMethodCall, request, response)
 	if err != nil {
-		err = fmt.Errorf("Policy Server call failed %s", err.Error())
-		stderrlogger.Print(err)
 		return err
 	}
 
-	if len(response.Error) > 0 {
-		err = fmt.Errorf("Your policy does not allow you to run this command")
-		stderrlogger.Print(err)
-		return err
+	if response.Error != "" {
+		return fmt.Errorf("Policy does not allow to run this command: %s", response.Error)
 	}
 
 	return nil
@@ -366,9 +360,12 @@ func ParseServices(ports []string) ([]policy.Service, error) {
 	// Parse the ports and create the services. Cleanup any bad ports
 	services := []policy.Service{}
 	for _, p := range ports {
-		intPort, ierr := strconv.Atoi(p)
-		if ierr != nil || intPort > 0xFFFF || intPort < 0 {
-			return nil, fmt.Errorf("Invalid services")
+		intPort, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, err
+		}
+		if intPort > 0xFFFF || intPort < 0 {
+			return nil, fmt.Errorf("Invalid service: port must be greater than 0xFFFF and lesser than 0: %d", intPort)
 		}
 
 		// TODO: Assumes only TCP here until we add UDP support

@@ -27,7 +27,7 @@ func DefaultHostMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntim
 	for _, tag := range event.Tags {
 		parts := strings.SplitN(tag, "=", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid Tag")
+			return nil, fmt.Errorf("Invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
@@ -43,7 +43,7 @@ func DefaultHostMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntim
 	runtimePID, err := strconv.Atoi(event.PID)
 
 	if err != nil {
-		return nil, fmt.Errorf("PID is invalid: %s", err)
+		return nil, fmt.Errorf("Invalid PID: %s", err)
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
@@ -57,7 +57,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 	for _, tag := range event.Tags {
 		parts := strings.SplitN(tag, "=", 2)
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid Tag")
+			return nil, fmt.Errorf("Invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
@@ -89,7 +89,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 	runtimePID, err := strconv.Atoi(event.PID)
 
 	if err != nil {
-		return nil, fmt.Errorf("PID is invalid: %s", err)
+		return nil, fmt.Errorf("Invalid PID: %s", err)
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, &options), nil
@@ -97,6 +97,7 @@ func SystemdRPCMetadataExtractor(event *rpcmonitor.EventInfo) (*policy.PURuntime
 
 // ComputeMd5 computes the Md5 of a file
 func ComputeMd5(filePath string) ([]byte, error) {
+
 	var result []byte
 	file, err := os.Open(filePath)
 	if err != nil {

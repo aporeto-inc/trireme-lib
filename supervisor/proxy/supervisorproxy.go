@@ -67,7 +67,7 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 		s.Lock()
 		delete(s.initDone, contextID)
 		s.Unlock()
-		return fmt.Errorf("Failed to send supervise command: context=%s error=%s", contextID, err)
+		return fmt.Errorf("Unable to send supervise command for contextID %s: %s", contextID, err)
 	}
 
 	return nil
@@ -99,7 +99,7 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 			}
 
 			if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
-				return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
+				return fmt.Errorf("Unable to initialize remote supervisor for contextID %s: %s", contextID, err)
 			}
 		}
 	}
@@ -128,6 +128,7 @@ func NewProxySupervisor(collector collector.EventCollector, enforcer policyenfor
 	if collector == nil {
 		return nil, fmt.Errorf("Collector cannot be nil")
 	}
+
 	if enforcer == nil {
 		return nil, fmt.Errorf("Enforcer cannot be nil")
 	}
@@ -157,7 +158,7 @@ func (s *ProxyInfo) InitRemoteSupervisor(contextID string, puInfo *policy.PUInfo
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitSupervisor, request, &rpcwrapper.Response{}); err != nil {
-		return fmt.Errorf("Failed to initialize remote supervisor: context=%s error=%s", contextID, err)
+		return fmt.Errorf("Unable to initialize remote supervisor for contextID %s: %s", contextID, err)
 	}
 
 	s.Lock()
@@ -179,7 +180,7 @@ func (s *ProxyInfo) AddExcludedIPs(ips []string) error {
 
 	for _, contextID := range s.rpchdl.ContextList() {
 		if err := s.rpchdl.RemoteCall(contextID, "Server.AddExcludedIP", request, &rpcwrapper.Response{}); err != nil {
-			return fmt.Errorf("Failed to add excluded IP list: context=%s error=%s", contextID, err)
+			return fmt.Errorf("Unable to add excluded IP list for %s: %s", contextID, err)
 		}
 	}
 	return nil
