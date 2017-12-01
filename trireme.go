@@ -388,7 +388,7 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 	for _, enforcer := range t.enforcers {
 		if err := enforcer.UpdateSecrets(secrets); err != nil {
-			zap.L().Error("unable to update secrets: %s", err)
+			zap.L().Error("unable to update secrets", zap.Error(err))
 		}
 	}
 	return nil
