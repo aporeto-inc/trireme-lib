@@ -12,15 +12,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/shirou/gopsutil/process"
 )
 
 // DefaultHostMetadataExtractor is a host specific metadata extractor
-func DefaultHostMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime, error) {
+func DefaultHostMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 
@@ -50,7 +50,7 @@ func DefaultHostMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime
 }
 
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
-func SystemdEventMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime, error) {
+func SystemdEventMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 

@@ -10,9 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/mock"
-	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
-	"github.com/aporeto-inc/trireme-lib/cgnetcls/mock"
+	"github.com/aporeto-inc/trireme-lib/monitor/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -36,7 +34,7 @@ func TestCreate(t *testing.T) {
 		p.contextStore = store
 
 		Convey("When I try a create event with invalid PU ID, ", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				PUID: "/@#$@",
 			}
 			Convey("I should get an error", func() {
@@ -46,7 +44,7 @@ func TestCreate(t *testing.T) {
 		})
 
 		Convey("When I get a create event that is valid", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				PUID: "1234",
 			}
 			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
@@ -72,7 +70,7 @@ func TestStop(t *testing.T) {
 		p.netcls = mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("When I get a stop event that is valid", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				PUID: "/trireme/1234",
 			}
 
@@ -106,7 +104,7 @@ func TestDestroy(t *testing.T) {
 		p.netcls = mockcls
 
 		Convey("When I get a destroy event that is valid", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				PUID: "/trireme/1234",
 			}
 			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
@@ -135,7 +133,7 @@ func TestPause(t *testing.T) {
 		p.contextStore = store
 
 		Convey("When I get a pause event that is valid", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				PUID: "/trireme/1234",
 			}
 
@@ -161,7 +159,7 @@ func TestStart(t *testing.T) {
 		p.contextStore = store
 
 		Convey("When I get a start event with no PUID", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				PUID: "",
 			}
 			Convey("I should get an error", func() {
@@ -171,7 +169,7 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event that is valid that fails on the metadata extractor", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name: "PU",
 			}
 			Convey("I should get an error", func() {
@@ -181,11 +179,11 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event and setting the PU runtime fails", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
-				EventType: monitor.EventStop,
+				EventType: events.EventStop,
 				PUType:    constants.LinuxProcessPU,
 			}
 			Convey("I should get an error ", func() {
@@ -196,11 +194,11 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event and the upstream returns an error ", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
-				EventType: monitor.EventStop,
+				EventType: events.EventStop,
 				PUType:    constants.LinuxProcessPU,
 			}
 			Convey("I should get an error ", func() {
@@ -213,11 +211,11 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event and create group fails ", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
-				EventType: monitor.EventStop,
+				EventType: events.EventStop,
 				PUType:    constants.LinuxProcessPU,
 			}
 
@@ -235,11 +233,11 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I get a start event and the runtime options don't have a mark value", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name:      "PU",
 				PID:       "1",
 				PUID:      "12345",
-				EventType: monitor.EventStop,
+				EventType: events.EventStop,
 				PUType:    constants.LinuxProcessPU,
 			}
 
@@ -302,9 +300,9 @@ func TestResync(t *testing.T) {
 			contextlist <- "test1"
 			contextlist <- ""
 
-			eventInfo := eventinfo.EventInfo{
+			eventInfo := events.EventInfo{
 				PUType:    constants.LinuxProcessPU,
-				EventType: monitor.EventStart,
+				EventType: events.EventStart,
 				PUID:      "/test1",
 			}
 

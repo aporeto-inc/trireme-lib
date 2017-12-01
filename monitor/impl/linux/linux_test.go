@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
+	"github.com/aporeto-inc/trireme-lib/monitor/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -71,7 +71,7 @@ func TestSystemdEventMetadataExtractor(t *testing.T) {
 	Convey("When I call the metadata extrator", t, func() {
 
 		Convey("If all data are present", func() {
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name: "./testdata/curl",
 				PID:  "1234",
 				PUID: "/1234",
@@ -100,7 +100,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 				},
 			}
 
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name:     "Web",
 				PID:      "1234",
 				PUID:     "Web",
@@ -119,7 +119,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 		Convey("If I get invalid tags", func() {
 
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name: "Web",
 				PID:  "1234",
 				PUID: "Web",
@@ -134,7 +134,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 		Convey("If I get an invalid PID", func() {
 
-			event := &eventinfo.EventInfo{
+			event := &events.EventInfo{
 				Name: "Web",
 				PID:  "zxczxc",
 				PUID: "Web",
