@@ -13,27 +13,27 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-// UIDConfig is the configuration options to start a CNI monitor
-type UIDConfig struct {
-	EventMetadataExtractor eventinfo.EventMetadataExtractor
+// Config is the configuration options to start a CNI monitor
+type Config struct {
+	EventMetadataExtractor events.EventMetadataExtractor
 	StoredPath             string
 	ReleasePath            string
 }
 
-// uidMonitor captures all the monitor processor information for a UIDLoginPU
+// uidProcessor captures all the monitor processor information for a UIDLoginPU
 // It implements the EventProcessor interface of the rpc monitor
-type uidMonitor struct {
+type uidProcessor struct {
 	collector   collector.EventCollector
 	puHandler   monitorimpl.ProcessingUnitsHandler
 	syncHandler monitorimpl.SynchronizationHandler
 
-	metadataExtractor eventinfo.EventMetadataExtractor
+	metadataExtractor events.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore
 	regStart          *regexp.Regexp
@@ -42,95 +42,6 @@ type uidMonitor struct {
 	putoPidMap        *cache.Cache
 	pidToPU           *cache.Cache
 	sync.Mutex
-}
-
-// New returns a new implmentation of a monitor implmentation
-func New() monitorimpl.Implementation {
-
-	return &uidMonitor{}
-}
-
-// Start implements Implementation interface
-func (u *uidMonitor) Start() error {
-
-	if c.collector == nil {
-		return fmt.Errorf("Missing configuration: collector")
-	}
-
-	if c.syncHandler == nil {
-		return fmt.Errorf("Missing configuration: syncHandler")
-	}
-
-	if c.puHandler == nil {
-		return fmt.Errorf("Missing configuration: puHandler")
-	}
-
-	// Check if we had running units when we last died
-	if err = c.ReSync(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// Stop implements Implementation interface
-func (u *uidMonitor) Stop() error {
-
-	return nil
-}
-
-// SetupConfig provides a configuration to implmentations. Every implmentation
-// can have its own config type.
-func (u *uidMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
-
-	if cfg == nil {
-		cfg = &UIDConfig{}
-	}
-
-	uidConfig, ok := cfg.(UIDConfig)
-	if !ok {
-		return fmt.Errorf("Invalid configuration specified")
-	}
-
-	if registerer != nil {
-		registerer.RegisterProcessor(constants.UIDLoginPU, u)
-	}
-
-	if uidConfig.ReleasePath == "" {
-		uidConfig.ReleasePath = "/var/lib/aporeto/cleaner"
-	}
-	u.netcls = cgnetcls.NewCgroupNetController(uidConfig.ReleasePath)
-
-	if uidConfig.StorePath == "" {
-		uidConfig.StorePath = "/var/run/trireme/uid"
-	}
-	u.contextStore = contextstore.NewFileContextStore(uidConfig.StorePath)
-	u.storePath = uidConfig.StorePath
-
-	regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
-	regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
-	putoPidMap = cache.NewCache("putoPidMap")
-	pidToPU = cache.NewCache("pidToPU")
-
-	if uidConfig.EventMetadataExtractor == nil {
-		uidConfig.EventMetadataExtractor = DockerMetadataExtractor
-	}
-	c.metadataExtractor = uidConfig.EventMetadataExtractor
-	if c.metadataExtractor == nil {
-		return fmt.Errorf("Unable to setup a metadata extractor")
-	}
-
-	return nil
-}
-
-// SetupHandlers sets up handlers for monitors to invoke for various events such as
-// processing unit events and synchronization events. This will be called before Start()
-// by the consumer of the monitor
-func (u *uidMonitor) SetupHandlers(collector trireme.EventCollector, puHandler monitor.ProcessingUnitsHandler, syncHandler monitor.SynchronizationHandler) {
-
-	c.collector = collector
-	c.puHandler = puHandler
-	c.syncHandler = syncHandler
 }
 
 const (
@@ -147,40 +58,40 @@ type puToPidEntry struct {
 // StoredContext -- struct is the structure of stored contextinfo for uidmonitor
 type StoredContext struct {
 	MarkVal   string
-	EventInfo *eventinfo.EventInfo
+	EventInfo *events.EventInfo
 }
 
 // Start handles start events
-func (u *uidMonitor) Start(eventInfo *eventinfo.EventInfo) error {
-	s.Lock()
-	defer s.Unlock()
+func (u *uidProcessor) Start(eventInfo *events.EventInfo) error {
+	u.Lock()
+	defer u.Unlock()
 	contextID := eventInfo.PUID
-	pids, err := s.putoPidMap.Get(contextID)
+	pids, err := u.putoPidMap.Get(contextID)
 	var runtimeInfo *policy.PURuntime
 	if err != nil {
-		runtimeInfo, err = s.metadataExtractor(eventInfo)
+		runtimeInfo, err = u.metadataExtractor(eventInfo)
 		if err != nil {
 			return err
 		}
 
 		publishedContextID := contextID + runtimeInfo.Options().CgroupMark
 		// Setup the run time
-		if err = s.puHandler.CreatePURuntime(publishedContextID, runtimeInfo); err != nil {
+		if err = u.puHandler.CreatePURuntime(publishedContextID, runtimeInfo); err != nil {
 			return err
 		}
 
 		defaultIP, _ := runtimeInfo.DefaultIPAddress()
-		if perr := s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStart); perr != nil {
+		if perr := u.puHandler.HandlePUEvent(publishedContextID, events.EventStart); perr != nil {
 			zap.L().Error("Failed to activate process", zap.Error(perr))
 			return perr
 		}
 
-		if err = s.processLinuxServiceStart(eventInfo, runtimeInfo); err != nil {
+		if err = u.processLinuxServiceStart(eventInfo, runtimeInfo); err != nil {
 			zap.L().Error("processLinuxServiceStart", zap.Error(err))
 			return err
 		}
 
-		s.collector.CollectContainerEvent(&collector.ContainerRecord{
+		u.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: defaultIP,
 			Tags:      runtimeInfo.Tags(),
@@ -194,15 +105,15 @@ func (u *uidMonitor) Start(eventInfo *eventinfo.EventInfo) error {
 
 		entry.pidlist[eventInfo.PID] = true
 
-		if err := s.putoPidMap.Add(contextID, entry); err != nil {
+		if err := u.putoPidMap.Add(contextID, entry); err != nil {
 			zap.L().Warn("Failed to add contextID/PU in the cache", zap.Error(err), zap.String("contextID", contextID))
 		}
 
-		if err := s.pidToPU.Add(eventInfo.PID, contextID); err != nil {
+		if err := u.pidToPU.Add(eventInfo.PID, contextID); err != nil {
 			zap.L().Warn("Failed to add eventInfoID/contextID in the cache", zap.Error(err), zap.String("contextID", contextID))
 		}
 		// Store the state in the context store for future access
-		return s.contextStore.Store(contextID, &StoredContext{
+		return u.contextStore.Store(contextID, &StoredContext{
 			EventInfo: eventInfo,
 			MarkVal:   runtimeInfo.Options().CgroupMark,
 		})
@@ -211,76 +122,76 @@ func (u *uidMonitor) Start(eventInfo *eventinfo.EventInfo) error {
 
 	pids.(*puToPidEntry).pidlist[eventInfo.PID] = true
 
-	if err := s.pidToPU.Add(eventInfo.PID, eventInfo.PUID); err != nil {
+	if err := u.pidToPU.Add(eventInfo.PID, eventInfo.PUID); err != nil {
 		zap.L().Warn("Failed to add eventInfoPID/eventInfoPUID in the cache", zap.Error(err), zap.String("eventInfo.PID", eventInfo.PID), zap.String("eventInfo.PUID", eventInfo.PUID))
 	}
 
-	return s.processLinuxServiceStart(eventInfo, pids.(*puToPidEntry).Info)
+	return u.processLinuxServiceStart(eventInfo, pids.(*puToPidEntry).Info)
 
 }
 
 // Stop handles a stop event and destroy as well. Destroy does nothing for the uid monitor
-func (u *uidMonitor) Stop(eventInfo *eventinfo.EventInfo) error {
+func (u *uidProcessor) Stop(eventInfo *events.EventInfo) error {
 
-	contextID, err := s.generateContextID(eventInfo)
+	contextID, err := u.generateContextID(eventInfo)
 	if err != nil {
 		return err
 	}
 
 	if contextID == triremeBaseCgroup {
-		s.netcls.Deletebasepath(contextID)
+		u.netcls.Deletebasepath(contextID)
 		return nil
 	}
-	s.Lock()
-	defer s.Unlock()
+	u.Lock()
+	defer u.Unlock()
 	//ignore the leading / here this is a special case for stop where i need to do a reverse lookup
 	stoppedpid := strings.TrimLeft(contextID, "/")
-	if puid, err := s.pidToPU.Get(stoppedpid); err == nil {
+	if puid, err := u.pidToPU.Get(stoppedpid); err == nil {
 		contextID = puid.(string)
 	}
 
 	var publishedContextID string
-	if pidlist, err := s.putoPidMap.Get(contextID); err == nil {
+	if pidlist, err := u.putoPidMap.Get(contextID); err == nil {
 		ctx := pidlist.(*puToPidEntry)
 		publishedContextID = ctx.publishedContextID
 		//Clean pid from both caches
 		delete(ctx.pidlist, stoppedpid)
 
-		if err = s.pidToPU.Remove(stoppedpid); err != nil {
+		if err = u.pidToPU.Remove(stoppedpid); err != nil {
 			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("stoppedpid", stoppedpid))
 		}
 
 		if len(pidlist.(*puToPidEntry).pidlist) != 0 {
 			//Only destroy the pid that is being stopped
-			return s.netcls.DeleteCgroup(stoppedpid)
+			return u.netcls.DeleteCgroup(stoppedpid)
 		}
 		//We are the last here lets send stop
-		if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventStop); err != nil {
+		if err = u.puHandler.HandlePUEvent(publishedContextID, events.EventStop); err != nil {
 			zap.L().Warn("Failed to stop trireme PU ",
 				zap.String("contextID", contextID),
 				zap.Error(err),
 			)
 		}
 
-		if err = s.putoPidMap.Remove(contextID); err != nil {
+		if err = u.putoPidMap.Remove(contextID); err != nil {
 			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("contextID", contextID))
 		}
 
-		if err = s.contextStore.Remove(contextID); err != nil {
+		if err = u.contextStore.Remove(contextID); err != nil {
 			zap.L().Error("Failed to clean cache while destroying process",
 				zap.String("contextID", contextID),
 				zap.Error(err),
 			)
 		}
 
-		if err = s.puHandler.HandlePUEvent(publishedContextID, monitor.EventDestroy); err != nil {
+		if err = u.puHandler.HandlePUEvent(publishedContextID, events.EventDestroy); err != nil {
 			zap.L().Warn("Failed to Destroy clean trireme ",
 				zap.String("contextID", contextID),
 				zap.Error(err),
 			)
 		}
 
-		return s.netcls.DeleteCgroup(stoppedpid)
+		return u.netcls.DeleteCgroup(stoppedpid)
 	}
 
 	return nil
@@ -288,13 +199,13 @@ func (u *uidMonitor) Stop(eventInfo *eventinfo.EventInfo) error {
 }
 
 // Create handles create events
-func (u *uidMonitor) Create(eventInfo *eventinfo.EventInfo) error {
+func (u *uidProcessor) Create(eventInfo *events.EventInfo) error {
 
-	return s.puHandler.HandlePUEvent(eventInfo.PUID, monitor.EventCreate)
+	return u.puHandler.HandlePUEvent(eventInfo.PUID, events.EventCreate)
 }
 
 // Destroy handles a destroy event
-func (u *uidMonitor) Destroy(eventInfo *eventinfo.EventInfo) error {
+func (u *uidProcessor) Destroy(eventInfo *events.EventInfo) error {
 	//Destroy is not used for the UIDMonitor since we will destroy when we get stop
 	//This is to try and save some time .Stop/Destroy is two RPC calls.
 	//We don't define pause on uid monitor so stop is always followed by destroy
@@ -303,18 +214,18 @@ func (u *uidMonitor) Destroy(eventInfo *eventinfo.EventInfo) error {
 }
 
 // Pause handles a pause event
-func (u *uidMonitor) Pause(eventInfo *eventinfo.EventInfo) error {
+func (u *uidProcessor) Pause(eventInfo *events.EventInfo) error {
 
-	contextID, err := s.generateContextID(eventInfo)
+	contextID, err := u.generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("Couldn't generate a contextID: %s", err)
 	}
 
-	return s.puHandler.HandlePUEvent(contextID, monitor.EventPause)
+	return u.puHandler.HandlePUEvent(contextID, events.EventPause)
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (u *uidMonitor) ReSync(e *eventinfo.EventInfo) error {
+func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -328,7 +239,7 @@ func (u *uidMonitor) ReSync(e *eventinfo.EventInfo) error {
 		}
 	}()
 
-	walker, err := s.contextStore.Walk()
+	walker, err := u.contextStore.Walk()
 
 	if err != nil {
 		return fmt.Errorf("error in accessing context store")
@@ -339,7 +250,7 @@ func (u *uidMonitor) ReSync(e *eventinfo.EventInfo) error {
 	for _, cgroup := range cgroups {
 		pidlist, _ := cgnetcls.ListCgroupProcesses(cgroup)
 		if len(pidlist) == 0 {
-			if err := s.netcls.DeleteCgroup(cgroup); err != nil {
+			if err := u.netcls.DeleteCgroup(cgroup); err != nil {
 				zap.L().Warn("Error when deleting cgroup", zap.Error(err), zap.String("cgroup", cgroup))
 			}
 			continue
@@ -361,20 +272,20 @@ func (u *uidMonitor) ReSync(e *eventinfo.EventInfo) error {
 
 		storedPU := &StoredContext{}
 
-		if err := s.contextStore.Retrieve("/"+contextID, &storedPU); err != nil {
+		if err := u.contextStore.Retrieve("/"+contextID, &storedPU); err != nil {
 			continue
 		}
 		eventInfo := storedPU.EventInfo
 		mark := storedPU.MarkVal
 		if pids, ok := marktoPID[mark]; !ok {
 			//No pids with stored mark destroy the context record and go to next context
-			if err := s.contextStore.Remove("/" + contextID); err != nil {
+			if err := u.contextStore.Remove("/" + contextID); err != nil {
 				zap.L().Warn("Error when removing context in the store", zap.Error(err))
 			}
 		} else {
 			for _, pid := range pids {
 				eventInfo.PID = pid
-				if err := s.Start(eventInfo); err != nil {
+				if err := u.Start(eventInfo); err != nil {
 					zap.L().Error("Error when restarting uid pu", zap.Error(err), zap.String("eventInfoPID", eventInfo.PID))
 				}
 			}
@@ -385,11 +296,11 @@ func (u *uidMonitor) ReSync(e *eventinfo.EventInfo) error {
 }
 
 // generateContextID creates the contextID from the event information
-func (u *uidMonitor) generateContextID(eventInfo *eventinfo.EventInfo) (string, error) {
+func (u *uidProcessor) generateContextID(eventInfo *events.EventInfo) (string, error) {
 
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
-		if !s.regStop.Match([]byte(eventInfo.Cgroup)) {
+		if !u.regStop.Match([]byte(eventInfo.Cgroup)) {
 			return "", fmt.Errorf("Invalid PUID %s", eventInfo.Cgroup)
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
@@ -398,16 +309,16 @@ func (u *uidMonitor) generateContextID(eventInfo *eventinfo.EventInfo) (string, 
 	return contextID, nil
 }
 
-func (u *uidMonitor) processLinuxServiceStart(event *eventinfo.EventInfo, runtimeInfo *policy.PURuntime) error {
+func (u *uidProcessor) processLinuxServiceStart(event *events.EventInfo, runtimeInfo *policy.PURuntime) error {
 
 	//It is okay to launch this so let us create a cgroup for it
-	if err := s.netcls.Creategroup(event.PID); err != nil {
+	if err := u.netcls.Creategroup(event.PID); err != nil {
 		return err
 	}
 
 	markval := runtimeInfo.Options().CgroupMark
 	if markval == "" {
-		if derr := s.netcls.DeleteCgroup(event.PID); derr != nil {
+		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
 		return errors.New("Mark value not found")
@@ -419,8 +330,8 @@ func (u *uidMonitor) processLinuxServiceStart(event *eventinfo.EventInfo, runtim
 		return err
 	}
 
-	if err = s.netcls.AssignMark(event.PID, mark); err != nil {
-		if derr := s.netcls.DeleteCgroup(event.PID); derr != nil {
+	if err = u.netcls.AssignMark(event.PID, mark); err != nil {
+		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
 		return err
@@ -432,9 +343,9 @@ func (u *uidMonitor) processLinuxServiceStart(event *eventinfo.EventInfo, runtim
 		return err
 	}
 
-	if err := s.netcls.AddProcess(event.PID, pid); err != nil {
+	if err := u.netcls.AddProcess(event.PID, pid); err != nil {
 
-		if derr := s.netcls.DeleteCgroup(event.PID); derr != nil {
+		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
 
