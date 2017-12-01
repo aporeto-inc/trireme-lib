@@ -57,10 +57,11 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 	user := userPort[0]
 	port := userPort[1]
 
+	fmt.Printf("Deleting port %s for user %s", port, user)
 	if err := portSetObject.deletePortSet(user, port); err != nil {
 		zap.L().Warn("Cache: Failed to delete port from set", zap.Error(err))
 	}
-
+	fmt.Printf("Deleted port %s for user %s", port, user)
 	// delete the port from puFromPort cache
 	if err := portSetObject.puFromPort.Remove(port); err != nil {
 		zap.L().Warn("Unable to remove port from puFromPort Cache")
