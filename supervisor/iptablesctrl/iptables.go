@@ -270,7 +270,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
 		//Don't return here we can still try and reclaims portset and targetnetwork sets
-		zap.L().Error("Count not generate chain name: %s", err)
+		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 	portSetName := PuPortSetName(contextID, mark, PuPortSet)
 	if derr := i.deleteChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); derr != nil {

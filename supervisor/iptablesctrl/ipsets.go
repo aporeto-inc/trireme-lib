@@ -31,7 +31,7 @@ func (i *Instance) updateTargetNetworks(old, new []string) error {
 	for net, delete := range deleteMap {
 		if delete {
 			if err := i.targetSet.Del(net); err != nil {
-				zap.L().Debug("Unable to remove network from set: %s", err)
+				zap.L().Debug("Unable to remove network from set", zap.Error(err))
 			}
 		}
 	}
