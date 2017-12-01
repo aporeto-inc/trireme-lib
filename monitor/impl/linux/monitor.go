@@ -16,7 +16,7 @@ import (
 // Config is the configuration options to start a CNI monitor
 type Config struct {
 	EventMetadataExtractor events.EventMetadataExtractor
-	StorePath              string
+	StoredPath             string
 	ReleasePath            string
 }
 
@@ -79,13 +79,13 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 		linuxConfig.ReleasePath = "/var/lib/aporeto/cleaner"
 	}
 
-	if linuxConfig.StorePath == "" {
-		linuxConfig.StorePath = "/var/run/trireme/linux"
+	if linuxConfig.StoredPath == "" {
+		linuxConfig.StoredPath = "/var/run/trireme/linux"
 	}
 
 	l.proc.netcls = cgnetcls.NewCgroupNetController(linuxConfig.ReleasePath)
-	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StorePath)
-	l.proc.storePath = linuxConfig.StorePath
+	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StoredPath)
+	l.proc.storePath = linuxConfig.StoredPath
 
 	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
 	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")

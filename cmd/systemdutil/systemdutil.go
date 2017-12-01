@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -233,7 +232,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 	//This is added since the release_notification comes in this format
 	//Easier to massage it while creation rather than change at the receiving end depending on event
-	request := &event.EventInfo{
+	request := &events.EventInfo{
 		PUType:             constants.LinuxProcessPU,
 		Name:               c.ServiceName,
 		Tags:               c.Labels,
@@ -272,11 +271,11 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		host = true
 	}
 
-	request := &event.EventInfo{
+	request := &events.EventInfo{
 		PUType:      constants.LinuxProcessPU,
 		PUID:        puid,
 		Cgroup:      c.Cgroup,
-		EventType:   monitor.EventStop,
+		EventType:   events.EventStop,
 		HostService: host,
 	}
 	// Handle the special case with the User ID monitor and deletes
@@ -299,7 +298,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	}
 
 	// Send destroy request
-	request.EventType = monitor.EventDestroy
+	request.EventType = events.EventDestroy
 
 	return sendRPC(rpcAdress, request)
 }
@@ -318,7 +317,7 @@ func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
 }
 
 // sendRPC sends an RPC request to the provided address
-func sendRPC(address string, request *event.EventInfo) error {
+func sendRPC(address string, request *events.EventInfo) error {
 	// Make RPC call and only retry if the resource is temporarily unavailable
 	numRetries := 0
 	client, err := net.Dial("unix", address)
@@ -336,7 +335,7 @@ func sendRPC(address string, request *event.EventInfo) error {
 		client, err = net.Dial("unix", address)
 	}
 
-	response := &rpcmonitor.EventResponse{}
+	response := &events.EventResponse{}
 
 	rpcClient := jsonrpc.NewClient(client)
 

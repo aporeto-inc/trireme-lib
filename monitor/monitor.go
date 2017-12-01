@@ -69,44 +69,44 @@ func New(c *Config) (Monitor, error) {
 	for k, v := range c.Monitors {
 		switch k {
 		case CNI:
-			monitor := cnimonitor.New()
-			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
-			if err := monitor.SetupConfig(m.userRegisterer, v); err != nil {
+			mon := cnimonitor.New()
+			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, err
 			}
-			m.monitors[CNI] = monitor
+			m.monitors[CNI] = mon
 
 		case Docker:
-			monitor := dockermonitor.New()
-			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
-			if err := monitor.SetupConfig(nil, v); err != nil {
+			mon := dockermonitor.New()
+			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := mon.SetupConfig(nil, v); err != nil {
 				return nil, err
 			}
-			m.monitors[Docker] = monitor
+			m.monitors[Docker] = mon
 
 		case LinuxProcess:
-			m.monitors[LinuxProcess] = linuxmonitor.New()
-			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
-			if err := monitor.SetupConfig(m.userRegisterer, v); err != nil {
+			mon := linuxmonitor.New()
+			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, err
 			}
-			m.monitors[LinuxProcess] = monitor
+			m.monitors[LinuxProcess] = mon
 
 		case LinuxHost:
-			m.monitors[LinuxHost] = linuxmonitor.New()
-			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
-			if err := monitor.SetupConfig(m.rootRegisterer, v); err != nil {
+			mon := linuxmonitor.New()
+			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := mon.SetupConfig(m.rootRegisterer, v); err != nil {
 				return nil, err
 			}
-			m.monitors[LinuxHost] = monitor
+			m.monitors[LinuxHost] = mon
 
 		case UID:
-			m.monitors[UID] = uidmonitor.New()
-			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
-			if err := monitor.SetupConfig(m.userRegisterer, v); err != nil {
+			mon := uidmonitor.New()
+			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, err
 			}
-			m.monitors[UID] = monitor
+			m.monitors[UID] = mon
 
 		default:
 			return nil, fmt.Errorf("Unsupported type %d", k)
@@ -118,7 +118,7 @@ func New(c *Config) (Monitor, error) {
 
 func (m *monitors) Start() (err error) {
 
-	for k, v := range m.monitors {
+	for _, v := range m.monitors {
 		if err = v.Start(); err != nil {
 			return err
 		}
@@ -129,8 +129,8 @@ func (m *monitors) Start() (err error) {
 
 func (m *monitors) Stop() error {
 
-	for k, v := range m.monitors {
-		if err = v.Stop(); err != nil {
+	for _, v := range m.monitors {
+		if err := v.Stop(); err != nil {
 			return err
 		}
 	}

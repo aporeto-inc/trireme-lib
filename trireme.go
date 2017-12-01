@@ -13,7 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/internal/allocator"
-	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
@@ -103,7 +103,7 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 	return container.(*policy.PURuntime), nil
 }
 
-// CreatePURuntime implements monitor.ProcessingUnitsHandler
+// CreatePURuntime implements monitorimpl.ProcessingUnitsHandler
 func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 
 	if _, err := t.cache.Get(contextID); err == nil {
@@ -115,16 +115,16 @@ func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntim
 	return nil
 }
 
-// HandlePUEvent implements monitor.ProcessingUnitsHandler
-func (t *trireme) HandlePUEvent(contextID string, event monitor.Event) error {
+// HandlePUEvent implements monitorimpl.ProcessingUnitsHandler
+func (t *trireme) HandlePUEvent(contextID string, event events.Event) error {
 
 	// Notify The PolicyResolver that an event occurred:
 	t.resolver.HandlePUEvent(contextID, event)
 
 	switch event {
-	case monitor.EventStart:
+	case events.EventStart:
 		return t.doHandleCreate(contextID)
-	case monitor.EventStop:
+	case events.EventStop:
 		return t.doHandleDelete(contextID)
 	default:
 		return nil
@@ -393,10 +393,10 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 }
 
 // HandleSynchronization stub implmentation.
-func (t *trireme) HandleSynchronization(nativeID string, state monitor.State, runtime policy.RuntimeReader, syncType monitor.SynchronizationType) error {
+func (t *trireme) HandleSynchronization(nativeID string, state events.State, runtime policy.RuntimeReader, syncType events.SynchronizationType) error {
 	return nil
 }
 
 // HandleSynchronizationComplete stub implmentation.
-func (t *trireme) HandleSynchronizationComplete(syncType monitor.SynchronizationType) {
+func (t *trireme) HandleSynchronizationComplete(syncType events.SynchronizationType) {
 }

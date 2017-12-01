@@ -3,7 +3,8 @@ package trireme
 import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
@@ -23,7 +24,7 @@ type Trireme interface {
 	// Supervisor returns the supervisor for a given PU type
 	Supervisor(kind constants.PUType) supervisor.Supervisor
 
-	monitor.ProcessingUnitsHandler
+	monitorimpl.ProcessingUnitsHandler
 
 	PolicyUpdater
 	SecretsUpdater
@@ -44,7 +45,7 @@ type PolicyResolver interface {
 	ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
 	// HandleDeletePU is called when a PU is stopped/killed.
-	HandlePUEvent(contextID string, eventType monitor.Event)
+	HandlePUEvent(contextID string, eventType events.Event)
 }
 
 // SecretsUpdater provides an interface to update the secrets of enforcers managed by trireme at runtime

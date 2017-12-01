@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -14,14 +14,14 @@ type mockedMethodsPolicyResolver struct {
 	resolvePolicyMock func(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error)
 
 	// HandleDeletePU is called when a PU is removed.
-	handlePUEventMock func(contextID string, eventType monitor.Event)
+	handlePUEventMock func(contextID string, eventType events.Event)
 }
 
 // TestPolicyResolver us
 type TestPolicyResolver interface {
 	PolicyResolver
 	MockResolvePolicy(t *testing.T, impl func(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error))
-	MockHandlePUEvent(t *testing.T, impl func(contextID string, eventType monitor.Event))
+	MockHandlePUEvent(t *testing.T, impl func(contextID string, eventType events.Event))
 }
 
 // A testPolicyResolver is an empty TransactionalManipulator that can be easily mocked.
@@ -44,7 +44,7 @@ func (m *testPolicyResolver) MockResolvePolicy(t *testing.T, impl func(contextID
 	m.currentMocks(t).resolvePolicyMock = impl
 }
 
-func (m *testPolicyResolver) MockHandlePUEvent(t *testing.T, impl func(contextID string, eventType monitor.Event)) {
+func (m *testPolicyResolver) MockHandlePUEvent(t *testing.T, impl func(contextID string, eventType events.Event)) {
 
 	m.currentMocks(t).handlePUEventMock = impl
 }
@@ -58,7 +58,7 @@ func (m *testPolicyResolver) ResolvePolicy(contextID string, RuntimeReader polic
 	return nil, nil
 }
 
-func (m *testPolicyResolver) HandlePUEvent(contextID string, eventType monitor.Event) {
+func (m *testPolicyResolver) HandlePUEvent(contextID string, eventType events.Event) {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.handlePUEventMock != nil {
 		mock.handlePUEventMock(contextID, eventType)
