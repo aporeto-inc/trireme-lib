@@ -86,6 +86,10 @@ func (l *linuxMonitor) Start() error {
 		return fmt.Errorf("Missing configuration: puHandler")
 	}
 
+	if err := l.ReSync(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -140,4 +144,10 @@ func (l *linuxMonitor) SetupHandlers(collector collector.EventCollector, puHandl
 	l.proc.collector = collector
 	l.proc.puHandler = puHandler
 	l.proc.syncHandler = syncHandler
+}
+
+func (l *linuxMonitor) ReSync() error {
+
+	// TODO: Implement ReSync
+	return fmt.Errorf("ReSync not implemented")
 }

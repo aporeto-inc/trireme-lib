@@ -69,6 +69,10 @@ func (c *cniMonitor) Start() error {
 		return fmt.Errorf("Missing configuration: puHandler")
 	}
 
+	if err := c.ReSync(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -124,4 +128,10 @@ func (c *cniMonitor) SetupHandlers(
 	c.proc.collector = collector
 	c.proc.puHandler = puHandler
 	c.proc.syncHandler = syncHandler
+}
+
+func (c *cniMonitor) ReSync() error {
+
+	// TODO: Implement reSync
+	return fmt.Errorf("reSync not implemented")
 }

@@ -24,6 +24,9 @@ type Implementation interface {
 	// processing unit events and synchronization events. This will be called before Start()
 	// by the consumer of the monitor
 	SetupHandlers(collector collector.EventCollector, puHandler ProcessingUnitsHandler, syncHandler SynchronizationHandler)
+
+	// ReSync should resynchronize PUs. This should be done while starting up.
+	ReSync() error
 }
 
 // A ProcessingUnitsHandler must be implemnted by the monitor instantiators or components thereof.

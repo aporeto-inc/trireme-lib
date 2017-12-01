@@ -78,6 +78,10 @@ func (u *uidMonitor) Start() error {
 		return fmt.Errorf("Missing configuration: puHandler")
 	}
 
+	if err := u.ReSync(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -132,4 +136,10 @@ func (u *uidMonitor) SetupHandlers(collector collector.EventCollector, puHandler
 	u.proc.collector = collector
 	u.proc.puHandler = puHandler
 	u.proc.syncHandler = syncHandler
+}
+
+func (u *uidMonitor) ReSync() error {
+
+	// TODO: Implement ReSync
+	return fmt.Errorf("ReSync not implemented")
 }

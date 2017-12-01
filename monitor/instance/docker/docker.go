@@ -333,7 +333,7 @@ func (d *dockerMonitor) Start() error {
 
 	//Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
-		err := d.syncContainers()
+		err := d.ReSync()
 
 		if err != nil {
 			zap.L().Error("Error Syncing existingContainers", zap.Error(err))
@@ -423,9 +423,9 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 	}
 }
 
-// syncContainers resyncs all the existing containers on the Host, using the
+// ReSync resyncs all the existing containers on the Host, using the
 // same process as when a container is initially spawn up
-func (d *dockerMonitor) syncContainers() error {
+func (d *dockerMonitor) ReSync() error {
 
 	zap.L().Debug("Syncing all existing containers")
 
