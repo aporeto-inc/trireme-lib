@@ -10,7 +10,7 @@ import (
 )
 
 // KubernetesMetadataExtractor is a systemd based metadata extractor
-func KubernetesMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime, error) {
+func KubernetesMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
 		return nil, fmt.Errorf("NamespacePath is required when using CNI")
@@ -31,7 +31,7 @@ func KubernetesMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime,
 }
 
 // DockerMetadataExtractor is a systemd based metadata extractor
-func DockerMetadataExtractor(event *eventinfo.EventInfo) (*policy.PURuntime, error) {
+func DockerMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
 		return nil, fmt.Errorf("NamespacePath is required when using CNI")

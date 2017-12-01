@@ -9,7 +9,8 @@ import (
 
 	collector "github.com/aporeto-inc/trireme-lib/collector"
 	impl "github.com/aporeto-inc/trireme-lib/monitor/impl"
-	eventserver "github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
+	events "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	processor "github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -71,7 +72,7 @@ func (mr *MockImplementationMockRecorder) Stop() *gomock.Call {
 
 // SetupConfig mocks base method
 // nolint
-func (m *MockImplementation) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
+func (m *MockImplementation) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
 	ret := m.ctrl.Call(m, "SetupConfig", registerer, cfg)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -138,7 +139,7 @@ func (mr *MockProcessingUnitsHandlerMockRecorder) CreatePURuntime(contextID, run
 
 // HandlePUEvent mocks base method
 // nolint
-func (m *MockProcessingUnitsHandler) HandlePUEvent(contextID string, event impl.Event) error {
+func (m *MockProcessingUnitsHandler) HandlePUEvent(contextID string, event events.Event) error {
 	ret := m.ctrl.Call(m, "HandlePUEvent", contextID, event)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -179,7 +180,7 @@ func (m *MockSynchronizationHandler) EXPECT() *MockSynchronizationHandlerMockRec
 
 // HandleSynchronization mocks base method
 // nolint
-func (m *MockSynchronizationHandler) HandleSynchronization(contextID string, state impl.State, RuntimeReader policy.RuntimeReader, syncType impl.SynchronizationType) error {
+func (m *MockSynchronizationHandler) HandleSynchronization(contextID string, state events.State, RuntimeReader policy.RuntimeReader, syncType events.SynchronizationType) error {
 	ret := m.ctrl.Call(m, "HandleSynchronization", contextID, state, RuntimeReader, syncType)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -193,7 +194,7 @@ func (mr *MockSynchronizationHandlerMockRecorder) HandleSynchronization(contextI
 
 // HandleSynchronizationComplete mocks base method
 // nolint
-func (m *MockSynchronizationHandler) HandleSynchronizationComplete(syncType impl.SynchronizationType) {
+func (m *MockSynchronizationHandler) HandleSynchronizationComplete(syncType events.SynchronizationType) {
 	m.ctrl.Call(m, "HandleSynchronizationComplete", syncType)
 }
 

@@ -5,7 +5,12 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl/cni"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl/docker"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl/linux"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl/uid"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
 
 // Type specifies the type of monitors supported.
@@ -30,77 +35,75 @@ type Config struct {
 
 type monitors struct {
 	config          *Config
-	monitors        map[Type]impl.Implementation
+	monitors        map[Type]monitorimpl.Implementation
 	userRPCListener rpcmonitor.Listener
+	userRegisterer  processor.Registerer
 	rootRPCListener rpcmonitor.Listener
+	rootRegisterer  processor.Registerer
 }
 
 // New instantiates all/any combination of monitors supported.
 func New(c *Config) (Monitor, error) {
 
+	var err error
+
 	m := &monitors{
 		config:   c,
-		monitors: make(map[Type]impl.Implementation),
+		monitors: make(map[Type]monitorimpl.Implementation),
 	}
 
-	m.userRPCListener = rpc.New(
+	if m.userRPCListener, m.userRegisterer, err = rpcmonitor.New(
 		rpcmonitor.DefaultRPCAddress,
 		false,
-	)
+	); err != nil {
+		return nil, fmt.Errorf("Unable to create user RPC Listener %s", err.Error())
+	}
 
-	m.rootRPCListener = rpc.New(
+	if m.rootRPCListener, m.rootRegisterer, err = rpcmonitor.New(
 		rpcmonitor.DefaultRootRPCAddress,
 		true,
-	)
+	); err != nil {
+		return nil, fmt.Errorf("Unable to create user RPC Listener %s", err.Error())
+	}
 
 	for k, v := range c.Monitors {
 		switch k {
 		case CNI:
-			monitor := cni.New()
-			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return nil, err
-			}
-			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
+			monitor := cnimonitor.New()
+			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := monitor.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, err
 			}
 			m.monitors[CNI] = monitor
 
 		case Docker:
-			monitor := docker.New()
-			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return nil, err
-			}
-			if err := monitor.SetupCfg(nil, v); err != nil {
+			monitor := dockermonitor.New()
+			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := monitor.SetupConfig(nil, v); err != nil {
 				return nil, err
 			}
 			m.monitors[Docker] = monitor
 
 		case LinuxProcess:
-			m.monitors[LinuxProcess] = linux.New()
-			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return nil, err
-			}
-			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
+			m.monitors[LinuxProcess] = linuxmonitor.New()
+			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := monitor.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, err
 			}
 			m.monitors[LinuxProcess] = monitor
 
 		case LinuxHost:
-			m.monitors[LinuxHost] = linux.New()
-			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return nil, err
-			}
-			if err := monitor.SetupCfg(m.rootRPCListener, v); err != nil {
+			m.monitors[LinuxHost] = linuxmonitor.New()
+			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := monitor.SetupConfig(m.rootRegisterer, v); err != nil {
 				return nil, err
 			}
 			m.monitors[LinuxHost] = monitor
 
 		case UID:
-			m.monitors[UID] = uid.New()
-			if err := monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler); err != nil {
-				return nil, err
-			}
-			if err := monitor.SetupCfg(m.userRPCListener, v); err != nil {
+			m.monitors[UID] = uidmonitor.New()
+			monitor.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			if err := monitor.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, err
 			}
 			m.monitors[UID] = monitor

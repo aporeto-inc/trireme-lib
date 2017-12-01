@@ -6,16 +6,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/docker/docker/api/types"
 )
-
-// defaultMetadataExtractor is the metadata extractor of the agent
-func defaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, error) {
-
-	return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, constants.ContainerPU, nil), nil
-}
 
 // NewExternalExtractor returns a new bash metadata extractor for Docker that will call
 // the executable given in parameter and will generate a Policy Runtime as standard output

@@ -16,8 +16,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/impl"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -61,6 +59,11 @@ func (l *linuxMonitor) Start() error {
 
 	if l.puHandler == nil {
 		return fmt.Errorf("Missing configuration: puHandler")
+	}
+
+	// Check if we had running units when we last died
+	if err = c.ReSync(); err != nil {
+		return err
 	}
 
 	return nil

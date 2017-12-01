@@ -4,6 +4,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/server"
 )
 
@@ -22,21 +23,22 @@ type listener struct {
 	// eventProcessor uses rpcServer with a type event.EventInfo and mux's the events
 	// for a given type to an event processor.
 	eventProcessor eventserver.Processor
+	registerer     processor.Registerer
 }
 
 // New returns a base RPC listener. Processors must be registered externally
-func New(rpcAddress string, root bool) (Listener, registerer.Registerer, error) {
+func New(rpcAddress string, root bool) (Listener, processor.Registerer, error) {
 
 	l := &listener{
-		rpcServer:      rpcserver.New(root),
-		eventProcessor: eventserver.New(rpcAddress, root),
+		rpcServer: rpcserver.New(rpcAddress, root),
 	}
+	l.eventProcessor, l.registerer = eventserver.New(root)
 
-	if err = l.rpcServer.Register(eventProcessor); err != nil {
+	if err := l.rpcServer.Register(l.eventProcessor); err != nil {
 		return nil, nil, err
 	}
 
-	return l, l.eventProcessor, nil
+	return l, l.registerer, nil
 }
 
 // Start monitoring RPC events.
@@ -45,11 +47,6 @@ func (l *listener) Start() (err error) {
 	zap.L().Debug("Starting RPC monitor")
 
 	if err = l.rpcServer.Start(); err != nil {
-		return err
-	}
-
-	// Check if we had running units when we last died
-	if err = l.eventProcessor.ReSync(); err != nil {
 		return err
 	}
 

@@ -14,7 +14,6 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/dchest/siphash"
 	"github.com/docker/docker/api/types"
@@ -22,7 +21,9 @@ import (
 	"github.com/docker/docker/api/types/filters"
 
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl"
+	tevents "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -157,7 +158,7 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 
 // Config is the configuration options to start a CNI monitor
 type Config struct {
-	EventMetadataExtractor     eventinfo.EventMetadataExtractor
+	EventMetadataExtractor     MetadataExtractor
 	SocketType                 string
 	SocketAddress              string
 	SyncAtStart                bool
@@ -175,8 +176,8 @@ type dockerMonitor struct {
 	stoplistener       chan bool
 
 	collector   collector.EventCollector
-	puHandler   monitor.ProcessingUnitsHandler
-	syncHandler monitor.SynchronizationHandler
+	puHandler   monitorimpl.ProcessingUnitsHandler
+	syncHandler monitorimpl.SynchronizationHandler
 
 	netcls cgnetcls.Cgroupnetcls
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
@@ -189,43 +190,19 @@ func New() monitorimpl.Implementation {
 	return &dockerMonitor{}
 }
 
-// Start implements Implementation interface
-func (d *dockerMonitor) Start() error {
-
-	if c.collector == nil {
-		return fmt.Errorf("Missing configuration: collector")
-	}
-
-	if c.syncHandler == nil {
-		return fmt.Errorf("Missing configuration: syncHandler")
-	}
-
-	if c.puHandler == nil {
-		return fmt.Errorf("Missing configuration: puHandler")
-	}
-
-	return nil
-}
-
-// Stop implements Implementation interface
-func (d *dockerMonitor) Stop() error {
-
-	return nil
-}
-
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (d *dockerMonitor) SetupConfig(cfg interface{}) (err error) {
+func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) (err error) {
 
 	if cfg == nil {
 		// Use Defaults
-		cfg = &DockerConfig{
+		cfg = &Config{
 			KillContainerOnPolicyError: false,
 			SyncAtStart:                true,
 		}
 	}
 
-	dockerConfig, ok := cfg.(DockerConfig)
+	dockerConfig, ok := cfg.(Config)
 	if !ok {
 		return fmt.Errorf("Invalid configuration specified")
 	}
@@ -233,16 +210,22 @@ func (d *dockerMonitor) SetupConfig(cfg interface{}) (err error) {
 	if dockerConfig.EventMetadataExtractor == nil {
 		dockerConfig.EventMetadataExtractor = defaultMetadataExtractor
 	}
-
 	d.metadataExtractor = dockerConfig.EventMetadataExtractor
-	d.syncAtStart = dockerConfig.SyncAtStart
-	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
 
-	if d.dockerClient, err = initDockerClient(socketType, socketAddress); err != nil {
+	if dockerConfig.SocketType == "" {
+		dockerConfig.SocketType = constants.DefaultDockerSocketType
+	}
+	if dockerConfig.SocketAddress == "" {
+		dockerConfig.SocketAddress = constants.DefaultDockerSocket
+	}
+
+	if d.dockerClient, err = initDockerClient(dockerConfig.SocketType, dockerConfig.SocketAddress); err != nil {
 		zap.L().Debug("Unable to initialize Docker client", zap.Error(err))
 		return nil
 	}
 
+	d.syncAtStart = dockerConfig.SyncAtStart
+	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
 	d.handlers = make(map[Event]func(event *events.Message) error)
 	d.stoplistener = make(chan bool)
 	d.netcls = cgnetcls.NewDockerCgroupNetController()
@@ -269,11 +252,11 @@ func (d *dockerMonitor) SetupConfig(cfg interface{}) (err error) {
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (d *dockerMonitor) SetupHandlers(collector trireme.EventCollector, puHandler monitor.ProcessingUnitsHandler, syncHandler monitor.SynchronizationHandler) {
+func (d *dockerMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorimpl.ProcessingUnitsHandler, syncHandler monitorimpl.SynchronizationHandler) {
 
-	c.collector = collector
-	c.puHandler = puHandler
-	c.syncHandler = syncHandler
+	d.collector = collector
+	d.puHandler = puHandler
+	d.syncHandler = syncHandler
 }
 
 // addHandler adds a callback handler for the given docker event.
@@ -295,13 +278,6 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
 
-// SetupHandlers installs handlers
-func (d *dockerMonitor) SetupHandlers(p monitor.ProcessingUnitsHandler, s monitor.SynchronizationHandler) {
-
-	d.puHandler = p
-	d.syncHandler = s
-}
-
 // Start will start the DockerPolicy Enforcement.
 // It applies a policy to each Container already Up and Running.
 // It listens to all ContainerEvents
@@ -309,8 +285,16 @@ func (d *dockerMonitor) Start() error {
 
 	zap.L().Debug("Starting the docker monitor")
 
-	if d.puHandler == nil || d.syncHandler == nil {
-		return fmt.Errorf("SetupHandlers() not called")
+	if d.collector == nil {
+		return fmt.Errorf("Missing configuration: collector")
+	}
+
+	if d.syncHandler == nil {
+		return fmt.Errorf("Missing configuration: syncHandler")
+	}
+
+	if d.puHandler == nil {
+		return fmt.Errorf("Missing configuration: puHandler")
 	}
 
 	// Check if the server is running before you go ahead
@@ -445,22 +429,22 @@ func (d *dockerMonitor) syncContainers() error {
 
 			PURuntime, _ := d.extractMetadata(&container)
 
-			var state monitor.State
+			var state tevents.State
 			if container.State.Running {
 				if !container.State.Paused {
-					state = monitor.StateStarted
+					state = tevents.StateStarted
 				} else {
-					state = monitor.StatePaused
+					state = tevents.StatePaused
 				}
 			} else {
-				state = monitor.StateStopped
+				state = tevents.StateStopped
 			}
-			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitor.SynchronizationTypeInitial); err != nil {
+			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, tevents.SynchronizationTypeInitial); err != nil {
 				zap.L().Error("Error Syncing existing Container", zap.Error(err))
 			}
 		}
 
-		d.syncHandler.HandleSynchronizationComplete(monitor.SynchronizationTypeInitial)
+		d.syncHandler.HandleSynchronizationComplete(tevents.SynchronizationTypeInitial)
 	}
 
 	for _, c := range containers {
@@ -537,7 +521,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return err
 	}
 
-	if err := d.puHandler.HandlePUEvent(contextID, monitor.EventStart); err != nil {
+	if err := d.puHandler.HandlePUEvent(contextID, tevents.EventStart); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
 				zap.L().Warn("Failed to stop bad container", zap.Error(derr))
@@ -564,7 +548,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 		return fmt.Errorf("Couldn't generate ContextID: %s", err)
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, monitor.EventStop)
+	return d.puHandler.HandlePUEvent(contextID, tevents.EventStop)
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -590,7 +574,7 @@ func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, monitor.EventCreate)
+	return d.puHandler.HandlePUEvent(contextID, tevents.EventCreate)
 }
 
 // handleStartEvent will notify the agent immediately about the event in order
@@ -644,7 +628,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	err = d.puHandler.HandlePUEvent(contextID, monitor.EventDestroy)
+	err = d.puHandler.HandlePUEvent(contextID, tevents.EventDestroy)
 
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
@@ -670,7 +654,7 @@ func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, monitor.EventPause)
+	return d.puHandler.HandlePUEvent(contextID, tevents.EventPause)
 }
 
 // handleCreateEvent generates a create event type.
@@ -681,5 +665,5 @@ func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
 		return fmt.Errorf("Error Generating ContextID: %s", err)
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, monitor.EventUnpause)
+	return d.puHandler.HandlePUEvent(contextID, tevents.EventUnpause)
 }

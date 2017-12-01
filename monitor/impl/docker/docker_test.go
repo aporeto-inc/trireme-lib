@@ -8,9 +8,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/impl/mock"
+	tevents "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -84,7 +86,10 @@ func initTestMessage(id string) *events.Message {
 
 func TestNewDockerMonitor(t *testing.T) {
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
+		dm := New()
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -162,7 +167,7 @@ func TestContextIDFromDockerID(t *testing.T) {
 
 func TestDefaultDockerMetadataExtractor(t *testing.T) {
 	Convey("When I try to extract metadata from default docker container", t, func() {
-		puR, err := defaultDockerMetadataExtractor(initTestDockerInfo(ID, "default", false))
+		puR, err := defaultMetadataExtractor(initTestDockerInfo(ID, "default", false))
 
 		Convey("Then I should not get any error", func() {
 			So(puR, ShouldNotBeNil)
@@ -171,7 +176,7 @@ func TestDefaultDockerMetadataExtractor(t *testing.T) {
 	})
 
 	Convey("When I try to extract metadata from host docker container", t, func() {
-		puR, err := defaultDockerMetadataExtractor(initTestDockerInfo(ID, "host", false))
+		puR, err := defaultMetadataExtractor(initTestDockerInfo(ID, "host", false))
 
 		Convey("Then I should not get any error", func() {
 			So(puR, ShouldNotBeNil)
@@ -185,11 +190,14 @@ func TestStartDockerContainer(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		mockCG := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
+		mockCG := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -197,7 +205,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try to start default docker container", func() {
 			mockPU.EXPECT().CreatePURuntime("74cc486f9ec3", gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", monitor.EventStart).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventStart).Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
 
@@ -224,7 +232,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try to start default docker container with invalid context ID and killContainerOnPolicyError not set", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(fmt.Errorf("Error"))
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
 
@@ -235,7 +243,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try to start from default docker container with invalid context ID", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(fmt.Errorf("Error"))
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
 			dm.(*dockerMonitor).puHandler = mockPU
 			dm.(*dockerMonitor).killContainerOnPolicyError = true
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
@@ -247,7 +255,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try to start host docker container", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(nil)
 			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
 			mockCG.EXPECT().AssignMark("74cc486f9ec3", uint64(102)).Times(1).Return(nil)
 			mockCG.EXPECT().AddProcess("74cc486f9ec3", int(4912)).Times(1).Return(nil)
@@ -262,7 +270,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try to start host docker container with error in assigning mark", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(nil)
 			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
 			mockCG.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
 			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
@@ -277,7 +285,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try start docker container with error adding process", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(nil)
 			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
 			mockCG.EXPECT().AssignMark("74cc486f9ec3", uint64(104)).Times(1).Return(nil)
 			mockCG.EXPECT().AddProcess(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
@@ -293,7 +301,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try to start host docker container with error in create group", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(nil)
 			mockCG.EXPECT().Creategroup(gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
 			dm.(*dockerMonitor).puHandler = mockPU
 			dm.(*dockerMonitor).netcls = mockCG
@@ -321,17 +329,20 @@ func TestStopDockerContainer(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
 
 		Convey("When I try to stop a container", func() {
-			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", monitor.EventStop).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventStop).Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).stopDockerContainer(ID)
 
@@ -355,17 +366,20 @@ func TestHandleCreateEvent(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
 
 		Convey("When I try to handle create event", func() {
-			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", monitor.EventCreate).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventCreate).Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).handleCreateEvent(initTestMessage(ID))
 
@@ -387,7 +401,10 @@ func TestHandleCreateEvent(t *testing.T) {
 func TestHandleStartEvent(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
+		dm := New()
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -439,17 +456,20 @@ func TestHandleDieEvent(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
 
 		Convey("When I try to handle die event", func() {
-			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", monitor.EventStop).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventStop).Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).handleDieEvent(initTestMessage(ID))
 
@@ -465,18 +485,21 @@ func TestHandleDestroyEvent(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
-		mockCG := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
+		mockCG := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
 
 		Convey("When I try to handle destroy event", func() {
-			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", monitor.EventDestroy).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventDestroy).Times(1).Return(nil)
 			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			dm.(*dockerMonitor).netcls = mockCG
@@ -502,16 +525,20 @@ func TestHandlePauseEvent(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
+
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
 
 		Convey("When I try to handle pause event", func() {
-			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", monitor.EventPause).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventPause).Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).handlePauseEvent(initTestMessage(ID))
 
@@ -535,16 +562,21 @@ func TestHandleUnpauseEvent(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
+
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
 
 		Convey("When I try to handle unpause event", func() {
-			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", monitor.EventUnpause).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventUnpause).Times(1).Return(nil)
 			dm.(*dockerMonitor).puHandler = mockPU
 			err := dm.(*dockerMonitor).handleUnpauseEvent(initTestMessage(ID))
 
@@ -564,10 +596,18 @@ func TestHandleUnpauseEvent(t *testing.T) {
 }
 
 func TestExtractMetadata(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
 
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
@@ -588,10 +628,13 @@ func TestSyncContainers(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -602,8 +645,8 @@ func TestSyncContainers(t *testing.T) {
 			containers, err := dm.(*dockerMonitor).dockerClient.ContainerList(context.Background(), options)
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
-				mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), monitor.StateStarted, gomock.Any(), monitor.SynchronizationTypeInitial)
+				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
+				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), tevents.SynchronizationTypeInitial)
 				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.(*dockerMonitor).puHandler = mockPU
 				err = dm.(*dockerMonitor).syncContainers()
@@ -616,10 +659,13 @@ func TestSyncContainers(t *testing.T) {
 	})
 
 	Convey("When I try to initialize a new docker monitor with synchandler", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -629,10 +675,10 @@ func TestSyncContainers(t *testing.T) {
 			options := types.ContainerListOptions{All: true}
 			containers, err := dm.(*dockerMonitor).dockerClient.ContainerList(context.Background(), options)
 			if err == nil && len(containers) > 0 {
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), gomock.Any(), gomock.Any(), monitor.SynchronizationTypeInitial).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronizationComplete(monitor.SynchronizationTypeInitial).AnyTimes()
+				mockSH.EXPECT().HandleSynchronization(gomock.Any(), gomock.Any(), gomock.Any(), tevents.SynchronizationTypeInitial).AnyTimes().Return(nil)
+				mockSH.EXPECT().HandleSynchronizationComplete(tevents.SynchronizationTypeInitial).AnyTimes()
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
-				mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).AnyTimes().Return(nil)
+				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
 				dm.(*dockerMonitor).puHandler = mockPU
 				err = dm.(*dockerMonitor).syncContainers()
 
@@ -649,10 +695,13 @@ func TestStart(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor with syncatstart set to false", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), false, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -679,10 +728,14 @@ func TestStart(t *testing.T) {
 	})
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
-		dm := NewDockerMonitor(constants.DefaultDockerSocketType, constants.DefaultDockerSocket, testDockerMetadataExtractor, eventCollector(), true, false)
-		mockPU := mockmonitor.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockmonitor.NewMockSynchronizationHandler(ctrl)
-		dm.SetupHandlers(mockPU, mockSH)
+		dm := New()
+		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
+		dm.SetupConfig(nil, Config{
+			EventMetadataExtractor: testDockerMetadataExtractor,
+		})
+
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})
@@ -692,8 +745,8 @@ func TestStart(t *testing.T) {
 			containers, err := dm.(*dockerMonitor).dockerClient.ContainerList(context.Background(), options)
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
-				mockPU.EXPECT().HandlePUEvent(gomock.Any(), monitor.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), monitor.StateStarted, gomock.Any(), monitor.SynchronizationTypeInitial)
+				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
+				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), tevents.SynchronizationTypeInitial)
 				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.(*dockerMonitor).puHandler = mockPU
 				err := dm.(*dockerMonitor).Start()
