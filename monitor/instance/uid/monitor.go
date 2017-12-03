@@ -140,6 +140,6 @@ func (u *uidMonitor) SetupHandlers(collector collector.EventCollector, puHandler
 
 func (u *uidMonitor) ReSync() error {
 
-	// TODO: Implement ReSync
-	return fmt.Errorf("ReSync not implemented")
+	u.proc.ReSync(nil)
+	return nil
 }

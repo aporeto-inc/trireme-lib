@@ -159,6 +159,29 @@ func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 	return true
 }
 
+func (t *trireme) mergeRuntimeAndPolicy(r *policy.PURuntime, p *policy.PUPolicy) {
+
+	tags := r.Tags()
+	anno := p.Annotations()
+	if tags == nil || anno == nil {
+		return
+	}
+
+	if _, ok := tags.Get("$id"); !ok {
+		if val, ok := anno.Get("$id"); ok {
+			tags.AppendKeyValue("$id", val)
+		}
+	}
+
+	if _, ok := tags.Get("$namespace"); !ok {
+		if val, ok := anno.Get("$namespace"); ok {
+			tags.AppendKeyValue("$namespace", val)
+		}
+	}
+
+	r.SetTags(tags)
+}
+
 func (t *trireme) doHandleCreate(contextID string) error {
 
 	// Retrieve the container runtime information from the cache
@@ -190,6 +213,9 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 		return fmt.Errorf("Policy Error for this context: %s. Container killed. %s", contextID, err)
 	}
+
+	//
+	t.mergeRuntimeAndPolicy(runtimeInfo, policyInfo)
 
 	ip, _ := policyInfo.DefaultIPAddress()
 

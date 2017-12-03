@@ -148,6 +148,6 @@ func (l *linuxMonitor) SetupHandlers(collector collector.EventCollector, puHandl
 
 func (l *linuxMonitor) ReSync() error {
 
-	// TODO: Implement ReSync
-	return fmt.Errorf("ReSync not implemented")
+	l.proc.ReSync(nil)
+	return nil
 }

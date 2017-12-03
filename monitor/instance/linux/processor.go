@@ -74,10 +74,13 @@ func (l *linuxProcessor) Start(eventInfo *events.EventInfo) error {
 	} else {
 		err = l.processLinuxServiceStart(eventInfo, runtimeInfo)
 	}
-
 	if err != nil {
 		return err
 	}
+
+	zap.L().Info("PU",
+		zap.String("Tags", fmt.Sprintf("+%v", runtimeInfo.Tags())),
+	)
 
 	l.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
