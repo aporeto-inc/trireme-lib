@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/mock"
 	tevents "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/docker/docker/api/types"
@@ -649,7 +650,7 @@ func TestSyncContainers(t *testing.T) {
 				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), monitorinstance.SynchronizationTypeInitial)
 				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.(*dockerMonitor).puHandler = mockPU
-				err = dm.(*dockerMonitor).syncContainers()
+				err = dm.(*dockerMonitor).ReSync()
 
 				Convey("Then I should not get any error", func() {
 					So(err, ShouldBeNil)
@@ -680,7 +681,7 @@ func TestSyncContainers(t *testing.T) {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
 				dm.(*dockerMonitor).puHandler = mockPU
-				err = dm.(*dockerMonitor).syncContainers()
+				err = dm.(*dockerMonitor).ReSync()
 
 				Convey("Then I should not get any error", func() {
 					So(err, ShouldBeNil)

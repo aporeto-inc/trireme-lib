@@ -40,15 +40,6 @@ func (r *rpcServer) Register(rcvr interface{}) error {
 // Start starts the rpc server.
 func (r *rpcServer) Start() (err error) {
 
-	if r.root {
-		err = os.Chmod(r.rpcAddress, 0600)
-	} else {
-		err = os.Chmod(r.rpcAddress, 0766)
-	}
-	if err != nil {
-		return err
-	}
-
 	if _, err = os.Stat(r.rpcAddress); err == nil {
 		if err = os.Remove(r.rpcAddress); err != nil {
 			return fmt.Errorf("Failed to clean up rpc socket: %s", err.Error())
@@ -57,6 +48,15 @@ func (r *rpcServer) Start() (err error) {
 
 	if r.listenSock, err = net.Listen("unix", r.rpcAddress); err != nil {
 		return fmt.Errorf("Failed to start RPC monitor: couldn't create binding: %s", err.Error())
+	}
+
+	if r.root {
+		err = os.Chmod(r.rpcAddress, 0600)
+	} else {
+		err = os.Chmod(r.rpcAddress, 0766)
+	}
+	if err != nil {
+		return err
 	}
 
 	// Launch a go func to accept connections

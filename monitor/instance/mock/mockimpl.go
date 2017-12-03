@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	collector "github.com/aporeto-inc/trireme-lib/collector"
-	impl "github.com/aporeto-inc/trireme-lib/monitor/instance"
+	instance "github.com/aporeto-inc/trireme-lib/monitor/instance"
 	events "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	processor "github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
@@ -86,7 +86,7 @@ func (mr *MockImplementationMockRecorder) SetupConfig(registerer, cfg interface{
 
 // SetupHandlers mocks base method
 // nolint
-func (m *MockImplementation) SetupHandlers(collector collector.EventCollector, puHandler impl.ProcessingUnitsHandler, syncHandler impl.SynchronizationHandler) {
+func (m *MockImplementation) SetupHandlers(collector collector.EventCollector, puHandler instance.ProcessingUnitsHandler, syncHandler instance.SynchronizationHandler) {
 	m.ctrl.Call(m, "SetupHandlers", collector, puHandler, syncHandler)
 }
 
@@ -94,6 +94,20 @@ func (m *MockImplementation) SetupHandlers(collector collector.EventCollector, p
 // nolint
 func (mr *MockImplementationMockRecorder) SetupHandlers(collector, puHandler, syncHandler interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupHandlers", reflect.TypeOf((*MockImplementation)(nil).SetupHandlers), collector, puHandler, syncHandler)
+}
+
+// ReSync mocks base method
+// nolint
+func (m *MockImplementation) ReSync() error {
+	ret := m.ctrl.Call(m, "ReSync")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReSync indicates an expected call of ReSync
+// nolint
+func (mr *MockImplementationMockRecorder) ReSync() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReSync", reflect.TypeOf((*MockImplementation)(nil).ReSync))
 }
 
 // MockProcessingUnitsHandler is a mock of ProcessingUnitsHandler interface
@@ -180,7 +194,7 @@ func (m *MockSynchronizationHandler) EXPECT() *MockSynchronizationHandlerMockRec
 
 // HandleSynchronization mocks base method
 // nolint
-func (m *MockSynchronizationHandler) HandleSynchronization(contextID string, state events.State, RuntimeReader policy.RuntimeReader, syncType monitorinstance.SynchronizationType) error {
+func (m *MockSynchronizationHandler) HandleSynchronization(contextID string, state events.State, RuntimeReader policy.RuntimeReader, syncType instance.SynchronizationType) error {
 	ret := m.ctrl.Call(m, "HandleSynchronization", contextID, state, RuntimeReader, syncType)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -194,7 +208,7 @@ func (mr *MockSynchronizationHandlerMockRecorder) HandleSynchronization(contextI
 
 // HandleSynchronizationComplete mocks base method
 // nolint
-func (m *MockSynchronizationHandler) HandleSynchronizationComplete(syncType monitorinstance.SynchronizationType) {
+func (m *MockSynchronizationHandler) HandleSynchronizationComplete(syncType instance.SynchronizationType) {
 	m.ctrl.Call(m, "HandleSynchronizationComplete", syncType)
 }
 
