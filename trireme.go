@@ -27,10 +27,18 @@ type trireme struct {
 	resolver    PolicyResolver
 	collector   collector.EventCollector
 	port        allocator.Allocator
+	mergeTags   []string
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]policyenforcer.Enforcer, eventCollector collector.EventCollector) Trireme {
+func NewTrireme(
+	serverID string,
+	resolver PolicyResolver,
+	supervisors map[constants.PUType]supervisor.Supervisor,
+	enforcers map[constants.PUType]policyenforcer.Enforcer,
+	eventCollector collector.EventCollector,
+	mergeTags []string,
+) Trireme {
 
 	t := &trireme{
 		serverID:    serverID,
@@ -40,6 +48,7 @@ func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[consta
 		resolver:    resolver,
 		collector:   eventCollector,
 		port:        allocator.New(5000, 100),
+		mergeTags:   mergeTags,
 	}
 
 	return t
@@ -160,6 +169,29 @@ func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 	return true
 }
 
+func (t *trireme) mergeRuntimeAndPolicy(r *policy.PURuntime, p *policy.PUPolicy) {
+
+	if len(t.mergeTags) == 0 {
+		return
+	}
+
+	tags := r.Tags()
+	anno := p.Annotations()
+	if tags == nil || anno == nil {
+		return
+	}
+
+	for _, mt := range t.mergeTags {
+		if _, ok := tags.Get(mt); !ok {
+			if val, ok := anno.Get(mt); ok {
+				tags.AppendKeyValue(mt, val)
+			}
+		}
+	}
+
+	r.SetTags(tags)
+}
+
 func (t *trireme) doHandleCreate(contextID string) error {
 
 	// Retrieve the container runtime information from the cache
@@ -180,7 +212,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	defer runtimeInfo.GlobalLock.Unlock()
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
-
 	if err != nil || policyInfo == nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
@@ -191,6 +222,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 		return fmt.Errorf("policy error for %s. container killed: %s", contextID, err)
 	}
+
+	t.mergeRuntimeAndPolicy(runtimeInfo, policyInfo)
 
 	ip, _ := policyInfo.DefaultIPAddress()
 

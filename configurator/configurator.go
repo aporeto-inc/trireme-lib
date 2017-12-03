@@ -264,7 +264,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	}
 
-	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector)
+	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector, []string{})
 
 	if options.LocalContainer || options.RemoteContainer {
 		dockerMonitorInstance = dockermonitor.NewDockerMonitor(
@@ -550,7 +550,7 @@ func NewTriremeLinuxProcess(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewLocalTriremeDocker instantiates Trireme for Docker using enforcement on the
@@ -590,7 +590,7 @@ func NewLocalTriremeDocker(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewDistributedTriremeDocker instantiates Trireme using remote enforcers on
@@ -626,7 +626,7 @@ func NewDistributedTriremeDocker(serverID string,
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewHybridTrireme instantiates Trireme with both Linux and Docker enforcers.
@@ -693,7 +693,7 @@ func NewHybridTrireme(
 		constants.LinuxProcessPU: processSupervisor,
 	}
 
-	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 
 	return trireme
 }
