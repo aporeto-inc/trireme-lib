@@ -117,14 +117,14 @@ func TestBasicFunctions(t *testing.T) {
 		})
 
 		Convey("I should be able to set the tags", func() {
-			modify := &TagStore{ Tags : []string{ "$set=new" } }
+			modify := &TagStore{Tags: []string{"$set=new"}}
 			runtime.SetTags(modify)
 			So(runtime.Tags(), ShouldResemble, modify)
-			value, ok := runtime.Tag("image")
-			So(ok, ShouldBeFalse)
-			value, ok = runtime.Tag("$set")
+			value, ok := runtime.Tag("$set")
 			So(ok, ShouldBeTrue)
 			So(value, ShouldEqual, "new")
+			_, ok = runtime.Tag("image")
+			So(ok, ShouldBeFalse)
 		})
 	})
 }
