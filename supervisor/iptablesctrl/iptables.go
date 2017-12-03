@@ -161,7 +161,6 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	policyrules := containerInfo.Policy
 
 	appChain, netChain, err := i.chainName(contextID, version)
-
 	if err != nil {
 		return err
 	}
@@ -222,7 +221,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			}
 
 			// update the portset cache, so that it can program the portset
-			if err := i.portSetInstance.AddUserPortSet(uid, portSetName, mark); err != nil {
+			if err = i.portSetInstance.AddUserPortSet(uid, portSetName, mark); err != nil {
 				return err
 			}
 
@@ -232,7 +231,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
 		if len(proxiedServices) > 0 {
 
-			if err := i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
+			if err = i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
 				zap.L().Error("Failed to create ProxySets", zap.Error(err))
 			}
 		} else {
