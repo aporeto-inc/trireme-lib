@@ -211,7 +211,7 @@ func (u *uidProcessor) Pause(eventInfo *events.EventInfo) error {
 
 	contextID, err := u.generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
 	return u.puHandler.HandlePUEvent(contextID, events.EventPause)
@@ -233,9 +233,8 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 	}()
 
 	walker, err := u.contextStore.Walk()
-
 	if err != nil {
-		return fmt.Errorf("error in accessing context store")
+		return fmt.Errorf("unable to walk context store: %s", err)
 	}
 
 	cgroups := cgnetcls.GetCgroupList()
@@ -244,7 +243,10 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 		pidlist, _ := cgnetcls.ListCgroupProcesses(cgroup)
 		if len(pidlist) == 0 {
 			if err := u.netcls.DeleteCgroup(cgroup); err != nil {
-				zap.L().Warn("Error when deleting cgroup", zap.Error(err), zap.String("cgroup", cgroup))
+				zap.L().Warn("Unable to delete cgroup",
+					zap.String("cgroup", cgroup),
+					zap.Error(err),
+				)
 			}
 			continue
 		}
@@ -294,7 +296,7 @@ func (u *uidProcessor) generateContextID(eventInfo *events.EventInfo) (string, e
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
 		if !u.regStop.Match([]byte(eventInfo.Cgroup)) {
-			return "", fmt.Errorf("Invalid PUID %s", eventInfo.Cgroup)
+			return "", fmt.Errorf("invalid pu id: %s", eventInfo.Cgroup)
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}
@@ -314,7 +316,7 @@ func (u *uidProcessor) processLinuxServiceStart(event *events.EventInfo, runtime
 		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
-		return errors.New("Mark value not found")
+		return errors.New("mark value not found")
 	}
 
 	mark, err := strconv.ParseUint(markval, 10, 32)

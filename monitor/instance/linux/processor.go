@@ -1,7 +1,6 @@
 package linuxmonitor
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -36,7 +35,7 @@ type linuxProcessor struct {
 func (l *linuxProcessor) Create(eventInfo *events.EventInfo) error {
 
 	if !l.regStart.Match([]byte(eventInfo.PUID)) {
-		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
+		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
 	return l.puHandler.HandlePUEvent(eventInfo.PUID, events.EventCreate)
@@ -48,7 +47,7 @@ func (l *linuxProcessor) Start(eventInfo *events.EventInfo) error {
 	// Validate the PUID format
 
 	if !l.regStart.Match([]byte(eventInfo.PUID)) {
-		return fmt.Errorf("Invalid PU ID %s", eventInfo.PUID)
+		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
 	contextID := eventInfo.PUID
@@ -127,7 +126,7 @@ func (l *linuxProcessor) Destroy(eventInfo *events.EventInfo) error {
 
 	// Send the event upstream
 	if err := l.puHandler.HandlePUEvent(contextID, events.EventDestroy); err != nil {
-		zap.L().Warn("Failed to clean trireme ",
+		zap.L().Warn("Unable to clean trireme ",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
@@ -135,7 +134,7 @@ func (l *linuxProcessor) Destroy(eventInfo *events.EventInfo) error {
 
 	if eventInfo.HostService {
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte("0"), 0644); err != nil {
-			return fmt.Errorf("Failed to  write to net_cls.classid file for new cgroup, error %s", err.Error())
+			return fmt.Errorf("unable to write to net_cls.classid file for new cgroup: %s", err)
 		}
 	}
 
@@ -162,7 +161,7 @@ func (l *linuxProcessor) Pause(eventInfo *events.EventInfo) error {
 
 	contextID, err := l.generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
 	return l.puHandler.HandlePUEvent(contextID, events.EventPause)
@@ -185,7 +184,7 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 
 	walker, err := l.contextStore.Walk()
 	if err != nil {
-		return fmt.Errorf("error in accessing context store")
+		return fmt.Errorf("unable to walk context store: %s", err)
 	}
 
 	for {
@@ -235,7 +234,7 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 
 		if err := l.Start(&eventInfo); err != nil {
 			zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
-			return fmt.Errorf("error in processing existing data: %s", err.Error())
+			return fmt.Errorf("unable to start pu: %s", err)
 		}
 
 	}
@@ -249,7 +248,7 @@ func (l *linuxProcessor) generateContextID(eventInfo *events.EventInfo) (string,
 	contextID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
 		if !l.regStop.Match([]byte(eventInfo.Cgroup)) {
-			return "", fmt.Errorf("Invalid PUID %s", eventInfo.Cgroup)
+			return "", fmt.Errorf("invalid pu id: %s", eventInfo.Cgroup)
 		}
 		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
 	}
@@ -289,7 +288,7 @@ func (l *linuxProcessor) processLinuxServiceStart(event *events.EventInfo, runti
 		if derr := l.netcls.DeleteCgroup(event.PUID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
-		return errors.New("Mark value not found")
+		return fmt.Errorf("mark value %s not found", markval)
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
@@ -324,7 +323,7 @@ func (l *linuxProcessor) processHostServiceStart(event *events.EventInfo, runtim
 		hexmark := "0x" + (strconv.FormatUint(mark, 16))
 
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644); err != nil {
-			return errors.New("Failed to  write to net_cls.classid file for new cgroup")
+			return fmt.Errorf("failed to write to net_cls.classid file for new cgroup: %s", err)
 		}
 	}
 

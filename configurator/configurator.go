@@ -4,6 +4,7 @@ package configurator
 
 import (
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"time"
 
@@ -20,11 +21,11 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/cnimonitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/eventinfo"
-	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
@@ -46,7 +47,7 @@ type TriremeOptions struct {
 	EventCollector collector.EventCollector
 	Processor      packetprocessor.PacketProcessor
 
-	CNIMetadataExtractor    eventinfo.EventMetadataExtractor
+	CNIMetadataExtractor    events.EventMetadataExtractor
 	DockerMetadataExtractor dockermonitor.DockerMetadataExtractor
 
 	DockerSocketType string
@@ -146,22 +147,21 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	// Only a type of Container (remote or local) can be enabled
 	if options.RemoteContainer && options.LocalContainer {
-		return nil, fmt.Errorf("Cannot have remote and local container enabled at the same time")
+		return nil, errors.New("cannot have remote and local container enabled at the same time")
 	}
 
 	if options.PKI {
 		if options.SmartToken != nil {
 
-			zap.L().Info("Initializing Trireme with Smart PKI Auth")
+			zap.L().Debug("Initializing Trireme with Smart PKI Auth")
 			pkiSecrets, err = secrets.NewCompactPKI(options.KeyPEM, options.CertPEM, options.CaCertPEM, options.SmartToken)
-			zap.L().Info("Finished Initializing Trireme with PKI Auth")
 			if err != nil {
-				return nil, fmt.Errorf("Error Instantiating new Compact PKI: %s", err)
+				return nil, fmt.Errorf("unable to instantiate new compact pki: %s", err)
 			}
 		} else {
 			pkiTriremeSecret, err2 := secrets.NewPKISecrets(options.KeyPEM, options.CertPEM, options.CaCertPEM, map[string]*ecdsa.PublicKey{})
 			if err2 != nil {
-				return nil, fmt.Errorf("Error Instantiating New PKI Secret: %s", err)
+				return nil, fmt.Errorf("unable to instantiate new pki secret: %s", err)
 			}
 			pkiSecrets = pkiTriremeSecret
 			publicKeyAdder = pkiTriremeSecret
@@ -265,7 +265,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	}
 
-	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector)
+	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector, []string{})
 
 	if options.LocalContainer || options.RemoteContainer {
 		dockerMonitorInstance = dockermonitor.NewDockerMonitor(
@@ -288,7 +288,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			false,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to initialize RPC monitor %s", err)
+			return nil, fmt.Errorf("unable to initialize rpc monitor: %s", err)
 		}
 	}
 
@@ -301,8 +301,8 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 			options.LinuxProcessReleasePath)
 		if err := rpcMonitorInstance.RegisterProcessor(
 			constants.LinuxProcessPU,
-			linuxEventProcessor); err != nil {
-			zap.L().Fatal("Failed to initialize RPC monitor", zap.Error(err))
+			linuxMonitorProcessor); err != nil {
+			zap.L().Fatal("Unable to initialize RPC monitor", zap.Error(err))
 		}
 	}
 
@@ -556,7 +556,7 @@ func NewTriremeLinuxProcess(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewLocalTriremeDocker instantiates Trireme for Docker using enforcement on the
@@ -596,7 +596,7 @@ func NewLocalTriremeDocker(
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewDistributedTriremeDocker instantiates Trireme using remote enforcers on
@@ -632,7 +632,7 @@ func NewDistributedTriremeDocker(serverID string,
 	}
 
 	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewHybridTrireme instantiates Trireme with both Linux and Docker enforcers.
@@ -699,7 +699,7 @@ func NewHybridTrireme(
 		constants.LinuxProcessPU: processSupervisor,
 	}
 
-	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector)
+	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 
 	return trireme
 }
@@ -856,7 +856,7 @@ func NewPSKTriremeWithCNIMonitor(
 	processor packetprocessor.PacketProcessor,
 	eventCollector collector.EventCollector,
 	key []byte,
-	cniMetadataExtractor eventinfo.EventMetadataExtractor,
+	cniMetadataExtractor events.EventMetadataExtractor,
 	remoteEnforcer bool,
 ) (trireme.Trireme, monitor.Monitor) {
 

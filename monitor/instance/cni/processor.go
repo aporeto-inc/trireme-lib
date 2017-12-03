@@ -1,11 +1,13 @@
 package cnimonitor
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib.base/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
@@ -62,11 +64,11 @@ func (c *cniProcessor) Start(eventInfo *events.EventInfo) error {
 }
 
 // Stop handles a stop event
-func (c *cniProcessor) Stop(eventInfo *events.EventInfo) error {
-	fmt.Printf("Stop: %+v \n", eventInfo)
+func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
+
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate a contextID: %s", err)
+		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
 	return c.puHandler.HandlePUEvent(contextID, events.EventStop)
@@ -101,7 +103,7 @@ func (c *cniProcessor) ReSync(e *events.EventInfo) error {
 
 	walker, err := c.contextStore.Walk()
 	if err != nil {
-		return fmt.Errorf("error in accessing context store")
+		return fmt.Errorf("unable to walk the context store: %s", err)
 	}
 
 	for {
@@ -119,9 +121,8 @@ func (c *cniProcessor) ReSync(e *events.EventInfo) error {
 
 		reacquired = append(reacquired, eventInfo.PUID)
 
-		if err := c.Start(&eventInfo); err != nil {
-			zap.L().Error("Failed to start PU ", zap.String("PUID", eventInfo.PUID))
-			return fmt.Errorf("error in processing existing data: %s", err.Error())
+		if err := p.Start(&eventInfo); err != nil {
+			return fmt.Errorf("error in processing existing data: %s", err)
 		}
 
 	}
@@ -133,11 +134,11 @@ func (c *cniProcessor) ReSync(e *events.EventInfo) error {
 func generateContextID(eventInfo *events.EventInfo) (string, error) {
 
 	if eventInfo.PUID == "" {
-		return "", fmt.Errorf("PUID is empty from eventInfo")
+		return "", errors.New("puid is empty from event info")
 	}
 
 	if len(eventInfo.PUID) < 12 {
-		return "", fmt.Errorf("PUID smaller than 12 characters")
+		return "", errors.New("puid smaller than 12 characters")
 	}
 
 	return eventInfo.PUID[:12], nil

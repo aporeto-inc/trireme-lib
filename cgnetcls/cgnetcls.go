@@ -46,22 +46,22 @@ func (s *netCls) Creategroup(cgroupname string) error {
 	if s.ReleaseAgentPath != "" {
 		err = ioutil.WriteFile(filepath.Join(basePath, releaseAgentConfFile), []byte(s.ReleaseAgentPath), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to register a release agent error %s", err.Error())
+			return fmt.Errorf("unable to register a release agent error: %s", err)
 		}
 
 		err = ioutil.WriteFile(filepath.Join(basePath, notifyOnReleaseFile), []byte("1"), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+			return fmt.Errorf("unable to write to the notify file: %s", err)
 		}
 
 		err = ioutil.WriteFile(filepath.Join(basePath, TriremeBasePath, notifyOnReleaseFile), []byte("1"), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+			return fmt.Errorf("unable to write to the notify file: %s", err)
 		}
 
 		err = ioutil.WriteFile(filepath.Join(basePath, TriremeBasePath, cgroupname, notifyOnReleaseFile), []byte("1"), 0644)
 		if err != nil {
-			return fmt.Errorf("Failed to write to the notify file %s", err.Error())
+			return fmt.Errorf("unable to write to the notify file: %s", err)
 		}
 	}
 
@@ -74,14 +74,14 @@ func (s *netCls) AssignMark(cgroupname string, mark uint64) error {
 
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupname))
 	if os.IsNotExist(err) {
-		return errors.New("Cgroup does not exist")
+		return fmt.Errorf("cgroup does not exist: %s", err)
 	}
 
 	//16 is the base since the mark file expects hexadecimal values
 	markval := "0x" + (strconv.FormatUint(mark, 16))
 
 	if err := ioutil.WriteFile(filepath.Join(basePath, TriremeBasePath, cgroupname, markFile), []byte(markval), 0644); err != nil {
-		return errors.New("Failed to  write to net_cls.classid file for new cgroup")
+		return fmt.Errorf("failed to write to net_cls.classid file for new cgroup: %s", err)
 	}
 
 	return nil
@@ -92,7 +92,7 @@ func (s *netCls) AddProcess(cgroupname string, pid int) error {
 
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupname))
 	if os.IsNotExist(err) {
-		return errors.New("Cannot add process. Cgroup does not exist")
+		return fmt.Errorf("cannot add process. cgroup does not exist: %s", err)
 	}
 
 	PID := []byte(strconv.Itoa(pid))
@@ -101,7 +101,7 @@ func (s *netCls) AddProcess(cgroupname string, pid int) error {
 	}
 
 	if err := ioutil.WriteFile(filepath.Join(basePath, TriremeBasePath, cgroupname, procs), PID, 0644); err != nil {
-		return errors.New("Cannot add process. Failed to add process to cgroup")
+		return fmt.Errorf("cannot add process: %s", err)
 	}
 
 	return nil
@@ -113,16 +113,19 @@ func (s *netCls) RemoveProcess(cgroupname string, pid int) error {
 
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupname))
 	if os.IsNotExist(err) {
-		return errors.New("Cannot clean up process. Cgroup does not exist")
+		return fmt.Errorf("cannot clean up process. cgroup does not exist: %s", err)
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(basePath, procs))
-	if err != nil || !strings.Contains(string(data), strconv.Itoa(pid)) {
-		return errors.New("Cannot cleanup process. Process is not a part of this cgroup")
+	if err != nil {
+		return fmt.Errorf("cannot cleanup process: %s", err)
+	}
+	if !strings.Contains(string(data), strconv.Itoa(pid)) {
+		return errors.New("cannot cleanup process. process is not a part of this cgroup")
 	}
 
 	if err := ioutil.WriteFile(filepath.Join(basePath, procs), []byte(strconv.Itoa(pid)), 0644); err != nil {
-		return errors.New("Cannot clean up process. Failed to remove process to cgroup")
+		return fmt.Errorf("cannot clean up process: %s", err)
 	}
 
 	return nil
@@ -141,7 +144,7 @@ func (s *netCls) DeleteCgroup(cgroupname string) error {
 
 	err = os.Remove(filepath.Join(basePath, TriremeBasePath, cgroupname))
 	if err != nil {
-		return fmt.Errorf("Failed to delete cgroup %s error returned %s", cgroupname, err.Error())
+		return fmt.Errorf("unable to delete cgroup %s: %s", cgroupname, err)
 	}
 
 	return nil
@@ -253,12 +256,12 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	_, err := os.Stat(filepath.Join(basePath, TriremeBasePath, cgroupname))
 
 	if os.IsNotExist(err) {
-		return []string{}, errors.New("Cgroup does not exist")
+		return []string{}, fmt.Errorf("cgroup %s does not exist: %s", cgroupname, err)
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(basePath, TriremeBasePath, cgroupname, "cgroup.procs"))
 	if err != nil {
-		return []string{}, errors.New("Cannot read procs file")
+		return []string{}, fmt.Errorf("cannot read procs file: %s", err)
 	}
 
 	procs := []string{}

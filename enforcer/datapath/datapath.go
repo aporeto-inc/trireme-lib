@@ -243,27 +243,31 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	puContext, err := d.contextTracker.Get(contextID)
 	if err != nil {
-		return fmt.Errorf("ContextID not found in Enforcer")
+		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
 
 	puContext.(*pucontext.PUContext).Lock()
 	defer puContext.(*pucontext.PUContext).Unlock()
-	//Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
-	//Datapath is a strict readonly struct for proxy
 
+	// Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
+	// Datapath is a strict readonly struct for proxy
 	if err = d.proxyhdl.Unenforce(contextID); err != nil {
-		zap.L().Error("Failed to unenforce contextID", zap.String("ContextID", contextID))
+		zap.L().Error("Failed to unenforce contextID",
+			zap.String("ContextID", contextID),
+			zap.Error(err),
+		)
 	}
+
 	pu := puContext.(*pucontext.PUContext)
 	if err := d.puFromIP.Remove(pu.IP); err != nil {
-		zap.L().Warn("Unable to remove cache entry during unenforcement",
+		zap.L().Debug("Unable to remove cache entry during unenforcement",
 			zap.String("IP", pu.IP),
 			zap.Error(err),
 		)
 	}
 
 	if err := d.puFromIP.Remove(pu.Mark); err != nil {
-		zap.L().Warn("Unable to remove cache entry during unenforcement",
+		zap.L().Debug("Unable to remove cache entry during unenforcement",
 			zap.String("Mark", pu.Mark),
 			zap.Error(err),
 		)
@@ -271,7 +275,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	for _, port := range pu.Ports {
 		if err := d.puFromIP.Remove(port); err != nil {
-			zap.L().Warn("Unable to remove cache entry during unenforcement",
+			zap.L().Debug("Unable to remove cache entry during unenforcement",
 				zap.String("Port", port),
 				zap.Error(err),
 			)
@@ -355,7 +359,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	ip, ok := puInfo.Runtime.DefaultIPAddress()
 	if !ok {
 		if d.mode == constants.LocalContainer {
-			return fmt.Errorf("No IP provided for Local Container")
+			return fmt.Errorf("no ip provided for local container id: %s", contextID)
 		}
 		ip = enforcerconstants.DefaultNetwork
 	}

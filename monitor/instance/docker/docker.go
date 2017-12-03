@@ -70,11 +70,11 @@ type MetadataExtractor func(*types.ContainerJSON) (*policy.PURuntime, error)
 func contextIDFromDockerID(dockerID string) (string, error) {
 
 	if dockerID == "" {
-		return "", fmt.Errorf("Empty DockerID String")
+		return "", errors.New("unable to generate context id: empty docker id")
 	}
 
 	if len(dockerID) < 12 {
-		return "", fmt.Errorf("dockerID smaller than 12 characters")
+		return "", fmt.Errorf("unable to generate context id: dockerid smaller than 12 characters: %s", dockerID)
 	}
 
 	return dockerID[:12], nil
@@ -96,14 +96,14 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 		socket = "unix://" + socketAddress
 
 	default:
-		return nil, fmt.Errorf("Bad socket type %s", socketType)
+		return nil, fmt.Errorf("bad socket type: %s", socketType)
 	}
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
 	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 
 	if err != nil {
-		return nil, fmt.Errorf("Error creating Docker Client %s", err.Error())
+		return nil, fmt.Errorf("unable to create docker client: %s", err)
 	}
 
 	return dockerClient, nil
@@ -320,9 +320,9 @@ func (d *dockerMonitor) Start() error {
 	// Check if the server is running before you go ahead
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	_, pingerr := d.dockerClient.Ping(ctx)
-	if pingerr != nil {
-		return fmt.Errorf("Docker daemon not running")
+	_, err := d.dockerClient.Ping(ctx)
+	if err != nil {
+		return fmt.Errorf("unable to ping docker daemon: %s", err)
 	}
 
 	// Starting the eventListener First.
@@ -331,12 +331,12 @@ func (d *dockerMonitor) Start() error {
 	go d.eventListener(listenerReady)
 	<-listenerReady
 
-	//Syncing all Existing containers depending on MonitorSetting
+	// Syncing all Existing containers depending on MonitorSetting
 	if d.syncAtStart {
 		err := d.ReSync()
 
 		if err != nil {
-			zap.L().Error("Error Syncing existingContainers", zap.Error(err))
+			zap.L().Error("Unable to sync existing containers", zap.Error(err))
 		}
 	}
 
@@ -372,16 +372,21 @@ func (d *dockerMonitor) eventProcessors() {
 						if ok {
 							err := f(event)
 							if err != nil {
-								zap.L().Error("Error while handling event",
+								zap.L().Error("Unable to handle docker event",
 									zap.String("action", event.Action),
 									zap.Error(err),
 								)
 							}
 						} else {
-							zap.L().Info("Docker event not handled.", zap.String("action", event.Action), zap.String("ID", event.ID))
+							zap.L().Debug("Docker event not handled",
+								zap.String("action", event.Action),
+								zap.String("ID", event.ID),
+							)
 						}
 					} else {
-						zap.L().Info("Empty Event for", zap.String("ID", event.ID))
+						zap.L().Info("Empty event",
+							zap.String("ID", event.ID),
+						)
 					}
 				case <-d.stopprocessor[i]:
 					return
@@ -408,12 +413,17 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 	for {
 		select {
 		case message := <-messages:
-			zap.L().Info("Got message from docker client", zap.String("action", message.Action), zap.String("ID", message.ID))
+			zap.L().Debug("Got message from docker client",
+				zap.String("action", message.Action),
+				zap.String("ID", message.ID),
+			)
 			d.sendRequestToQueue(&message)
 
 		case err := <-errs:
 			if err != nil && err != io.EOF {
-				zap.L().Warn("Received docker event error", zap.Error(err))
+				zap.L().Warn("Received docker event error",
+					zap.Error(err),
+				)
 			}
 		case stop := <-d.stoplistener:
 			if stop {
@@ -433,15 +443,19 @@ func (d *dockerMonitor) ReSync() error {
 	containers, err := d.dockerClient.ContainerList(context.Background(), options)
 
 	if err != nil {
-		return fmt.Errorf("Error Getting ContainerList: %s", err)
+		return fmt.Errorf("unable to get container list: %s", err)
 	}
 
 	if d.syncHandler != nil {
-		for _, c := range containers {
-			container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
+		for _, c := range containers {
+
+			container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 			if err != nil {
-				zap.L().Error("Error Syncing existing Container", zap.Error(err))
+				zap.L().Error("unable to sync existing container",
+					zap.String("dockerID", c.ID),
+					zap.Error(err),
+				)
 				continue
 			}
 
@@ -459,8 +473,16 @@ func (d *dockerMonitor) ReSync() error {
 			} else {
 				state = tevents.StateStopped
 			}
-			if err := d.syncHandler.HandleSynchronization(contextID, state, PURuntime, monitorinstance.SynchronizationTypeInitial); err != nil {
-				zap.L().Error("Error Syncing existing Container", zap.Error(err))
+			if err := d.syncHandler.HandleSynchronization(
+				contextID,
+				state,
+				PURuntime,
+				monitorinstance.SynchronizationTypeInitial,
+			); err != nil {
+				zap.L().Error("Unable to sync existing Container",
+					zap.String("dockerID", c.ID),
+					zap.Error(err),
+				)
 			}
 		}
 
@@ -468,15 +490,21 @@ func (d *dockerMonitor) ReSync() error {
 	}
 
 	for _, c := range containers {
-		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 
+		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
 		if err != nil {
-			zap.L().Error("Error Syncing existing Container during inspect", zap.Error(err))
+			zap.L().Error("Unable to sync existing container during inspect",
+				zap.String("dockerID", c.ID),
+				zap.Error(err),
+			)
 			continue
 		}
 
 		if err := d.startDockerContainer(&container); err != nil {
-			zap.L().Error("Error Syncing existing Container during start handling", zap.Error(err))
+			zap.L().Error("Error Syncing existing Container during start handling",
+				zap.String("dockerID", c.ID),
+				zap.Error(err),
+			)
 			continue
 		}
 
@@ -497,23 +525,35 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 	markval := runtimeInfo.Options().CgroupMark
 	if markval == "" {
 		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
-			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+			zap.L().Warn("Failed to clean cgroup",
+				zap.String("contextID", contextID),
+				zap.Error(derr),
+			)
 		}
-		return errors.New("Mark value not found")
+
+		return errors.New("mark value not found")
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
 	if err := d.netcls.AssignMark(contextID, mark); err != nil {
 		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
-			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+			zap.L().Warn("Failed to clean cgroup",
+				zap.String("contextID", contextID),
+				zap.Error(derr),
+			)
 		}
+
 		return err
 	}
 
 	if err := d.netcls.AddProcess(contextID, dockerInfo.State.Pid); err != nil {
 		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
-			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+			zap.L().Warn("Failed to clean cgroup",
+				zap.String("contextID", contextID),
+				zap.Error(derr),
+			)
 		}
+
 		return err
 	}
 
@@ -521,6 +561,7 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 }
 
 func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
+
 	timeout := time.Second * 0
 
 	if !dockerInfo.State.Running {
@@ -529,12 +570,12 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 
 	contextID, err := contextIDFromDockerID(dockerInfo.ID)
 	if err != nil {
-		return fmt.Errorf("Couldn't generate ContextID: %s", err)
+		return err
 	}
 
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
 	if err != nil {
-		return fmt.Errorf("Error getting some of the Docker primitives: %s", err)
+		return err
 	}
 
 	if err := d.puHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
@@ -544,16 +585,19 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	if err := d.puHandler.HandlePUEvent(contextID, tevents.EventStart); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
-				zap.L().Warn("Failed to stop bad container", zap.Error(derr))
+				zap.L().Error("Unable to stop bad container",
+					zap.String("dockerID", contextID),
+					zap.Error(derr),
+				)
 			}
-			return fmt.Errorf("Policy cound't be set - container was killed %s %s", contextID, err)
+			return fmt.Errorf("unable to set policy: killed container %s: %s", contextID, err)
 		}
-		return fmt.Errorf("Policy cound't be set - container was kept alive per policy %s %s", contextID, err)
+		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", contextID, err)
 	}
 
 	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
 		if err := d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
-			return fmt.Errorf("Failed to setup host mode ")
+			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
 		}
 	}
 
@@ -563,9 +607,8 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 
 	contextID, err := contextIDFromDockerID(dockerID)
-
 	if err != nil {
-		return fmt.Errorf("Couldn't generate ContextID: %s", err)
+		return err
 	}
 
 	return d.puHandler.HandlePUEvent(contextID, tevents.EventStop)
@@ -575,7 +618,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*policy.PURuntime, error) {
 
 	if dockerInfo == nil {
-		return nil, fmt.Errorf("DockerInfo is empty")
+		return nil, errors.New("docker info is empty")
 	}
 
 	if d.metadataExtractor != nil {
@@ -587,11 +630,10 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 
 // handleCreateEvent generates a create event type.
 func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
-	dockerID := event.ID
 
-	contextID, err := contextIDFromDockerID(dockerID)
+	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
-		return fmt.Errorf("Error Generating ContextID: %s", err)
+		return err
 	}
 
 	return d.puHandler.HandlePUEvent(contextID, tevents.EventCreate)
@@ -603,20 +645,23 @@ func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 
 	timeout := time.Second * 0
-	dockerID := event.ID
-	contextID, err := contextIDFromDockerID(dockerID)
 
+	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
-		return fmt.Errorf("Error Generating ContextID: %s", err)
+		return err
 	}
 
-	info, err := d.dockerClient.ContainerInspect(context.Background(), dockerID)
+	info, err := d.dockerClient.ContainerInspect(context.Background(), event.ID)
 
 	if err != nil {
 		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
 		if d.killContainerOnPolicyError {
-			if err := d.dockerClient.ContainerStop(context.Background(), dockerID, &timeout); err != nil {
-				zap.L().Warn("Failed to stop illegal container", zap.Error(err))
+
+			if err1 := d.dockerClient.ContainerStop(context.Background(), event.ID, &timeout); err1 != nil {
+				zap.L().Warn("Unable to stop illegal container",
+					zap.String("dockerID", contextID),
+					zap.Error(err1),
+				)
 			}
 
 			d.collector.CollectContainerEvent(&collector.ContainerRecord{
@@ -625,9 +670,11 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 				Tags:      nil,
 				Event:     collector.ContainerFailed,
 			})
-			return fmt.Errorf("Cannot read container information. Killing container. ")
+
+			return fmt.Errorf("unable to read container information: container %s killed: %s", contextID, err)
 		}
-		return fmt.Errorf("Cannot read container information. Container still alive per policy. ")
+
+		return fmt.Errorf("unable to read container information: container %s kept alive per policy: %s", contextID, err)
 	}
 
 	return d.startDockerContainer(&info)
@@ -642,10 +689,9 @@ func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
 func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
-	dockerID := event.ID
-	contextID, err := contextIDFromDockerID(dockerID)
+	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
-		return fmt.Errorf("Error Generating ContextID: %s", err)
+		return err
 	}
 
 	err = d.puHandler.HandlePUEvent(contextID, tevents.EventDestroy)
@@ -668,10 +714,10 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 // handlePauseEvent generates a create event type.
 func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
-	dockerID := event.ID
-	contextID, err := contextIDFromDockerID(dockerID)
+
+	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
-		return fmt.Errorf("Error Generating ContextID: %s", err)
+		return err
 	}
 
 	return d.puHandler.HandlePUEvent(contextID, tevents.EventPause)
@@ -679,10 +725,10 @@ func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 
 // handleCreateEvent generates a create event type.
 func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
-	dockerID := event.ID
-	contextID, err := contextIDFromDockerID(dockerID)
+
+	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
-		return fmt.Errorf("Error Generating ContextID: %s", err)
+		return err
 	}
 
 	return d.puHandler.HandlePUEvent(contextID, tevents.EventUnpause)

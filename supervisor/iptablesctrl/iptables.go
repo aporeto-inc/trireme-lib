@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"crypto/md5"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -66,12 +67,12 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize IPtables provider: %s", err)
+		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
 	}
 
 	ips := provider.NewGoIPsetProvider()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize ipsets")
+		return nil, fmt.Errorf("unable to initialize ipsets: %s", err)
 	}
 
 	i := &Instance{
@@ -165,16 +166,14 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	// policyrules.DefaultIPAddress()
-
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
-
 	if !ok {
-		return fmt.Errorf("No ip address found ")
+		return errors.New("no ip address found")
 	}
+
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
-	zap.L().Debug("COnfigureRules", zap.String("proxyPort", proxyPort))
+	zap.L().Debug("Configure rules", zap.String("proxyPort", proxyPort))
 	proxiedServices := containerInfo.Policy.ProxiedServices()
 
 	// Configure all the ACLs
@@ -197,7 +196,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		if mark == "" {
-			return fmt.Errorf("No Mark value found")
+			return errors.New("no mark value found")
 		}
 
 		port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
@@ -247,11 +246,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	if err := i.addExclusionACLs(appChain, netChain, ipAddress, policyrules.ExcludedNetworks()); err != nil {
-		return err
-	}
-
-	return nil
+	return i.addExclusionACLs(appChain, netChain, ipAddress, policyrules.ExcludedNetworks())
 }
 
 // DeleteRules implements the DeleteRules interface
@@ -262,19 +257,19 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 	// Supporting only one ip
 	if i.mode != constants.LocalServer {
 		if ipAddresses == nil {
-			return fmt.Errorf("Provided map of IP addresses is nil")
+			return errors.New("provided map of ip addresses is nil")
 		}
 
 		ipAddress, ok = i.defaultIP(ipAddresses)
 		if !ok {
-			return fmt.Errorf("No ip address found ")
+			return errors.New("no ip address found")
 		}
 	}
 
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
 		//Don't return here we can still try and reclaims portset and targetnetwork sets
-		zap.L().Error("Count Not get generate Chain Name")
+		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 	portSetName := PuPortSetName(contextID, mark, PuPortSet)
 	if derr := i.deleteChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); derr != nil {
@@ -320,18 +315,18 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil {
-		return fmt.Errorf("Container info cannot be nil")
+		return errors.New("container info cannot be nil")
 	}
 
 	policyrules := containerInfo.Policy
 	if policyrules == nil {
-		return fmt.Errorf("Policy rules cannot be nil")
+		return errors.New("policy rules cannot be nil")
 	}
 
 	// Supporting only one ip
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
-		return fmt.Errorf("No ip address found ")
+		return errors.New("no ip address found")
 	}
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
 
@@ -377,7 +372,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		if mark == "" {
-			return fmt.Errorf("No Mark value found")
+			return errors.New("no mark value found")
 		}
 		portlist := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
 		uid := containerInfo.Runtime.Options().UserID
@@ -434,12 +429,9 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		}
 
 	}
-	// Delete the old chain to clean up
-	if err := i.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
-		return err
-	}
 
-	return nil
+	// Delete the old chain to clean up
+	return i.deleteAllContainerChains(oldAppChain, oldNetChain)
 }
 
 // Start starts the iptables controller
@@ -447,12 +439,12 @@ func (i *Instance) Start() error {
 
 	// Clean any previous ACLs
 	if err := i.cleanACLs(); err != nil {
-		zap.L().Warn("Failed to clean previous acls while starting the supervisor", zap.Error(err))
+		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
 	}
 
 	if i.mode == constants.LocalContainer {
 		if i.acceptMarkedPackets() != nil {
-			return fmt.Errorf("Filter of marked packets was not set")
+			return errors.New("filter of marked packets is not set")
 		}
 	}
 
@@ -504,7 +496,7 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	}
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
-		return fmt.Errorf("Failed to update synack networks")
+		return fmt.Errorf("failed to update synack networks: %s", err)
 	}
 
 	return nil

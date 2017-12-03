@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -153,7 +154,7 @@ func (c *Cache) Add(u interface{}, value interface{}) (err error) {
 		return nil
 	}
 
-	return fmt.Errorf("Item Exists - Use update")
+	return errors.New("item exists: use update")
 }
 
 // GetReset  changes the value of an entry into the cache and updates the timestamp
@@ -175,7 +176,7 @@ func (c *Cache) GetReset(u interface{}, duration time.Duration) (interface{}, er
 		return line.value, nil
 	}
 
-	return nil, fmt.Errorf("Cannot read item - it doesn't exist")
+	return nil, errors.New("cannot read item: not found")
 }
 
 // Update changes the value of an entry into the cache and updates the timestamp
@@ -211,7 +212,7 @@ func (c *Cache) Update(u interface{}, value interface{}) (err error) {
 		return nil
 	}
 
-	return fmt.Errorf("Cannot update item - it doesn't exist")
+	return errors.New("cannot update item: not found")
 }
 
 // AddOrUpdate adds a new value in the cache or updates the existing value
@@ -258,7 +259,7 @@ func (c *Cache) SetTimeOut(u interface{}, timeout time.Duration) (err error) {
 	defer c.Unlock()
 
 	if _, ok := c.data[u]; !ok {
-		return fmt.Errorf("Item is deleted already")
+		return errors.New("item is already deleted")
 	}
 
 	c.data[u].timer.Reset(timeout)
@@ -273,7 +274,7 @@ func (c *Cache) Get(u interface{}) (i interface{}, err error) {
 	defer c.Unlock()
 
 	if _, ok := c.data[u]; !ok {
-		return nil, fmt.Errorf("Item does not exist")
+		return nil, errors.New("not found")
 	}
 
 	return c.data[u].value, nil
@@ -288,7 +289,7 @@ func (c *Cache) removeNotify(u interface{}, notify bool) (err error) {
 
 	val, ok := c.data[u]
 	if !ok {
-		return fmt.Errorf("Item does not exist")
+		return errors.New("not found")
 	}
 
 	if val.timer != nil {
@@ -322,7 +323,7 @@ func (c *Cache) RemoveWithDelay(u interface{}, duration time.Duration) error {
 	e, ok := c.data[u]
 
 	if !ok {
-		return fmt.Errorf("Cannot remove item with delay - it doesn't exist")
+		return errors.New("cannot remove item with delay: not found")
 	}
 
 	timer := time.AfterFunc(duration, func() {
@@ -376,7 +377,7 @@ func (c *Cache) LockedModify(u interface{}, add func(a, b interface{}) interface
 
 	e, ok := c.data[u]
 	if !ok {
-		return nil, fmt.Errorf("Item not found")
+		return nil, errors.New("not found")
 	}
 
 	if e.timer != nil {

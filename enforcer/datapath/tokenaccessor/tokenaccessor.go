@@ -2,7 +2,7 @@ package tokenaccessor
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"sync"
 	"time"
 
@@ -137,7 +137,7 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	// We always a need a valid remote context ID
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
-		return nil, fmt.Errorf("No Transmitter Label ")
+		return nil, errors.New("no transmitter label")
 	}
 
 	auth.RemotePublicKey = cert
@@ -161,7 +161,7 @@ func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*
 	matchLocal := bytes.Compare(claims.RMT, auth.LocalContext)
 	matchRemote := bytes.Compare(claims.LCL, auth.RemoteContext)
 	if matchLocal != 0 || matchRemote != 0 {
-		return nil, fmt.Errorf("Failed to match context in ACK packet")
+		return nil, errors.New("failed to match context in ack packet")
 	}
 
 	return claims, nil

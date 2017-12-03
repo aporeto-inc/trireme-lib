@@ -1,6 +1,7 @@
 package cnimonitor
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -13,14 +14,14 @@ import (
 func KubernetesMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
-		return nil, fmt.Errorf("NamespacePath is required when using CNI")
+		return nil, errors.New("namespace path is required when using cni")
 	}
 
 	runtimeTags := policy.NewTagStore()
 	for _, tag := range event.Tags {
 		parts := strings.Split(tag, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid Tag")
+			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
@@ -34,14 +35,14 @@ func KubernetesMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, er
 func DockerMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
 
 	if event.NS == "" {
-		return nil, fmt.Errorf("NamespacePath is required when using CNI")
+		return nil, errors.New("namespace path is required when using cni")
 	}
 
 	runtimeTags := policy.NewTagStore()
 	for _, tag := range event.Tags {
 		parts := strings.Split(tag, "=")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid Tag")
+			return nil, fmt.Errorf("invalid tag: %s", tag)
 		}
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
