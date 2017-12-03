@@ -183,9 +183,17 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	if i.mode != constants.LocalServer {
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
-		if len(proxiedServices) > 0 {
+		if len(proxiedServices) > 1 {
 
 			if err = i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
+				zap.L().Error("Failed to create ProxySets", zap.Error(err))
+			}
+		} else {
+			//We have a bad or malformed proxied service request
+			//Log and error and program empty rules.
+			//at this point tcp proxy does not work rest of stuff will work ... so don't panic or error
+			zap.L().Error("Bad Proxied services input: ", zap.Int("Length of Proxied Services", len(proxiedServices)))
+			if err = i.createProxySets([]string{}, []string{}, proxyPortSetName); err != nil {
 				zap.L().Error("Failed to create ProxySets", zap.Error(err))
 			}
 		}
@@ -225,6 +233,14 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		if len(proxiedServices) > 0 {
 
 			if err := i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
+				zap.L().Error("Failed to create ProxySets", zap.Error(err))
+			}
+		} else {
+			//We have a bad or malformed proxied service request
+			//Log and error and program empty rules.
+			//at this point tcp proxy does not work rest of stuff will work ... so don't panic or error
+			zap.L().Error("Bad Proxied services input: ", zap.Int("Length of Proxied Services", len(proxiedServices)))
+			if err = i.createProxySets([]string{}, []string{}, proxyPortSetName); err != nil {
 				zap.L().Error("Failed to create ProxySets", zap.Error(err))
 			}
 		}
