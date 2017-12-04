@@ -3,7 +3,6 @@ package cnimonitor
 import (
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
@@ -119,15 +118,12 @@ func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (c *cniMonitor) SetupHandlers(
-	collector collector.EventCollector,
-	puHandler monitorinstance.ProcessingUnitsHandler,
-	syncHandler monitorinstance.SynchronizationHandler,
-) {
+func (c *cniMonitor) SetupHandlers(m *monitorinstance.Config) {
 
-	c.proc.collector = collector
-	c.proc.puHandler = puHandler
-	c.proc.syncHandler = syncHandler
+	c.proc.collector = m.Collector
+	c.proc.puHandler = m.PUHandler
+	c.proc.syncHandler = m.SyncHandler
+	c.proc.mergeTags = m.MergeTags
 }
 
 func (c *cniMonitor) ReSync() error {

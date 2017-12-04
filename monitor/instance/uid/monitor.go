@@ -6,7 +6,6 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
@@ -131,11 +130,12 @@ func (u *uidMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (u *uidMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorinstance.ProcessingUnitsHandler, syncHandler monitorinstance.SynchronizationHandler) {
+func (u *uidMonitor) SetupHandlers(m *monitorinstance.Config) {
 
-	u.proc.collector = collector
-	u.proc.puHandler = puHandler
-	u.proc.syncHandler = syncHandler
+	u.proc.collector = m.Collector
+	u.proc.puHandler = m.PUHandler
+	u.proc.syncHandler = m.SyncHandler
+	u.proc.mergeTags = m.MergeTags
 }
 
 func (u *uidMonitor) ReSync() error {

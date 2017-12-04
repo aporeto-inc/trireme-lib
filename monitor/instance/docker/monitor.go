@@ -207,6 +207,7 @@ type dockerMonitor struct {
 	collector   collector.EventCollector
 	puHandler   monitorinstance.ProcessingUnitsHandler
 	syncHandler monitorinstance.SynchronizationHandler
+	mergeTags   []string
 
 	netcls cgnetcls.Cgroupnetcls
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
@@ -272,11 +273,12 @@ func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interfa
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (d *dockerMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorinstance.ProcessingUnitsHandler, syncHandler monitorinstance.SynchronizationHandler) {
+func (d *dockerMonitor) SetupHandlers(c *monitorinstance.Config) {
 
-	d.collector = collector
-	d.puHandler = puHandler
-	d.syncHandler = syncHandler
+	d.collector = c.Collector
+	d.puHandler = c.PUHandler
+	d.syncHandler = c.SyncHandler
+	d.mergeTags = c.MergeTags
 }
 
 // addHandler adds a callback handler for the given docker event.

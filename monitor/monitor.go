@@ -3,7 +3,6 @@ package monitor
 import (
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
@@ -28,10 +27,9 @@ const (
 
 // Config specifies the configs for monitors.
 type Config struct {
-	Collector   collector.EventCollector
-	PUHandler   monitorinstance.ProcessingUnitsHandler
-	SyncHandler monitorinstance.SynchronizationHandler
-	Monitors    map[Type]interface{}
+	Common    monitorinstance.Config
+	Monitors  map[Type]interface{}
+	MergeTags []string
 }
 
 type monitors struct {
@@ -81,7 +79,7 @@ func New(c *Config) (Monitor, error) {
 	m := &monitors{
 		config:      c,
 		monitors:    make(map[Type]monitorinstance.Implementation),
-		syncHandler: c.SyncHandler,
+		syncHandler: c.Common.SyncHandler,
 	}
 
 	if m.userRPCListener, m.userRegisterer, err = rpcmonitor.New(
@@ -102,7 +100,7 @@ func New(c *Config) (Monitor, error) {
 		switch k {
 		case CNI:
 			mon := cnimonitor.New()
-			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("CNI: %s", err.Error())
 			}
@@ -110,7 +108,7 @@ func New(c *Config) (Monitor, error) {
 
 		case Docker:
 			mon := dockermonitor.New()
-			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(nil, v); err != nil {
 				return nil, fmt.Errorf("Docker: %s", err.Error())
 			}
@@ -118,7 +116,7 @@ func New(c *Config) (Monitor, error) {
 
 		case LinuxProcess:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
@@ -126,7 +124,7 @@ func New(c *Config) (Monitor, error) {
 
 		case LinuxHost:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.rootRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
@@ -134,7 +132,7 @@ func New(c *Config) (Monitor, error) {
 
 		case UID:
 			mon := uidmonitor.New()
-			mon.SetupHandlers(c.Collector, c.PUHandler, c.SyncHandler)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("UID: %s", err.Error())
 			}

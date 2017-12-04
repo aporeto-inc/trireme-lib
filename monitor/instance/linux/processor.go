@@ -26,9 +26,13 @@ type StoredContext struct {
 // linuxProcessor captures all the monitor processor information
 // It implements the EventProcessor interface of the rpc monitor
 type linuxProcessor struct {
-	collector         collector.EventCollector
-	puHandler         monitorinstance.ProcessingUnitsHandler
-	syncHandler       monitorinstance.SynchronizationHandler
+	host bool
+
+	collector   collector.EventCollector
+	puHandler   monitorinstance.ProcessingUnitsHandler
+	syncHandler monitorinstance.SynchronizationHandler
+	mergeTags   []string
+
 	metadataExtractor events.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore
@@ -193,16 +197,20 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 	puStartFailed := 0
 
 	defer func() {
+		host := ""
+		if l.host {
+			host = "host "
+		}
 		if retrieveFailed == 0 &&
 			metadataExtractionFailed == 0 &&
 			syncFailed == 0 &&
 			puStartFailed == 0 {
-			zap.L().Info("Linux resync completed",
+			zap.L().Info("Linux "+host+"resync completed",
 				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
 				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
 			)
 		} else {
-			zap.L().Info("Linux resync completed with failures",
+			zap.L().Info("Linux "+host+"resync completed with failures",
 				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
 				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
 				zap.Int("Retrieve Failed", retrieveFailed),
@@ -234,11 +242,10 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 
 		// Add specific tags
 		eventInfo := storedContext.EventInfo
-		if val, ok := storedContext.Tags.Get("$id"); ok {
-			eventInfo.Tags = append(eventInfo.Tags, "$id="+val)
-		}
-		if val, ok := storedContext.Tags.Get("$namespace"); ok {
-			eventInfo.Tags = append(eventInfo.Tags, "$namespace="+val)
+		for _, t := range l.mergeTags {
+			if val, ok := storedContext.Tags.Get(t); ok {
+				eventInfo.Tags = append(eventInfo.Tags, t+"="+val)
+			}
 		}
 		runtimeInfo, err := l.metadataExtractor(eventInfo)
 		if err != nil {

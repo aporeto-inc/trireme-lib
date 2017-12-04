@@ -7,6 +7,14 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
+// Common configuration for all monitors
+type Config struct {
+	Collector   collector.EventCollector
+	PUHandler   ProcessingUnitsHandler
+	SyncHandler SynchronizationHandler
+	MergeTags   []string
+}
+
 // Implementation for a monitor.
 type Implementation interface {
 
@@ -23,7 +31,7 @@ type Implementation interface {
 	// SetupHandlers sets up handlers for monitors to invoke for various events such as
 	// processing unit events and synchronization events. This will be called before Start()
 	// by the consumer of the monitor
-	SetupHandlers(collector collector.EventCollector, puHandler ProcessingUnitsHandler, syncHandler SynchronizationHandler)
+	SetupHandlers(c *Config)
 
 	// ReSync should resynchronize PUs. This should be done while starting up.
 	ReSync() error

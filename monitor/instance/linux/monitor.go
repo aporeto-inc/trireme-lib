@@ -5,7 +5,6 @@ import (
 	"regexp"
 
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
@@ -18,6 +17,7 @@ type Config struct {
 	EventMetadataExtractor events.EventMetadataExtractor
 	StoredPath             string
 	ReleasePath            string
+	host                   bool
 }
 
 // DefaultConfig provides a default configuration
@@ -28,6 +28,7 @@ func DefaultConfig(host bool) *Config {
 			EventMetadataExtractor: DefaultHostMetadataExtractor,
 			StoredPath:             "/var/run/trireme/host",
 			ReleasePath:            "/var/lib/aporeto/cleaner",
+			host:                   host,
 		}
 	}
 
@@ -35,6 +36,7 @@ func DefaultConfig(host bool) *Config {
 		EventMetadataExtractor: DefaultHostMetadataExtractor,
 		StoredPath:             "/var/run/trireme/linux",
 		ReleasePath:            "/var/lib/aporeto/cleaner",
+		host:                   host,
 	}
 }
 
@@ -121,6 +123,7 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 	linuxConfig = SetupDefaultConfig(linuxConfig)
 
 	// Setup config
+	l.proc.host = linuxConfig.host
 	l.proc.netcls = cgnetcls.NewCgroupNetController(linuxConfig.ReleasePath)
 	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StoredPath)
 	l.proc.storePath = linuxConfig.StoredPath
@@ -139,11 +142,12 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (l *linuxMonitor) SetupHandlers(collector collector.EventCollector, puHandler monitorinstance.ProcessingUnitsHandler, syncHandler monitorinstance.SynchronizationHandler) {
+func (l *linuxMonitor) SetupHandlers(m *monitorinstance.Config) {
 
-	l.proc.collector = collector
-	l.proc.puHandler = puHandler
-	l.proc.syncHandler = syncHandler
+	l.proc.collector = m.Collector
+	l.proc.puHandler = m.PUHandler
+	l.proc.syncHandler = m.SyncHandler
+	l.proc.mergeTags = m.MergeTags
 }
 
 func (l *linuxMonitor) ReSync() error {

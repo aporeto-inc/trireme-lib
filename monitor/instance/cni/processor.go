@@ -14,9 +14,11 @@ import (
 )
 
 type cniProcessor struct {
-	collector         collector.EventCollector
-	puHandler         monitorinstance.ProcessingUnitsHandler
-	syncHandler       monitorinstance.SynchronizationHandler
+	collector   collector.EventCollector
+	puHandler   monitorinstance.ProcessingUnitsHandler
+	syncHandler monitorinstance.SynchronizationHandler
+	mergeTags   []string
+
 	metadataExtractor events.EventMetadataExtractor
 	contextStore      contextstore.ContextStore
 }
