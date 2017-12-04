@@ -133,7 +133,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{},
 				[]string{},
-				[][]string{})
+				&policy.ProxiedServicesInfo{})
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
@@ -157,7 +157,7 @@ func TestConfigureRules(t *testing.T) {
 			ipl,
 			[]string{},
 			[]string{},
-			[][]string{},
+			&policy.ProxiedServicesInfo{},
 		)
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
@@ -314,7 +314,7 @@ func TestUpdateRules(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
+			nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 		containerinfo.Policy = policyrules
