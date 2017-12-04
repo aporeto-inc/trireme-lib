@@ -14,12 +14,12 @@ type ModeType int
 const (
 	// RemoteContainer indicates that the Supervisor is implemented in the
 	// container namespace
-	RemoteContainer ModeType = iota
+	RemoteContainer ModeType = 0x100
 	// LocalContainer indicates that the Supervisor is implemented in the host
 	// namespace
-	LocalContainer
+	LocalContainer = 0x200
 	// LocalServer indicates that the Supervisor applies to Linux processes
-	LocalServer
+	LocalServer = 0x300
 )
 
 // ImplementationType defines the type of iptables or ipsets implementation

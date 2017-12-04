@@ -2,6 +2,10 @@ package trireme
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 
 	"go.uber.org/zap"
 
@@ -9,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
@@ -20,28 +25,84 @@ import (
 
 // trireme contains references to all the different components involved.
 type trireme struct {
-	serverID    string
-	cache       cache.DataStore
-	supervisors map[constants.PUType]supervisor.Supervisor
-	enforcers   map[constants.PUType]policyenforcer.Enforcer
-	resolver    PolicyResolver
-	collector   collector.EventCollector
-	port        *portmap.ProxyPortMap
+	serverID               string
+	cache                  cache.DataStore
+	supervisors            map[constants.ModeType]supervisor.Supervisor
+	enforcers              map[constants.ModeType]policyenforcer.Enforcer
+	puTypeToEnforcerType   map[constants.PUType]constants.ModeType
+	resolver               PolicyResolver
+	collector              collector.EventCollector
+	port                   *portmap.ProxyPortMap
+	service                packetprocessor.PacketProcessor
+	secrets                secrets.Secrets
+	fqConfig               *fqconfig.FilterQueue
+	procMountPoint         string
+	mutualAuthorization    bool
+	validity               time.Duration
+	externalIPcacheTimeout time.Duration
+	networks               []string
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(serverID string, resolver PolicyResolver, supervisors map[constants.PUType]supervisor.Supervisor, enforcers map[constants.PUType]policyenforcer.Enforcer, eventCollector collector.EventCollector) Trireme {
-
-	t := &trireme{
-		serverID:    serverID,
-		cache:       cache.NewCache("TriremeCache"),
-		supervisors: supervisors,
-		enforcers:   enforcers,
-		resolver:    resolver,
-		collector:   eventCollector,
-		port:        portmap.New(5000, 100),
+func NewTrireme(
+	serverID string,
+	resolver PolicyResolver,
+	triremeMode constants.ModeType,
+	isLinuxProcessSupportEnabled bool,
+	eventCollector collector.EventCollector,
+	service packetprocessor.PacketProcessor,
+	mutualAuthorization bool,
+	secrets secrets.Secrets,
+	fqConfig *fqconfig.FilterQueue,
+	validity time.Duration,
+	procMountPoint string,
+	networks []string,
+) Trireme {
+	enforcers := map[constants.ModeType]policyenforcer.Enforcer{}
+	supervisors := map[constants.ModeType]supervisor.Supervisor{}
+	if procMountPoint == "" {
+		procMountPoint = "/proc"
 	}
 
+	t := &trireme{
+		serverID:            serverID,
+		cache:               cache.NewCache("TriremeCache"),
+		resolver:            resolver,
+		collector:           eventCollector,
+		port:                portmap.New(5000, 100),
+		service:             service,
+		mutualAuthorization: mutualAuthorization,
+		secrets:             secrets,
+		fqConfig:            fqConfig,
+		validity:            validity,
+		procMountPoint:      procMountPoint,
+		networks:            networks,
+	}
+	if isLinuxProcessSupportEnabled {
+		enforcers[constants.LocalServer] = enforcer.New(mutualAuthorization,
+			fqConfig,
+			collector,
+			service,
+			secrets,
+			serverID,
+			validity,
+			rpchdl,
+			"enforce",
+			procMountPoint,
+			externalIPCacheTimeout)
+
+		t.puTypeToEnforcerType[constants.LinuxProcessPU] = constants.LocalServer
+		t.puTypeToEnforcerType[constants.UIDLoginPU] = constants.LocalServer
+		t.puTypeToEnforcerType[constants.HostPU] = constants.LocalServer
+	}
+
+	if triremeMode == constants.RemoteContainer {
+		t.puTypeToEnforcerType[constants.ContainerPU] = constants.RemoteContainer
+		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.RemoteContainer
+	} else {
+		t.puTypeToEnforcerType[constants.ContainerPU] = constants.LocalServer
+		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.LocalServer
+	}
 	return t
 }
 
@@ -211,7 +272,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return nil
 	}
 
-	if err := t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
+	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: ip,
@@ -221,8 +282,8 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return fmt.Errorf("Not able to setup enforcer: %s", err)
 	}
 
-	if err := t.supervisors[containerInfo.Runtime.PUType()].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); werr != nil {
+	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up state after failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -270,8 +331,8 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 	ip, _ := runtime.DefaultIPAddress()
 
-	errS := t.supervisors[runtime.PUType()].Unsupervise(contextID)
-	errE := t.enforcers[runtime.PUType()].Unenforce(contextID)
+	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
+	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
 	port := runtime.Options().ProxyPort
 	zap.L().Info("Releasing Port", zap.String("Port", port))
 	t.port.ReleasePort(port)
@@ -327,19 +388,19 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		return nil
 	}
 
-	if err = t.enforcers[containerInfo.Runtime.PUType()].Enforce(contextID, containerInfo); err != nil {
+	if err = t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 		zap.L().Warn("Re-initializing enforcers - connection lost")
 		if containerInfo.Runtime.PUType() == constants.ContainerPU {
 			//The unsupervise and unenforce functions just make changes to the proxy structures
 			//and do not depend on the remote instance running and can be called here
-			switch t.enforcers[containerInfo.Runtime.PUType()].(type) {
+			switch t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].(type) {
 			case *enforcerproxy.ProxyInfo:
-				if lerr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); lerr != nil {
+				if lerr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); lerr != nil {
 					return err
 				}
 
-				if lerr := t.supervisors[containerInfo.Runtime.PUType()].Unsupervise(contextID); lerr != nil {
+				if lerr := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unsupervise(contextID); lerr != nil {
 					return err
 				}
 
@@ -355,8 +416,8 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		return fmt.Errorf("Enforcer failed to update PU policy: context=%s error=%s", contextID, err)
 	}
 
-	if err = t.supervisors[containerInfo.Runtime.PUType()].Supervise(contextID, containerInfo); err != nil {
-		if werr := t.enforcers[containerInfo.Runtime.PUType()].Unenforce(contextID); werr != nil {
+	if err = t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
+		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up after enforcerments failures",
 				zap.String("contextID", contextID),
 				zap.Error(werr),
@@ -379,7 +440,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 // Supervisor returns the Trireme supervisor for the given PU Type
 func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
-	if s, ok := t.supervisors[kind]; ok {
+	if s, ok := t.supervisors[t.puTypeToEnforcerType[kind]]; ok {
 		return s
 	}
 	return nil
