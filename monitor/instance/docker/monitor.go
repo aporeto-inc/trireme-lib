@@ -298,7 +298,7 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 func (d *dockerMonitor) Start() error {
 
 	if err := d.config.IsComplete(); err != nil {
-		return err
+		return fmt.Errorf("docker: %s", err)
 	}
 
 	// Check if the server is running before you go ahead

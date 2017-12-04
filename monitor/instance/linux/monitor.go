@@ -77,7 +77,7 @@ func New() monitorinstance.Implementation {
 func (l *linuxMonitor) Start() error {
 
 	if err := l.proc.config.IsComplete(); err != nil {
-		return err
+		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
 	if err := l.ReSync(); err != nil {

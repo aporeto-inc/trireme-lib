@@ -66,7 +66,7 @@ func New() monitorinstance.Implementation {
 func (u *uidMonitor) Start() error {
 
 	if err := u.proc.config.IsComplete(); err != nil {
-		return err
+		return fmt.Errorf("uid: %s", err)
 	}
 
 	if err := u.ReSync(); err != nil {

@@ -121,6 +121,10 @@ func New(c *Config) (Monitor, error) {
 
 	var err error
 
+	if err = c.Common.IsComplete(); err != nil {
+		return nil, err
+	}
+
 	m := &monitors{
 		config:      c,
 		monitors:    make(map[Type]monitorinstance.Implementation),
