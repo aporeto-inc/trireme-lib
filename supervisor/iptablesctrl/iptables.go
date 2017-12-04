@@ -184,7 +184,8 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
 
 		if err = i.createProxySets(proxiedServices.PublicIPPortPair, proxiedServices.PrivateIPPortPair, proxyPortSetName); err != nil {
-			zap.L().Error("Failed to create ProxySets", zap.Error(err))
+			zap.L().Debug("Failed to create ProxySets", zap.Error(err))
+			return fmt.Errorf("Failed to create ProxySet %s : received Error %v", proxyPortSetName, err)
 		}
 
 		if err = i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
@@ -222,7 +223,8 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
 
 		if err = i.createProxySets(proxiedServices.PublicIPPortPair, proxiedServices.PrivateIPPortPair, proxyPortSetName); err != nil {
-			zap.L().Error("Failed to create ProxySets", zap.Error(err))
+			zap.L().Debug("Failed to create ProxySets", zap.Error(err))
+			return fmt.Errorf("Failed to create ProxySet %s : received Error %v", proxyPortSetName, err)
 		}
 
 		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
@@ -410,6 +412,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList.PublicIPPortPair, ":")),
 				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList.PrivateIPPortPair, ":")),
 			)
+			return fmt.Errorf("Failed to update proxySet %s :Received Error %v", proxyPortSetName, err)
 		}
 
 	} else {
@@ -421,6 +424,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList.PublicIPPortPair, ":")),
 				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList.PrivateIPPortPair, ":")),
 			)
+			return fmt.Errorf("Failed to update proxySet %s :Received Error %v", proxyPortSetName, err)
 		}
 
 	}
