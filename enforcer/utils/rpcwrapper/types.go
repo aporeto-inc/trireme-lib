@@ -60,42 +60,42 @@ type InitSupervisorPayload struct {
 
 // EnforcePayload Payload for enforce request
 type EnforcePayload struct {
-	ContextID        string                     `json:",omitempty"`
-	ManagementID     string                     `json:",omitempty"`
-	TriremeAction    policy.PUAction            `json:",omitempty"`
-	ApplicationACLs  policy.IPRuleList          `json:",omitempty"`
-	NetworkACLs      policy.IPRuleList          `json:",omitempty"`
-	Identity         *policy.TagStore           `json:",omitempty"`
-	Annotations      *policy.TagStore           `json:",omitempty"`
-	PolicyIPs        policy.ExtendedMap         `json:",omitempty"`
-	ReceiverRules    policy.TagSelectorList     `json:",omitempty"`
-	TransmitterRules policy.TagSelectorList     `json:",omitempty"`
-	TriremeNetworks  []string                   `json:",omitempty"`
-	ExcludedNetworks []string                   `json:",omitempty"`
-	ProxiedServices  [][]string                 `json:",omitempty"`
-	SecretType       secrets.PrivateSecretsType `json:",omitempty"`
-	CAPEM            []byte                     `json:",omitempty"`
-	TokenKeyPEMs     [][]byte                   `json:",omitempty"`
-	PublicPEM        []byte                     `json:",omitempty"`
-	PrivatePEM       []byte                     `json:",omitempty"`
-	Token            []byte                     `json:",omitempty"`
+	ContextID        string                      `json:",omitempty"`
+	ManagementID     string                      `json:",omitempty"`
+	TriremeAction    policy.PUAction             `json:",omitempty"`
+	ApplicationACLs  policy.IPRuleList           `json:",omitempty"`
+	NetworkACLs      policy.IPRuleList           `json:",omitempty"`
+	Identity         *policy.TagStore            `json:",omitempty"`
+	Annotations      *policy.TagStore            `json:",omitempty"`
+	PolicyIPs        policy.ExtendedMap          `json:",omitempty"`
+	ReceiverRules    policy.TagSelectorList      `json:",omitempty"`
+	TransmitterRules policy.TagSelectorList      `json:",omitempty"`
+	TriremeNetworks  []string                    `json:",omitempty"`
+	ExcludedNetworks []string                    `json:",omitempty"`
+	ProxiedServices  *policy.ProxiedServicesInfo `json:",omitempty"`
+	SecretType       secrets.PrivateSecretsType  `json:",omitempty"`
+	CAPEM            []byte                      `json:",omitempty"`
+	TokenKeyPEMs     [][]byte                    `json:",omitempty"`
+	PublicPEM        []byte                      `json:",omitempty"`
+	PrivatePEM       []byte                      `json:",omitempty"`
+	Token            []byte                      `json:",omitempty"`
 }
 
 //SuperviseRequestPayload for Supervise request
 type SuperviseRequestPayload struct {
-	ContextID        string                 `json:",omitempty"`
-	ManagementID     string                 `json:",omitempty"`
-	TriremeAction    policy.PUAction        `json:",omitempty"`
-	ApplicationACLs  policy.IPRuleList      `json:",omitempty"`
-	NetworkACLs      policy.IPRuleList      `json:",omitempty"`
-	PolicyIPs        policy.ExtendedMap     `json:",omitempty"`
-	Identity         *policy.TagStore       `json:",omitempty"`
-	Annotations      *policy.TagStore       `json:",omitempty"`
-	ReceiverRules    policy.TagSelectorList `json:",omitempty"`
-	TransmitterRules policy.TagSelectorList `json:",omitempty"`
-	ExcludedNetworks []string               `json:",omitempty"`
-	TriremeNetworks  []string               `json:",omitempty"`
-	ProxiedServices  [][]string             `json:",omitempty"`
+	ContextID        string                      `json:",omitempty"`
+	ManagementID     string                      `json:",omitempty"`
+	TriremeAction    policy.PUAction             `json:",omitempty"`
+	ApplicationACLs  policy.IPRuleList           `json:",omitempty"`
+	NetworkACLs      policy.IPRuleList           `json:",omitempty"`
+	PolicyIPs        policy.ExtendedMap          `json:",omitempty"`
+	Identity         *policy.TagStore            `json:",omitempty"`
+	Annotations      *policy.TagStore            `json:",omitempty"`
+	ReceiverRules    policy.TagSelectorList      `json:",omitempty"`
+	TransmitterRules policy.TagSelectorList      `json:",omitempty"`
+	ExcludedNetworks []string                    `json:",omitempty"`
+	TriremeNetworks  []string                    `json:",omitempty"`
+	ProxiedServices  *policy.ProxiedServicesInfo `json:",omitempty"`
 }
 
 //UnEnforcePayload payload for unenforce request
