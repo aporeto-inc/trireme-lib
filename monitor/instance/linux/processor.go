@@ -77,6 +77,9 @@ func (l *linuxProcessor) startInternal(runtimeInfo *policy.PURuntime, eventInfo 
 	} else {
 		err = l.processLinuxServiceStart(eventInfo, runtimeInfo)
 	}
+	if err != nil {
+		return fmt.Errorf("start pu failed: %s", err)
+	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 	l.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
