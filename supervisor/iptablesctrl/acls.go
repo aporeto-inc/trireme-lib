@@ -345,7 +345,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 			}
 		case "Delete":
 			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-				zap.L().Warn("Unabble to delete rule from chain", zap.Error(err))
+				zap.L().Warn("Unable to delete rule from chain", zap.Error(err))
 			}
 		default:
 			return errors.New("invalid method type")

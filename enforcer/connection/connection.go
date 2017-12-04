@@ -76,12 +76,14 @@ const (
 
 // AuthInfo keeps authentication information about a connection
 type AuthInfo struct {
-	LocalContext    []byte
-	RemoteContext   []byte
-	RemoteContextID string
-	RemotePublicKey interface{}
-	RemoteIP        string
-	RemotePort      string
+	LocalContext         []byte
+	RemoteContext        []byte
+	RemoteContextID      string
+	RemotePublicKey      interface{}
+	RemoteIP             string
+	RemotePort           string
+	LocalServiceContext  []byte
+	RemoteServiceContext []byte
 }
 
 // TCPConnection is information regarding TCP Connection
