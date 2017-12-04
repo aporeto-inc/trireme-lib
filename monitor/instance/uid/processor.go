@@ -41,23 +41,35 @@ const (
 	triremeBaseCgroup = "/trireme"
 )
 
-//puToPidEntry -- represents an entry to puToPidMap
+// puToPidEntry represents an entry to puToPidMap
 type puToPidEntry struct {
 	pidlist            map[string]bool
 	Info               *policy.PURuntime
 	publishedContextID string
 }
 
-// StoredContext -- struct is the structure of stored contextinfo for uidmonitor
+// StoredContext is the information stored to retrieve the context in case of restart.
 type StoredContext struct {
 	MarkVal   string
 	EventInfo *events.EventInfo
+	Tags      *policy.TagStore
+}
+
+func baseName(name, seperator string) string {
+
+	lastSeperator := strings.LastIndex(name, seperator)
+	if len(name) <= lastSeperator {
+		return ""
+	}
+	return name[lastSeperator+1:]
 }
 
 // Start handles start events
 func (u *uidProcessor) Start(eventInfo *events.EventInfo) error {
+
 	u.Lock()
 	defer u.Unlock()
+
 	contextID := eventInfo.PUID
 	pids, err := u.putoPidMap.Get(contextID)
 	var runtimeInfo *policy.PURuntime
@@ -99,24 +111,34 @@ func (u *uidProcessor) Start(eventInfo *events.EventInfo) error {
 		entry.pidlist[eventInfo.PID] = true
 
 		if err := u.putoPidMap.Add(contextID, entry); err != nil {
-			zap.L().Warn("Failed to add contextID/PU in the cache", zap.Error(err), zap.String("contextID", contextID))
+			zap.L().Warn("Failed to add contextID/PU in the cache",
+				zap.Error(err),
+				zap.String("contextID", contextID),
+			)
 		}
 
 		if err := u.pidToPU.Add(eventInfo.PID, contextID); err != nil {
-			zap.L().Warn("Failed to add eventInfoID/contextID in the cache", zap.Error(err), zap.String("contextID", contextID))
+			zap.L().Warn("Failed to add eventInfoID/contextID in the cache",
+				zap.Error(err),
+				zap.String("contextID", contextID),
+			)
 		}
 		// Store the state in the context store for future access
 		return u.contextStore.Store(contextID, &StoredContext{
-			EventInfo: eventInfo,
 			MarkVal:   runtimeInfo.Options().CgroupMark,
+			EventInfo: eventInfo,
+			Tags:      runtimeInfo.Tags(),
 		})
-
 	}
 
 	pids.(*puToPidEntry).pidlist[eventInfo.PID] = true
 
 	if err := u.pidToPU.Add(eventInfo.PID, eventInfo.PUID); err != nil {
-		zap.L().Warn("Failed to add eventInfoPID/eventInfoPUID in the cache", zap.Error(err), zap.String("eventInfo.PID", eventInfo.PID), zap.String("eventInfo.PUID", eventInfo.PUID))
+		zap.L().Warn("Failed to add eventInfoPID/eventInfoPUID in the cache",
+			zap.Error(err),
+			zap.String("eventInfo.PID", eventInfo.PID),
+			zap.String("eventInfo.PUID", eventInfo.PUID),
+		)
 	}
 
 	return u.processLinuxServiceStart(eventInfo, pids.(*puToPidEntry).Info)
@@ -147,7 +169,7 @@ func (u *uidProcessor) Stop(eventInfo *events.EventInfo) error {
 	if pidlist, err := u.putoPidMap.Get(contextID); err == nil {
 		ctx := pidlist.(*puToPidEntry)
 		publishedContextID = ctx.publishedContextID
-		//Clean pid from both caches
+		// Clean pid from both caches
 		delete(ctx.pidlist, stoppedpid)
 
 		if err = u.pidToPU.Remove(stoppedpid); err != nil {
@@ -155,10 +177,10 @@ func (u *uidProcessor) Stop(eventInfo *events.EventInfo) error {
 		}
 
 		if len(pidlist.(*puToPidEntry).pidlist) != 0 {
-			//Only destroy the pid that is being stopped
+			// Only destroy the pid that is being stopped
 			return u.netcls.DeleteCgroup(stoppedpid)
 		}
-		//We are the last here lets send stop
+
 		if err = u.puHandler.HandlePUEvent(publishedContextID, events.EventStop); err != nil {
 			zap.L().Warn("Failed to stop trireme PU ",
 				zap.String("contextID", contextID),
@@ -199,11 +221,10 @@ func (u *uidProcessor) Create(eventInfo *events.EventInfo) error {
 
 // Destroy handles a destroy event
 func (u *uidProcessor) Destroy(eventInfo *events.EventInfo) error {
-	//Destroy is not used for the UIDMonitor since we will destroy when we get stop
-	//This is to try and save some time .Stop/Destroy is two RPC calls.
-	//We don't define pause on uid monitor so stop is always followed by destroy
+	// Destroy is not used for the UIDMonitor since we will destroy when we get stop
+	// This is to try and save some time .Stop/Destroy is two RPC calls.
+	// We don't define pause on uid monitor so stop is always followed by destroy
 	return nil
-
 }
 
 // Pause handles a pause event
@@ -223,12 +244,30 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 	deleted := []string{}
 	reacquired := []string{}
 	marktoPID := map[string][]string{}
+
+	retrieveFailed := 0
+	metadataExtractionFailed := 0
+	syncFailed := 0
+	puStartFailed := 0
+
 	defer func() {
-		if len(deleted) > 0 {
-			zap.L().Info("Deleted dead contexts", zap.String("Context List", strings.Join(deleted, ",")))
-		}
-		if len(reacquired) > 0 {
-			zap.L().Info("Reacquired contexts", zap.String("Context List", strings.Join(reacquired, ",")))
+		if retrieveFailed == 0 &&
+			metadataExtractionFailed == 0 &&
+			syncFailed == 0 &&
+			puStartFailed == 0 {
+			zap.L().Info("Linux resync completed",
+				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
+				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
+			)
+		} else {
+			zap.L().Info("Linux resync completed with failures",
+				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
+				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
+				zap.Int("Retrieve Failed", retrieveFailed),
+				zap.Int("Metadata Extraction Failed", metadataExtractionFailed),
+				zap.Int("Sync Failed", syncFailed),
+				zap.Int("puStart Failed", puStartFailed),
+			)
 		}
 	}()
 
@@ -265,15 +304,46 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 			break
 		}
 
-		storedPU := &StoredContext{}
-
-		if err := u.contextStore.Retrieve("/"+contextID, &storedPU); err != nil {
+		storedContext := &StoredContext{}
+		if err := u.contextStore.Retrieve("/"+contextID, &storedContext); err != nil {
+			retrieveFailed++
 			continue
 		}
-		eventInfo := storedPU.EventInfo
-		mark := storedPU.MarkVal
+
+		// Add specific tags
+		eventInfo := storedContext.EventInfo
+		if val, ok := storedContext.Tags.Get("$id"); ok {
+			eventInfo.Tags = append(eventInfo.Tags, "$id="+val)
+		}
+		if val, ok := storedContext.Tags.Get("$namespace"); ok {
+			eventInfo.Tags = append(eventInfo.Tags, "$namespace="+val)
+		}
+		runtimeInfo, err := u.metadataExtractor(eventInfo)
+		if err != nil {
+			metadataExtractionFailed++
+			return err
+		}
+		t := runtimeInfo.Tags()
+		if t != nil {
+			t.Merge(storedContext.Tags)
+			runtimeInfo.SetTags(t)
+		}
+
+		// Synchronize
+		if err := u.syncHandler.HandleSynchronization(
+			contextID,
+			events.StateStarted,
+			runtimeInfo,
+			monitorinstance.SynchronizationTypeInitial,
+		); err != nil {
+			zap.L().Error("Sync Failed", zap.Error(err))
+			syncFailed++
+			continue
+		}
+
+		mark := storedContext.MarkVal
 		if pids, ok := marktoPID[mark]; !ok {
-			//No pids with stored mark destroy the context record and go to next context
+			// No pids with stored mark destroy the context record and go to next context
 			if err := u.contextStore.Remove("/" + contextID); err != nil {
 				zap.L().Warn("Error when removing context in the store", zap.Error(err))
 			}
@@ -298,15 +368,15 @@ func (u *uidProcessor) generateContextID(eventInfo *events.EventInfo) (string, e
 		if !u.regStop.Match([]byte(eventInfo.Cgroup)) {
 			return "", fmt.Errorf("invalid pu id: %s", eventInfo.Cgroup)
 		}
-		contextID = eventInfo.Cgroup[strings.LastIndex(eventInfo.Cgroup, "/")+1:]
+		contextID = eventInfo.Cgroup
 	}
-	contextID = "/" + contextID[strings.LastIndex(contextID, "/")+1:]
+
+	contextID = baseName(contextID, "/")
 	return contextID, nil
 }
 
 func (u *uidProcessor) processLinuxServiceStart(event *events.EventInfo, runtimeInfo *policy.PURuntime) error {
 
-	//It is okay to launch this so let us create a cgroup for it
 	if err := u.netcls.Creategroup(event.PID); err != nil {
 		return err
 	}
@@ -320,7 +390,6 @@ func (u *uidProcessor) processLinuxServiceStart(event *events.EventInfo, runtime
 	}
 
 	mark, err := strconv.ParseUint(markval, 10, 32)
-
 	if err != nil {
 		return err
 	}
@@ -333,17 +402,14 @@ func (u *uidProcessor) processLinuxServiceStart(event *events.EventInfo, runtime
 	}
 
 	pid, err := strconv.Atoi(event.PID)
-
 	if err != nil {
 		return err
 	}
 
 	if err := u.netcls.AddProcess(event.PID, pid); err != nil {
-
 		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
-
 		return err
 	}
 
