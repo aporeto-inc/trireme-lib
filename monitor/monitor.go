@@ -41,6 +41,7 @@ type monitors struct {
 	userRegisterer  processor.Registerer
 	rootRPCListener rpcmonitor.Listener
 	rootRegisterer  processor.Registerer
+	syncHandler     monitorinstance.SynchronizationHandler
 }
 
 // GetDefaultMonitors can be used as an example on how to setup configuration or
@@ -78,8 +79,9 @@ func New(c *Config) (Monitor, error) {
 	var err error
 
 	m := &monitors{
-		config:   c,
-		monitors: make(map[Type]monitorinstance.Implementation),
+		config:      c,
+		monitors:    make(map[Type]monitorinstance.Implementation),
+		syncHandler: c.SyncHandler,
 	}
 
 	if m.userRPCListener, m.userRegisterer, err = rpcmonitor.New(
@@ -157,6 +159,8 @@ func (m *monitors) Start() (err error) {
 			return err
 		}
 	}
+
+	m.syncHandler.HandleSynchronizationComplete(monitorinstance.SynchronizationTypeInitial)
 
 	return nil
 }

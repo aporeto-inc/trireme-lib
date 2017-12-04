@@ -208,9 +208,9 @@ type OptionsType struct {
 	// Services is the list of services of interest
 	Services []Service
 
+	// ProxyPort is the port on which the proxy listens
+	ProxyPort string
+
 	// PolicyExtensions is policy resolution extensions
 	PolicyExtensions interface{}
-
-	//ProxyPort -- the port on which the proxy listens
-	ProxyPort string
 }

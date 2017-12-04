@@ -485,8 +485,6 @@ func (d *dockerMonitor) ReSync() error {
 				)
 			}
 		}
-
-		d.syncHandler.HandleSynchronizationComplete(monitorinstance.SynchronizationTypeInitial)
 	}
 
 	for _, c := range containers {

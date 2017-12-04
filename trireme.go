@@ -105,7 +105,6 @@ func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy) err
 func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 
 	container, err := t.cache.Get(contextID)
-
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +120,6 @@ func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntim
 	}
 
 	t.cache.AddOrUpdate(contextID, runtimeInfo)
-
 	return nil
 }
 

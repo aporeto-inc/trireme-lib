@@ -7,7 +7,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib.base/monitor/rpcmonitor"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
@@ -64,7 +63,7 @@ func (c *cniProcessor) Start(eventInfo *events.EventInfo) error {
 }
 
 // Stop handles a stop event
-func (p *CniProcessor) Stop(eventInfo *rpcmonitor.EventInfo) error {
+func (c *cniProcessor) Stop(eventInfo *events.EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
@@ -121,7 +120,7 @@ func (c *cniProcessor) ReSync(e *events.EventInfo) error {
 
 		reacquired = append(reacquired, eventInfo.PUID)
 
-		if err := p.Start(&eventInfo); err != nil {
+		if err := c.Start(&eventInfo); err != nil {
 			return fmt.Errorf("error in processing existing data: %s", err)
 		}
 
