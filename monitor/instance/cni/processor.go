@@ -25,13 +25,11 @@ type cniProcessor struct {
 
 // Create handles create events
 func (c *cniProcessor) Create(eventInfo *events.EventInfo) error {
-	fmt.Printf("Create: %+v \n", eventInfo)
 	return nil
 }
 
 // Start handles start events
 func (c *cniProcessor) Start(eventInfo *events.EventInfo) error {
-	fmt.Printf("Start: %+v \n", eventInfo)
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return err
@@ -48,9 +46,8 @@ func (c *cniProcessor) Start(eventInfo *events.EventInfo) error {
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
-	if perr := c.puHandler.HandlePUEvent(contextID, events.EventStart); perr != nil {
-		zap.L().Error("Failed to activate process", zap.Error(perr))
-		return perr
+	if err := c.puHandler.HandlePUEvent(contextID, events.EventStart); err != nil {
+		return err
 	}
 
 	c.collector.CollectContainerEvent(&collector.ContainerRecord{
@@ -77,13 +74,11 @@ func (c *cniProcessor) Stop(eventInfo *events.EventInfo) error {
 
 // Destroy handles a destroy event
 func (c *cniProcessor) Destroy(eventInfo *events.EventInfo) error {
-	fmt.Printf("Destroy: %+v \n", eventInfo)
 	return nil
 }
 
 // Pause handles a pause event
 func (c *cniProcessor) Pause(eventInfo *events.EventInfo) error {
-	fmt.Printf("Pause: %+v \n", eventInfo)
 	return nil
 }
 
