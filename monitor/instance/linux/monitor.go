@@ -76,16 +76,8 @@ func New() monitorinstance.Implementation {
 // Start implements Implementation interface
 func (l *linuxMonitor) Start() error {
 
-	if l.proc.collector == nil {
-		return fmt.Errorf("Missing configuration: collector")
-	}
-
-	if l.proc.syncHandler == nil {
-		return fmt.Errorf("Missing configuration: syncHandler")
-	}
-
-	if l.proc.puHandler == nil {
-		return fmt.Errorf("Missing configuration: puHandler")
+	if err := l.proc.config.IsComplete(); err != nil {
+		return err
 	}
 
 	if err := l.ReSync(); err != nil {
@@ -142,12 +134,9 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (l *linuxMonitor) SetupHandlers(m *monitorinstance.Config) {
+func (l *linuxMonitor) SetupHandlers(m *processor.Config) {
 
-	l.proc.collector = m.Collector
-	l.proc.puHandler = m.PUHandler
-	l.proc.syncHandler = m.SyncHandler
-	l.proc.mergeTags = m.MergeTags
+	l.proc.config = m
 }
 
 func (l *linuxMonitor) ReSync() error {

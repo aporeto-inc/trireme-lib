@@ -12,8 +12,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -26,13 +26,8 @@ type StoredContext struct {
 // linuxProcessor captures all the monitor processor information
 // It implements the EventProcessor interface of the rpc monitor
 type linuxProcessor struct {
-	host bool
-
-	collector   collector.EventCollector
-	puHandler   monitorinstance.ProcessingUnitsHandler
-	syncHandler monitorinstance.SynchronizationHandler
-	mergeTags   []string
-
+	host              bool
+	config            *processor.Config
 	metadataExtractor events.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore
@@ -57,7 +52,7 @@ func (l *linuxProcessor) Create(eventInfo *events.EventInfo) error {
 		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
-	return l.puHandler.HandlePUEvent(eventInfo.PUID, events.EventCreate)
+	return l.config.PUHandler.HandlePUEvent(eventInfo.PUID, events.EventCreate)
 }
 
 // startInternal is called while starting and reacquiring.
@@ -69,11 +64,11 @@ func (l *linuxProcessor) startInternal(runtimeInfo *policy.PURuntime, eventInfo 
 	}
 
 	// Setup the run time
-	if err = l.puHandler.CreatePURuntime(eventInfo.PUID, runtimeInfo); err != nil {
+	if err = l.config.PUHandler.CreatePURuntime(eventInfo.PUID, runtimeInfo); err != nil {
 		return fmt.Errorf("create runtime failed: %s", err)
 	}
 
-	if err = l.puHandler.HandlePUEvent(eventInfo.PUID, events.EventStart); err != nil {
+	if err = l.config.PUHandler.HandlePUEvent(eventInfo.PUID, events.EventStart); err != nil {
 		return fmt.Errorf("handle pu failed: %s", err)
 	}
 
@@ -84,7 +79,7 @@ func (l *linuxProcessor) startInternal(runtimeInfo *policy.PURuntime, eventInfo 
 	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
-	l.collector.CollectContainerEvent(&collector.ContainerRecord{
+	l.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: eventInfo.PUID,
 		IPAddress: defaultIP,
 		Tags:      runtimeInfo.Tags(),
@@ -123,7 +118,7 @@ func (l *linuxProcessor) Stop(eventInfo *events.EventInfo) error {
 	}
 
 	contextID = baseName(contextID, "/")
-	return l.puHandler.HandlePUEvent(contextID, events.EventStop)
+	return l.config.PUHandler.HandlePUEvent(contextID, events.EventStop)
 }
 
 // Destroy handles a destroy event
@@ -143,7 +138,7 @@ func (l *linuxProcessor) Destroy(eventInfo *events.EventInfo) error {
 	contextID = baseName(contextID, "/")
 
 	// Send the event upstream
-	if err := l.puHandler.HandlePUEvent(contextID, events.EventDestroy); err != nil {
+	if err := l.config.PUHandler.HandlePUEvent(contextID, events.EventDestroy); err != nil {
 		zap.L().Warn("Unable to clean trireme ",
 			zap.String("contextID", contextID),
 			zap.Error(err),
@@ -182,7 +177,7 @@ func (l *linuxProcessor) Pause(eventInfo *events.EventInfo) error {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return l.puHandler.HandlePUEvent(contextID, events.EventPause)
+	return l.config.PUHandler.HandlePUEvent(contextID, events.EventPause)
 }
 
 // ReSync resyncs with all the existing services that were there before we start
@@ -242,7 +237,7 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 
 		// Add specific tags
 		eventInfo := storedContext.EventInfo
-		for _, t := range l.mergeTags {
+		for _, t := range l.config.MergeTags {
 			if val, ok := storedContext.Tags.Get(t); ok {
 				eventInfo.Tags = append(eventInfo.Tags, t+"="+val)
 			}
@@ -259,11 +254,11 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 		}
 
 		// Synchronize
-		if err := l.syncHandler.HandleSynchronization(
+		if err := l.config.SyncHandler.HandleSynchronization(
 			contextID,
 			events.StateStarted,
 			runtimeInfo,
-			monitorinstance.SynchronizationTypeInitial,
+			processor.SynchronizationTypeInitial,
 		); err != nil {
 			zap.L().Error("Sync Failed", zap.Error(err))
 			syncFailed++

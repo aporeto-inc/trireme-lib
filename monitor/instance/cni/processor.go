@@ -9,16 +9,12 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
 
 type cniProcessor struct {
-	collector   collector.EventCollector
-	puHandler   monitorinstance.ProcessingUnitsHandler
-	syncHandler monitorinstance.SynchronizationHandler
-	mergeTags   []string
-
+	config            *processor.Config
 	metadataExtractor events.EventMetadataExtractor
 	contextStore      contextstore.ContextStore
 }
@@ -40,17 +36,17 @@ func (c *cniProcessor) Start(eventInfo *events.EventInfo) error {
 		return err
 	}
 
-	if err = c.puHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
+	if err = c.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
 
 	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 
-	if err := c.puHandler.HandlePUEvent(contextID, events.EventStart); err != nil {
+	if err := c.config.PUHandler.HandlePUEvent(contextID, events.EventStart); err != nil {
 		return err
 	}
 
-	c.collector.CollectContainerEvent(&collector.ContainerRecord{
+	c.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: defaultIP,
 		Tags:      runtimeInfo.Tags(),
@@ -69,7 +65,7 @@ func (c *cniProcessor) Stop(eventInfo *events.EventInfo) error {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return c.puHandler.HandlePUEvent(contextID, events.EventStop)
+	return c.config.PUHandler.HandlePUEvent(contextID, events.EventStop)
 }
 
 // Destroy handles a destroy event

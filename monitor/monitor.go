@@ -27,7 +27,7 @@ const (
 
 // Config specifies the configs for monitors.
 type Config struct {
-	Common    monitorinstance.Config
+	Common    processor.Config
 	Monitors  map[Type]interface{}
 	MergeTags []string
 }
@@ -39,7 +39,7 @@ type monitors struct {
 	userRegisterer  processor.Registerer
 	rootRPCListener rpcmonitor.Listener
 	rootRegisterer  processor.Registerer
-	syncHandler     monitorinstance.SynchronizationHandler
+	syncHandler     processor.SynchronizationHandler
 }
 
 // GetDefaultMonitors can be used as an example on how to setup configuration or
@@ -158,7 +158,7 @@ func (m *monitors) Start() (err error) {
 		}
 	}
 
-	m.syncHandler.HandleSynchronizationComplete(monitorinstance.SynchronizationTypeInitial)
+	m.syncHandler.HandleSynchronizationComplete(processor.SynchronizationTypeInitial)
 
 	return nil
 }

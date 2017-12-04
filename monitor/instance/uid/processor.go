@@ -14,19 +14,15 @@ import (
 	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // uidProcessor captures all the monitor processor information for a UIDLoginPU
 // It implements the EventProcessor interface of the rpc monitor
 type uidProcessor struct {
-	collector   collector.EventCollector
-	puHandler   monitorinstance.ProcessingUnitsHandler
-	syncHandler monitorinstance.SynchronizationHandler
-	mergeTags   []string
-
+	config            *processor.Config
 	metadataExtractor events.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
 	contextStore      contextstore.ContextStore
@@ -82,12 +78,12 @@ func (u *uidProcessor) Start(eventInfo *events.EventInfo) error {
 
 		publishedContextID := contextID + runtimeInfo.Options().CgroupMark
 		// Setup the run time
-		if err = u.puHandler.CreatePURuntime(publishedContextID, runtimeInfo); err != nil {
+		if err = u.config.PUHandler.CreatePURuntime(publishedContextID, runtimeInfo); err != nil {
 			return err
 		}
 
 		defaultIP, _ := runtimeInfo.DefaultIPAddress()
-		if perr := u.puHandler.HandlePUEvent(publishedContextID, events.EventStart); perr != nil {
+		if perr := u.config.PUHandler.HandlePUEvent(publishedContextID, events.EventStart); perr != nil {
 			zap.L().Error("Failed to activate process", zap.Error(perr))
 			return perr
 		}
@@ -97,7 +93,7 @@ func (u *uidProcessor) Start(eventInfo *events.EventInfo) error {
 			return err
 		}
 
-		u.collector.CollectContainerEvent(&collector.ContainerRecord{
+		u.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: defaultIP,
 			Tags:      runtimeInfo.Tags(),
@@ -182,7 +178,7 @@ func (u *uidProcessor) Stop(eventInfo *events.EventInfo) error {
 			return u.netcls.DeleteCgroup(stoppedpid)
 		}
 
-		if err = u.puHandler.HandlePUEvent(publishedContextID, events.EventStop); err != nil {
+		if err = u.config.PUHandler.HandlePUEvent(publishedContextID, events.EventStop); err != nil {
 			zap.L().Warn("Failed to stop trireme PU ",
 				zap.String("contextID", contextID),
 				zap.Error(err),
@@ -200,7 +196,7 @@ func (u *uidProcessor) Stop(eventInfo *events.EventInfo) error {
 			)
 		}
 
-		if err = u.puHandler.HandlePUEvent(publishedContextID, events.EventDestroy); err != nil {
+		if err = u.config.PUHandler.HandlePUEvent(publishedContextID, events.EventDestroy); err != nil {
 			zap.L().Warn("Failed to Destroy clean trireme ",
 				zap.String("contextID", contextID),
 				zap.Error(err),
@@ -217,7 +213,7 @@ func (u *uidProcessor) Stop(eventInfo *events.EventInfo) error {
 // Create handles create events
 func (u *uidProcessor) Create(eventInfo *events.EventInfo) error {
 
-	return u.puHandler.HandlePUEvent(eventInfo.PUID, events.EventCreate)
+	return u.config.PUHandler.HandlePUEvent(eventInfo.PUID, events.EventCreate)
 }
 
 // Destroy handles a destroy event
@@ -236,7 +232,7 @@ func (u *uidProcessor) Pause(eventInfo *events.EventInfo) error {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return u.puHandler.HandlePUEvent(contextID, events.EventPause)
+	return u.config.PUHandler.HandlePUEvent(contextID, events.EventPause)
 }
 
 // ReSync resyncs with all the existing services that were there before we start
@@ -313,7 +309,7 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 
 		// Add specific tags
 		eventInfo := storedContext.EventInfo
-		for _, t := range u.mergeTags {
+		for _, t := range u.config.MergeTags {
 			if val, ok := storedContext.Tags.Get(t); ok {
 				eventInfo.Tags = append(eventInfo.Tags, t+"="+val)
 			}
@@ -330,11 +326,11 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 		}
 
 		// Synchronize
-		if err := u.syncHandler.HandleSynchronization(
+		if err := u.config.SyncHandler.HandleSynchronization(
 			contextID,
 			events.StateStarted,
 			runtimeInfo,
-			monitorinstance.SynchronizationTypeInitial,
+			processor.SynchronizationTypeInitial,
 		); err != nil {
 			zap.L().Error("Sync Failed", zap.Error(err))
 			syncFailed++

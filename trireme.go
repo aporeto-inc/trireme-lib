@@ -13,8 +13,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/internal/allocator"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
@@ -112,7 +112,7 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 	return container.(*policy.PURuntime), nil
 }
 
-// CreatePURuntime implements monitorinstance.ProcessingUnitsHandler
+// CreatePURuntime implements processor.ProcessingUnitsHandler
 func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 
 	if _, err := t.cache.Get(contextID); err == nil {
@@ -123,7 +123,7 @@ func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntim
 	return nil
 }
 
-// HandlePUEvent implements monitorinstance.ProcessingUnitsHandler
+// HandlePUEvent implements processor.ProcessingUnitsHandler
 func (t *trireme) HandlePUEvent(contextID string, event events.Event) error {
 
 	// Notify The PolicyResolver that an event occurred:
@@ -425,10 +425,10 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 }
 
 // HandleSynchronization stub implmentation.
-func (t *trireme) HandleSynchronization(nativeID string, state events.State, runtime policy.RuntimeReader, syncType monitorinstance.SynchronizationType) error {
+func (t *trireme) HandleSynchronization(nativeID string, state events.State, runtime policy.RuntimeReader, syncType processor.SynchronizationType) error {
 	return nil
 }
 
 // HandleSynchronizationComplete stub implmentation.
-func (t *trireme) HandleSynchronizationComplete(syncType monitorinstance.SynchronizationType) {
+func (t *trireme) HandleSynchronizationComplete(syncType processor.SynchronizationType) {
 }

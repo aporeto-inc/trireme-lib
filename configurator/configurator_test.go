@@ -14,7 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 	. "github.com/smartystreets/goconvey/convey"
@@ -242,15 +242,10 @@ func testTriremeStruct(sec, config string, impl constants.ImplementationType, pu
 
 func testMonitorInstance(triremeInstance trireme.Trireme) monitor.Monitor {
 	var mon monitor.Monitor
-	var dm dockermonitor.DockerMetadataExtractor
-	mon = dockermonitor.NewDockerMonitor(
-		constants.DefaultDockerSocketType,
-		constants.DefaultDockerSocket,
-		dm,
-		nil,
-		false,
-		false)
+	mon = dockermonitor.New()
+	cfg := dockermonitor.DefaultConfig()
 	mon.SetupHandlers(triremeInstance, nil)
+	mon.SetupConfig(nil, &dockermonitor.Config{})
 	return mon
 }
 
@@ -298,7 +293,7 @@ func TestNewHybridTrireme(t *testing.T) {
 
 func TestNewPSKTriremeWithDockerMonitor(t *testing.T) {
 	Convey("When I try to instantiate a New PSK TriremeWith Docker Monitor with remote enforcer set to true", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		trirem, monitor := NewPSKTriremeWithDockerMonitor("testServerID", policyResolver(), procPacket(), nil, false, []byte("Dummy Test Password"), dm, true, false)
 
 		Convey("Then trireme struct and monitor should not match because of random server secret don't match", func() {
@@ -308,7 +303,7 @@ func TestNewPSKTriremeWithDockerMonitor(t *testing.T) {
 	})
 
 	Convey("When I try to instantiate a New PSK TriremeWith Docker Monitor with remote enforcer set to false", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		_, monitor := NewPSKTriremeWithDockerMonitor("testServerID", policyResolver(), procPacket(), nil, false, []byte("Dummy Test Password"), dm, false, false)
 
 		Convey("Then trireme struct should match and monitor should not match because of docker events", func() {
@@ -321,7 +316,7 @@ func TestNewPSKTriremeWithDockerMonitor(t *testing.T) {
 
 func TestNewPKITriremeWithDockerMonitor(t *testing.T) {
 	Convey("When I try to instantiate a New PKI Trireme With Docker Monitor set to true", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		trirem, monitor, pkaddr := NewPKITriremeWithDockerMonitor("testServerID", policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), dm, true, false)
 
 		Convey("Then trireme struct and monitor should not match because of random server secret don't match", func() {
@@ -332,7 +327,7 @@ func TestNewPKITriremeWithDockerMonitor(t *testing.T) {
 	})
 
 	Convey("When I try to instantiate a New PKI Trireme With Docker Monitor set to false", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		_, monitor, pkaddr := NewPKITriremeWithDockerMonitor("testServerID", policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), dm, false, false)
 
 		Convey("Then trireme struct should match and monitor should not match because of docker events", func() {
@@ -344,7 +339,7 @@ func TestNewPKITriremeWithDockerMonitor(t *testing.T) {
 	})
 
 	Convey("When I try to instantiate a New PKI Trireme With Docker Monitor set to false and invalid secrets", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		trirem, monitor, pkaddr := NewPKITriremeWithDockerMonitor("testServerID", policyResolver(), procPacket(), nil, false, []byte("keyPEM"), []byte(certPEM), []byte(caPool), dm, false, false)
 
 		Convey("Then trireme struct should match and monitor should not match because of docker events", func() {
@@ -360,7 +355,7 @@ func TestNewPSKHybridTriremeWithMonitor(t *testing.T) {
 		t.SkipNow()
 	}
 	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		trirem, monitor, _ := NewPSKHybridTriremeWithMonitor("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, nil, dm, false)
 
 		Convey("Then trireme struct should not match because of random server secret don't match", func() {
@@ -375,7 +370,7 @@ func TestNewHybridCompactPKIWithDocker(t *testing.T) {
 		t.SkipNow()
 	}
 	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		trirem, monitor, _ := NewHybridCompactPKIWithDocker("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), token, dm, false, false)
 
 		Convey("Then trireme struct should not match because of random server secret don't match", func() {
@@ -387,7 +382,7 @@ func TestNewHybridCompactPKIWithDocker(t *testing.T) {
 
 func TestNewCompactPKIWithDocker(t *testing.T) {
 	Convey("When I try to instantiate a New PSK Hybrid Trireme With Monitor", t, func() {
-		var dm dockermonitor.DockerMetadataExtractor
+		var dm dockermonitor.MetadataExtractor
 		trirem, monitor := NewCompactPKIWithDocker("testServerID", []string{"noNetwork"}, policyResolver(), procPacket(), nil, false, []byte(keyPEM), []byte(certPEM), []byte(caPool), token, dm, false, false)
 
 		Convey("Then trireme struct should not match because of random server secret don't match", func() {

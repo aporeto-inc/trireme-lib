@@ -48,7 +48,7 @@ type TriremeOptions struct {
 	Processor      packetprocessor.PacketProcessor
 
 	CNIMetadataExtractor    events.EventMetadataExtractor
-	DockerMetadataExtractor dockermonitor.DockerMetadataExtractor
+	DockerMetadataExtractor dockermonitor.MetadataExtractor
 
 	DockerSocketType string
 	DockerSocket     string
@@ -86,7 +86,7 @@ type TriremeOptions struct {
 type TriremeResult struct {
 	Trireme        trireme.Trireme
 	DockerMonitor  monitor.Monitor
-	RPCMonitor     rpcmonitor.RPCMonitor
+	RPCMonitor     rpcmonitor.Listener
 	PublicKeyAdder secrets.PublicKeyAdder
 	Secret         secrets.Secrets
 }
@@ -140,7 +140,7 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	var publicKeyAdder secrets.PublicKeyAdder
 	var secretInstance secrets.Secrets
 	var dockerMonitorInstance monitor.Monitor
-	var rpcMonitorInstance *rpcmonitor.RPCMonitor
+	var rpcMonitorInstance *rpcmonitor.Listener
 
 	var pkiSecrets secrets.Secrets
 	var err error
@@ -347,7 +347,7 @@ func NewPSKTriremeWithDockerMonitor(
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	dockerMetadataExtractor dockermonitor.MetadataExtractor,
 	remoteEnforcer bool,
 	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor) {
@@ -407,7 +407,7 @@ func NewPKITriremeWithDockerMonitor(
 	keyPEM []byte,
 	certPEM []byte,
 	caCertPEM []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	dockerMetadataExtractor dockermonitor.MetadataExtractor,
 	remoteEnforcer bool,
 	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor, secrets.PublicKeyAdder) {
@@ -468,7 +468,7 @@ func NewPSKHybridTriremeWithMonitor(
 	eventCollector collector.EventCollector,
 	syncAtStart bool,
 	key []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	dockerMetadataExtractor dockermonitor.MetadataExtractor,
 	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
 
@@ -735,7 +735,7 @@ func NewHybridCompactPKIWithDocker(
 	certPEM []byte,
 	caCertPEM []byte,
 	token []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	dockerMetadataExtractor dockermonitor.MetadataExtractor,
 	remoteEnforcer bool,
 	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor, monitor.Monitor) {
@@ -809,7 +809,7 @@ func NewCompactPKIWithDocker(
 	certPEM []byte,
 	caCertPEM []byte,
 	token []byte,
-	dockerMetadataExtractor dockermonitor.DockerMetadataExtractor,
+	dockerMetadataExtractor dockermonitor.MetadataExtractor,
 	remoteEnforcer bool,
 	killContainerError bool,
 ) (trireme.Trireme, monitor.Monitor) {

@@ -56,16 +56,8 @@ func New() monitorinstance.Implementation {
 // Start implements Implementation interface
 func (c *cniMonitor) Start() error {
 
-	if c.proc.collector == nil {
-		return fmt.Errorf("Missing configuration: collector")
-	}
-
-	if c.proc.syncHandler == nil {
-		return fmt.Errorf("Missing configuration: syncHandler")
-	}
-
-	if c.proc.puHandler == nil {
-		return fmt.Errorf("Missing configuration: puHandler")
+	if err := c.proc.config.IsComplete(); err != nil {
+		return err
 	}
 
 	if err := c.ReSync(); err != nil {
@@ -118,12 +110,9 @@ func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (c *cniMonitor) SetupHandlers(m *monitorinstance.Config) {
+func (c *cniMonitor) SetupHandlers(m *processor.Config) {
 
-	c.proc.collector = m.Collector
-	c.proc.puHandler = m.PUHandler
-	c.proc.syncHandler = m.SyncHandler
-	c.proc.mergeTags = m.MergeTags
+	c.proc.config = m
 }
 
 func (c *cniMonitor) ReSync() error {

@@ -1,9 +1,51 @@
 package processor
 
 import (
+	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
+
+// Common configuration for all monitors
+type Config struct {
+	Collector   collector.EventCollector
+	PUHandler   ProcessingUnitsHandler
+	SyncHandler SynchronizationHandler
+	MergeTags   []string
+}
+
+// A ProcessingUnitsHandler must be implemnted by the monitor instantiators or components thereof.
+type ProcessingUnitsHandler interface {
+
+	// CreatePURuntime is called when a monitor detects creation of a new ProcessingUnit.
+	CreatePURuntime(contextID string, runtimeInfo *policy.PURuntime) error
+
+	// HandlePUEvent is called by all monitors when a PU event is generated. The implementer
+	// is responsible to update all components by explicitly adding a new PU.
+	HandlePUEvent(contextID string, event events.Event) error
+}
+
+// A SynchronizationType represents the type of synchronization job.
+type SynchronizationType int
+
+const (
+	// SynchronizationTypeInitial indicates the initial synchronization job.
+	SynchronizationTypeInitial SynchronizationType = iota + 1
+
+	// SynchronizationTypePeriodic indicates subsequent synchronization jobs.
+	SynchronizationTypePeriodic
+)
+
+// A SynchronizationHandler must be implemnted by the monitor instantiators or components thereof.
+type SynchronizationHandler interface {
+
+	// HandleSynchronization handles a synchronization routine.
+	HandleSynchronization(contextID string, state events.State, RuntimeReader policy.RuntimeReader, syncType SynchronizationType) error
+
+	// HandleSynchronizationComplete is called when a synchronization job is complete.
+	HandleSynchronizationComplete(syncType SynchronizationType)
+}
 
 // Processor is a generic interface that processes monitor events using
 // a normalized event structure.

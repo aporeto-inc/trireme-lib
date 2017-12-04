@@ -3,8 +3,8 @@ package trireme
 import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
@@ -24,7 +24,7 @@ type Trireme interface {
 	// Supervisor returns the supervisor for a given PU type
 	Supervisor(kind constants.PUType) supervisor.Supervisor
 
-	monitorinstance.ProcessingUnitsHandler
+	processor.ProcessingUnitsHandler
 
 	PolicyUpdater
 	SecretsUpdater

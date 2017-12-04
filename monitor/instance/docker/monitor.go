@@ -203,13 +203,8 @@ type dockerMonitor struct {
 	stopprocessor      []chan bool
 	numberOfQueues     int
 	stoplistener       chan bool
-
-	collector   collector.EventCollector
-	puHandler   monitorinstance.ProcessingUnitsHandler
-	syncHandler monitorinstance.SynchronizationHandler
-	mergeTags   []string
-
-	netcls cgnetcls.Cgroupnetcls
+	config             *processor.Config
+	netcls             cgnetcls.Cgroupnetcls
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
 	killContainerOnPolicyError bool
 	syncAtStart                bool
@@ -273,12 +268,9 @@ func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interfa
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
-func (d *dockerMonitor) SetupHandlers(c *monitorinstance.Config) {
+func (d *dockerMonitor) SetupHandlers(c *processor.Config) {
 
-	d.collector = c.Collector
-	d.puHandler = c.PUHandler
-	d.syncHandler = c.SyncHandler
-	d.mergeTags = c.MergeTags
+	d.config = c
 }
 
 // addHandler adds a callback handler for the given docker event.
@@ -305,18 +297,8 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 // It listens to all ContainerEvents
 func (d *dockerMonitor) Start() error {
 
-	zap.L().Debug("Starting the docker monitor")
-
-	if d.collector == nil {
-		return fmt.Errorf("Missing configuration: collector")
-	}
-
-	if d.syncHandler == nil {
-		return fmt.Errorf("Missing configuration: syncHandler")
-	}
-
-	if d.puHandler == nil {
-		return fmt.Errorf("Missing configuration: puHandler")
+	if err := d.config.IsComplete(); err != nil {
+		return err
 	}
 
 	// Check if the server is running before you go ahead
@@ -448,7 +430,7 @@ func (d *dockerMonitor) ReSync() error {
 		return fmt.Errorf("unable to get container list: %s", err)
 	}
 
-	if d.syncHandler != nil {
+	if d.config.SyncHandler != nil {
 
 		for _, c := range containers {
 
@@ -475,11 +457,11 @@ func (d *dockerMonitor) ReSync() error {
 			} else {
 				state = tevents.StateStopped
 			}
-			if err := d.syncHandler.HandleSynchronization(
+			if err := d.config.SyncHandler.HandleSynchronization(
 				contextID,
 				state,
 				PURuntime,
-				monitorinstance.SynchronizationTypeInitial,
+				processor.SynchronizationTypeInitial,
 			); err != nil {
 				zap.L().Error("Unable to sync existing Container",
 					zap.String("dockerID", c.ID),
@@ -578,11 +560,11 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return err
 	}
 
-	if err := d.puHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
+	if err := d.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
 
-	if err := d.puHandler.HandlePUEvent(contextID, tevents.EventStart); err != nil {
+	if err := d.config.PUHandler.HandlePUEvent(contextID, tevents.EventStart); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
 				zap.L().Error("Unable to stop bad container",
@@ -611,7 +593,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 		return err
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, tevents.EventStop)
+	return d.config.PUHandler.HandlePUEvent(contextID, tevents.EventStop)
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -636,7 +618,7 @@ func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 		return err
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, tevents.EventCreate)
+	return d.config.PUHandler.HandlePUEvent(contextID, tevents.EventCreate)
 }
 
 // handleStartEvent will notify the agent immediately about the event in order
@@ -664,7 +646,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 				)
 			}
 
-			d.collector.CollectContainerEvent(&collector.ContainerRecord{
+			d.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 				ContextID: contextID,
 				IPAddress: "N/A",
 				Tags:      nil,
@@ -694,7 +676,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 		return err
 	}
 
-	err = d.puHandler.HandlePUEvent(contextID, tevents.EventDestroy)
+	err = d.config.PUHandler.HandlePUEvent(contextID, tevents.EventDestroy)
 
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
@@ -720,7 +702,7 @@ func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 		return err
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, tevents.EventPause)
+	return d.config.PUHandler.HandlePUEvent(contextID, tevents.EventPause)
 }
 
 // handleCreateEvent generates a create event type.
@@ -731,5 +713,5 @@ func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
 		return err
 	}
 
-	return d.puHandler.HandlePUEvent(contextID, tevents.EventUnpause)
+	return d.config.PUHandler.HandlePUEvent(contextID, tevents.EventUnpause)
 }
