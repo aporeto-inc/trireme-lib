@@ -182,20 +182,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	if i.mode != constants.LocalServer {
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
-		if len(proxiedServices) > 1 {
 
-			if err = i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
-				zap.L().Error("Failed to create ProxySets", zap.Error(err))
-			}
-		} else {
-			//We have a bad or malformed proxied service request
-			//Log and error and program empty rules.
-			//at this point tcp proxy does not work rest of stuff will work ... so don't panic or error
-			zap.L().Error("Bad Proxied services input: ", zap.Int("Length of Proxied Services", len(proxiedServices)))
-			if err = i.createProxySets([]string{}, []string{}, proxyPortSetName); err != nil {
-				zap.L().Error("Failed to create ProxySets", zap.Error(err))
-			}
+		if err = i.createProxySets(proxiedServices.PublicIPPortPair, proxiedServices.PrivateIPPortPair, proxyPortSetName); err != nil {
+			zap.L().Error("Failed to create ProxySets", zap.Error(err))
 		}
+
 		if err = i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
@@ -229,20 +220,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 		portSetName := PuPortSetName(contextID, mark, PuPortSet)
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
-		if len(proxiedServices) > 0 {
 
-			if err = i.createProxySets(proxiedServices[0], proxiedServices[1], proxyPortSetName); err != nil {
-				zap.L().Error("Failed to create ProxySets", zap.Error(err))
-			}
-		} else {
-			//We have a bad or malformed proxied service request
-			//Log and error and program empty rules.
-			//at this point tcp proxy does not work rest of stuff will work ... so don't panic or error
-			zap.L().Error("Bad Proxied services input: ", zap.Int("Length of Proxied Services", len(proxiedServices)))
-			if err = i.createProxySets([]string{}, []string{}, proxyPortSetName); err != nil {
-				zap.L().Error("Failed to create ProxySets", zap.Error(err))
-			}
+		if err = i.createProxySets(proxiedServices.PublicIPPortPair, proxiedServices.PrivateIPPortPair, proxyPortSetName); err != nil {
+			zap.L().Error("Failed to create ProxySets", zap.Error(err))
 		}
+
 		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
 
 			return err
@@ -423,23 +405,21 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	if i.mode != constants.LocalServer {
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
 		proxiedServiceList := containerInfo.Policy.ProxiedServices()
-		if len(proxiedServiceList) != 0 {
-			if err := i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName); err != nil {
-				zap.L().Error("Failed to update Proxy Set", zap.Error(err),
-					zap.String("Public ProxiedService List", strings.Join(proxiedServiceList[0], ":")),
-					zap.String("Private ProxiedService List", strings.Join(proxiedServiceList[1], ":")),
-				)
-			}
+		if err := i.updateProxySet(proxiedServiceList.PublicIPPortPair, proxiedServiceList.PrivateIPPortPair, proxyPortSetName); err != nil {
+			zap.L().Debug("Failed to update Proxy Set", zap.Error(err),
+				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList.PublicIPPortPair, ":")),
+				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList.PrivateIPPortPair, ":")),
+			)
 		}
 
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
 		proxiedServiceList := containerInfo.Policy.ProxiedServices()
-		if err := i.updateProxySet(proxiedServiceList[0], proxiedServiceList[1], proxyPortSetName); err != nil {
-			zap.L().Error("Failed to update Proxy Set", zap.Error(err),
-				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList[0], ":")),
-				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList[1], ":")),
+		if err := i.updateProxySet(proxiedServiceList.PublicIPPortPair, proxiedServiceList.PrivateIPPortPair, proxyPortSetName); err != nil {
+			zap.L().Debug("Failed to update Proxy Set", zap.Error(err),
+				zap.String("Public ProxiedService List", strings.Join(proxiedServiceList.PublicIPPortPair, ":")),
+				zap.String("Private ProxiedService List", strings.Join(proxiedServiceList.PrivateIPPortPair, ":")),
 			)
 		}
 

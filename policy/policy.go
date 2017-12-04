@@ -31,7 +31,7 @@ type PUPolicy struct {
 	// excludedNetworks a list of networks that must be excluded
 	excludedNetworks []string
 	//Proxied Services string format ip:port
-	proxiedServices [][]string
+	proxiedServices *ProxiedServicesInfo
 	sync.Mutex
 }
 
@@ -105,8 +105,7 @@ func NewPUPolicy(
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, [][]string{})
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{})
 }
 
 // Clone returns a copy of the policy
@@ -264,7 +263,7 @@ func (p *PUPolicy) TriremeNetworks() []string {
 }
 
 // ProxiedServices returns the list of networks that Trireme must be applied
-func (p *PUPolicy) ProxiedServices() [][]string {
+func (p *PUPolicy) ProxiedServices() *ProxiedServicesInfo {
 	p.Lock()
 	defer p.Unlock()
 
