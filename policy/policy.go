@@ -58,7 +58,7 @@ func NewPUPolicy(
 	ips ExtendedMap,
 	triremeNetworks []string,
 	excludedNetworks []string,
-	proxiedServices [][]string) *PUPolicy {
+	proxiedServices *ProxiedServicesInfo) *PUPolicy {
 
 	if appACLs == nil {
 		appACLs = IPRuleList{}
@@ -84,7 +84,9 @@ func NewPUPolicy(
 	if ips == nil {
 		ips = ExtendedMap{}
 	}
-
+	if proxiedServices == nil {
+		proxiedServices = &ProxiedServicesInfo{}
+	}
 	return &PUPolicy{
 		managementID:     id,
 		triremeAction:    action,
