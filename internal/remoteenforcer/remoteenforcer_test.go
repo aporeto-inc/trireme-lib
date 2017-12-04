@@ -3,7 +3,7 @@ package remoteenforcer
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"fmt"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -205,7 +205,7 @@ func TestNewServer(t *testing.T) {
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
+				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
 			})
 		})
 
@@ -281,7 +281,7 @@ func TestInitEnforcer(t *testing.T) {
 				err := server.InitEnforcer(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, fmt.Errorf("Init message authentication failed"))
+					So(err, ShouldResemble, errors.New("init message authentication failed: not running in a namespace"))
 				})
 			})
 
@@ -362,7 +362,7 @@ func TestInitSupervisor(t *testing.T) {
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error for no enforcer", func() {
-					So(err, ShouldResemble, fmt.Errorf("Supervisor Init Message Auth Failed"))
+					So(err, ShouldResemble, errors.New("supervisor init message auth failed"))
 				})
 			})
 
@@ -387,7 +387,7 @@ func TestInitSupervisor(t *testing.T) {
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error for no IPset support", func() {
-					So(err, ShouldResemble, fmt.Errorf("IPSets not supported yet"))
+					So(err, ShouldResemble, errors.New("ipsets not supported yet"))
 				})
 			})
 
@@ -408,7 +408,7 @@ func TestInitSupervisor(t *testing.T) {
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error for no enforcer", func() {
-					So(err, ShouldResemble, fmt.Errorf("Enforcer cannot be nil"))
+					So(err, ShouldResemble, errors.New("enforcer cannot be nil"))
 				})
 			})
 
@@ -490,7 +490,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
+				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
 			})
 		})
 
@@ -576,7 +576,7 @@ func TestSupervise(t *testing.T) {
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
+				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
 			})
 		})
 
@@ -616,7 +616,7 @@ func TestSupervise(t *testing.T) {
 				err := server.Supervise(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, fmt.Errorf("Supervise Message Auth Failed"))
+					So(err, ShouldResemble, errors.New("supervise message auth failed"))
 				})
 			})
 
@@ -671,7 +671,7 @@ func TestEnforce(t *testing.T) {
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
+				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
 			})
 		})
 
@@ -711,7 +711,7 @@ func TestEnforce(t *testing.T) {
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, fmt.Errorf("Enforce Message Auth Failed"))
+					So(err, ShouldResemble, errors.New("enforce message auth failed"))
 				})
 			})
 
@@ -737,7 +737,7 @@ func TestEnforce(t *testing.T) {
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, fmt.Errorf("No IP provided for Local Container"))
+					So(err, ShouldResemble, errors.New("no ip provided for local container id: b06f47830f64"))
 				})
 			})
 
@@ -792,7 +792,7 @@ func TestUnEnforce(t *testing.T) {
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
+				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
 			})
 		})
 
@@ -834,7 +834,7 @@ func TestUnEnforce(t *testing.T) {
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, fmt.Errorf("Unenforce Message Auth Failed"))
+					So(err, ShouldResemble, errors.New("unenforce message auth failed"))
 				})
 			})
 
@@ -888,7 +888,7 @@ func TestUnSupervise(t *testing.T) {
 
 			Convey("Then I should get error for no stats", func() {
 				So(server, ShouldBeNil)
-				So(err, ShouldResemble, fmt.Errorf("No path to stats socket provided"))
+				So(err, ShouldResemble, errors.New("no path to stats socket provided"))
 			})
 		})
 
@@ -932,7 +932,7 @@ func TestUnSupervise(t *testing.T) {
 				err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get no error", func() {
-					So(err, ShouldResemble, fmt.Errorf("Unsupervise Message Auth Failed"))
+					So(err, ShouldResemble, errors.New("unsupervise message auth failed"))
 				})
 			})
 

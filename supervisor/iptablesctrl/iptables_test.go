@@ -1,7 +1,7 @@
 package iptablesctrl
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
@@ -202,7 +202,7 @@ func TestConfigureRules(t *testing.T) {
 				return nil
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
-				return fmt.Errorf("Failed to add container chain")
+				return errors.New("unable to add container chain")
 			})
 
 			err := i.ConfigureRules(1, "Context", containerinfo)
@@ -230,7 +230,7 @@ func TestConfigureRules(t *testing.T) {
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				return fmt.Errorf("Failed to add container chain")
+				return errors.New("unabke to add container chain")
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
 				return nil
@@ -342,19 +342,19 @@ func TestUpdateRules(t *testing.T) {
 				if matchSpec(app0, rulespec) == nil || matchSpec(net0, rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockClearChain(t, func(table string, chain string) error {
 				if chain == app0 || chain == net0 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				if chain == app0 || chain == net0 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 
@@ -365,20 +365,20 @@ func TestUpdateRules(t *testing.T) {
 				if matchSpec(app1, rulespec) == nil || matchSpec(net1, rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if chain == app1 || chain == net1 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
 
 				if chain == app1 || chain == net1 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 
 			ipl := policy.ExtendedMap{}
@@ -432,7 +432,7 @@ func TestStart(t *testing.T) {
 
 		Convey("When I start the controller and I fail to insert the mark rule", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil

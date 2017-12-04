@@ -220,12 +220,20 @@ func (r *PURuntime) Tag(key string) (string, bool) {
 	return tag, ok
 }
 
-//Tags returns tags for the processing unit
+// Tags returns tags for the processing unit
 func (r *PURuntime) Tags() *TagStore {
 	r.Lock()
 	defer r.Unlock()
 
 	return r.tags.Copy()
+}
+
+// SetTags returns tags for the processing unit
+func (r *PURuntime) SetTags(t *TagStore) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.tags.Tags = t.Tags
 }
 
 // Options returns tags for the processing unit
