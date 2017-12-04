@@ -27,7 +27,7 @@ const (
 
 // Config specifies the configs for monitors.
 type Config struct {
-	Common    processor.Config
+	Common    *processor.Config
 	Monitors  map[Type]interface{}
 	MergeTags []string
 }
@@ -71,6 +71,51 @@ func GetDefaultMonitors(linuxProcess, linuxHost, uid, docker, cni bool) map[Type
 	return monitorsToEnable
 }
 
+func SetupConfig(
+	linuxProcessEnable bool,
+	linuxProcess *linuxmonitor.Config,
+	linuxHostEnable bool,
+	linuxHost *linuxmonitor.Config,
+	uidEnable bool,
+	uid *uidmonitor.Config,
+	dockerEnable bool,
+	docker *dockermonitor.Config,
+	cniEnable bool,
+	cni *cnimonitor.Config,
+	common *processor.Config,
+) *Config {
+
+	// Configure Monitors
+	monitorsToEnable := GetDefaultMonitors(
+		linuxProcessEnable,
+		linuxHostEnable,
+		uidEnable,
+		dockerEnable,
+		cniEnable,
+	)
+
+	if linuxProcess != nil {
+		monitorsToEnable[LinuxProcess] = linuxProcess
+	}
+
+	if linuxHost != nil {
+		monitorsToEnable[LinuxHost] = linuxHost
+	}
+
+	if uid != nil {
+		monitorsToEnable[UID] = uid
+	}
+
+	if docker != nil {
+		monitorsToEnable[Docker] = docker
+	}
+
+	return &Config{
+		Monitors: monitorsToEnable,
+		Common:   common,
+	}
+}
+
 // New instantiates all/any combination of monitors supported.
 func New(c *Config) (Monitor, error) {
 
@@ -100,7 +145,7 @@ func New(c *Config) (Monitor, error) {
 		switch k {
 		case CNI:
 			mon := cnimonitor.New()
-			mon.SetupHandlers(&c.Common)
+			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("CNI: %s", err.Error())
 			}
@@ -108,7 +153,7 @@ func New(c *Config) (Monitor, error) {
 
 		case Docker:
 			mon := dockermonitor.New()
-			mon.SetupHandlers(&c.Common)
+			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(nil, v); err != nil {
 				return nil, fmt.Errorf("Docker: %s", err.Error())
 			}
@@ -116,7 +161,7 @@ func New(c *Config) (Monitor, error) {
 
 		case LinuxProcess:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(&c.Common)
+			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
@@ -124,7 +169,7 @@ func New(c *Config) (Monitor, error) {
 
 		case LinuxHost:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(&c.Common)
+			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(m.rootRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
@@ -132,7 +177,7 @@ func New(c *Config) (Monitor, error) {
 
 		case UID:
 			mon := uidmonitor.New()
-			mon.SetupHandlers(&c.Common)
+			mon.SetupHandlers(c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("UID: %s", err.Error())
 			}
