@@ -457,16 +457,18 @@ func (d *dockerMonitor) ReSync() error {
 			} else {
 				state = tevents.StateStopped
 			}
-			if err := d.config.SyncHandler.HandleSynchronization(
-				contextID,
-				state,
-				PURuntime,
-				processor.SynchronizationTypeInitial,
-			); err != nil {
-				zap.L().Error("Unable to sync existing Container",
-					zap.String("dockerID", c.ID),
-					zap.Error(err),
-				)
+			if d.config.SyncHandler != nil {
+				if err := d.config.SyncHandler.HandleSynchronization(
+					contextID,
+					state,
+					PURuntime,
+					processor.SynchronizationTypeInitial,
+				); err != nil {
+					zap.L().Error("Unable to sync existing Container",
+						zap.String("dockerID", c.ID),
+						zap.Error(err),
+					)
+				}
 			}
 		}
 	}

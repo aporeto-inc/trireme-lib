@@ -11,10 +11,6 @@ func (c *Config) IsComplete() error {
 		return fmt.Errorf("Missing configuration: collector")
 	}
 
-	if c.SyncHandler == nil {
-		return fmt.Errorf("Missing configuration: syncHandler")
-	}
-
 	if c.PUHandler == nil {
 		return fmt.Errorf("Missing configuration: puHandler")
 	}

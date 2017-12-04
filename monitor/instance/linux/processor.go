@@ -257,15 +257,17 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 		}
 
 		// Synchronize
-		if err := l.config.SyncHandler.HandleSynchronization(
-			contextID,
-			events.StateStarted,
-			runtimeInfo,
-			processor.SynchronizationTypeInitial,
-		); err != nil {
-			zap.L().Error("Sync Failed", zap.Error(err))
-			syncFailed++
-			continue
+		if l.config.SyncHandler != nil {
+			if err := l.config.SyncHandler.HandleSynchronization(
+				contextID,
+				events.StateStarted,
+				runtimeInfo,
+				processor.SynchronizationTypeInitial,
+			); err != nil {
+				zap.L().Error("Sync Failed", zap.Error(err))
+				syncFailed++
+				continue
+			}
 		}
 
 		if !eventInfo.HostService {

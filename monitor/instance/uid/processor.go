@@ -326,15 +326,17 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 		}
 
 		// Synchronize
-		if err := u.config.SyncHandler.HandleSynchronization(
-			contextID,
-			events.StateStarted,
-			runtimeInfo,
-			processor.SynchronizationTypeInitial,
-		); err != nil {
-			zap.L().Error("Sync Failed", zap.Error(err))
-			syncFailed++
-			continue
+		if u.config.SyncHandler != nil {
+			if err := u.config.SyncHandler.HandleSynchronization(
+				contextID,
+				events.StateStarted,
+				runtimeInfo,
+				processor.SynchronizationTypeInitial,
+			); err != nil {
+				zap.L().Error("Sync Failed", zap.Error(err))
+				syncFailed++
+				continue
+			}
 		}
 
 		mark := storedContext.MarkVal

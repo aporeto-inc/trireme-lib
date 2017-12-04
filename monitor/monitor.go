@@ -207,7 +207,9 @@ func (m *monitors) Start() (err error) {
 		}
 	}
 
-	m.syncHandler.HandleSynchronizationComplete(processor.SynchronizationTypeInitial)
+	if m.syncHandler != nil {
+		m.syncHandler.HandleSynchronizationComplete(processor.SynchronizationTypeInitial)
+	}
 
 	return nil
 }
