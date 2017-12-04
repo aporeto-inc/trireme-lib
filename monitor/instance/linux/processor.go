@@ -197,6 +197,11 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 			metadataExtractionFailed == 0 &&
 			syncFailed == 0 &&
 			puStartFailed == 0 {
+			zap.L().Info("Linux resync completed",
+				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
+				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
+			)
+		} else {
 			zap.L().Info("Linux resync completed with failures",
 				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
 				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
@@ -204,11 +209,6 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 				zap.Int("Metadata Extraction Failed", metadataExtractionFailed),
 				zap.Int("Sync Failed", syncFailed),
 				zap.Int("puStart Failed", puStartFailed),
-			)
-		} else {
-			zap.L().Info("Linux resync completed",
-				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
-				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
 			)
 		}
 	}()
