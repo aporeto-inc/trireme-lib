@@ -264,7 +264,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		// userName is required as they are keys to lookup tables.
 		userName, err := getUserName(uid)
 		if err != nil {
-			zap.L().Warn("Error converting to username", zap.Error(err))
+			zap.L().Debug("Error converting to username", zap.Error(err))
 			continue
 		}
 
