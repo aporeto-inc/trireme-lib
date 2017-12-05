@@ -203,37 +203,37 @@ func testTriremeStruct(sec, config string, impl constants.ImplementationType, pu
 	if sec == "psk" {
 		if config == "localdocker" && pusup == constants.ContainerPU && pucon == constants.ContainerPU {
 			sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalContainer, constants.LocalContainer)
-			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalContainer), eventCollector())
+			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalContainer), eventCollector(), []string{})
 			return newTR
 		} else if config == "linux" && pusup == constants.ContainerPU && pucon == constants.LinuxProcessPU {
 			sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalServer, constants.LocalServer)
-			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector())
+			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector(), []string{})
 			return newTR
 		} else if config == "distributeddocker" && pusup == constants.ContainerPU && pucon == constants.ContainerPU {
 			sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalServer, constants.LocalServer)
-			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector())
+			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector(), []string{})
 			return newTR
 		} else if config == "hybrid" && pusup == constants.ContainerPU && pucon == constants.ContainerPU {
 			sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalServer, constants.LocalServer)
-			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector())
+			newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector(), []string{})
 			return newTR
 		}
 	}
 	if config == "localdocker" && pusup == constants.ContainerPU && pucon == constants.ContainerPU {
 		sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalContainer, constants.LocalContainer)
-		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalContainer), eventCollector())
+		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalContainer), eventCollector(), []string{})
 		return newTR
 	} else if config == "linux" && pusup == constants.ContainerPU && pucon == constants.LinuxProcessPU {
 		sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalServer, constants.LocalServer)
-		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector())
+		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector(), []string{})
 		return newTR
 	} else if config == "distributeddocker" && pusup == constants.ContainerPU && pucon == constants.ContainerPU {
 		sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalServer, constants.LocalServer)
-		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector())
+		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector(), []string{})
 		return newTR
 	} else if config == "hybrid" && pusup == constants.ContainerPU && pucon == constants.ContainerPU {
 		sup, _ := testSupervisorMap(sec, config, impl, pusup, constants.LocalServer, constants.LocalServer)
-		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector())
+		newTR := trireme.NewTrireme("testServerID", policyResolver(), sup, testEnforcerMap(sec, config, pucon, constants.LocalServer), eventCollector(), []string{})
 		return newTR
 	}
 

@@ -110,7 +110,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processNetworkTCPPackets(netPacket)
 	} else {
-		err = fmt.Errorf("Invalid IP Protocol %d", netPacket.IPProto)
+		err = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto)
 	}
 	if err != nil {
 		length := uint32(len(p.Buffer))
@@ -144,7 +144,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processApplicationTCPPackets(appPacket)
 	} else {
-		err = fmt.Errorf("Invalid IP Protocol %d", appPacket.IPProto)
+		err = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto)
 	}
 
 	if err != nil {

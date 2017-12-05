@@ -110,7 +110,7 @@ func Test_CacheTimer(t *testing.T) {
 	t.Parallel()
 
 	Convey("Given a new cache with an expiration timer ", t, func() {
-		c := NewCacheWithExpiration("cache", 2*time.Second)
+		c := NewCacheWithExpiration("cache", 3*time.Second)
 
 		Convey("When I create an item that has to exist for a second", func() {
 			err := c.Add("key", "value")
@@ -138,7 +138,7 @@ func Test_CacheTimer(t *testing.T) {
 							So(val.(string), ShouldResemble, "value2")
 
 							Convey("But if I wait for two seconds after the update, the item must not exixt", func() {
-								<-time.After(2 * time.Second)
+								<-time.After(4 * time.Second)
 								_, err := c.Get("key")
 								So(err, ShouldNotBeNil)
 							})

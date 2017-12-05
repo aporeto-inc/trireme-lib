@@ -3,6 +3,7 @@ package processmon
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -42,6 +43,8 @@ type processMon struct {
 	childExitStatus chan exitStatus
 	// logToConsole stores if we should log to console
 	logToConsole bool
+	// logWithID controls whether the context ID should be provided while create a remote command
+	logWithID bool
 	// launcProcessArgs are arguments that are provided to all processes launched by processmon
 	launcProcessArgs []string
 }
@@ -128,9 +131,10 @@ func (p *processMon) collectChildExitStatus() {
 }
 
 // SetupLogAndProcessArgs setups args that should be propagated to child processes
-func (p *processMon) SetupLogAndProcessArgs(logToConsole bool, args []string) {
+func (p *processMon) SetupLogAndProcessArgs(logToConsole, logWithID bool, args []string) {
 
 	p.logToConsole = logToConsole
+	p.logWithID = logWithID
 	p.launcProcessArgs = args
 }
 
@@ -223,7 +227,7 @@ func (p *processMon) getLaunchProcessCmd(arg string, contextID string) (*exec.Cm
 	}
 
 	cmdArgs := append([]string{arg}, p.launcProcessArgs...)
-	if !p.logToConsole {
+	if p.logWithID {
 		cmdArgs = append(cmdArgs, contextID)
 	}
 	zap.L().Debug("Enforcer executed",
@@ -290,17 +294,17 @@ func (p *processMon) LaunchProcess(
 
 	pidstat, err := os.Stat(nsPath)
 	if err != nil {
-		return fmt.Errorf("Container pid not found: %d %s", refPid, err.Error())
+		return fmt.Errorf("container pid %d not found: %s", refPid, err)
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return fmt.Errorf("Refused to launch a remote enforcer in host namespace")
+		return errors.New("refused to launch a remote enforcer in host namespace")
 	}
 
 	if _, err = os.Stat(p.netNSPath); err != nil {
 		err = os.MkdirAll(p.netNSPath, os.ModeDir)
 		if err != nil {
-			zap.L().Warn("Could not create directory", zap.Error(err))
+			zap.L().Warn("could not create directory", zap.Error(err))
 		}
 	}
 
@@ -314,7 +318,7 @@ func (p *processMon) LaunchProcess(
 
 	cmd, err := p.getLaunchProcessCmd(arg, contextID)
 	if err != nil {
-		return fmt.Errorf("Enforcer Binary not found: %s", err.Error())
+		return fmt.Errorf("enforcer binary not found: %s", err)
 	}
 
 	exited := make(chan int, 2)
@@ -327,8 +331,8 @@ func (p *processMon) LaunchProcess(
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
-		//This is a more serious failure. We can't reliably control the remote enforcer
-		return fmt.Errorf("Failed to generate secret: %s", err.Error())
+		// This is a more serious failure. We can't reliably control the remote enforcer
+		return fmt.Errorf("unable to generate secret: %s", err)
 	}
 
 	// Start command
@@ -343,10 +347,10 @@ func (p *processMon) LaunchProcess(
 	cmd.Env = append(os.Environ(), newEnvVars...)
 	if err = cmd.Start(); err != nil {
 		// Cleanup resources
-		if err = os.Remove(contextFile); err != nil {
-			zap.L().Warn("Failed to clean up netns path", zap.Error(err))
+		if err1 := os.Remove(contextFile); err1 != nil {
+			zap.L().Warn("Failed to clean up netns path", zap.Error(err1))
 		}
-		return fmt.Errorf("Enforcer Binary could not start")
+		return fmt.Errorf("unable to start enforcer binary: %s", err)
 	}
 
 	go func() {

@@ -18,6 +18,10 @@ echo "Supervisor Mocks"
 mockgen -source supervisor/interfaces.go -destination supervisor/mock/mocksupervisor.go -package mocksupervisor
 goimport_sanitize supervisor/mock/mocksupervisor.go
 
+echo "Internal/ContextStore Mocks"
+mockgen -source internal/contextstore/interfaces.go -destination internal/contextstore/mock/mockcontextstore.go -package mockcontextstore
+goimport_sanitize internal/contextstore/mock/mockcontextstore.go
+
 echo "Internal/Processmon Mocks"
 mockgen -source internal/processmon/interfaces.go -destination internal/processmon/mock/mockprocessmon.go -package mockprocessmon
 goimport_sanitize internal/processmon/mock/mockprocessmon.go
@@ -37,5 +41,9 @@ goimport_sanitize internal/remoteenforcer/internal/statscollector/mock/mockstats
 echo "Collector Mocks"
 mockgen -source collector/interfaces.go -destination collector/mock/mockcollector.go -package mockcollector -source_package github.com/aporeto-inc/trireme-lib/collector
 goimport_sanitize collector/mock/mockcollector.go
+
+echo "Monitor Mocks"
+mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
+goimport_sanitize monitor/mock/mockmonitor.go
 
 echo >&2 "OK"
