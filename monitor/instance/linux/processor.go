@@ -256,20 +256,6 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 			runtimeInfo.SetTags(t)
 		}
 
-		// Synchronize
-		if l.config.SyncHandler != nil {
-			if err := l.config.SyncHandler.HandleSynchronization(
-				contextID,
-				events.StateStarted,
-				runtimeInfo,
-				processor.SynchronizationTypeInitial,
-			); err != nil {
-				zap.L().Error("Sync Failed", zap.Error(err))
-				syncFailed++
-				continue
-			}
-		}
-
 		if !eventInfo.HostService {
 
 			processlist, err := cgnetcls.ListCgroupProcesses(eventInfo.PUID)
@@ -308,7 +294,22 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 
 		reacquired = append(reacquired, eventInfo.PUID)
 
+		// Synchronize
+		if l.config.SyncHandler != nil {
+			if err := l.config.SyncHandler.HandleSynchronization(
+				contextID,
+				events.StateStarted,
+				runtimeInfo,
+				processor.SynchronizationTypeInitial,
+			); err != nil {
+				zap.L().Error("Sync Failed", zap.Error(err))
+				syncFailed++
+				continue
+			}
+		}
+
 		if err := l.startInternal(runtimeInfo, eventInfo); err != nil {
+			zap.L().Debug("Failed to start", zap.Error(err))
 			puStartFailed++
 		}
 	}
