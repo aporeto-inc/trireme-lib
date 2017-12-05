@@ -139,12 +139,10 @@ func New(
 	// part of ipset portset.
 	puFromPort := cache.NewCache("puFromPort")
 
+	var portSetInstance portset.PortSet = nil
+
 	if mode != constants.RemoteContainer {
-		portSetInstance := portset.New(puFromPort)
-	}
-	else {
-		// No need to monitor for ports in container namespace.
-		portSetInstance := nil
+		portSetInstance = portset.New(puFromPort)
 	}
 
 	d := &Datapath{
