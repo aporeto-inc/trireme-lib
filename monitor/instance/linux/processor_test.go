@@ -28,11 +28,13 @@ func testLinuxProcessor(
 		PUHandler:   puHandler,
 		SyncHandler: syncHandler,
 	})
-	l.SetupConfig(nil, &Config{
+	if err := l.SetupConfig(nil, &Config{
 		EventMetadataExtractor: DefaultHostMetadataExtractor,
 		StoredPath:             "/tmp",
 		ReleasePath:            "./",
-	})
+	}); err != nil {
+		return nil
+	}
 	return l.(*linuxMonitor).proc
 }
 

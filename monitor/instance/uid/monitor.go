@@ -97,7 +97,9 @@ func (u *uidMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 	}
 
 	if registerer != nil {
-		registerer.RegisterProcessor(constants.UIDLoginPU, u.proc)
+		if err := registerer.RegisterProcessor(constants.UIDLoginPU, u.proc); err !=nil {
+			return err
+		}
 	}
 
 	// Setup defaults
@@ -129,6 +131,5 @@ func (u *uidMonitor) SetupHandlers(m *processor.Config) {
 
 func (u *uidMonitor) ReSync() error {
 
-	u.proc.ReSync(nil)
-	return nil
+	return u.proc.ReSync(nil)
 }

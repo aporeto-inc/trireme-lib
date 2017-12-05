@@ -108,7 +108,9 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 	}
 
 	if registerer != nil {
-		registerer.RegisterProcessor(constants.LinuxProcessPU, l.proc)
+		if err := registerer.RegisterProcessor(constants.LinuxProcessPU, l.proc); err != nil {
+			return err
+		}
 	}
 
 	// Setup defaults
@@ -141,6 +143,5 @@ func (l *linuxMonitor) SetupHandlers(m *processor.Config) {
 
 func (l *linuxMonitor) ReSync() error {
 
-	l.proc.ReSync(nil)
-	return nil
+	return l.proc.ReSync(nil)
 }

@@ -345,9 +345,10 @@ func TestStopDockerContainer(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -390,9 +391,10 @@ func TestHandleCreateEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -493,9 +495,10 @@ func TestHandleDieEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -530,9 +533,10 @@ func TestHandleDestroyEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 		mockCG := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("Then docker monitor should not be nil", func() {
@@ -578,9 +582,10 @@ func TestHandlePauseEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -624,9 +629,10 @@ func TestHandleUnpauseEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -670,9 +676,11 @@ func TestExtractMetadata(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
+
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 		})

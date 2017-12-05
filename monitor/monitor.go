@@ -198,11 +198,11 @@ func New(c *Config) (Monitor, error) {
 
 func (m *monitors) Start() (err error) {
 
-	if err := m.userRPCListener.Start(); err != nil {
+	if err = m.userRPCListener.Start(); err != nil {
 		return err
 	}
 
-	if err := m.rootRPCListener.Start(); err != nil {
+	if err = m.rootRPCListener.Start(); err != nil {
 		return err
 	}
 
