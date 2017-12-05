@@ -13,20 +13,14 @@ import (
 	"github.com/aporeto-inc/trireme-lib"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
-	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/cnimonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme-lib/supervisor"
-	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
 
 // TriremeOptions defines all the possible configuration options for Trireme configurator
@@ -133,9 +127,6 @@ func DefaultTriremeOptions() *TriremeOptions {
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
 func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
-	enforcers := map[constants.PUType]policyenforcer.Enforcer{}
-	supervisors := map[constants.PUType]supervisor.Supervisor{}
-
 	var publicKeyAdder secrets.PublicKeyAdder
 	var secretInstance secrets.Secrets
 	var dockerMonitorInstance monitor.Monitor
@@ -171,102 +162,25 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		secretInstance = NewSecretsFromPSK(options.PSK)
 	}
 
+	var tmode constants.ModeType = constants.LocalContainer
 	if options.RemoteContainer {
-		var s supervisor.Supervisor
-
-		rpcwrapper := rpcwrapper.NewRPCWrapper()
-		e := enforcerproxy.NewProxyEnforcer(
-			options.MutualAuth,
-			options.FilterQueue,
-			options.EventCollector,
-			options.Processor,
-			secretInstance,
-			options.ServerID,
-			options.Validity,
-			rpcwrapper,
-			options.RemoteArg,
-			options.ProcMountPoint,
-			options.ExternalIPCacheValidity,
-		)
-
-		s, err = supervisorproxy.NewProxySupervisor(
-			options.EventCollector,
-			e,
-			rpcwrapper)
-
-		if err != nil {
-			zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-		}
-		enforcers[constants.ContainerPU] = e
-		supervisors[constants.ContainerPU] = s
+		tmode = constants.RemoteContainer
 	}
-
-	if options.LocalContainer {
-		var s supervisor.Supervisor
-
-		e := enforcer.New(
-			options.MutualAuth,
-			options.FilterQueue,
-			options.EventCollector,
-			options.Processor,
-			secretInstance,
-			options.ServerID,
-			options.Validity,
-			constants.LocalContainer,
-			options.ProcMountPoint,
-			options.ExternalIPCacheValidity,
-		)
-
-		s, err = supervisor.NewSupervisor(
-			options.EventCollector,
-			e,
-			constants.LocalContainer,
-			options.ImplType,
-			options.TargetNetworks,
-		)
-		if err != nil {
-			zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-		}
-
-		enforcers[constants.ContainerPU] = e
-		supervisors[constants.ContainerPU] = s
-	}
-
-	if options.LocalProcess {
-		var s supervisor.Supervisor
-
-		e := enforcer.New(
-			options.MutualAuth,
-			options.FilterQueue,
-			options.EventCollector,
-			options.Processor,
-			secretInstance,
-			options.ServerID,
-			options.Validity,
-			constants.LocalServer,
-			options.ProcMountPoint,
-			options.ExternalIPCacheValidity,
-		)
-
-		s, err = supervisor.NewSupervisor(
-			options.EventCollector,
-			e,
-			constants.LocalServer,
-			options.ImplType,
-			options.TargetNetworks,
-		)
-		if err != nil {
-			zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-		}
-
-		enforcers[constants.LinuxProcessPU] = e
-		supervisors[constants.LinuxProcessPU] = s
-		enforcers[constants.UIDLoginPU] = e
-		supervisors[constants.UIDLoginPU] = s
-
-	}
-
-	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector, []string{})
+	triremeInstance := trireme.NewTrireme(
+		options.ServerID,
+		options.Resolver,
+		tmode,
+		options.LocalProcess,
+		options.EventCollector,
+		nil,
+		true,
+		secretInstance,
+		options.FilterQueue,
+		options.Validity,
+		options.ProcMountPoint,
+		options.TargetNetworks,
+		options.ExternalIPCacheValidity,
+		[]string{})
 
 	if options.LocalContainer || options.RemoteContainer {
 		dockerMonitorInstance = dockermonitor.NewDockerMonitor(
@@ -530,29 +444,21 @@ func NewTriremeLinuxProcess(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[constants.PUType]policyenforcer.Enforcer{
-		constants.LinuxProcessPU: enforcer.NewWithDefaults(serverID,
-			eventCollector,
-			nil,
-			secrets,
-			constants.LocalServer,
-			constants.DefaultProcMountPoint,
-		)}
-
-	s, err := supervisor.NewSupervisor(
-		eventCollector,
-		enforcers[constants.LinuxProcessPU],
+	return trireme.NewTrireme(
+		serverID,
+		resolver,
 		constants.LocalServer,
-		constants.IPTables,
+		true,
+		eventCollector,
+		nil,
+		true,
+		secrets,
+		fqconfig.NewFilterQueueWithDefaults(),
+		8460*time.Hour,
+		constants.DefaultAporetoProcMountPoint,
 		[]string{},
-	)
-
-	if err != nil {
-		zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-	}
-
-	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
+		-1,
+		[]string{})
 }
 
 // NewLocalTriremeDocker instantiates Trireme for Docker using enforcement on the
@@ -570,29 +476,22 @@ func NewLocalTriremeDocker(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	enforcers := map[constants.PUType]policyenforcer.Enforcer{
-		constants.ContainerPU: enforcer.NewWithDefaults(serverID,
-			eventCollector,
-			nil,
-			secrets,
-			constants.LocalContainer,
-			constants.DefaultProcMountPoint,
-		)}
-
-	s, err := supervisor.NewSupervisor(
+	return trireme.NewTrireme(
+		serverID,
+		resolver,
+		constants.LocalServer,
+		false,
 		eventCollector,
-		enforcers[constants.ContainerPU],
-		constants.LocalContainer,
-		impl,
+		nil,
+		true,
+		secrets,
+		fqconfig.NewFilterQueueWithDefaults(),
+		8460*time.Hour,
+		constants.DefaultAporetoProcMountPoint,
 		[]string{},
-	)
+		-1,
+		[]string{})
 
-	if err != nil {
-		zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-	}
-
-	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewDistributedTriremeDocker instantiates Trireme using remote enforcers on
@@ -609,26 +508,22 @@ func NewDistributedTriremeDocker(serverID string,
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	rpcwrapper := rpcwrapper.NewRPCWrapper()
+	return trireme.NewTrireme(
+		serverID,
+		resolver,
+		constants.RemoteContainer,
+		false,
+		eventCollector,
+		nil,
+		true,
+		secrets,
+		fqconfig.NewFilterQueueWithDefaults(),
+		8460*time.Hour,
+		constants.DefaultAporetoProcMountPoint,
+		[]string{},
+		-1,
+		[]string{})
 
-	enforcers := map[constants.PUType]policyenforcer.Enforcer{
-		constants.ContainerPU: enforcerproxy.NewDefaultProxyEnforcer(
-			serverID,
-			eventCollector,
-			secrets,
-			rpcwrapper,
-			constants.DefaultProcMountPoint,
-		),
-	}
-
-	s, err := supervisorproxy.NewProxySupervisor(eventCollector, enforcers[0], rpcwrapper)
-
-	if err != nil {
-		zap.L().Fatal("Cannot initialize proxy supervisor", zap.Error(err))
-	}
-
-	supervisors := map[constants.PUType]supervisor.Supervisor{constants.ContainerPU: s}
-	return trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
 }
 
 // NewHybridTrireme instantiates Trireme with both Linux and Docker enforcers.
@@ -647,57 +542,21 @@ func NewHybridTrireme(
 		eventCollector = &collector.DefaultCollector{}
 	}
 
-	rpcwrapper := rpcwrapper.NewRPCWrapper()
-	containerEnforcer := enforcerproxy.NewDefaultProxyEnforcer(
+	trireme := trireme.NewTrireme(
 		serverID,
+		resolver,
+		constants.RemoteContainer,
+		true,
 		eventCollector,
+		nil,
+		true,
 		secrets,
-		rpcwrapper,
-		constants.DefaultProcMountPoint,
-	)
-
-	containerSupervisor, cerr := supervisorproxy.NewProxySupervisor(
-		eventCollector,
-		containerEnforcer,
-		rpcwrapper)
-
-	if cerr != nil {
-		zap.L().Fatal("Failed to load Supervisor", zap.Error(cerr))
-	}
-
-	processEnforcer := enforcer.NewWithDefaults(serverID,
-		eventCollector,
-		processor,
-		secrets,
-		constants.LocalServer,
-		constants.DefaultProcMountPoint,
-	)
-
-	processSupervisor, perr := supervisor.NewSupervisor(
-		eventCollector,
-		processEnforcer,
-		constants.LocalServer,
-		constants.IPTables,
-		networks,
-	)
-
-	if perr != nil {
-		zap.L().Fatal("Failed to load Supervisor", zap.Error(perr))
-	}
-
-	enforcers := map[constants.PUType]policyenforcer.Enforcer{
-		constants.ContainerPU:    containerEnforcer,
-		constants.LinuxProcessPU: processEnforcer,
-		constants.UIDLoginPU:     processEnforcer,
-	}
-
-	supervisors := map[constants.PUType]supervisor.Supervisor{
-		constants.ContainerPU:    containerSupervisor,
-		constants.LinuxProcessPU: processSupervisor,
-		constants.UIDLoginPU:     processSupervisor,
-	}
-
-	trireme := trireme.NewTrireme(serverID, resolver, supervisors, enforcers, eventCollector, []string{})
+		fqconfig.NewFilterQueueWithDefaults(),
+		8460*time.Hour,
+		constants.DefaultAporetoProcMountPoint,
+		[]string{},
+		-1,
+		[]string{})
 
 	return trireme
 }
