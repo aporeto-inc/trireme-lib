@@ -51,7 +51,7 @@ type trireme struct {
 }
 
 func (t *trireme) newEnforcers() error {
-
+	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.isLinuxProcessSupportEnabled))
 	if t.isLinuxProcessSupportEnabled {
 		t.enforcers[constants.LocalServer] = enforcer.New(
 			t.mutualAuthorization,
@@ -65,7 +65,7 @@ func (t *trireme) newEnforcers() error {
 			t.procMountPoint,
 			t.externalIPcacheTimeout)
 	}
-
+	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.triremeMode)))
 	if t.triremeMode == constants.RemoteContainer {
 		t.enforcers[constants.RemoteContainer] = enforcerproxy.NewProxyEnforcer(
 			t.mutualAuthorization,
@@ -98,19 +98,19 @@ func (t *trireme) newEnforcers() error {
 }
 
 func (t *trireme) newSupervisors() error {
-
+	sup, err := supervisor.NewSupervisor(
+		t.collector,
+		t.enforcers[constants.LocalServer],
+		constants.LocalServer,
+		constants.IPTables,
+		t.networks,
+	)
+	zap.L().Debug("Supervisor", zap.Error(err))
+	if err != nil {
+		return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
+	}
 	if t.isLinuxProcessSupportEnabled {
-		s, err := supervisor.NewSupervisor(
-			t.collector,
-			t.enforcers[constants.LocalServer],
-			constants.LocalServer,
-			constants.IPTables,
-			t.networks,
-		)
-		if err != nil {
-			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
-		}
-		t.supervisors[constants.LocalServer] = s
+		t.supervisors[constants.LocalServer] = sup
 	}
 
 	if t.triremeMode == constants.RemoteContainer {
@@ -125,19 +125,9 @@ func (t *trireme) newSupervisors() error {
 		}
 		t.supervisors[constants.RemoteContainer] = s
 	} else {
-		s, err := supervisor.NewSupervisor(
-			t.collector,
-			t.enforcers[constants.LocalServer],
-			constants.LocalServer,
-			constants.IPTables,
-			t.networks,
-		)
-		if err != nil {
-			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
-		}
-		t.supervisors[constants.LocalContainer] = s
+		t.supervisors[constants.LocalContainer] = sup
 	}
-
+	zap.L().Debug("Reurned sucessfully")
 	return nil
 }
 
@@ -181,13 +171,19 @@ func NewTrireme(
 		triremeMode:                  triremeMode,
 		rpchdl:                       rpcwrapper.NewRPCWrapper(),
 		mergeTags:                    mergeTags,
+		enforcers:                    map[constants.ModeType]policyenforcer.Enforcer{},
+		supervisors:                  map[constants.ModeType]supervisor.Supervisor{},
+		puTypeToEnforcerType:         map[constants.PUType]constants.ModeType{},
 	}
+	zap.L().Debug("Creating Enforcers")
 	if err := t.newEnforcers(); err != nil {
 		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
 		return nil
 	}
+	zap.L().Debug("Creating Supervisors")
 	if err := t.newSupervisors(); err != nil {
 		zap.L().Error("Unable to start datapath supervisor", zap.Error(err))
+		return nil
 	}
 	if isLinuxProcessSupportEnabled {
 		t.puTypeToEnforcerType[constants.LinuxProcessPU] = constants.LocalServer
@@ -202,6 +198,7 @@ func NewTrireme(
 		t.puTypeToEnforcerType[constants.ContainerPU] = constants.LocalContainer
 		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.LocalContainer
 	}
+	zap.L().Error("Returning")
 	return t
 }
 
@@ -577,4 +574,17 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 		}
 	}
 	return nil
+}
+
+func Supervisors(t Trireme) []supervisor.Supervisor {
+	supervisors := []supervisor.Supervisor{}
+	//LinuxProcessPU, UIDLoginPU and HOstPU share the same supervisor so only one lookup suffices
+	if s := t.Supervisor(constants.LinuxProcessPU); s != nil {
+		supervisors = append(supervisors, s)
+	}
+
+	if s := t.Supervisor(constants.ContainerPU); s != nil {
+		supervisors = append(supervisors, s)
+	}
+	return supervisors
 }
