@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
+
 	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 
 	"go.uber.org/zap"
 
@@ -25,22 +28,116 @@ import (
 
 // trireme contains references to all the different components involved.
 type trireme struct {
-	serverID               string
-	cache                  cache.DataStore
-	supervisors            map[constants.ModeType]supervisor.Supervisor
-	enforcers              map[constants.ModeType]policyenforcer.Enforcer
-	puTypeToEnforcerType   map[constants.PUType]constants.ModeType
-	resolver               PolicyResolver
-	collector              collector.EventCollector
-	port                   *portmap.ProxyPortMap
-	service                packetprocessor.PacketProcessor
-	secrets                secrets.Secrets
-	fqConfig               *fqconfig.FilterQueue
-	procMountPoint         string
-	mutualAuthorization    bool
-	validity               time.Duration
-	externalIPcacheTimeout time.Duration
-	networks               []string
+	serverID                     string
+	cache                        cache.DataStore
+	supervisors                  map[constants.ModeType]supervisor.Supervisor
+	enforcers                    map[constants.ModeType]policyenforcer.Enforcer
+	puTypeToEnforcerType         map[constants.PUType]constants.ModeType
+	resolver                     PolicyResolver
+	collector                    collector.EventCollector
+	port                         *portmap.ProxyPortMap
+	service                      packetprocessor.PacketProcessor
+	secrets                      secrets.Secrets
+	fqConfig                     *fqconfig.FilterQueue
+	procMountPoint               string
+	mutualAuthorization          bool
+	validity                     time.Duration
+	externalIPcacheTimeout       time.Duration
+	networks                     []string
+	isLinuxProcessSupportEnabled bool
+	triremeMode                  constants.ModeType
+	rpchdl                       rpcwrapper.RPCClient
+}
+
+func (t *trireme) newEnforcers() error {
+
+	if t.isLinuxProcessSupportEnabled {
+		t.enforcers[constants.LocalServer] = enforcer.New(
+			t.mutualAuthorization,
+			t.fqConfig,
+			t.collector,
+			t.service,
+			t.secrets,
+			t.serverID,
+			t.validity,
+			constants.LocalServer,
+			t.procMountPoint,
+			t.externalIPcacheTimeout)
+	}
+
+	if t.triremeMode == constants.RemoteContainer {
+		t.enforcers[constants.RemoteContainer] = enforcerproxy.NewProxyEnforcer(
+			t.mutualAuthorization,
+			t.fqConfig,
+			t.collector,
+			t.service,
+			t.secrets,
+			t.serverID,
+			t.validity,
+			t.rpchdl,
+			"enforce",
+			t.procMountPoint,
+			t.externalIPcacheTimeout,
+		)
+	} else {
+		t.enforcers[constants.LocalContainer] = enforcer.New(
+			t.mutualAuthorization,
+			t.fqConfig,
+			t.collector,
+			t.service,
+			t.secrets,
+			t.serverID,
+			t.validity,
+			constants.LocalServer,
+			t.procMountPoint,
+			t.externalIPcacheTimeout)
+	}
+
+	return nil
+}
+
+func (t *trireme) newSupervisors() error {
+
+	if t.isLinuxProcessSupportEnabled {
+		s, err := supervisor.NewSupervisor(
+			t.collector,
+			t.enforcers[constants.LocalServer],
+			constants.LocalServer,
+			constants.IPTables,
+			t.networks,
+		)
+		if err != nil {
+			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
+		}
+		t.supervisors[constants.LocalServer] = s
+	}
+
+	if t.triremeMode == constants.RemoteContainer {
+		s, err := supervisorproxy.NewProxySupervisor(
+			t.collector,
+			t.enforcers[constants.RemoteContainer],
+			t.rpchdl,
+		)
+		if err != nil {
+			zap.L().Error("Unable to create proxy Supervisor:: Returned Error ", zap.Error(err))
+			return nil
+		}
+		t.supervisors[constants.RemoteContainer] = s
+	} else {
+		s, err := supervisor.NewSupervisor(
+			t.collector,
+			t.enforcers[constants.LocalServer],
+			constants.LocalServer,
+			constants.IPTables,
+			t.networks,
+		)
+		if err != nil {
+			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
+		}
+		t.supervisors[constants.LocalContainer] = s
+	}
+
+	return nil
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
@@ -57,40 +154,39 @@ func NewTrireme(
 	validity time.Duration,
 	procMountPoint string,
 	networks []string,
+	externalIPcacheTimeout time.Duration,
+
 ) Trireme {
-	enforcers := map[constants.ModeType]policyenforcer.Enforcer{}
-	supervisors := map[constants.ModeType]supervisor.Supervisor{}
+
 	if procMountPoint == "" {
 		procMountPoint = "/proc"
 	}
 
 	t := &trireme{
-		serverID:            serverID,
-		cache:               cache.NewCache("TriremeCache"),
-		resolver:            resolver,
-		collector:           eventCollector,
-		port:                portmap.New(5000, 100),
-		service:             service,
-		mutualAuthorization: mutualAuthorization,
-		secrets:             secrets,
-		fqConfig:            fqConfig,
-		validity:            validity,
-		procMountPoint:      procMountPoint,
-		networks:            networks,
+		serverID:                     serverID,
+		cache:                        cache.NewCache("TriremeCache"),
+		resolver:                     resolver,
+		collector:                    eventCollector,
+		port:                         portmap.New(5000, 100),
+		service:                      service,
+		mutualAuthorization:          mutualAuthorization,
+		secrets:                      secrets,
+		fqConfig:                     fqConfig,
+		validity:                     validity,
+		procMountPoint:               procMountPoint,
+		networks:                     networks,
+		isLinuxProcessSupportEnabled: isLinuxProcessSupportEnabled,
+		triremeMode:                  triremeMode,
+		rpchdl:                       rpcwrapper.NewRPCWrapper(),
+	}
+	if err := t.newEnforcers(); err != nil {
+		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
+		return nil
+	}
+	if err := t.newSupervisors(); err != nil {
+		zap.L().Error("Unable to start datapath supervisor", zap.Error(err))
 	}
 	if isLinuxProcessSupportEnabled {
-		enforcers[constants.LocalServer] = enforcer.New(mutualAuthorization,
-			fqConfig,
-			collector,
-			service,
-			secrets,
-			serverID,
-			validity,
-			rpchdl,
-			"enforce",
-			procMountPoint,
-			externalIPCacheTimeout)
-
 		t.puTypeToEnforcerType[constants.LinuxProcessPU] = constants.LocalServer
 		t.puTypeToEnforcerType[constants.UIDLoginPU] = constants.LocalServer
 		t.puTypeToEnforcerType[constants.HostPU] = constants.LocalServer
@@ -100,8 +196,8 @@ func NewTrireme(
 		t.puTypeToEnforcerType[constants.ContainerPU] = constants.RemoteContainer
 		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.RemoteContainer
 	} else {
-		t.puTypeToEnforcerType[constants.ContainerPU] = constants.LocalServer
-		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.LocalServer
+		t.puTypeToEnforcerType[constants.ContainerPU] = constants.LocalContainer
+		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.LocalContainer
 	}
 	return t
 }
@@ -113,7 +209,8 @@ func (t *trireme) Start() error {
 	// Start all the supervisors
 	for _, s := range t.supervisors {
 		if err := s.Start(); err != nil {
-			zap.L().Error("Error when starting the supervisor", zap.Error(err)) // really? just a warn?
+			zap.L().Error("Error when starting the supervisor", zap.Error(err))
+			return fmt.Errorf("Error while starting supervisor %v", err)
 		}
 	}
 
