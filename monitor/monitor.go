@@ -71,6 +71,7 @@ func GetDefaultMonitors(linuxProcess, linuxHost, uid, docker, cni bool) map[Type
 	return monitorsToEnable
 }
 
+// SetupConfig provides a complete configurations on the basis of basic inputs provided.
 func SetupConfig(
 	linuxProcessEnable bool,
 	linuxProcess *linuxmonitor.Config,

@@ -7,7 +7,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-// Common configuration for all monitors
+// Config holds configuration for all monitors
 type Config struct {
 	Collector   collector.EventCollector
 	PUHandler   ProcessingUnitsHandler

@@ -250,15 +250,6 @@ func TestStartDockerContainer(t *testing.T) {
 		})
 
 		Convey("When I try to start from default docker container with invalid context ID", func() {
-			dm := New()
-			So(dm, ShouldNotBeNil)
-			mockPU := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
-			mockSH := mockprocessor.NewMockSynchronizationHandler(ctrl)
-			dm.SetupHandlers(&processor.Config{
-				Collector:   eventCollector(),
-				PUHandler:   mockPU,
-				SyncHandler: mockSH,
-			})
 			err := dm.SetupConfig(nil, &Config{
 				EventMetadataExtractor:     testDockerMetadataExtractor,
 				KillContainerOnPolicyError: true,
