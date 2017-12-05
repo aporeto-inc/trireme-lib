@@ -41,9 +41,8 @@ func DefaultHostMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, e
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
 	runtimePID, err := strconv.Atoi(event.PID)
-
 	if err != nil {
-		return nil, fmt.Errorf("invalid pid: %s", err)
+		return nil, fmt.Errorf("invalid pid: %s %s", event.PID, err)
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
@@ -87,9 +86,8 @@ func SystemdEventMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
 	runtimePID, err := strconv.Atoi(event.PID)
-
 	if err != nil {
-		return nil, fmt.Errorf("invalid pid: %s", err)
+		return nil, fmt.Errorf("invalid pid: %s %s", event.PID, err)
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, &options), nil

@@ -251,7 +251,7 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 			return err
 		}
 		t := runtimeInfo.Tags()
-		if t != nil {
+		if t != nil && storedContext.Tags != nil {
 			t.Merge(storedContext.Tags)
 			runtimeInfo.SetTags(t)
 		}

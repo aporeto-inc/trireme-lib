@@ -7,19 +7,33 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aporeto-inc/trireme-lib/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"
-	"github.com/aporeto-inc/trireme-lib/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor/mock"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func testLinuxProcessor() *LinuxProcessor {
-	return NewCustomLinuxProcessor("/tmp", &collector.DefaultCollector{}, nil, rpcmonitor.DefaultEventMetadataExtractor, "./")
-
+func testLinuxProcessor(
+	puHandler processor.ProcessingUnitsHandler,
+	syncHandler processor.SynchronizationHandler,
+) *linuxProcessor {
+	l := New()
+	l.SetupHandlers(&processor.Config{
+		Collector:   &collector.DefaultCollector{},
+		PUHandler:   puHandler,
+		SyncHandler: syncHandler,
+	})
+	l.SetupConfig(nil, &Config{
+		EventMetadataExtractor: DefaultHostMetadataExtractor,
+		StoredPath:             "/tmp",
+		ReleasePath:            "./",
+	})
+	return l.(*linuxMonitor).proc
 }
 
 func TestCreate(t *testing.T) {
@@ -27,11 +41,10 @@ func TestCreate(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("Given a valid processor", t, func() {
-		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		puHandler := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		store := mockcontextstore.NewMockContextStore(ctrl)
 
-		p := testLinuxProcessor()
-		p.puHandler = puHandler
+		p := testLinuxProcessor(puHandler, nil)
 		p.contextStore = store
 
 		Convey("When I try a create event with invalid PU ID, ", func() {
@@ -62,13 +75,12 @@ func TestStop(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("Given a valid processor", t, func() {
-		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		puHandler := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		store := mockcontextstore.NewMockContextStore(ctrl)
 
-		p := testLinuxProcessor()
-		p.puHandler = puHandler
+		p := testLinuxProcessor(puHandler, nil)
 		p.contextStore = store
-		p.netcls = mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+		p.netcls = mockcgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("When I get a stop event that is valid", func() {
 			event := &events.EventInfo{
@@ -95,13 +107,13 @@ func TestDestroy(t *testing.T) {
 
 	defer os.RemoveAll(dummyPUPath) //nolint
 	Convey("Given a valid processor", t, func() {
-		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		puHandler := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		store := mockcontextstore.NewMockContextStore(ctrl)
 
-		p := testLinuxProcessor()
-		p.puHandler = puHandler
+		p := testLinuxProcessor(puHandler, nil)
 		p.contextStore = store
-		mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+		p.contextStore = store
+		mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 		p.netcls = mockcls
 
 		Convey("When I get a destroy event that is valid", func() {
@@ -126,11 +138,10 @@ func TestPause(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("Given a valid processor", t, func() {
-		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		puHandler := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		store := mockcontextstore.NewMockContextStore(ctrl)
 
-		p := testLinuxProcessor()
-		p.puHandler = puHandler
+		p := testLinuxProcessor(puHandler, nil)
 		p.contextStore = store
 
 		Convey("When I get a pause event that is valid", func() {
@@ -152,11 +163,10 @@ func TestStart(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("Given a valid processor", t, func() {
-		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		puHandler := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		store := mockcontextstore.NewMockContextStore(ctrl)
 
-		p := testLinuxProcessor()
-		p.puHandler = puHandler
+		p := testLinuxProcessor(puHandler, nil)
 		p.contextStore = store
 
 		Convey("When I get a start event with no PUID", func() {
@@ -220,7 +230,7 @@ func TestStart(t *testing.T) {
 				PUType:    constants.LinuxProcessPU,
 			}
 
-			mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 			p.netcls = mockcls
 
 			Convey("I should get an error ", func() {
@@ -242,20 +252,21 @@ func TestStart(t *testing.T) {
 				PUType:    constants.LinuxProcessPU,
 			}
 
-			mockcls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
+			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 			p.netcls = mockcls
 
-			Convey("I should get an error ", func() {
+			Convey("I should not get an error ", func() {
 				puHandler.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Return(nil)
 				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any()).Return(nil)
 
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
-				mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
+				mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
+				mockcls.EXPECT().AddProcess(gomock.Any(), gomock.Any())
+				store.EXPECT().Store(gomock.Any(), gomock.Any())
 				err := p.Start(event)
-				So(err, ShouldNotBeNil)
+				So(err, ShouldBeNil)
 			})
 		})
-
 	})
 }
 
@@ -264,13 +275,13 @@ func TestResync(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("Given a valid processor", t, func() {
-		puHandler := mock_trireme.NewMockProcessingUnitsHandler(ctrl)
+		puHandler := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		store := mockcontextstore.NewMockContextStore(ctrl)
-		cls := mock_cgnetcls.NewMockCgroupnetcls(ctrl)
 
-		p := testLinuxProcessor()
-		p.puHandler = puHandler
+		p := testLinuxProcessor(puHandler, nil)
 		p.contextStore = store
+
+		cls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 		p.netcls = cls
 
 		Convey("When we cannot open the context store it returns an error", func() {
@@ -301,14 +312,17 @@ func TestResync(t *testing.T) {
 			contextlist <- "test1"
 			contextlist <- ""
 
-			eventInfo := events.EventInfo{
-				PUType:    constants.LinuxProcessPU,
-				EventType: events.EventStart,
-				PUID:      "/test1",
+			storedContext := StoredContext{
+				EventInfo: &events.EventInfo{
+					PID:       "1",
+					PUType:    constants.LinuxProcessPU,
+					EventType: events.EventStart,
+					PUID:      "/test1",
+				},
 			}
 
 			store.EXPECT().Walk().Return(contextlist, nil)
-			store.EXPECT().Retrieve("/test1", gomock.Any()).SetArg(1, eventInfo).Return(nil)
+			store.EXPECT().Retrieve("/test1", gomock.Any()).SetArg(1, storedContext).Return(nil)
 			store.EXPECT().Remove("/test1").Return(nil)
 
 			Convey("Start server returns no error", func() {
