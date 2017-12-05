@@ -139,7 +139,7 @@ func New(
 	// part of ipset portset.
 	puFromPort := cache.NewCache("puFromPort")
 
-	var portSetInstance portset.PortSet = nil
+	var portSetInstance portset.PortSet
 
 	if mode != constants.RemoteContainer {
 		portSetInstance = portset.New(puFromPort)
