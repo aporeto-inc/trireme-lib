@@ -197,9 +197,13 @@ func New(c *Config) (Monitor, error) {
 
 func (m *monitors) Start() (err error) {
 
-	m.userRPCListener.Start()
+	if err := m.userRPCListener.Start(); err != nil {
+		return err
+	}
 
-	m.rootRPCListener.Start()
+	if err := m.rootRPCListener.Start(); err != nil {
+		return err
+	}
 
 	for _, v := range m.monitors {
 		if err = v.Start(); err != nil {
@@ -222,9 +226,13 @@ func (m *monitors) Stop() error {
 		}
 	}
 
-	m.rootRPCListener.Stop()
+	if err := m.userRPCListener.Stop(); err != nil {
+		return err
+	}
 
-	m.userRPCListener.Stop()
+	if err := m.rootRPCListener.Stop(); err != nil {
+		return err
+	}
 
 	return nil
 }
