@@ -241,13 +241,18 @@ func TestStartDockerContainer(t *testing.T) {
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to set policy: container 74cc486f9ec3 kept alive per policy: error"))
+				So(err, ShouldResemble, errors.New("unable to set policy: container 74cc486f9ec3 kept alive per policy: Error"))
 			})
 		})
 
 		Convey("When I try to start from default docker container with invalid context ID", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
+			dm.SetupHandlers(&processor.Config{
+				Collector:   eventCollector(),
+				PUHandler:   mockPU,
+				SyncHandler: mockSH,
+			})
 			dm.(*dockerMonitor).killContainerOnPolicyError = true
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
 
@@ -307,7 +312,7 @@ func TestStartDockerContainer(t *testing.T) {
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "host", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: error"))
+				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: Error"))
 			})
 		})
 
@@ -316,7 +321,7 @@ func TestStartDockerContainer(t *testing.T) {
 			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "host", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("error"))
+				So(err, ShouldResemble, errors.New("Error"))
 			})
 		})
 	})
@@ -459,7 +464,7 @@ func TestHandleStartEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleStartEvent(initTestMessage("abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to read container information: container abcc486f9ec3 kept alive per policy: Error: No such container: abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
+				So(err, ShouldResemble, errors.New("unable to read container information: container abcc486f9ec3 kept alive per policy: error: No such container: abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 			})
 		})
 	})
