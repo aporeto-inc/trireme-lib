@@ -12,7 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpcmonitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )

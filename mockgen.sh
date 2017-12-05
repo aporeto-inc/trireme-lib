@@ -54,6 +54,10 @@ echo "Monitor/Instance Mocks"
 mockgen -source monitor/instance/interfaces.go -destination monitor/instance/mock/mockinstance.go -aux_files collector=collector/interfaces.go -package mockinstance -source_package github.com/aporeto-inc/trireme-lib/monitor/instance
 goimport_sanitize monitor/instance/mock/mockinstance.go
 
+echo "Monitor/RPC/Processor Mocks"
+mockgen -source monitor/rpc/processor/interfaces.go -destination monitor/rpc/processor/mock/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/monitor/rpc/processor
+goimport_sanitize monitor/rpc/processor/mock/mockprocessor.go
+
 echo "Trireme Mocks"
 mockgen -source interfaces.go -destination mock/mocktrireme.go -package mocktrireme  -aux_files constants=constants/constants.go events=monitor/rpc/events/interfaces.go policy=policy/interfaces.go processor=monitor/rpc/processor/interfaces.go supervisor=supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib
 goimport_sanitize mock/mocktrireme.go
