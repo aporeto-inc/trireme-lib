@@ -21,11 +21,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
@@ -116,7 +111,7 @@ func DefaultTriremeOptions() *TriremeOptions {
 		RemoteContainer: remoteContainer,
 
 		// Monitor
-		Monitor: &monitor.SetupConfig(
+		Monitor: monitor.SetupConfig(
 			// LinuxProcess
 			localProcess,
 			nil,
@@ -289,4 +284,9 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 	}
 
 	return result, nil
+}
+
+// NewSecretsFromPSK creates secrets from a pre-shared key
+func NewSecretsFromPSK(key []byte) secrets.Secrets {
+	return secrets.NewPSKSecrets(key)
 }
