@@ -97,7 +97,7 @@ func (u *uidMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 	}
 
 	if registerer != nil {
-		if err := registerer.RegisterProcessor(constants.UIDLoginPU, u.proc); err !=nil {
+		if err := registerer.RegisterProcessor(constants.UIDLoginPU, u.proc); err != nil {
 			return err
 		}
 	}
