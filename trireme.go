@@ -20,8 +20,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/allocator"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/portmap"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
@@ -35,7 +35,7 @@ type trireme struct {
 	puTypeToEnforcerType         map[constants.PUType]constants.ModeType
 	resolver                     PolicyResolver
 	collector                    collector.EventCollector
-	port                         *portmap.ProxyPortMap
+	port                         allocator.Allocator
 	service                      packetprocessor.PacketProcessor
 	secrets                      secrets.Secrets
 	fqConfig                     *fqconfig.FilterQueue
@@ -47,6 +47,7 @@ type trireme struct {
 	isLinuxProcessSupportEnabled bool
 	triremeMode                  constants.ModeType
 	rpchdl                       rpcwrapper.RPCClient
+	mergeTags                    []string
 }
 
 func (t *trireme) newEnforcers() error {
@@ -155,6 +156,7 @@ func NewTrireme(
 	procMountPoint string,
 	networks []string,
 	externalIPcacheTimeout time.Duration,
+	mergeTags []string,
 
 ) Trireme {
 
@@ -167,7 +169,7 @@ func NewTrireme(
 		cache:                        cache.NewCache("TriremeCache"),
 		resolver:                     resolver,
 		collector:                    eventCollector,
-		port:                         portmap.New(5000, 100),
+		port:                         allocator.New(5000, 100),
 		service:                      service,
 		mutualAuthorization:          mutualAuthorization,
 		secrets:                      secrets,
@@ -178,6 +180,7 @@ func NewTrireme(
 		isLinuxProcessSupportEnabled: isLinuxProcessSupportEnabled,
 		triremeMode:                  triremeMode,
 		rpchdl:                       rpcwrapper.NewRPCWrapper(),
+		mergeTags:                    mergeTags,
 	}
 	if err := t.newEnforcers(); err != nil {
 		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
@@ -217,7 +220,7 @@ func (t *trireme) Start() error {
 	// Start all the enforcers
 	for _, e := range t.enforcers {
 		if err := e.Start(); err != nil {
-			return fmt.Errorf("Error while starting the enforcer: %s", err)
+			return fmt.Errorf("unable to start the enforcer: %s", err)
 		}
 	}
 
@@ -282,7 +285,7 @@ func (t *trireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 func (t *trireme) SetPURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 
 	if _, err := t.cache.Get(contextID); err == nil {
-		return fmt.Errorf("PU Exists Already")
+		return fmt.Errorf("pu %s already exists", contextID)
 	}
 
 	t.cache.AddOrUpdate(contextID, runtimeInfo)
@@ -318,6 +321,29 @@ func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 	return true
 }
 
+func (t *trireme) mergeRuntimeAndPolicy(r *policy.PURuntime, p *policy.PUPolicy) {
+
+	if len(t.mergeTags) == 0 {
+		return
+	}
+
+	tags := r.Tags()
+	anno := p.Annotations()
+	if tags == nil || anno == nil {
+		return
+	}
+
+	for _, mt := range t.mergeTags {
+		if _, ok := tags.Get(mt); !ok {
+			if val, ok := anno.Get(mt); ok {
+				tags.AppendKeyValue(mt, val)
+			}
+		}
+	}
+
+	r.SetTags(tags)
+}
+
 func (t *trireme) doHandleCreate(contextID string) error {
 
 	// Retrieve the container runtime information from the cache
@@ -330,7 +356,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			Event:     collector.ContainerFailed,
 		})
 
-		return fmt.Errorf("Couldn't get the runtimeInfo from the cache %s", err)
+		return fmt.Errorf("unable get the runtime info from the cache: %s", err)
 	}
 
 	runtimeInfo := cachedElement.(*policy.PURuntime)
@@ -338,7 +364,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	defer runtimeInfo.GlobalLock.Unlock()
 
 	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
-
 	if err != nil || policyInfo == nil {
 		t.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
@@ -347,14 +372,16 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			Event:     collector.ContainerFailed,
 		})
 
-		return fmt.Errorf("Policy Error for this context: %s. Container killed. %s", contextID, err)
+		return fmt.Errorf("policy error for %s. container killed: %s", contextID, err)
 	}
+
+	t.mergeRuntimeAndPolicy(runtimeInfo, policyInfo)
 
 	ip, _ := policyInfo.DefaultIPAddress()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 	newOptions := containerInfo.Runtime.Options()
-	newOptions.ProxyPort = t.port.GetPort()
+	newOptions.ProxyPort = t.port.Allocate()
 	containerInfo.Runtime.SetOptions(newOptions)
 
 	addTransmitterLabel(contextID, containerInfo)
@@ -376,7 +403,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			Tags:      policyInfo.Annotations(),
 			Event:     collector.ContainerFailed,
 		})
-		return fmt.Errorf("Not able to setup enforcer: %s", err)
+		return fmt.Errorf("unable to setup enforcer: %s", err)
 	}
 
 	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
@@ -394,7 +421,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			Event:     collector.ContainerFailed,
 		})
 
-		return fmt.Errorf("Not able to setup supervisor: %s", err)
+		return fmt.Errorf("unable to setup supervisor: %s", err)
 	}
 
 	t.collector.CollectContainerEvent(&collector.ContainerRecord{
@@ -417,7 +444,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			Tags:      nil,
 			Event:     collector.UnknownContainerDelete,
 		})
-		return fmt.Errorf("Error getting Runtime out of cache for ContextID %s: %s", contextID, err)
+		return fmt.Errorf("unable to get runtime out of cache for context id %s: %s", contextID, err)
 	}
 
 	runtime := runtimeReader.(*policy.PURuntime)
@@ -431,8 +458,8 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
 	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
 	port := runtime.Options().ProxyPort
-	zap.L().Info("Releasing Port", zap.String("Port", port))
-	t.port.ReleasePort(port)
+	zap.L().Debug("Releasing Port", zap.String("Port", port))
+	t.port.Release(port)
 	if err := t.cache.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to remove context from cache during cleanup. Entry doesn't exist",
 			zap.String("contextID", contextID),
@@ -448,7 +475,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 			Event:     collector.ContainerDelete,
 		})
 
-		return fmt.Errorf("Delete Error for contextID %s. supervisor %s, enforcer %s", contextID, errS, errE)
+		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
 	}
 
 	t.collector.CollectContainerEvent(&collector.ContainerRecord{
@@ -465,7 +492,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 
 	runtimeReader, err := t.PURuntime(contextID)
 	if err != nil {
-		return fmt.Errorf("Policy Update failed because couldn't find runtime for contextID %s", contextID)
+		return fmt.Errorf("policy update failed: runtime for context id %s not found", contextID)
 	}
 
 	runtime := runtimeReader.(*policy.PURuntime)
@@ -510,7 +537,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 			return nil
 		}
 
-		return fmt.Errorf("Enforcer failed to update PU policy: context=%s error=%s", contextID, err)
+		return fmt.Errorf("enforcer failed to update policy for pu %s: %s", contextID, err)
 	}
 
 	if err = t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
@@ -520,7 +547,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 				zap.Error(werr),
 			)
 		}
-		return fmt.Errorf("Supervisor failed to update PU policy: context=%s error=%s", contextID, err)
+		return fmt.Errorf("supervisor failed to update policy for pu %s: %s", contextID, err)
 	}
 
 	ip, _ := newPolicy.DefaultIPAddress()
@@ -546,7 +573,7 @@ func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 	for _, enforcer := range t.enforcers {
 		if err := enforcer.UpdateSecrets(secrets); err != nil {
-			zap.L().Error("Unable to update secrets")
+			zap.L().Error("unable to update secrets", zap.Error(err))
 		}
 	}
 	return nil

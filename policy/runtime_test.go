@@ -115,5 +115,16 @@ func TestBasicFunctions(t *testing.T) {
 			So(ok, ShouldBeTrue)
 			So(value, ShouldEqual, "nginx")
 		})
+
+		Convey("I should be able to set the tags", func() {
+			modify := &TagStore{Tags: []string{"$set=new"}}
+			runtime.SetTags(modify)
+			So(runtime.Tags(), ShouldResemble, modify)
+			value, ok := runtime.Tag("$set")
+			So(ok, ShouldBeTrue)
+			So(value, ShouldEqual, "new")
+			_, ok = runtime.Tag("image")
+			So(ok, ShouldBeFalse)
+		})
 	})
 }

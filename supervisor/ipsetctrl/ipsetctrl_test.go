@@ -1,7 +1,7 @@
 package ipsetctrl
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
@@ -133,7 +133,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{},
 				[]string{},
-				[][]string{})
+				&policy.ProxiedServicesInfo{})
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
@@ -157,7 +157,7 @@ func TestConfigureRules(t *testing.T) {
 			ipl,
 			[]string{},
 			[]string{},
-			[][]string{},
+			&policy.ProxiedServicesInfo{},
 		)
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
@@ -201,7 +201,7 @@ func TestConfigureRules(t *testing.T) {
 
 		Convey("When I try to configure rules and iptables fails", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get an error", func() {
@@ -279,14 +279,14 @@ func TestUpdateRules(t *testing.T) {
 			if chain == "context-R-0" || chain == "context-A-0" {
 				return nil
 			}
-			return fmt.Errorf("Error")
+			return errors.New("error")
 		})
 
 		iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 			if chain == "context-R-1" || chain == "context-A-1" {
 				return nil
 			}
-			return fmt.Errorf("Error")
+			return errors.New("error")
 		})
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 
@@ -314,7 +314,7 @@ func TestUpdateRules(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			nil, ipl, []string{"172.17.0.0/24"}, []string{}, [][]string{})
+			nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 		containerinfo.Policy = policyrules

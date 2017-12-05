@@ -2,7 +2,7 @@ package tokenaccessor
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"sync"
 	"time"
 
@@ -90,13 +90,15 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		// Randomize the nonce and send it
 		auth.LocalContext, err = t.getToken().Randomize(context.SynToken)
 		if err == nil {
+			auth.LocalServiceContext = context.SynServiceContext
 			return context.SynToken, nil
 		}
 		// If there is an error, let's try to create a new one
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T: context.Identity,
+		T:  context.Identity,
+		EK: auth.LocalServiceContext,
 	}
 
 	if context.SynToken, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
@@ -104,6 +106,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	}
 
 	context.SynExpiration = time.Now().Add(time.Millisecond * 500)
+	context.SynServiceContext = auth.LocalServiceContext
 
 	return context.SynToken, nil
 }
@@ -115,13 +118,14 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 	claims := &tokens.ConnectionClaims{
 		T:   context.Identity,
 		RMT: auth.RemoteContext,
+		EK:  auth.LocalServiceContext,
 	}
 
-	if context.SynToken, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
+	if token, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
 		return []byte{}, nil
 	}
 
-	return context.SynToken, nil
+	return token, nil
 }
 
 // parsePacketToken parses the packet token and populates the right state.
@@ -137,12 +141,13 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	// We always a need a valid remote context ID
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
-		return nil, fmt.Errorf("No Transmitter Label ")
+		return nil, errors.New("no transmitter label")
 	}
 
 	auth.RemotePublicKey = cert
 	auth.RemoteContext = nonce
 	auth.RemoteContextID = remoteContextID
+	auth.RemoteServiceContext = claims.EK
 
 	return claims, nil
 }
@@ -161,7 +166,7 @@ func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*
 	matchLocal := bytes.Compare(claims.RMT, auth.LocalContext)
 	matchRemote := bytes.Compare(claims.LCL, auth.RemoteContext)
 	if matchLocal != 0 || matchRemote != 0 {
-		return nil, fmt.Errorf("Failed to match context in ACK packet")
+		return nil, errors.New("failed to match context in ack packet")
 	}
 
 	return claims, nil

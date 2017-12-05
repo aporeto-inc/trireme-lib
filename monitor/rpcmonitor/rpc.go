@@ -1,6 +1,7 @@
 package rpcmonitor
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/rpc"
@@ -43,12 +44,12 @@ const (
 func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root bool) (*RPCMonitor, error) {
 
 	if rpcAddress == "" {
-		return nil, fmt.Errorf("RPC endpoint address invalid")
+		return nil, errors.New("empty rpc endpoint address")
 	}
 
 	if _, err := os.Stat(rpcAddress); err == nil {
 		if err := os.Remove(rpcAddress); err != nil {
-			return nil, fmt.Errorf("Failed to clean up rpc socket")
+			return nil, fmt.Errorf("unable to clean up rpc socket: %s", err)
 		}
 	}
 
@@ -78,7 +79,7 @@ func NewRPCMonitor(rpcAddress string, collector collector.EventCollector, root b
 // processor is allowed for a given PU Type.
 func (r *RPCMonitor) RegisterProcessor(puType constants.PUType, processor MonitorProcessor) error {
 	if _, ok := r.monitorServer.handlers[puType]; ok {
-		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
+		return fmt.Errorf("processor already registered for this pu of type %d", puType)
 	}
 
 	r.monitorServer.handlers[puType] = map[monitor.Event]RPCEventHandler{}
@@ -122,7 +123,7 @@ func (r *RPCMonitor) Start() error {
 	}
 
 	if r.listensock, err = net.Listen("unix", r.rpcAddress); err != nil {
-		return fmt.Errorf("Failed to start RPC monitor: couldn't create binding: %s", err.Error())
+		return fmt.Errorf("failed to start rpc monitor: couldn't create binding: %s", err)
 	}
 
 	if r.root {
@@ -132,7 +133,7 @@ func (r *RPCMonitor) Start() error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("Failed to start RPC monitor: cannot adjust permissions %s", err.Error())
+		return fmt.Errorf("failed to start rpc monitor: cannot adjust permissions: %s", err)
 	}
 
 	//Launch a go func to accept connections
@@ -163,17 +164,20 @@ type Server struct {
 
 // HandleEvent Gets called when clients generate events.
 func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
+
 	if err := validateEvent(eventInfo); err != nil {
 		return err
 	}
+
 	if eventInfo.HostService && !s.root {
-		return fmt.Errorf("Operation Requires Root Access")
+		return errors.New("operation requires root access")
 	}
 
 	strtokens := eventInfo.PUID[strings.LastIndex(eventInfo.PUID, "/")+1:]
 	if _, ferr := os.Stat("/var/run/trireme/linux/" + strtokens); os.IsNotExist(ferr) && eventInfo.EventType != monitor.EventCreate && eventInfo.EventType != monitor.EventStart {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
+
 	if _, ok := s.handlers[eventInfo.PUType]; ok {
 		f, present := s.handlers[eventInfo.PUType][eventInfo.EventType]
 		if present {
@@ -185,7 +189,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 		}
 	}
 
-	err := fmt.Errorf("No handler found for the event")
+	err := errors.New("no handler found for the event")
 	result.Error = err.Error()
 	return err
 
@@ -193,6 +197,7 @@ func (s *Server) HandleEvent(eventInfo *EventInfo, result *RPCResponse) error {
 
 // addHandler adds a hadler for a given PU and monitor event
 func (s *Server) addHandler(puType constants.PUType, event monitor.Event, handler RPCEventHandler) {
+
 	s.handlers[puType][event] = handler
 }
 
@@ -217,7 +222,7 @@ func DefaultRPCMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 	runtimeIps := event.IPs
 	runtimePID, err := strconv.Atoi(event.PID)
 	if err != nil {
-		return nil, fmt.Errorf("PID is invalid: %s", err)
+		return nil, fmt.Errorf("invalid pid: %s", err)
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
@@ -227,22 +232,25 @@ func validateEvent(event *EventInfo) error {
 
 	if event.EventType == monitor.EventCreate || event.EventType == monitor.EventStart {
 		if len(event.Name) > maxEventNameLength {
-			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 64 characters")
+			return errors.New("invalid event name: must not be nil or greater than 64 characters")
 		}
 
 		if event.PID == "" {
-			return fmt.Errorf("PID cannot be empty")
+			return errors.New("invalid pid: empty")
 		}
 
 		pid, err := strconv.Atoi(event.PID)
-		if err != nil || pid < 0 {
-			return fmt.Errorf("Invalid PID - Must be a positive number")
+		if err != nil {
+			return fmt.Errorf("invalid pid: %s", err)
+		}
+		if pid < 0 {
+			return errors.New("invalid pid: must be a positive number")
 		}
 
 		if event.HostService {
 			if event.NetworkOnlyTraffic {
 				if event.Name == "" || event.Name == "default" {
-					return fmt.Errorf("Service name must be provided and must be not be default")
+					return errors.New("service name must be provided and must be not be default")
 				}
 				event.PUID = event.Name
 			} else {
@@ -264,7 +272,7 @@ func validateEvent(event *EventInfo) error {
 	if event.EventType == monitor.EventStop || event.EventType == monitor.EventDestroy {
 		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
 		if event.Cgroup != "" && !regStop.Match([]byte(event.Cgroup)) {
-			return fmt.Errorf("Cgroup is not of the right format")
+			return errors.New("cgroup is not of the right format")
 		}
 	}
 

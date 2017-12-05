@@ -75,18 +75,18 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 
 	// Some sanity checking...
 	if p.IPTotalLength < minIPPacketLen {
-		return nil, fmt.Errorf("IP Packet too small (hdrlen=%d)", p.ipHeaderLen)
+		return nil, fmt.Errorf("ip packet too small: hdrlen=%d", p.ipHeaderLen)
 	}
 
 	if p.ipHeaderLen != minIPHdrWords {
-		return nil, fmt.Errorf("Packets with IP options not supported (hdrlen=%d)", p.ipHeaderLen)
+		return nil, fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHeaderLen)
 	}
 
 	if p.IPTotalLength != uint16(len(p.Buffer)) {
 		if p.IPTotalLength < uint16(len(p.Buffer)) {
 			p.Buffer = p.Buffer[:p.IPTotalLength]
 		} else {
-			return nil, fmt.Errorf("Stated IP packet length (%d) differs from bytes available (%d)", p.IPTotalLength, len(p.Buffer))
+			return nil, fmt.Errorf("stated ip packet length %d differs from bytes available %d", p.IPTotalLength, len(p.Buffer))
 		}
 	}
 
@@ -246,7 +246,7 @@ func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 	// Our option was not found in the right place. We don't do anything
 	// for this packet.
 	if p.Buffer[p.TCPDataStartBytes()-optionLength] != TCPAuthenticationOption {
-		err = fmt.Errorf("TCP option not found when Checking TCPAuthenticationOption: optionLength=%d", optionLength)
+		err = fmt.Errorf("tcp authentication option not found: optionlength=%d", optionLength)
 		// TODO: what about the error here ?
 		return
 	}
@@ -311,7 +311,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		if uint16(len(p.Buffer)) >= p.IPTotalLength {
 			p.tcpData = p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
 		} else if (p.IPTotalLength - p.TCPDataStartBytes()) != uint16(len(p.tcpData)) {
-			return fmt.Errorf("Not handling concat of data buffers: optionLength=%d optionLength=%d error=%s", optionLength, dataLength, err.Error())
+			return fmt.Errorf("not handling concat of data buffers: %s: optionlength=%d optionlength=%d", err, optionLength, dataLength)
 		}
 	}
 
@@ -319,7 +319,7 @@ func (p *Packet) tcpDataDetach(optionLength uint16, dataLength uint16) (err erro
 		if uint16(len(p.Buffer)) >= p.TCPDataStartBytes() {
 			p.tcpOptions = p.Buffer[p.TCPDataStartBytes()-optionLength : p.TCPDataStartBytes()]
 		} else if optionLength != uint16(len(p.tcpOptions)) {
-			return fmt.Errorf("Not handling concat of options buffers: optionLength=%d optionLength=%d error=%s", optionLength, dataLength, err.Error())
+			return fmt.Errorf("not handling concat of options buffers: %s: optionlength=%d optionlength=%d", err, optionLength, dataLength)
 		}
 	}
 
@@ -342,7 +342,7 @@ func (p *Packet) TCPDataDetach(optionLength uint16) (err error) {
 
 	// detach TCP data
 	if err = p.tcpDataDetach(optionLength, dataLength); err != nil {
-		return fmt.Errorf("TCP Data Detach failed: optionLength=%d optionLength=%d error=%s", optionLength, dataLength, err.Error())
+		return fmt.Errorf("tcp data detach failed: %s: optionlength=%d optionlength=%d", err, optionLength, dataLength)
 	}
 
 	// Process TCP Header fields and metadata
@@ -368,7 +368,7 @@ func (p *Packet) FixupTCPHdrOnTCPDataAttach(tcpOptions []byte, tcpData []byte) {
 func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 
 	if p.TCPDataStartBytes() != p.IPTotalLength && len(options) != 0 {
-		return fmt.Errorf("Cannot insert options with existing data: optionLength=%d, IPTotalLength=%d", len(options), p.IPTotalLength)
+		return fmt.Errorf("cannot insert options with existing data: optionlength=%d, iptotallength=%d", len(options), p.IPTotalLength)
 	}
 
 	p.tcpOptions = append(p.tcpOptions, options...)
@@ -381,7 +381,7 @@ func (p *Packet) tcpDataAttach(options []byte, data []byte) (err error) {
 func (p *Packet) TCPDataAttach(tcpOptions []byte, tcpData []byte) (err error) {
 
 	if err = p.tcpDataAttach(tcpOptions, tcpData); err != nil {
-		return fmt.Errorf("TCP Data Attach failed: %s", err.Error())
+		return fmt.Errorf("tcp data attachment failed: %s", err)
 	}
 
 	// We are increasing tcpOptions by 1 32-bit word. We are always adding

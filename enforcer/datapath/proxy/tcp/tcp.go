@@ -2,6 +2,7 @@ package tcp
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -330,7 +331,7 @@ func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
 
 	var ip net.IP
 	if addr.family != syscall.AF_INET {
-		return []byte{}, 0, fmt.Errorf("Invalid address family")
+		return []byte{}, 0, errors.New("invalid address family")
 
 	}
 
@@ -483,16 +484,16 @@ L:
 				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidToken, nil)
-					return fmt.Errorf("Peer token reject because of bad claims %v", claims)
+					return fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v", err, claims)
 				}
 
 				if index, _ := puContext.(*pucontext.PUContext).RejectTxtRules.Search(claims.T); p.mutualAuthorization && index >= 0 {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
-					return fmt.Errorf("Dropping because of reject rule on transmitter")
+					return errors.New("dropping because of reject rule on transmitter")
 				}
 				if index, _ := puContext.(*pucontext.PUContext).AcceptTxtRules.Search(claims.T); !p.mutualAuthorization || index < 0 {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
-					return fmt.Errorf("Dropping because of reject rule on receiver")
+					return errors.New("dropping because of reject rule on receiver")
 				}
 				conn.SetState(connection.ClientSendSignedPair)
 
@@ -561,14 +562,13 @@ E:
 				if index, plc := puContext.(*pucontext.PUContext).RejectRcvRules.Search(claims.T); index >= 0 {
 					zap.L().Error("Connection Dropped", zap.String("Policy ID", plc.(*policy.FlowPolicy).PolicyID))
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, plc.(*policy.FlowPolicy))
-					return fmt.Errorf("Connection dropped because of Policy %v", err)
+					return fmt.Errorf("connection dropped by policy: %s", err)
 				}
 				var action interface{}
 				var index int
 				if index, action = puContext.(*pucontext.PUContext).AcceptRcvRules.Search(claims.T); index < 0 {
-
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
-					return fmt.Errorf("Connection dropped because No Accept Policy")
+					return errors.New("connection dropped by no accept policy")
 				}
 				conn.FlowPolicy = action.(*policy.FlowPolicy)
 				conn.SetState(connection.ServerSendToken)
@@ -576,7 +576,7 @@ E:
 			case connection.ServerSendToken:
 				claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext.(*pucontext.PUContext), &conn.Auth)
 				if err != nil {
-					return fmt.Errorf("Unable to create synack token")
+					return fmt.Errorf("unable to create synack token: %s", err)
 				}
 				synackn, err := upConn.Write(claims)
 				if err == nil {
@@ -600,7 +600,7 @@ E:
 				}
 				if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.InvalidFormat, nil)
-					return fmt.Errorf("Ack packet dropped because signature validation failed %v", err)
+					return fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 				}
 
 				break E
