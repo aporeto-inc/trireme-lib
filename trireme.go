@@ -28,6 +28,7 @@ import (
 
 // trireme contains references to all the different components involved.
 type trireme struct {
+	triremeMode                  constants.ModeType
 	serverID                     string
 	cache                        cache.DataStore
 	supervisors                  map[constants.ModeType]supervisor.Supervisor
@@ -40,14 +41,13 @@ type trireme struct {
 	secrets                      secrets.Secrets
 	fqConfig                     *fqconfig.FilterQueue
 	procMountPoint               string
-	mutualAuthorization          bool
 	validity                     time.Duration
 	externalIPcacheTimeout       time.Duration
 	networks                     []string
-	isLinuxProcessSupportEnabled bool
-	triremeMode                  constants.ModeType
 	rpchdl                       rpcwrapper.RPCClient
 	mergeTags                    []string
+	isLinuxProcessSupportEnabled bool
+	mutualAuthorization          bool
 }
 
 func (t *trireme) newEnforcers() error {
@@ -105,7 +105,6 @@ func (t *trireme) newSupervisors() error {
 		constants.IPTables,
 		t.networks,
 	)
-	zap.L().Debug("Supervisor", zap.Error(err))
 	if err != nil {
 		return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
 	}
@@ -127,7 +126,7 @@ func (t *trireme) newSupervisors() error {
 	} else {
 		t.supervisors[constants.LocalContainer] = sup
 	}
-	zap.L().Debug("Reurned sucessfully")
+
 	return nil
 }
 
@@ -576,6 +575,7 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
+//Supervisors returns a slice of all supervisor initialized.
 func Supervisors(t Trireme) []supervisor.Supervisor {
 	supervisors := []supervisor.Supervisor{}
 	//LinuxProcessPU, UIDLoginPU and HOstPU share the same supervisor so only one lookup suffices
