@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
