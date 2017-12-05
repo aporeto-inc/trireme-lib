@@ -246,7 +246,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		rules = append(rules, []string{
 			i.appAckPacketIPTableContext, appChain,
 			"-m", "set", "--match-set", targetNetworkSet, "dst",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN, ACK",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 			"-m", "connbytes", "--connbytes", ":3", "--connbytes-dir", "original", "--connbytes-mode", "packets",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 		})
@@ -345,7 +345,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 			}
 		case "Delete":
 			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
-				zap.L().Warn("Unabble to delete rule from chain", zap.Error(err))
+				zap.L().Warn("Unable to delete rule from chain", zap.Error(err))
 			}
 		default:
 			return errors.New("invalid method type")
