@@ -89,9 +89,10 @@ func initTestMessage(id string) *events.Message {
 func TestNewDockerMonitor(t *testing.T) {
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -192,6 +193,7 @@ func TestStartDockerContainer(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
+
 		dm := New()
 		mockPU := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		mockSH := mockprocessor.NewMockSynchronizationHandler(ctrl)
@@ -200,9 +202,11 @@ func TestStartDockerContainer(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
+
 		mockCG := mockcgnetcls.NewMockCgroupnetcls(ctrl)
 
 		Convey("Then docker monitor should not be nil", func() {
@@ -246,18 +250,28 @@ func TestStartDockerContainer(t *testing.T) {
 		})
 
 		Convey("When I try to start from default docker container with invalid context ID", func() {
-			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
+			dm := New()
+			So(dm, ShouldNotBeNil)
+			mockPU := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
+			mockSH := mockprocessor.NewMockSynchronizationHandler(ctrl)
 			dm.SetupHandlers(&processor.Config{
 				Collector:   eventCollector(),
 				PUHandler:   mockPU,
 				SyncHandler: mockSH,
 			})
-			dm.(*dockerMonitor).killContainerOnPolicyError = true
-			err := dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
+			err := dm.SetupConfig(nil, &Config{
+				EventMetadataExtractor:     testDockerMetadataExtractor,
+				KillContainerOnPolicyError: true,
+			})
+			So(err, ShouldBeNil)
+
+			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
+
+			err = dm.(*dockerMonitor).startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to set policy: killed container 74cc486f9ec3: error"))
+				So(err, ShouldResemble, errors.New("unable to set policy: killed container 74cc486f9ec3: Error"))
 			})
 		})
 
@@ -421,9 +435,14 @@ func TestHandleStartEvent(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		dm.SetupConfig(nil, Config{
+		So(dm, ShouldNotBeNil)
+		dm.SetupHandlers(&processor.Config{
+			Collector: eventCollector(),
+		})
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -438,7 +457,7 @@ func TestHandleStartEvent(t *testing.T) {
 				err = dm.(*dockerMonitor).handleStartEvent(initTestMessage(ID))
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, errors.New("cannot read container information. container still alive per policy"))
+					So(err, ShouldResemble, errors.New("unable to read container information: container 74cc486f9ec3 kept alive per policy: Error: No such container: 74cc486f9ec3256d7bee789853ce05510167c7daf893f90a7577cdcba259d063"))
 				})
 			}
 		})
@@ -464,7 +483,7 @@ func TestHandleStartEvent(t *testing.T) {
 			err := dm.(*dockerMonitor).handleStartEvent(initTestMessage("abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to read container information: container abcc486f9ec3 kept alive per policy: error: No such container: abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
+				So(err, ShouldResemble, errors.New("unable to read container information: container abcc486f9ec3 kept alive per policy: Error: No such container: abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
 			})
 		})
 	})
@@ -684,6 +703,7 @@ func TestSyncContainers(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
+		So(dm, ShouldNotBeNil)
 		mockPU := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		mockSH := mockprocessor.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(&processor.Config{
@@ -691,9 +711,10 @@ func TestSyncContainers(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -730,9 +751,10 @@ func TestSyncContainers(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -774,9 +796,10 @@ func TestStart(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
@@ -811,9 +834,10 @@ func TestStart(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
+		So(err, ShouldBeNil)
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
