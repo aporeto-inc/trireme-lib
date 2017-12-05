@@ -88,7 +88,9 @@ func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{
 	}
 
 	if registerer != nil {
-		registerer.RegisterProcessor(constants.KubernetesPU, c.proc)
+		if err := registerer.RegisterProcessor(constants.KubernetesPU, c.proc); err != nil {
+			return err
+		}
 	}
 
 	// Setup defaults

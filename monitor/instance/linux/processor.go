@@ -36,13 +36,13 @@ type linuxProcessor struct {
 	storePath         string
 }
 
-func baseName(name, seperator string) string {
+func baseName(name, separator string) string {
 
-	lastSeperator := strings.LastIndex(name, seperator)
-	if len(name) <= lastSeperator {
+	lastseparator := strings.LastIndex(name, separator)
+	if len(name) <= lastseparator {
 		return ""
 	}
-	return name[lastSeperator+1:]
+	return name[lastseparator+1:]
 }
 
 // Create handles create events

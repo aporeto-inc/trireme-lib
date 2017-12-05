@@ -46,11 +46,7 @@ func (l *listener) Start() (err error) {
 
 	zap.L().Debug("Starting RPC monitor")
 
-	if err = l.rpcServer.Start(); err != nil {
-		return err
-	}
-
-	return nil
+	return l.rpcServer.Start()
 }
 
 // Stop monitoring RPC events.

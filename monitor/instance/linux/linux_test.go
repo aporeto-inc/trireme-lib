@@ -13,7 +13,7 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
-func TestcomputeFileMd5(t *testing.T) {
+func TestComputeFileMd5(t *testing.T) {
 
 	Convey("When I calculate the MD5 of a bad file", t, func() {
 		_, err := computeFileMd5("testdata/nofile")
