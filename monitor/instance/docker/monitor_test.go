@@ -193,8 +193,8 @@ func TestStartDockerContainer(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -332,8 +332,8 @@ func TestStopDockerContainer(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -369,8 +369,8 @@ func TestHandleCreateEvent(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -459,8 +459,8 @@ func TestHandleDieEvent(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -488,8 +488,8 @@ func TestHandleDestroyEvent(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -528,8 +528,8 @@ func TestHandlePauseEvent(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -566,8 +566,8 @@ func TestHandleUnpauseEvent(t *testing.T) {
 	Convey("When I try to initialize a new docker monitor", t, func() {
 
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -604,8 +604,8 @@ func TestExtractMetadata(t *testing.T) {
 	Convey("When I try to initialize a new docker monitor", t, func() {
 
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -631,8 +631,8 @@ func TestSyncContainers(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -662,8 +662,8 @@ func TestSyncContainers(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor with synchandler", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -698,8 +698,8 @@ func TestStart(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor with syncatstart set to false", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
@@ -731,8 +731,8 @@ func TestStart(t *testing.T) {
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
 		dm := New()
-		mockPU := mockimpl.NewMockProcessingUnitsHandler(ctrl)
-		mockSH := mockimpl.NewMockSynchronizationHandler(ctrl)
+		mockPU := mockinstance.NewMockProcessingUnitsHandler(ctrl)
+		mockSH := mockinstance.NewMockSynchronizationHandler(ctrl)
 		dm.SetupHandlers(eventCollector(), mockPU, mockSH)
 		dm.SetupConfig(nil, Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
