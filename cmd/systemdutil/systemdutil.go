@@ -155,35 +155,35 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 
 	c := &CLIRequest{}
 
-	processedArgs := make(map[string]interface{})
+	processed := make(map[string]interface{})
 
 	// First parse a command that only provides the cgroup
 	// The kernel will only send us a command with one argument
 	if value, ok := arguments["<cgroup>"]; ok && value != nil {
-		processedArgs["<cgroup>"] = nil
+		processed["<cgroup>"] = nil
 		c.Cgroup = value.(string)
 		c.Request = DeleteCgroupRequest
-		if err := r.checkUnhandledArgs(arguments, processedArgs); err != nil {
+		if err := r.checkUnhandledArgs(arguments, processed); err != nil {
 			return nil, err
 		}
 		return c, nil
 	}
 
 	if value, ok := arguments["--service-id"]; ok && value != nil {
-		processedArgs["--service-id"] = nil
+		processed["--service-id"] = nil
 		c.ServiceID = value.(string)
 	}
 
 	if value, ok := arguments["--service-name"]; ok && value != nil {
-		processedArgs["--service-name"] = nil
+		processed["--service-name"] = nil
 		c.ServiceName = value.(string)
 	}
 
 	// If the command is remove use hostpolicy and service-id
 	if arguments["rm"].(bool) {
-		processedArgs["rm"] = nil
+		processed["rm"] = nil
 		c.Request = DeleteServiceRequest
-		if err := r.checkUnhandledArgs(arguments, processedArgs); err != nil {
+		if err := r.checkUnhandledArgs(arguments, processed); err != nil {
 			return nil, err
 		}
 		return c, nil
@@ -191,7 +191,7 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 
 	// Process the rest of the arguments of the create command
 	if value, ok := arguments["run"]; !ok || value == nil {
-		processedArgs["run"] = nil
+		processed["run"] = nil
 		return nil, errors.New("invalid command")
 	}
 
@@ -199,22 +199,22 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 	c.Request = CreateRequest
 
 	if value, ok := arguments["<command>"]; ok && value != nil {
-		processedArgs["<command>"] = nil
+		processed["<command>"] = nil
 		c.Executable = value.(string)
 	}
 
 	if value, ok := arguments["--label"]; ok && value != nil {
-		processedArgs["--label"] = nil
+		processed["--label"] = nil
 		c.Labels = value.([]string)
 	}
 
 	if value, ok := arguments["<params>"]; ok && value != nil {
-		processedArgs["<params>"] = nil
+		processed["<params>"] = nil
 		c.Parameters = value.([]string)
 	}
 
 	if value, ok := arguments["--ports"]; ok && value != nil {
-		processedArgs["--ports"] = nil
+		processed["--ports"] = nil
 		services, err := ParseServices(value.([]string))
 		if err != nil {
 			return nil, err
@@ -223,16 +223,16 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 	}
 
 	if value, ok := arguments["--networkonly"]; ok && value != nil {
-		processedArgs["--networkonly"] = nil
+		processed["--networkonly"] = nil
 		c.NetworkOnly = value.(bool)
 	}
 
 	if value, ok := arguments["--hostpolicy"]; ok && value != nil {
-		processedArgs["--hostpolicy"] = nil
+		processed["--hostpolicy"] = nil
 		c.HostPolicy = value.(bool)
 	}
 
-	if err := r.checkUnhandledArgs(arguments, processedArgs); err != nil {
+	if err := r.checkUnhandledArgs(arguments, processed); err != nil {
 		return nil, err
 	}
 	return c, nil
