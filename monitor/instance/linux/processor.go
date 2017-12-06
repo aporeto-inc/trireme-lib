@@ -302,7 +302,7 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 				runtimeInfo,
 				processor.SynchronizationTypeInitial,
 			); err != nil {
-				zap.L().Error("Sync Failed", zap.Error(err))
+				zap.L().Debug("Failed to sync", zap.Error(err))
 				syncFailed++
 				continue
 			}

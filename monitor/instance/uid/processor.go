@@ -276,6 +276,7 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 	cgroups := cgnetcls.GetCgroupList()
 
 	for _, cgroup := range cgroups {
+
 		pidlist, _ := cgnetcls.ListCgroupProcesses(cgroup)
 		if len(pidlist) == 0 {
 			if err := u.netcls.DeleteCgroup(cgroup); err != nil {
@@ -317,7 +318,7 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 		runtimeInfo, err := u.metadataExtractor(eventInfo)
 		if err != nil {
 			metadataExtractionFailed++
-			return err
+			continue
 		}
 		t := runtimeInfo.Tags()
 		if t != nil {
@@ -341,7 +342,7 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 					runtimeInfo,
 					processor.SynchronizationTypeInitial,
 				); err != nil {
-					zap.L().Error("Sync Failed", zap.Error(err))
+					zap.L().Debug("Failed to sync", zap.Error(err))
 					syncFailed++
 					continue
 				}
@@ -350,7 +351,8 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 			for _, pid := range pids {
 				eventInfo.PID = pid
 				if err := u.Start(eventInfo); err != nil {
-					zap.L().Error("Error when restarting uid pu", zap.Error(err), zap.String("eventInfoPID", eventInfo.PID))
+					zap.L().Debug("Failed to start", zap.Error(err), zap.String("eventInfoPID", eventInfo.PID))
+					puStartFailed++
 				}
 			}
 		}
