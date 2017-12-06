@@ -98,17 +98,18 @@ func (t *trireme) newEnforcers() error {
 }
 
 func (t *trireme) newSupervisors() error {
-	sup, err := supervisor.NewSupervisor(
-		t.collector,
-		t.enforcers[constants.LocalServer],
-		constants.LocalServer,
-		constants.IPTables,
-		t.networks,
-	)
-	if err != nil {
-		return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
-	}
+
 	if t.isLinuxProcessSupportEnabled {
+		sup, err := supervisor.NewSupervisor(
+			t.collector,
+			t.enforcers[constants.LocalServer],
+			constants.LocalServer,
+			constants.IPTables,
+			t.networks,
+		)
+		if err != nil {
+			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
+		}
 		t.supervisors[constants.LocalServer] = sup
 	}
 
@@ -124,7 +125,21 @@ func (t *trireme) newSupervisors() error {
 		}
 		t.supervisors[constants.RemoteContainer] = s
 	} else {
-		t.supervisors[constants.LocalContainer] = sup
+		if _, ok := t.supervisors[constants.LocalServer]; ok {
+			t.supervisors[constants.LocalContainer] = t.supervisors[constants.LocalServer]
+		} else {
+			sup, err := supervisor.NewSupervisor(
+				t.collector,
+				t.enforcers[constants.LocalContainer],
+				constants.LocalContainer,
+				constants.IPTables,
+				t.networks,
+			)
+			if err != nil {
+				return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
+			}
+			t.supervisors[constants.LocalContainer] = sup
+		}
 	}
 
 	return nil
