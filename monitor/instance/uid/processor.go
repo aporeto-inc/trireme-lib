@@ -325,20 +325,6 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 			runtimeInfo.SetTags(t)
 		}
 
-		// Synchronize
-		if u.config.SyncHandler != nil {
-			if err := u.config.SyncHandler.HandleSynchronization(
-				contextID,
-				events.StateStarted,
-				runtimeInfo,
-				processor.SynchronizationTypeInitial,
-			); err != nil {
-				zap.L().Error("Sync Failed", zap.Error(err))
-				syncFailed++
-				continue
-			}
-		}
-
 		mark := storedContext.MarkVal
 		if pids, ok := marktoPID[mark]; !ok {
 			// No pids with stored mark destroy the context record and go to next context
@@ -346,6 +332,21 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 				zap.L().Warn("Error when removing context in the store", zap.Error(err))
 			}
 		} else {
+
+			// Synchronize
+			if u.config.SyncHandler != nil {
+				if err := u.config.SyncHandler.HandleSynchronization(
+					contextID,
+					events.StateStarted,
+					runtimeInfo,
+					processor.SynchronizationTypeInitial,
+				); err != nil {
+					zap.L().Error("Sync Failed", zap.Error(err))
+					syncFailed++
+					continue
+				}
+			}
+
 			for _, pid := range pids {
 				eventInfo.PID = pid
 				if err := u.Start(eventInfo); err != nil {
