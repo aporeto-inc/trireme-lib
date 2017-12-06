@@ -8,17 +8,11 @@ import (
 	trireme "github.com/aporeto-inc/trireme-lib"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
-	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/dockermonitor"
-	"github.com/aporeto-inc/trireme-lib/supervisor"
-	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -99,106 +93,6 @@ func secretGen(keyPEM, certPEM, caPool []byte) secrets.Secrets {
 	}
 	newSecret := NewSecretsFromPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 	return newSecret
-}
-
-func testEnforcerMap(sec, config string, pucon constants.PUType, puenfmode constants.ModeType) map[constants.PUType]policyenforcer.Enforcer {
-	if sec == "psk" {
-		if config == "hybrid" {
-			return map[constants.PUType]policyenforcer.Enforcer{
-				constants.ContainerPU:    testEnforcerProxy(),
-				constants.LinuxProcessPU: testEnforcer(sec, puenfmode),
-			}
-		} else if config == "distributeddocker" {
-			return map[constants.PUType]policyenforcer.Enforcer{
-				pucon: testEnforcerProxy(),
-			}
-		} else {
-			return map[constants.PUType]policyenforcer.Enforcer{
-				pucon: testEnforcer(sec, puenfmode),
-			}
-		}
-	}
-	if config == "hybrid" {
-		return map[constants.PUType]policyenforcer.Enforcer{
-			constants.ContainerPU:    testEnforcerProxy(),
-			constants.LinuxProcessPU: testEnforcer(sec, puenfmode),
-		}
-	} else if config == "distributeddocker" {
-		return map[constants.PUType]policyenforcer.Enforcer{
-			pucon: testEnforcerProxy(),
-		}
-	} else {
-		return map[constants.PUType]policyenforcer.Enforcer{
-			pucon: testEnforcer(sec, puenfmode),
-		}
-	}
-}
-
-func testEnforcer(sec string, puenfmode constants.ModeType) policyenforcer.Enforcer {
-	if sec == "psk" {
-		newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen(nil, nil, nil), puenfmode, constants.DefaultProcMountPoint)
-		return newEnf
-	}
-	newEnf := enforcer.NewWithDefaults("testServerID", eventCollector(), nil, secretGen([]byte(keyPEM), []byte(certPEM), []byte(caPool)), puenfmode, constants.DefaultProcMountPoint)
-	return newEnf
-}
-
-func testSupervisorMap(sec, config string, impl constants.ImplementationType, pusup constants.PUType, pusupmode constants.ModeType, puconmode constants.ModeType) (map[constants.PUType]supervisor.Supervisor, error) {
-
-	if config == "hybrid" {
-		supp, err := testSupervisorProxy(sec, puconmode)
-		if err != nil {
-			return nil, err
-		}
-		sup, err := testSupervisor(sec, impl, pusupmode, puconmode)
-		if err != nil {
-			return nil, err
-		}
-		return map[constants.PUType]supervisor.Supervisor{
-			constants.ContainerPU:    supp,
-			constants.LinuxProcessPU: sup,
-		}, nil
-	} else if config == "distributeddocker" {
-		sup, err := testSupervisorProxy(sec, puconmode)
-		if err != nil {
-			return nil, err
-		}
-		return map[constants.PUType]supervisor.Supervisor{
-			pusup: sup,
-		}, nil
-
-	} else {
-		sup, err := testSupervisor(sec, impl, pusupmode, puconmode)
-		if err != nil {
-			return nil, err
-		}
-		return map[constants.PUType]supervisor.Supervisor{
-			pusup: sup,
-		}, nil
-	}
-}
-
-func testSupervisor(sec string, impl constants.ImplementationType, pusupmode constants.ModeType, puconmode constants.ModeType) (supervisor.Supervisor, error) {
-	var newSup supervisor.Supervisor
-	newSup, err := supervisor.NewSupervisor(eventCollector(), testEnforcer(sec, puconmode), pusupmode, impl, []string{})
-	if err != nil {
-		return nil, err
-	}
-	return newSup, nil
-}
-
-func testSupervisorProxy(sec string, puconmode constants.ModeType) (*supervisorproxy.ProxyInfo, error) {
-	var newSup *supervisorproxy.ProxyInfo
-	newSup, err := supervisorproxy.NewProxySupervisor(eventCollector(), testEnforcer(sec, puconmode), rpcwrapper.NewRPCWrapper())
-	if err != nil {
-		return nil, err
-	}
-	return newSup, nil
-}
-
-func testEnforcerProxy() policyenforcer.Enforcer {
-	newEnf := enforcerproxy.NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpcwrapper.NewRPCWrapper(), constants.DefaultProcMountPoint)
-	return newEnf
 }
 
 func testTriremeStruct(sec, config string, impl constants.ImplementationType, pusup constants.PUType, pucon constants.PUType) trireme.Trireme {
