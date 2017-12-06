@@ -110,6 +110,17 @@ func NewCustomRequestProcessor(linux, host string) *RequestProcessor {
 	return r
 }
 
+func (r *RequestProcessor) checkUnhandledArgs(arguments, processed map[string]interface{}) error {
+
+	for k, _ := range arguments {
+		if _, ok := processed[k]; !ok {
+			return fmt.Errorf("Unhandled argument %s", k)
+		}
+	}
+
+	return nil
+}
+
 // Generic command line arguments
 // Assumes a command like that:
 // usage = `Trireme Client Command
@@ -144,30 +155,43 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 
 	c := &CLIRequest{}
 
+	processedArgs := make(map[string]interface{})
+
 	// First parse a command that only provides the cgroup
 	// The kernel will only send us a command with one argument
 	if value, ok := arguments["<cgroup>"]; ok && value != nil {
+		processedArgs["<cgroup>"] = nil
 		c.Cgroup = value.(string)
 		c.Request = DeleteCgroupRequest
+		if err := r.checkUnhandledArgs(arguments, processedArgs); err != nil {
+			return nil, err
+		}
 		return c, nil
 	}
 
 	if value, ok := arguments["--service-id"]; ok && value != nil {
+		processedArgs["--service-id"] = nil
 		c.ServiceID = value.(string)
 	}
 
 	if value, ok := arguments["--service-name"]; ok && value != nil {
+		processedArgs["--service-name"] = nil
 		c.ServiceName = value.(string)
 	}
 
 	// If the command is remove use hostpolicy and service-id
 	if arguments["rm"].(bool) {
+		processedArgs["rm"] = nil
 		c.Request = DeleteServiceRequest
+		if err := r.checkUnhandledArgs(arguments, processedArgs); err != nil {
+			return nil, err
+		}
 		return c, nil
 	}
 
 	// Process the rest of the arguments of the create command
 	if value, ok := arguments["run"]; !ok || value == nil {
+		processedArgs["run"] = nil
 		return nil, errors.New("invalid command")
 	}
 
@@ -175,18 +199,22 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 	c.Request = CreateRequest
 
 	if value, ok := arguments["<command>"]; ok && value != nil {
+		processedArgs["<command>"] = nil
 		c.Executable = value.(string)
 	}
 
 	if value, ok := arguments["--label"]; ok && value != nil {
+		processedArgs["--label"] = nil
 		c.Labels = value.([]string)
 	}
 
 	if value, ok := arguments["<params>"]; ok && value != nil {
+		processedArgs["<params>"] = nil
 		c.Parameters = value.([]string)
 	}
 
 	if value, ok := arguments["--ports"]; ok && value != nil {
+		processedArgs["--ports"] = nil
 		services, err := ParseServices(value.([]string))
 		if err != nil {
 			return nil, err
@@ -195,13 +223,18 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 	}
 
 	if value, ok := arguments["--networkonly"]; ok && value != nil {
+		processedArgs["--networkonly"] = nil
 		c.NetworkOnly = value.(bool)
 	}
 
 	if value, ok := arguments["--hostpolicy"]; ok && value != nil {
+		processedArgs["--hostpolicy"] = nil
 		c.HostPolicy = value.(bool)
 	}
 
+	if err := r.checkUnhandledArgs(arguments, processedArgs); err != nil {
+		return nil, err
+	}
 	return c, nil
 }
 
