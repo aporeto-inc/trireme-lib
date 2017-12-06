@@ -17,7 +17,7 @@ type Config struct {
 	EventMetadataExtractor events.EventMetadataExtractor
 	StoredPath             string
 	ReleasePath            string
-	host                   bool
+	Host                   bool
 }
 
 // DefaultConfig provides a default configuration
@@ -28,7 +28,7 @@ func DefaultConfig(host bool) *Config {
 			EventMetadataExtractor: DefaultHostMetadataExtractor,
 			StoredPath:             "/var/run/trireme/host",
 			ReleasePath:            "/var/lib/aporeto/cleaner",
-			host:                   host,
+			Host:                   host,
 		}
 	}
 
@@ -36,14 +36,14 @@ func DefaultConfig(host bool) *Config {
 		EventMetadataExtractor: DefaultHostMetadataExtractor,
 		StoredPath:             "/var/run/trireme/linux",
 		ReleasePath:            "/var/lib/aporeto/cleaner",
-		host:                   host,
+		Host:                   host,
 	}
 }
 
 // SetupDefaultConfig adds defaults to a partial configuration
 func SetupDefaultConfig(linuxConfig *Config) *Config {
 
-	defaultConfig := DefaultConfig(false)
+	defaultConfig := DefaultConfig(linuxConfig.Host)
 
 	if linuxConfig.ReleasePath == "" {
 		linuxConfig.ReleasePath = defaultConfig.ReleasePath
@@ -117,7 +117,7 @@ func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interfac
 	linuxConfig = SetupDefaultConfig(linuxConfig)
 
 	// Setup config
-	l.proc.host = linuxConfig.host
+	l.proc.host = linuxConfig.Host
 	l.proc.netcls = cgnetcls.NewCgroupNetController(linuxConfig.ReleasePath)
 	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StoredPath)
 	l.proc.storePath = linuxConfig.StoredPath
