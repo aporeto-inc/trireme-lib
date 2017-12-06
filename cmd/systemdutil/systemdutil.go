@@ -125,7 +125,7 @@ func (r *RequestProcessor) checkUnhandledArgs(arguments, processed map[string]in
 // Assumes a command like that:
 // usage = `Trireme Client Command
 //
-// Usage: enforcerd -h | --help
+// Usage: trireme -h | --help
 // 		 trireme -v | --version
 // 		 trireme run
 // 			[--service-name=<sname>]
@@ -146,8 +146,6 @@ func (r *RequestProcessor) checkUnhandledArgs(arguments, processed map[string]in
 // 	--networkonly                       Control traffic from the network only and not from applications [default false].
 // 	--hostpolicy                        Default control of the base namespace [default false].
 //
-// `
-
 // ParseCommand parses a command based on the above specification
 // This is a helper function for CLIs like in Trireme Example.
 // Proper use is through the CLIRequest structure
@@ -215,6 +213,15 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 
 	if value, ok := arguments["--ports"]; ok && value != nil {
 		processed["--ports"] = nil
+		services, err := ParseServices(value.([]string))
+		if err != nil {
+			return nil, err
+		}
+		c.Services = services
+	}
+
+	if value, ok := arguments["-p"]; ok && value != nil {
+		processed["-p"] = nil
 		services, err := ParseServices(value.([]string))
 		if err != nil {
 			return nil, err
