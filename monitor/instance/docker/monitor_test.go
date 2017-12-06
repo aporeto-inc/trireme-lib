@@ -345,7 +345,7 @@ func TestStopDockerContainer(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		err := dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
 		So(err, ShouldBeNil)
@@ -391,7 +391,7 @@ func TestHandleCreateEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		err := dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
 		So(err, ShouldBeNil)
@@ -495,7 +495,7 @@ func TestHandleDieEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		err := dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
 		So(err, ShouldBeNil)
@@ -533,7 +533,7 @@ func TestHandleDestroyEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		err := dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
 		So(err, ShouldBeNil)
@@ -582,7 +582,7 @@ func TestHandlePauseEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		err := dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
 		So(err, ShouldBeNil)
@@ -629,7 +629,7 @@ func TestHandleUnpauseEvent(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		err := dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
 		So(err, ShouldBeNil)
@@ -676,7 +676,7 @@ func TestExtractMetadata(t *testing.T) {
 			PUHandler:   mockPU,
 			SyncHandler: mockSH,
 		})
-		err := dm.SetupConfig(nil, Config{
+		err := dm.SetupConfig(nil, &Config{
 			EventMetadataExtractor: testDockerMetadataExtractor,
 		})
 		So(err, ShouldBeNil)
@@ -783,6 +783,7 @@ func TestSyncContainers(t *testing.T) {
 }
 
 func TestStart(t *testing.T) {
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -825,6 +826,7 @@ func TestStart(t *testing.T) {
 	})
 
 	Convey("When I try to initialize a new docker monitor", t, func() {
+
 		dm := New()
 		mockPU := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 		mockSH := mockprocessor.NewMockSynchronizationHandler(ctrl)
