@@ -113,8 +113,8 @@ func OptMergeTags(tags []string) func(c *Config) {
 	}
 }
 
-// New instantiates all/any combination of monitors supported.
-func New(opts ...func(*Config)) (Monitor, error) {
+// SetupConfig provides a configuration for monitors
+func SetupConfig(opts ...func(*Config)) *Config {
 
 	cfg := &Config{}
 
@@ -123,5 +123,10 @@ func New(opts ...func(*Config)) (Monitor, error) {
 		opt(cfg)
 	}
 
-	return setupMonitors(cfg)
+	return cfg
+}
+
+// New instantiates all/any combination of monitors supported.
+func New(opts ...func(*Config)) (Monitor, error) {
+	return setupMonitors(SetupConfig(opts...))
 }
