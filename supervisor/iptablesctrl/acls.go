@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
-	"github.com/aporeto-inc/trireme-lib/monitor/linuxmonitor/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 

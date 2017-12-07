@@ -51,14 +51,17 @@ const (
 func NewPUPolicy(
 	id string,
 	action PUAction,
-	appACLs,
+	appACLs IPRuleList,
 	netACLs IPRuleList,
-	txtags, rxtags TagSelectorList,
-	identity, annotations *TagStore,
+	txtags TagSelectorList,
+	rxtags TagSelectorList,
+	identity *TagStore,
+	annotations *TagStore,
 	ips ExtendedMap,
 	triremeNetworks []string,
 	excludedNetworks []string,
-	proxiedServices *ProxiedServicesInfo) *PUPolicy {
+	proxiedServices *ProxiedServicesInfo,
+) *PUPolicy {
 
 	if appACLs == nil {
 		appACLs = IPRuleList{}
