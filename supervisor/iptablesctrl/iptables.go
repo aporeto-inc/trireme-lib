@@ -212,6 +212,9 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			}
 
 			// update the portset cache, so that it can program the portset
+			if i.portSetInstance == nil {
+				return errors.New("enforcer portset instance cannot be nil for host")
+			}
 			if err = i.portSetInstance.AddUserPortSet(uid, portSetName, mark); err != nil {
 				return err
 			}
@@ -288,6 +291,9 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		}
 
 		// delete the entry in the portset cache
+		if i.portSetInstance == nil {
+			return errors.New("enforcer portset instance cannot be nil for host")
+		}
 		if err = i.portSetInstance.DelUserPortSet(uid, mark); err != nil {
 			return err
 		}

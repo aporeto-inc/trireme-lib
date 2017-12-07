@@ -139,6 +139,12 @@ func New(
 	// part of ipset portset.
 	puFromPort := cache.NewCache("puFromPort")
 
+	var portSetInstance portset.PortSet
+
+	if mode != constants.RemoteContainer {
+		portSetInstance = portset.New(puFromPort)
+	}
+
 	d := &Datapath{
 		puFromIP:   cache.NewCache("puFromIP"),
 		puFromMark: cache.NewCache("puFromMark"),
@@ -164,7 +170,7 @@ func New(
 		procMountPoint:              procMountPoint,
 		conntrackHdl:                conntrack.NewHandle(),
 		proxyhdl:                    tcpProxy,
-		portSetInstance:             portset.New(puFromPort),
+		portSetInstance:             portSetInstance,
 	}
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
