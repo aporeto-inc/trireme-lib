@@ -22,8 +22,8 @@ type monitors struct {
 	syncHandler     processor.SynchronizationHandler
 }
 
-// setupMonitors instantiates all/any combination of monitors supported.
-func setupMonitors(c *Config) (Monitor, error) {
+// NewMonitors instantiates all/any combination of monitors supported.
+func NewMonitors(c *Config) (Monitor, error) {
 
 	var err error
 
