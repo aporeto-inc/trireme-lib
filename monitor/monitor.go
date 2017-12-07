@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"go.uber.org/zap"
 )
 
 type monitors struct {
@@ -97,6 +98,8 @@ func NewMonitors(c *Config) (Monitor, error) {
 			return nil, fmt.Errorf("Unsupported type %d", k)
 		}
 	}
+
+	zap.L().Info("Monitor Configuration", zap.String("Base", m.config.String()))
 
 	return m, nil
 }

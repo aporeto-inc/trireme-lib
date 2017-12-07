@@ -1,6 +1,9 @@
 package monitor
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
@@ -27,6 +30,17 @@ type Config struct {
 	common    processor.Config
 	mergeTags []string
 	monitors  map[Type]interface{}
+}
+
+func (c *Config) String() string {
+	buf := fmt.Sprintf("MergeTags:[%s] ", strings.Join(c.mergeTags, ","))
+	buf += fmt.Sprintf("Common:%+v ", c.common)
+	buf += fmt.Sprintf("Monitors:{")
+	for k, v := range c.monitors {
+		buf += fmt.Sprintf("{%d:%+v},", k, v)
+	}
+	buf += fmt.Sprintf("}")
+	return buf
 }
 
 // SubOptMonitorLinuxExtractor provides a way to specify metadata extractor for linux monitors.
