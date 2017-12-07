@@ -67,8 +67,8 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 
 	portSetInstance := enforcerInstance.GetPortSetInstance()
 
-	if portSetInstance == nil {
-		return nil, errors.New("enforcer portset instance cannot be nil")
+	if mode != constants.RemoteContainer && portSetInstance == nil {
+		return nil, errors.New("portSetInstance cannot be nil")
 	}
 
 	s := &Config{

@@ -46,12 +46,12 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 	portSetObject := item.(*portSetInstance)
 
 	if len(userPort) < minimumFields {
-		zap.L().Warn("Failed to remove key from the cache")
+		zap.L().Debug("Failed to remove key from the cache")
 		return
 	}
 
 	if portSetObject == nil {
-		zap.L().Warn("Invalid portSetObject")
+		zap.L().Debug("Invalid portSetObject")
 		return
 	}
 
@@ -59,12 +59,12 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 	port := userPort[1]
 
 	if err := portSetObject.deletePortSet(user, port); err != nil {
-		zap.L().Warn("Cache: Failed to delete port from set", zap.Error(err))
+		zap.L().Debug("Cache: Failed to delete port from set", zap.Error(err))
 	}
 
 	// delete the port from puFromPort cache
 	if err := portSetObject.puFromPort.Remove(port); err != nil {
-		zap.L().Warn("Unable to remove port from puFromPort Cache")
+		zap.L().Debug("Unable to remove port from puFromPort Cache")
 	}
 
 }
@@ -225,7 +225,7 @@ func (p *portSetInstance) updateIPPortSets() {
 
 	buffer, err := ioutil.ReadFile(procNetTCPFile)
 	if err != nil {
-		zap.L().Warn("Failed to read /proc/net/tcp file", zap.Error(err))
+		zap.L().Debug("Failed to read /proc/net/tcp file", zap.Error(err))
 		// This is a go routine, cannot return error
 		return
 	}
@@ -248,7 +248,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		ipPort := strings.Split(line[ipPortOffset], ":")
 
 		if len(ipPort) < minimumFields {
-			zap.L().Warn("Failed to extract port")
+			zap.L().Debug("Failed to extract port")
 			continue
 		}
 
@@ -256,7 +256,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		// convert the hex port to int
 		portNum, err := strconv.ParseInt(port, hexFormat, integerSize)
 		if err != nil {
-			zap.L().Warn("Failed to convert port to Int", zap.Error(err))
+			zap.L().Debug("Failed to convert port to Int", zap.Error(err))
 			continue
 		}
 
@@ -264,7 +264,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		// userName is required as they are keys to lookup tables.
 		userName, err := getUserName(uid)
 		if err != nil {
-			zap.L().Warn("Error converting to username", zap.Error(err))
+			zap.L().Debug("Error converting to username", zap.Error(err))
 			continue
 		}
 
@@ -281,7 +281,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		}
 
 		if err = p.addPortSet(userName, port); err != nil {
-			zap.L().Warn("Unable to add port to portset ", zap.Error(err))
+			zap.L().Debug("Unable to add port to portset ", zap.Error(err))
 		}
 	}
 }
