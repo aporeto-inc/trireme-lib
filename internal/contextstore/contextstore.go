@@ -56,11 +56,7 @@ func (s *store) Store(contextID string, item interface{}) error {
 		return err
 	}
 
-	if err = ioutil.WriteFile(filepath.Join(folder, itemFile), data, 0600); err != nil {
-		return err
-	}
-
-	return nil
+	return ioutil.WriteFile(filepath.Join(folder, itemFile), data, 0600)
 }
 
 // Retrieve retrieves a context from the file
