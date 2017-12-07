@@ -29,8 +29,8 @@ type Config struct {
 	monitors  map[Type]interface{}
 }
 
-// OptMonitorLinuxExtractor provides a way to specify metadata extractor for linux monitors.
-func OptMonitorLinuxExtractor(extractor events.EventMetadataExtractor) func(*linuxmonitor.Config) {
+// SubOptMonitorLinuxExtractor provides a way to specify metadata extractor for linux monitors.
+func SubOptMonitorLinuxExtractor(extractor events.EventMetadataExtractor) func(*linuxmonitor.Config) {
 	return func(cfg *linuxmonitor.Config) {
 		cfg.EventMetadataExtractor = extractor
 	}
@@ -55,8 +55,8 @@ func OptMonitorLinux(
 	}
 }
 
-// OptMonitorCNIExtractor provides a way to specify metadata extractor for CNI monitors.
-func OptMonitorCNIExtractor(extractor events.EventMetadataExtractor) func(*cnimonitor.Config) {
+// SubOptMonitorCNIExtractor provides a way to specify metadata extractor for CNI monitors.
+func SubOptMonitorCNIExtractor(extractor events.EventMetadataExtractor) func(*cnimonitor.Config) {
 	return func(cfg *cnimonitor.Config) {
 		cfg.EventMetadataExtractor = extractor
 	}
@@ -76,8 +76,8 @@ func OptMonitorCNI(
 	}
 }
 
-// OptMonitorUIDExtractor provides a way to specify metadata extractor for UID monitors.
-func OptMonitorUIDExtractor(extractor events.EventMetadataExtractor) func(*uidmonitor.Config) {
+// SubOptMonitorUIDExtractor provides a way to specify metadata extractor for UID monitors.
+func SubOptMonitorUIDExtractor(extractor events.EventMetadataExtractor) func(*uidmonitor.Config) {
 	return func(cfg *uidmonitor.Config) {
 		cfg.EventMetadataExtractor = extractor
 	}
@@ -97,23 +97,23 @@ func OptMonitorUID(
 	}
 }
 
-// OptMonitorDockerExtractor provides a way to specify metadata extractor for docker.
-func OptMonitorDockerExtractor(extractor dockermonitor.MetadataExtractor) func(*dockermonitor.Config) {
+// SubOptMonitorDockerExtractor provides a way to specify metadata extractor for docker.
+func SubOptMonitorDockerExtractor(extractor dockermonitor.MetadataExtractor) func(*dockermonitor.Config) {
 	return func(cfg *dockermonitor.Config) {
 		cfg.EventMetadataExtractor = extractor
 	}
 }
 
-// OptMonitorDockerSocket provides a way to specify socket info for docker.
-func OptMonitorDockerSocket(socketType, socketAddress string) func(*dockermonitor.Config) {
+// SubOptMonitorDockerSocket provides a way to specify socket info for docker.
+func SubOptMonitorDockerSocket(socketType, socketAddress string) func(*dockermonitor.Config) {
 	return func(cfg *dockermonitor.Config) {
 		cfg.SocketType = socketType
 		cfg.SocketAddress = socketAddress
 	}
 }
 
-// OptMonitorDockerFlags provides a way to specify configuration flags info for docker.
-func OptMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) func(*dockermonitor.Config) {
+// SubOptMonitorDockerFlags provides a way to specify configuration flags info for docker.
+func SubOptMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) func(*dockermonitor.Config) {
 	return func(cfg *dockermonitor.Config) {
 		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
 		cfg.SyncAtStart = syncAtStart
