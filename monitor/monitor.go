@@ -55,7 +55,7 @@ func NewMonitors(c *Config) (Monitor, error) {
 		switch k {
 		case CNI:
 			mon := cnimonitor.New()
-			mon.SetupHandlers(c.common)
+			mon.SetupHandlers(&c.common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("CNI: %s", err.Error())
 			}
@@ -63,7 +63,7 @@ func NewMonitors(c *Config) (Monitor, error) {
 
 		case Docker:
 			mon := dockermonitor.New()
-			mon.SetupHandlers(c.common)
+			mon.SetupHandlers(&c.common)
 			if err := mon.SetupConfig(nil, v); err != nil {
 				return nil, fmt.Errorf("Docker: %s", err.Error())
 			}
@@ -71,7 +71,7 @@ func NewMonitors(c *Config) (Monitor, error) {
 
 		case LinuxProcess:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(c.common)
+			mon.SetupHandlers(&c.common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
@@ -79,7 +79,7 @@ func NewMonitors(c *Config) (Monitor, error) {
 
 		case LinuxHost:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(c.common)
+			mon.SetupHandlers(&c.common)
 			if err := mon.SetupConfig(m.rootRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
@@ -87,7 +87,7 @@ func NewMonitors(c *Config) (Monitor, error) {
 
 		case UID:
 			mon := uidmonitor.New()
-			mon.SetupHandlers(c.common)
+			mon.SetupHandlers(&c.common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("UID: %s", err.Error())
 			}

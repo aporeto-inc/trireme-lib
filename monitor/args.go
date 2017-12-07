@@ -24,15 +24,15 @@ const (
 
 // Config specifies the configs for monitors.
 type Config struct {
-	common    *processor.Config
+	common    processor.Config
 	mergeTags []string
 	monitors  map[Type]interface{}
 }
 
 // OptMonitorLinuxExtractor provides a way to specify metadata extractor for linux monitors.
-func OptMonitorLinuxExtractor(extractor events.EventMetadataExtractor) func (c *linuxmonitor.Config) {
-	return func(c *linuxmonitor.Config) {
-		c.EventMetadataExtractor = extractor
+func OptMonitorLinuxExtractor(extractor events.EventMetadataExtractor) func (*linuxmonitor.Config) {
+	return func(cfg *linuxmonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
 	}
 }
 
@@ -40,7 +40,7 @@ func OptMonitorLinuxExtractor(extractor events.EventMetadataExtractor) func (c *
 func OptMonitorLinux(
 	host bool,
 	opts ...func(*linuxmonitor.Config),
-) func (c *Config) {
+) func (*Config) {
 	lc := linuxmonitor.DefaultConfig(host)
 	// Collect all docker options
 	for _, opt := range opts {
@@ -56,16 +56,16 @@ func OptMonitorLinux(
 }
 
 // OptMonitorCNIExtractor provides a way to specify metadata extractor for CNI monitors.
-func OptMonitorCNIExtractor(extractor events.EventMetadataExtractor) func (c *cnimonitor.Config) {
-	return func(c *cnimonitor.Config) {
-		c.EventMetadataExtractor = extractor
+func OptMonitorCNIExtractor(extractor events.EventMetadataExtractor) func (*cnimonitor.Config) {
+	return func(cfg *cnimonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
 	}
 }
 
 // OptMonitorCNI provides a way to add a cni monitor and related configuration to be used with New().
 func OptMonitorCNI(
 	opts ...func(*cnimonitor.Config),
-) func (c *Config) {
+) func (*Config) {
 	cc := cnimonitor.DefaultConfig()
 	// Collect all docker options
 	for _, opt := range opts {
@@ -77,16 +77,16 @@ func OptMonitorCNI(
 }
 
 // OptMonitorUIDExtractor provides a way to specify metadata extractor for UID monitors.
-func OptMonitorUIDExtractor(extractor events.EventMetadataExtractor) func (c *uidmonitor.Config) {
-	return func(c *uidmonitor.Config) {
-		c.EventMetadataExtractor = extractor
+func OptMonitorUIDExtractor(extractor events.EventMetadataExtractor) func (*uidmonitor.Config) {
+	return func(cfg *uidmonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
 	}
 }
 
 // OptMonitorUID provides a way to add a UID monitor and related configuration to be used with New().
 func OptMonitorUID(
 	opts ...func(*uidmonitor.Config),
-) func (c *Config) {
+) func (*Config) {
 	uc := uidmonitor.DefaultConfig()
 	// Collect all docker options
 	for _, opt := range opts {
@@ -98,30 +98,30 @@ func OptMonitorUID(
 }
 
 // OptMonitorDockerExtractor provides a way to specify metadata extractor for docker.
-func OptMonitorDockerExtractor(extractor dockermonitor.MetadataExtractor) func (c *dockermonitor.Config) {
-	return func(c *dockermonitor.Config) {
-		c.EventMetadataExtractor = extractor
+func OptMonitorDockerExtractor(extractor dockermonitor.MetadataExtractor) func (*dockermonitor.Config) {
+	return func(cfg *dockermonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
 	}
 }
 
 // OptMonitorDockerSocket provides a way to specify socket info for docker.
-func OptMonitorDockerSocket(socketType, socketAddress string) func (c *dockermonitor.Config) {
-	return func(c *dockermonitor.Config) {
-		c.SocketType = socketType
-		c.SocketAddress = socketAddress
+func OptMonitorDockerSocket(socketType, socketAddress string) func (*dockermonitor.Config) {
+	return func(cfg *dockermonitor.Config) {
+		cfg.SocketType = socketType
+		cfg.SocketAddress = socketAddress
 	}
 }
 
 // OptMonitorDockerFlags provides a way to specify configuration flags info for docker.
-func OptMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) func (c *dockermonitor.Config) {
-	return func(c *dockermonitor.Config) {
-		c.KillContainerOnPolicyError = killContainerOnPolicyError
-		c.SyncAtStart = syncAtStart
+func OptMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) func (*dockermonitor.Config) {
+	return func(cfg *dockermonitor.Config) {
+		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
+		cfg.SyncAtStart = syncAtStart
 	}
 }
 
 // OptMonitorDocker provides a way to add a docker monitor and related configuration to be used with New().
-func OptMonitorDocker(opts ...func(*dockermonitor.Config)) func (c *Config) {
+func OptMonitorDocker(opts ...func(*dockermonitor.Config)) func (*Config) {
 
 	dc := &dockermonitor.Config{}
 	// Collect all docker options
@@ -139,7 +139,7 @@ func OptProcessorConfig(
 	c collector.EventCollector,
 	p processor.ProcessingUnitsHandler,
 	s processor.SynchronizationHandler,
-	) func (c *Config) {
+	) func (*Config) {
 	if c == nil {
 		panic("Collector not provided")
 	}
@@ -154,17 +154,19 @@ func OptProcessorConfig(
 }
 
 // OptMergeTags provides a way to add merge tags to be used with New().
-func OptMergeTags(tags []string) func(c *Config) {
-	return func(c *Config) {
-		c.mergeTags = tags
-		c.common.MergeTags = tags
+func OptMergeTags(tags []string) func(*Config) {
+	return func(cfg *Config) {
+		cfg.mergeTags = tags
+		cfg.common.MergeTags = tags
 	}
 }
 
 // SetupConfig provides a configuration for monitors
 func SetupConfig(opts ...func(*Config)) *Config {
 
-	cfg := &Config{}
+	cfg := &Config{
+		monitors: make(map[Type]interface{}),
+	}
 
 	// Collect all options
 	for _, opt := range opts {
