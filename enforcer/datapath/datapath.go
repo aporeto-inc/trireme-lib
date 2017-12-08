@@ -258,6 +258,15 @@ func (d *Datapath) Unenforce(contextID string) error {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
 
+	// Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
+	// Datapath is a strict readonly struct for proxy
+	if err = d.proxyhdl.Unenforce(contextID); err != nil {
+		zap.L().Error("Failed to unenforce contextID",
+			zap.String("ContextID", contextID),
+			zap.Error(err),
+		)
+	}
+
 	pu := puContext.(*pucontext.PUContext)
 	if err := d.puFromIP.Remove(pu.IP()); err != nil {
 		zap.L().Warn("Unable to remove cache entry during unenforcement",
