@@ -215,6 +215,15 @@ func NewWithDefaults(
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
+	zap.L().Debug("Called Proxy Enforce")
+
+	// setup proxy before creating PU
+	proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
+	if proxyerr != nil {
+		zap.L().Error("Unable to Enforce", zap.Error(proxyerr))
+		return proxyerr
+	}
+
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
 	if err != nil {
@@ -238,14 +247,6 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	// Cache PU from contextID for management and policy updates
 	d.contextTracker.AddOrUpdate(contextID, pu)
-
-	zap.L().Debug("Called Proxy Enforce")
-
-	proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
-	if proxyerr != nil {
-		zap.L().Error("Unable to Enforce", zap.Error(proxyerr))
-		return proxyerr
-	}
 
 	return nil
 }
