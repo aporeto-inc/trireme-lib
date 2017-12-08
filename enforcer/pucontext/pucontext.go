@@ -172,13 +172,19 @@ func (p *PUContext) SynServiceContext() []byte {
 
 // UpdateSynServiceContext updates the synServiceContext
 func (p *PUContext) UpdateSynServiceContext(synServiceContext []byte) {
+
+	p.Lock()
+	defer p.Unlock()
+
 	p.synServiceContext = synServiceContext
 }
 
 // GetCachedToken returns the cached syn packet token
 func (p *PUContext) GetCachedToken() ([]byte, error) {
+
 	p.RLock()
 	defer p.RUnlock()
+
 	if p.synExpiration.After(time.Now()) && len(p.synToken) > 0 {
 		return p.synToken, nil
 	}
@@ -188,6 +194,7 @@ func (p *PUContext) GetCachedToken() ([]byte, error) {
 
 // UpdateCachedToken updates the local cached token
 func (p *PUContext) UpdateCachedToken(token []byte) {
+
 	p.Lock()
 	defer p.Unlock()
 
