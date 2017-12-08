@@ -2,8 +2,8 @@ package monitor
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
@@ -25,9 +25,12 @@ type monitors struct {
 }
 
 // NewMonitors instantiates all/any combination of monitors supported.
-func NewMonitors(c *Config) (Monitor, error) {
+func NewMonitors(collector collector.EventCollector, puhandler processor.ProcessingUnitsHandler, c *Config) (Monitor, error) {
 
 	var err error
+
+	c.common.Collector = collector
+	c.common.PUHandler = puhandler
 
 	if err = c.common.IsComplete(); err != nil {
 		return nil, err

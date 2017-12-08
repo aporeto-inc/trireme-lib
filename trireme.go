@@ -2,12 +2,10 @@ package trireme
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 
 	"github.com/aporeto-inc/trireme-lib/enforcer"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 
 	"go.uber.org/zap"
@@ -16,83 +14,70 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/internal/allocator"
+	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
 
 // trireme contains references to all the different components involved.
 type trireme struct {
-	triremeMode                  constants.ModeType
-	serverID                     string
-	cache                        cache.DataStore
-	supervisors                  map[constants.ModeType]supervisor.Supervisor
-	enforcers                    map[constants.ModeType]policyenforcer.Enforcer
-	puTypeToEnforcerType         map[constants.PUType]constants.ModeType
-	resolver                     PolicyResolver
-	collector                    collector.EventCollector
-	port                         allocator.Allocator
-	service                      packetprocessor.PacketProcessor
-	secrets                      secrets.Secrets
-	fqConfig                     *fqconfig.FilterQueue
-	procMountPoint               string
-	validity                     time.Duration
-	externalIPcacheTimeout       time.Duration
-	networks                     []string
-	rpchdl                       rpcwrapper.RPCClient
-	mergeTags                    []string
-	isLinuxProcessSupportEnabled bool
-	mutualAuthorization          bool
+	config               *config
+	cache                cache.DataStore
+	supervisors          map[constants.ModeType]supervisor.Supervisor
+	enforcers            map[constants.ModeType]policyenforcer.Enforcer
+	puTypeToEnforcerType map[constants.PUType]constants.ModeType
+	port                 allocator.Allocator
+	rpchdl               rpcwrapper.RPCClient
+	monitors             monitor.Monitor
 }
 
 func (t *trireme) newEnforcers() error {
-	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.isLinuxProcessSupportEnabled))
-	if t.isLinuxProcessSupportEnabled {
+	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
+	if t.config.linuxProcess {
 		t.enforcers[constants.LocalServer] = enforcer.New(
-			t.mutualAuthorization,
-			t.fqConfig,
-			t.collector,
-			t.service,
-			t.secrets,
-			t.serverID,
-			t.validity,
+			t.config.mutualAuth,
+			t.config.fq,
+			t.config.collector,
+			t.config.service,
+			t.config.secret,
+			t.config.serverID,
+			t.config.validity,
 			constants.LocalServer,
-			t.procMountPoint,
-			t.externalIPcacheTimeout)
+			t.config.procMountPoint,
+			t.config.externalIPcacheTimeout)
 	}
-	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.triremeMode)))
-	if t.triremeMode == constants.RemoteContainer {
+	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
+	if t.config.mode == constants.RemoteContainer {
 		t.enforcers[constants.RemoteContainer] = enforcerproxy.NewProxyEnforcer(
-			t.mutualAuthorization,
-			t.fqConfig,
-			t.collector,
-			t.service,
-			t.secrets,
-			t.serverID,
-			t.validity,
+			t.config.mutualAuth,
+			t.config.fq,
+			t.config.collector,
+			t.config.service,
+			t.config.secret,
+			t.config.serverID,
+			t.config.validity,
 			t.rpchdl,
 			"enforce",
-			t.procMountPoint,
-			t.externalIPcacheTimeout,
+			t.config.procMountPoint,
+			t.config.externalIPcacheTimeout,
 		)
 	} else {
 		t.enforcers[constants.LocalContainer] = enforcer.New(
-			t.mutualAuthorization,
-			t.fqConfig,
-			t.collector,
-			t.service,
-			t.secrets,
-			t.serverID,
-			t.validity,
+			t.config.mutualAuth,
+			t.config.fq,
+			t.config.collector,
+			t.config.service,
+			t.config.secret,
+			t.config.serverID,
+			t.config.validity,
 			constants.LocalServer,
-			t.procMountPoint,
-			t.externalIPcacheTimeout)
+			t.config.procMountPoint,
+			t.config.externalIPcacheTimeout)
 	}
 
 	return nil
@@ -100,13 +85,13 @@ func (t *trireme) newEnforcers() error {
 
 func (t *trireme) newSupervisors() error {
 
-	if t.isLinuxProcessSupportEnabled {
+	if t.config.linuxProcess {
 		sup, err := supervisor.NewSupervisor(
-			t.collector,
+			t.config.collector,
 			t.enforcers[constants.LocalServer],
 			constants.LocalServer,
 			constants.IPTables,
-			t.networks,
+			t.config.targetNetworks,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -114,9 +99,9 @@ func (t *trireme) newSupervisors() error {
 		t.supervisors[constants.LocalServer] = sup
 	}
 
-	if t.triremeMode == constants.RemoteContainer {
+	if t.config.mode == constants.RemoteContainer {
 		s, err := supervisorproxy.NewProxySupervisor(
-			t.collector,
+			t.config.collector,
 			t.enforcers[constants.RemoteContainer],
 			t.rpchdl,
 		)
@@ -130,11 +115,11 @@ func (t *trireme) newSupervisors() error {
 			t.supervisors[constants.LocalContainer] = t.supervisors[constants.LocalServer]
 		} else {
 			sup, err := supervisor.NewSupervisor(
-				t.collector,
+				t.config.collector,
 				t.enforcers[constants.LocalContainer],
 				constants.LocalContainer,
 				constants.IPTables,
-				t.networks,
+				t.config.targetNetworks,
 			)
 			if err != nil {
 				return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -147,72 +132,51 @@ func (t *trireme) newSupervisors() error {
 }
 
 // NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(
-	serverID string,
-	resolver PolicyResolver,
-	triremeMode constants.ModeType,
-	isLinuxProcessSupportEnabled bool,
-	eventCollector collector.EventCollector,
-	service packetprocessor.PacketProcessor,
-	mutualAuthorization bool,
-	secrets secrets.Secrets,
-	fqConfig *fqconfig.FilterQueue,
-	validity time.Duration,
-	procMountPoint string,
-	networks []string,
-	externalIPcacheTimeout time.Duration,
-	mergeTags []string,
+func NewTrireme(c *config) Trireme {
 
-) Trireme {
-
-	if procMountPoint == "" {
-		procMountPoint = "/proc"
-	}
+	var err error
 
 	t := &trireme{
-		serverID:                     serverID,
-		cache:                        cache.NewCache("TriremeCache"),
-		resolver:                     resolver,
-		collector:                    eventCollector,
-		port:                         allocator.New(5000, 100),
-		service:                      service,
-		mutualAuthorization:          mutualAuthorization,
-		secrets:                      secrets,
-		fqConfig:                     fqConfig,
-		validity:                     validity,
-		procMountPoint:               procMountPoint,
-		networks:                     networks,
-		isLinuxProcessSupportEnabled: isLinuxProcessSupportEnabled,
-		triremeMode:                  triremeMode,
-		rpchdl:                       rpcwrapper.NewRPCWrapper(),
-		mergeTags:                    mergeTags,
-		enforcers:                    map[constants.ModeType]policyenforcer.Enforcer{},
-		supervisors:                  map[constants.ModeType]supervisor.Supervisor{},
-		puTypeToEnforcerType:         map[constants.PUType]constants.ModeType{},
+		config:               c,
+		cache:                cache.NewCache("TriremeCache"),
+		port:                 allocator.New(5000, 100),
+		rpchdl:               rpcwrapper.NewRPCWrapper(),
+		enforcers:            map[constants.ModeType]policyenforcer.Enforcer{},
+		supervisors:          map[constants.ModeType]supervisor.Supervisor{},
+		puTypeToEnforcerType: map[constants.PUType]constants.ModeType{},
 	}
+
 	zap.L().Debug("Creating Enforcers")
-	if err := t.newEnforcers(); err != nil {
+	if err = t.newEnforcers(); err != nil {
 		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
 		return nil
 	}
+
 	zap.L().Debug("Creating Supervisors")
-	if err := t.newSupervisors(); err != nil {
+	if err = t.newSupervisors(); err != nil {
 		zap.L().Error("Unable to start datapath supervisor", zap.Error(err))
 		return nil
 	}
-	if isLinuxProcessSupportEnabled {
+
+	if c.linuxProcess {
 		t.puTypeToEnforcerType[constants.LinuxProcessPU] = constants.LocalServer
 		t.puTypeToEnforcerType[constants.UIDLoginPU] = constants.LocalServer
 	}
 
-	if triremeMode == constants.RemoteContainer {
+	if t.config.mode == constants.RemoteContainer {
 		t.puTypeToEnforcerType[constants.ContainerPU] = constants.RemoteContainer
 		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.RemoteContainer
 	} else {
 		t.puTypeToEnforcerType[constants.ContainerPU] = constants.LocalContainer
 		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.LocalContainer
 	}
-	zap.L().Error("Returning")
+
+	zap.L().Debug("Creating Monitors")
+	if t.monitors, err = monitor.NewMonitors(c.collector, t, c.monitors); err != nil {
+		zap.L().Error("Unable to start monitors", zap.Error(err))
+		return nil
+	}
+
 	return t
 }
 
@@ -220,7 +184,7 @@ func NewTrireme(
 // For new PU Creation and Policy Updates.
 func (t *trireme) Start() error {
 
-	// Start all the supervisors
+	// Start all the supervisors.
 	for _, s := range t.supervisors {
 		if err := s.Start(); err != nil {
 			zap.L().Error("Error when starting the supervisor", zap.Error(err))
@@ -228,11 +192,16 @@ func (t *trireme) Start() error {
 		}
 	}
 
-	// Start all the enforcers
+	// Start all the enforcers.
 	for _, e := range t.enforcers {
 		if err := e.Start(); err != nil {
 			return fmt.Errorf("unable to start the enforcer: %s", err)
 		}
+	}
+
+	// Start monitors.
+	if err := t.monitors.Start(); err != nil {
+		return fmt.Errorf("unable to start monitors: %s", err)
 	}
 
 	return nil
@@ -252,6 +221,10 @@ func (t *trireme) Stop() error {
 		if err := e.Stop(); err != nil {
 			zap.L().Error("Error when stopping the enforcer", zap.Error(err))
 		}
+	}
+
+	if err := t.monitors.Stop(); err != nil {
+		zap.L().Error("Error when stopping the monitor", zap.Error(err))
 	}
 
 	return nil
@@ -289,7 +262,7 @@ func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntim
 func (t *trireme) HandlePUEvent(contextID string, event events.Event) error {
 
 	// Notify The PolicyResolver that an event occurred:
-	t.resolver.HandlePUEvent(contextID, event)
+	t.config.resolver.HandlePUEvent(contextID, event)
 
 	switch event {
 	case events.EventStart:
@@ -330,7 +303,7 @@ func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
 
 func (t *trireme) mergeRuntimeAndPolicy(r *policy.PURuntime, p *policy.PUPolicy) {
 
-	if len(t.mergeTags) == 0 {
+	if len(t.config.monitors.MergeTags) == 0 {
 		return
 	}
 
@@ -340,7 +313,7 @@ func (t *trireme) mergeRuntimeAndPolicy(r *policy.PURuntime, p *policy.PUPolicy)
 		return
 	}
 
-	for _, mt := range t.mergeTags {
+	for _, mt := range t.config.monitors.MergeTags {
 		if _, ok := tags.Get(mt); !ok {
 			if val, ok := anno.Get(mt); ok {
 				tags.AppendKeyValue(mt, val)
@@ -356,7 +329,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	// Retrieve the container runtime information from the cache
 	cachedElement, err := t.cache.Get(contextID)
 	if err != nil {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
+		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: "N/A",
 			Tags:      nil,
@@ -370,9 +343,9 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	runtimeInfo.GlobalLock.Lock()
 	defer runtimeInfo.GlobalLock.Unlock()
 
-	policyInfo, err := t.resolver.ResolvePolicy(contextID, runtimeInfo)
+	policyInfo, err := t.config.resolver.ResolvePolicy(contextID, runtimeInfo)
 	if err != nil || policyInfo == nil {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
+		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: "N/A",
 			Tags:      nil,
@@ -394,7 +367,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	addTransmitterLabel(contextID, containerInfo)
 
 	if !mustEnforce(contextID, containerInfo) {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
+		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: ip,
 			Tags:      policyInfo.Annotations(),
@@ -404,7 +377,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
+		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: ip,
 			Tags:      policyInfo.Annotations(),
@@ -421,7 +394,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			)
 		}
 
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
+		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: ip,
 			Tags:      policyInfo.Annotations(),
@@ -431,7 +404,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		return fmt.Errorf("unable to setup supervisor: %s", err)
 	}
 
-	t.collector.CollectContainerEvent(&collector.ContainerRecord{
+	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: ip,
 		Tags:      containerInfo.Policy.Annotations(),
@@ -445,7 +418,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 	runtimeReader, err := t.PURuntime(contextID)
 	if err != nil {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
+		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: "N/A",
 			Tags:      nil,
@@ -475,7 +448,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	}
 
 	if errS != nil || errE != nil {
-		t.collector.CollectContainerEvent(&collector.ContainerRecord{
+		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
 			IPAddress: ip,
 			Tags:      nil,
@@ -485,7 +458,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
 	}
 
-	t.collector.CollectContainerEvent(&collector.ContainerRecord{
+	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: ip,
 		Tags:      nil,
@@ -558,7 +531,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 	}
 
 	ip, _ := newPolicy.DefaultIPAddress()
-	t.collector.CollectContainerEvent(&collector.ContainerRecord{
+	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: ip,
 		Tags:      containerInfo.Runtime.Tags(),
@@ -586,10 +559,12 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
-//Supervisors returns a slice of all supervisor initialized.
+// Supervisors returns a slice of all initialized supervisors.
 func Supervisors(t Trireme) []supervisor.Supervisor {
+
 	supervisors := []supervisor.Supervisor{}
-	//LinuxProcessPU, UIDLoginPU and HOstPU share the same supervisor so only one lookup suffices
+
+	// LinuxProcessPU, UIDLoginPU and HOstPU share the same supervisor so only one lookup suffices
 	if s := t.Supervisor(constants.LinuxProcessPU); s != nil {
 		supervisors = append(supervisors, s)
 	}
@@ -598,13 +573,4 @@ func Supervisors(t Trireme) []supervisor.Supervisor {
 		supervisors = append(supervisors, s)
 	}
 	return supervisors
-}
-
-// HandleSynchronization stub implmentation.
-func (t *trireme) HandleSynchronization(nativeID string, state events.State, runtime policy.RuntimeReader, syncType processor.SynchronizationType) error {
-	return nil
-}
-
-// HandleSynchronizationComplete stub implmentation.
-func (t *trireme) HandleSynchronizationComplete(syncType processor.SynchronizationType) {
 }
