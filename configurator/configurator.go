@@ -21,6 +21,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
 	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
@@ -75,20 +76,18 @@ type TriremeResult struct {
 	Monitors       monitor.Monitor
 }
 
-// OptMonitorConfig provides a way to specify monitor specific configuration.
-func OptMonitorConfig(cfg *monitor.Config) func(t *TriremeOptions) {
-	return func(t *TriremeOptions) {
-		t.Monitor = cfg
-	}
-}
-
 // DefaultTriremeOptions returns a default set of options.
-func DefaultTriremeOptions(trireme trireme.Trireme, opts ...func(*TriremeOptions)) *TriremeOptions {
+func DefaultTriremeOptions() *TriremeOptions {
 
-	// Initialize with required arguments
-	t := &TriremeOptions{
+	localProcess := true
+	localContainer := false
+	remoteContainer := true
+	eventCollector := &collector.DefaultCollector{}
+
+	return &TriremeOptions{
 		TargetNetworks: []string{},
-		EventCollector: &collector.DefaultCollector{},
+
+		EventCollector: eventCollector,
 
 		Validity: time.Hour * 8760,
 
@@ -107,29 +106,33 @@ func DefaultTriremeOptions(trireme trireme.Trireme, opts ...func(*TriremeOptions
 
 		PKI: false,
 
-		LocalProcess:    true,
-		LocalContainer:  false,
-		RemoteContainer: true,
-	}
+		LocalProcess:    localProcess,
+		LocalContainer:  localContainer,
+		RemoteContainer: remoteContainer,
 
-	// Collect all options provided.
-	for _, opt := range opts {
-		opt(t)
+		// Monitor
+		Monitor: monitor.SetupConfig(
+			// LinuxProcess
+			localProcess,
+			nil,
+			// LinuxHost
+			false,
+			nil,
+			// UID
+			false,
+			nil,
+			// Docker
+			localContainer || remoteContainer,
+			nil,
+			// CNI
+			false,
+			nil,
+			&processor.Config{
+				Collector: eventCollector,
+				MergeTags: []string{},
+			},
+		),
 	}
-
-	// Setup missing optional stuff
-	if t.Monitor == nil {
-		// Setup default monitors
-		OptMonitorConfig(
-			monitor.SetupConfig(
-				monitor.OptMonitorLinux(false),
-				monitor.OptMonitorDocker(),
-				monitor.OptProcessorConfig(t.EventCollector, trireme, nil),
-			),
-		)(t)
-	}
-
-	return t
 }
 
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
@@ -266,7 +269,9 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
 	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector, []string{})
 
-	monitors, err := monitor.NewMonitors(options.Monitor)
+	options.Monitor.Common.PUHandler = triremeInstance
+
+	monitors, err := monitor.New(options.Monitor)
 	if err != nil {
 		zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
 	}
