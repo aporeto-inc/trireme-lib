@@ -296,6 +296,7 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 }
 
 func (d *dockerMonitor) waitForDockerDaemon() {
+	
 	for {
 		if d.dockerClient == nil {
 			<-time.After(10 * time.Second)
@@ -315,7 +316,6 @@ func (d *dockerMonitor) waitForDockerDaemon() {
 		}
 
 		break
-
 	}
 
 	return
