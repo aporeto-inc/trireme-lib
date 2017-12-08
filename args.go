@@ -74,7 +74,7 @@ func OptionMonitors(m *monitor.Config) func(*config) {
 	}
 }
 
-// OptionEnforceLocal is an option to request local enforcer. Abscence of this options
+// OptionEnforceLocal is an option to request local enforcer. Absence of this options
 // implies use remote enforcers.
 func OptionEnforceLocal() func(*config) {
 	return func(cfg *config) {
