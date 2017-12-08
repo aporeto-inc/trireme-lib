@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
@@ -30,6 +31,17 @@ type Config struct {
 	Common    *processor.Config
 	Monitors  map[Type]interface{}
 	MergeTags []string
+}
+
+func (c *Config) String() string {
+	buf := fmt.Sprintf("MergeTags:[%s] ", strings.Join(c.MergeTags, ","))
+	buf += fmt.Sprintf("Common:%+v ", c.Common)
+	buf += fmt.Sprintf("Monitors:{")
+	for k, v := range c.Monitors {
+		buf += fmt.Sprintf("{%d:%+v},", k, v)
+	}
+	buf += fmt.Sprintf("}")
+	return buf
 }
 
 type monitors struct {
@@ -192,6 +204,8 @@ func New(c *Config) (Monitor, error) {
 			return nil, fmt.Errorf("Unsupported type %d", k)
 		}
 	}
+
+	zap.L().Info("Monitor Configuration", zap.String("Base", m.config.String()))
 
 	return m, nil
 }
