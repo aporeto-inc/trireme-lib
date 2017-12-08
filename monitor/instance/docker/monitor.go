@@ -310,32 +310,39 @@ func (d *dockerMonitor) Start() error {
 				zap.L().Debug("Waiting for docker client to be initalized. Docker daemon is not reachable")
 				continue
 			}
-			// Check if the server is running before you go ahead
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			_, err := d.dockerClient.Ping(ctx)
-			if err != nil {
-				zap.L().Error("unable to ping docker daemon:", zap.Error(err))
-			}
-
-			// Starting the eventListener First.
-			// We use a channel in order to wait for the eventListener to be ready
-			listenerReady := make(chan struct{})
-			go d.eventListener(listenerReady)
-			<-listenerReady
-
-			// Syncing all Existing containers depending on MonitorSetting
-			if d.syncAtStart {
-				err := d.ReSync()
-
+			if d.dockerClient != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				zap.L().Debug("Unable to ping docker daemon.")
+				_, err := d.dockerClient.Ping(ctx)
 				if err != nil {
-					zap.L().Error("Unable to sync existing containers", zap.Error(err))
+					<-time.After(10 * time.Second)
+					continue
 				}
 			}
+			break
 
-			// Processing the events received duringthe time of Sync.
-			go d.eventProcessors()
 		}
+		// Check if the server is running before you go ahead
+
+		// Starting the eventListener First.
+		// We use a channel in order to wait for the eventListener to be ready
+		listenerReady := make(chan struct{})
+		go d.eventListener(listenerReady)
+		<-listenerReady
+
+		// Syncing all Existing containers depending on MonitorSetting
+		if d.syncAtStart {
+			err := d.ReSync()
+
+			if err != nil {
+				zap.L().Error("Unable to sync existing containers", zap.Error(err))
+			}
+		}
+
+		// Processing the events received duringthe time of Sync.
+		go d.eventProcessors()
+
 	}()
 	return nil
 }
