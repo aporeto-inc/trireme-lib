@@ -294,6 +294,31 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
+func (d *dockerMonitor) waitForDockerDaemon() {
+	for {
+		if d.dockerClient == nil {
+			<-time.After(10 * time.Second)
+			zap.L().Debug("Waiting for docker client to be initalized. Docker daemon is not reachable")
+			continue
+		}
+
+		if d.dockerClient != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_, err := d.dockerClient.Ping(ctx)
+			if err != nil {
+				cancel()
+				<-time.After(10 * time.Second)
+				continue
+			}
+			cancel()
+		}
+
+		break
+
+	}
+
+	return
+}
 
 // Start will start the DockerPolicy Enforcement.
 // It applies a policy to each Container already Up and Running.
@@ -304,25 +329,8 @@ func (d *dockerMonitor) Start() error {
 		return fmt.Errorf("docker: %s", err)
 	}
 	go func() {
-		for {
-			if d.dockerClient == nil {
-				<-time.After(10 * time.Second)
-				zap.L().Debug("Waiting for docker client to be initalized. Docker daemon is not reachable")
-				continue
-			}
-			if d.dockerClient != nil {
-				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-				defer cancel()
-				zap.L().Debug("Unable to ping docker daemon.")
-				_, err := d.dockerClient.Ping(ctx)
-				if err != nil {
-					<-time.After(10 * time.Second)
-					continue
-				}
-			}
-			break
-
-		}
+		//This call will block till the daemon is ready
+		d.waitForDockerDaemon()
 		// Check if the server is running before you go ahead
 
 		// Starting the eventListener First.
