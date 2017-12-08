@@ -294,6 +294,7 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
+
 func (d *dockerMonitor) waitForDockerDaemon() {
 	for {
 		if d.dockerClient == nil {
@@ -329,7 +330,7 @@ func (d *dockerMonitor) Start() error {
 		return fmt.Errorf("docker: %s", err)
 	}
 	go func() {
-		//This call will block till the daemon is ready
+		// This call will block till the daemon is ready
 		d.waitForDockerDaemon()
 		// Check if the server is running before you go ahead
 
