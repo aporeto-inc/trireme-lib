@@ -232,13 +232,16 @@ func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interfa
 
 	// Setup defaults
 	dockerConfig = SetupDefaultConfig(dockerConfig)
-
-	// Setup configuration
-	if d.dockerClient, err = initDockerClient(dockerConfig.SocketType, dockerConfig.SocketAddress); err != nil {
-		zap.L().Debug("Unable to initialize Docker client", zap.Error(err))
-		return nil
-	}
-
+	go func() {
+		for {
+			// Setup configuration
+			if d.dockerClient, err = initDockerClient(dockerConfig.SocketType, dockerConfig.SocketAddress); err == nil {
+				return
+			}
+			zap.L().Debug("Unable to init docker client. Retrying...")
+			<-time.After(10 * time.Second)
+		}
+	}()
 	d.metadataExtractor = dockerConfig.EventMetadataExtractor
 	d.syncAtStart = dockerConfig.SyncAtStart
 	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
@@ -300,33 +303,40 @@ func (d *dockerMonitor) Start() error {
 	if err := d.config.IsComplete(); err != nil {
 		return fmt.Errorf("docker: %s", err)
 	}
+	go func() {
+		for {
+			if d.dockerClient == nil {
+				<-time.After(10 * time.Second)
+				zap.L().Debug("Waiting for docker client to be initalized. Docker daemon is not reachable")
+				continue
+			}
+			// Check if the server is running before you go ahead
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, err := d.dockerClient.Ping(ctx)
+			if err != nil {
+				zap.L().Error("unable to ping docker daemon:", zap.Error(err))
+			}
 
-	// Check if the server is running before you go ahead
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	_, err := d.dockerClient.Ping(ctx)
-	if err != nil {
-		return fmt.Errorf("unable to ping docker daemon: %s", err)
-	}
+			// Starting the eventListener First.
+			// We use a channel in order to wait for the eventListener to be ready
+			listenerReady := make(chan struct{})
+			go d.eventListener(listenerReady)
+			<-listenerReady
 
-	// Starting the eventListener First.
-	// We use a channel in order to wait for the eventListener to be ready
-	listenerReady := make(chan struct{})
-	go d.eventListener(listenerReady)
-	<-listenerReady
+			// Syncing all Existing containers depending on MonitorSetting
+			if d.syncAtStart {
+				err := d.ReSync()
 
-	// Syncing all Existing containers depending on MonitorSetting
-	if d.syncAtStart {
-		err := d.ReSync()
+				if err != nil {
+					zap.L().Error("Unable to sync existing containers", zap.Error(err))
+				}
+			}
 
-		if err != nil {
-			zap.L().Error("Unable to sync existing containers", zap.Error(err))
+			// Processing the events received duringthe time of Sync.
+			go d.eventProcessors()
 		}
-	}
-
-	// Processing the events received duringthe time of Sync.
-	go d.eventProcessors()
-
+	}()
 	return nil
 }
 
