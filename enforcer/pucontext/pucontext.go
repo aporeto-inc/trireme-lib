@@ -7,54 +7,55 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/acls"
-	"github.com/aporeto-inc/trireme/enforcer/lookup"
-	"github.com/aporeto-inc/trireme/enforcer/utils/packet"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
+	"github.com/aporeto-inc/trireme-lib/enforcer/lookup"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-// PU includes all the context of a PU. All values are private and
-// they can only be written during creation, other than the syn token
-// This guarantees that we have lock free operations
-type PU struct {
-	id              string
-	managementID    string
-	identity        *policy.TagStore
-	annotations     *policy.TagStore
-	acceptTxRules   *lookup.PolicyDB
-	rejectTxRules   *lookup.PolicyDB
-	acceptRcvRules  *lookup.PolicyDB
-	rejectRcvRules  *lookup.PolicyDB
-	applicationACLs *acls.ACLCache
-	networkACLs     *acls.ACLCache
-	externalIPCache cache.DataStore
-	ip              string
-	mark            string
-	ports           []string
-	puType          constants.PUType
-	synToken        []byte
-	synExpiration   time.Time
+// PUContext holds data indexed by the PU ID
+type PUContext struct {
+	id                string
+	managementID      string
+	identity          *policy.TagStore
+	annotations       *policy.TagStore
+	acceptTxRules     *lookup.PolicyDB
+	rejectTxRules     *lookup.PolicyDB
+	acceptRcvRules    *lookup.PolicyDB
+	rejectRcvRules    *lookup.PolicyDB
+	applicationACLs   *acls.ACLCache
+	networkACLs       *acls.ACLCache
+	externalIPCache   cache.DataStore
+	Extension         interface{}
+	ip                string
+	mark              string
+	ProxyPort         string
+	ports             []string
+	puType            constants.PUType
+	synToken          []byte
+	synServiceContext []byte
+	synExpiration     time.Time
 	sync.RWMutex
 }
 
 // NewPU creates a new PU context
-func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PU, error) {
+func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
 
 	ip, ok := puInfo.Runtime.DefaultIPAddress()
 	if !ok {
 		ip = "0.0.0.0/0"
 	}
 
-	pu := &PU{
+	pu := &PUContext{
 		id:              contextID,
 		managementID:    puInfo.Policy.ManagementID(),
 		puType:          puInfo.Runtime.PUType(),
 		ip:              ip,
 		identity:        puInfo.Policy.Identity(),
 		annotations:     puInfo.Policy.Annotations(),
-		externalIPCache: cache.NewCacheWithExpiration(timeout),
+		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
 		applicationACLs: acls.NewACLCache(),
 		networkACLs:     acls.NewACLCache(),
 		mark:            puInfo.Runtime.Options().CgroupMark,
@@ -80,92 +81,102 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PU,
 }
 
 // ID returns the ID of the PU
-func (p *PU) ID() string {
+func (p *PUContext) ID() string {
 	return p.id
 }
 
 // ManagementID returns the management ID
-func (p *PU) ManagementID() string {
+func (p *PUContext) ManagementID() string {
 	return p.managementID
 }
 
 // Type return the pu type
-func (p *PU) Type() constants.PUType {
+func (p *PUContext) Type() constants.PUType {
 	return p.puType
 }
 
 // Identity returns the indentity
-func (p *PU) Identity() *policy.TagStore {
+func (p *PUContext) Identity() *policy.TagStore {
 	return p.identity
 }
 
 // IP returns the IP of the PU
-func (p *PU) IP() string {
+func (p *PUContext) IP() string {
 	return p.ip
 }
 
 // Mark returns the PU mark
-func (p *PU) Mark() string {
+func (p *PUContext) Mark() string {
 	return p.mark
 }
 
 // Ports returns the PU ports
-func (p *PU) Ports() []string {
+func (p *PUContext) Ports() []string {
 	return p.ports
 }
 
 // Annotations returns the annotations
-func (p *PU) Annotations() *policy.TagStore {
+func (p *PUContext) Annotations() *policy.TagStore {
 	return p.annotations
 }
 
 // SearchAcceptTxRules returns the accept Tx Rules
-func (p *PU) SearchAcceptTxRules(claims *policy.TagStore) (int, interface{}) {
+func (p *PUContext) SearchAcceptTxRules(claims *policy.TagStore) (int, interface{}) {
 	return p.acceptTxRules.Search(claims)
 }
 
 // SearchRejectTxRules searches the reject rules for a policy match
-func (p *PU) SearchRejectTxRules(claims *policy.TagStore) (int, interface{}) {
+func (p *PUContext) SearchRejectTxRules(claims *policy.TagStore) (int, interface{}) {
 	return p.rejectTxRules.Search(claims)
 }
 
 // SearchAcceptRcvRules searches the accept rules for a policy match
-func (p *PU) SearchAcceptRcvRules(claims *policy.TagStore) (int, interface{}) {
+func (p *PUContext) SearchAcceptRcvRules(claims *policy.TagStore) (int, interface{}) {
 	return p.acceptRcvRules.Search(claims)
 }
 
 // SearchRejectRcvRules returns the reject receive rules
-func (p *PU) SearchRejectRcvRules(claims *policy.TagStore) (int, interface{}) {
+func (p *PUContext) SearchRejectRcvRules(claims *policy.TagStore) (int, interface{}) {
 	return p.rejectRcvRules.Search(claims)
 }
 
 // RetrieveCachedExternalFlowPolicy returns the policy for an external IP
-func (p *PU) RetrieveCachedExternalFlowPolicy(id string) (interface{}, error) {
+func (p *PUContext) RetrieveCachedExternalFlowPolicy(id string) (interface{}, error) {
 	return p.externalIPCache.Get(id)
 }
 
 // NetworkACLPolicy retrieves the policy based on ACLs
-func (p *PU) NetworkACLPolicy(packet *packet.Packet) (*policy.FlowPolicy, error) {
+func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (*policy.FlowPolicy, error) {
 	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
 }
 
 // ApplicationACLPolicy retrieves the policy based on ACLs
-func (p *PU) ApplicationACLPolicy(packet *packet.Packet) (*policy.FlowPolicy, error) {
+func (p *PUContext) ApplicationACLPolicy(packet *packet.Packet) (*policy.FlowPolicy, error) {
 	return p.applicationACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.SourcePort)
 }
 
 // CacheExternalFlowPolicy will cache an external flow
-func (p *PU) CacheExternalFlowPolicy(packet *packet.Packet, plc interface{}) {
+func (p *PUContext) CacheExternalFlowPolicy(packet *packet.Packet, plc interface{}) {
 	p.externalIPCache.AddOrUpdate(packet.SourceAddress.String()+":"+strconv.Itoa(int(packet.SourcePort)), plc)
 }
 
 // GetProcessKeys returns the cache keys for a process
-func (p *PU) GetProcessKeys() (string, []string) {
+func (p *PUContext) GetProcessKeys() (string, []string) {
 	return p.mark, p.ports
 }
 
+// SynServiceContext returns synServiceContext
+func (p *PUContext) SynServiceContext() []byte {
+	return p.synServiceContext
+}
+
+// UpdateSynServiceContext updates the synServiceContext
+func (p *PUContext) UpdateSynServiceContext(synServiceContext []byte) {
+	p.synServiceContext = synServiceContext
+}
+
 // GetCachedToken returns the cached syn packet token
-func (p *PU) GetCachedToken() ([]byte, error) {
+func (p *PUContext) GetCachedToken() ([]byte, error) {
 	p.RLock()
 	defer p.RUnlock()
 	if p.synExpiration.After(time.Now()) && len(p.synToken) > 0 {
@@ -176,7 +187,7 @@ func (p *PU) GetCachedToken() ([]byte, error) {
 }
 
 // UpdateCachedToken updates the local cached token
-func (p *PU) UpdateCachedToken(token []byte) {
+func (p *PUContext) UpdateCachedToken(token []byte) {
 	p.Lock()
 	defer p.Unlock()
 

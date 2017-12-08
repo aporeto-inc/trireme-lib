@@ -48,8 +48,6 @@ const (
 	// TransientPU PU -- placeholder to run processing. This should not
 	// be inserted in any cache. This is valid only for processing a packet
 	TransientPU
-	// HostPU indicates that we must apply policy to the host namespace
-	HostPU
 )
 
 const (
@@ -57,4 +55,13 @@ const (
 	DefaultRemoteArg = "enforce"
 	// DefaultConnMark is the default conn mark for all data packets
 	DefaultConnMark = uint32(0xEEEE)
+)
+
+const (
+	//DefaultProxyPort  the default port the l4 proxy listens on
+	DefaultProxyPort = "5000"
+	//DefaultProcMountPoint The default proc mountpoint
+	DefaultProcMountPoint = "/proc"
+	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
+	DefaultAporetoProcMountPoint = "/aporetoproc"
 )

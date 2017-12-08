@@ -1,16 +1,16 @@
 package supervisor
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/policy"
-	mock_supervisor "github.com/aporeto-inc/trireme/supervisor/mock"
-	gomock "github.com/golang/mock/gomock"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	mock_supervisor "github.com/aporeto-inc/trireme-lib/supervisor/mock"
+	"github.com/golang/mock/gomock"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -39,7 +39,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{})
+	plc := policy.NewPUPolicy("context", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 	return policy.PUInfoFromPolicyAndRuntime("context", plc, runtime)
 
@@ -116,8 +116,8 @@ func TestSupervise(t *testing.T) {
 		})
 
 		Convey("When I supervise a new PU with valid policy, but there is an error", func() {
-			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(fmt.Errorf("Error"))
-			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(errors.New("error"))
+			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			err := s.Supervise("errorPU", puInfo)
 			Convey("I should  get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -126,7 +126,7 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I send supervise command for a second time, it should do an update", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any()).Return(nil)
+			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(nil)
 			noerr := s.Supervise("contextID", puInfo)
 			So(noerr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
@@ -137,8 +137,8 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any()).Return(fmt.Errorf("Error"))
-			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(errors.New("error"))
+			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
@@ -155,7 +155,7 @@ func TestUnsupervise(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	Convey("Given a properly configured supervisor", t, func() {
+	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
@@ -177,7 +177,7 @@ func TestUnsupervise(t *testing.T) {
 
 		Convey("When I try to unsupervise a valid PU ", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Unsupervise("contextID")
@@ -213,7 +213,7 @@ func TestStart(t *testing.T) {
 		})
 
 		Convey("When I try to start it and the implementor returns an error", func() {
-			impl.EXPECT().Start().Return(fmt.Errorf("Error"))
+			impl.EXPECT().Start().Return(errors.New("error"))
 			err := s.Start()
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)

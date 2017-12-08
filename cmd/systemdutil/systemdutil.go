@@ -1,6 +1,7 @@
 package systemdutil
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -14,10 +15,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/monitor"
-	"github.com/aporeto-inc/trireme/monitor/rpcmonitor"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 const (
@@ -167,7 +168,7 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 
 	// Process the rest of the arguments of the create command
 	if value, ok := arguments["run"]; !ok || value == nil {
-		return nil, fmt.Errorf("No valid command provided")
+		return nil, errors.New("invalid command")
 	}
 
 	// This is a create request - proceed
@@ -211,7 +212,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 	// If its not hostPolicy and the command doesn't exist we return an error
 	if !c.HostPolicy {
 		if c.Executable == "" {
-			return fmt.Errorf("Command must be provided")
+			return errors.New("command must be provided")
 		}
 		if !path.IsAbs(c.Executable) {
 			c.Executable, err = exec.LookPath(c.Executable)
@@ -232,7 +233,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 	//This is added since the release_notification comes in this format
 	//Easier to massage it while creation rather than change at the receiving end depending on event
-	request := &rpcmonitor.EventInfo{
+	request := &events.EventInfo{
 		PUType:             constants.LinuxProcessPU,
 		Name:               c.ServiceName,
 		Tags:               c.Labels,
@@ -257,7 +258,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 // Delete will issue a delete command
 func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
-		return fmt.Errorf("cgroup, service ID, or service name must be defined")
+		return fmt.Errorf("cgroup, service id and service name must all be defined: cgroup=%s servicename=%s serviceid=%s", c.Cgroup, c.ServiceName, c.ServiceID)
 	}
 
 	rpcAdress := rpcmonitor.DefaultRPCAddress
@@ -271,18 +272,18 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		host = true
 	}
 
-	request := &rpcmonitor.EventInfo{
+	request := &events.EventInfo{
 		PUType:      constants.LinuxProcessPU,
 		PUID:        puid,
 		Cgroup:      c.Cgroup,
-		EventType:   monitor.EventStop,
+		EventType:   events.EventStop,
 		HostService: host,
 	}
 	// Handle the special case with the User ID monitor and deletes
 	if c.Cgroup != "" {
 		parts := strings.Split(c.Cgroup, "/")
 		if len(parts) != 3 {
-			return fmt.Errorf("Invalid Cgroup")
+			return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
 		}
 
 		if !c.HostPolicy {
@@ -298,7 +299,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	}
 
 	// Send destroy request
-	request.EventType = monitor.EventDestroy
+	request.EventType = events.EventDestroy
 
 	return sendRPC(rpcAdress, request)
 }
@@ -312,12 +313,12 @@ func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
 	case DeleteCgroupRequest, DeleteServiceRequest:
 		return r.Delete(c)
 	default:
-		return fmt.Errorf("Unknown command")
+		return fmt.Errorf("unknown request: %d", c.Request)
 	}
 }
 
 // sendRPC sends an RPC request to the provided address
-func sendRPC(address string, request *rpcmonitor.EventInfo) error {
+func sendRPC(address string, request *events.EventInfo) error {
 	// Make RPC call and only retry if the resource is temporarily unavailable
 	numRetries := 0
 	client, err := net.Dial("unix", address)
@@ -326,30 +327,24 @@ func sendRPC(address string, request *rpcmonitor.EventInfo) error {
 		nerr, ok := err.(*net.OpError)
 
 		if numRetries >= maxRetries || !(ok && nerr.Err == syscall.EAGAIN) {
-			err = fmt.Errorf("Cannot connect to policy process %s", err)
-			stderrlogger.Print(err)
-			return err
+			return fmt.Errorf("cannot connect to policy process: %s", nerr)
 		}
 
 		time.Sleep(5 * time.Millisecond)
 		client, err = net.Dial("unix", address)
 	}
 
-	response := &rpcmonitor.RPCResponse{}
+	response := &events.EventResponse{}
 
 	rpcClient := jsonrpc.NewClient(client)
 
 	err = rpcClient.Call(remoteMethodCall, request, response)
 	if err != nil {
-		err = fmt.Errorf("Policy Server call failed %s", err.Error())
-		stderrlogger.Print(err)
 		return err
 	}
 
-	if len(response.Error) > 0 {
-		err = fmt.Errorf("Your policy does not allow you to run this command")
-		stderrlogger.Print(err)
-		return err
+	if response.Error != "" {
+		return fmt.Errorf("policy does not allow to run this command: %s", response.Error)
 	}
 
 	return nil
@@ -366,9 +361,12 @@ func ParseServices(ports []string) ([]policy.Service, error) {
 	// Parse the ports and create the services. Cleanup any bad ports
 	services := []policy.Service{}
 	for _, p := range ports {
-		intPort, ierr := strconv.Atoi(p)
-		if ierr != nil || intPort > 0xFFFF || intPort < 0 {
-			return nil, fmt.Errorf("Invalid services")
+		intPort, err := strconv.Atoi(p)
+		if err != nil {
+			return nil, err
+		}
+		if intPort > 0xFFFF || intPort < 0 {
+			return nil, fmt.Errorf("invalid service: port must be greater than 0xffff and lesser than 0: %d", intPort)
 		}
 
 		// TODO: Assumes only TCP here until we add UDP support

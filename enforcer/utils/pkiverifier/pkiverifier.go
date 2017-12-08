@@ -4,13 +4,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
-	"fmt"
+	"errors"
 	"math/big"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 
-	"github.com/aporeto-inc/trireme/cache"
+	"github.com/aporeto-inc/trireme-lib/cache"
 )
 
 const (
@@ -62,7 +62,7 @@ func NewPKIVerifier(publicKeys []*ecdsa.PublicKey, cacheValidity time.Duration) 
 	return &tokenManager{
 		publicKeys: publicKeys,
 		signMethod: jwt.SigningMethodES256,
-		keycache:   cache.NewCacheWithExpiration(validity),
+		keycache:   cache.NewCacheWithExpiration("PKIVerifierKey", validity),
 		validity:   validity,
 	}
 }
@@ -99,7 +99,7 @@ func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 		return pk, nil
 	}
 
-	return nil, fmt.Errorf("Unable to verify token against any available public key")
+	return nil, errors.New("unable to verify token against any available public key")
 }
 
 // CreateTokenFromCertificate creates and signs a token

@@ -1,6 +1,6 @@
 package supervisor
 
-import "github.com/aporeto-inc/trireme/policy"
+import "github.com/aporeto-inc/trireme-lib/policy"
 
 // A Supervisor is implementing the node control plane that captures the packets.
 type Supervisor interface {
@@ -28,10 +28,10 @@ type Implementor interface {
 	ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error
 
 	// UpdateRules
-	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error
+	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error
 
 	// DeleteRules
-	DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error
+	DeleteRules(version int, context string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error
 
 	// SetTargetNetworks sets the target networks of the supervisor
 	SetTargetNetworks([]string, []string) error

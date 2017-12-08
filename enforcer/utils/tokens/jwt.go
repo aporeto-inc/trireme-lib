@@ -2,14 +2,14 @@ package tokens
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme/cache"
-	"github.com/aporeto-inc/trireme/crypto"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"go.uber.org/zap"
+	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -44,7 +44,7 @@ type JWTConfig struct {
 func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfig, error) {
 
 	if len(issuer) > MaxServerName {
-		return nil, fmt.Errorf("Server ID should be max %d chars. Got %s", MaxServerName, issuer)
+		return nil, fmt.Errorf("server id should be max %d chars. got %s", MaxServerName, issuer)
 	}
 
 	for i := len(issuer); i < MaxServerName; i++ {
@@ -54,7 +54,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	var signMethod jwt.SigningMethod
 
 	if s == nil {
-		return nil, fmt.Errorf("Secrets can not be nil")
+		return nil, errors.New("secrets can not be nil")
 	}
 
 	switch s.Type() {
@@ -71,7 +71,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 		Issuer:         issuer,
 		signMethod:     signMethod,
 		secrets:        s,
-		tokenCache:     cache.NewCacheWithExpiration(time.Millisecond * 500),
+		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
 	}, nil
 }
 
@@ -152,13 +152,13 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		// We must have at least enough data to get the length
 		if len(data) < tokenPosition {
-			return nil, nil, nil, fmt.Errorf("bad token length")
+			return nil, nil, nil, errors.New("invalid token length")
 		}
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:noncePosition]))
 		// Data must be enought to accommodate the token
 		if len(data) < tokenPosition+tokenLength+1 {
-			return nil, nil, nil, fmt.Errorf("bad token length")
+			return nil, nil, nil, errors.New("invalid token length")
 		}
 
 		copy(nonce, data[noncePosition:tokenPosition])
@@ -166,10 +166,9 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		token = data[tokenPosition : tokenPosition+tokenLength]
 
 		certBytes := data[tokenPosition+tokenLength+1:]
-
 		ackCert, err = c.secrets.VerifyPublicKey(certBytes)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("bad public key")
+			return nil, nil, nil, fmt.Errorf("invalid public key: %s", err)
 		}
 
 		if cachedClaims, cerr := c.tokenCache.Get(string(token)); cerr == nil {
@@ -185,9 +184,11 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 	})
 
 	// If error is returned or the token is not valid, reject it
-	if err != nil || !jwttoken.Valid {
-		zap.L().Error("ParseWithClaim failed", zap.Error(err))
-		return nil, nil, nil, fmt.Errorf("Invalid token")
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("unable to parse token: %s", err)
+	}
+	if !jwttoken.Valid {
+		return nil, nil, nil, errors.New("invalid token")
 	}
 
 	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)
@@ -199,7 +200,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 func (c *JWTConfig) Randomize(token []byte) (nonce []byte, err error) {
 
 	if len(token) < tokenPosition {
-		return []byte{}, fmt.Errorf("Token is too small")
+		return []byte{}, errors.New("token is too small")
 	}
 
 	nonce, err = crypto.GenerateRandomBytes(NonceLength)
@@ -214,11 +215,13 @@ func (c *JWTConfig) Randomize(token []byte) (nonce []byte, err error) {
 
 // RetrieveNonce returns the nonce of a token. It copies the value
 func (c *JWTConfig) RetrieveNonce(token []byte) ([]byte, error) {
+
 	if len(token) < tokenPosition {
-		return []byte{}, fmt.Errorf("Invalid token")
+		return []byte{}, errors.New("invalid token")
 	}
 
 	nonce := make([]byte, NonceLength)
 	copy(nonce, token[noncePosition:tokenPosition])
+
 	return nonce, nil
 }

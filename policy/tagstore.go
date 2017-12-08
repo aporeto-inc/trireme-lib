@@ -30,7 +30,7 @@ func (t *TagStore) GetSlice() []string {
 	return t.Tags
 }
 
-// Copy copies an ExtendedMap
+// Copy copies a TagStore
 func (t *TagStore) Copy() *TagStore {
 
 	c := make([]string, len(t.Tags))
@@ -54,6 +54,23 @@ func (t *TagStore) Get(key string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// Merge merges tags from m into native tag store. if the key exists, the provided
+// tag from m is ignored.
+func (t *TagStore) Merge(m *TagStore) (merged int) {
+
+	for _, kv := range m.Tags {
+		parts := strings.SplitN(kv, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if _, ok := t.Get(parts[0]); !ok {
+			t.AppendKeyValue(parts[0], parts[1])
+			merged++
+		}
+	}
+	return merged
 }
 
 // AppendKeyValue appends a key and value to the tag store

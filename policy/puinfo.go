@@ -1,6 +1,6 @@
 package policy
 
-import "github.com/aporeto-inc/trireme/constants"
+import "github.com/aporeto-inc/trireme-lib/constants"
 
 // PUInfo  captures all policy information related to a connection
 type PUInfo struct {
@@ -14,7 +14,7 @@ type PUInfo struct {
 
 // NewPUInfo instantiates a new ContainerPolicy
 func NewPUInfo(contextID string, puType constants.PUType) *PUInfo {
-	policy := NewPUPolicy(contextID, AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{})
+	policy := NewPUPolicy(contextID, AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{})
 	runtime := NewPURuntime("", 0, "", nil, nil, puType, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)
 }

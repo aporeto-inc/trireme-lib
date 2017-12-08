@@ -1,15 +1,16 @@
 package ipsetctrl
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
 )
 
 const (
@@ -37,7 +38,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, remote bool, mode constants.ModeType
 
 	ipt, err := provider.NewGoIPTablesProvider()
 	if err != nil {
-		return nil, fmt.Errorf("Cannot initialize IPtables provider")
+		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
 	}
 
 	ips := provider.NewGoIPsetProvider()
@@ -84,42 +85,38 @@ func (i *Instance) setPrefix(contextID string) (app, net string) {
 func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 
 	if containerInfo == nil {
-		return fmt.Errorf("Container info cannot be nil")
+		return errors.New("container info cannot be nil")
 	}
 
 	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	if policyrules == nil {
-		return fmt.Errorf("No policy rules provided -nil ")
+		return errors.New("no policy rules provided")
 	}
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
-		return fmt.Errorf("No ip address found")
+		return errors.New("no ip address found")
 	}
 
 	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
 		return err
 	}
 
-	if err := i.addTargetNets(containerInfo.Policy.TriremeNetworks()); err != nil {
-		return err
-	}
-
-	return nil
+	return i.addTargetNets(containerInfo.Policy.TriremeNetworks())
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string) error {
+func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(ipAddresses)
 	if !ok {
-		return fmt.Errorf("No ip address found")
+		return errors.New("no ip address found")
 	}
 
 	var errvector [8]error
@@ -144,18 +141,18 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 }
 
 // UpdateRules implements the update part of the interface
-func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo) error {
+func (i *Instance) UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error {
 	policyrules := containerInfo.Policy
 	appSetPrefix, netSetPrefix := i.setPrefix(contextID)
 
 	// Currently processing only containers with one IP address
 	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
 	if !ok {
-		return fmt.Errorf("No ip address found")
+		return errors.New("no ip address found")
 	}
 
 	if err := i.addAllRules(version, appSetPrefix, netSetPrefix, policyrules.ApplicationACLs(), policyrules.NetworkACLs(), ipAddress); err != nil {
-		return fmt.Errorf("Unable to add all rules: %s", err)
+		return fmt.Errorf("unable to add all rules: %s", err)
 	}
 
 	previousVersion := strconv.Itoa(version - 1)
@@ -200,10 +197,7 @@ func (i *Instance) addAllRules(version int, appSetPrefix, netSetPrefix string, a
 		return err
 	}
 
-	if err := i.addNetSetRules(versionstring, netSetPrefix, ip); err != nil {
-		return err
-	}
-	return nil
+	return i.addNetSetRules(versionstring, netSetPrefix, ip)
 }
 
 // Start implements the start of the interface
@@ -213,10 +207,7 @@ func (i *Instance) Start() error {
 		return err
 	}
 
-	if err := i.setupTrapRules(triremeSet); err != nil {
-		return err
-	}
-	return nil
+	return i.setupTrapRules(triremeSet)
 }
 
 // Stop implements the stop interface

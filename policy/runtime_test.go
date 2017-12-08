@@ -5,7 +5,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/aporeto-inc/trireme/constants"
+	"github.com/aporeto-inc/trireme-lib/constants"
 )
 
 func TestNewPURunTime(t *testing.T) {
@@ -31,7 +31,7 @@ func TestNewPURunTime(t *testing.T) {
 		So(runtime.puType, ShouldEqual, constants.ContainerPU)
 		So(runtime.tags, ShouldResemble, tags)
 		So(runtime.ips, ShouldResemble, ips)
-		So(runtime.options, ShouldBeNil)
+		So(runtime.options, ShouldNotBeNil)
 		So(runtime.pid, ShouldEqual, 123)
 		So(runtime.name, ShouldResemble, "container1")
 	})
@@ -45,7 +45,7 @@ func TestNewPDefaultURunTime(t *testing.T) {
 		So(runtime.puType, ShouldEqual, constants.ContainerPU)
 		So(runtime.tags, ShouldResemble, NewTagStore())
 		So(runtime.ips, ShouldResemble, ExtendedMap{})
-		So(runtime.options, ShouldBeNil)
+		So(runtime.options, ShouldNotBeNil)
 		So(runtime.pid, ShouldEqual, 0)
 		So(runtime.name, ShouldResemble, "")
 	})
@@ -114,6 +114,17 @@ func TestBasicFunctions(t *testing.T) {
 			value, ok := runtime.Tag("image")
 			So(ok, ShouldBeTrue)
 			So(value, ShouldEqual, "nginx")
+		})
+
+		Convey("I should be able to set the tags", func() {
+			modify := &TagStore{Tags: []string{"$set=new"}}
+			runtime.SetTags(modify)
+			So(runtime.Tags(), ShouldResemble, modify)
+			value, ok := runtime.Tag("$set")
+			So(ok, ShouldBeTrue)
+			So(value, ShouldEqual, "new")
+			_, ok = runtime.Tag("image")
+			So(ok, ShouldBeFalse)
 		})
 	})
 }

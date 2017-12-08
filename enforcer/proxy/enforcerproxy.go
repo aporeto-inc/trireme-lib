@@ -11,15 +11,19 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/crypto"
-	"github.com/aporeto-inc/trireme/enforcer"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/processmon"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/processmon"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 type pkiCertifier interface {
@@ -31,18 +35,6 @@ type pkiCertifier interface {
 type tokenPKICertifier interface {
 	TokenPEMs() [][]byte
 }
-
-// ErrFailedtoLaunch exported.
-var ErrFailedtoLaunch = errors.New("Failed to Launch")
-
-// ErrExpectedEnforcer exported
-var ErrExpectedEnforcer = errors.New("Process was not launched")
-
-// ErrEnforceFailed exported
-var ErrEnforceFailed = errors.New("Failed to enforce rules")
-
-// ErrInitFailed exported
-var ErrInitFailed = errors.New("Failed remote Init")
 
 // ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
@@ -57,9 +49,10 @@ type ProxyInfo struct {
 	commandArg             string
 	statsServerSecret      string
 	procMountPoint         string
-	externalIPCacheTimeout time.Duration
+	ExternalIPCacheTimeout time.Duration
+	portSetInstance        portset.PortSet
 
-	sync.Mutex
+	sync.RWMutex
 }
 
 // InitRemoteEnforcer method makes a RPC call to the remote enforcer
@@ -78,7 +71,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			CAPEM:                  pkier.AuthPEM(),
 			PublicPEM:              pkier.TransmittedPEM(),
 			PrivatePEM:             pkier.EncodingPEM(),
-			ExternalIPCacheTimeout: s.externalIPCacheTimeout,
+			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
 		},
 	}
 
@@ -88,8 +81,8 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
 	}
 
-	if err := s.rpchdl.RemoteCall(contextID, "Server.InitEnforcer", request, resp); err != nil {
-		return fmt.Errorf("Failed to initialize remote enforcer: status %s, error: %s", resp.Status, err.Error())
+	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
+		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
 	}
 
 	s.Lock()
@@ -99,11 +92,16 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	return nil
 }
 
+// UpdateSecrets updates the secrets used for signing communication between trireme instances
+func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
+	s.Lock()
+	defer s.Unlock()
+	s.Secrets = token
+	return nil
+}
+
 // Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
-	zap.L().Debug("PID of container", zap.Int("pid", puInfo.Runtime.Pid()))
-	zap.L().Debug("NSPath of container", zap.String("ns", puInfo.Runtime.NSPath()))
 
 	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), puInfo.Runtime.NSPath(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
 	if err != nil {
@@ -120,33 +118,41 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			return err
 		}
 	}
-
+	pkier := s.Secrets.(pkiCertifier)
+	enforcerPayload := &rpcwrapper.EnforcePayload{
+		ContextID:        contextID,
+		ManagementID:     puInfo.Policy.ManagementID(),
+		TriremeAction:    puInfo.Policy.TriremeAction(),
+		ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
+		NetworkACLs:      puInfo.Policy.NetworkACLs(),
+		PolicyIPs:        puInfo.Policy.IPAddresses(),
+		Annotations:      puInfo.Policy.Annotations(),
+		Identity:         puInfo.Policy.Identity(),
+		ReceiverRules:    puInfo.Policy.ReceiverRules(),
+		TransmitterRules: puInfo.Policy.TransmitterRules(),
+		TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
+		ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
+		ProxiedServices:  puInfo.Policy.ProxiedServices(),
+	}
+	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
+	s.RLock()
+	enforcerPayload.CAPEM = pkier.AuthPEM()
+	enforcerPayload.PublicPEM = pkier.TransmittedPEM()
+	enforcerPayload.PrivatePEM = pkier.EncodingPEM()
+	enforcerPayload.SecretType = s.Secrets.Type()
+	s.RUnlock()
 	request := &rpcwrapper.Request{
-		Payload: &rpcwrapper.EnforcePayload{
-			ContextID:        contextID,
-			ManagementID:     puInfo.Policy.ManagementID(),
-			TriremeAction:    puInfo.Policy.TriremeAction(),
-			ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
-			NetworkACLs:      puInfo.Policy.NetworkACLs(),
-			PolicyIPs:        puInfo.Policy.IPAddresses(),
-			Annotations:      puInfo.Policy.Annotations(),
-			Identity:         puInfo.Policy.Identity(),
-			ReceiverRules:    puInfo.Policy.ReceiverRules(),
-			TransmitterRules: puInfo.Policy.TransmitterRules(),
-			TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
-			ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
-		},
+		Payload: enforcerPayload,
 	}
 
-	err = s.rpchdl.RemoteCall(contextID, "Server.Enforce", request, &rpcwrapper.Response{})
+	err = s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{})
 	if err != nil {
 		// We can't talk to the enforcer. Kill it and restart it
 		s.Lock()
 		delete(s.initDone, contextID)
 		s.Unlock()
 		s.prochdl.KillProcess(contextID)
-		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
-		return ErrEnforceFailed
+		return fmt.Errorf("failed to enforce rules: %s", err)
 	}
 
 	return nil
@@ -167,6 +173,11 @@ func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
 }
 
+// GetPortSetInstance returns nil for the proxy
+func (s *ProxyInfo) GetPortSetInstance() portset.PortSet {
+	return s.portSetInstance
+}
+
 // Start starts the the remote enforcer proxy.
 func (s *ProxyInfo) Start() error {
 	return nil
@@ -181,15 +192,47 @@ func (s *ProxyInfo) Stop() error {
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
 	collector collector.EventCollector,
-	service enforcer.PacketProcessor,
+	service packetprocessor.PacketProcessor,
 	secrets secrets.Secrets,
 	serverID string,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
 	procMountPoint string,
-	externalIPCacheTimeout time.Duration,
-) enforcer.PolicyEnforcer {
+	ExternalIPCacheTimeout time.Duration,
+) policyenforcer.Enforcer {
+	return newProxyEnforcer(
+		mutualAuth,
+		filterQueue,
+		collector,
+		service,
+		secrets,
+		serverID,
+		validity,
+		rpchdl,
+		cmdArg,
+		processmon.GetProcessManagerHdl(),
+		procMountPoint,
+		ExternalIPCacheTimeout,
+		nil,
+	)
+}
+
+// newProxyEnforcer creates a new proxy to remote enforcers.
+func newProxyEnforcer(mutualAuth bool,
+	filterQueue *fqconfig.FilterQueue,
+	collector collector.EventCollector,
+	service packetprocessor.PacketProcessor,
+	secrets secrets.Secrets,
+	serverID string,
+	validity time.Duration,
+	rpchdl rpcwrapper.RPCClient,
+	cmdArg string,
+	procHdl processmon.ProcessManager,
+	procMountPoint string,
+	ExternalIPCacheTimeout time.Duration,
+	portSetInstance portset.PortSet,
+) policyenforcer.Enforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
 	if err != nil {
@@ -204,14 +247,15 @@ func NewProxyEnforcer(mutualAuth bool,
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                processmon.GetProcessManagerHdl(),
+		prochdl:                procHdl,
 		rpchdl:                 rpchdl,
 		initDone:               make(map[string]bool),
 		filterQueue:            filterQueue,
 		commandArg:             cmdArg,
 		statsServerSecret:      statsServersecret,
 		procMountPoint:         procMountPoint,
-		externalIPCacheTimeout: externalIPCacheTimeout,
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
+		portSetInstance:        portSetInstance,
 	}
 
 	zap.L().Debug("Called NewDataPathEnforcer")
@@ -231,11 +275,11 @@ func NewDefaultProxyEnforcer(serverID string,
 	secrets secrets.Secrets,
 	rpchdl rpcwrapper.RPCClient,
 	procMountPoint string,
-) enforcer.PolicyEnforcer {
+) policyenforcer.Enforcer {
 
 	mutualAuthorization := false
 	fqConfig := fqconfig.NewFilterQueueWithDefaults()
-	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcer.DefaultExternalIPTimeout)
+	defaultExternalIPCacheTimeout, err := time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
@@ -268,7 +312,7 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
 		zap.L().Error("Message sender cannot be verified")
-		return errors.New("Message sender cannot be verified")
+		return errors.New("message sender cannot be verified")
 	}
 
 	payload := req.Payload.(rpcwrapper.StatsPayload)

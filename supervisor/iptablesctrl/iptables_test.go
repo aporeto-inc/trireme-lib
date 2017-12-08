@@ -1,13 +1,14 @@
 package iptablesctrl
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/portset"
+	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -16,7 +17,7 @@ func TestNewInstance(t *testing.T) {
 	Convey("When I create a new iptables instance", t, func() {
 
 		Convey("If I create a local implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -26,7 +27,7 @@ func TestNewInstance(t *testing.T) {
 		})
 
 		Convey("If I create a remote implemenetation and iptables exists", func() {
-			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+			i, err := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -39,7 +40,7 @@ func TestNewInstance(t *testing.T) {
 
 func TestChainName(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net, err := i.chainName("Context", 1)
 			So(err, ShouldBeNil)
@@ -56,7 +57,7 @@ func TestChainName(t *testing.T) {
 
 func TestDefaultIP(t *testing.T) {
 	Convey("Given an iptables controller with remote off ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -81,7 +82,7 @@ func TestDefaultIP(t *testing.T) {
 	})
 
 	Convey("Given an iptables controller with remote on ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -109,7 +110,7 @@ func TestDefaultIP(t *testing.T) {
 
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -140,7 +141,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -168,7 +169,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -191,7 +192,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -201,7 +202,7 @@ func TestConfigureRules(t *testing.T) {
 				return nil
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
-				return fmt.Errorf("Failed to add container chain")
+				return errors.New("unable to add container chain")
 			})
 
 			err := i.ConfigureRules(1, "Context", containerinfo)
@@ -222,14 +223,14 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				return fmt.Errorf("Failed to add container chain")
+				return errors.New("unabke to add container chain")
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
 				return nil
@@ -245,22 +246,20 @@ func TestConfigureRules(t *testing.T) {
 
 func TestDeleteRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
 		Convey("If I try to delete with nil IP addreses", func() {
-			err := i.DeleteRules(1, "context", nil, "0", "0", "")
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+			err := i.DeleteRules(1, "context", nil, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldNotBeNil)
+
 		})
 
 		Convey("I try to delete with no default IP address ", func() {
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0", "")
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{}, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldNotBeNil)
+
 		})
 
 		Convey("I try to delete with a valid default IP address ", func() {
@@ -273,10 +272,8 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "")
-			Convey("I should get no error", func() {
-				So(err, ShouldBeNil)
-			})
+			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldBeNil)
 		})
 
 	})
@@ -284,7 +281,7 @@ func TestDeleteRules(t *testing.T) {
 
 func TestUpdateRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -305,7 +302,7 @@ func TestUpdateRules(t *testing.T) {
 		}
 
 		Convey("If I try to update with nil IP addreses", func() {
-			err := i.UpdateRules(1, "context", nil)
+			err := i.UpdateRules(1, "context", nil, nil)
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -320,13 +317,13 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
-			err := i.UpdateRules(1, "context", containerinfo)
+			err := i.UpdateRules(1, "context", containerinfo, nil)
 
 			Convey("I should get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -345,40 +342,43 @@ func TestUpdateRules(t *testing.T) {
 				if matchSpec(app0, rulespec) == nil || matchSpec(net0, rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockClearChain(t, func(table string, chain string) error {
 				if chain == app0 || chain == net0 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				if chain == app0 || chain == net0 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if chain == app1 || chain == net1 {
+
+				if chain == app1 || chain == net1 || chain == "RedirProxy-Net" || chain == "RedirProxy-App" ||
+					chain == "Proxy-Net" || chain == "Proxy-App" {
 					return nil
 				}
 				if matchSpec(app1, rulespec) == nil || matchSpec(net1, rulespec) == nil {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 				if chain == app1 || chain == net1 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockNewChain(t, func(table string, chain string) error {
+
 				if chain == app1 || chain == net1 {
 					return nil
 				}
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 
 			ipl := policy.ExtendedMap{}
@@ -390,13 +390,13 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
-			err := i.UpdateRules(1, "Context", containerinfo)
+			err := i.UpdateRules(1, "Context", containerinfo, nil)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -407,7 +407,7 @@ func TestUpdateRules(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	Convey("Given an iptables controllers,", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalContainer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
@@ -432,7 +432,7 @@ func TestStart(t *testing.T) {
 
 		Convey("When I start the controller and I fail to insert the mark rule", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
@@ -453,7 +453,7 @@ func TestStart(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer)
+		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 

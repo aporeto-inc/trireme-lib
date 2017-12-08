@@ -3,12 +3,19 @@ package enforcerproxy
 import (
 	"crypto/ecdsa"
 	"testing"
+	"time"
 
-	"github.com/aporeto-inc/trireme/collector"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	mockrpcwrapper "github.com/aporeto-inc/trireme/enforcer/utils/rpcwrapper/mock"
-	"github.com/aporeto-inc/trireme/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme/policy"
+	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	mockrpcwrapper "github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper/mock"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/processmon"
+	mockprocessmon "github.com/aporeto-inc/trireme-lib/internal/processmon/mock"
+	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -106,10 +113,33 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{})
+	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 	return policy.PUInfoFromPolicyAndRuntime("testServerID", plc, runtime)
 
+}
+
+func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessManager) policyenforcer.Enforcer {
+	mutualAuthorization := false
+	fqConfig := fqconfig.NewFilterQueueWithDefaults()
+	defaultExternalIPCacheTimeout := time.Second * 40
+	validity := time.Hour * 8760
+	policyEnf := newProxyEnforcer(
+		mutualAuthorization,
+		fqConfig,
+		eventCollector(),
+		nil,
+		secretGen(nil, nil, nil),
+		"testServerID",
+		validity,
+		rpchdl,
+		constants.DefaultRemoteArg,
+		prochdl,
+		procMountPoint,
+		defaultExternalIPCacheTimeout,
+		nil,
+	)
+	return policyEnf
 }
 
 func TestNewDefaultProxyEnforcer(t *testing.T) {
@@ -148,7 +178,7 @@ func TestInitRemoteEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to initiate a remote enforcer", func() {
-			rpchdl.EXPECT().RemoteCall("testServerID", "Server.InitEnforcer", gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			err := policyEnf.(*ProxyInfo).InitRemoteEnforcer("testServerID")
 
 			Convey("Then I should not get any error", func() {
@@ -167,7 +197,7 @@ func TestInitRemoteEnforcer(t *testing.T) {
 		})
 
 		Convey("When I try to initiate a remote enforcer", func() {
-			rpchdl.EXPECT().RemoteCall("testServerID", "Server.InitEnforcer", gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			err := policyEnf.(*ProxyInfo).InitRemoteEnforcer("testServerID")
 
 			Convey("Then I should not get any error", func() {
@@ -184,14 +214,15 @@ func TestEnforce(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint)
+		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
 		})
 
 		Convey("When I try to initiate a remote enforcer", func() {
-			rpchdl.EXPECT().RemoteCall("testServerID", "Server.InitEnforcer", gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			err := policyEnf.(*ProxyInfo).InitRemoteEnforcer("testServerID")
 
 			Convey("Then I should not get any error", func() {
@@ -199,8 +230,9 @@ func TestEnforce(t *testing.T) {
 			})
 
 			Convey("When I try to call enforce method", func() {
-				rpchdl.EXPECT().NewRPCClient("testServerID", "/var/run/testServerID.sock", gomock.Any()).Times(1)
-				rpchdl.EXPECT().RemoteCall("testServerID", "Server.Enforce", gomock.Any(), gomock.Any()).Times(1).Return(nil)
+				prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any())
+				rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
+
 				err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())
 
 				Convey("Then I should not get any error", func() {
@@ -212,15 +244,17 @@ func TestEnforce(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint)
+		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
 		})
 
 		Convey("When I try to call enforce method without enforcer running", func() {
-			rpchdl.EXPECT().RemoteCall("testServerID", "Server.InitEnforcer", gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			rpchdl.EXPECT().RemoteCall("testServerID", "Server.Enforce", gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any())
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())
 
 			Convey("Then I should not get any error", func() {
@@ -237,15 +271,17 @@ func TestUnenforce(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint)
+		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
 		})
 
 		Convey("When I try to call enforce method", func() {
-			rpchdl.EXPECT().RemoteCall("testServerID", "Server.InitEnforcer", gomock.Any(), gomock.Any()).Times(1).Return(nil)
-			rpchdl.EXPECT().RemoteCall("testServerID", "Server.Enforce", gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			prochdl.EXPECT().LaunchProcess("testServerID", gomock.Any(), gomock.Any(), rpchdl, gomock.Any(), gomock.Any(), gomock.Any())
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.InitEnforcer, gomock.Any(), gomock.Any()).Times(1).Return(nil)
+			rpchdl.EXPECT().RemoteCall("testServerID", remoteenforcer.Enforce, gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			err := policyEnf.(*ProxyInfo).Enforce("testServerID", createPUInfo())
 
 			Convey("Then I should not get any error", func() {

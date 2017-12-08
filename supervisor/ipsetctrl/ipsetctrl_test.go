@@ -1,13 +1,13 @@
 package ipsetctrl
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
-	"github.com/aporeto-inc/trireme/constants"
-	"github.com/aporeto-inc/trireme/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme/policy"
-	"github.com/aporeto-inc/trireme/supervisor/provider"
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
 	"github.com/bvandewalle/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -132,7 +132,8 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				ipl,
 				[]string{},
-				[]string{})
+				[]string{},
+				&policy.ProxiedServicesInfo{})
 			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
@@ -156,6 +157,7 @@ func TestConfigureRules(t *testing.T) {
 			ipl,
 			[]string{},
 			[]string{},
+			&policy.ProxiedServicesInfo{},
 		)
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
@@ -199,7 +201,7 @@ func TestConfigureRules(t *testing.T) {
 
 		Convey("When I try to configure rules and iptables fails", func() {
 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
-				return fmt.Errorf("Error")
+				return errors.New("error")
 			})
 			err := i.ConfigureRules(0, "context", containerinfo)
 			Convey("I should get an error", func() {
@@ -238,17 +240,13 @@ func TestDeleteRules(t *testing.T) {
 		Convey("When I delete the rules of a container", func() {
 			ipl := policy.ExtendedMap{}
 			ipl[policy.DefaultNamespace] = "172.17.0.1"
-			err := i.DeleteRules(0, "context", ipl, "0", "0", "")
-			Convey("It should return no errors", func() {
-				So(err, ShouldBeNil)
-			})
+			err := i.DeleteRules(0, "context", ipl, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldBeNil)
 		})
 
 		Convey("When I delete the rules with invalid map list", func() {
-			err := i.DeleteRules(0, "context", policy.ExtendedMap{}, "0", "0", "")
-			Convey("It should return an error ", func() {
-				So(err, ShouldNotBeNil)
-			})
+			err := i.DeleteRules(0, "context", policy.ExtendedMap{}, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldNotBeNil)
 		})
 
 	})
@@ -281,14 +279,14 @@ func TestUpdateRules(t *testing.T) {
 			if chain == "context-R-0" || chain == "context-A-0" {
 				return nil
 			}
-			return fmt.Errorf("Error")
+			return errors.New("error")
 		})
 
 		iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 			if chain == "context-R-1" || chain == "context-A-1" {
 				return nil
 			}
-			return fmt.Errorf("Error")
+			return errors.New("error")
 		})
 		i.containerSet, _ = ipsets.NewIpset("container", "hash:ip", &ipset.Params{})
 
@@ -316,7 +314,7 @@ func TestUpdateRules(t *testing.T) {
 			nil,
 			nil,
 			nil,
-			nil, ipl, []string{"172.17.0.0/24"}, []string{})
+			nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 		containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
 		containerinfo.Policy = policyrules
@@ -324,14 +322,12 @@ func TestUpdateRules(t *testing.T) {
 
 		Convey("When I update the rules of a container", func() {
 
-			err := i.DeleteRules(0, "context", ipl, "0", "0", "")
-			Convey("It should return no errors", func() {
-				So(err, ShouldBeNil)
-			})
+			err := i.DeleteRules(0, "context", ipl, "0", "0", "", "5000", "proxyPortSetName")
+			So(err, ShouldBeNil)
 		})
 
 		Convey("When I delete the rules with invalid map list", func() {
-			err := i.UpdateRules(0, "context", containerinfo)
+			err := i.UpdateRules(0, "context", containerinfo, nil)
 			Convey("It should succeed with no errors  ", func() {
 				So(err, ShouldBeNil)
 			})
