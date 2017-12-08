@@ -29,8 +29,7 @@ const (
 	minimumFields                  = 2
 )
 
-// portSetInstance : This type contains look up tables
-// to help update the ipset portsets.
+// portSetInstance contains look up tables to manage updates to ipset portsets.
 type portSetInstance struct {
 	userPortSet cache.DataStore
 	userPortMap cache.DataStore
@@ -38,8 +37,7 @@ type portSetInstance struct {
 	puFromPort  cache.DataStore
 }
 
-// deletes the port entry in the portset when the key uid:port
-// expires
+// expirer deletes the port entry in the portset when the key uid:port expires.
 func expirer(c cache.DataStore, id interface{}, item interface{}) {
 
 	userPort := strings.Split(id.(string), ":")
@@ -69,7 +67,7 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 
 }
 
-// New creates a portset interface
+// New creates an implementation portset interface.
 func New(puFromPort cache.DataStore) PortSet {
 
 	p := &portSetInstance{
@@ -93,8 +91,7 @@ func getUserName(uid string) (string, error) {
 	return u.Username, nil
 }
 
-// AddPortToUser adds/updates userPortMap cache. returns
-// true if user key is already present
+// AddPortToUser adds/updates userPortMap cache. returns true if user key is already present.
 func (p *portSetInstance) AddPortToUser(userName string, port string) (bool, error) {
 
 	key := userName + ":" + port
@@ -107,7 +104,7 @@ func (p *portSetInstance) AddPortToUser(userName string, port string) (bool, err
 	return updated, nil
 }
 
-// AddUserPortSet : This adds/updates userPortSet/markUserMap cache. userPortSet cache
+// AddUserPortSet adds/updates userPortSet/markUserMap cache. userPortSet cache
 // maps user to the portset associated with its PU. markUserMap maps the packet mark
 // the userName. This gets called during the creation of PU/on reception of application SYN-ACK packet.
 func (p *portSetInstance) AddUserPortSet(userName string, portset string, mark string) (err error) {
@@ -118,7 +115,7 @@ func (p *portSetInstance) AddUserPortSet(userName string, portset string, mark s
 
 }
 
-// GetUserPortSet returns the portset associated with user.
+// getUserPortSet returns the portset associated with user.
 func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 
 	portSetName, err := p.userPortSet.Get(userName)
@@ -134,8 +131,7 @@ func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
 	return port, nil
 }
 
-// DelUserPortSet  deletes user from userPortSet cache. Also deletes mark
-// entry from the cache.
+// DelUserPortSet deletes user and mark entries from caches.
 func (p *portSetInstance) DelUserPortSet(userName string, mark string) (err error) {
 
 	if err = p.userPortSet.Remove(userName); err != nil {
@@ -145,7 +141,7 @@ func (p *portSetInstance) DelUserPortSet(userName string, mark string) (err erro
 	return p.markUserMap.Remove(mark)
 }
 
-// GetuserMark return username associated with packet mark
+// GetuserMark return username associated with packet mark.
 func (p *portSetInstance) GetUserMark(mark string) (string, error) {
 
 	userName, err := p.markUserMap.Get(mark)
@@ -161,8 +157,7 @@ func (p *portSetInstance) GetUserMark(mark string) (string, error) {
 	return user, nil
 }
 
-// addPortSet  programs the ipset portset with port. The
-// portset name is derived from userPortSet cache.
+// addPortSet programs the ipset portset with port. The portset name is derived from userPortSet cache.
 func (p *portSetInstance) addPortSet(userName string, port string) (err error) {
 
 	puPortSetName, err := p.getUserPortSet(userName)
@@ -185,7 +180,7 @@ func (p *portSetInstance) addPortSet(userName string, port string) (err error) {
 	return nil
 }
 
-// deletePortSet deletes the portset
+// deletePortSet deletes the portset.
 func (p *portSetInstance) deletePortSet(userName string, port string) error {
 
 	puPortSetName, err := p.getUserPortSet(userName)
@@ -208,10 +203,9 @@ func (p *portSetInstance) deletePortSet(userName string, port string) error {
 	return nil
 }
 
-// startPortSetTask This go routine periodically scans (1s)
-// /proc/net/tcp file for listening ports and programs
-// the portsets. This worker thread is setup during datapath
-// initilisation.
+// startPortSetTask is a go routine that periodically scans /proc/net/tcp file
+// for listening ports and programs the portsets. This worker thread is setup
+// during datapath initilisation.
 func startPortSetTask(p *portSetInstance) {
 
 	t := time.NewTicker(portSetUpdateIntervalinSeconds * time.Second)
