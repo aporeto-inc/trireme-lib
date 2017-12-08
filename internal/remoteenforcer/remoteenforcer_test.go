@@ -23,6 +23,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient/mock"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
+	"github.com/aporeto-inc/trireme-lib/supervisor/mock"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
