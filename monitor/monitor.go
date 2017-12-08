@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"

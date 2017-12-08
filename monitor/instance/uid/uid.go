@@ -39,6 +39,5 @@ func MetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	runtimePID, _ := strconv.Atoi(event.PID)
-
-	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.UIDLoginPU, options), nil
 }

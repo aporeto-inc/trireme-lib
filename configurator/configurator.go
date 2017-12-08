@@ -13,17 +13,11 @@ import (
 	"github.com/aporeto-inc/trireme-lib"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
-	"github.com/aporeto-inc/trireme-lib/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/monitor"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
-	"github.com/aporeto-inc/trireme-lib/supervisor"
-	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
 )
 
 // TriremeOptions defines all the possible configuration options for Trireme configurator
@@ -138,9 +132,6 @@ func DefaultTriremeOptions() *TriremeOptions {
 // NewTriremeWithOptions creates all the Trireme objects based on the option struct
 func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 
-	enforcers := map[constants.PUType]policyenforcer.Enforcer{}
-	supervisors := map[constants.PUType]supervisor.Supervisor{}
-
 	var publicKeyAdder secrets.PublicKeyAdder
 	var secretInstance secrets.Secrets
 
@@ -174,100 +165,25 @@ func NewTriremeWithOptions(options *TriremeOptions) (*TriremeResult, error) {
 		secretInstance = NewSecretsFromPSK(options.PSK)
 	}
 
+	var tmode constants.ModeType = constants.LocalContainer
 	if options.RemoteContainer {
-		var s supervisor.Supervisor
-
-		rpcwrapper := rpcwrapper.NewRPCWrapper()
-		e := enforcerproxy.NewProxyEnforcer(
-			options.MutualAuth,
-			options.FilterQueue,
-			options.EventCollector,
-			options.Processor,
-			secretInstance,
-			options.ServerID,
-			options.Validity,
-			rpcwrapper,
-			options.RemoteArg,
-			options.ProcMountPoint,
-			options.ExternalIPCacheValidity,
-		)
-
-		s, err = supervisorproxy.NewProxySupervisor(
-			options.EventCollector,
-			e,
-			rpcwrapper)
-
-		if err != nil {
-			zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-		}
-		enforcers[constants.ContainerPU] = e
-		supervisors[constants.ContainerPU] = s
+		tmode = constants.RemoteContainer
 	}
-
-	if options.LocalContainer {
-		var s supervisor.Supervisor
-
-		e := enforcer.New(
-			options.MutualAuth,
-			options.FilterQueue,
-			options.EventCollector,
-			options.Processor,
-			secretInstance,
-			options.ServerID,
-			options.Validity,
-			constants.LocalContainer,
-			options.ProcMountPoint,
-			options.ExternalIPCacheValidity,
-		)
-
-		s, err = supervisor.NewSupervisor(
-			options.EventCollector,
-			e,
-			constants.LocalContainer,
-			options.ImplType,
-			options.TargetNetworks,
-		)
-		if err != nil {
-			zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-		}
-
-		enforcers[constants.ContainerPU] = e
-		supervisors[constants.ContainerPU] = s
-	}
-
-	if options.LocalProcess {
-		var s supervisor.Supervisor
-
-		e := enforcer.New(
-			options.MutualAuth,
-			options.FilterQueue,
-			options.EventCollector,
-			options.Processor,
-			secretInstance,
-			options.ServerID,
-			options.Validity,
-			constants.LocalServer,
-			options.ProcMountPoint,
-			options.ExternalIPCacheValidity,
-		)
-
-		s, err = supervisor.NewSupervisor(
-			options.EventCollector,
-			e,
-			constants.LocalServer,
-			options.ImplType,
-			options.TargetNetworks,
-		)
-		if err != nil {
-			zap.L().Fatal("Failed to load Supervisor", zap.Error(err))
-		}
-
-		enforcers[constants.LinuxProcessPU] = e
-		supervisors[constants.LinuxProcessPU] = s
-
-	}
-
-	triremeInstance := trireme.NewTrireme(options.ServerID, options.Resolver, supervisors, enforcers, options.EventCollector, []string{})
+	triremeInstance := trireme.NewTrireme(
+		options.ServerID,
+		options.Resolver,
+		tmode,
+		options.LocalProcess,
+		options.EventCollector,
+		nil,
+		true,
+		secretInstance,
+		options.FilterQueue,
+		options.Validity,
+		options.ProcMountPoint,
+		options.TargetNetworks,
+		options.ExternalIPCacheValidity,
+		[]string{})
 
 	options.Monitor.Common.PUHandler = triremeInstance
 

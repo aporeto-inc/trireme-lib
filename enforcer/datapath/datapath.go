@@ -378,7 +378,7 @@ func (d *Datapath) doCreatePU(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PUs for retrieval based on packet information
-	if pu.PUType == constants.LinuxProcessPU {
+	if pu.PUType == constants.LinuxProcessPU || pu.PUType == constants.UIDLoginPU {
 		pu.Mark, pu.Ports = d.getProcessKeys(puInfo)
 		d.puFromMark.AddOrUpdate(pu.Mark, pu)
 		for _, port := range pu.Ports {
