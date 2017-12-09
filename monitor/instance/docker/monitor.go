@@ -296,11 +296,11 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 }
 
 func (d *dockerMonitor) waitForDockerDaemon() {
-	
+
 	for {
 		if d.dockerClient == nil {
 			<-time.After(10 * time.Second)
-			zap.L().Debug("Waiting for docker client to be initalized. Docker daemon is not reachable")
+			zap.L().Debug("Waiting for docker client to be initialized. Docker daemon is not reachable")
 			continue
 		}
 
