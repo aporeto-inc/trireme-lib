@@ -320,8 +320,8 @@ func (d *dockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 
 	done := make(chan bool)
 	go func() {
-		for err := d.setupDockerDaemon(); err != nil; {
-			zap.L().Debug("Unable to init docker client. Retrying...", zap.Error(err))
+		for errg := d.setupDockerDaemon(); errg != nil; {
+			zap.L().Debug("Unable to init docker client. Retrying...", zap.Error(errg))
 			<-time.After(dockerRetryTimer)
 			continue
 		}
