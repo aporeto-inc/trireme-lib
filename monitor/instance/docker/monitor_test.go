@@ -208,7 +208,11 @@ func setupDockerMonitor(ctrl *gomock.Controller) (monitorinstance.Implementation
 
 	dmi, ok := dm.(*dockerMonitor)
 	So(ok, ShouldBeTrue)
-	dmi.waitForDockerDaemon()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	dmi.waitForDockerDaemon(ctx)
 	return dm, dmi, mockPU, mockSH
 }
 
