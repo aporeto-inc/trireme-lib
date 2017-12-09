@@ -197,6 +197,8 @@ func SetupDefaultConfig(dockerConfig *Config) *Config {
 // dockerMonitor implements the connection to Docker and monitoring based on events
 type dockerMonitor struct {
 	dockerClient       *dockerClient.Client
+	socketType         string
+	socketAddress      string
 	metadataExtractor  MetadataExtractor
 	handlers           map[Event]func(event *events.Message) error
 	eventnotifications []chan *events.Message
@@ -232,16 +234,9 @@ func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interfa
 
 	// Setup defaults
 	dockerConfig = SetupDefaultConfig(dockerConfig)
-	go func() {
-		for {
-			// Setup configuration
-			if d.dockerClient, err = initDockerClient(dockerConfig.SocketType, dockerConfig.SocketAddress); err == nil {
-				return
-			}
-			zap.L().Debug("Unable to init docker client. Retrying...")
-			<-time.After(10 * time.Second)
-		}
-	}()
+
+	d.socketType = dockerConfig.SocketType
+	d.socketAddress = dockerConfig.SocketAddress
 	d.metadataExtractor = dockerConfig.EventMetadataExtractor
 	d.syncAtStart = dockerConfig.SyncAtStart
 	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
@@ -295,30 +290,28 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
 
-func (d *dockerMonitor) waitForDockerDaemon() {
+func (d *dockerMonitor) setupDockerDaemon() (err error) {
 
-	for {
-		if d.dockerClient == nil {
-			<-time.After(10 * time.Second)
-			zap.L().Debug("Waiting for docker client to be initialized. Docker daemon is not reachable")
-			continue
+	if d.dockerClient == nil {
+		// Initialize client
+		if d.dockerClient, err = initDockerClient(d.socketType, d.socketAddress); err != nil {
+			return err
 		}
-
-		if d.dockerClient != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			_, err := d.dockerClient.Ping(ctx)
-			if err != nil {
-				cancel()
-				<-time.After(10 * time.Second)
-				continue
-			}
-			cancel()
-		}
-
-		break
 	}
 
-	return
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, err = d.dockerClient.Ping(ctx)
+	return err
+}
+
+func (d *dockerMonitor) waitForDockerDaemon() {
+
+	for err := d.setupDockerDaemon(); err != nil; {
+		zap.L().Debug("Unable to init docker client. Retrying...", zap.Error(err))
+		<-time.After(10 * time.Second)
+		continue
+	}
 }
 
 // Start will start the DockerPolicy Enforcement.
@@ -329,30 +322,28 @@ func (d *dockerMonitor) Start() error {
 	if err := d.config.IsComplete(); err != nil {
 		return fmt.Errorf("docker: %s", err)
 	}
-	go func() {
-		// This call will block till the daemon is ready
-		d.waitForDockerDaemon()
-		// Check if the server is running before you go ahead
 
-		// Starting the eventListener First.
-		// We use a channel in order to wait for the eventListener to be ready
+	go func() {
+
+		// Blocking call
+		d.waitForDockerDaemon()
+
+		// Starting the eventListener and wait to hear on channel for it to be ready.
 		listenerReady := make(chan struct{})
 		go d.eventListener(listenerReady)
 		<-listenerReady
 
 		// Syncing all Existing containers depending on MonitorSetting
 		if d.syncAtStart {
-			err := d.ReSync()
-
-			if err != nil {
+			if err := d.ReSync(); err != nil {
 				zap.L().Error("Unable to sync existing containers", zap.Error(err))
 			}
 		}
 
 		// Processing the events received duringthe time of Sync.
 		go d.eventProcessors()
-
 	}()
+
 	return nil
 }
 
