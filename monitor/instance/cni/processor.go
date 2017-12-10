@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )

@@ -26,9 +26,9 @@ mockgen -source supervisor/interfaces.go -destination supervisor/mock/mocksuperv
 goimport_sanitize supervisor/mock/mocksupervisor.go
 
 echo "Internal/ContextStore Mocks"
-mkdir -p internal/contextstore/mock
-mockgen -source internal/contextstore/interfaces.go -destination internal/contextstore/mock/mockcontextstore.go -package mockcontextstore
-goimport_sanitize internal/contextstore/mock/mockcontextstore.go
+mkdir -p utils/contextstore/mock
+mockgen -source utils/contextstore/interfaces.go -destination utils/contextstore/mock/mockcontextstore.go -package mockcontextstore
+goimport_sanitize utils/contextstore/mock/mockcontextstore.go
 
 echo "Internal/Processmon Mocks"
 mkdir -p internal/processmon/mock

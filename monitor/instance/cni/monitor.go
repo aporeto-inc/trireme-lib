@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
