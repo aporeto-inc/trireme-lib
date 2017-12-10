@@ -269,16 +269,12 @@ func TestStartDockerContainer(t *testing.T) {
 		})
 
 		Convey("When I try to start from default docker container with invalid context ID", func() {
-			err := dm.SetupConfig(nil, &Config{
-				EventMetadataExtractor:     testDockerMetadataExtractor,
-				KillContainerOnPolicyError: true,
-			})
-			So(err, ShouldBeNil)
+			dmi.killContainerOnPolicyError = true
 
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
 
-			err = dmi.startDockerContainer(initTestDockerInfo(ID, "default", true))
+			err := dmi.startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
 				So(err, ShouldResemble, errors.New("unable to set policy: killed container 74cc486f9ec3: Error"))
