@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )

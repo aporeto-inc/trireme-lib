@@ -7,7 +7,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
@@ -16,6 +15,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor/ipsetctrl"
 	"github.com/aporeto-inc/trireme-lib/supervisor/iptablesctrl"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
 type cacheData struct {

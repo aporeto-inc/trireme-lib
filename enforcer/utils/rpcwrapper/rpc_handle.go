@@ -18,7 +18,7 @@ import (
 
 	"net/rpc"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/cnf/structhash"
 )
 

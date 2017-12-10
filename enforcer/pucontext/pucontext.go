@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
 	"github.com/aporeto-inc/trireme-lib/enforcer/lookup"

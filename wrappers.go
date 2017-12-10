@@ -10,7 +10,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
@@ -22,6 +21,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/supervisor"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
 // trireme contains references to all the different components involved.

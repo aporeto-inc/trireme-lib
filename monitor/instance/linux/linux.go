@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"

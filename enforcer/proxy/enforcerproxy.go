@@ -13,7 +13,6 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
@@ -24,6 +23,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 )
 
 type pkiCertifier interface {

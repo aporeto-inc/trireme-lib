@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	jwt "github.com/dgrijalva/jwt-go"

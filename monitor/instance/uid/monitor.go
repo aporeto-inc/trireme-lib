@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
-	"github.com/aporeto-inc/trireme-lib/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"

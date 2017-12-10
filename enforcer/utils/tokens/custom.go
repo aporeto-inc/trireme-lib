@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 

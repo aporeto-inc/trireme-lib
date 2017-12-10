@@ -7,7 +7,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/cgnetcls/mock"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/contextstore/mock"

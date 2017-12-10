@@ -12,7 +12,7 @@ goimport_sanitize () {
 
 echo "Cgnetcls Mocks"
 mkdir -p cgnetcls/mock
-mockgen -source cgnetcls/interfaces.go -destination cgnetcls/mock/mockcgnetcls.go -package mockcgnetcls -source_package github.com/aporeto-inc/trireme-lib/cgnetcls
+mockgen -source cgnetcls/interfaces.go -destination cgnetcls/mock/mockcgnetcls.go -package mockcgnetcls -source_package github.com/aporeto-inc/trireme-lib/utils/cgnetcls
 goimport_sanitize cgnetcls/mock/mockcgnetcls.go
 
 echo "Enforcer/PolicyEnforcer Mocks"

@@ -20,7 +20,7 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 
-	"github.com/aporeto-inc/trireme-lib/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	tevents "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
