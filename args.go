@@ -34,6 +34,9 @@ type config struct {
 	procMountPoint         string
 	externalIPcacheTimeout time.Duration
 	targetNetworks         []string
+
+	// log
+	packetLogs bool
 }
 
 // Option is provided using functional arguments.
@@ -110,6 +113,13 @@ func OptionProcMountPoint(p string) func(*config) {
 	}
 }
 
+// OptionPacketLogs is an option to enable packet level logging.
+func OptionPacketLogs() func(*config) {
+	return func(cfg *config) {
+		cfg.packetLogs = true
+	}
+}
+
 // New returns a trireme interface implementation based on configuration provided.
 func New(serverID string, opts ...Option) Trireme {
 
@@ -128,5 +138,5 @@ func New(serverID string, opts ...Option) Trireme {
 
 	zap.L().Info("Trireme", zap.String("Configuration", fmt.Sprintf("%+v", c)))
 
-	return NewTrireme(c)
+	return newTrireme(c)
 }

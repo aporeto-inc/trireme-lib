@@ -49,7 +49,9 @@ func (t *trireme) newEnforcers() error {
 			t.config.validity,
 			constants.LocalServer,
 			t.config.procMountPoint,
-			t.config.externalIPcacheTimeout)
+			t.config.externalIPcacheTimeout,
+			t.config.packetLogs,
+		)
 	}
 	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
 	if t.config.mode == constants.RemoteContainer {
@@ -65,6 +67,7 @@ func (t *trireme) newEnforcers() error {
 			"enforce",
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
+			t.config.packetLogs,
 		)
 	} else {
 		t.enforcers[constants.LocalContainer] = enforcer.New(
@@ -77,7 +80,9 @@ func (t *trireme) newEnforcers() error {
 			t.config.validity,
 			constants.LocalServer,
 			t.config.procMountPoint,
-			t.config.externalIPcacheTimeout)
+			t.config.externalIPcacheTimeout,
+			t.config.packetLogs,
+		)
 	}
 
 	return nil
@@ -131,8 +136,8 @@ func (t *trireme) newSupervisors() error {
 	return nil
 }
 
-// NewTrireme returns a reference to the trireme object based on the parameter subelements.
-func NewTrireme(c *config) Trireme {
+// newTrireme returns a reference to the trireme object based on the parameter subelements.
+func newTrireme(c *config) Trireme {
 
 	var err error
 

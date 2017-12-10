@@ -50,6 +50,7 @@ type InitRequestPayload struct {
 	PrivatePEM             []byte                     `json:",omitempty"`
 	Token                  []byte                     `json:",omitempty"`
 	ExternalIPCacheTimeout time.Duration              `json:",omitempty"`
+	PacketLogs             bool                       `json:",omitempty"`
 }
 
 //InitSupervisorPayload for supervisor init request

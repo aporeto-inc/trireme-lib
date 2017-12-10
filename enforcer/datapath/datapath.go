@@ -85,6 +85,9 @@ type Datapath struct {
 	mutualAuthorization bool
 
 	portSetInstance portset.PortSet
+
+	// trace packet events
+	packetLogs bool
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -101,6 +104,7 @@ func New(
 	mode constants.ModeType,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
+	packetLogs bool,
 ) *Datapath {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
@@ -171,7 +175,10 @@ func New(
 		conntrackHdl:                conntrack.NewHandle(),
 		proxyhdl:                    tcpProxy,
 		portSetInstance:             portSetInstance,
+		packetLogs:                  packetLogs,
 	}
+
+	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 
@@ -199,6 +206,7 @@ func NewWithDefaults(
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
+	defaultPacketLogs := false
 	return New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
@@ -210,6 +218,7 @@ func NewWithDefaults(
 		mode,
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
+		defaultPacketLogs,
 	)
 }
 

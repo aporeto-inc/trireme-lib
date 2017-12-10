@@ -133,6 +133,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		constants.RemoteContainer,
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
+		payload.PacketLogs,
 	); s.enforcer == nil {
 		return errors.New("unable to setup enforcer: we don't know as this function does not return an error")
 	}
