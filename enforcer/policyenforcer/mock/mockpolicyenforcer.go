@@ -9,8 +9,8 @@ import (
 
 	fqconfig "github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	secrets "github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	portset "github.com/aporeto-inc/trireme-lib/internal/portset"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
-	portset "github.com/aporeto-inc/trireme-lib/portset"
 	gomock "github.com/golang/mock/gomock"
 )
 

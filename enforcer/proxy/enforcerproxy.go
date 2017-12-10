@@ -20,10 +20,10 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 type pkiCertifier interface {

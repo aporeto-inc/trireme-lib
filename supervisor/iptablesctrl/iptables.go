@@ -13,8 +13,8 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/portset"
 	"github.com/bvandewalle/go-ipset/ipset"
 
 	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
