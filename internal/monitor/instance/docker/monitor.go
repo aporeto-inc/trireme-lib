@@ -20,8 +20,8 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc/registerer"
 	tevents "github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"

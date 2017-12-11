@@ -2,18 +2,49 @@ package monitor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/cni"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/docker"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/linux"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/uid"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc/registerer"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"go.uber.org/zap"
 )
+
+// Type specifies the type of monitors supported.
+type Type int
+
+// Types supported.
+const (
+	CNI Type = iota + 1
+	Docker
+	LinuxProcess
+	LinuxHost
+	UID
+)
+
+// Config specifies the configs for monitors.
+type Config struct {
+	Common    processor.Config
+	MergeTags []string
+	Monitors  map[Type]interface{}
+}
+
+func (c *Config) String() string {
+	buf := fmt.Sprintf("MergeTags:[%s] ", strings.Join(c.MergeTags, ","))
+	buf += fmt.Sprintf("Common:%+v ", c.Common)
+	buf += fmt.Sprintf("Monitors:{")
+	for k, v := range c.Monitors {
+		buf += fmt.Sprintf("{%d:%+v},", k, v)
+	}
+	buf += fmt.Sprintf("}")
+	return buf
+}
 
 type monitors struct {
 	config          *Config
@@ -30,17 +61,17 @@ func NewMonitors(collector collector.EventCollector, puhandler processor.Process
 
 	var err error
 
-	c.common.Collector = collector
-	c.common.PUHandler = puhandler
+	c.Common.Collector = collector
+	c.Common.PUHandler = puhandler
 
-	if err = c.common.IsComplete(); err != nil {
+	if err = c.Common.IsComplete(); err != nil {
 		return nil, err
 	}
 
 	m := &monitors{
 		config:      c,
 		monitors:    make(map[Type]monitorinstance.Implementation),
-		syncHandler: c.common.SyncHandler,
+		syncHandler: c.Common.SyncHandler,
 	}
 
 	if m.userRPCListener, m.userRegisterer, err = rpcmonitor.New(
@@ -57,11 +88,11 @@ func NewMonitors(collector collector.EventCollector, puhandler processor.Process
 		return nil, fmt.Errorf("Unable to create user RPC Listener %s", err.Error())
 	}
 
-	for k, v := range c.monitors {
+	for k, v := range c.Monitors {
 		switch k {
 		case CNI:
 			mon := cnimonitor.New()
-			mon.SetupHandlers(&c.common)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("CNI: %s", err.Error())
 			}
@@ -69,7 +100,7 @@ func NewMonitors(collector collector.EventCollector, puhandler processor.Process
 
 		case Docker:
 			mon := dockermonitor.New()
-			mon.SetupHandlers(&c.common)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(nil, v); err != nil {
 				return nil, fmt.Errorf("Docker: %s", err.Error())
 			}
@@ -77,7 +108,7 @@ func NewMonitors(collector collector.EventCollector, puhandler processor.Process
 
 		case LinuxProcess:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(&c.common)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
@@ -85,7 +116,7 @@ func NewMonitors(collector collector.EventCollector, puhandler processor.Process
 
 		case LinuxHost:
 			mon := linuxmonitor.New()
-			mon.SetupHandlers(&c.common)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.rootRegisterer, v); err != nil {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
@@ -93,7 +124,7 @@ func NewMonitors(collector collector.EventCollector, puhandler processor.Process
 
 		case UID:
 			mon := uidmonitor.New()
-			mon.SetupHandlers(&c.common)
+			mon.SetupHandlers(&c.Common)
 			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
 				return nil, fmt.Errorf("UID: %s", err.Error())
 			}

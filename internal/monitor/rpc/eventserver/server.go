@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc/registerer"
 	"github.com/aporeto-inc/trireme-lib/rpc/events"
 )
 

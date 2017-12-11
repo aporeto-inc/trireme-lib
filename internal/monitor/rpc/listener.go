@@ -3,9 +3,9 @@ package rpcmonitor
 import (
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/server"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc/eventserver"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc/server"
 )
 
 const (

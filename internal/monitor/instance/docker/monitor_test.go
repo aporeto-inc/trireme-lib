@@ -12,7 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance"
 	tevents "github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor/mock"

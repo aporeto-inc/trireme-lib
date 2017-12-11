@@ -1,49 +1,17 @@
-package monitor
+package trireme
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/cni"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/docker"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/linux"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/uid"
 	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 )
 
-// Type specifies the type of monitors supported.
-type Type int
-
-// Types supported.
-const (
-	CNI Type = iota + 1
-	Docker
-	LinuxProcess
-	LinuxHost
-	UID
-)
-
-// Config specifies the configs for monitors.
-type Config struct {
-	common    processor.Config
-	MergeTags []string
-	monitors  map[Type]interface{}
-}
-
-// Option is provided using functional arguments.
-type Option func(*Config)
-
-func (c *Config) String() string {
-	buf := fmt.Sprintf("MergeTags:[%s] ", strings.Join(c.MergeTags, ","))
-	buf += fmt.Sprintf("Common:%+v ", c.common)
-	buf += fmt.Sprintf("Monitors:{")
-	for k, v := range c.monitors {
-		buf += fmt.Sprintf("{%d:%+v},", k, v)
-	}
-	buf += fmt.Sprintf("}")
-	return buf
-}
+// MonitorOption is provided using functional arguments.
+type MonitorOption func(*monitor.Config)
 
 // SubOptionMonitorLinuxExtractor provides a way to specify metadata extractor for linux monitors.
 func SubOptionMonitorLinuxExtractor(extractor events.EventMetadataExtractor) func(*linuxmonitor.Config) {
@@ -56,17 +24,17 @@ func SubOptionMonitorLinuxExtractor(extractor events.EventMetadataExtractor) fun
 func optionMonitorLinux(
 	host bool,
 	opts ...func(*linuxmonitor.Config),
-) func(*Config) {
+) func(*monitor.Config) {
 	lc := linuxmonitor.DefaultConfig(host)
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(lc)
 	}
-	return func(cfg *Config) {
+	return func(cfg *monitor.Config) {
 		if host {
-			cfg.monitors[LinuxHost] = lc
+			cfg.Monitors[monitor.LinuxHost] = lc
 		} else {
-			cfg.monitors[LinuxProcess] = lc
+			cfg.Monitors[monitor.LinuxProcess] = lc
 		}
 	}
 }
@@ -74,14 +42,14 @@ func optionMonitorLinux(
 // OptionMonitorLinuxHost provides a way to add a linux host monitor and related configuration to be used with New().
 func OptionMonitorLinuxHost(
 	opts ...func(*linuxmonitor.Config),
-) func(*Config) {
+) func(*monitor.Config) {
 	return optionMonitorLinux(true, opts...)
 }
 
 // OptionMonitorLinuxProcess provides a way to add a linux process monitor and related configuration to be used with New().
 func OptionMonitorLinuxProcess(
 	opts ...func(*linuxmonitor.Config),
-) func(*Config) {
+) func(*monitor.Config) {
 	return optionMonitorLinux(false, opts...)
 }
 
@@ -95,14 +63,14 @@ func SubOptionMonitorCNIExtractor(extractor events.EventMetadataExtractor) func(
 // OptionMonitorCNI provides a way to add a cni monitor and related configuration to be used with New().
 func OptionMonitorCNI(
 	opts ...func(*cnimonitor.Config),
-) func(*Config) {
+) func(*monitor.Config) {
 	cc := cnimonitor.DefaultConfig()
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(cc)
 	}
-	return func(cfg *Config) {
-		cfg.monitors[CNI] = cc
+	return func(cfg *monitor.Config) {
+		cfg.Monitors[monitor.CNI] = cc
 	}
 }
 
@@ -116,14 +84,14 @@ func SubOptionMonitorUIDExtractor(extractor events.EventMetadataExtractor) func(
 // OptionMonitorUID provides a way to add a UID monitor and related configuration to be used with New().
 func OptionMonitorUID(
 	opts ...func(*uidmonitor.Config),
-) func(*Config) {
+) func(*monitor.Config) {
 	uc := uidmonitor.DefaultConfig()
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(uc)
 	}
-	return func(cfg *Config) {
-		cfg.monitors[UID] = uc
+	return func(cfg *monitor.Config) {
+		cfg.Monitors[monitor.UID] = uc
 	}
 }
 
@@ -151,7 +119,7 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) f
 }
 
 // OptionMonitorDocker provides a way to add a docker monitor and related configuration to be used with New().
-func OptionMonitorDocker(opts ...func(*dockermonitor.Config)) func(*Config) {
+func OptionMonitorDocker(opts ...func(*dockermonitor.Config)) func(*monitor.Config) {
 
 	dc := &dockermonitor.Config{}
 	// Collect all docker options
@@ -159,33 +127,33 @@ func OptionMonitorDocker(opts ...func(*dockermonitor.Config)) func(*Config) {
 		opt(dc)
 	}
 
-	return func(cfg *Config) {
-		cfg.monitors[Docker] = dc
+	return func(cfg *monitor.Config) {
+		cfg.Monitors[monitor.Docker] = dc
 	}
 }
 
 // OptionSynchronizationHandler provides options related to processor configuration to be used with New().
 func OptionSynchronizationHandler(
 	s processor.SynchronizationHandler,
-) func(*Config) {
-	return func(cfg *Config) {
-		cfg.common.SyncHandler = s
+) func(*monitor.Config) {
+	return func(cfg *monitor.Config) {
+		cfg.Common.SyncHandler = s
 	}
 }
 
 // OptionMergeTags provides a way to add merge tags to be used with New().
-func OptionMergeTags(tags []string) func(*Config) {
-	return func(cfg *Config) {
+func OptionMergeTags(tags []string) func(*monitor.Config) {
+	return func(cfg *monitor.Config) {
 		cfg.MergeTags = tags
-		cfg.common.MergeTags = tags
+		cfg.Common.MergeTags = tags
 	}
 }
 
-// New provides a configuration for monitors.
-func New(opts ...Option) *Config {
+// NewMonitor provides a configuration for monitors.
+func NewMonitor(opts ...MonitorOption) *monitor.Config {
 
-	cfg := &Config{
-		monitors: make(map[Type]interface{}),
+	cfg := &monitor.Config{
+		Monitors: make(map[monitor.Type]interface{}),
 	}
 
 	for _, opt := range opts {
