@@ -138,6 +138,7 @@ func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessM
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
 		nil,
+		false,
 	)
 	return policyEnf
 }
