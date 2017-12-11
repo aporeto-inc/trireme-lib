@@ -231,7 +231,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PUs for retrieval based on packet information
-	if pu.Type() == constants.LinuxProcessPU {
+	if pu.Type() == constants.LinuxProcessPU || pu.Type() == constants.UIDLoginPU {
 		mark, ports := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 		for _, port := range ports {
