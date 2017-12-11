@@ -9,8 +9,8 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/internal/supervisor/provider"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 const (

@@ -5,8 +5,8 @@ import (
 	"crypto/x509"
 	"errors"
 
-	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/pkiverifier"
+	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 

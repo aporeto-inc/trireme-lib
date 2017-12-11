@@ -4,8 +4,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/internal/supervisor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 type mockedMethods struct {

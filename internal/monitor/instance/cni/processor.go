@@ -8,9 +8,9 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 )
 
 type cniProcessor struct {

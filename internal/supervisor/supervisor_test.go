@@ -8,8 +8,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	mock_supervisor "github.com/aporeto-inc/trireme-lib/internal/supervisor/mock"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/golang/mock/gomock"
 
 	. "github.com/smartystreets/goconvey/convey"

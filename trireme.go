@@ -30,13 +30,11 @@ type config struct {
 	fq                     *fqconfig.FilterQueue
 	linuxProcess           bool
 	mutualAuth             bool
+	packetLogs             bool
 	validity               time.Duration
 	procMountPoint         string
 	externalIPcacheTimeout time.Duration
 	targetNetworks         []string
-
-	// log
-	packetLogs bool
 }
 
 // Option is provided using functional arguments.

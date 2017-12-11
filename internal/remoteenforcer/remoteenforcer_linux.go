@@ -32,8 +32,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statscollector"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/internal/supervisor"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 var cmdLock sync.Mutex

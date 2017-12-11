@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 )
 
 // KubernetesMetadataExtractor is a systemd based metadata extractor

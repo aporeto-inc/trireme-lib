@@ -7,13 +7,13 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore/mock"
 	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor/mock"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore/mock"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -29,7 +29,7 @@ func testLinuxProcessor(
 		SyncHandler: syncHandler,
 	})
 	if err := l.SetupConfig(nil, &Config{
-		EventMetadataExtractor: DefaultHostMetadataExtractor,
+		EventMetadataExtractor: events.DefaultHostMetadataExtractor,
 		StoredPath:             "/tmp",
 		ReleasePath:            "./",
 	}); err != nil {

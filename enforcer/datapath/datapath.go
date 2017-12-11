@@ -83,11 +83,9 @@ type Datapath struct {
 	ackSize uint32
 
 	mutualAuthorization bool
+	packetLogs bool
 
 	portSetInstance portset.PortSet
-
-	// trace packet events
-	packetLogs bool
 }
 
 // New will create a new data path structure. It instantiates the data stores

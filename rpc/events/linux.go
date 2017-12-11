@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/shirou/gopsutil/process"
 )
 

@@ -39,6 +39,7 @@ type tokenPKICertifier interface {
 // ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
 	MutualAuth             bool
+	PacketLogs             bool
 	Secrets                secrets.Secrets
 	serverID               string
 	validity               time.Duration
@@ -50,9 +51,7 @@ type ProxyInfo struct {
 	statsServerSecret      string
 	procMountPoint         string
 	ExternalIPCacheTimeout time.Duration
-	PacketLogs             bool
 	portSetInstance        portset.PortSet
-
 	sync.RWMutex
 }
 
