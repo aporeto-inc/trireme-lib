@@ -573,8 +573,9 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	} else if dockerInfo.State.Dead {
 		event = tevents.EventStop
 	} else {
-		//We are restarting.Feeding start here. might as well be stop since we will get start notification when the
-		//container finishes restarting
+		// We are restarting. Feeding start event here. 
+		// Note: We might as well be stop since we will get start notification
+		// when the container finishes restarting.
 		event = tevents.EventStart
 	}
 
