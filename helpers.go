@@ -6,7 +6,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
-	"github.com/aporeto-inc/trireme-lib/supervisor/iptablesctrl"
+	"github.com/aporeto-inc/trireme-lib/internal/supervisor/iptablesctrl"
 	"go.uber.org/zap"
 )
 

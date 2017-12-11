@@ -20,10 +20,11 @@ import (
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
-	tevents "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	tevents "github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -55,9 +56,6 @@ const (
 
 	// DockerClientVersion is the version sent out as the client
 	DockerClientVersion = "v1.23"
-
-	// DockerHostMode is the string of the network mode that indicates a host namespace
-	DockerHostMode = "host"
 
 	// dockerPingTimeout is the time to wait for a ping to succeed.
 	dockerPingTimeout = 2 * time.Second
@@ -133,7 +131,7 @@ func defaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 		"bridge": info.NetworkSettings.IPAddress,
 	}
 
-	if info.HostConfig.NetworkMode == DockerHostMode {
+	if info.HostConfig.NetworkMode == constants.DockerHostMode {
 		return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, constants.LinuxProcessPU, hostModeOptions(info)), nil
 	}
 
@@ -228,7 +226,7 @@ func New() monitorinstance.Implementation {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (d *dockerMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) (err error) {
+func (d *dockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) (err error) {
 
 	defaultConfig := DefaultConfig()
 
@@ -630,7 +628,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", contextID, err)
 	}
 
-	if dockerInfo.HostConfig.NetworkMode == DockerHostMode {
+	if dockerInfo.HostConfig.NetworkMode == constants.DockerHostMode {
 		if err := d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
 		}

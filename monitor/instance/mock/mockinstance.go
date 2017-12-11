@@ -7,7 +7,7 @@ package mockinstance
 import (
 	reflect "reflect"
 
-	processor "github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	processor "github.com/aporeto-inc/trireme-lib/rpc/processor"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -68,7 +68,7 @@ func (mr *MockImplementationMockRecorder) Stop() *gomock.Call {
 
 // SetupConfig mocks base method
 // nolint
-func (m *MockImplementation) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
+func (m *MockImplementation) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 	ret := m.ctrl.Call(m, "SetupConfig", registerer, cfg)
 	ret0, _ := ret[0].(error)
 	return ret0

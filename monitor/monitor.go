@@ -10,7 +10,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"go.uber.org/zap"
 )
 
@@ -18,9 +19,9 @@ type monitors struct {
 	config          *Config
 	monitors        map[Type]monitorinstance.Implementation
 	userRPCListener rpcmonitor.Listener
-	userRegisterer  processor.Registerer
+	userRegisterer  registerer.Registerer
 	rootRPCListener rpcmonitor.Listener
-	rootRegisterer  processor.Registerer
+	rootRegisterer  registerer.Registerer
 	syncHandler     processor.SynchronizationHandler
 }
 

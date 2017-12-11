@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	constants "github.com/aporeto-inc/trireme-lib/constants"
-	events "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	processor "github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	events "github.com/aporeto-inc/trireme-lib/rpc/events"
+	processor "github.com/aporeto-inc/trireme-lib/rpc/processor"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )

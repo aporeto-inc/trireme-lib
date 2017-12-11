@@ -1,4 +1,4 @@
-package linuxmonitor
+package events
 
 import (
 	"crypto/md5"
@@ -12,15 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib.bk/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/shirou/gopsutil/process"
 )
 
 // DefaultHostMetadataExtractor is a host specific metadata extractor
-func DefaultHostMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
+func DefaultHostMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 
@@ -49,7 +48,7 @@ func DefaultHostMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, e
 }
 
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
-func SystemdEventMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, error) {
+func SystemdEventMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 
 	runtimeTags := policy.NewTagStore()
 
@@ -61,7 +60,7 @@ func SystemdEventMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, 
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
-	userdata := processInfo(event.PID)
+	userdata := ProcessInfo(event.PID)
 
 	for _, u := range userdata {
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
@@ -91,6 +90,58 @@ func SystemdEventMetadataExtractor(event *events.EventInfo) (*policy.PURuntime, 
 	}
 
 	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, &options), nil
+}
+
+// ProcessInfo returns all metadata captured by a process
+func ProcessInfo(pidString string) []string {
+	userdata := []string{}
+
+	pid, err := strconv.Atoi(pidString)
+	if err != nil {
+		return userdata
+	}
+
+	p, err := process.NewProcess(int32(pid))
+	if err != nil {
+		processes, cerr := cgnetcls.ListCgroupProcesses("/" + pidString)
+		if cerr != nil {
+			return userdata
+		}
+		for _, c := range processes {
+			pid, _ = strconv.Atoi(c)
+			p, _ = process.NewProcess(int32(pid))
+			if childRunning, cerr := p.IsRunning(); cerr != nil && childRunning {
+				break
+			}
+		}
+	}
+
+	uids, err := p.Uids()
+	if err != nil {
+		return userdata
+	}
+
+	groups, err := p.Gids()
+	if err != nil {
+		return userdata
+	}
+
+	username, err := p.Username()
+	if err != nil {
+		return userdata
+	}
+
+	for _, uid := range uids {
+		userdata = append(userdata, "uid:"+strconv.Itoa(int(uid)))
+	}
+
+	for _, gid := range groups {
+		userdata = append(userdata, "gid:"+strconv.Itoa(int(gid)))
+	}
+
+	userdata = append(userdata, "username:"+username)
+
+	return userdata
 }
 
 // computeFileMd5 computes the Md5 of a file
@@ -162,56 +213,4 @@ func libs(binpath string) []string {
 	}
 	libraries, _ := f.ImportedLibraries()
 	return libraries
-}
-
-// processInfo returns all metadata captured by a process
-func processInfo(pidString string) []string {
-	userdata := []string{}
-
-	pid, err := strconv.Atoi(pidString)
-	if err != nil {
-		return userdata
-	}
-
-	p, err := process.NewProcess(int32(pid))
-	if err != nil {
-		processes, cerr := cgnetcls.ListCgroupProcesses("/" + pidString)
-		if cerr != nil {
-			return userdata
-		}
-		for _, c := range processes {
-			pid, _ = strconv.Atoi(c)
-			p, _ = process.NewProcess(int32(pid))
-			if childRunning, cerr := p.IsRunning(); cerr != nil && childRunning {
-				break
-			}
-		}
-	}
-
-	uids, err := p.Uids()
-	if err != nil {
-		return userdata
-	}
-
-	groups, err := p.Gids()
-	if err != nil {
-		return userdata
-	}
-
-	username, err := p.Username()
-	if err != nil {
-		return userdata
-	}
-
-	for _, uid := range uids {
-		userdata = append(userdata, "uid:"+strconv.Itoa(int(uid)))
-	}
-
-	for _, gid := range groups {
-		userdata = append(userdata, "gid:"+strconv.Itoa(int(gid)))
-	}
-
-	userdata = append(userdata, "username:"+username)
-
-	return userdata
 }

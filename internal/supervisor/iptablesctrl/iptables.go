@@ -17,7 +17,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 
-	"github.com/aporeto-inc/trireme-lib/supervisor/provider"
+	"github.com/aporeto-inc/trireme-lib/internal/supervisor/provider"
 )
 
 const (

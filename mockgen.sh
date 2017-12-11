@@ -67,7 +67,7 @@ goimport_sanitize monitor/instance/mock/mockinstance.go
 
 echo "Monitor/RPC/Processor Mocks"
 mkdir -p monitor/rpc/processor/mock
-mockgen -source monitor/rpc/processor/interfaces.go -destination monitor/rpc/processor/mock/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/monitor/rpc/processor
+mockgen -source monitor/rpc/processor/interfaces.go -destination monitor/rpc/processor/mock/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/rpc/processor
 goimport_sanitize monitor/rpc/processor/mock/mockprocessor.go
 
 echo "Trireme Mocks"

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 )
 
 // Config is the configuration options to start a CNI monitor
@@ -25,7 +26,7 @@ func DefaultConfig(host bool) *Config {
 
 	if host {
 		return &Config{
-			EventMetadataExtractor: DefaultHostMetadataExtractor,
+			EventMetadataExtractor: events.DefaultHostMetadataExtractor,
 			StoredPath:             "/var/run/trireme/host",
 			ReleasePath:            "/var/lib/aporeto/cleaner",
 			Host:                   host,
@@ -33,7 +34,7 @@ func DefaultConfig(host bool) *Config {
 	}
 
 	return &Config{
-		EventMetadataExtractor: DefaultHostMetadataExtractor,
+		EventMetadataExtractor: events.DefaultHostMetadataExtractor,
 		StoredPath:             "/var/run/trireme/linux",
 		ReleasePath:            "/var/lib/aporeto/cleaner",
 		Host:                   host,
@@ -95,7 +96,7 @@ func (l *linuxMonitor) Stop() error {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (l *linuxMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
+func (l *linuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
 	defaultConfig := DefaultConfig(false)
 	if cfg == nil {

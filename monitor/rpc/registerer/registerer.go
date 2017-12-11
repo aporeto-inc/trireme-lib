@@ -1,10 +1,11 @@
-package processor
+package registerer
 
 import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 )
 
 // registerer provides a way for others to register a registerer
@@ -22,7 +23,7 @@ func New() Registerer {
 
 // RegisterProcessor registers an event processor for a given PUTYpe. Only one
 // processor is allowed for a given PU Type.
-func (r *registerer) RegisterProcessor(puType constants.PUType, ep Processor) error {
+func (r *registerer) RegisterProcessor(puType constants.PUType, ep processor.Processor) error {
 
 	if _, ok := r.handlers[puType]; ok {
 		return fmt.Errorf("Processor already registered for this PU type %d ", puType)

@@ -3,7 +3,7 @@ package trireme
 import (
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/supervisor/proxy"
+	"github.com/aporeto-inc/trireme-lib/internal/supervisor/proxy"
 
 	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
@@ -18,9 +18,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/utils/allocator"
 	"github.com/aporeto-inc/trireme-lib/monitor"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/supervisor"
+	"github.com/aporeto-inc/trireme-lib/internal/supervisor"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 

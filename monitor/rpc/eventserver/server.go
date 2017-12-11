@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 )
 
 const (
@@ -19,16 +19,16 @@ const (
 // Server represents the Monitor RPC Server implementation
 type Server struct {
 	root       bool
-	registerer processor.Registerer
+	registerer registerer.Registerer
 }
 
 // New provides a new event server. This server will be responsible for listening
 // events over the incoming RPC channel
-func New(root bool) (Processor, processor.Registerer) {
+func New(root bool) (Processor, registerer.Registerer) {
 
 	es := &Server{
 		root:       root,
-		registerer: processor.New(),
+		registerer: registerer.New(),
 	}
 	return es, es.registerer
 }

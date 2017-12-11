@@ -11,9 +11,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/utils/contextstore/mock"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor/mock"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor/mock"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )

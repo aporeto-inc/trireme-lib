@@ -2,9 +2,8 @@ package processor
 
 import (
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 )
 
 // Config holds configuration for all monitors
@@ -68,13 +67,4 @@ type Processor interface {
 
 	// ReSync resyncs all PUs handled by this processor
 	ReSync(EventInfo *events.EventInfo) error
-}
-
-// Registerer inteface allows event processors to register themselves with the event server.
-type Registerer interface {
-
-	// Register Processor registers event processors for a certain type of PU
-	RegisterProcessor(puType constants.PUType, p Processor) error
-
-	GetHandler(puType constants.PUType, e events.Event) (events.EventHandler, error)
 }

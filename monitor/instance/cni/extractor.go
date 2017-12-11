@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 

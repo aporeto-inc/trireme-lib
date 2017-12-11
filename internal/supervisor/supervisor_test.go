@@ -9,7 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	mock_supervisor "github.com/aporeto-inc/trireme-lib/supervisor/mock"
+	mock_supervisor "github.com/aporeto-inc/trireme-lib/internal/supervisor/mock"
 	"github.com/golang/mock/gomock"
 
 	. "github.com/smartystreets/goconvey/convey"

@@ -1,7 +1,7 @@
 package eventserver
 
 import (
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 )
 
 // String constants that can be used while making an RPC call.

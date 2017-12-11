@@ -1,6 +1,6 @@
 // +build linux
 
-package linuxmonitor
+package events
 
 import (
 	"encoding/hex"
@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

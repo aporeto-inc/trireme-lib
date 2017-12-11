@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor/instance"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
 
 // Config is the configuration options to start a CNI monitor
@@ -24,7 +25,7 @@ type Config struct {
 func DefaultConfig() *Config {
 
 	return &Config{
-		EventMetadataExtractor: MetadataExtractor,
+		EventMetadataExtractor: events.UIDMetadataExtractor,
 		StoredPath:             "/var/run/trireme/uid",
 		ReleasePath:            "/var/lib/aporeto/cleaner",
 	}
@@ -84,7 +85,7 @@ func (u *uidMonitor) Stop() error {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (u *uidMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
+func (u *uidMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
 	defaultConfig := DefaultConfig()
 	if cfg == nil {

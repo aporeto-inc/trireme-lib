@@ -4,7 +4,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/eventserver"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/server"
 )
 
@@ -23,11 +23,11 @@ type listener struct {
 	// eventProcessor uses rpcServer with a type event.EventInfo and mux's the events
 	// for a given type to an event processor.
 	eventProcessor eventserver.Processor
-	registerer     processor.Registerer
+	registerer     registerer.Registerer
 }
 
 // New returns a base RPC listener. Processors must be registered externally
-func New(rpcAddress string, root bool) (Listener, processor.Registerer, error) {
+func New(rpcAddress string, root bool) (Listener, registerer.Registerer, error) {
 
 	l := &listener{
 		rpcServer: rpcserver.New(rpcAddress, root),

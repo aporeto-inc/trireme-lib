@@ -4,10 +4,11 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 )
 
 // Config is the configuration options to start a CNI monitor
@@ -75,7 +76,7 @@ func (c *cniMonitor) Stop() error {
 
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
-func (c *cniMonitor) SetupConfig(registerer processor.Registerer, cfg interface{}) error {
+func (c *cniMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
 
 	defaultConfig := DefaultConfig()
 	if cfg == nil {
