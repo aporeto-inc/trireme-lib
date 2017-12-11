@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/netlink-go/conntrack"
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/acls"
@@ -25,8 +24,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/portset"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -83,6 +83,7 @@ type Datapath struct {
 	ackSize uint32
 
 	mutualAuthorization bool
+	packetLogs          bool
 
 	portSetInstance portset.PortSet
 }
@@ -101,6 +102,7 @@ func New(
 	mode constants.ModeType,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
+	packetLogs bool,
 ) *Datapath {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
@@ -171,7 +173,10 @@ func New(
 		conntrackHdl:                conntrack.NewHandle(),
 		proxyhdl:                    tcpProxy,
 		portSetInstance:             portSetInstance,
+		packetLogs:                  packetLogs,
 	}
+
+	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 
@@ -199,6 +204,7 @@ func NewWithDefaults(
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
+	defaultPacketLogs := false
 	return New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
@@ -210,6 +216,7 @@ func NewWithDefaults(
 		mode,
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
+		defaultPacketLogs,
 	)
 }
 

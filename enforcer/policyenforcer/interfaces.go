@@ -3,8 +3,8 @@ package policyenforcer
 import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/portset"
 )
 
 // A Enforcer is implementing the enforcer that will modify//analyze the capture packets

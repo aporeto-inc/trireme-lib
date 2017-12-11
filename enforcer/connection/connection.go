@@ -7,8 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
 var (
