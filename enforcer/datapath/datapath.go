@@ -83,7 +83,7 @@ type Datapath struct {
 	ackSize uint32
 
 	mutualAuthorization bool
-	packetLogs bool
+	packetLogs          bool
 
 	portSetInstance portset.PortSet
 }
