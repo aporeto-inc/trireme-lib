@@ -566,16 +566,17 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return err
 	}
 	var event tevents.Event
-	if dockerInfo.State.Paused {
+	switch dockerInfo.State.Status {
+	case "paused":
 		event = tevents.EventPause
-	} else if dockerInfo.State.Running {
+	case "running":
 		event = tevents.EventStart
-	} else if dockerInfo.State.Dead {
+	case "dead":
 		event = tevents.EventStop
-	} else {
-		// We are restarting. Feeding start event here. 
-		// Note: We might as well be stop since we will get start notification
-		// when the container finishes restarting.
+	default:
+		//We are restarting.Feeding start here. might as well be stop since we will get start notification when the
+		//container finishes restarting
+
 		event = tevents.EventStart
 	}
 
