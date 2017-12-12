@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/rpc/events"
 )
 
 const (
@@ -231,8 +231,8 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		rpcAdress = rpcmonitor.DefaultRootRPCAddress
 	}
 
-	//This is added since the release_notification comes in this format
-	//Easier to massage it while creation rather than change at the receiving end depending on event
+	// This is added since the release_notification comes in this format
+	// Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &events.EventInfo{
 		PUType:             constants.LinuxProcessPU,
 		Name:               c.ServiceName,
@@ -257,6 +257,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 // Delete will issue a delete command
 func (r *RequestProcessor) Delete(c *CLIRequest) error {
+
 	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
 		return fmt.Errorf("cgroup, service id and service name must all be defined: cgroup=%s servicename=%s serviceid=%s", c.Cgroup, c.ServiceName, c.ServiceID)
 	}
@@ -353,6 +354,7 @@ func sendRPC(address string, request *events.EventInfo) error {
 // ParseServices parses strings with the services and returns them in an
 // validated slice
 func ParseServices(ports []string) ([]policy.Service, error) {
+
 	// If no ports are provided, we add the default 0 port
 	if len(ports) == 0 {
 		ports = append(ports, "0")

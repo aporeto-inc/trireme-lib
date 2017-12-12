@@ -15,7 +15,7 @@ import (
 
 var (
 	// PacketLogLevel determines if packet logging is turned on
-	PacketLogLevel int
+	PacketLogLevel bool
 
 	// printCount prints the debug header for packets every few lines that it prints
 	printCount int
@@ -27,7 +27,7 @@ var (
 )
 
 func init() {
-	PacketLogLevel = 0
+	PacketLogLevel = false
 	debugContext = 0
 	debugContextApp = 0 //PacketStageIncoming
 	debugContextNet = 0 //PacketStageOutgoing
@@ -154,7 +154,7 @@ func (p *Packet) Print(context uint64) {
 	logPkt := false
 	detailed := false
 
-	if (PacketLogLevel > 0 || context == 0) || (dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0) || (dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0) {
+	if (PacketLogLevel || context == 0) || (dbgContext&PacketTypeApplication != 0 && dbgContext&debugContextApp != 0) || (dbgContext&PacketTypeNetwork != 0 && dbgContext&debugContextNet != 0) {
 		logPkt = true
 		detailed = true
 	} else if dbgContext&debugContext != 0 {

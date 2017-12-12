@@ -32,8 +32,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statscollector"
+	"github.com/aporeto-inc/trireme-lib/internal/supervisor"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/supervisor"
 )
 
 var cmdLock sync.Mutex
@@ -133,6 +133,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		constants.RemoteContainer,
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
+		payload.PacketLogs,
 	); s.enforcer == nil {
 		return errors.New("unable to setup enforcer: we don't know as this function does not return an error")
 	}

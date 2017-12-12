@@ -8,8 +8,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
-	"github.com/aporeto-inc/trireme-lib/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
@@ -17,14 +15,15 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme-lib/log"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
-	if log.Trace {
+	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
 			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -46,7 +45,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	case packet.TCPSynMask:
 		context, conn, err = d.netSynRetrieveState(p)
 		if err != nil {
-			if log.Trace {
+			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -68,7 +67,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	case packet.TCPSynAckMask:
 		context, conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
-			if log.Trace {
+			if d.packetLogs {
 				zap.L().Debug("SynAckPacket Ingored",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -80,7 +79,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	default:
 		context, conn, err = d.netRetrieveState(p)
 		if err != nil {
-			if log.Trace {
+			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -109,7 +108,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	action, claims, err := d.processNetworkTCPPacket(p, context, conn)
 	if err != nil {
 		p.Print(packet.PacketFailureAuth)
-		if log.Trace {
+		if d.packetLogs {
 			zap.L().Debug("Rejecting packet ",
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -144,7 +143,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 
-	if log.Trace {
+	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
 			zap.String("flow", p.L4FlowHash()),
 			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -164,7 +163,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	case packet.TCPSynMask:
 		context, conn, err = d.appSynRetrieveState(p)
 		if err != nil {
-			if log.Trace {
+			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -176,7 +175,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	case packet.TCPSynAckMask:
 		context, conn, err = d.appRetrieveState(p)
 		if err != nil {
-			if log.Trace {
+			if d.packetLogs {
 				zap.L().Debug("SynAckPacket Ignored",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -194,7 +193,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	default:
 		context, conn, err = d.appRetrieveState(p)
 		if err != nil {
-			if log.Trace {
+			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -223,7 +222,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
 	action, err := d.processApplicationTCPPacket(p, context, conn)
 	if err != nil {
-		if log.Trace {
+		if d.packetLogs {
 			zap.L().Debug("Dropping packet  ",
 				zap.String("flow", p.L4FlowHash()),
 				zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
@@ -898,7 +897,7 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*pucontext.PUContex
 
 	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
-		if log.Trace {
+		if d.packetLogs {
 			zap.L().Debug("No connection for SynAck packet ",
 				zap.String("flow", p.L4FlowHash()),
 			)
