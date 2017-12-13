@@ -4,7 +4,6 @@ package datapath
 import (
 	"errors"
 	"fmt"
-	"runtime/debug"
 	"strconv"
 
 	"go.uber.org/zap"
@@ -897,8 +896,6 @@ func updateTimer(c cache.DataStore, hash string, conn *connection.TCPConnection)
 // its IP information, we use the default IP. This will only work with remotes
 // and Linux processes.
 func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port string) (*pucontext.PUContext, error) {
-
-	debug.PrintStack()
 
 	pu, err := d.puFromIP.Get(packetIP)
 	if err == nil {
