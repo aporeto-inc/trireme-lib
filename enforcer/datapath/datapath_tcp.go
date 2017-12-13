@@ -529,14 +529,14 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	// Validate against reject rules first - We always process reject with higher priority
-	if index, plc := context.RejectRcvRules.Search(claims.T); index >= 0 {
+	if index, action := context.SearchRejectRcvRules(claims.T); index >= 0 {
 		// Reject the connection
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop, plc.(*policy.FlowPolicy))
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop, action)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %+v", claims.T)
 	}
 
 	// Search the policy rules for a matching rule.
-	if index, action := context.AcceptRcvRules.Search(claims.T); index >= 0 {
+	if index, action := context.SearchAcceptRcvRules(claims.T); index >= 0 {
 
 		hash := tcpPacket.L4FlowHash()
 		// Update the connection state and store the Nonse send to us by the host.
@@ -548,7 +548,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
 
 		// Cache the action
-		conn.FlowPolicy = action.(*policy.FlowPolicy)
+		conn.FlowPolicy = action
 
 		// Accept the connection
 		return action, claims, nil
@@ -652,12 +652,12 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// We can now verify the reverse policy. The system requires that policy
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
-	if index, _ := context.RejectTxtRules.Search(claims.T); d.mutualAuthorization && index >= 0 {
+	if index, _ := context.SearchRejectTxtRules(claims.T); d.mutualAuthorization && index >= 0 { // TODO: Why action is not reported here ?
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
 		return nil, nil, errors.New("dropping because of reject rule on transmitter")
 	}
 
-	if index, action := context.AcceptTxtRules.Search(claims.T); !d.mutualAuthorization || index >= 0 {
+	if index, action := context.SearchAcceptTxtRules(claims.T); !d.mutualAuthorization || index >= 0 {
 		conn.SetState(connection.TCPSynAckReceived)
 
 		// conntrack

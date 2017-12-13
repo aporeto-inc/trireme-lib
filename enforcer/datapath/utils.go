@@ -3,7 +3,6 @@ package datapath
 import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/enforcer/connection"
-	"github.com/aporeto-inc/trireme-lib/enforcer/lookup"
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -116,22 +115,4 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext
 	}
 
 	d.collector.CollectFlowEvent(record)
-}
-
-// createRuleDBs creates the database of rules from the policy
-func createRuleDBs(policyRules policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
-
-	acceptRules := lookup.NewPolicyDB()
-	rejectRules := lookup.NewPolicyDB()
-
-	for _, rule := range policyRules {
-		if rule.Policy.Action&policy.Accept != 0 {
-			acceptRules.AddPolicy(rule)
-		} else if rule.Policy.Action&policy.Reject != 0 {
-			rejectRules.AddPolicy(rule)
-		} else {
-			continue
-		}
-	}
-	return acceptRules, rejectRules
 }

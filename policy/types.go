@@ -44,6 +44,11 @@ func (f ActionType) Logged() bool {
 	return f&Log > 0
 }
 
+// Observed returns if the action mask contains the Observe mask.
+func (f ActionType) Observed() bool {
+	return f&Observe > 0
+}
+
 // ShortActionString returns if the action if accepted of rejected as a short string.
 func (f ActionType) ShortActionString() string {
 	if f.Accepted() && !f.Rejected() {
@@ -53,7 +58,6 @@ func (f ActionType) ShortActionString() string {
 	if !f.Accepted() && f.Rejected() {
 		return "r"
 	}
-
 	return "p"
 }
 
@@ -94,6 +98,8 @@ const (
 	Encrypt ActionType = 0x4
 	// Log instructs the datapath to log the IP addresses
 	Log ActionType = 0x8
+	// Observe instructs the datapath to log the IP addresses
+	Observe ActionType = 0x10
 )
 
 // FlowPolicy captures the policy for a particular flow

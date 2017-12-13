@@ -410,9 +410,9 @@ func (d *Datapath) doUpdatePU(puContext *pucontext.PUContext, containerInfo *pol
 	puContext.Lock()
 	defer puContext.Unlock()
 
-	puContext.AcceptRcvRules, puContext.RejectRcvRules = createRuleDBs(containerInfo.Policy.ReceiverRules())
+	puContext.CreateRcvRules(containerInfo.Policy.ReceiverRules())
 
-	puContext.AcceptTxtRules, puContext.RejectTxtRules = createRuleDBs(containerInfo.Policy.TransmitterRules())
+	puContext.CreateTxtRules(containerInfo.Policy.ReceiverRules())
 
 	puContext.Identity = containerInfo.Policy.Identity()
 
