@@ -41,6 +41,7 @@ type Response struct {
 type InitRequestPayload struct {
 	FqConfig               *fqconfig.FilterQueue      `json:",omitempty"`
 	MutualAuth             bool                       `json:",omitempty"`
+	PacketLogs             bool                       `json:",omitempty"`
 	Validity               time.Duration              `json:",omitempty"`
 	SecretType             secrets.PrivateSecretsType `json:",omitempty"`
 	ServerID               string                     `json:",omitempty"`

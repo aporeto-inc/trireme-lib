@@ -64,4 +64,6 @@ const (
 	DefaultProcMountPoint = "/proc"
 	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
 	DefaultAporetoProcMountPoint = "/aporetoproc"
+	// DockerHostMode is the string of the network mode that indicates a host namespace
+	DockerHostMode = "host"
 )

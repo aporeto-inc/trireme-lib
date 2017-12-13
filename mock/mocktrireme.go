@@ -9,9 +9,9 @@ import (
 
 	constants "github.com/aporeto-inc/trireme-lib/constants"
 	secrets "github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
-	events "github.com/aporeto-inc/trireme-lib/monitor/rpc/events"
+	supervisor "github.com/aporeto-inc/trireme-lib/internal/supervisor"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
-	supervisor "github.com/aporeto-inc/trireme-lib/supervisor"
+	events "github.com/aporeto-inc/trireme-lib/rpc/events"
 	gomock "github.com/golang/mock/gomock"
 )
 

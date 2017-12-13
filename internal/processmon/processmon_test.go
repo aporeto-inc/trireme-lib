@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
 const (
