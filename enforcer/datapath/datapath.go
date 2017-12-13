@@ -263,6 +263,10 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		}
 	}
 
+	zap.L().Info("Policy updated Rules")
+
+	pu.PrintPolicy()
+
 	// Cache PU from contextID for management and policy updates
 	d.contextTracker.AddOrUpdate(contextID, pu)
 

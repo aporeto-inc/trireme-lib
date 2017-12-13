@@ -88,6 +88,12 @@ func (p *PUContext) PrintPolicy() {
 
 	zap.L().Info("Reject rcv Rules")
 	p.rejectRcvRules.PrintPolicyDB()
+
+	zap.L().Info("Accept Tx Rules")
+	p.acceptTxRules.PrintPolicyDB()
+
+	zap.L().Info("Reject Tx rules")
+	p.rejectTxRules.PrintPolicyDB()
 }
 
 // ID returns the ID of the PU
