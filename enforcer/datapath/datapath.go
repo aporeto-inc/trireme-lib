@@ -240,14 +240,25 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() == constants.LinuxProcessPU || pu.Type() == constants.UIDLoginPU {
 		mark, ports := pu.GetProcessKeys()
+		zap.L().Info("Updating context in mark cache", zap.String("Mark", mark))
+
 		d.puFromMark.AddOrUpdate(mark, pu)
+
+		zap.L().Info("Updating context from puFromPort cache", zap.Strings("ports", ports))
+
 		for _, port := range ports {
 			d.puFromPort.AddOrUpdate(port, pu)
 		}
-	} else {
+	}
+
+	if pu.Type() != constants.LinuxProcessPU {
 		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
+			zap.L().Info("Updating context from IP for !linux Process", zap.String("ip", ip))
+
 			d.puFromIP.AddOrUpdate(ip, pu)
 		} else {
+			zap.L().Info("Updating context from default ip", zap.String("Packet IP", enforcerconstants.DefaultNetwork))
+
 			d.puFromIP.AddOrUpdate(enforcerconstants.DefaultNetwork, pu)
 		}
 	}

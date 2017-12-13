@@ -4,6 +4,7 @@ package datapath
 import (
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 
 	"go.uber.org/zap"
@@ -507,6 +508,9 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	}
 
 	// Search the policy rules for a matching rule.
+	zap.L().Info("Printing Policy DB: Accept/Reject Rcv Rules")
+	context.PrintPolicy()
+
 	if index, action := context.SearchAcceptRcvRules(claims.T); index >= 0 {
 
 		hash := tcpPacket.L4FlowHash()
@@ -894,8 +898,11 @@ func updateTimer(c cache.DataStore, hash string, conn *connection.TCPConnection)
 // and Linux processes.
 func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port string) (*pucontext.PUContext, error) {
 
+	debug.PrintStack()
+
 	pu, err := d.puFromIP.Get(packetIP)
 	if err == nil {
+		zap.L().Info("Getting context from IP", zap.String("Packet IP", packetIP))
 		return pu.(*pucontext.PUContext), nil
 	}
 
@@ -906,14 +913,19 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 	// Look for context based on the default IP
 	defaultPU, err := d.puFromIP.Get(enforcerconstants.DefaultNetwork)
 	if err == nil {
+		zap.L().Info("Getting context from default IP", zap.String("Packet IP", enforcerconstants.DefaultNetwork))
+
 		return defaultPU.(*pucontext.PUContext), nil
 	}
 
 	if app {
+		zap.L().Info("Called from app Retrieve State")
 		pu, err = d.puFromMark.Get(mark)
 		if err != nil {
 			return nil, fmt.Errorf("pu context cannot be found using mark %s: %s", mark, err)
 		}
+		zap.L().Info("Getting context from Mark", zap.String("Mark", mark))
+
 		return pu.(*pucontext.PUContext), nil
 	}
 
@@ -921,6 +933,8 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 	if err != nil {
 		return nil, fmt.Errorf("pu context cannot be found using port %s: %s", port, err)
 	}
+	zap.L().Info("Getting context from port", zap.String("Port", port))
+
 	return pu.(*pucontext.PUContext), nil
 }
 
