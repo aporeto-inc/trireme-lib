@@ -774,6 +774,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 				context, perr := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if perr == nil {
 					// check cache and update portset cache accordingly.
+					context.AddPorts(strconv.Itoa(int(p.SourcePort)))
 					return processSynAck(d, p, context)
 				}
 			}

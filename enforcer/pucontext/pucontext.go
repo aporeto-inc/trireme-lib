@@ -183,6 +183,8 @@ func (p *PUContext) GetProcessKeys() (string, []string) {
 
 // SynServiceContext returns synServiceContext
 func (p *PUContext) SynServiceContext() []byte {
+	p.RLock()
+	defer p.RUnlock()
 	return p.synServiceContext
 }
 
@@ -216,6 +218,13 @@ func (p *PUContext) UpdateCachedToken(token []byte) {
 
 	p.synToken = token
 	p.synExpiration = time.Now().Add(time.Millisecond * 500)
+}
+
+// AddPorts updates the portList for PU
+func (p *PUContext) AddPorts(port string) {
+	p.Lock()
+	defer p.Unlock()
+	p.ports = append(p.ports, port)
 }
 
 // createRuleDBs creates the database of rules from the policy

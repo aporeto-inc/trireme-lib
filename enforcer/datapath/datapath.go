@@ -244,14 +244,11 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 		d.puFromMark.AddOrUpdate(mark, pu)
 
-		zap.L().Info("Updating context from puFromPort cache", zap.Strings("ports", ports))
-
 		for _, port := range ports {
 			d.puFromPort.AddOrUpdate(port, pu)
 		}
-	}
-
-	if pu.Type() != constants.LinuxProcessPU {
+		zap.L().Info("Updating context from puFromPort cache", zap.Strings("ports", ports))
+	} else {
 		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
 			zap.L().Info("Updating context from IP for !linux Process", zap.String("ip", ip))
 
