@@ -412,7 +412,7 @@ func (d *Datapath) doUpdatePU(puContext *pucontext.PUContext, containerInfo *pol
 
 	puContext.CreateRcvRules(containerInfo.Policy.ReceiverRules())
 
-	puContext.CreateTxtRules(containerInfo.Policy.ReceiverRules())
+	puContext.CreateTxtRules(containerInfo.Policy.TransmitterRules())
 
 	puContext.Identity = containerInfo.Policy.Identity()
 
