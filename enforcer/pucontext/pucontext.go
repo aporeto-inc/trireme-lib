@@ -176,9 +176,8 @@ func (p *PUContext) SynServiceContext() []byte {
 func (p *PUContext) UpdateSynServiceContext(synServiceContext []byte) {
 
 	p.Lock()
-	defer p.Unlock()
-
 	p.synServiceContext = synServiceContext
+	p.Unlock()
 }
 
 // GetCachedToken returns the cached syn packet token
@@ -191,17 +190,19 @@ func (p *PUContext) GetCachedToken() ([]byte, error) {
 		return p.synToken, nil
 	}
 
-	return nil, fmt.Errorf("Expired Token")
+	return nil, fmt.Errorf("eiixpired Token")
 }
 
 // UpdateCachedToken updates the local cached token
 func (p *PUContext) UpdateCachedToken(token []byte) {
 
 	p.Lock()
-	defer p.Unlock()
 
 	p.synToken = token
 	p.synExpiration = time.Now().Add(time.Millisecond * 500)
+
+	p.Unlock()
+
 }
 
 // createRuleDBs creates the database of rules from the policy
@@ -211,6 +212,7 @@ func createRuleDBs(policyRules policy.TagSelectorList) (*lookup.PolicyDB, *looku
 	rejectRules := lookup.NewPolicyDB()
 
 	for _, rule := range policyRules {
+
 		if rule.Policy.Action&policy.Accept != 0 {
 			acceptRules.AddPolicy(rule)
 		} else if rule.Policy.Action&policy.Reject != 0 {

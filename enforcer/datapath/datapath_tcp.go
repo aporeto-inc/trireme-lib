@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -472,12 +473,19 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// Decode the JWT token using the context key
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 
-	// If the token signature is not valid or there are no claims
+	// If the token signature is not valid,
 	// we must drop the connection and we drop the Syn packet. The source will
 	// retry but we have no state to maintain here.
-	if err != nil || claims == nil {
+	if err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil)
-		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token %v %+v", err, claims)
+		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
+	}
+
+	// if there are no claims we must drop the connection and we drop the Syn
+	// packet. The source will retry but we have no state to maintain here.
+	if claims == nil {
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil)
+		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
 	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
@@ -503,7 +511,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if index, plc := context.SearchRejectRcvRules(claims.T); index >= 0 {
 		// Reject the connection
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, plc.(*policy.FlowPolicy))
-		return nil, nil, fmt.Errorf("Connection rejected because of policy: %+v", claims.T)
+		return nil, nil, fmt.Errorf("Connection rejected because of policy: %s", strings.Join(claims.T.Tags, " "))
 	}
 
 	// Search the policy rules for a matching rule.
@@ -594,9 +602,14 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 	// // Validate the certificate and parse the token
 	// claims, nonce, cert, err := d.tokenEngine.GetToken().Decode(false, tcpData, nil)
-	if err != nil || claims == nil {
+	if err != nil {
 		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil)
-		return nil, nil, fmt.Errorf("Synack packet dropped because of bad claims: %v", claims)
+		return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
+	}
+
+	if claims == nil {
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil)
+		return nil, nil, errors.New("SynAck packet dropped because of no claims")
 	}
 
 	tcpPacket.ConnectionMetadata = &conn.Auth
@@ -619,7 +632,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// become a very strong condition
 	if index, _ := context.SearchRejectTxRules(claims.T); d.mutualAuthorization && index >= 0 {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
-		return nil, nil, errors.New("Dropping because of reject rule on transmitter")
+		return nil, nil, errors.New("dropping because of reject rule on transmitter")
 	}
 
 	if index, action := context.SearchAcceptTxRules(claims.T); !d.mutualAuthorization || index >= 0 {
@@ -631,7 +644,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
-	return nil, nil, errors.New("Dropping packet SYNACK at the network ")
+	return nil, nil, errors.New("dropping packet SynAck at the network ")
 }
 
 // processNetworkAckPacket processes an Ack packet arriving from the network
@@ -648,7 +661,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil)
-			return nil, nil, fmt.Errorf("TCP Authentication Option not found: %s", err)
+			return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 		}
 
 		if _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
@@ -723,12 +736,10 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 		return nil, errors.New("No context in app processing")
 	}
 
-	conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
-	if err != nil {
-		conn = connection.NewTCPConnection(context)
+	if conn, err := d.appOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
+		return conn.(*connection.TCPConnection), nil
 	}
-
-	return conn.(*connection.TCPConnection), nil
+	return connection.NewTCPConnection(context), nil
 }
 
 func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) (*connection.TCPConnection, error) {
@@ -741,7 +752,7 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 
 	contextID := context.ID()
 
-	d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), contextID)
+	d.contextIDFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), contextID)
 	// Find the uid for which mark was asserted.
 	uid, err := d.portSetInstance.GetUserMark(p.Mark)
 	if err != nil {
@@ -829,12 +840,10 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 		return nil, errors.New("no context in net processing")
 	}
 
-	conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0)
-	if err != nil {
-		conn = connection.NewTCPConnection(context)
+	if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
+		return conn.(*connection.TCPConnection), nil
 	}
-
-	return conn.(*connection.TCPConnection), nil
+	return connection.NewTCPConnection(context), nil
 }
 
 // netSynAckRetrieveState retrieves the state for SynAck packets at the network
@@ -918,12 +927,12 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 		return pu.(*pucontext.PUContext), nil
 	}
 
-	contextID, err := d.puFromPort.Get(port)
+	contextID, err := d.contextIDFromPort.Get(port)
 	if err != nil {
 		return nil, fmt.Errorf("pu contextID cannot be found using port %s: %s", port, err)
 	}
 
-	pu, err = d.contextTracker.Get(contextID)
+	pu, err = d.puFromContextID.Get(contextID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find contextID: %s", contextID)
 	}

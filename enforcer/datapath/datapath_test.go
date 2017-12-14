@@ -1229,11 +1229,11 @@ func TestDoCreatePU(t *testing.T) {
 
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
-				_, err := enforcer.contextTracker.Get(contextID)
+				_, err := enforcer.puFromContextID.Get(contextID)
 				So(err, ShouldBeNil)
 				_, err1 := enforcer.puFromMark.Get("100")
 				So(err1, ShouldBeNil)
-				_, err2 := enforcer.puFromPort.Get("80")
+				_, err2 := enforcer.contextIDFromPort.Get("80")
 				So(err2, ShouldBeNil)
 				_, err3 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
 				So(err3, ShouldNotBeNil)
@@ -1254,7 +1254,7 @@ func TestDoCreatePU(t *testing.T) {
 
 			Convey("It should succeed", func() {
 				So(err, ShouldBeNil)
-				_, err := enforcer.contextTracker.Get(contextID)
+				_, err := enforcer.puFromContextID.Get(contextID)
 				So(err, ShouldBeNil)
 				_, err4 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
 				So(err4, ShouldNotBeNil)
@@ -1367,8 +1367,8 @@ func TestContextFromIP(t *testing.T) {
 		})
 
 		Convey("If there is no IP match, it should try the port for net packets ", func() {
-			enforcer.puFromPort.AddOrUpdate("8000", contextID)
-			enforcer.contextTracker.AddOrUpdate(contextID, context)
+			enforcer.contextIDFromPort.AddOrUpdate("8000", contextID)
+			enforcer.puFromContextID.AddOrUpdate(contextID, context)
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the port exists", func() {

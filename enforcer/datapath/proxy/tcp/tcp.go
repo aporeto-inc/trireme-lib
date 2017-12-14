@@ -51,7 +51,7 @@ type Proxy struct {
 	mutualAuthorization bool
 	tokenaccessor       tokenaccessor.TokenAccessor
 	collector           collector.EventCollector
-	contextTracker      cache.DataStore
+	puFromContextID      cache.DataStore
 	socketListeners     *cache.Cache
 	// List of local IP's
 	IPList []string
@@ -75,7 +75,7 @@ type sockaddr struct {
 }
 
 // NewProxy creates a new instance of proxy reate a new instance of Proxy
-func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool) policyenforcer.Enforcer {
+func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromContextID cache.DataStore, mutualAuthorization bool) policyenforcer.Enforcer {
 	ifaces, _ := net.Interfaces()
 	iplist := []string{}
 	for _, intf := range ifaces {
@@ -95,7 +95,7 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenA
 		mutualAuthorization: mutualAuthorization,
 		collector:           c,
 		tokenaccessor:       tp,
-		contextTracker:      contextTracker,
+		puFromContextID:      puFromContextID,
 		socketListeners:     cache.NewCache("socketlisterner"),
 		IPList:              iplist,
 	}
@@ -127,7 +127,7 @@ func (p *Proxy) reportProxiedFlow(flowproperties *proxyFlowProperties, conn *con
 // Enforce implements policyenforcer.Enforcer interface
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
-	_, err := p.contextTracker.Get(contextID)
+	_, err := p.puFromContextID.Get(contextID)
 	if err != nil {
 		//Start proxy
 		errChan := make(chan error, 1)
@@ -400,7 +400,7 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 
-	puContext, err := p.contextTracker.Get(contextID)
+	puContext, err := p.puFromContextID.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
@@ -439,7 +439,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 	//We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
-	puContext, err := p.contextTracker.Get(contextID)
+	puContext, err := p.puFromContextID.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}
@@ -517,7 +517,7 @@ L:
 
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
 func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
-	puContext, err := p.contextTracker.Get(contextID)
+	puContext, err := p.puFromContextID.Get(contextID)
 	if err != nil {
 		zap.L().Error("Did not find context")
 	}

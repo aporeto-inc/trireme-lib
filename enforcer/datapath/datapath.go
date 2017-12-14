@@ -44,11 +44,11 @@ type Datapath struct {
 	procMountPoint string
 
 	// Internal structures and caches
-	// Key=ContextId Value=ContainerIP
-	contextTracker cache.DataStore
-	puFromIP       cache.DataStore
-	puFromMark     cache.DataStore
-	puFromPort     cache.DataStore
+	// Key=ContextId Value=puContext
+	puFromContextID    cache.DataStore
+	puFromIP          cache.DataStore
+	puFromMark        cache.DataStore
+	contextIDFromPort cache.DataStore
 
 	// Hash based on source IP/Port to capture SynAck packets with possible NAT.
 	// When a new connection is created, we has the source IP/port. A return
@@ -108,9 +108,9 @@ func New(
 		zap.L().Fatal("Cannot create a token engine")
 	}
 
-	contextTracker := cache.NewCache("contextTracker")
+	puFromContextID := cache.NewCache("puFromContextID")
 
-	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, contextTracker, mutualAuth)
+	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, puFromContextID, mutualAuth)
 
 	if ExternalIPCacheTimeout <= 0 {
 		var err error
@@ -138,20 +138,20 @@ func New(
 	// This cache is shared with portSetInstance. The portSetInstance
 	// cleans up the entry corresponding to port when port is no longer
 	// part of ipset portset.
-	puFromPort := cache.NewCache("puFromPort")
+	contextIDFromPort := cache.NewCache("contextIDFromPort")
 
 	var portSetInstance portset.PortSet
 
 	if mode != constants.RemoteContainer {
-		portSetInstance = portset.New(puFromPort)
+		portSetInstance = portset.New(contextIDFromPort)
 	}
 
 	d := &Datapath{
-		puFromIP:   cache.NewCache("puFromIP"),
-		puFromMark: cache.NewCache("puFromMark"),
-		puFromPort: puFromPort,
+		puFromIP:          cache.NewCache("puFromIP"),
+		puFromMark:        cache.NewCache("puFromMark"),
+		contextIDFromPort: contextIDFromPort,
 
-		contextTracker: contextTracker,
+		puFromContextID: puFromContextID,
 
 		sourcePortConnectionCache:   cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
 		appOrigConnectionTracker:    cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
@@ -242,7 +242,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromMark.AddOrUpdate(mark, pu)
 
 		for _, port := range ports {
-			d.puFromPort.AddOrUpdate(port, contextID)
+			d.contextIDFromPort.AddOrUpdate(port, contextID)
 		}
 	} else {
 		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
@@ -253,7 +253,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PU from contextID for management and policy updates
-	d.contextTracker.AddOrUpdate(contextID, pu)
+	d.puFromContextID.AddOrUpdate(contextID, pu)
 
 	return nil
 }
@@ -261,7 +261,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 // Unenforce removes the configuration for the given PU
 func (d *Datapath) Unenforce(contextID string) error {
 
-	puContext, err := d.contextTracker.Get(contextID)
+	puContext, err := d.puFromContextID.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
 	}
@@ -299,7 +299,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		}
 	}
 
-	if err := d.contextTracker.RemoveWithDelay(contextID, 10*time.Second); err != nil {
+	if err := d.puFromContextID.RemoveWithDelay(contextID, 10*time.Second); err != nil {
 		zap.L().Warn("Unable to remove context from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
@@ -362,7 +362,7 @@ func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
 
 func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.TagStore) {
 
-	item, err := d.contextTracker.Get(contextID)
+	item, err := d.puFromContextID.Get(contextID)
 	if err != nil {
 		return
 	}
