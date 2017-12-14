@@ -18,7 +18,7 @@ import (
 
 	"net/rpc"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/cnf/structhash"
 )
 
@@ -151,7 +151,7 @@ func (r *RPCWrapper) StartServer(protocol string, path string, handler interface
 		zap.L().Warn("Socket path already exists: removing", zap.String("path", path))
 
 		if rerr := os.Remove(path); rerr != nil {
-			return fmt.Errorf("Failed to delete existing socket path %s: %s", path, rerr.Error())
+			return fmt.Errorf("unable to delete existing socket path %s: %s", path, rerr)
 		}
 	}
 

@@ -3,11 +3,12 @@ package secrets
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/crypto"
+	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 )
 
 // PKISecrets holds all PKI information
@@ -25,7 +26,7 @@ type PKISecrets struct {
 func NewPKISecrets(keyPEM, certPEM, caPEM []byte, certCache map[string]*ecdsa.PublicKey) (*PKISecrets, error) {
 	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid certificates")
+		return nil, fmt.Errorf("invalid certificates: %s", err)
 	}
 
 	p := &PKISecrets{
@@ -64,7 +65,7 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 		cert, ok := p.CertificateCache[server]
 
 		if !ok {
-			return nil, fmt.Errorf("No certificate in cache for server %s", server)
+			return nil, fmt.Errorf("no certificate in cache for server %s", server)
 		}
 
 		return cert, nil
@@ -80,7 +81,7 @@ func (p *PKISecrets) DecodingKey(server string, ackCert interface{}, prevCert in
 		return prevCert, nil
 	}
 
-	return nil, fmt.Errorf("No valid certificate")
+	return nil, errors.New("no valid certificate")
 }
 
 // VerifyPublicKey verifies if the inband public key is correct.
@@ -112,10 +113,10 @@ func (p *PKISecrets) PublicKeyAdd(host string, newCert []byte) error {
 
 	cert, err := crypto.LoadAndVerifyCertificate(newCert, p.certPool)
 	if err != nil {
-		return fmt.Errorf("Error loading new Cert: %s", err)
+		return fmt.Errorf("unable to load certificate: %s", err)
 	}
 
-	zap.L().Debug("Adding Cert for host", zap.String("host", host))
+	zap.L().Debug("Adding cert for host", zap.String("host", host))
 
 	p.CertificateCache[host] = cert.PublicKey.(*ecdsa.PublicKey)
 	return nil

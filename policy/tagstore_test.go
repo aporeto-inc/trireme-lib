@@ -33,6 +33,55 @@ func TestNewTagStoreFromMap(t *testing.T) {
 	})
 }
 
+func TestMerge(t *testing.T) {
+	Convey("When I create a new tagstore from a map", t, func() {
+		t := NewTagStoreFromMap(map[string]string{
+			"app":   "web",
+			"image": "nginx",
+		})
+
+		Convey("When I merge another store", func() {
+			So(t, ShouldNotBeNil)
+			m := NewTagStoreFromMap(map[string]string{
+				"location": "somewhere",
+			})
+			So(m, ShouldNotBeNil)
+			merged := t.Merge(m)
+			So(merged, ShouldEqual, 1)
+
+			tags := t.GetSlice()
+			So(len(tags), ShouldEqual, 3)
+			So(tags, ShouldContain, "app=web")
+			So(tags, ShouldContain, "image=nginx")
+			So(tags, ShouldContain, "location=somewhere")
+		})
+	})
+}
+
+func TestMergeCollision(t *testing.T) {
+	Convey("When I create a new tagstore from a map", t, func() {
+		t := NewTagStoreFromMap(map[string]string{
+			"app":   "web",
+			"image": "nginx",
+		})
+
+		Convey("When I merge another store with collisions", func() {
+			So(t, ShouldNotBeNil)
+			m := NewTagStoreFromMap(map[string]string{
+				"app": "app",
+			})
+			So(m, ShouldNotBeNil)
+			merged := t.Merge(m)
+			So(merged, ShouldEqual, 0)
+
+			tags := t.GetSlice()
+			So(len(tags), ShouldEqual, 2)
+			So(tags, ShouldContain, "app=web")
+			So(tags, ShouldContain, "image=nginx")
+		})
+	})
+}
+
 func TestAllSettersGetters(t *testing.T) {
 	Convey("When I create a new tagstore from a map", t, func() {
 		ts := NewTagStoreFromMap(map[string]string{

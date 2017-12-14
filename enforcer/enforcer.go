@@ -24,6 +24,7 @@ func New(
 	mode constants.ModeType,
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
+	packetLogs bool,
 ) policyenforcer.Enforcer {
 	return datapath.New(
 		mutualAuthorization,
@@ -36,6 +37,7 @@ func New(
 		mode,
 		procMountPoint,
 		externalIPCacheTimeout,
+		packetLogs,
 	)
 }
 

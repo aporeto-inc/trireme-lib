@@ -48,8 +48,6 @@ const (
 	// TransientPU PU -- placeholder to run processing. This should not
 	// be inserted in any cache. This is valid only for processing a packet
 	TransientPU
-	// HostPU indicates that we must apply policy to the host namespace
-	HostPU
 )
 
 const (
@@ -66,4 +64,6 @@ const (
 	DefaultProcMountPoint = "/proc"
 	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
 	DefaultAporetoProcMountPoint = "/aporetoproc"
+	// DockerHostMode is the string of the network mode that indicates a host namespace
+	DockerHostMode = "host"
 )

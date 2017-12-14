@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
 const (
@@ -88,7 +88,7 @@ func TestLaunchProcess(t *testing.T) {
 	}
 	//Cleanup
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
-		return errors.New("Null Error")
+		return errors.New("null error")
 	})
 	p.KillProcess(contextID)
 	//Launch Process Should not fail if the /var/run/netns does not exist
@@ -140,7 +140,7 @@ func TestKillProcess(t *testing.T) {
 	}
 	rpchdl.MockRemoteCall(t, func(passed_contextID string, methodName string, req *rpcwrapper.Request, resp *rpcwrapper.Response) error {
 		calledRemoteCall = true
-		return errors.New("Null Error")
+		return errors.New("null error")
 	})
 	p.KillProcess(contextID)
 	if !calledRemoteCall {

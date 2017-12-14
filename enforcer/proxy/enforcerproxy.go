@@ -13,17 +13,17 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/portset"
+	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 )
 
 type pkiCertifier interface {
@@ -36,21 +36,10 @@ type tokenPKICertifier interface {
 	TokenPEMs() [][]byte
 }
 
-// ErrFailedtoLaunch exported.
-var ErrFailedtoLaunch = errors.New("Failed to Launch")
-
-// ErrExpectedEnforcer exported
-var ErrExpectedEnforcer = errors.New("Process was not launched")
-
-// ErrEnforceFailed exported
-var ErrEnforceFailed = errors.New("Failed to enforce rules")
-
-// ErrInitFailed exported
-var ErrInitFailed = errors.New("Failed remote Init")
-
 // ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
 	MutualAuth             bool
+	PacketLogs             bool
 	Secrets                secrets.Secrets
 	serverID               string
 	validity               time.Duration
@@ -63,7 +52,6 @@ type ProxyInfo struct {
 	procMountPoint         string
 	ExternalIPCacheTimeout time.Duration
 	portSetInstance        portset.PortSet
-
 	sync.RWMutex
 }
 
@@ -84,6 +72,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			PublicPEM:              pkier.TransmittedPEM(),
 			PrivatePEM:             pkier.EncodingPEM(),
 			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
+			PacketLogs:             s.PacketLogs,
 		},
 	}
 
@@ -94,7 +83,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
-		return fmt.Errorf("Failed to initialize remote enforcer: status %s, error: %s", resp.Status, err.Error())
+		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
 	}
 
 	s.Lock()
@@ -164,8 +153,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		delete(s.initDone, contextID)
 		s.Unlock()
 		s.prochdl.KillProcess(contextID)
-		zap.L().Error("Failed to Enforce remote enforcer", zap.Error(err))
-		return ErrEnforceFailed
+		return fmt.Errorf("failed to enforce rules: %s", err)
 	}
 
 	return nil
@@ -213,6 +201,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	cmdArg string,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
+	packetLogs bool,
 ) policyenforcer.Enforcer {
 	return newProxyEnforcer(
 		mutualAuth,
@@ -228,6 +217,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		procMountPoint,
 		ExternalIPCacheTimeout,
 		nil,
+		packetLogs,
 	)
 }
 
@@ -245,6 +235,7 @@ func newProxyEnforcer(mutualAuth bool,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	portSetInstance portset.PortSet,
+	packetLogs bool,
 ) policyenforcer.Enforcer {
 	statsServersecret, err := crypto.GenerateRandomString(32)
 
@@ -268,6 +259,7 @@ func newProxyEnforcer(mutualAuth bool,
 		statsServerSecret:      statsServersecret,
 		procMountPoint:         procMountPoint,
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
+		PacketLogs:             packetLogs,
 		portSetInstance:        portSetInstance,
 	}
 
@@ -296,7 +288,7 @@ func NewDefaultProxyEnforcer(serverID string,
 	if err != nil {
 		defaultExternalIPCacheTimeout = time.Second
 	}
-
+	defaultPacketLogs := false
 	validity := time.Hour * 8760
 	return NewProxyEnforcer(
 		mutualAuthorization,
@@ -310,6 +302,7 @@ func NewDefaultProxyEnforcer(serverID string,
 		constants.DefaultRemoteArg,
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
+		defaultPacketLogs,
 	)
 }
 
@@ -325,7 +318,7 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
 		zap.L().Error("Message sender cannot be verified")
-		return errors.New("Message sender cannot be verified")
+		return errors.New("message sender cannot be verified")
 	}
 
 	payload := req.Payload.(rpcwrapper.StatsPayload)

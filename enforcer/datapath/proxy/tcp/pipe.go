@@ -25,7 +25,7 @@ func Pipe(in *net.TCPConn, out int) error {
 
 	inFile, err := in.File()
 	if err != nil {
-		return fmt.Errorf("Internal error %s", err.Error())
+		return err
 	}
 	defer func() {
 		if err := inFile.Close(); err != nil {
