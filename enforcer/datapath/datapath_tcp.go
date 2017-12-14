@@ -507,9 +507,6 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	}
 
 	// Search the policy rules for a matching rule.
-	zap.L().Info("Printing Policy DB: Accept/Reject Rcv Rules")
-	context.PrintPolicy()
-
 	if index, action := context.SearchAcceptRcvRules(claims.T); index >= 0 {
 
 		hash := tcpPacket.L4FlowHash()
@@ -745,7 +742,7 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 	contextID, err := d.contextIDTracker.Get(context)
 	if err != nil {
 		// contextID cannot be nil
-		return nil, fmt.Errorf("Did not find contextID")
+		return nil, fmt.Errorf("Did not find contextID: %s", err)
 	}
 
 	d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), contextID)
@@ -921,13 +918,10 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 	}
 
 	if app {
-		zap.L().Info("Called from app Retrieve State")
 		pu, err = d.puFromMark.Get(mark)
 		if err != nil {
 			return nil, fmt.Errorf("pu context cannot be found using mark %s: %s", mark, err)
 		}
-		zap.L().Info("Getting context from Mark", zap.String("Mark", mark))
-
 		return pu.(*pucontext.PUContext), nil
 	}
 
@@ -940,8 +934,6 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 	if err != nil {
 		return nil, fmt.Errorf("pu context cannot be found using contextID %s", contextID)
 	}
-
-	zap.L().Info("Getting context from port", zap.String("Port", port))
 
 	return pu.(*pucontext.PUContext), nil
 }

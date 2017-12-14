@@ -229,10 +229,8 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	zap.L().Debug("Called Proxy Enforce")
 
 	// setup proxy before creating PU
-	proxyerr := d.proxyhdl.Enforce(contextID, puInfo)
-	if proxyerr != nil {
-		zap.L().Error("Unable to Enforce", zap.Error(proxyerr))
-		return proxyerr
+	if proxyerr := d.proxyhdl.Enforce(contextID, puInfo); proxyerr != nil {
+		return fmt.Errorf("Unable to Enforce- %s", proxyerr)
 	}
 
 	// Always create a new PU context
@@ -244,29 +242,19 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() == constants.LinuxProcessPU || pu.Type() == constants.UIDLoginPU {
 		mark, ports := pu.GetProcessKeys()
-		zap.L().Info("Updating context in mark cache", zap.String("Mark", mark))
 
 		d.puFromMark.AddOrUpdate(mark, pu)
 
 		for _, port := range ports {
 			d.puFromPort.AddOrUpdate(port, contextID)
 		}
-		zap.L().Info("Updating context from puFromPort cache", zap.Strings("ports", ports))
 	} else {
 		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
-			zap.L().Info("Updating context from IP for !linux Process", zap.String("ip", ip))
-
 			d.puFromIP.AddOrUpdate(ip, pu)
 		} else {
-			zap.L().Info("Updating context from default ip", zap.String("Packet IP", enforcerconstants.DefaultNetwork))
-
 			d.puFromIP.AddOrUpdate(enforcerconstants.DefaultNetwork, pu)
 		}
 	}
-
-	zap.L().Info("Policy updated Rules")
-
-	pu.PrintPolicy()
 
 	// Cache PU from contextID for management and policy updates
 	d.contextTracker.AddOrUpdate(contextID, pu)
@@ -296,7 +284,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	pu := puContext.(*pucontext.PUContext)
 	if err := d.puFromIP.Remove(pu.IP()); err != nil {
-		zap.L().Warn("Unable to remove cache entry during unenforcement",
+		zap.L().Debug("Unable to remove cache entry during unenforcement",
 			zap.String("IP", pu.IP()),
 			zap.Error(err),
 		)
@@ -326,7 +314,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	if err := d.contextIDTracker.RemoveWithDelay(pu, 10*time.Second); err != nil {
-		zap.L().Warn("Unable to remove context from cache",
+		zap.L().Warn("Unable to remove contextID from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)

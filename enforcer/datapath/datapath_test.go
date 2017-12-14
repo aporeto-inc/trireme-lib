@@ -1322,7 +1322,7 @@ func TestContextFromIP(t *testing.T) {
 		puInfo := policy.NewPUInfo("SomePU", constants.ContainerPU)
 
 		context, err := pucontext.NewPU("SomePU", puInfo, 10*time.Second)
-		contextID := "asdfghj"
+		contextID := "AporetoContext"
 		So(err, ShouldBeNil)
 
 		Convey("If I try to get the context based on the PU IP, it should succeed ", func() {

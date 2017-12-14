@@ -13,7 +13,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 // PUContext holds data indexed by the PU ID
@@ -79,21 +78,6 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 
 	return pu, nil
 
-}
-
-// PrintPolicy prints policy
-func (p *PUContext) PrintPolicy() {
-	zap.L().Info("Accept Rcv Rules")
-	p.acceptRcvRules.PrintPolicyDB()
-
-	zap.L().Info("Reject rcv Rules")
-	p.rejectRcvRules.PrintPolicyDB()
-
-	zap.L().Info("Accept Tx Rules")
-	p.acceptTxRules.PrintPolicyDB()
-
-	zap.L().Info("Reject Tx rules")
-	p.rejectTxRules.PrintPolicyDB()
 }
 
 // ID returns the ID of the PU
