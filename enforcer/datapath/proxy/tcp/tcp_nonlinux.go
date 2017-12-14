@@ -3,7 +3,6 @@
 package tcp
 
 import (
-	"crypto/tls"
 	"io"
 	"net"
 	"sync"
