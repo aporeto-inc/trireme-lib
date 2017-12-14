@@ -249,7 +249,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromMark.AddOrUpdate(mark, pu)
 
 		for _, port := range ports {
-			d.puFromPort.AddOrUpdate(port, pu)
+			d.puFromPort.AddOrUpdate(port, contextID)
 		}
 		zap.L().Info("Updating context from puFromPort cache", zap.Strings("ports", ports))
 	} else {
