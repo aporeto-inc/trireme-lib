@@ -742,7 +742,13 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 		return nil, fmt.Errorf("dropping synack for an unknown syn: %s", err)
 	}
 
-	d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), context)
+	contextID, err := d.contextIDTracker.Get(context)
+	if err != nil {
+		// contextID cannot be nil
+		return nil, fmt.Errorf("Did not find contextID")
+	}
+
+	d.puFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), contextID)
 	// Find the uid for which mark was asserted.
 	uid, err := d.portSetInstance.GetUserMark(p.Mark)
 	if err != nil {
@@ -773,8 +779,6 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 				// Update the port for the context matching the mark this packet has comes with
 				context, perr := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
 				if perr == nil {
-					// check cache and update portset cache accordingly.
-					context.AddPorts(strconv.Itoa(int(p.SourcePort)))
 					return processSynAck(d, p, context)
 				}
 			}
@@ -927,10 +931,16 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 		return pu.(*pucontext.PUContext), nil
 	}
 
-	pu, err = d.puFromPort.Get(port)
+	contextID, err := d.puFromPort.Get(port)
 	if err != nil {
-		return nil, fmt.Errorf("pu context cannot be found using port %s: %s", port, err)
+		return nil, fmt.Errorf("pu contextID cannot be found using port %s: %s", port, err)
 	}
+
+	pu, err = d.contextTracker.Get(contextID)
+	if err != nil {
+		return nil, fmt.Errorf("pu context cannot be found using contextID %s", contextID)
+	}
+
 	zap.L().Info("Getting context from port", zap.String("Port", port))
 
 	return pu.(*pucontext.PUContext), nil

@@ -46,10 +46,11 @@ type Datapath struct {
 
 	// Internal structures and caches
 	// Key=ContextId Value=ContainerIP
-	contextTracker cache.DataStore
-	puFromIP       cache.DataStore
-	puFromMark     cache.DataStore
-	puFromPort     cache.DataStore
+	contextTracker   cache.DataStore
+	contextIDTracker cache.DataStore
+	puFromIP         cache.DataStore
+	puFromMark       cache.DataStore
+	puFromPort       cache.DataStore
 
 	// Hash based on source IP/Port to capture SynAck packets with possible NAT.
 	// When a new connection is created, we has the source IP/port. A return
@@ -110,6 +111,8 @@ func New(
 	}
 
 	contextTracker := cache.NewCache("contextTracker")
+	contextIDTracker := cache.NewCache("contextIDTracker")
+
 	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, contextTracker, mutualAuth)
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -151,7 +154,8 @@ func New(
 		puFromMark: cache.NewCache("puFromMark"),
 		puFromPort: puFromPort,
 
-		contextTracker: contextTracker,
+		contextTracker:   contextTracker,
+		contextIDTracker: contextIDTracker,
 
 		sourcePortConnectionCache:   cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
 		appOrigConnectionTracker:    cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
@@ -267,6 +271,9 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	// Cache PU from contextID for management and policy updates
 	d.contextTracker.AddOrUpdate(contextID, pu)
 
+	// cache contextID from PU for reverse lookups.
+	d.contextIDTracker.AddOrUpdate(pu, contextID)
+
 	return nil
 }
 
@@ -312,6 +319,13 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	if err := d.contextTracker.RemoveWithDelay(contextID, 10*time.Second); err != nil {
+		zap.L().Warn("Unable to remove context from cache",
+			zap.String("contextID", contextID),
+			zap.Error(err),
+		)
+	}
+
+	if err := d.contextIDTracker.RemoveWithDelay(pu, 10*time.Second); err != nil {
 		zap.L().Warn("Unable to remove context from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),

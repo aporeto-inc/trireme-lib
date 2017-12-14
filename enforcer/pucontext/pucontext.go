@@ -220,13 +220,6 @@ func (p *PUContext) UpdateCachedToken(token []byte) {
 	p.synExpiration = time.Now().Add(time.Millisecond * 500)
 }
 
-// AddPorts updates the portList for PU
-func (p *PUContext) AddPorts(port string) {
-	p.Lock()
-	defer p.Unlock()
-	p.ports = append(p.ports, port)
-}
-
 // createRuleDBs creates the database of rules from the policy
 func createRuleDBs(policyRules policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
 
