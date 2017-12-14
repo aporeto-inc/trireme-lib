@@ -155,7 +155,7 @@ func (m *PolicyDB) tagSplit(str string, k *string, v *string) error {
 		}
 	}
 
-	return fmt.Errorf("No key/value pair")
+	return fmt.Errorf("no key/value pair found for tag: %s", str)
 }
 
 //Search searches for a set of tags in the database to find a policy match

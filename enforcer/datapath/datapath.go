@@ -2,7 +2,6 @@ package datapath
 
 // Go libraries
 import (
-	"errors"
 	"fmt"
 	"os/exec"
 	"time"
@@ -46,11 +45,10 @@ type Datapath struct {
 
 	// Internal structures and caches
 	// Key=ContextId Value=ContainerIP
-	contextTracker   cache.DataStore
-	contextIDTracker cache.DataStore
-	puFromIP         cache.DataStore
-	puFromMark       cache.DataStore
-	puFromPort       cache.DataStore
+	contextTracker cache.DataStore
+	puFromIP       cache.DataStore
+	puFromMark     cache.DataStore
+	puFromPort     cache.DataStore
 
 	// Hash based on source IP/Port to capture SynAck packets with possible NAT.
 	// When a new connection is created, we has the source IP/port. A return
@@ -111,7 +109,6 @@ func New(
 	}
 
 	contextTracker := cache.NewCache("contextTracker")
-	contextIDTracker := cache.NewCache("contextIDTracker")
 
 	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, contextTracker, mutualAuth)
 
@@ -154,8 +151,7 @@ func New(
 		puFromMark: cache.NewCache("puFromMark"),
 		puFromPort: puFromPort,
 
-		contextTracker:   contextTracker,
-		contextIDTracker: contextIDTracker,
+		contextTracker: contextTracker,
 
 		sourcePortConnectionCache:   cache.NewCacheWithExpiration("sourcePortConnectionCache", time.Second*24),
 		appOrigConnectionTracker:    cache.NewCacheWithExpiration("appOrigConnectionTracker", time.Second*24),
@@ -229,14 +225,14 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	zap.L().Debug("Called Proxy Enforce")
 
 	// setup proxy before creating PU
-	if proxyerr := d.proxyhdl.Enforce(contextID, puInfo); proxyerr != nil {
-		return fmt.Errorf("Unable to Enforce- %s", proxyerr)
+	if err := d.proxyhdl.Enforce(contextID, puInfo); err != nil {
+		return fmt.Errorf("Unable to enforce proxy: %s", err)
 	}
 
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
 	if err != nil {
-		return errors.New("Error creating New PU")
+		return fmt.Errorf("error creating new pu: %s", err)
 	}
 
 	// Cache PUs for retrieval based on packet information
@@ -258,9 +254,6 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	// Cache PU from contextID for management and policy updates
 	d.contextTracker.AddOrUpdate(contextID, pu)
-
-	// cache contextID from PU for reverse lookups.
-	d.contextIDTracker.AddOrUpdate(pu, contextID)
 
 	return nil
 }
@@ -308,13 +301,6 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	if err := d.contextTracker.RemoveWithDelay(contextID, 10*time.Second); err != nil {
 		zap.L().Warn("Unable to remove context from cache",
-			zap.String("contextID", contextID),
-			zap.Error(err),
-		)
-	}
-
-	if err := d.contextIDTracker.RemoveWithDelay(pu, 10*time.Second); err != nil {
-		zap.L().Warn("Unable to remove contextID from cache",
 			zap.String("contextID", contextID),
 			zap.Error(err),
 		)
