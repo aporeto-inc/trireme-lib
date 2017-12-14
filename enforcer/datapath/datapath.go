@@ -45,7 +45,7 @@ type Datapath struct {
 
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
-	puFromContextID    cache.DataStore
+	puFromContextID   cache.DataStore
 	puFromIP          cache.DataStore
 	puFromMark        cache.DataStore
 	contextIDFromPort cache.DataStore
