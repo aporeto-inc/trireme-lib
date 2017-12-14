@@ -132,34 +132,6 @@ func (p *Proxy) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
-// loadTLS configuration - static files for the time being
-func (p *Proxy) loadTLS() (*tls.Config, error) {
-
-	return
-}
-
-// handle handles a connection
-func (p *Proxy) handle(upConn net.Conn, contextID string) {
-	return
-}
-
-func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
-
-	return
-}
-
-// getOriginalDestination -- Func to get original destination of redirected packet. Used to figure out backend destination
-func getOriginalDestination(conn net.Conn) ([]byte, uint16, error) {
-
-	return []byte{}, 0, nil
-}
-
-// Initiate the downstream connection
-func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
-
-	return 0, nil
-}
-
 // CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
@@ -177,14 +149,4 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
 
 	return nil
-}
-
-func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, plc *policy.FlowPolicy) {
-
-	return
-}
-
-func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
-
-	return
 }
