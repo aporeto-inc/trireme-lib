@@ -1322,6 +1322,7 @@ func TestContextFromIP(t *testing.T) {
 		puInfo := policy.NewPUInfo("SomePU", constants.ContainerPU)
 
 		context, err := pucontext.NewPU("SomePU", puInfo, 10*time.Second)
+		contextID := "asdfghj"
 		So(err, ShouldBeNil)
 
 		Convey("If I try to get the context based on the PU IP, it should succeed ", func() {
@@ -1366,7 +1367,8 @@ func TestContextFromIP(t *testing.T) {
 		})
 
 		Convey("If there is no IP match, it should try the port for net packets ", func() {
-			enforcer.puFromPort.AddOrUpdate("8000", context)
+			enforcer.puFromPort.AddOrUpdate("8000", contextID)
+			enforcer.contextTracker.AddOrUpdate(contextID, context)
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the port exists", func() {
