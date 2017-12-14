@@ -11,11 +11,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
-var (
-	// TraceLogging provides very high level of detail logs for connections
-	TraceLogging int
-)
-
 // TCPFlowState identifies the constants of the state of a TCP connectioncon
 type TCPFlowState int
 
@@ -95,7 +90,6 @@ type TCPConnection struct {
 
 	// Debugging Information
 	flowReported int
-	logs         []string
 
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
@@ -142,12 +136,6 @@ func (c *TCPConnection) GetState() TCPFlowState {
 func (c *TCPConnection) SetState(state TCPFlowState) {
 
 	c.state = state
-
-	if TraceLogging == 0 {
-		return
-	}
-
-	c.logs = append(c.logs, fmt.Sprintf("set-state: %s %d", c.String(), state))
 }
 
 // SetReported is used to track if a flow is reported
@@ -155,62 +143,26 @@ func (c *TCPConnection) SetReported(flowState bool) {
 
 	c.flowReported++
 
-	state := ""
-	if c.flowReported > 1 {
-		state = fmt.Sprintf("%t %t", c.flowLastReporting, flowState)
-		zap.L().Debug("Connection reported multiple times",
-			zap.String("state", state))
+	if c.flowReported > 1 && c.flowLastReporting != flowState {
+		zap.L().Info("Connection reported multiple times",
+			zap.Int("report count", c.flowReported),
+			zap.Bool("previous", c.flowLastReporting),
+			zap.Bool("next", flowState),
+		)
 	}
 
 	c.flowLastReporting = flowState
-
-	if TraceLogging == 0 {
-		return
-	}
-
-	// Logging information
-	reported := "flow-reported:"
-	if c.flowReported > 1 {
-		reported = reported + " (ERROR duplicate reporting) " + state
-	}
-
-	if flowState {
-		reported = reported + " dropped: "
-	} else {
-		reported = reported + " accepted: "
-	}
-	reported = reported + c.String()
-
-	c.logs = append(c.logs, reported)
-}
-
-// SetPacketInfo is used to setup the state for the TCP connection
-func (c *TCPConnection) SetPacketInfo(flowHash, tcpFlags string) {
-
-	if TraceLogging == 0 {
-		return
-	}
-
-	pktLog := fmt.Sprintf("pkt-registered: [%s] tcpf:%s %s", flowHash, tcpFlags, c.String())
-	c.logs = append(c.logs, pktLog)
 }
 
 // Cleanup will provide information when a connection is removed by a timer.
 func (c *TCPConnection) Cleanup(expiration bool) {
-
-	logStr := ""
-	for i, v := range c.logs {
-		logStr = logStr + fmt.Sprintf("[%05d]: %s\n", i, v)
-	}
 	// Logging information
-	if c.flowReported == 0 && len(c.logs) > 1 {
+	if c.flowReported == 0 {
 		zap.L().Error("Connection not reported",
-			zap.String("connection", c.String()),
-			zap.String("logs", logStr))
+			zap.String("connection", c.String()))
 	} else {
 		zap.L().Debug("Connection reported",
-			zap.String("connection", c.String()),
-			zap.String("logs", logStr))
+			zap.String("connection", c.String()))
 	}
 }
 
@@ -219,13 +171,12 @@ func NewTCPConnection() *TCPConnection {
 
 	c := &TCPConnection{
 		state: TCPSynSend,
-		logs:  []string{"Initialized"},
 	}
 
 	return c
 }
 
-//ProxyConnection -- Connection to track state of proxy auth
+// ProxyConnection is a record to keep state of proxy auth
 type ProxyConnection struct {
 	sync.Mutex
 
@@ -255,7 +206,7 @@ func (c *ProxyConnection) SetState(state ProxyConnState) {
 	c.state = state
 }
 
-//SetReported -- Set the flag to reported when the conn is reported
+// SetReported Sets the flag to reported when the conn is reported
 func (c *ProxyConnection) SetReported(reported bool) {
 	c.reported = reported
 }

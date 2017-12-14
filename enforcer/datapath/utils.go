@@ -10,14 +10,14 @@ import (
 
 func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, plc *policy.FlowPolicy) {
 	if conn != nil {
-		conn.SetReported(connection.RejectReported)
+		conn.SetReported(connection.AcceptReported)
 	}
 	d.reportFlow(p, conn, sourceID, destID, context, "", plc)
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
-	if conn != nil {
-		conn.SetReported(connection.AcceptReported)
+	if conn != nil && mode == collector.PolicyDrop {
+		conn.SetReported(connection.RejectReported)
 	}
 
 	if plc == nil {

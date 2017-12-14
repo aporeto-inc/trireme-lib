@@ -706,10 +706,9 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		if conn.FlowPolicy != nil && conn.FlowPolicy.Action.Rejected() {
 			if conn.FlowPolicy.Action.Observed() {
 				zap.L().Error("Flow rejected but not observed", zap.String("conn", context.ManagementID))
-			} else {
-				// Flow has been allowed because we are observing a deny rule's impact on the system. Packets are forwarded, reported as dropped + observed.
-				d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, collector.PolicyDrop, conn.FlowPolicy)
 			}
+			// Flow has been allowed because we are observing a deny rule's impact on the system. Packets are forwarded, reported as dropped + observed.
+			d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, collector.PolicyDrop, conn.FlowPolicy)
 		} else {
 			// We accept the packet as a new flow
 			d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, conn.FlowPolicy)
