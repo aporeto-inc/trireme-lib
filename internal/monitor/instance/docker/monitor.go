@@ -45,10 +45,10 @@ const (
 	// EventDestroy represents the Docker "destroy" event.
 	EventDestroy Event = "destroy"
 
-	// EventPause represents the Docker "destroy" event.
+	// EventPause represents the Docker "pause" event.
 	EventPause Event = "pause"
 
-	// EventUnpause represents the Docker "destroy" event.
+	// EventUnpause represents the Docker "unpause" event.
 	EventUnpause Event = "unpause"
 
 	// EventConnect represents the Docker "connect" event.
@@ -614,8 +614,22 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	if err := d.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
+	var event tevents.Event
+	switch dockerInfo.State.Status {
+	case "paused":
+		event = tevents.EventPause
+	case "running":
+		event = tevents.EventStart
+	case "dead":
+		event = tevents.EventStop
+	default:
+		//We are restarting.Feeding start here. might as well be stop since we will get start notification when the
+		//container finishes restarting
 
-	if err := d.config.PUHandler.HandlePUEvent(contextID, tevents.EventStart); err != nil {
+		event = tevents.EventStart
+	}
+
+	if err := d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
 				zap.L().Error("Unable to stop bad container",
