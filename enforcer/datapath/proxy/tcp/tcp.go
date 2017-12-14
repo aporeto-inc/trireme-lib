@@ -488,12 +488,12 @@ L:
 					return fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v", err, claims)
 				}
 
-				if index, _ := puContext.SearchRejectTxtRules(claims.T); p.mutualAuthorization && index >= 0 {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID, puContext, collector.PolicyDrop, nil)
+				if index, action := puContext.SearchRejectTxtRules(claims.T); p.mutualAuthorization && index >= 0 {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID, puContext, collector.PolicyDrop, action)
 					return errors.New("dropping because of reject rule on transmitter")
 				}
-				if index, _ := puContext.SearchAcceptTxtRules(claims.T); !p.mutualAuthorization || index < 0 {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID, puContext, collector.PolicyDrop, nil)
+				if index, action := puContext.SearchAcceptTxtRules(claims.T); !p.mutualAuthorization || index < 0 {
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID, puContext, collector.PolicyDrop, action)
 					return errors.New("dropping because of reject rule on receiver")
 				}
 				conn.SetState(connection.ClientSendSignedPair)
@@ -559,18 +559,17 @@ E:
 					return err
 				}
 				claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
-				if index, action := puContext.(*pucontext.PUContext).SearchRejectRcvRules(claims.T); index >= 0 {
+				index, action := puContext.(*pucontext.PUContext).SearchRejectRcvRules(claims.T)
+				if index >= 0 {
 					zap.L().Error("Connection Dropped", zap.String("Policy ID", action.PolicyID))
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, action)
 					return fmt.Errorf("connection dropped by policy: %s", err)
 				}
-				var action interface{}
-				var index int
 				if index, action = puContext.(*pucontext.PUContext).SearchAcceptRcvRules(claims.T); index < 0 {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, nil)
+					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.(*pucontext.PUContext).ManagementID, puContext.(*pucontext.PUContext), collector.PolicyDrop, action)
 					return errors.New("connection dropped by no accept policy")
 				}
-				conn.FlowPolicy = action.(*policy.FlowPolicy)
+				conn.FlowPolicy = action
 				conn.SetState(connection.ServerSendToken)
 
 			case connection.ServerSendToken:

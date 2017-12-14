@@ -17,14 +17,14 @@ type PUContext struct {
 	ManagementID          string
 	Identity              *policy.TagStore
 	Annotations           *policy.TagStore
-	RejectTxtRules        *lookup.PolicyDB
-	ObserveRejectTxtRules *lookup.PolicyDB
-	AcceptTxtRules        *lookup.PolicyDB
-	ObserveAcceptTxtRules *lookup.PolicyDB
-	RejectRcvRules        *lookup.PolicyDB
-	ObserveRejectRcvRules *lookup.PolicyDB
-	AcceptRcvRules        *lookup.PolicyDB
-	ObserveAcceptRcvRules *lookup.PolicyDB
+	rejectTxtRules        *lookup.PolicyDB
+	observeRejectTxtRules *lookup.PolicyDB
+	acceptTxtRules        *lookup.PolicyDB
+	observeAcceptTxtRules *lookup.PolicyDB
+	rejectRcvRules        *lookup.PolicyDB
+	observeRejectRcvRules *lookup.PolicyDB
+	acceptRcvRules        *lookup.PolicyDB
+	observeAcceptRcvRules *lookup.PolicyDB
 	ApplicationACLs       *acls.ACLCache
 	NetworkACLS           *acls.ACLCache
 	ExternalIPCache       cache.DataStore
@@ -49,14 +49,14 @@ func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) (*lookup.P
 	acceptObserveRules := lookup.NewPolicyDB()
 
 	for _, rule := range policyRules {
-		if rule.Policy.Action&policy.Accept != 0 {
-			if rule.Policy.Action&policy.Observe != 0 {
+		if rule.Policy.Action.Accepted() {
+			if rule.Policy.Action.Observed() {
 				acceptObserveRules.AddPolicy(rule)
 			} else {
 				acceptRules.AddPolicy(rule)
 			}
-		} else if rule.Policy.Action&policy.Reject != 0 {
-			if rule.Policy.Action&policy.Observe != 0 {
+		} else if rule.Policy.Action.Rejected() {
+			if rule.Policy.Action.Observed() {
 				rejectObserveRules.AddPolicy(rule)
 			} else {
 				rejectRules.AddPolicy(rule)
@@ -71,22 +71,18 @@ func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) (*lookup.P
 
 // CreateRcvRules create receive rules for this PU based on the update of the policy.
 func (p *PUContext) CreateRcvRules(policyRules policy.TagSelectorList) {
-	p.AcceptRcvRules, p.ObserveAcceptRcvRules, p.RejectRcvRules, p.ObserveRejectRcvRules = p.createRuleDBs(policyRules)
+	p.acceptRcvRules, p.observeAcceptRcvRules, p.rejectRcvRules, p.observeRejectRcvRules = p.createRuleDBs(policyRules)
 }
 
 // CreateTxtRules create receive rules for this PU based on the update of the policy.
 func (p *PUContext) CreateTxtRules(policyRules policy.TagSelectorList) {
-	p.AcceptTxtRules, p.ObserveAcceptTxtRules, p.RejectTxtRules, p.ObserveRejectTxtRules = p.createRuleDBs(policyRules)
+	p.acceptTxtRules, p.observeAcceptTxtRules, p.rejectTxtRules, p.observeRejectTxtRules = p.createRuleDBs(policyRules)
 }
 
 // SearchRejectTxtRules searches both receive and observed receive rules and returns the index and action
 func (p *PUContext) SearchRejectTxtRules(tags *policy.TagStore) (int, *policy.FlowPolicy) {
 
-	index, action := p.RejectTxtRules.Search(tags)
-	if index >= 0 {
-		return index, action.(*policy.FlowPolicy)
-	}
-	index, action = p.ObserveRejectTxtRules.Search(tags)
+	index, action := p.rejectTxtRules.Search(tags)
 	if index >= 0 {
 		return index, action.(*policy.FlowPolicy)
 	}
@@ -96,11 +92,19 @@ func (p *PUContext) SearchRejectTxtRules(tags *policy.TagStore) (int, *policy.Fl
 // SearchAcceptTxtRules searches both receive and observed receive rules and returns the index and action
 func (p *PUContext) SearchAcceptTxtRules(tags *policy.TagStore) (int, *policy.FlowPolicy) {
 
-	index, action := p.AcceptTxtRules.Search(tags)
+	// Order of searches is:
+	//  a. Observed rejected rules - reported as drop-observed but we allow packets. When this policy will be converted to a 'non-observed' policy, we will report it as dropped and also drop packets.
+	//  b. Accepted rules - reported as accept and packets are allowed.
+	//  c. Observerd accepted rules - reported as accept-observed and packets are allowed.
+	index, action := p.observeRejectTxtRules.Search(tags)
 	if index >= 0 {
 		return index, action.(*policy.FlowPolicy)
 	}
-	index, action = p.ObserveAcceptTxtRules.Search(tags)
+	index, action = p.acceptTxtRules.Search(tags)
+	if index >= 0 {
+		return index, action.(*policy.FlowPolicy)
+	}
+	index, action = p.observeAcceptTxtRules.Search(tags)
 	if index >= 0 {
 		return index, action.(*policy.FlowPolicy)
 	}
@@ -110,11 +114,7 @@ func (p *PUContext) SearchAcceptTxtRules(tags *policy.TagStore) (int, *policy.Fl
 // SearchRejectRcvRules searches both receive and observed receive rules and returns the index and action
 func (p *PUContext) SearchRejectRcvRules(tags *policy.TagStore) (int, *policy.FlowPolicy) {
 
-	index, action := p.RejectRcvRules.Search(tags)
-	if index >= 0 {
-		return index, action.(*policy.FlowPolicy)
-	}
-	index, action = p.ObserveRejectRcvRules.Search(tags)
+	index, action := p.rejectRcvRules.Search(tags)
 	if index >= 0 {
 		return index, action.(*policy.FlowPolicy)
 	}
@@ -124,11 +124,19 @@ func (p *PUContext) SearchRejectRcvRules(tags *policy.TagStore) (int, *policy.Fl
 // SearchAcceptRcvRules searches both receive and observed receive rules and returns the index and action
 func (p *PUContext) SearchAcceptRcvRules(tags *policy.TagStore) (int, *policy.FlowPolicy) {
 
-	index, action := p.AcceptRcvRules.Search(tags)
+	// Order of searches is:
+	//  a. Observed rejected rules - reported as drop-observed but we allow packets. When this policy will be converted to a 'non-observed' policy, we will report it as dropped and also drop packets.
+	//  b. Accepted rules - reported as accept and packets are allowed.
+	//  c. Observerd accepted rules - reported as accept-observed and packets are allowed.
+	index, action := p.observeRejectRcvRules.Search(tags)
 	if index >= 0 {
 		return index, action.(*policy.FlowPolicy)
 	}
-	index, action = p.ObserveAcceptRcvRules.Search(tags)
+	index, action = p.acceptRcvRules.Search(tags)
+	if index >= 0 {
+		return index, action.(*policy.FlowPolicy)
+	}
+	index, action = p.observeAcceptRcvRules.Search(tags)
 	if index >= 0 {
 		return index, action.(*policy.FlowPolicy)
 	}

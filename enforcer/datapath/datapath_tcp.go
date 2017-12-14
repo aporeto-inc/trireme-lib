@@ -554,6 +554,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return action, claims, nil
 	}
 
+	// Default Policy is to drop
 	d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID, context, collector.PolicyDrop, nil)
 	return nil, nil, fmt.Errorf("no matched tags: reject %+v", claims.T)
 }
@@ -652,8 +653,8 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// We can now verify the reverse policy. The system requires that policy
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
-	if index, _ := context.SearchRejectTxtRules(claims.T); d.mutualAuthorization && index >= 0 { // TODO: Why action is not reported here ?
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
+	if index, action := context.SearchRejectTxtRules(claims.T); d.mutualAuthorization && index >= 0 {
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID, conn.Auth.RemoteContextID, context, collector.PolicyDrop, action)
 		return nil, nil, errors.New("dropping because of reject rule on transmitter")
 	}
 
@@ -702,8 +703,17 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		tcpPacket.DropDetachedBytes()
 
-		// We accept the packet as a new flow
-		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, conn.FlowPolicy)
+		if conn.FlowPolicy != nil && conn.FlowPolicy.Action.Rejected() {
+			if conn.FlowPolicy.Action.Observed() {
+				zap.L().Error("Flow rejected but not observed", zap.String("conn", context.ManagementID))
+			} else {
+				// Flow has been allowed because we are observing a deny rule's impact on the system. Packets are forwarded, reported as dropped + observed.
+				d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, collector.PolicyDrop, conn.FlowPolicy)
+			}
+		} else {
+			// We accept the packet as a new flow
+			d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID, context, conn.FlowPolicy)
+		}
 
 		conn.SetState(connection.TCPData)
 
