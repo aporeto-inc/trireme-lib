@@ -302,7 +302,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-m", "set", "--match-set", targetNetworkSet, "src",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK,PSH", "ACK",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 		})
 
