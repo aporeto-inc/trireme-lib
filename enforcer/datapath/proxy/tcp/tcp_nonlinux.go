@@ -85,66 +85,65 @@ func (p *Proxy) reportProxiedFlow(flowproperties *proxyFlowProperties, conn *con
 
 }
 
-// Enforce implements policyenforcer.Enforcer interface
+// Enforce is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	return nil
 
 }
 
-// StartListener implements policyenforcer.Enforcer interface
+// StartListener is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) StartListener(contextID string, reterr chan error, port string) {
 
 	return
 }
 
-// Unenforce implements policyenforcer.Enforcer interface
+// Unenforce is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) Unenforce(contextID string) error {
 
 	return nil
 }
 
-// GetFilterQueue is a stub for TCP proxy
+// GetFilterQueue is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) GetFilterQueue() *fqconfig.FilterQueue {
 	return nil
 }
 
-// GetPortSetInstance returns nil for the proxy
+// GetPortSetInstance is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) GetPortSetInstance() portset.PortSet {
 	return nil
 }
 
-// Start is a stub for TCP proxy
+// Start is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) Start() error {
 	return nil
 
 }
 
-// Stop stops and waits proxy to stop.
+// Stop is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) Stop() error {
 
 	return nil
 }
 
-// UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
+// UpdateSecrets is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) UpdateSecrets(secrets secrets.Secrets) error {
 
 	return nil
 }
 
-// CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
-// We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
+// CompleteEndPointAuthorization is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 
 	return nil
 }
 
-//StartClientAuthStateMachine -- Starts the aporeto handshake for client application
+// StartClientAuthStateMachine is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
 
 	return nil
 }
 
-// StartServerAuthStateMachine -- Start the aporeto handshake for a server application
+// StartServerAuthStateMachine is a dummy implementation of the policyenforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
 
 	return nil

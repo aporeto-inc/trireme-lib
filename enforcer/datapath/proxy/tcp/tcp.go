@@ -76,7 +76,7 @@ type sockaddr struct {
 	data   [14]byte
 }
 
-// NewProxy creates a new instance of proxy reate a new instance of Proxy
+// NewProxy creates a new instance of proxy
 func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool) policyenforcer.Enforcer {
 	ifaces, _ := net.Interfaces()
 	iplist := []string{}
