@@ -27,9 +27,17 @@ func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat s
 func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string) {
 
 	logLevel = os.Getenv(constants.AporetoEnvLogLevel)
+	if logLevel == "" {
+		logLevel = "info"
+	}
 	logFormat = os.Getenv(constants.AporetoEnvLogFormat)
-	logID = os.Getenv(constants.AporetoEnvLogID)
-	if console := os.Getenv(constants.AporetoEnvLogToConsole); console == "1" {
+	if logLevel == "" {
+		logFormat = "json"
+	}
+
+	if console := os.Getenv(constants.AporetoEnvLogToConsole); console == constants.AporetoEnvLogToConsoleEnable {
+		logToConsole = true
+	} else if logID = os.Getenv(constants.AporetoEnvLogID); logID == "" {
 		logToConsole = true
 	}
 

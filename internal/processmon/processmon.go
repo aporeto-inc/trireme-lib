@@ -259,7 +259,7 @@ func (p *processMon) getLaunchProcessEnvVars(
 	}
 
 	if p.logToConsole {
-		newEnvVars = append(newEnvVars, constants.AporetoEnvLogToConsole+"=1")
+		newEnvVars = append(newEnvVars, constants.AporetoEnvLogToConsole+"="+constants.AporetoEnvLogToConsoleEnable)
 	} else if p.logWithID {
 		newEnvVars = append(newEnvVars, constants.AporetoEnvLogID+"="+contextID)
 	}

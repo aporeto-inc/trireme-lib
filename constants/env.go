@@ -38,6 +38,9 @@ const (
 	// AporetoEnvLogToConsole specifies if logs should be sent out to console.
 	AporetoEnvLogToConsole = "APORETO_ENV_LOG_TO_CONSOLE"
 
+	// AporetoEnvLogToConsoleEnable specifies value to enable logging to console.
+	AporetoEnvLogToConsoleEnable = "1"
+
 	// AporetoEnvLogID store the context Id for the log file to be used.
 	AporetoEnvLogID = "APORETO_ENV_LOG_ID"
 )
