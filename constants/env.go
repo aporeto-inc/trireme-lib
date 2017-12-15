@@ -28,4 +28,16 @@ const (
 
 	// AporetoEnvNsenterLogs stores the logs as reported by remote enforcer
 	AporetoEnvNsenterLogs = "APORETO_ENV_NSENTER_LOGS"
+
+	// AporetoEnvLogLevel store the log level to be used.
+	AporetoEnvLogLevel = "APORETO_ENV_LOG_LEVEL"
+
+	// AporetoEnvLogFormat store the log format to be used.
+	AporetoEnvLogFormat = "APORETO_ENV_LOG_FORMAT"
+
+	// AporetoEnvLogToConsole specifies if logs should be sent out to console.
+	AporetoEnvLogToConsole = "APORETO_ENV_LOG_TO_CONSOLE"
+
+	// AporetoEnvLogID store the context Id for the log file to be used.
+	AporetoEnvLogID = "APORETO_ENV_LOG_ID"
 )
