@@ -51,7 +51,7 @@ type Proxy struct {
 	mutualAuthorization bool
 	tokenaccessor       tokenaccessor.TokenAccessor
 	collector           collector.EventCollector
-	puFromContextID      cache.DataStore
+	puFromContextID     cache.DataStore
 	socketListeners     *cache.Cache
 	// List of local IP's
 	IPList []string
@@ -95,7 +95,7 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenA
 		mutualAuthorization: mutualAuthorization,
 		collector:           c,
 		tokenaccessor:       tp,
-		puFromContextID:      puFromContextID,
+		puFromContextID:     puFromContextID,
 		socketListeners:     cache.NewCache("socketlisterner"),
 		IPList:              iplist,
 	}

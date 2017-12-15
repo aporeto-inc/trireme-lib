@@ -31,10 +31,10 @@ const (
 
 // portSetInstance contains look up tables to manage updates to ipset portsets.
 type portSetInstance struct {
-	userPortSet cache.DataStore
-	userPortMap cache.DataStore
-	markUserMap cache.DataStore
-	contextIDFromPort  cache.DataStore
+	userPortSet       cache.DataStore
+	userPortMap       cache.DataStore
+	markUserMap       cache.DataStore
+	contextIDFromPort cache.DataStore
 }
 
 // expirer deletes the port entry in the portset when the key uid:port expires.
@@ -71,10 +71,10 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 func New(contextIDFromPort cache.DataStore) PortSet {
 
 	p := &portSetInstance{
-		userPortSet: cache.NewCache("userPortSet"),
-		userPortMap: cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout*time.Second, expirer),
-		markUserMap: cache.NewCache("markUserMap"),
-		contextIDFromPort:  contextIDFromPort,
+		userPortSet:       cache.NewCache("userPortSet"),
+		userPortMap:       cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout*time.Second, expirer),
+		markUserMap:       cache.NewCache("markUserMap"),
+		contextIDFromPort: contextIDFromPort,
 	}
 
 	go startPortSetTask(p)
