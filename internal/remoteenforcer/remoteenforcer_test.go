@@ -737,7 +737,7 @@ func TestEnforce(t *testing.T) {
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error", func() {
-					So(err, ShouldResemble, errors.New("no ip provided for local container id: b06f47830f64"))
+					So(err, ShouldBeNil)
 				})
 			})
 
