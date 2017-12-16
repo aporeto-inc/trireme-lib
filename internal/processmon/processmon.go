@@ -45,7 +45,7 @@ type processMon struct {
 	logToConsole bool
 	// logWithID is the ID for for log files if logging to file.
 	logWithID bool
-	// logLevel is the level of logs for remote commmand.
+	// logLevel is the level of logs for remote command.
 	logLevel  string
 	logFormat string
 }
