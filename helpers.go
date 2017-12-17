@@ -1,6 +1,8 @@
 package trireme
 
 import (
+	"os"
+
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/enforcer/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
@@ -10,14 +12,36 @@ import (
 	"go.uber.org/zap"
 )
 
-// SetupCommandArgs sets up arguments to be passed to the remote trireme instances.
-func SetupCommandArgs(logToConsole, logWithID bool, subProcessArgs []string) {
+// SetLogParameters sets up environment to be passed to the remote trireme instances.
+func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string) {
 
 	h := processmon.GetProcessManagerHdl()
 	if h == nil {
 		panic("Unable to find process manager handle")
 	}
-	h.SetupLogAndProcessArgs(logToConsole, logWithID, subProcessArgs)
+
+	h.SetLogParameters(logToConsole, logWithID, logLevel, logFormat)
+}
+
+// GetLogParameters retrieves log parameters for Remote Enforcer.
+func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string) {
+
+	logLevel = os.Getenv(constants.AporetoEnvLogLevel)
+	if logLevel == "" {
+		logLevel = "info"
+	}
+	logFormat = os.Getenv(constants.AporetoEnvLogFormat)
+	if logLevel == "" {
+		logFormat = "json"
+	}
+
+	if console := os.Getenv(constants.AporetoEnvLogToConsole); console == constants.AporetoEnvLogToConsoleEnable {
+		logToConsole = true
+	} else if logID = os.Getenv(constants.AporetoEnvLogID); logID == "" {
+		logToConsole = true
+	}
+
+	return
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer instance.
