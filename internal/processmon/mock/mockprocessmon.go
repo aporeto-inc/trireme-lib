@@ -64,14 +64,14 @@ func (mr *MockProcessManagerMockRecorder) LaunchProcess(contextID, refPid, refNs
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LaunchProcess", reflect.TypeOf((*MockProcessManager)(nil).LaunchProcess), contextID, refPid, refNsPath, rpchdl, arg, statssecret, procMountPoint)
 }
 
-// SetupLogAndProcessArgs mocks base method
+// SetLogParameters mocks base method
 // nolint
-func (m *MockProcessManager) SetupLogAndProcessArgs(logToConsole, logWithID bool, cmdArgs []string) {
-	m.ctrl.Call(m, "SetupLogAndProcessArgs", logToConsole, logWithID, cmdArgs)
+func (m *MockProcessManager) SetLogParameters(logToConsole, logWithID bool, logLevel, logFormat string) {
+	m.ctrl.Call(m, "SetLogParameters", logToConsole, logWithID, logLevel, logFormat)
 }
 
-// SetupLogAndProcessArgs indicates an expected call of SetupLogAndProcessArgs
+// SetLogParameters indicates an expected call of SetLogParameters
 // nolint
-func (mr *MockProcessManagerMockRecorder) SetupLogAndProcessArgs(logToConsole, logWithID, cmdArgs interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupLogAndProcessArgs", reflect.TypeOf((*MockProcessManager)(nil).SetupLogAndProcessArgs), logToConsole, logWithID, cmdArgs)
+func (mr *MockProcessManagerMockRecorder) SetLogParameters(logToConsole, logWithID, logLevel, logFormat interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogParameters", reflect.TypeOf((*MockProcessManager)(nil).SetLogParameters), logToConsole, logWithID, logLevel, logFormat)
 }

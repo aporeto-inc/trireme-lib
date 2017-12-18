@@ -49,24 +49,24 @@ func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, flowp
 	}
 
 	if app {
-		src.ID = context.ManagementID
+		src.ID = context.ManagementID()
 		src.Type = collector.PU
 		dst.ID = flowpolicy.ServiceID
 		dst.Type = collector.Address
 	} else {
 		src.ID = flowpolicy.ServiceID
 		src.Type = collector.Address
-		dst.ID = context.ManagementID
+		dst.ID = context.ManagementID()
 		dst.Type = collector.PU
 	}
 
 	record := &collector.FlowRecord{
-		ContextID:   context.ID,
+		ContextID:   context.ID(),
 		Source:      src,
 		Destination: dst,
 		DropReason:  collector.PolicyDrop,
 		Action:      flowpolicy.Action,
-		Tags:        context.Annotations,
+		Tags:        context.Annotations(),
 		PolicyID:    flowpolicy.PolicyID,
 	}
 
@@ -93,24 +93,24 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext
 	}
 
 	if app {
-		src.ID = context.ManagementID
+		src.ID = context.ManagementID()
 		src.Type = collector.PU
 		dst.ID = flowpolicy.ServiceID
 		dst.Type = collector.Address
 	} else {
 		src.ID = flowpolicy.ServiceID
 		src.Type = collector.Address
-		dst.ID = context.ManagementID
+		dst.ID = context.ManagementID()
 		dst.Type = collector.PU
 	}
 
 	record := &collector.FlowRecord{
-		ContextID:   context.ID,
+		ContextID:   context.ID(),
 		Source:      src,
 		Destination: dst,
 		DropReason:  collector.PolicyDrop,
 		Action:      flowpolicy.Action,
-		Tags:        context.Annotations,
+		Tags:        context.Annotations(),
 		PolicyID:    flowpolicy.PolicyID,
 	}
 

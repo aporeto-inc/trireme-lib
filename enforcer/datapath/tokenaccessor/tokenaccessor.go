@@ -86,29 +86,31 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 // createSynPacketToken creates the authentication token
 func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
-	if context.SynExpiration.After(time.Now()) && len(context.SynToken) > 0 {
+	token, err = context.GetCachedToken()
+	if err == nil {
 		// Randomize the nonce and send it
-		auth.LocalContext, err = t.getToken().Randomize(context.SynToken)
+		auth.LocalContext, err = t.getToken().Randomize(token)
 		if err == nil {
-			auth.LocalServiceContext = context.SynServiceContext
-			return context.SynToken, nil
+			auth.LocalServiceContext = context.SynServiceContext()
+			return token, nil
 		}
 		// If there is an error, let's try to create a new one
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T:  context.Identity,
+		T:  context.Identity(),
 		EK: auth.LocalServiceContext,
 	}
 
-	if context.SynToken, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
+	if token, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
 		return []byte{}, nil
 	}
 
-	context.SynExpiration = time.Now().Add(time.Millisecond * 500)
-	context.SynServiceContext = auth.LocalServiceContext
+	context.UpdateCachedToken(token)
 
-	return context.SynToken, nil
+	context.UpdateSynServiceContext(auth.LocalServiceContext)
+
+	return token, nil
 }
 
 // createSynAckPacketToken  creates the authentication token for SynAck packets
@@ -116,7 +118,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
-		T:   context.Identity,
+		T:   context.Identity(),
 		RMT: auth.RemoteContext,
 		EK:  auth.LocalServiceContext,
 	}

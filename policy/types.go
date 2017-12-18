@@ -44,11 +44,6 @@ func (f ActionType) Logged() bool {
 	return f&Log > 0
 }
 
-// Observed returns if the action mask contains the Observe mask.
-func (f ActionType) Observed() bool {
-	return f&Observe > 0
-}
-
 // ShortActionString returns if the action if accepted of rejected as a short string.
 func (f ActionType) ShortActionString() string {
 	if f.Accepted() && !f.Rejected() {
@@ -98,15 +93,43 @@ const (
 	Encrypt ActionType = 0x4
 	// Log instructs the datapath to log the IP addresses
 	Log ActionType = 0x8
-	// Observe instructs the datapath to log the IP addresses
-	Observe ActionType = 0x10
+)
+
+// ObserveActionType is the action that can be applied to a flow for an observation rule.
+type ObserveActionType byte
+
+// ObserveContinue returns if the action of observation rule is continue.
+func (f ObserveActionType) ObserveContinue() bool {
+	return f&ObserveContinue > 0
+}
+
+// ObserveAllow returns if the action of observation rule is allow.
+func (f ObserveActionType) ObserveAllow() bool {
+	return f&ObserveAllow > 0
+}
+
+// ObserveReject returns if the action of observation rule is allow.
+func (f ObserveActionType) ObserveReject() bool {
+	return f&ObserveReject > 0
+}
+
+// Observe actions are used in conjunction with action.
+const (
+	// ObserveContinue is used to not take any action on packet and is deferred to
+	// an actual rule with accept or deny action.
+	ObserveContinue ObserveActionType = 0x1
+	// ObserveAllow is used to allow packets hitting this rule.
+	ObserveAllow ObserveActionType = 0x2
+	// ObserveReject is used to allow packets hitting this rule.
+	ObserveReject ObserveActionType = 0x4
 )
 
 // FlowPolicy captures the policy for a particular flow
 type FlowPolicy struct {
-	Action    ActionType
-	ServiceID string
-	PolicyID  string
+	ObserveAction ObserveActionType
+	Action        ActionType
+	ServiceID     string
+	PolicyID      string
 }
 
 // IPRule holds IP rules to external services
