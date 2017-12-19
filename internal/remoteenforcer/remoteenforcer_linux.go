@@ -121,6 +121,8 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		}
 	}
 
+	zap.L().Debug("FQConfig", zap.Fields(zap.Any(payload.FqConfig)))
+
 	// New returns a new policy enforcer
 	// TODO: return an err to tell why!
 	if s.enforcer = enforcer.New(
