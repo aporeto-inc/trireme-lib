@@ -85,6 +85,7 @@ func getCEnvVariable(name string) string {
 
 // setup an enforcer
 func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
+	zap.L().Debug("setupEnforcer RPC")
 
 	if s.enforcer != nil {
 		return nil
@@ -144,6 +145,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 // InitEnforcer is a function called from the controller using RPC. It intializes
 // data structure required by the remote enforcer
 func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	zap.L().Debug("InitEnforcer RPC")
 
 	// Check if successfully switched namespace
 	nsEnterState := getCEnvVariable(constants.AporetoEnvNsenterErrorState)
@@ -212,6 +214,7 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 // InitSupervisor is a function called from the controller over RPC. It initializes data structure required by the supervisor
 func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	zap.L().Debug("InitSupervisor RPC")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = fmt.Sprintf("supervisor init message auth failed")
@@ -263,6 +266,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 
 // Supervise This method calls the supervisor method on the supervisor created during initsupervisor
 func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	zap.L().Debug("Supervise RPC")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = fmt.Sprintf("supervise message auth failed")
@@ -311,6 +315,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 // Unenforce this method calls the unenforce method on the enforcer created from initenforcer
 func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	zap.L().Debug("Unenforce RPC")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "unenforce message auth failed"
@@ -326,6 +331,7 @@ func (s *RemoteEnforcer) Unenforce(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 // Unsupervise This method calls the unsupervise method on the supervisor created during initsupervisor
 func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	zap.L().Debug("Unsupervise RPC")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "unsupervise message auth failed"
@@ -341,6 +347,7 @@ func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Re
 
 // Enforce this method calls the enforce method on the enforcer created during initenforcer
 func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	zap.L().Debug("Enforce RPC")
 
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = "enforce message auth failed"
@@ -388,6 +395,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 // EnforcerExit this method is called when  we received a killrpocess message from the controller
 // This allows a graceful exit of the enforcer
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	zap.L().Debug("EnforcerExit RPC")
 
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
@@ -423,6 +431,7 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
+	zap.L().Debug("LaunchRemoteEnforcer")
 
 	namedPipe := os.Getenv(constants.AporetoEnvContextSocket)
 	secret := os.Getenv(constants.AporetoEnvRPCClientSecret)
