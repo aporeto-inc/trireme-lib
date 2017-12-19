@@ -634,8 +634,8 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// We can now verify the reverse policy. The system requires that policy
 	// is matched in both directions. We have to make this optional as it can
 	// become a very strong condition
-	index, report, packet := context.SearchTxtRules(claims.T)
-	if index >= 0 {
+	index, report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	if !d.mutualAuthorization || index >= 0 {
 
 		if report.Action.Rejected() && d.mutualAuthorization {
 			d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report)

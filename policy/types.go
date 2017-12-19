@@ -7,6 +7,18 @@ const (
 	DefaultNamespace = "bridge"
 )
 
+// constants for various actions
+const (
+	actionReject      = "reject"
+	actionAccept      = "accept"
+	actionPassthrough = "passthrough"
+	actionEncrypt     = "encrypt"
+	actionLog         = "log"
+	actionContinue    = "continue"
+	actionNone        = "none"
+	actionUnknown     = "unknown"
+)
+
 // Operator defines the operation between your key and value.
 type Operator string
 
@@ -59,29 +71,29 @@ func (f ActionType) ShortActionString() string {
 // ActionString returns if the action if accepted of rejected as a long string.
 func (f ActionType) ActionString() string {
 	if f.Accepted() && !f.Rejected() {
-		return "accept"
+		return actionAccept
 	}
 
 	if !f.Accepted() && f.Rejected() {
-		return "reject"
+		return actionReject
 	}
 
-	return "passthrough"
+	return actionPassthrough
 }
 
 func (f ActionType) String() string {
 	switch f {
 	case Accept:
-		return "accept"
+		return actionAccept
 	case Reject:
-		return "reject"
+		return actionReject
 	case Encrypt:
-		return "encrypt"
+		return actionEncrypt
 	case Log:
-		return "log"
+		return actionLog
 	}
 
-	return "unknown"
+	return actionUnknown
 }
 
 const (
@@ -98,14 +110,19 @@ const (
 // ObserveActionType is the action that can be applied to a flow for an observation rule.
 type ObserveActionType byte
 
+// Observed returns true if any observed action was found.
+func (f ObserveActionType) Observed() bool {
+	return f == ObserveNone
+}
+
 // ObserveContinue returns if the action of observation rule is continue.
 func (f ObserveActionType) ObserveContinue() bool {
 	return f&ObserveContinue > 0
 }
 
-// ObserveAllow returns if the action of observation rule is allow.
-func (f ObserveActionType) ObserveAllow() bool {
-	return f&ObserveAllow > 0
+// ObserveAccept returns if the action of observation rule is allow.
+func (f ObserveActionType) ObserveAccept() bool {
+	return f&ObserveAccept > 0
 }
 
 // ObserveReject returns if the action of observation rule is allow.
@@ -113,13 +130,30 @@ func (f ObserveActionType) ObserveReject() bool {
 	return f&ObserveReject > 0
 }
 
+func (f ObserveActionType) String() string {
+	switch f {
+	case ObserveNone:
+		return actionNone
+	case ObserveContinue:
+		return actionContinue
+	case ObserveAccept:
+		return actionAccept
+	case ObserveReject:
+		return actionReject
+	}
+
+	return actionUnknown
+}
+
 // Observe actions are used in conjunction with action.
 const (
+	// ObserveNone specifies if any observation was made or not.
+	ObserveNone ObserveActionType = 0x0
 	// ObserveContinue is used to not take any action on packet and is deferred to
 	// an actual rule with accept or deny action.
 	ObserveContinue ObserveActionType = 0x1
-	// ObserveAllow is used to allow packets hitting this rule.
-	ObserveAllow ObserveActionType = 0x2
+	// ObserveAccept is used to allow packets hitting this rule.
+	ObserveAccept ObserveActionType = 0x2
 	// ObserveReject is used to allow packets hitting this rule.
 	ObserveReject ObserveActionType = 0x4
 )

@@ -237,31 +237,34 @@ func (p *PUContext) CreateTxtRules(policyRules policy.TagSelectorList) {
 func (p *PUContext) searchRules(
 	policies *policies,
 	tags *policy.TagStore,
+	skipRejectPolicies bool,
 ) (index int, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	var reportingAction *policy.FlowPolicy
 	var packetAction *policy.FlowPolicy
 
-	// Look for rejection rules
-	observeIndex, observeAction := policies.observeRejectRules.Search(tags)
-	if observeIndex >= 0 {
-		reportingAction = observeAction.(*policy.FlowPolicy)
-	}
+	if !skipRejectPolicies {
+		// Look for rejection rules
+		observeIndex, observeAction := policies.observeRejectRules.Search(tags)
+		if observeIndex >= 0 {
+			reportingAction = observeAction.(*policy.FlowPolicy)
+		}
 
-	if packetAction == nil {
-		index, action := policies.rejectRules.Search(tags)
-		if index >= 0 {
-			packetAction = action.(*policy.FlowPolicy)
-			if reportingAction == nil {
-				reportingAction = packetAction
+		if packetAction == nil {
+			index, action := policies.rejectRules.Search(tags)
+			if index >= 0 {
+				packetAction = action.(*policy.FlowPolicy)
+				if reportingAction == nil {
+					reportingAction = packetAction
+				}
+				return index, reportingAction, packetAction
 			}
-			return index, reportingAction, packetAction
 		}
 	}
 
 	if reportingAction == nil {
 		// Look for allow rules
-		observeIndex, observeAction = policies.observeAcceptRules.Search(tags)
+		observeIndex, observeAction := policies.observeAcceptRules.Search(tags)
 		if observeIndex >= 0 {
 			reportingAction = observeAction.(*policy.FlowPolicy)
 		}
@@ -279,7 +282,7 @@ func (p *PUContext) searchRules(
 	}
 
 	// Look for observe allow rules
-	observeIndex, observeAction = policies.observeAcceptRules.Search(tags)
+	observeIndex, observeAction := policies.observeAcceptRules.Search(tags)
 	if observeIndex >= 0 {
 		packetAction = observeAction.(*policy.FlowPolicy)
 		if reportingAction == nil {
@@ -294,13 +297,14 @@ func (p *PUContext) searchRules(
 // SearchTxtRules searches both receive and observed transmit rules and returns the index and action
 func (p *PUContext) SearchTxtRules(
 	tags *policy.TagStore,
+	skipRejectPolicies bool,
 ) (index int, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
-	return p.searchRules(p.txt, tags)
+	return p.searchRules(p.txt, tags, skipRejectPolicies)
 }
 
 // SearchRcvRules searches both receive and observed receive rules and returns the index and action
 func (p *PUContext) SearchRcvRules(
 	tags *policy.TagStore,
 ) (index int, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
-	return p.searchRules(p.rcv, tags)
+	return p.searchRules(p.rcv, tags, false)
 }
