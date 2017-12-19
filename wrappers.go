@@ -258,7 +258,6 @@ func (t *trireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntim
 	if _, err := t.cache.Get(contextID); err == nil {
 		return fmt.Errorf("pu %s already exists", contextID)
 	}
-
 	t.cache.AddOrUpdate(contextID, runtimeInfo)
 	return nil
 }
@@ -367,10 +366,10 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 	newOptions := containerInfo.Runtime.Options()
 	newOptions.ProxyPort = t.port.Allocate()
+
 	containerInfo.Runtime.SetOptions(newOptions)
 
 	addTransmitterLabel(contextID, containerInfo)
-
 	if !mustEnforce(contextID, containerInfo) {
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,

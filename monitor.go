@@ -102,6 +102,21 @@ func SubOptionMonitorDockerExtractor(extractor dockermonitor.MetadataExtractor) 
 	}
 }
 
+// SubOptionDockerMonitorMode provides a way to set the mode for docker monitor
+func SubOptionDockerMonitorMode(mode int) func(*dockermonitor.Config) {
+
+	return func(cfg *dockermonitor.Config) {
+		switch mode {
+		case 1:
+			cfg.ECS = true
+		default:
+			cfg.ECS = false
+		}
+
+	}
+
+}
+
 // SubOptionMonitorDockerSocket provides a way to specify socket info for docker.
 func SubOptionMonitorDockerSocket(socketType, socketAddress string) func(*dockermonitor.Config) {
 	return func(cfg *dockermonitor.Config) {
