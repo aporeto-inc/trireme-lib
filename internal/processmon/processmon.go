@@ -15,11 +15,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/cache"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/crypto"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 	"github.com/kardianos/osext"
 )
 
@@ -41,12 +41,13 @@ type processMon struct {
 	netNSPath       string
 	activeProcesses *cache.Cache
 	childExitStatus chan exitStatus
-	// logToConsole stores if we should log to console
+	// logToConsole stores if we should log to console.
 	logToConsole bool
-	// logWithID controls whether the context ID should be provided while create a remote command
+	// logWithID is the ID for for log files if logging to file.
 	logWithID bool
-	// launcProcessArgs are arguments that are provided to all processes launched by processmon
-	launcProcessArgs []string
+	// logLevel is the level of logs for remote command.
+	logLevel  string
+	logFormat string
 }
 
 // processInfo stores per process information
@@ -130,12 +131,13 @@ func (p *processMon) collectChildExitStatus() {
 	}
 }
 
-// SetupLogAndProcessArgs setups args that should be propagated to child processes
-func (p *processMon) SetupLogAndProcessArgs(logToConsole, logWithID bool, args []string) {
+// SetLogParameters setups args that should be propagated to child processes
+func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string) {
 
 	p.logToConsole = logToConsole
 	p.logWithID = logWithID
-	p.launcProcessArgs = args
+	p.logLevel = logLevel
+	p.logFormat = logFormat
 }
 
 // KillProcess sends a rpc to the process to exit failing which it will kill the process
@@ -219,17 +221,14 @@ func (p *processMon) pollStdOutAndErr(
 }
 
 // getLaunchProcessCmd returns the command used to launch the enforcerd
-func (p *processMon) getLaunchProcessCmd(arg string, contextID string) (*exec.Cmd, error) {
+func (p *processMon) getLaunchProcessCmd(arg string) (*exec.Cmd, error) {
 
 	cmdName, err := osext.Executable()
 	if err != nil {
 		return nil, err
 	}
 
-	cmdArgs := append([]string{arg}, p.launcProcessArgs...)
-	if p.logWithID {
-		cmdArgs = append(cmdArgs, contextID)
-	}
+	cmdArgs := []string{arg}
 	zap.L().Debug("Enforcer executed",
 		zap.String("command", cmdName),
 		zap.Strings("args", cmdArgs),
@@ -255,6 +254,14 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.AporetoEnvRPCClientSecret + "=" + randomkeystring,
 		constants.AporetoEnvStatsSecret + "=" + statsServerSecret,
 		constants.AporetoEnvContainerPID + "=" + strconv.Itoa(refPid),
+		constants.AporetoEnvLogLevel + "=" + p.logLevel,
+		constants.AporetoEnvLogFormat + "=" + p.logFormat,
+	}
+
+	if p.logToConsole {
+		newEnvVars = append(newEnvVars, constants.AporetoEnvLogToConsole+"="+constants.AporetoEnvLogToConsoleEnable)
+	} else if p.logWithID {
+		newEnvVars = append(newEnvVars, constants.AporetoEnvLogID+"="+contextID)
 	}
 
 	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
@@ -316,7 +323,7 @@ func (p *processMon) LaunchProcess(
 		}
 	}
 
-	cmd, err := p.getLaunchProcessCmd(arg, contextID)
+	cmd, err := p.getLaunchProcessCmd(arg)
 	if err != nil {
 		return fmt.Errorf("enforcer binary not found: %s", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statsclient"
 	"github.com/aporeto-inc/trireme-lib/internal/remoteenforcer/internal/statscollector"
-	"github.com/aporeto-inc/trireme-lib/supervisor"
+	"github.com/aporeto-inc/trireme-lib/internal/supervisor"
 )
 
 // RemoteEnforcer : This is the structure for maintaining state required by the
