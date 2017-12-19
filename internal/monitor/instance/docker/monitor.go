@@ -570,6 +570,13 @@ func (d *dockerMonitor) ReSync() error {
 			)
 			continue
 		}
+		contextID, _ := contextIDFromDockerID(container.ID)
+		if d.ECS {
+			storedContext := &StoredContext{}
+			if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+				container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
+			}
+		}
 
 		if err := d.startDockerContainer(&container); err != nil {
 			zap.L().Error("Error Syncing existing Container during start handling",
@@ -654,7 +661,11 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	if err != nil {
 		return err
 	}
-
+	t := runtimeInfo.Tags()
+	if t != nil && storedContext.Tags != nil {
+		t.Merge(storedContext.Tags)
+		runtimeInfo.SetTags(t)
+	}
 	if err := d.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
