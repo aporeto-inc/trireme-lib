@@ -1,6 +1,7 @@
 package trireme
 
 import (
+	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/internal/monitor"
 	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/cni"
 	"github.com/aporeto-inc/trireme-lib/internal/monitor/instance/docker"
@@ -103,11 +104,14 @@ func SubOptionMonitorDockerExtractor(extractor dockermonitor.MetadataExtractor) 
 }
 
 // SubOptionDockerMonitorMode provides a way to set the mode for docker monitor
-func SubOptionDockerMonitorMode(mode int) func(*dockermonitor.Config) {
+func SubOptionDockerMonitorMode(mode constants.DockerMonitorMode) func(*dockermonitor.Config) {
 
 	return func(cfg *dockermonitor.Config) {
 		switch mode {
-		case 1:
+		case constants.DockerMode:
+		case constants.KubernetesMode:
+			cfg.ECS = false
+		case constants.ECSMode:
 			cfg.ECS = true
 		default:
 			cfg.ECS = false

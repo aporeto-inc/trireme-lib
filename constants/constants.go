@@ -67,3 +67,16 @@ const (
 	// DockerHostMode is the string of the network mode that indicates a host namespace
 	DockerHostMode = "host"
 )
+
+type DockerMonitorMode int
+
+const (
+	// DockerMode is a mode for docker monitor when trireme is running on host with just a docker daemon
+	DockerMode DockerMonitorMode = iota
+
+	// KubernetesMode is a mode for docker monitor when trireme is running on host which is part of a kubernetes cluster
+	KubernetesMode
+
+	// ECSMode is a mode for docker monitor when trireme is running on host which is part of ECS/AWS cluster
+	ECSMode
+)
