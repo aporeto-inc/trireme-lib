@@ -13,7 +13,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -206,20 +205,15 @@ func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) *policies 
 	for _, rule := range policyRules {
 		if rule.Policy.ObserveAction.ObserveContinue() {
 			if rule.Policy.Action.Accepted() {
-				zap.L().Info("Observed Accept with Continue:", zap.Reflect("rule", rule))
 				policyDB.observeAcceptRules.AddPolicy(rule)
 			} else if rule.Policy.Action.Rejected() {
-				zap.L().Info("Observed Reject with Continue:", zap.Reflect("rule", rule))
 				policyDB.observeRejectRules.AddPolicy(rule)
 			}
 		} else if rule.Policy.ObserveAction.ObserveApply() {
-			zap.L().Info("Observed with Apply:", zap.Reflect("rule", rule))
 			policyDB.observeApplyRules.AddPolicy(rule)
 		} else if rule.Policy.Action.Accepted() {
-			zap.L().Info("Accept:", zap.Reflect("rule", rule))
 			policyDB.acceptRules.AddPolicy(rule)
 		} else if rule.Policy.Action.Rejected() {
-			zap.L().Info("Reject:", zap.Reflect("rule", rule))
 			policyDB.rejectRules.AddPolicy(rule)
 		} else {
 			continue
@@ -249,20 +243,17 @@ func (p *PUContext) searchRules(
 	var reportingAction *policy.FlowPolicy
 	var packetAction *policy.FlowPolicy
 
-	zap.L().Info("Tags", zap.String("tags", tags.String()))
 	if !skipRejectPolicies {
 		// Look for rejection rules
 		observeIndex, observeAction := policies.observeRejectRules.Search(tags)
 		if observeIndex >= 0 {
 			reportingAction = observeAction.(*policy.FlowPolicy)
-			zap.L().Info("Report observe reject with continue:", zap.Reflect("action", reportingAction))
 		}
 
 		if packetAction == nil {
 			index, action := policies.rejectRules.Search(tags)
 			if index >= 0 {
 				packetAction = action.(*policy.FlowPolicy)
-				zap.L().Info("Packet reject:", zap.Reflect("action", packetAction))
 				if reportingAction == nil {
 					reportingAction = packetAction
 				}
@@ -276,7 +267,6 @@ func (p *PUContext) searchRules(
 		observeIndex, observeAction := policies.observeAcceptRules.Search(tags)
 		if observeIndex >= 0 {
 			reportingAction = observeAction.(*policy.FlowPolicy)
-			zap.L().Info("Report observe accept with continue:", zap.Reflect("action", reportingAction))
 		}
 	}
 
@@ -284,7 +274,6 @@ func (p *PUContext) searchRules(
 		index, action := policies.acceptRules.Search(tags)
 		if index >= 0 {
 			packetAction = action.(*policy.FlowPolicy)
-			zap.L().Info("Packet reject:", zap.Reflect("action", packetAction))
 			if reportingAction == nil {
 				reportingAction = packetAction
 			}
@@ -296,10 +285,8 @@ func (p *PUContext) searchRules(
 	observeIndex, observeAction := policies.observeApplyRules.Search(tags)
 	if observeIndex >= 0 {
 		packetAction = observeAction.(*policy.FlowPolicy)
-		zap.L().Info("Packet apply:", zap.Reflect("action", packetAction))
 		if reportingAction == nil {
 			reportingAction = packetAction
-			zap.L().Info("Report apply:", zap.Reflect("action", packetAction))
 		}
 		return reportingAction, packetAction
 	}
@@ -310,12 +297,10 @@ func (p *PUContext) searchRules(
 			Action:   policy.Reject,
 			PolicyID: "",
 		}
-		zap.L().Info("Packet default reject:", zap.Reflect("action", packetAction))
 	}
 
 	if reportingAction == nil {
 		reportingAction = packetAction
-		zap.L().Info("Report default reject:", zap.Reflect("action", packetAction))
 	}
 
 	return reportingAction, packetAction

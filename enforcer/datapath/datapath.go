@@ -400,9 +400,6 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnec
 	if report.ObserveAction.Observed() {
 		c.ObservedAction = packet.Action
 		c.ObservedPolicyID = packet.PolicyID
-		zap.L().Info("Observations", zap.Reflect("flow", c))
-	} else {
-		zap.L().Info("Not Observations", zap.Reflect("flow", c), zap.Reflect("packet", packet), zap.Reflect("report", report))
 	}
 
 	d.collector.CollectFlowEvent(c)
