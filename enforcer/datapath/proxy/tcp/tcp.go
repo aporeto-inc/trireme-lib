@@ -31,14 +31,14 @@ import (
 )
 
 const (
-	sockOptOriginalDst = 80   //nolint
+	sockOptOriginalDst = 80
 	proxyMarkInt       = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
 
 )
 
 // Proxy maintains state for proxies connections from listen to backend.
 type Proxy struct {
-	// Listen Port to listen on
+	// Listen specifies port to listen on.
 	Listen string
 	// Backend address of the backend
 	Backend string
@@ -46,9 +46,9 @@ type Proxy struct {
 	certPath string
 	keyPath  string
 	wg       sync.WaitGroup
-	// Forward Should We forward connection
+	// Forward specifies if we should forward this connection.
 	Forward bool
-	// Encrypt Is this connection encrypted
+	// Encrypt specifies if this connection encrypted.
 	Encrypt             bool
 	mutualAuthorization bool
 	tokenaccessor       tokenaccessor.TokenAccessor
@@ -458,17 +458,17 @@ L:
 			case connection.ClientTokenSend:
 				token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 				if err != nil {
-					return fmt.Errorf("Failed to create syn token: %s", err)
+					return fmt.Errorf("unable to create syn token: %s", err)
 				}
 				if err := syscall.Sendto(downConn, token, 0, toAddr); err != nil {
-					return fmt.Errorf("Syn Send to failed: %s", err)
+					return fmt.Errorf("unable to send syn: %s", err)
 				}
 				conn.SetState(connection.ClientPeerTokenReceive)
 
 			case connection.ClientPeerTokenReceive:
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
-					return fmt.Errorf("Recv from failed: %s", err)
+					return fmt.Errorf("unable to recvfrom: %s", err)
 				}
 
 				msg = msg[:n]
@@ -490,10 +490,10 @@ L:
 			case connection.ClientSendSignedPair:
 				token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
 				if err != nil {
-					return fmt.Errorf("Failed to create ack token: %s", err)
+					return fmt.Errorf("unable to create ack token: %s", err)
 				}
 				if err := syscall.Sendto(downConn, token, 0, toAddr); err != nil {
-					return fmt.Errorf("Ack Send to failed: %s", err)
+					return fmt.Errorf("unable to send ack: %s", err)
 				}
 				break L
 			}

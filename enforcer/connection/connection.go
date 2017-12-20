@@ -209,7 +209,7 @@ func (c *ProxyConnection) SetState(state ProxyConnState) {
 	c.state = state
 }
 
-// SetReported Sets the flag to reported when the conn is reported
+// SetReported sets the flag to reported when the conn is reported
 func (c *ProxyConnection) SetReported(reported bool) {
 	c.reported = reported
 }
