@@ -636,5 +636,14 @@ func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, conn *co
 
 func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
+	if report == nil {
+		report = &policy.FlowPolicy{
+			Action:   policy.Reject,
+			PolicyID: "",
+		}
+	}
+	if packet == nil {
+		packet = report
+	}
 	p.reportFlow(flowproperties, conn, sourceID, destID, context, mode, report, packet)
 }

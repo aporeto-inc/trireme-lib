@@ -26,6 +26,9 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 			PolicyID: "",
 		}
 	}
+	if packet == nil {
+		packet = report
+	}
 	d.reportFlow(p, conn, sourceID, destID, context, mode, report, packet)
 }
 
