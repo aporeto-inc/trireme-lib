@@ -293,7 +293,7 @@ func (p *PUContext) searchRules(
 	}
 
 	// Look for observe allow rules
-	observeIndex, observeAction := policies.observeAcceptRules.Search(tags)
+	observeIndex, observeAction := policies.observeApplyRules.Search(tags)
 	if observeIndex >= 0 {
 		packetAction = observeAction.(*policy.FlowPolicy)
 		zap.L().Info("Report/Packet apply:", zap.Reflect("action", packetAction))
