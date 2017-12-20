@@ -249,6 +249,7 @@ func (p *PUContext) searchRules(
 	var reportingAction *policy.FlowPolicy
 	var packetAction *policy.FlowPolicy
 
+	zap.L().Info("Tags", zap.String("tags", tags.String()))
 	if !skipRejectPolicies {
 		// Look for rejection rules
 		observeIndex, observeAction := policies.observeRejectRules.Search(tags)
@@ -304,16 +305,16 @@ func (p *PUContext) searchRules(
 
 	// Handle default if nothing provides to drop with no policyID.
 	if packetAction == nil {
-		zap.L().Info("Packet default reject:", zap.Reflect("action", packetAction))
 		packetAction = &policy.FlowPolicy{
 			Action:   policy.Reject,
 			PolicyID: "",
 		}
+		zap.L().Info("Packet default reject:", zap.Reflect("action", packetAction))
 	}
 
 	if reportingAction == nil {
-		zap.L().Info("Report default reject:", zap.Reflect("action", packetAction))
 		reportingAction = packetAction
+		zap.L().Info("Report default reject:", zap.Reflect("action", packetAction))
 	}
 
 	return reportingAction, packetAction
