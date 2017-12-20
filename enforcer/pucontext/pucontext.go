@@ -292,7 +292,7 @@ func (p *PUContext) searchRules(
 		}
 	}
 
-	// Look for observe allow rules
+	// Look for observe apply rules
 	observeIndex, observeAction := policies.observeApplyRules.Search(tags)
 	if observeIndex >= 0 {
 		packetAction = observeAction.(*policy.FlowPolicy)

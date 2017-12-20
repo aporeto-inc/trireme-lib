@@ -123,7 +123,7 @@ type ObserveActionType byte
 
 // Observed returns true if any observed action was found.
 func (f ObserveActionType) Observed() bool {
-	return f == ObserveNone
+	return f != ObserveNone
 }
 
 // ObserveContinue returns if the action of observation rule is continue.
