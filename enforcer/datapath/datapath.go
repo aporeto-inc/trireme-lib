@@ -375,7 +375,7 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
@@ -392,9 +392,14 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnec
 			Type: collector.PU,
 		},
 		Tags:       context.Annotations(),
-		Action:     plc.Action,
+		Action:     report.Action,
 		DropReason: mode,
-		PolicyID:   plc.PolicyID,
+		PolicyID:   report.PolicyID,
+	}
+
+	if report.ObserveAction.Observed() {
+		c.ObservedAction = packet.Action
+		c.ObservedPolicyID = packet.PolicyID
 	}
 
 	d.collector.CollectFlowEvent(c)

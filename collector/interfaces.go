@@ -100,7 +100,7 @@ type FlowRecord struct {
 	Destination      *EndPoint
 	Tags             *policy.TagStore
 	Action           policy.ActionType
-	ObservedAction   policy.ObserveActionType
+	ObservedAction   policy.ActionType
 	DropReason       string
 	PolicyID         string
 	ObservedPolicyID string

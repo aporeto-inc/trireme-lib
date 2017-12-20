@@ -108,8 +108,11 @@ type TCPConnection struct {
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
 
-	// FlowPolicy holds the last matched policy
-	FlowPolicy *policy.FlowPolicy
+	// ReportFlowPolicy holds the last matched observed policy
+	ReportFlowPolicy *policy.FlowPolicy
+
+	// PacketFlowPolicy holds the last matched actual policy
+	PacketFlowPolicy *policy.FlowPolicy
 }
 
 // TCPConnectionExpirationNotifier handles processing the expiration of an element
@@ -179,10 +182,11 @@ func NewTCPConnection(context *pucontext.PUContext) *TCPConnection {
 type ProxyConnection struct {
 	sync.Mutex
 
-	state      ProxyConnState
-	Auth       AuthInfo
-	FlowPolicy *policy.FlowPolicy
-	reported   bool
+	state            ProxyConnState
+	Auth             AuthInfo
+	ReportFlowPolicy *policy.FlowPolicy
+	PacketFlowPolicy *policy.FlowPolicy
+	reported         bool
 }
 
 // NewProxyConnection returns a new Proxy Connection

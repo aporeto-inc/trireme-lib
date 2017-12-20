@@ -209,7 +209,7 @@ func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) *policies 
 			} else if rule.Policy.Action.Rejected() {
 				policyDB.observeRejectRules.AddPolicy(rule)
 			}
-		} else if rule.Policy.ObserveAction.ObserveAllow() {
+		} else if rule.Policy.ObserveAction.ObserveAccept() {
 			policyDB.observeOverrideRules.AddPolicy(rule)
 		} else if rule.Policy.Action.Accepted() {
 			policyDB.acceptRules.AddPolicy(rule)
@@ -238,7 +238,7 @@ func (p *PUContext) searchRules(
 	policies *policies,
 	tags *policy.TagStore,
 	skipRejectPolicies bool,
-) (index int, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	var reportingAction *policy.FlowPolicy
 	var packetAction *policy.FlowPolicy
@@ -257,7 +257,7 @@ func (p *PUContext) searchRules(
 				if reportingAction == nil {
 					reportingAction = packetAction
 				}
-				return index, reportingAction, packetAction
+				return reportingAction, packetAction
 			}
 		}
 	}
@@ -277,7 +277,7 @@ func (p *PUContext) searchRules(
 			if reportingAction == nil {
 				reportingAction = packetAction
 			}
-			return index, reportingAction, packetAction
+			return reportingAction, packetAction
 		}
 	}
 
@@ -288,23 +288,35 @@ func (p *PUContext) searchRules(
 		if reportingAction == nil {
 			reportingAction = packetAction
 		}
-		return observeIndex, reportingAction, packetAction
+		return reportingAction, packetAction
 	}
 
-	return -1, nil, nil
+	// Handle default if nothing provides to drop with no policyID.
+	if packetAction == nil {
+		packetAction = &policy.FlowPolicy{
+			Action:   policy.Reject,
+			PolicyID: "",
+		}
+	}
+
+	if reportingAction == nil {
+		reportingAction = packetAction
+	}
+
+	return reportingAction, packetAction
 }
 
 // SearchTxtRules searches both receive and observed transmit rules and returns the index and action
 func (p *PUContext) SearchTxtRules(
 	tags *policy.TagStore,
 	skipRejectPolicies bool,
-) (index int, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 	return p.searchRules(p.txt, tags, skipRejectPolicies)
 }
 
 // SearchRcvRules searches both receive and observed receive rules and returns the index and action
 func (p *PUContext) SearchRcvRules(
 	tags *policy.TagStore,
-) (index int, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 	return p.searchRules(p.rcv, tags, false)
 }
