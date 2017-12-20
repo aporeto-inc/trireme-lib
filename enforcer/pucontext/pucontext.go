@@ -296,9 +296,10 @@ func (p *PUContext) searchRules(
 	observeIndex, observeAction := policies.observeApplyRules.Search(tags)
 	if observeIndex >= 0 {
 		packetAction = observeAction.(*policy.FlowPolicy)
-		zap.L().Info("Report/Packet apply:", zap.Reflect("action", packetAction))
+		zap.L().Info("Packet apply:", zap.Reflect("action", packetAction))
 		if reportingAction == nil {
 			reportingAction = packetAction
+			zap.L().Info("Report apply:", zap.Reflect("action", packetAction))
 		}
 		return reportingAction, packetAction
 	}
