@@ -163,9 +163,6 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 	if c.flowReported == 0 {
 		zap.L().Error("Connection not reported",
 			zap.String("connection", c.String()))
-	} else {
-		zap.L().Debug("Connection reported",
-			zap.String("connection", c.String()))
 	}
 }
 
