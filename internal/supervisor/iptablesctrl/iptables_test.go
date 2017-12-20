@@ -13,7 +13,6 @@ import (
 )
 
 func TestNewInstance(t *testing.T) {
-
 	Convey("When I create a new iptables instance", t, func() {
 
 		Convey("If I create a local implemenetation and iptables exists", func() {
