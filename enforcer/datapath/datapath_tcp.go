@@ -526,7 +526,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	conn.PacketFlowPolicy = packet
 
 	// Accept the connection
-	return action, claims, nil
+	return packet, claims, nil
 }
 
 // processNetworkSynAckPacket processes a SynAck packet arriving from the network
