@@ -115,7 +115,7 @@ const (
 	// Log instructs the datapath to log the IP addresses
 	Log ActionType = 0x8
 	// Observe instructs the datapath to observe policy results
-	Observe ActionType = 0x8
+	Observe ActionType = 0x10
 )
 
 // ObserveActionType is the action that can be applied to a flow for an observation rule.
