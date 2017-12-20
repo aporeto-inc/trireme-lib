@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -323,7 +322,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			zap.L().Error("Failed to update conntrack entry for flow",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-				zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
 
@@ -400,7 +399,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 				zap.L().Error("Failed to update conntrack table for flow",
 					zap.String("context", string(conn.Auth.LocalContext)),
 					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-					zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 				)
 			}
 		}
@@ -421,7 +420,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		return nil, nil
 	}
 
-	return nil, fmt.Errorf("received application ack packet in the wrong state: %v", conn.GetState())
+	return nil, fmt.Errorf("received application ack packet in the wrong state: %d", conn.GetState())
 }
 
 // processNetworkTCPPacket processes a network TCP packet and dispatches it to different methods based on the flags
@@ -510,7 +509,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	report, packet := context.SearchRcvRules(claims.T)
 	if packet.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
-		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", strings.Join(claims.T.Tags, " "))
+		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
 	}
 
 	hash := tcpPacket.L4FlowHash()
@@ -580,7 +579,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			zap.L().Error("Failed to update conntrack table for flow",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-				zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
 	}
@@ -593,8 +592,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	}
 
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
-	// // Validate the certificate and parse the token
-	// claims, nonce, cert, err := d.tokenEngine.GetToken().Decode(false, tcpData, nil)
 	if err != nil {
 		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
@@ -632,7 +629,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 	if packet.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
-		return nil, nil, errors.New("dropping because of reject rule on transmitter")
+		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
 	}
 
 	conn.SetState(connection.TCPSynAckReceived)
@@ -709,12 +706,12 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	// Everything else is dropped - ACK received in the Syn state without a SynAck
 	d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.InvalidState, nil, nil)
 	zap.L().Error("Invalid state reached",
-		zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+		zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 		zap.String("context", context.ManagementID()),
 		zap.String("net-conn", hash),
 	)
 
-	return nil, nil, fmt.Errorf("Ack packet dropped, invalid duplicate state: %+v", conn.GetState())
+	return nil, nil, fmt.Errorf("Ack packet dropped, invalid duplicate state: %d", conn.GetState())
 }
 
 // createTCPAuthenticationOption creates the TCP authentication option -
