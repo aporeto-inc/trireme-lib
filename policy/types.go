@@ -14,6 +14,7 @@ const (
 	actionPassthrough = "passthrough"
 	actionEncrypt     = "encrypt"
 	actionLog         = "log"
+	actionObserve     = "observe"
 
 	oactionContinue = "continue"
 	oactionApply    = "apply"
@@ -57,6 +58,11 @@ func (f ActionType) Encrypted() bool {
 // Logged returns if the action mask contains the Logged mask.
 func (f ActionType) Logged() bool {
 	return f&Log > 0
+}
+
+// Observed returns if the action mask contains the Observed mask.
+func (f ActionType) Observed() bool {
+	return f&Observe > 0
 }
 
 // ShortActionString returns if the action if accepted of rejected as a short string.
@@ -108,6 +114,8 @@ const (
 	Encrypt ActionType = 0x4
 	// Log instructs the datapath to log the IP addresses
 	Log ActionType = 0x8
+	// Observe instructs the datapath to observe policy results
+	Observe ActionType = 0x8
 )
 
 // ObserveActionType is the action that can be applied to a flow for an observation rule.
