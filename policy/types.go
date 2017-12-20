@@ -14,9 +14,12 @@ const (
 	actionPassthrough = "passthrough"
 	actionEncrypt     = "encrypt"
 	actionLog         = "log"
-	actionContinue    = "continue"
-	actionNone        = "none"
-	actionUnknown     = "unknown"
+
+	oactionContinue = "continue"
+	oactionApply    = "apply"
+
+	actionNone    = "none"
+	actionUnknown = "unknown"
 )
 
 // Operator defines the operation between your key and value.
@@ -120,14 +123,9 @@ func (f ObserveActionType) ObserveContinue() bool {
 	return f&ObserveContinue > 0
 }
 
-// ObserveAccept returns if the action of observation rule is allow.
-func (f ObserveActionType) ObserveAccept() bool {
-	return f&ObserveAccept > 0
-}
-
-// ObserveReject returns if the action of observation rule is allow.
-func (f ObserveActionType) ObserveReject() bool {
-	return f&ObserveReject > 0
+// ObserveApply returns if the action of observation rule is allow.
+func (f ObserveActionType) ObserveApply() bool {
+	return f&ObserveApply > 0
 }
 
 func (f ObserveActionType) String() string {
@@ -135,11 +133,9 @@ func (f ObserveActionType) String() string {
 	case ObserveNone:
 		return actionNone
 	case ObserveContinue:
-		return actionContinue
-	case ObserveAccept:
-		return actionAccept
-	case ObserveReject:
-		return actionReject
+		return oactionContinue
+	case ObserveApply:
+		return oactionApply
 	}
 
 	return actionUnknown
@@ -152,10 +148,8 @@ const (
 	// ObserveContinue is used to not take any action on packet and is deferred to
 	// an actual rule with accept or deny action.
 	ObserveContinue ObserveActionType = 0x1
-	// ObserveAccept is used to allow packets hitting this rule.
-	ObserveAccept ObserveActionType = 0x2
-	// ObserveReject is used to allow packets hitting this rule.
-	ObserveReject ObserveActionType = 0x4
+	// ObserveApply is used to apply action to packets hitting this rule.
+	ObserveApply ObserveActionType = 0x2
 )
 
 // FlowPolicy captures the policy for a particular flow

@@ -16,11 +16,11 @@ import (
 )
 
 type policies struct {
-	observeRejectRules   *lookup.PolicyDB // Packet: Continue       Report:    Drop
-	rejectRules          *lookup.PolicyDB // Packet:     Drop       Report:    Drop
-	observeAcceptRules   *lookup.PolicyDB // Packet: Continue       Report: Forward
-	acceptRules          *lookup.PolicyDB // Packet:  Forward       Report: Forward
-	observeOverrideRules *lookup.PolicyDB // Packet:  Forward       Report: Forward
+	observeRejectRules *lookup.PolicyDB // Packet: Continue       Report:    Drop
+	rejectRules        *lookup.PolicyDB // Packet:     Drop       Report:    Drop
+	observeAcceptRules *lookup.PolicyDB // Packet: Continue       Report: Forward
+	acceptRules        *lookup.PolicyDB // Packet:  Forward       Report: Forward
+	observeApplyRules  *lookup.PolicyDB // Packet:  Forward       Report: Forward
 }
 
 // PUContext holds data indexed by the PU ID
@@ -195,11 +195,11 @@ func (p *PUContext) UpdateCachedToken(token []byte) {
 func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) *policies {
 
 	policyDB := &policies{
-		rejectRules:          lookup.NewPolicyDB(),
-		observeRejectRules:   lookup.NewPolicyDB(),
-		acceptRules:          lookup.NewPolicyDB(),
-		observeAcceptRules:   lookup.NewPolicyDB(),
-		observeOverrideRules: lookup.NewPolicyDB(),
+		rejectRules:        lookup.NewPolicyDB(),
+		observeRejectRules: lookup.NewPolicyDB(),
+		acceptRules:        lookup.NewPolicyDB(),
+		observeAcceptRules: lookup.NewPolicyDB(),
+		observeApplyRules:  lookup.NewPolicyDB(),
 	}
 
 	for _, rule := range policyRules {
@@ -209,8 +209,8 @@ func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) *policies 
 			} else if rule.Policy.Action.Rejected() {
 				policyDB.observeRejectRules.AddPolicy(rule)
 			}
-		} else if rule.Policy.ObserveAction.ObserveAccept() {
-			policyDB.observeOverrideRules.AddPolicy(rule)
+		} else if rule.Policy.ObserveAction.ObserveApply() {
+			policyDB.observeApplyRules.AddPolicy(rule)
 		} else if rule.Policy.Action.Accepted() {
 			policyDB.acceptRules.AddPolicy(rule)
 		} else if rule.Policy.Action.Rejected() {
