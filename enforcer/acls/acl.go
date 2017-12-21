@@ -52,10 +52,12 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 	subnet = binary.BigEndian.Uint32(subnetSlice.To4())
 
 	maskValue := 0
+
 	switch len(parts) {
 	case 1:
 		mask = 0xFFFFFFFF
 		maskValue = 32
+
 	case 2:
 		maskValue, err = strconv.Atoi(parts[1])
 		if err != nil {
@@ -66,6 +68,7 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 			return fmt.Errorf("invalid mask value: %d", mask)
 		}
 		mask = binary.BigEndian.Uint32(net.CIDRMask(maskValue, 32))
+
 	default:
 		return fmt.Errorf("invalid address: %s", rule.Address)
 	}
@@ -78,7 +81,7 @@ func (a *acl) addRule(rule policy.IPRule) (err error) {
 		a.prefixLenMap[maskValue] = plenRules
 	}
 
-	r, err := createPortAction(rule)
+	r, err := newPortAction(rule)
 	if err != nil {
 		return fmt.Errorf("unable to create port action: %s", err)
 	}
@@ -104,34 +107,16 @@ func (a *acl) getMatchingAction(ip []byte, port uint16, preReport *policy.FlowPo
 		}
 
 		// Do a lookup as a hash to see if we have a match
-		if actionList, ok := rules.rules[addr&rules.mask]; ok {
+		actionList, ok := rules.rules[addr&rules.mask]
+		if !ok {
+			continue
+		}
 
-			// Scan the ports - TODO: better algorithm needed here
-			for _, p := range actionList {
-				if port >= p.min && port <= p.max {
-
-					// Check observed policies.
-					if p.policy.ObserveAction.Observed() {
-						if report != nil {
-							continue
-						}
-						report = p.policy
-						if p.policy.ObserveAction.ObserveContinue() {
-							continue
-						}
-						packet = report
-						return report, packet, nil
-					}
-
-					packet = p.policy
-					if report == nil {
-						report = packet
-					}
-					return report, packet, nil
-				}
-			}
+		report, packet, err = actionList.lookup(port, report)
+		if err == nil {
+			return
 		}
 	}
 
-	return report, packet, errors.New("no match")
+	return report, packet, errors.New("No match")
 }
