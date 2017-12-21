@@ -100,7 +100,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 
 	claims := &tokens.ConnectionClaims{
 		T:  context.Identity(),
-		EK: serviceContext,
+		EK: auth.LocalServiceContext,
 	}
 
 	if token, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
