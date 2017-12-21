@@ -61,42 +61,46 @@ func TestLookup(t *testing.T) {
 		Convey("When I lookup for a matching address and a port range, I should get the right action", func() {
 			ip := net.ParseIP("172.17.0.1")
 			port := uint16(401)
-			a, err := c.GetMatchingAction(ip.To4(), port)
+			r, a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Accept)
+			So(r.Action, ShouldEqual, policy.Accept)
 		})
 
 		Convey("When I lookup for a matching address exact port, I should get the right action", func() {
 			ip := net.ParseIP("192.168.100.1")
 			port := uint16(80)
-			a, err := c.GetMatchingAction(ip.To4(), port)
+			r, a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Accept)
+			So(r.Action, ShouldEqual, policy.Accept)
 		})
 
 		Convey("When I lookup for a non matching address . I should get reject", func() {
 			ip := net.ParseIP("192.168.200.1")
 			port := uint16(80)
-			a, err := c.GetMatchingAction(ip.To4(), port)
+			r, a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldNotBeNil)
 			So(a.Action, ShouldEqual, policy.Reject)
+			So(r.Action, ShouldEqual, policy.Reject)
 		})
 
 		Convey("When I lookup for a matching address but failed port, I should get reject", func() {
 			ip := net.ParseIP("192.168.100.1")
 			port := uint16(600)
-			a, err := c.GetMatchingAction(ip.To4(), port)
+			r, a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldNotBeNil)
 			So(a.Action, ShouldEqual, policy.Reject)
+			So(r.Action, ShouldEqual, policy.Reject)
 		})
 
 		Convey("When I lookup for a matching exact address exact port, I should get the right action", func() {
 			ip := net.ParseIP("10.1.1.1")
 			port := uint16(80)
-			a, err := c.GetMatchingAction(ip.To4(), port)
+			r, a, err := c.GetMatchingAction(ip.To4(), port)
 			So(err, ShouldBeNil)
 			So(a.Action, ShouldEqual, policy.Accept)
+			So(r.Action, ShouldEqual, policy.Accept)
 		})
-
 	})
 }

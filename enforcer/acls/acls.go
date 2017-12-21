@@ -137,7 +137,7 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 }
 
 // GetMatchingAction gets the matching action
-func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (*policy.FlowPolicy, error) {
+func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 
 	addr := binary.BigEndian.Uint32(ip)
 	// Iterate over all the bitmasks we have
@@ -149,11 +149,27 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (*policy.FlowPolicy
 			// Scan the ports - TODO: better algorithm needed here
 			for _, p := range actionList {
 				if port >= p.min && port <= p.max {
-					return p.policy, nil
+
+					// Check observed policies.
+					if report == nil && p.policy.ObserveAction.ObserveContinue() {
+						report = p.policy
+						packet = report
+						continue
+					}
+
+					packet = p.policy
+					if report == nil {
+						report = packet
+					}
+					return report, packet, nil
 				}
 			}
 		}
 	}
 
-	return &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}, errors.New("no match")
+	if report == nil {
+		report = &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}
+		packet = report
+	}
+	return report, packet, errors.New("no match")
 }

@@ -455,17 +455,17 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 
 		// If there is no auth option, attempt the ACLs
-		plc, perr := context.NetworkACLPolicy(tcpPacket)
-		d.reportExternalServiceFlow(context, plc, false, tcpPacket)
-		if perr != nil || plc.Action == policy.Reject {
-			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
+		report, packet, err := context.NetworkACLPolicy(tcpPacket)
+		d.reportExternalServiceFlow(context, report, packet, false, tcpPacket)
+		if err != nil || packet.Action.Rejected() {
+			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", err)
 		}
 
 		conn.SetState(connection.TCPData)
 		d.netOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
 
-		return plc, nil, nil
+		return packet, nil, nil
 	}
 
 	// Packets that have authorization information go through the auth path
@@ -544,9 +544,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		}
 
 		// Never seen this IP before, let's parse them.
-		plc, err = context.ApplicationACLPolicy(tcpPacket)
-		if err != nil || plc.Action&policy.Reject > 0 {
-			d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
+		report, packet, err := context.ApplicationACLPolicy(tcpPacket)
+		if err != nil || packet.Action.Rejected() {
+			d.reportReverseExternalServiceFlow(context, report, packet, true, tcpPacket)
 			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", err, plc.Action)
 		}
 
