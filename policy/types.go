@@ -14,7 +14,6 @@ const (
 	actionPassthrough = "passthrough"
 	actionEncrypt     = "encrypt"
 	actionLog         = "log"
-	actionObserve     = "observe"
 
 	oactionContinue = "continue"
 	oactionApply    = "apply"
