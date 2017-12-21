@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -24,13 +25,17 @@ type PortActionList []*PortAction
 // ACLCache holds all the ACLS in an internal DB
 // map[prefixes][subnets] -> list of ports with their actions
 type ACLCache struct {
-	prefixMap map[uint32]map[uint32]PortActionList
+	sortedPrefixLens []int
+	prefixLenToMask  map[int]uint32
+	prefixMap        map[uint32]map[uint32]PortActionList
 }
 
 // NewACLCache creates a new ACL cache
 func NewACLCache() *ACLCache {
 	return &ACLCache{
-		prefixMap: make(map[uint32]map[uint32]PortActionList),
+		sortedPrefixLens: make([]int, 0),
+		prefixLenToMask:  make(map[int]uint32),
+		prefixMap:        make(map[uint32]map[uint32]PortActionList),
 	}
 }
 
@@ -95,6 +100,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) error {
 	switch len(parts) {
 	case 1:
 		mask = 0xFFFFFFFF
+		c.prefixLenToMask[0] = mask
 	case 2:
 		maskvalue, err := strconv.Atoi(parts[1])
 		if err != nil {
@@ -104,6 +110,7 @@ func (c *ACLCache) AddRule(rule policy.IPRule) error {
 			return fmt.Errorf("invalid mask value: %d", mask)
 		}
 		mask = binary.BigEndian.Uint32(net.CIDRMask(maskvalue, 32))
+		c.prefixLenToMask[32-maskvalue] = mask
 	default:
 		return fmt.Errorf("invalid address: %s", rule.Address)
 	}
@@ -120,7 +127,6 @@ func (c *ACLCache) AddRule(rule policy.IPRule) error {
 	subnet = subnet & mask
 
 	c.prefixMap[mask][subnet] = append(c.prefixMap[mask][subnet], a)
-
 	return nil
 }
 
@@ -133,6 +139,11 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 		}
 	}
 
+	// Get sorted prefix lengths
+	for k := range c.prefixLenToMask {
+		c.sortedPrefixLens = append(c.sortedPrefixLens, k)
+	}
+	sort.Ints(c.sortedPrefixLens)
 	return
 }
 
@@ -140,8 +151,19 @@ func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (report *policy.FlowPolicy, packet *policy.FlowPolicy, err error) {
 
 	addr := binary.BigEndian.Uint32(ip)
+
 	// Iterate over all the bitmasks we have
-	for bitmask, pmap := range c.prefixMap {
+	for _, len := range c.sortedPrefixLens {
+
+		bitmask, ok := c.prefixLenToMask[len]
+		if !ok {
+			continue
+		}
+
+		pmap, ok := c.prefixMap[bitmask]
+		if !ok {
+			continue
+		}
 
 		// Do a lookup as a hash to see if we have a match
 		if actionList, ok := pmap[addr&bitmask]; ok {
