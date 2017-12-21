@@ -181,25 +181,26 @@ func (p *PUContext) UpdateSynServiceContext(synServiceContext []byte) {
 }
 
 // GetCachedToken returns the cached syn packet token
-func (p *PUContext) GetCachedToken() ([]byte, error) {
+func (p *PUContext) GetCachedTokenAndServiceContext() ([]byte, []byte, error) {
 
 	p.RLock()
 	defer p.RUnlock()
 
 	if p.synExpiration.After(time.Now()) && len(p.synToken) > 0 {
-		return p.synToken, nil
+		return p.synToken, p.synServiceContext, nil
 	}
 
-	return nil, fmt.Errorf("eiixpired Token")
+	return nil, nil, fmt.Errorf("expired Token")
 }
 
 // UpdateCachedToken updates the local cached token
-func (p *PUContext) UpdateCachedToken(token []byte) {
+func (p *PUContext) UpdateCachedTokenAndServiceContext(token []byte, serviceContext []byte) {
 
 	p.Lock()
 
 	p.synToken = token
 	p.synExpiration = time.Now().Add(time.Millisecond * 500)
+	p.synServiceContext = serviceContext
 
 	p.Unlock()
 
