@@ -31,6 +31,11 @@ func (i *Instance) createACLSets(version string, set string, rules policy.IPRule
 	}
 
 	for _, rule := range rules {
+
+		if rule.Policy.Action.Observed() {
+			continue
+		}
+
 		var err error
 		switch rule.Policy.Action {
 		case policy.Accept:
