@@ -15,16 +15,22 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
+type policies struct {
+	observeRejectRules *lookup.PolicyDB // Packet: Continue       Report:    Drop
+	rejectRules        *lookup.PolicyDB // Packet:     Drop       Report:    Drop
+	observeAcceptRules *lookup.PolicyDB // Packet: Continue       Report: Forward
+	acceptRules        *lookup.PolicyDB // Packet:  Forward       Report: Forward
+	observeApplyRules  *lookup.PolicyDB // Packet:  Forward       Report: Forward
+}
+
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
 	id                string
 	managementID      string
 	identity          *policy.TagStore
 	annotations       *policy.TagStore
-	acceptTxRules     *lookup.PolicyDB
-	rejectTxRules     *lookup.PolicyDB
-	acceptRcvRules    *lookup.PolicyDB
-	rejectRcvRules    *lookup.PolicyDB
+	txt               *policies
+	rcv               *policies
 	applicationACLs   *acls.ACLCache
 	networkACLs       *acls.ACLCache
 	externalIPCache   cache.DataStore
@@ -61,9 +67,9 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		mark:            puInfo.Runtime.Options().CgroupMark,
 	}
 
-	pu.acceptRcvRules, pu.rejectRcvRules = createRuleDBs(puInfo.Policy.ReceiverRules())
+	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
 
-	pu.acceptTxRules, pu.rejectTxRules = createRuleDBs(puInfo.Policy.TransmitterRules())
+	pu.CreateTxtRules(puInfo.Policy.TransmitterRules())
 
 	ports := policy.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
 	pu.ports = strings.Split(ports, ",")
@@ -118,26 +124,6 @@ func (p *PUContext) Ports() []string {
 // Annotations returns the annotations
 func (p *PUContext) Annotations() *policy.TagStore {
 	return p.annotations
-}
-
-// SearchAcceptTxRules returns the accept Tx Rules
-func (p *PUContext) SearchAcceptTxRules(claims *policy.TagStore) (int, interface{}) {
-	return p.acceptTxRules.Search(claims)
-}
-
-// SearchRejectTxRules searches the reject rules for a policy match
-func (p *PUContext) SearchRejectTxRules(claims *policy.TagStore) (int, interface{}) {
-	return p.rejectTxRules.Search(claims)
-}
-
-// SearchAcceptRcvRules searches the accept rules for a policy match
-func (p *PUContext) SearchAcceptRcvRules(claims *policy.TagStore) (int, interface{}) {
-	return p.acceptRcvRules.Search(claims)
-}
-
-// SearchRejectRcvRules returns the reject receive rules
-func (p *PUContext) SearchRejectRcvRules(claims *policy.TagStore) (int, interface{}) {
-	return p.rejectRcvRules.Search(claims)
 }
 
 // RetrieveCachedExternalFlowPolicy returns the policy for an external IP
@@ -206,20 +192,131 @@ func (p *PUContext) UpdateCachedToken(token []byte) {
 }
 
 // createRuleDBs creates the database of rules from the policy
-func createRuleDBs(policyRules policy.TagSelectorList) (*lookup.PolicyDB, *lookup.PolicyDB) {
+func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) *policies {
 
-	acceptRules := lookup.NewPolicyDB()
-	rejectRules := lookup.NewPolicyDB()
+	policyDB := &policies{
+		rejectRules:        lookup.NewPolicyDB(),
+		observeRejectRules: lookup.NewPolicyDB(),
+		acceptRules:        lookup.NewPolicyDB(),
+		observeAcceptRules: lookup.NewPolicyDB(),
+		observeApplyRules:  lookup.NewPolicyDB(),
+	}
 
 	for _, rule := range policyRules {
-
-		if rule.Policy.Action&policy.Accept != 0 {
-			acceptRules.AddPolicy(rule)
-		} else if rule.Policy.Action&policy.Reject != 0 {
-			rejectRules.AddPolicy(rule)
+		if rule.Policy.ObserveAction.ObserveContinue() {
+			if rule.Policy.Action.Accepted() {
+				policyDB.observeAcceptRules.AddPolicy(rule)
+			} else if rule.Policy.Action.Rejected() {
+				policyDB.observeRejectRules.AddPolicy(rule)
+			}
+		} else if rule.Policy.ObserveAction.ObserveApply() {
+			policyDB.observeApplyRules.AddPolicy(rule)
+		} else if rule.Policy.Action.Accepted() {
+			policyDB.acceptRules.AddPolicy(rule)
+		} else if rule.Policy.Action.Rejected() {
+			policyDB.rejectRules.AddPolicy(rule)
 		} else {
 			continue
 		}
 	}
-	return acceptRules, rejectRules
+
+	return policyDB
+}
+
+// CreateRcvRules create receive rules for this PU based on the update of the policy.
+func (p *PUContext) CreateRcvRules(policyRules policy.TagSelectorList) {
+	p.rcv = p.createRuleDBs(policyRules)
+}
+
+// CreateTxtRules create receive rules for this PU based on the update of the policy.
+func (p *PUContext) CreateTxtRules(policyRules policy.TagSelectorList) {
+	p.txt = p.createRuleDBs(policyRules)
+}
+
+// searchRules searches all reject, accpet and observed rules and returns reporting and packet forwarding action
+func (p *PUContext) searchRules(
+	policies *policies,
+	tags *policy.TagStore,
+	skipRejectPolicies bool,
+) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+
+	var reportingAction *policy.FlowPolicy
+	var packetAction *policy.FlowPolicy
+
+	if !skipRejectPolicies {
+		// Look for rejection rules
+		observeIndex, observeAction := policies.observeRejectRules.Search(tags)
+		if observeIndex >= 0 {
+			reportingAction = observeAction.(*policy.FlowPolicy)
+		}
+
+		if packetAction == nil {
+			index, action := policies.rejectRules.Search(tags)
+			if index >= 0 {
+				packetAction = action.(*policy.FlowPolicy)
+				if reportingAction == nil {
+					reportingAction = packetAction
+				}
+				return reportingAction, packetAction
+			}
+		}
+	}
+
+	if reportingAction == nil {
+		// Look for allow rules
+		observeIndex, observeAction := policies.observeAcceptRules.Search(tags)
+		if observeIndex >= 0 {
+			reportingAction = observeAction.(*policy.FlowPolicy)
+		}
+	}
+
+	if packetAction == nil {
+		index, action := policies.acceptRules.Search(tags)
+		if index >= 0 {
+			packetAction = action.(*policy.FlowPolicy)
+			if reportingAction == nil {
+				reportingAction = packetAction
+			}
+			return reportingAction, packetAction
+		}
+	}
+
+	// Look for observe apply rules
+	observeIndex, observeAction := policies.observeApplyRules.Search(tags)
+	if observeIndex >= 0 {
+		packetAction = observeAction.(*policy.FlowPolicy)
+		if reportingAction == nil {
+			reportingAction = packetAction
+		}
+		return reportingAction, packetAction
+	}
+
+	// Handle default if nothing provides to drop with no policyID.
+	if packetAction == nil {
+		packetAction = &policy.FlowPolicy{
+			Action:   policy.Reject,
+			PolicyID: "",
+		}
+	}
+
+	if reportingAction == nil {
+		reportingAction = packetAction
+	}
+
+	return reportingAction, packetAction
+}
+
+// SearchTxtRules searches both receive and observed transmit rules and returns the index and action
+func (p *PUContext) SearchTxtRules(
+	tags *policy.TagStore,
+	skipRejectPolicies bool,
+) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+	return p.searchRules(p.txt, tags, skipRejectPolicies)
+}
+
+// SearchRcvRules searches both receive and observed receive rules and returns the index and action
+func (p *PUContext) SearchRcvRules(
+	tags *policy.TagStore,
+) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+	return p.searchRules(p.rcv, tags, false)
 }

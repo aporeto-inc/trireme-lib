@@ -7,6 +7,21 @@ const (
 	DefaultNamespace = "bridge"
 )
 
+// constants for various actions
+const (
+	actionReject      = "reject"
+	actionAccept      = "accept"
+	actionPassthrough = "passthrough"
+	actionEncrypt     = "encrypt"
+	actionLog         = "log"
+
+	oactionContinue = "continue"
+	oactionApply    = "apply"
+
+	actionNone    = "none"
+	actionUnknown = "unknown"
+)
+
 // Operator defines the operation between your key and value.
 type Operator string
 
@@ -44,6 +59,11 @@ func (f ActionType) Logged() bool {
 	return f&Log > 0
 }
 
+// Observed returns if the action mask contains the Observed mask.
+func (f ActionType) Observed() bool {
+	return f&Observe > 0
+}
+
 // ShortActionString returns if the action if accepted of rejected as a short string.
 func (f ActionType) ShortActionString() string {
 	if f.Accepted() && !f.Rejected() {
@@ -53,36 +73,35 @@ func (f ActionType) ShortActionString() string {
 	if !f.Accepted() && f.Rejected() {
 		return "r"
 	}
-
 	return "p"
 }
 
 // ActionString returns if the action if accepted of rejected as a long string.
 func (f ActionType) ActionString() string {
 	if f.Accepted() && !f.Rejected() {
-		return "accept"
+		return actionAccept
 	}
 
 	if !f.Accepted() && f.Rejected() {
-		return "reject"
+		return actionReject
 	}
 
-	return "passthrough"
+	return actionPassthrough
 }
 
 func (f ActionType) String() string {
 	switch f {
 	case Accept:
-		return "accept"
+		return actionAccept
 	case Reject:
-		return "reject"
+		return actionReject
 	case Encrypt:
-		return "encrypt"
+		return actionEncrypt
 	case Log:
-		return "log"
+		return actionLog
 	}
 
-	return "unknown"
+	return actionUnknown
 }
 
 const (
@@ -94,13 +113,58 @@ const (
 	Encrypt ActionType = 0x4
 	// Log instructs the datapath to log the IP addresses
 	Log ActionType = 0x8
+	// Observe instructs the datapath to observe policy results
+	Observe ActionType = 0x10
+)
+
+// ObserveActionType is the action that can be applied to a flow for an observation rule.
+type ObserveActionType byte
+
+// Observed returns true if any observed action was found.
+func (f ObserveActionType) Observed() bool {
+	return f != ObserveNone
+}
+
+// ObserveContinue returns if the action of observation rule is continue.
+func (f ObserveActionType) ObserveContinue() bool {
+	return f&ObserveContinue > 0
+}
+
+// ObserveApply returns if the action of observation rule is allow.
+func (f ObserveActionType) ObserveApply() bool {
+	return f&ObserveApply > 0
+}
+
+func (f ObserveActionType) String() string {
+	switch f {
+	case ObserveNone:
+		return actionNone
+	case ObserveContinue:
+		return oactionContinue
+	case ObserveApply:
+		return oactionApply
+	}
+
+	return actionUnknown
+}
+
+// Observe actions are used in conjunction with action.
+const (
+	// ObserveNone specifies if any observation was made or not.
+	ObserveNone ObserveActionType = 0x0
+	// ObserveContinue is used to not take any action on packet and is deferred to
+	// an actual rule with accept or deny action.
+	ObserveContinue ObserveActionType = 0x1
+	// ObserveApply is used to apply action to packets hitting this rule.
+	ObserveApply ObserveActionType = 0x2
 )
 
 // FlowPolicy captures the policy for a particular flow
 type FlowPolicy struct {
-	Action    ActionType
-	ServiceID string
-	PolicyID  string
+	ObserveAction ObserveActionType
+	Action        ActionType
+	ServiceID     string
+	PolicyID      string
 }
 
 // IPRule holds IP rules to external services

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -323,7 +322,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 			zap.L().Error("Failed to update conntrack entry for flow",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-				zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
 
@@ -400,7 +399,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 				zap.L().Error("Failed to update conntrack table for flow",
 					zap.String("context", string(conn.Auth.LocalContext)),
 					zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-					zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 				)
 			}
 		}
@@ -421,7 +420,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		return nil, nil
 	}
 
-	return nil, fmt.Errorf("received application ack packet in the wrong state: %v", conn.GetState())
+	return nil, fmt.Errorf("received application ack packet in the wrong state: %d", conn.GetState())
 }
 
 // processNetworkTCPPacket processes a network TCP packet and dispatches it to different methods based on the flags
@@ -477,27 +476,27 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// we must drop the connection and we drop the Syn packet. The source will
 	// retry but we have no state to maintain here.
 	if err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil)
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn
 	// packet. The source will retry but we have no state to maintain here.
 	if claims == nil {
-		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil)
+		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
 		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
 	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil)
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 	}
 
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
 	if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil)
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format: %s", err)
 	}
 
@@ -507,34 +506,27 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
-	// Validate against reject rules first - We always process reject with higher priority
-	if index, plc := context.SearchRejectRcvRules(claims.T); index >= 0 {
-		// Reject the connection
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, plc.(*policy.FlowPolicy))
-		return nil, nil, fmt.Errorf("Connection rejected because of policy: %s", strings.Join(claims.T.Tags, " "))
+	report, packet := context.SearchRcvRules(claims.T)
+	if packet.Action.Rejected() {
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
+		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
 	}
 
-	// Search the policy rules for a matching rule.
-	if index, action := context.SearchAcceptRcvRules(claims.T); index >= 0 {
+	hash := tcpPacket.L4FlowHash()
+	// Update the connection state and store the Nonse send to us by the host.
+	// We use the nonse in the subsequent packets to achieve randomization.
+	conn.SetState(connection.TCPSynReceived)
 
-		hash := tcpPacket.L4FlowHash()
-		// Update the connection state and store the Nonse send to us by the host.
-		// We use the nonse in the subsequent packets to achieve randomization.
-		conn.SetState(connection.TCPSynReceived)
+	// conntrack
+	d.netOrigConnectionTracker.AddOrUpdate(hash, conn)
+	d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
 
-		// conntrack
-		d.netOrigConnectionTracker.AddOrUpdate(hash, conn)
-		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
+	// Cache the action
+	conn.ReportFlowPolicy = report
+	conn.PacketFlowPolicy = packet
 
-		// Cache the action
-		conn.FlowPolicy = action.(*policy.FlowPolicy)
-
-		// Accept the connection
-		return action, claims, nil
-	}
-
-	d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, nil)
-	return nil, nil, fmt.Errorf("no matched tags -reject: %+v", claims.T)
+	// Accept the connection
+	return packet, claims, nil
 }
 
 // processNetworkSynAckPacket processes a SynAck packet arriving from the network
@@ -587,7 +579,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			zap.L().Error("Failed to update conntrack table for flow",
 				zap.String("context", string(conn.Auth.LocalContext)),
 				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
-				zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
 	}
@@ -595,56 +587,56 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// Now we can process the SynAck packet with its options
 	tcpData := tcpPacket.ReadTCPData()
 	if len(tcpData) == 0 {
-		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
 		return nil, nil, errors.New("SynAck packet dropped because of missing token")
 	}
 
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
-	// // Validate the certificate and parse the token
-	// claims, nonce, cert, err := d.tokenEngine.GetToken().Decode(false, tcpData, nil)
 	if err != nil {
-		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
 	}
 
 	if claims == nil {
-		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil)
+		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
 		return nil, nil, errors.New("SynAck packet dropped because of no claims")
 	}
 
 	tcpPacket.ConnectionMetadata = &conn.Auth
 
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidFormat, nil)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidFormat, nil, nil)
 		return nil, nil, errors.New("TCP authentication option not found")
 	}
 
 	// Remove any of our data
 	if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidFormat, nil)
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of invalid format: %s", err)
 	}
 
 	tcpPacket.DropDetachedBytes()
 
-	// We can now verify the reverse policy. The system requires that policy
-	// is matched in both directions. We have to make this optional as it can
-	// become a very strong condition
-	if index, _ := context.SearchRejectTxRules(claims.T); d.mutualAuthorization && index >= 0 {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
-		return nil, nil, errors.New("dropping because of reject rule on transmitter")
-	}
-
-	if index, action := context.SearchAcceptTxRules(claims.T); !d.mutualAuthorization || index >= 0 {
+	if !d.mutualAuthorization {
+		// If we dont do mutual authorization, dont lookup txt rules.
 		conn.SetState(connection.TCPSynAckReceived)
 
 		// conntrack
 		d.netReplyConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
-		return action, claims, nil
+		return nil, claims, nil
 	}
 
-	d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, nil)
-	return nil, nil, errors.New("dropping packet SynAck at the network ")
+	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	if packet.Action.Rejected() {
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
+		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
+	}
+
+	conn.SetState(connection.TCPSynAckReceived)
+
+	// conntrack
+	d.netReplyConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
+	return packet, claims, nil
 }
 
 // processNetworkAckPacket processes an Ack packet arriving from the network
@@ -660,25 +652,33 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	if conn.GetState() == connection.TCPSynAckSend || conn.GetState() == connection.TCPSynReceived {
 
 		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 			return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 		}
 
 		if _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because signature validation failed: %s", err)
 		}
 
 		// Remove any of our data - adjust the sequence numbers
 		if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil)
+			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 			return nil, nil, fmt.Errorf("Ack packet dropped because of invalid format: %s", err)
 		}
 
 		tcpPacket.DropDetachedBytes()
 
-		// We accept the packet as a new flow
-		d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.FlowPolicy)
+		if conn.PacketFlowPolicy != nil && conn.PacketFlowPolicy.Action.Rejected() {
+			if !conn.PacketFlowPolicy.ObserveAction.Observed() {
+				zap.L().Error("Flow rejected but not observed", zap.String("conn", context.ManagementID()))
+			}
+			// Flow has been allowed because we are observing a deny rule's impact on the system. Packets are forwarded, reported as dropped + observed.
+			d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+		} else {
+			// We accept the packet as a new flow
+			d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+		}
 
 		conn.SetState(connection.TCPData)
 
@@ -704,14 +704,14 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	}
 
 	// Everything else is dropped - ACK received in the Syn state without a SynAck
-	d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.InvalidState, nil)
+	d.reportRejectedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.InvalidState, nil, nil)
 	zap.L().Error("Invalid state reached",
-		zap.String("state", fmt.Sprintf("%v", conn.GetState())),
+		zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 		zap.String("context", context.ManagementID()),
 		zap.String("net-conn", hash),
 	)
 
-	return nil, nil, fmt.Errorf("Ack packet dropped, invalid duplicate state: %+v", conn.GetState())
+	return nil, nil, fmt.Errorf("Ack packet dropped, invalid duplicate state: %d", conn.GetState())
 }
 
 // createTCPAuthenticationOption creates the TCP authentication option -

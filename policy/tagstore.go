@@ -77,3 +77,8 @@ func (t *TagStore) Merge(m *TagStore) (merged int) {
 func (t *TagStore) AppendKeyValue(key, value string) {
 	t.Tags = append(t.Tags, key+"="+value)
 }
+
+// String provides a string representation of tag store.
+func (t *TagStore) String() string {
+	return strings.Join(t.Tags, " ")
+}

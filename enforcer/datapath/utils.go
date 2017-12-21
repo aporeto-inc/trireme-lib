@@ -8,25 +8,28 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
-func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, plc *policy.FlowPolicy) {
-	if conn != nil {
-		conn.SetReported(connection.RejectReported)
-	}
-	d.reportFlow(p, conn, sourceID, destID, context, "", plc)
-}
-
-func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, plc *policy.FlowPolicy) {
+func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 	if conn != nil {
 		conn.SetReported(connection.AcceptReported)
 	}
+	d.reportFlow(p, conn, sourceID, destID, context, "", report, packet)
+}
 
-	if plc == nil {
-		plc = &policy.FlowPolicy{
+func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+	if conn != nil && mode == collector.PolicyDrop {
+		conn.SetReported(connection.RejectReported)
+	}
+
+	if report == nil {
+		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
 			PolicyID: "",
 		}
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, mode, plc)
+	if packet == nil {
+		packet = report
+	}
+	d.reportFlow(p, conn, sourceID, destID, context, mode, report, packet)
 }
 
 func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, flowpolicy *policy.FlowPolicy, app bool, p *packet.Packet) {

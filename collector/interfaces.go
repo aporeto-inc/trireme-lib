@@ -94,14 +94,16 @@ type EndPoint struct {
 
 // FlowRecord describes a flow record for statistis
 type FlowRecord struct {
-	ContextID   string
-	Count       int
-	Source      *EndPoint
-	Destination *EndPoint
-	Tags        *policy.TagStore
-	Action      policy.ActionType
-	DropReason  string
-	PolicyID    string
+	ContextID        string
+	Count            int
+	Source           *EndPoint
+	Destination      *EndPoint
+	Tags             *policy.TagStore
+	Action           policy.ActionType
+	ObservedAction   policy.ActionType
+	DropReason       string
+	PolicyID         string
+	ObservedPolicyID string
 }
 
 func (f *FlowRecord) String() string {
