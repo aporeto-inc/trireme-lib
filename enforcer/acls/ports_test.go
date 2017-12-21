@@ -54,5 +54,17 @@ func TestPortListLookup(t *testing.T) {
 			So(r, ShouldBeNil)
 			So(p, ShouldBeNil)
 		})
+
+		Convey("When I lookup for a non matching port, I should get error but get the unmodified reported flow input", func() {
+			r, p, err := pl.lookup(0, &policy.FlowPolicy{
+				Action:   policy.Accept,
+				PolicyID: "portPreMatch"},
+			)
+			So(err, ShouldNotBeNil)
+			So(r, ShouldNotBeNil)
+			So(r.Action, ShouldEqual, policy.Accept)
+			So(r.PolicyID, ShouldEqual, "portPreMatch")
+			So(p, ShouldBeNil)
+		})
 	})
 }
