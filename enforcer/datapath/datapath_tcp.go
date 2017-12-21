@@ -455,10 +455,10 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 
 		// If there is no auth option, attempt the ACLs
-		report, packet, err := context.NetworkACLPolicy(tcpPacket)
+		report, packet, perr := context.NetworkACLPolicy(tcpPacket)
 		d.reportExternalServiceFlow(context, report, packet, false, tcpPacket)
-		if err != nil || packet.Action.Rejected() {
-			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", err)
+		if perr != nil || packet.Action.Rejected() {
+			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
 		}
 
 		conn.SetState(connection.TCPData)
@@ -546,7 +546,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
 			plc = plci.(*policyPair)
 			d.releaseFlow(context, plc.report, plc.packet, tcpPacket)
-			return plc, nil, nil
+			return plc.packet, nil, nil
 		}
 
 		// Never seen this IP before, let's parse them.
@@ -570,7 +570,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		d.releaseFlow(context, report, packet, tcpPacket)
 
-		return plc, nil, nil
+		return plc.packet, nil, nil
 	}
 
 	// This is a corner condition. We are receiving a SynAck packet and we are in
