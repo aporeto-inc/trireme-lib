@@ -92,7 +92,6 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		// Randomize the nonce and send it
 		auth.LocalContext, err = t.getToken().Randomize(token)
 		if err == nil {
-			//auth.LocalServiceContext = serviceContext
 			return token, nil
 		}
 		// If there is an error, let's try to create a new one
