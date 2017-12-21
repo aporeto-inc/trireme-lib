@@ -151,10 +151,14 @@ func (c *ACLCache) GetMatchingAction(ip []byte, port uint16) (report *policy.Flo
 				if port >= p.min && port <= p.max {
 
 					// Check observed policies.
-					if report == nil && p.policy.ObserveAction.ObserveContinue() {
+					if report == nil {
 						report = p.policy
 						packet = report
-						continue
+						if p.policy.ObserveAction.ObserveContinue() {
+							continue
+						} else if p.policy.ObserveAction.ObserveApply() {
+							return report, packet, nil
+						}
 					}
 
 					packet = p.policy
