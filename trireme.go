@@ -124,6 +124,7 @@ func New(serverID string, opts ...Option) Trireme {
 	c := &config{
 		serverID:               serverID,
 		mode:                   constants.RemoteContainer,
+		fq:                     fqconfig.NewFilterQueueWithDefaults(),
 		mutualAuth:             true,
 		validity:               time.Hour * 8760,
 		procMountPoint:         constants.DefaultProcMountPoint,
