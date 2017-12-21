@@ -393,6 +393,10 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 	for _, rule := range rules {
 
+		if rule.Policy.Action.Observed() {
+			continue
+		}
+
 		proto := strings.ToLower(rule.Protocol)
 
 		if proto == "udp" || proto == "tcp" {
@@ -563,6 +567,10 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleList) error {
 
 	for _, rule := range rules {
+
+		if rule.Policy.Action.Observed() {
+			continue
+		}
 
 		proto := strings.ToLower(rule.Protocol)
 
