@@ -13,6 +13,15 @@ import (
 // MonitorOption is provided using functional arguments.
 type MonitorOption func(*monitor.Config)
 
+// CNIMonitorOption is provided using functional arguments.
+type CNIMonitorOption func(*cnimonitor.Config)
+
+// UIDMonitorOption is provided using functional arguments.
+type UIDMonitorOption func(*uidmonitor.Config)
+
+// DockerMonitorOption is provided using functional arguments.
+type DockerMonitorOption func(*dockermonitor.Config)
+
 // SubOptionMonitorLinuxExtractor provides a way to specify metadata extractor for linux monitors.
 func SubOptionMonitorLinuxExtractor(extractor events.EventMetadataExtractor) func(*linuxmonitor.Config) {
 	return func(cfg *linuxmonitor.Config) {
