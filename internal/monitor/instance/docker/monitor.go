@@ -690,7 +690,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 
 		event = tevents.EventStart
 	}
-	zap.L().Info("Changing Container State to:", zap.String("Event", string(event)))
+
 	if err = d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
@@ -708,7 +708,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		if err = d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
 		}
-		//dockerInfo.Config.Labels["$id"]
+
 	}
 	storedContext = &StoredContext{
 		containerInfo: dockerInfo,
