@@ -513,7 +513,7 @@ func (d *dockerMonitor) ReSync() error {
 				if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
 					container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
 				} else {
-					if err := d.startDockerContainer(&container); err != nil {
+					if err = d.startDockerContainer(&container); err != nil {
 						zap.L().Debug("Could Not restart docker container", zap.String("ID", container.ID), zap.Error(err))
 					}
 					continue
@@ -672,7 +672,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		t.Merge(storedContext.Tags)
 		runtimeInfo.SetTags(t)
 	}
-	if err := d.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
+	if err = d.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
 
@@ -691,7 +691,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		event = tevents.EventStart
 	}
 	zap.L().Info("Changing Container State to:", zap.String("Event", string(event)))
-	if err := d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
+	if err = d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
 				zap.L().Error("Unable to stop bad container",
@@ -705,7 +705,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	}
 
 	if dockerInfo.HostConfig.NetworkMode == constants.DockerHostMode {
-		if err := d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
+		if err = d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
 		}
 		//dockerInfo.Config.Labels["$id"]
@@ -715,10 +715,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		Tags:          runtimeInfo.Tags(),
 	}
 
-	if err = d.cstore.Store(contextID, storedContext); err != nil {
-		return err
-	}
-	return nil
+	return d.cstore.Store(contextID, storedContext)
 }
 
 func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
