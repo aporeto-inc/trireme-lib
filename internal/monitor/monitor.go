@@ -135,7 +135,7 @@ func NewMonitors(collector collector.EventCollector, puhandler processor.Process
 		}
 	}
 
-	zap.L().Info("Monitor Configuration", zap.String("Base", m.config.String()))
+	zap.L().Debug("Monitor configuration", zap.String("conf", m.config.String()))
 
 	return m, nil
 }
