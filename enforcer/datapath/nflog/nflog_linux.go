@@ -109,7 +109,6 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	}
 
 	if action.Observed() {
-		// TODO: Coalesce action from actual hit.
 		record.ObservedAction = action
 		record.ObservedPolicyID = policyID
 	}
