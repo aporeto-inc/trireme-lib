@@ -570,7 +570,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		d.releaseFlow(context, report, packet, tcpPacket)
 
-		return plc.packet, nil, nil
+		return packet, nil, nil
 	}
 
 	// This is a corner condition. We are receiving a SynAck packet and we are in
