@@ -86,12 +86,12 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 // createSynPacketToken creates the authentication token
 func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
-	token, err = context.GetCachedToken()
-	if err == nil {
+	token, serviceContext, err := context.GetCachedTokenAndServiceContext()
+
+	if err == nil && bytes.Equal(auth.LocalServiceContext, serviceContext) {
 		// Randomize the nonce and send it
 		auth.LocalContext, err = t.getToken().Randomize(token)
 		if err == nil {
-			auth.LocalServiceContext = context.SynServiceContext()
 			return token, nil
 		}
 		// If there is an error, let's try to create a new one
@@ -106,9 +106,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		return []byte{}, nil
 	}
 
-	context.UpdateCachedToken(token)
-
-	context.UpdateSynServiceContext(auth.LocalServiceContext)
+	context.UpdateCachedTokenAndServiceContext(token, auth.LocalServiceContext)
 
 	return token, nil
 }
