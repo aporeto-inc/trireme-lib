@@ -644,8 +644,6 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 
 func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
 
-	timeout := time.Second * 0
-
 	if !dockerInfo.State.Running {
 		return nil
 	}
@@ -693,13 +691,10 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 
 	if err = d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
 		if d.killContainerOnPolicyError {
-			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
-				zap.L().Error("Unable to stop bad container",
-					zap.String("dockerID", contextID),
-					zap.Error(derr),
-				)
+			if derr := d.dockerClient.ContainerRemove(context.Background(), dockerInfo.ID, types.ContainerRemoveOptions{Force: true}); derr != nil {
+				return fmt.Errorf("unable to set policy: unable to remove container %s: %s, %s", contextID, err, derr)
 			}
-			return fmt.Errorf("unable to set policy: killed container %s: %s", contextID, err)
+			return fmt.Errorf("unable to set policy: removed container %s: %s", contextID, err)
 		}
 		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", contextID, err)
 	}
