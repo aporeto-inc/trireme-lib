@@ -32,7 +32,7 @@ func (i *Instance) createACLSets(version string, set string, rules policy.IPRule
 
 	for _, rule := range rules {
 
-		if rule.Policy.Action.Observed() {
+		if rule.Policy.ObserveAction.ObserveContinue() {
 			continue
 		}
 

@@ -393,7 +393,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 	for _, rule := range rules {
 
-		if rule.Policy.Action.Observed() {
+		if rule.Policy.ObserveAction.ObserveContinue() {
 			continue
 		}
 
@@ -568,7 +568,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 	for _, rule := range rules {
 
-		if rule.Policy.Action.Observed() {
+		if rule.Policy.ObserveAction.ObserveContinue() {
 			continue
 		}
 
