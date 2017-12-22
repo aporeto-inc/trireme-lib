@@ -182,7 +182,7 @@ type Config struct {
 	SocketAddress              string
 	SyncAtStart                bool
 	KillContainerOnPolicyError bool
-	ECS                        bool
+	NoProxyMode                bool
 }
 
 // DefaultConfig provides a default configuration
@@ -193,7 +193,7 @@ func DefaultConfig() *Config {
 		SocketAddress:              constants.DefaultDockerSocket,
 		SyncAtStart:                true,
 		KillContainerOnPolicyError: false,
-		ECS: false,
+		NoProxyMode:                false,
 	}
 }
 
@@ -230,7 +230,7 @@ type dockerMonitor struct {
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
 	killContainerOnPolicyError bool
 	syncAtStart                bool
-	ECS                        bool
+	NoProxyMode                bool
 	cstore                     contextstore.ContextStore
 }
 
@@ -268,7 +268,7 @@ func (d *dockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.numberOfQueues = runtime.NumCPU() * 8
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
-	d.ECS = dockerConfig.ECS
+	d.NoProxyMode = dockerConfig.NoProxyMode
 	d.cstore = contextstore.NewFileContextStore(cstorePath)
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
@@ -508,12 +508,14 @@ func (d *dockerMonitor) ReSync() error {
 
 			contextID, _ := contextIDFromDockerID(container.ID)
 
-			if d.ECS {
+			if d.NoProxyMode {
 				storedContext := &StoredContext{}
 				if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
 					container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
 				} else {
-					d.startDockerContainer(&container)
+					if err := d.startDockerContainer(&container); err != nil {
+						zap.L().Debug("Could Not restart docker container", zap.String("ID", container.ID), zap.Error(err))
+					}
 					continue
 				}
 
@@ -531,7 +533,7 @@ func (d *dockerMonitor) ReSync() error {
 				state = tevents.StateStopped
 			}
 			if d.config.SyncHandler != nil {
-				if d.ECS {
+				if d.NoProxyMode {
 					storedContext := &StoredContext{}
 					if err = d.cstore.Retrieve(contextID, &storedContext); err != nil {
 						//We don't know about this container lets not sync
@@ -571,7 +573,7 @@ func (d *dockerMonitor) ReSync() error {
 			continue
 		}
 		contextID, _ := contextIDFromDockerID(container.ID)
-		if d.ECS {
+		if d.NoProxyMode {
 			storedContext := &StoredContext{}
 			if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
 				container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
@@ -653,9 +655,13 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		return err
 	}
 	storedContext := &StoredContext{}
-	if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
-		dockerInfo.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
+	if d.cstore != nil {
+		if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+			if storedContext.Tags != nil {
+				dockerInfo.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
+			}
 
+		}
 	}
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
 	if err != nil {
@@ -684,7 +690,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 
 		event = tevents.EventStart
 	}
-
+	zap.L().Info("Changing Container State to:", zap.String("Event", string(event)))
 	if err := d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
@@ -709,7 +715,9 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		Tags:          runtimeInfo.Tags(),
 	}
 
-	d.cstore.Store(contextID, storedContext)
+	if err = d.cstore.Store(contextID, storedContext); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -719,7 +727,9 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 	if err != nil {
 		return err
 	}
-	d.cstore.Remove(contextID)
+	if err = d.cstore.Remove(contextID); err != nil {
+		return err
+	}
 	return d.config.PUHandler.HandlePUEvent(contextID, tevents.EventStop)
 }
 
@@ -823,7 +833,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 // handlePauseEvent generates a create event type.
 func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
-
+	zap.L().Info("UnPause Event for nativeID", zap.String("ID", event.ID))
 	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
 		return err

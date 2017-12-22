@@ -110,11 +110,11 @@ func SubOptionDockerMonitorMode(mode constants.DockerMonitorMode) func(*dockermo
 		switch mode {
 		case constants.DockerMode:
 		case constants.KubernetesMode:
-			cfg.ECS = false
-		case constants.ECSMode:
-			cfg.ECS = true
+			cfg.NoProxyMode = false
+		case constants.NoProxyMode:
+			cfg.NoProxyMode = true
 		default:
-			cfg.ECS = false
+			cfg.NoProxyMode = false
 		}
 
 	}
