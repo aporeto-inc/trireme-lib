@@ -252,18 +252,18 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 			metadataExtractionFailed == 0 &&
 			syncFailed == 0 &&
 			puStartFailed == 0 {
-			zap.L().Info("UID resync completed",
-				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
-				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
+			zap.L().Debug("UID resync completed",
+				zap.Strings("deleted", deleted),
+				zap.Strings("reacquired", reacquired),
 			)
 		} else {
-			zap.L().Info("UID resync completed with failures",
-				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
-				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
-				zap.Int("Retrieve Failed", retrieveFailed),
-				zap.Int("Metadata Extraction Failed", metadataExtractionFailed),
-				zap.Int("Sync Failed", syncFailed),
-				zap.Int("puStart Failed", puStartFailed),
+			zap.L().Warn("UID resync completed with failures",
+				zap.Strings("deleted", deleted),
+				zap.Strings("reacquired", reacquired),
+				zap.Int("retrieve-failed", retrieveFailed),
+				zap.Int("metadata-extraction-failed", metadataExtractionFailed),
+				zap.Int("sync-failed", syncFailed),
+				zap.Int("start-failed", puStartFailed),
 			)
 		}
 	}()

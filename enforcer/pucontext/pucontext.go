@@ -132,12 +132,12 @@ func (p *PUContext) RetrieveCachedExternalFlowPolicy(id string) (interface{}, er
 }
 
 // NetworkACLPolicy retrieves the policy based on ACLs
-func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (*policy.FlowPolicy, error) {
+func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
 	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
 }
 
 // ApplicationACLPolicy retrieves the policy based on ACLs
-func (p *PUContext) ApplicationACLPolicy(packet *packet.Packet) (*policy.FlowPolicy, error) {
+func (p *PUContext) ApplicationACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
 	return p.applicationACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.SourcePort)
 }
 

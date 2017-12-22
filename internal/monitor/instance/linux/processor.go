@@ -195,26 +195,24 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 	puStartFailed := 0
 
 	defer func() {
-		host := ""
-		if l.host {
-			host = "host "
-		}
 		if retrieveFailed == 0 &&
 			metadataExtractionFailed == 0 &&
 			syncFailed == 0 &&
 			puStartFailed == 0 {
-			zap.L().Info("Linux "+host+"resync completed",
-				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
-				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
+			zap.L().Debug("Linux process resync completed",
+				zap.Bool("host", l.host),
+				zap.Strings("deleted", deleted),
+				zap.Strings("reacquired", reacquired),
 			)
 		} else {
-			zap.L().Info("Linux "+host+"resync completed with failures",
-				zap.String("Deleted Contexts", strings.Join(deleted, ",")),
-				zap.String("Reacquired Contexts", strings.Join(reacquired, ",")),
-				zap.Int("Retrieve Failed", retrieveFailed),
-				zap.Int("Metadata Extraction Failed", metadataExtractionFailed),
-				zap.Int("Sync Failed", syncFailed),
-				zap.Int("puStart Failed", puStartFailed),
+			zap.L().Warn("Linux process resync completed with failures",
+				zap.Bool("host", l.host),
+				zap.Strings("deleted", deleted),
+				zap.Strings("reacquired", reacquired),
+				zap.Int("retrieve-failed", retrieveFailed),
+				zap.Int("metadata-extraction-failed", metadataExtractionFailed),
+				zap.Int("sync-failed", syncFailed),
+				zap.Int("start-failed", puStartFailed),
 			)
 		}
 	}()

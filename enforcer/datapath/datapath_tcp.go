@@ -455,9 +455,9 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 
 		// If there is no auth option, attempt the ACLs
-		plc, perr := context.NetworkACLPolicy(tcpPacket)
-		d.reportExternalServiceFlow(context, plc, false, tcpPacket)
-		if perr != nil || plc.Action == policy.Reject {
+		report, packet, perr := context.NetworkACLPolicy(tcpPacket)
+		d.reportExternalServiceFlow(context, report, packet, false, tcpPacket)
+		if perr != nil || packet.Action.Rejected() {
 			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
 		}
 
@@ -465,7 +465,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		d.netOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
 
-		return plc, nil, nil
+		return packet, nil, nil
 	}
 
 	// Packets that have authorization information go through the auth path
@@ -529,36 +529,47 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	return packet, claims, nil
 }
 
+// policyPair stores both reporting and actual action taken on packet.
+type policyPair struct {
+	report *policy.FlowPolicy
+	packet *policy.FlowPolicy
+}
+
 // processNetworkSynAckPacket processes a SynAck packet arriving from the network
 func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-		var plc *policy.FlowPolicy
 
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
-			plc = plci.(*policy.FlowPolicy)
-			d.releaseFlow(context, plc, tcpPacket)
-			return plc, nil, nil
+			plc := plci.(*policyPair)
+			d.releaseFlow(context, plc.report, plc.packet, tcpPacket)
+			return plc.packet, nil, nil
 		}
 
 		// Never seen this IP before, let's parse them.
-		plc, err = context.ApplicationACLPolicy(tcpPacket)
-		if err != nil || plc.Action&policy.Reject > 0 {
-			d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
-			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", err, plc.Action)
+		report, packet, perr := context.ApplicationACLPolicy(tcpPacket)
+		if perr != nil || packet.Action.Rejected() {
+			d.reportReverseExternalServiceFlow(context, report, packet, true, tcpPacket)
+			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, packet.Action)
 		}
 
 		// Added to the cache if we can accept it
-		context.CacheExternalFlowPolicy(tcpPacket, plc)
+		context.CacheExternalFlowPolicy(
+			tcpPacket,
+			&policyPair{
+				report: report,
+				packet: packet,
+			},
+		)
 
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(connection.TCPData)
 
-		d.releaseFlow(context, plc, tcpPacket)
+		d.releaseFlow(context, report, packet, tcpPacket)
 
-		return plc, nil, nil
+		return packet, nil, nil
 	}
 
 	// This is a corner condition. We are receiving a SynAck packet and we are in
@@ -941,7 +952,7 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 }
 
 // releaseFlow releases the flow and updates the conntrack table
-func (d *Datapath) releaseFlow(context *pucontext.PUContext, plc *policy.FlowPolicy, tcpPacket *packet.Packet) {
+func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.FlowPolicy, action *policy.FlowPolicy, tcpPacket *packet.Packet) {
 
 	if err := d.appOrigConnectionTracker.Remove(tcpPacket.L4FlowHash()); err != nil {
 		zap.L().Debug("Failed to clean cache appOrigConnectionTracker", zap.Error(err))
@@ -962,5 +973,5 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, plc *policy.FlowPol
 		zap.L().Error("Failed to update conntrack table", zap.Error(err))
 	}
 
-	d.reportReverseExternalServiceFlow(context, plc, true, tcpPacket)
+	d.reportReverseExternalServiceFlow(context, report, action, true, tcpPacket)
 }
