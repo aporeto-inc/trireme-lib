@@ -16,6 +16,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor/mock"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore/mock"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -75,6 +77,7 @@ func initTestDockerInfo(id string, nwmode container.NetworkMode, state bool) *ty
 	testInfoBase.ContainerJSONBase = &testInfo
 	testInfoBase.Config = &testConfig
 	testInfoBase.ID = id
+	testInfoBase.Config.Labels["storedTags"] = "$id=5a3b4e903653d4000133254f,$namespace=/test"
 
 	return &testInfoBase
 }
@@ -196,6 +199,7 @@ func setupDockerMonitor(ctrl *gomock.Controller) (monitorinstance.Implementation
 	dm := New()
 	mockPU := mockprocessor.NewMockProcessingUnitsHandler(ctrl)
 	mockSH := mockprocessor.NewMockSynchronizationHandler(ctrl)
+
 	dm.SetupHandlers(&processor.Config{
 		Collector:   eventCollector(),
 		PUHandler:   mockPU,
@@ -226,7 +230,8 @@ func TestStartDockerContainer(t *testing.T) {
 		dm, dmi, mockPU, _ := setupDockerMonitor(ctrl)
 
 		mockCG := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-
+		store := mockcontextstore.NewMockContextStore(ctrl)
+		dmi.cstore = store
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 			So(dmi, ShouldNotBeNil)
@@ -235,6 +240,8 @@ func TestStartDockerContainer(t *testing.T) {
 		Convey("When I try to start default docker container", func() {
 			mockPU.EXPECT().CreatePURuntime("74cc486f9ec3", gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventStart).Times(1).Return(nil)
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
+			store.EXPECT().Store(gomock.Any(), gomock.Any()).Return(nil)
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should not get error", func() {
@@ -243,6 +250,7 @@ func TestStartDockerContainer(t *testing.T) {
 		})
 
 		Convey("When I try to start default docker container and state running set to false", func() {
+
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "default", false))
 
 			Convey("Then I should not get error", func() {
@@ -251,6 +259,7 @@ func TestStartDockerContainer(t *testing.T) {
 		})
 
 		Convey("When I try to start default docker container with empty ID", func() {
+
 			err := dmi.startDockerContainer(initTestDockerInfo("", "default", true))
 
 			Convey("Then I should get error", func() {
@@ -261,6 +270,7 @@ func TestStartDockerContainer(t *testing.T) {
 		Convey("When I try to start default docker container with invalid context ID and killContainerOnPolicyError not set", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
@@ -273,7 +283,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(fmt.Errorf("Error"))
-
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
@@ -287,6 +297,8 @@ func TestStartDockerContainer(t *testing.T) {
 			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
 			mockCG.EXPECT().AssignMark("74cc486f9ec3", uint64(102)).Times(1).Return(nil)
 			mockCG.EXPECT().AddProcess("74cc486f9ec3", int(4912)).Times(1).Return(nil)
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
+			store.EXPECT().Store(gomock.Any(), gomock.Any()).Return(nil)
 			dmi.netcls = mockCG
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "host", true))
 
@@ -301,6 +313,7 @@ func TestStartDockerContainer(t *testing.T) {
 			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
 			mockCG.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("error"))
 			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
 			dmi.netcls = mockCG
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "host", true))
 
@@ -316,6 +329,7 @@ func TestStartDockerContainer(t *testing.T) {
 			mockCG.EXPECT().AssignMark("74cc486f9ec3", uint64(104)).Times(1).Return(nil)
 			mockCG.EXPECT().AddProcess(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("error"))
 			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
 			dmi.netcls = mockCG
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "host", true))
 
@@ -328,6 +342,7 @@ func TestStartDockerContainer(t *testing.T) {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(nil)
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).Times(1).Return(nil)
 			mockCG.EXPECT().Creategroup(gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
 			dmi.netcls = mockCG
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "host", true))
 
@@ -338,6 +353,7 @@ func TestStartDockerContainer(t *testing.T) {
 
 		Convey("When I try to start host docker container with error in set PU", func() {
 			mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
+			store.EXPECT().Retrieve(gomock.Any(), gomock.Any()).Return(nil)
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "host", true))
 
 			Convey("Then I should get error", func() {
@@ -354,7 +370,8 @@ func TestStopDockerContainer(t *testing.T) {
 	Convey("When I try to initialize a new docker monitor", t, func() {
 
 		dm, dmi, mockPU, mockSH := setupDockerMonitor(ctrl)
-
+		store := mockcontextstore.NewMockContextStore(ctrl)
+		dmi.cstore = store
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 			So(dmi, ShouldNotBeNil)
@@ -362,6 +379,7 @@ func TestStopDockerContainer(t *testing.T) {
 
 		Convey("When I try to stop a container", func() {
 			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventStop).Times(1).Return(nil)
+			store.EXPECT().Remove("74cc486f9ec3").Return(nil)
 			dm.SetupHandlers(&processor.Config{
 				Collector:   eventCollector(),
 				PUHandler:   mockPU,
@@ -482,7 +500,8 @@ func TestHandleDieEvent(t *testing.T) {
 	Convey("When I try to initialize a new docker monitor", t, func() {
 
 		dm, dmi, mockPU, mockSH := setupDockerMonitor(ctrl)
-
+		store := mockcontextstore.NewMockContextStore(ctrl)
+		dmi.cstore = store
 		Convey("Then docker monitor should not be nil", func() {
 			So(dm, ShouldNotBeNil)
 			So(dmi, ShouldNotBeNil)
@@ -490,6 +509,7 @@ func TestHandleDieEvent(t *testing.T) {
 
 		Convey("When I try to handle die event", func() {
 			mockPU.EXPECT().HandlePUEvent("74cc486f9ec3", tevents.EventStop).Times(1).Return(nil)
+			store.EXPECT().Remove("74cc486f9ec3").Return(nil)
 			dm.SetupHandlers(&processor.Config{
 				Collector:   eventCollector(),
 				PUHandler:   mockPU,
