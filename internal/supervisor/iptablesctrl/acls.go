@@ -14,7 +14,15 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 )
 
+func nflogPrefix(contextID string, rule policy.IPRule) string {
+
+	prefix := contextID + ":" + rule.Policy.PolicyID + ":" + rule.Policy.ServiceID + rule.Policy.EncodedActionString()
+	zap.L().Info("nflog-prefix", zap.String("", prefix))
+	return prefix
+}
+
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
+
 	destSetName, srcSetName := i.getSetNamePair(proxyPortSetName)
 	str := [][]string{
 		{
@@ -393,9 +401,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 	for _, rule := range rules {
 
-		if rule.Policy.ObserveAction.ObserveContinue() {
-			continue
-		}
+		observeContinue := rule.Policy.ObserveAction.ObserveContinue()
 
 		proto := strings.ToLower(rule.Protocol)
 
@@ -404,7 +410,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 			switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 			case policy.Accept:
 
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Append(
 						i.appAckPacketIPTableContext,
 						chain,
@@ -413,34 +419,38 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"--dport", rule.Port,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "10",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
 					}
 				}
 
-				if err := i.ipt.Append(
-					i.appAckPacketIPTableContext, chain,
-					"-p", rule.Protocol, "-m", "state", "--state", "NEW",
-					"-d", rule.Address,
-					"--dport", rule.Port,
-					"-j", "ACCEPT",
-				); err != nil {
-					return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+				if !observeContinue {
+					if err := i.ipt.Append(
+						i.appAckPacketIPTableContext, chain,
+						"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+						"-d", rule.Address,
+						"--dport", rule.Port,
+						"-j", "ACCEPT",
+					); err != nil {
+						return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+					}
 				}
 
 			case policy.Reject:
-				if err := i.ipt.Insert(
-					i.appAckPacketIPTableContext, chain, 1,
-					"-p", rule.Protocol, "-m", "state", "--state", "NEW",
-					"-d", rule.Address,
-					"--dport", rule.Port,
-					"-j", "DROP",
-				); err != nil {
-					return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+				if !observeContinue {
+					if err := i.ipt.Insert(
+						i.appAckPacketIPTableContext, chain, 1,
+						"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+						"-d", rule.Address,
+						"--dport", rule.Port,
+						"-j", "DROP",
+					); err != nil {
+						return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+					}
 				}
 
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Insert(
 						i.appAckPacketIPTableContext,
 						chain,
@@ -450,7 +460,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"--dport", rule.Port,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "10",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
 					}
@@ -465,7 +475,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 			switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 			case policy.Accept:
 
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Append(
 						i.appAckPacketIPTableContext,
 						chain,
@@ -473,32 +483,36 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-d", rule.Address,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "10",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
 					}
 				}
 
-				if err := i.ipt.Append(
-					i.appAckPacketIPTableContext, chain,
-					"-p", rule.Protocol,
-					"-d", rule.Address,
-					"-j", "ACCEPT",
-				); err != nil {
-					return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+				if !observeContinue {
+					if err := i.ipt.Append(
+						i.appAckPacketIPTableContext, chain,
+						"-p", rule.Protocol,
+						"-d", rule.Address,
+						"-j", "ACCEPT",
+					); err != nil {
+						return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+					}
 				}
 
 			case policy.Reject:
-				if err := i.ipt.Insert(
-					i.appAckPacketIPTableContext, chain, 1,
-					"-p", rule.Protocol,
-					"-d", rule.Address,
-					"-j", "DROP",
-				); err != nil {
-					return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+				if !observeContinue {
+					if err := i.ipt.Insert(
+						i.appAckPacketIPTableContext, chain, 1,
+						"-p", rule.Protocol,
+						"-d", rule.Address,
+						"-j", "DROP",
+					); err != nil {
+						return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
+					}
 				}
 
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Insert(
 						i.appAckPacketIPTableContext,
 						chain,
@@ -507,7 +521,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-d", rule.Address,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "10",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
 					}
@@ -568,9 +582,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 	for _, rule := range rules {
 
-		if rule.Policy.ObserveAction.ObserveContinue() {
-			continue
-		}
+		observeContinue := rule.Policy.ObserveAction.ObserveContinue()
 
 		proto := strings.ToLower(rule.Protocol)
 
@@ -579,7 +591,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 			switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 			case policy.Accept:
 
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Append(
 						i.netPacketIPTableContext,
 						chain,
@@ -588,35 +600,40 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"--dport", rule.Port,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "11",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add net log rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
 					}
 				}
 
-				if err := i.ipt.Append(
-					i.netPacketIPTableContext, chain,
-					"-p", rule.Protocol,
-					"-s", rule.Address,
-					"--dport", rule.Port,
-					"-j", "ACCEPT",
-				); err != nil {
+				if !observeContinue {
+					if err := i.ipt.Append(
+						i.netPacketIPTableContext, chain,
+						"-p", rule.Protocol,
+						"-s", rule.Address,
+						"--dport", rule.Port,
+						"-j", "ACCEPT",
+					); err != nil {
 
-					return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+						return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+					}
 				}
+
 			case policy.Reject:
-				if err := i.ipt.Insert(
-					i.netPacketIPTableContext, chain, 1,
-					"-p", rule.Protocol,
-					"-s", rule.Address,
-					"--dport", rule.Port,
-					"-j", "DROP",
-				); err != nil {
+				if !observeContinue {
+					if err := i.ipt.Insert(
+						i.netPacketIPTableContext, chain, 1,
+						"-p", rule.Protocol,
+						"-s", rule.Address,
+						"--dport", rule.Port,
+						"-j", "DROP",
+					); err != nil {
 
-					return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+						return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+					}
 				}
 
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Insert(
 						i.netPacketIPTableContext,
 						chain,
@@ -626,7 +643,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"--dport", rule.Port,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "11",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add net log rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
 					}
@@ -640,7 +657,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 			switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 			case policy.Accept:
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Append(
 						i.netPacketIPTableContext,
 						chain,
@@ -648,33 +665,38 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-s", rule.Address,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "11",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add net log rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
 					}
 				}
 
-				if err := i.ipt.Append(
-					i.netPacketIPTableContext, chain,
-					"-p", rule.Protocol,
-					"-s", rule.Address,
-					"-j", "ACCEPT",
-				); err != nil {
+				if !observeContinue {
+					if err := i.ipt.Append(
+						i.netPacketIPTableContext, chain,
+						"-p", rule.Protocol,
+						"-s", rule.Address,
+						"-j", "ACCEPT",
+					); err != nil {
 
-					return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+						return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+					}
 				}
+
 			case policy.Reject:
-				if err := i.ipt.Insert(
-					i.netPacketIPTableContext, chain, 1,
-					"-p", rule.Protocol,
-					"-s", rule.Address,
-					"-j", "DROP",
-				); err != nil {
+				if !observeContinue {
+					if err := i.ipt.Insert(
+						i.netPacketIPTableContext, chain, 1,
+						"-p", rule.Protocol,
+						"-s", rule.Address,
+						"-j", "DROP",
+					); err != nil {
 
-					return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+						return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
+					}
 				}
 
-				if rule.Policy.Action&policy.Log > 0 {
+				if rule.Policy.Action&policy.Log > 0 || observeContinue {
 					if err := i.ipt.Insert(
 						i.netPacketIPTableContext,
 						chain,
@@ -683,7 +705,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 						"-s", rule.Address,
 						"-m", "state", "--state", "NEW",
 						"-j", "NFLOG", "--nflog-group", "11",
-						"--nflog-prefix", contextID+":"+rule.Policy.PolicyID+":"+rule.Policy.ServiceID+rule.Policy.Action.ShortActionString(),
+						"--nflog-prefix", nflogPrefix(contextID, rule),
 					); err != nil {
 						return fmt.Errorf("unable to add net log rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
 					}

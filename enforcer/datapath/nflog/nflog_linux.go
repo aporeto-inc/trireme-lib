@@ -85,19 +85,14 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	}
 
 	contextID, policyID, extSrvID := parts[0], parts[1], parts[2]
-	shortAction := string(buf.Prefix[len(buf.Prefix)-1])
+	encodedAction := string(buf.Prefix[len(buf.Prefix)-1])
 
 	puID, tags := a.getPUInfo(contextID)
 	if puID == "" {
 		return nil, fmt.Errorf("nflog: unable to find pu id associated given contex id: %s", contextID)
 	}
 
-	var action policy.ActionType
-	if shortAction == "a" {
-		action = policy.Accept
-	} else {
-		action = policy.Reject
-	}
+	action, _ := policy.EncodedStringToAction(encodedAction)
 
 	record := &collector.FlowRecord{
 		ContextID: contextID,
@@ -111,6 +106,12 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		PolicyID: policyID,
 		Tags:     tags,
 		Action:   action,
+	}
+
+	if action.Observed() {
+		// TODO: Coalesce action from actual hit.
+		record.ObservedAction = action
+		record.ObservedPolicyID = policyID
 	}
 
 	if puIsSource {

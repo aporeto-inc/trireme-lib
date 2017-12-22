@@ -64,18 +64,6 @@ func (f ActionType) Observed() bool {
 	return f&Observe > 0
 }
 
-// ShortActionString returns if the action if accepted of rejected as a short string.
-func (f ActionType) ShortActionString() string {
-	if f.Accepted() && !f.Rejected() {
-		return "a"
-	}
-
-	if !f.Accepted() && f.Rejected() {
-		return "r"
-	}
-	return "p"
-}
-
 // ActionString returns if the action if accepted of rejected as a long string.
 func (f ActionType) ActionString() string {
 	if f.Accepted() && !f.Rejected() {
@@ -165,6 +153,68 @@ type FlowPolicy struct {
 	Action        ActionType
 	ServiceID     string
 	PolicyID      string
+}
+
+// EncodedStringToAction returns action and observed action from encoded string.
+func EncodedStringToAction(e string) (a ActionType, o ObserveActionType) {
+
+	switch e {
+	case "1":
+		return Observe | Accept, ObserveContinue
+	case "2":
+		return Observe | Accept, ObserveApply
+	case "3":
+		return Accept, ObserveNone
+	case "4":
+		return Observe | Reject, ObserveContinue
+	case "5":
+		return Observe | Reject, ObserveApply
+	case "6":
+		return Reject, ObserveNone
+	case "7":
+		return Observe | Accept | Reject, ObserveContinue
+	case "8":
+		return Observe | Accept | Reject, ObserveApply
+	case "9":
+		return Accept | Reject, ObserveNone
+	}
+
+	return
+}
+
+// EncodedActionString is used to encode observed action as well as action
+func (f *FlowPolicy) EncodedActionString() string {
+
+	var e string
+
+	if f.Action.Accepted() && !f.Action.Rejected() {
+		if f.ObserveAction.ObserveContinue() {
+			e = "1"
+		} else if f.ObserveAction.ObserveApply() {
+			e = "2"
+		} else {
+			e = "3"
+		}
+		return e
+	}
+	if !f.Action.Accepted() && f.Action.Rejected() {
+		if f.ObserveAction.ObserveContinue() {
+			e = "4"
+		} else if f.ObserveAction.ObserveApply() {
+			e = "5"
+		} else {
+			e = "6"
+		}
+		return e
+	}
+	if f.ObserveAction.ObserveContinue() {
+		e = "7"
+	} else if f.ObserveAction.ObserveApply() {
+		e = "8"
+	} else {
+		e = "9"
+	}
+	return e
 }
 
 // IPRule holds IP rules to external services
