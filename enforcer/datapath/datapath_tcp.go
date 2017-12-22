@@ -540,11 +540,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// Packets with no authorization are processed as external services based on the ACLS
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-		var plc *policyPair
 
 		flowHash := tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
 		if plci, plerr := context.RetrieveCachedExternalFlowPolicy(flowHash); plerr == nil {
-			plc = plci.(*policyPair)
+			plc := plci.(*policyPair)
 			d.releaseFlow(context, plc.report, plc.packet, tcpPacket)
 			return plc.packet, nil, nil
 		}
