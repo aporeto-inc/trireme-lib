@@ -8,7 +8,10 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 
 	"go.uber.org/zap"
 
@@ -66,6 +69,15 @@ const (
 	// dockerInitializationWait is the time after which we will retry to bring docker up.
 	dockerInitializationWait = 2 * dockerRetryTimer
 )
+const (
+	cstorePath = "/var/run/trireme/docker"
+)
+
+//StoredContext is the format of the data stored in the contextstore
+type StoredContext struct {
+	containerInfo *types.ContainerJSON
+	Tags          *policy.TagStore
+}
 
 // A EventHandler is type of docker event handler functions.
 type EventHandler func(event *events.Message) error
@@ -170,6 +182,7 @@ type Config struct {
 	SocketAddress              string
 	SyncAtStart                bool
 	KillContainerOnPolicyError bool
+	NoProxyMode                bool
 }
 
 // DefaultConfig provides a default configuration
@@ -180,6 +193,7 @@ func DefaultConfig() *Config {
 		SocketAddress:              constants.DefaultDockerSocket,
 		SyncAtStart:                true,
 		KillContainerOnPolicyError: false,
+		NoProxyMode:                false,
 	}
 }
 
@@ -197,7 +211,6 @@ func SetupDefaultConfig(dockerConfig *Config) *Config {
 	if dockerConfig.SocketAddress == "" {
 		dockerConfig.SocketAddress = defaultConfig.SocketAddress
 	}
-
 	return dockerConfig
 }
 
@@ -217,6 +230,8 @@ type dockerMonitor struct {
 	// killContainerError if enabled kills the container if a policy setting resulted in an error.
 	killContainerOnPolicyError bool
 	syncAtStart                bool
+	NoProxyMode                bool
+	cstore                     contextstore.ContextStore
 }
 
 // New returns a new docker monitor
@@ -253,7 +268,8 @@ func (d *dockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.numberOfQueues = runtime.NumCPU() * 8
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
-
+	d.NoProxyMode = dockerConfig.NoProxyMode
+	d.cstore = contextstore.NewFileContextStore(cstorePath)
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
 		d.stopprocessor[i] = make(chan bool)
@@ -492,8 +508,20 @@ func (d *dockerMonitor) ReSync() error {
 
 			contextID, _ := contextIDFromDockerID(container.ID)
 
-			PURuntime, _ := d.extractMetadata(&container)
+			if d.NoProxyMode {
+				storedContext := &StoredContext{}
+				if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+					container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
+				} else {
+					if err = d.startDockerContainer(&container); err != nil {
+						zap.L().Debug("Could Not restart docker container", zap.String("ID", container.ID), zap.Error(err))
+					}
+					continue
+				}
 
+			}
+
+			PURuntime, _ := d.extractMetadata(&container)
 			var state tevents.State
 			if container.State.Running {
 				if !container.State.Paused {
@@ -505,6 +533,20 @@ func (d *dockerMonitor) ReSync() error {
 				state = tevents.StateStopped
 			}
 			if d.config.SyncHandler != nil {
+				if d.NoProxyMode {
+					storedContext := &StoredContext{}
+					if err = d.cstore.Retrieve(contextID, &storedContext); err != nil {
+						//We don't know about this container lets not sync
+						continue
+					}
+
+					t := PURuntime.Tags()
+					if t != nil && storedContext.Tags != nil {
+						t.Merge(storedContext.Tags)
+						PURuntime.SetTags(t)
+					}
+
+				}
 				if err := d.config.SyncHandler.HandleSynchronization(
 					contextID,
 					state,
@@ -529,6 +571,13 @@ func (d *dockerMonitor) ReSync() error {
 				zap.Error(err),
 			)
 			continue
+		}
+		contextID, _ := contextIDFromDockerID(container.ID)
+		if d.NoProxyMode {
+			storedContext := &StoredContext{}
+			if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+				container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
+			}
 		}
 
 		if err := d.startDockerContainer(&container); err != nil {
@@ -603,15 +652,28 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	if err != nil {
 		return err
 	}
+	storedContext := &StoredContext{}
+	if d.cstore != nil {
+		if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+			if storedContext.Tags != nil {
+				dockerInfo.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
+			}
 
+		}
+	}
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
 	if err != nil {
 		return err
 	}
-
-	if err := d.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
+	t := runtimeInfo.Tags()
+	if t != nil && storedContext.Tags != nil {
+		t.Merge(storedContext.Tags)
+		runtimeInfo.SetTags(t)
+	}
+	if err = d.config.PUHandler.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
+
 	var event tevents.Event
 	switch dockerInfo.State.Status {
 	case "paused":
@@ -627,7 +689,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		event = tevents.EventStart
 	}
 
-	if err := d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
+	if err = d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
 				zap.L().Error("Unable to stop bad container",
@@ -641,12 +703,17 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	}
 
 	if dockerInfo.HostConfig.NetworkMode == constants.DockerHostMode {
-		if err := d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
+		if err = d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
 		}
+
+	}
+	storedContext = &StoredContext{
+		containerInfo: dockerInfo,
+		Tags:          runtimeInfo.Tags(),
 	}
 
-	return nil
+	return d.cstore.Store(contextID, storedContext)
 }
 
 func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
@@ -655,7 +722,9 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 	if err != nil {
 		return err
 	}
-
+	if err = d.cstore.Remove(contextID); err != nil {
+		return err
+	}
 	return d.config.PUHandler.HandlePUEvent(contextID, tevents.EventStop)
 }
 
@@ -759,7 +828,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 
 // handlePauseEvent generates a create event type.
 func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
-
+	zap.L().Info("UnPause Event for nativeID", zap.String("ID", event.ID))
 	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
 		return err
