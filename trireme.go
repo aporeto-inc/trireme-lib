@@ -135,7 +135,7 @@ func New(serverID string, opts ...Option) Trireme {
 		opt(c)
 	}
 
-	zap.L().Info("Trireme", zap.String("Configuration", fmt.Sprintf("%+v", c)))
+	zap.L().Debug("Trireme configuration", zap.String("configuration", fmt.Sprintf("%+v", c)))
 
 	return newTrireme(c)
 }

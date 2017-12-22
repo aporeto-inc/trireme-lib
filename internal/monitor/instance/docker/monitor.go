@@ -532,18 +532,16 @@ func (d *dockerMonitor) ReSync() error {
 		}
 
 		if err := d.startDockerContainer(&container); err != nil {
-			zap.L().Error("Error Syncing existing Container during start handling",
+			zap.L().Error("Unable to sync existing container during start handling",
 				zap.String("dockerID", c.ID),
 				zap.Error(err),
 			)
 			continue
 		}
 
-		zap.L().Info("Successfully synced container: ", zap.String("ID", container.ID))
+		zap.L().Debug("Successfully synced container", zap.String("dockerID", container.ID))
 
 	}
-
-	zap.L().Info("Docker resync completed")
 
 	return nil
 }
