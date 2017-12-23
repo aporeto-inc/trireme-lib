@@ -89,10 +89,13 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 
 	puID, tags := a.getPUInfo(contextID)
 	if puID == "" {
-		return nil, fmt.Errorf("nflog: unable to find pu id associated given contex id: %s", contextID)
+		return nil, fmt.Errorf("nflog: unable to find pu id associated given context id: %s", contextID)
 	}
 
-	action, _ := policy.EncodedStringToAction(encodedAction)
+	action, _, err := policy.EncodedStringToAction(encodedAction)
+	if err != nil {
+		return nil, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
+	}
 
 	record := &collector.FlowRecord{
 		ContextID: contextID,

@@ -1,6 +1,9 @@
 package policy
 
-import "strconv"
+import (
+	"errors"
+	"strconv"
+)
 
 const (
 	// DefaultNamespace is the default namespace for applying policy
@@ -155,36 +158,15 @@ type FlowPolicy struct {
 	PolicyID      string
 }
 
-// EncodedRejectAction returns the encoding for a simple reject with no observe.
-func EncodedRejectAction() string {
-	return "6"
+// LogPrefix is the prefix used in nf-log action. It must be less than
+func (f *FlowPolicy) LogPrefix(contextID string) string {
+	prefix := contextID + ":" + f.PolicyID + ":" + f.ServiceID + f.EncodedActionString()
+	return prefix
 }
 
-// EncodedStringToAction returns action and observed action from encoded string.
-func EncodedStringToAction(e string) (a ActionType, o ObserveActionType) {
-
-	switch e {
-	case "1":
-		return Observe | Accept, ObserveContinue
-	case "2":
-		return Observe | Accept, ObserveApply
-	case "3":
-		return Accept, ObserveNone
-	case "4":
-		return Observe | Reject, ObserveContinue
-	case "5":
-		return Observe | Reject, ObserveApply
-	case "6":
-		return Reject, ObserveNone
-	case "7":
-		return Observe | Accept | Reject, ObserveContinue
-	case "8":
-		return Observe | Accept | Reject, ObserveApply
-	case "9":
-		return Accept | Reject, ObserveNone
-	}
-
-	return
+// DefaultLogPrefix return the prefix used in nf-log action for default rule.
+func DefaultLogPrefix(contextID string) string {
+	return contextID + ":default:default" + "6"
 }
 
 // EncodedActionString is used to encode observed action as well as action
@@ -200,9 +182,7 @@ func (f *FlowPolicy) EncodedActionString() string {
 		} else {
 			e = "3"
 		}
-		return e
-	}
-	if !f.Action.Accepted() && f.Action.Rejected() {
+	} else if !f.Action.Accepted() && f.Action.Rejected() {
 		if f.ObserveAction.ObserveContinue() {
 			e = "4"
 		} else if f.ObserveAction.ObserveApply() {
@@ -210,16 +190,43 @@ func (f *FlowPolicy) EncodedActionString() string {
 		} else {
 			e = "6"
 		}
-		return e
-	}
-	if f.ObserveAction.ObserveContinue() {
-		e = "7"
-	} else if f.ObserveAction.ObserveApply() {
-		e = "8"
 	} else {
-		e = "9"
+		if f.ObserveAction.ObserveContinue() {
+			e = "7"
+		} else if f.ObserveAction.ObserveApply() {
+			e = "8"
+		} else {
+			e = "9"
+		}
 	}
 	return e
+}
+
+// EncodedStringToAction returns action and observed action from encoded string.
+func EncodedStringToAction(e string) (ActionType, ObserveActionType, error) {
+
+	switch e {
+	case "1":
+		return Observe | Accept, ObserveContinue, nil
+	case "2":
+		return Observe | Accept, ObserveApply, nil
+	case "3":
+		return Accept, ObserveNone, nil
+	case "4":
+		return Observe | Reject, ObserveContinue, nil
+	case "5":
+		return Observe | Reject, ObserveApply, nil
+	case "6":
+		return Reject, ObserveNone, nil
+	case "7":
+		return Observe, ObserveContinue, nil
+	case "8":
+		return Observe, ObserveApply, nil
+	case "9":
+		return 0, ObserveNone, nil
+	}
+
+	return 0, 0, errors.New("Invalid encoding")
 }
 
 // IPRule holds IP rules to external services
