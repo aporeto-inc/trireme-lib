@@ -155,6 +155,11 @@ type FlowPolicy struct {
 	PolicyID      string
 }
 
+// EncodedRejectAction returns the encoding for a simple reject with no observe.
+func EncodedRejectAction() string {
+	return "6"
+}
+
 // EncodedStringToAction returns action and observed action from encoded string.
 func EncodedStringToAction(e string) (a ActionType, o ObserveActionType) {
 

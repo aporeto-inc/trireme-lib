@@ -606,7 +606,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 		"-d", "0.0.0.0/0",
 		"-m", "state", "--state", "NEW",
 		"-j", "NFLOG", "--nflog-group", "10",
-		"--nflog-prefix", contextID+":default:defaultr",
+		"--nflog-prefix", contextID+":default:default"+policy.EncodedRejectAction(),
 	); err != nil {
 		return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appAckPacketIPTableContext, chain, err)
 	}
@@ -833,7 +833,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 		"-s", "0.0.0.0/0",
 		"-m", "state", "--state", "NEW",
 		"-j", "NFLOG", "--nflog-group", "11",
-		"--nflog-prefix", contextID+":default:defaultr",
+		"--nflog-prefix", contextID+":default:default"+policy.EncodedRejectAction(),
 	); err != nil {
 		return fmt.Errorf("unable to add net log rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
 	}
