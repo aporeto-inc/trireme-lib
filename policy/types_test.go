@@ -32,18 +32,29 @@ func TestLogPrefix(t *testing.T) {
 	})
 }
 
+func TestEncodedStringToActionInvalidValue(t *testing.T) {
+	Convey("When I run decode and encode, the results should match", t, func() {
+		ea := "badvalue"
+		_, _, err := EncodedStringToAction(ea)
+		if err == nil {
+			Convey("I should get an error for value "+ea, func() {
+				So(err, ShouldNotBeNil)
+			})
+		}
+	})
+}
+
 func TestEncodeDecodePrefix(t *testing.T) {
 	Convey("When I run decode and encode, the results should match", t, func() {
-		encodedAction := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
+		encodedAction := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9"}
 		for _, ea := range encodedAction {
 			f := &FlowPolicy{}
 			var err error
 			f.Action, f.ObserveAction, err = EncodedStringToAction(ea)
-			if err == nil {
-				Convey("I should have the same actions after decoding and encoding for action "+ea, func() {
-					So(f.EncodedActionString(), ShouldEqual, ea)
-				})
-			}
+			Convey("I should have the same actions after decoding and encoding for action "+ea, func() {
+				So(err, ShouldBeNil)
+				So(f.EncodedActionString(), ShouldEqual, ea)
+			})
 		}
 	})
 }
