@@ -152,7 +152,7 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) f
 // OptionMonitorDocker provides a way to add a docker monitor and related configuration to be used with New().
 func OptionMonitorDocker(opts ...func(*dockermonitor.Config)) func(*monitor.Config) {
 
-	dc := &dockermonitor.Config{}
+	dc := dockermonitor.DefaultConfig()
 	// Collect all docker options
 	for _, opt := range opts {
 		opt(dc)
