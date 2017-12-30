@@ -123,6 +123,7 @@ func New(serverID string, opts ...Option) Trireme {
 
 	c := &config{
 		serverID:               serverID,
+		collector:              collector.NewDefaultCollector(),
 		mode:                   constants.RemoteContainer,
 		fq:                     fqconfig.NewFilterQueueWithDefaults(),
 		mutualAuth:             true,
