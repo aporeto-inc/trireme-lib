@@ -41,35 +41,35 @@ type config struct {
 type Option func(*config)
 
 // OptionCollector is an option to provide an external collector implementation.
-func OptionCollector(c collector.EventCollector) func(*config) {
+func OptionCollector(c collector.EventCollector) Option {
 	return func(cfg *config) {
 		cfg.collector = c
 	}
 }
 
 // OptionPolicyResolver is an option to provide an external policy resolver implementation.
-func OptionPolicyResolver(r PolicyResolver) func(*config) {
+func OptionPolicyResolver(r PolicyResolver) Option {
 	return func(cfg *config) {
 		cfg.resolver = r
 	}
 }
 
 // OptionDatapathService is an option to provide an external datapath service implementation.
-func OptionDatapathService(s packetprocessor.PacketProcessor) func(*config) {
+func OptionDatapathService(s packetprocessor.PacketProcessor) Option {
 	return func(cfg *config) {
 		cfg.service = s
 	}
 }
 
 // OptionSecret is an option to provide an external datapath service implementation.
-func OptionSecret(s secrets.Secrets) func(*config) {
+func OptionSecret(s secrets.Secrets) Option {
 	return func(cfg *config) {
 		cfg.secret = s
 	}
 }
 
 // OptionMonitors is an option to provide configurations for monitors.
-func OptionMonitors(m *monitor.Config) func(*config) {
+func OptionMonitors(m *monitor.Config) Option {
 	return func(cfg *config) {
 		cfg.monitors = m
 	}
@@ -77,42 +77,42 @@ func OptionMonitors(m *monitor.Config) func(*config) {
 
 // OptionEnforceLocal is an option to request local enforcer. Absence of this options
 // implies use remote enforcers.
-func OptionEnforceLocal() func(*config) {
+func OptionEnforceLocal() Option {
 	return func(cfg *config) {
 		cfg.mode = constants.LocalContainer
 	}
 }
 
 // OptionEnforceLinuxProcess is an option to request support for linux process support.
-func OptionEnforceLinuxProcess() func(*config) {
+func OptionEnforceLinuxProcess() Option {
 	return func(cfg *config) {
 		cfg.linuxProcess = true
 	}
 }
 
 // OptionEnforceFqConfig is an option to override filter queues.
-func OptionEnforceFqConfig(f *fqconfig.FilterQueue) func(*config) {
+func OptionEnforceFqConfig(f *fqconfig.FilterQueue) Option {
 	return func(cfg *config) {
 		cfg.fq = f
 	}
 }
 
 // OptionTargetNetworks is an option to provide target network configuration.
-func OptionTargetNetworks(n []string) func(*config) {
+func OptionTargetNetworks(n []string) Option {
 	return func(cfg *config) {
 		cfg.targetNetworks = n
 	}
 }
 
 // OptionProcMountPoint is an option to provide proc mount point.
-func OptionProcMountPoint(p string) func(*config) {
+func OptionProcMountPoint(p string) Option {
 	return func(cfg *config) {
 		cfg.procMountPoint = p
 	}
 }
 
 // OptionPacketLogs is an option to enable packet level logging.
-func OptionPacketLogs() func(*config) {
+func OptionPacketLogs() Option {
 	return func(cfg *config) {
 		cfg.packetLogs = true
 	}
