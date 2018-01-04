@@ -191,6 +191,24 @@ func TestAddUnique(t *testing.T) {
 			So(p.AddUnique(s), ShouldBeNil)
 		})
 
+		Convey("When I match error'd unique entries and a valid range, I should get the valid range only", func() {
+			s, err := portspec.NewPortSpec(10, 20, "range1")
+			So(err, ShouldBeNil)
+			So(p.AddUnique(s), ShouldBeNil)
+
+			s, err = portspec.NewPortSpec(5, 15, "range2")
+			So(err, ShouldBeNil)
+			So(p.AddUnique(s), ShouldNotBeNil)
+
+			s, err = portspec.NewPortSpec(15, 15, "15")
+			So(err, ShouldBeNil)
+			So(p.AddUnique(s), ShouldNotBeNil)
+
+			a, err := p.GetAllSpecFromPort(15)
+			So(err, ShouldBeNil)
+			So(len(a), ShouldEqual, 1)
+			So(a[0].(string), ShouldResemble, "range1")
+		})
 	})
 }
 

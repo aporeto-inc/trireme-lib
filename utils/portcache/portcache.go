@@ -51,7 +51,7 @@ func (p *PortCache) AddUnique(s *portspec.PortSpec) error {
 		if r.Max <= s.Min || r.Min >= s.Max {
 			continue
 		}
-		return fmt.Errorf("Overlap detected: %d %d ", r.Max, r.Min)
+		return fmt.Errorf("Overlap detected: %d %d", r.Max, r.Min)
 	}
 
 	if s.Min == s.Max {

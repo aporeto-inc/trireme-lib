@@ -38,7 +38,7 @@ func NewPortSpecFromString(ports string, value interface{}) (*PortSpec, error) {
 	if strings.Contains(ports, ":") {
 		portMinMax := strings.SplitN(ports, ":", 2)
 		if len(portMinMax) != 2 {
-			return nil, errors.New("Invalid port spect")
+			return nil, errors.New("Invalid port specification")
 		}
 
 		min, err = strconv.Atoi(portMinMax[0])
@@ -50,10 +50,6 @@ func NewPortSpecFromString(ports string, value interface{}) (*PortSpec, error) {
 		if err != nil || max >= 65536 {
 			return nil, errors.New("Max is not a valid port")
 		}
-
-		if min > max {
-			return nil, errors.New("Min is greater than max")
-		}
 	} else {
 		min, err = strconv.Atoi(ports)
 		if err != nil || min >= 65536 || min < 0 {
@@ -62,11 +58,7 @@ func NewPortSpecFromString(ports string, value interface{}) (*PortSpec, error) {
 		max = min
 	}
 
-	return &PortSpec{
-		Min:   uint16(min),
-		Max:   uint16(max),
-		value: value,
-	}, nil
+	return NewPortSpec(uint16(min), uint16(max), value)
 }
 
 // IsMultiPort returns true if the spec is for multiple ports.
