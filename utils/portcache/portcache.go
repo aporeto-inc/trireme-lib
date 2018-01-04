@@ -2,6 +2,7 @@ package portcache
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
@@ -13,6 +14,7 @@ import (
 type PortCache struct {
 	ports  cache.DataStore
 	ranges []*portspec.PortSpec
+	sync.Mutex
 }
 
 // NewPortCache creates a new port cache
@@ -28,12 +30,17 @@ func (p *PortCache) AddPortSpec(s *portspec.PortSpec) {
 	if s.Min == s.Max {
 		p.ports.AddOrUpdate(s.Min, s)
 	} else {
+		p.Lock()
 		p.ranges = append(p.ranges, s)
+		p.Unlock()
 	}
 }
 
 // AddUnique adds a port spec into the cache
 func (p *PortCache) AddUnique(s *portspec.PortSpec) error {
+	p.Lock()
+	defer p.Unlock()
+
 	if s.Min == s.Max {
 		if err := p.ports.Add(s.Min, s); err != nil {
 			return err
@@ -58,6 +65,8 @@ func (p *PortCache) GetSpecFromPort(port uint16) (interface{}, error) {
 		return spec.(*portspec.PortSpec).Value(), nil
 	}
 
+	p.Lock()
+	defer p.Unlock()
 	for _, s := range p.ranges {
 		if s.Min <= port && port < s.Max {
 			return s.Value(), nil
@@ -71,10 +80,13 @@ func (p *PortCache) GetSpecFromPort(port uint16) (interface{}, error) {
 // will allow for overlapping ranges
 func (p *PortCache) GetAllSpecFromPort(port uint16) ([]interface{}, error) {
 	var allMatches []interface{}
+
 	if spec, err := p.ports.Get(port); err == nil {
 		allMatches = append(allMatches, spec.(*portspec.PortSpec).Value())
 	}
 
+	p.Lock()
+	defer p.Unlock()
 	for _, s := range p.ranges {
 		if s.Min <= port && port < s.Max {
 			allMatches = append(allMatches, s.Value())
@@ -94,6 +106,8 @@ func (p *PortCache) Remove(s *portspec.PortSpec) error {
 		return p.ports.Remove(uint16(s.Min))
 	}
 
+	p.Lock()
+	defer p.Unlock()
 	for i, r := range p.ranges {
 		if r.Min == s.Min && r.Max == s.Max {
 			left := p.ranges[:i]
