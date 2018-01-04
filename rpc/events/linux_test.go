@@ -93,11 +93,11 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 		Convey("If its valid data", func() {
 
-      s, _ := portcache.NewPortSpecFromString("1000", nil )
+			s, _ := portcache.NewPortSpecFromString("1000", nil) // nolint
 			services := []policy.Service{
 				policy.Service{
 					Protocol: uint8(6),
-					Port:     s,
+					Ports:    s,
 				},
 			}
 

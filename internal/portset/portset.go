@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )

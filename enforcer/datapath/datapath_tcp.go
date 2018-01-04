@@ -15,10 +15,10 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -946,7 +946,7 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port ui
 
 	contextID, err := d.contextIDFromPort.GetSpecFromPort(port)
 	if err != nil {
-		return nil, fmt.Errorf("pu contextID cannot be found using port %s: %s", port, err)
+		return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
 	}
 
 	pu, err = d.puFromContextID.Get(contextID)
