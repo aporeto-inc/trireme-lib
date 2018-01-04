@@ -26,6 +26,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/portcache"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -243,7 +244,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromMark.AddOrUpdate(mark, pu)
 
 		for _, port := range ports {
-			portSpec, err := portcache.NewPortSpecFromString(port, contextID)
+			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
 			if err != nil {
 				continue
 			}

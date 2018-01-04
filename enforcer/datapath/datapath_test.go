@@ -18,7 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packetgen"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -1215,7 +1215,7 @@ func TestDoCreatePU(t *testing.T) {
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
 
-		spec, _ := portcache.NewPortSpecFromString("80", nil)
+		spec, _ := portspec.NewPortSpecFromString("80", nil)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
 			CgroupMark: "100",
 			Services: []policy.Service{
@@ -1369,7 +1369,7 @@ func TestContextFromIP(t *testing.T) {
 		})
 
 		Convey("If there is no IP match, it should try the port for net packets ", func() {
-			s, _ := portcache.NewPortSpec(8000, 8000, contextID)
+			s, _ := portspec.NewPortSpec(8000, 8000, contextID)
 			enforcer.contextIDFromPort.AddPortSpec(s)
 			enforcer.puFromContextID.AddOrUpdate(contextID, context)
 			enforcer.mode = constants.LocalServer

@@ -19,7 +19,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/rpc/events"
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 const (
@@ -364,7 +364,7 @@ func ParseServices(ports []string) ([]policy.Service, error) {
 	// Parse the ports and create the services. Cleanup any bad ports
 	services := []policy.Service{}
 	for _, p := range ports {
-		s, err := portcache.NewPortSpecFromString(p, nil)
+		s, err := portspec.NewPortSpecFromString(p, nil)
 		if err != nil {
 			return nil, fmt.Errorf("Invalid port spec: %s ", err)
 		}

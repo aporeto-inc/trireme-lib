@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 const (
@@ -302,7 +302,7 @@ type Service struct {
 	Protocol uint8
 
 	// Ports are the corresponding ports
-	Ports *portcache.PortSpec
+	Ports *portspec.PortSpec
 }
 
 // ConvertServicesToPortList converts an array of services to a port list

@@ -18,7 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -764,7 +764,7 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 
 	contextID := context.ID()
 
-	portSpec, err := portcache.NewPortSpec(p.SourcePort, p.SourcePort, contextID)
+	portSpec, err := portspec.NewPortSpec(p.SourcePort, p.SourcePort, contextID)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid port format %s", err)
 	}

@@ -28,7 +28,7 @@ import (
 	tevents "github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -162,7 +162,7 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 
 	for p := range dockerInfo.Config.ExposedPorts {
 		if p.Proto() == "tcp" {
-			s, err := portcache.NewPortSpecFromString(p.Port(), nil)
+			s, err := portspec.NewPortSpecFromString(p.Port(), nil)
 			if err != nil {
 				continue
 			}
