@@ -1,26 +1,24 @@
 # Trireme
 
-<img src="https://www.aporeto.com/wp-content/uploads/2016/10/trireme-logo-final-b.png" width="400">
+<img src="docs/trireme.png" width="400">
 
-[![Build Status](https://travis-ci.org/aporeto-inc/trireme.svg?branch=master)](https://travis-ci.org/aporeto-inc/trireme) [![Code Coverage](https://codecov.io/gh/aporeto-inc/trireme-lib/branch/master/graph/badge.svg)](https://codecov.io/gh/aporeto-inc/trireme) [![Twitter URL](https://img.shields.io/badge/twitter-follow-blue.svg)](https://twitter.com/aporeto_trireme) [![Slack URL](https://img.shields.io/badge/slack-join-green.svg)](https://triremehq.slack.com/messages/general/) [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html) [![Documentation](https://img.shields.io/badge/docs-godoc-blue.svg)](https://godoc.org/github.com/aporeto-inc/trireme)
+[![Build Status](https://travis-ci.org/aporeto-inc/trireme-lib.svg?branch=master)](https://travis-ci.org/aporeto-inc/trireme-lib) [![Code Coverage](https://codecov.io/gh/aporeto-inc/trireme-lib/branch/master/graph/badge.svg)](https://codecov.io/gh/aporeto-inc/trireme) [![Twitter URL](https://img.shields.io/badge/twitter-follow-blue.svg)](https://twitter.com/aporeto_trireme) [![Slack URL](https://img.shields.io/badge/slack-join-green.svg)](https://triremehq.slack.com/messages/general/) [![License](https://img.shields.io/badge/license-GPL--2.0-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html) [![Documentation](https://img.shields.io/badge/docs-godoc-blue.svg)](https://godoc.org/github.com/aporeto-inc/trireme-lib)
 
 
-Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme is a Zero-Trust networking library that makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization and without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
+Welcome to Trireme, an open-source library curated by Aporeto to provide segmentation for cloud-native applications.  Trireme-lib is a Zero-Trust networking library that makes it possible to setup security policies and segment applications by enforcing end-to-end authentication and authorization without the need for complex control planes or IP/port-centric ACLs and east-west firewalls.
 
-Trireme supports both containers and Linux Processes and allows security policy enforcement between any of these entities.
+Trireme-lib supports both containers and Linux Processes and allows security policy enforcement between any of these entities.
 
 # TL;DR
 
-You can try out Trireme quickly via one of these methods:
+Trireme-lib is a library. The followin projects use it:
 
-* [Trireme as a Docker container](https://github.com/aporeto-inc/trireme-example)
-* [Trireme as a Kubernetes daemonset](https://github.com/aporeto-inc/trireme-kubernetes/tree/master/deployment)
-* [Trireme as a Kubernetes daemonset in Red Hat OpenShift](https://github.com/aporeto-inc/trireme-kubernetes/tree/master/deployment/OpenShift)
+* [Trireme as a set of simple examples to get started](https://github.com/aporeto-inc/trireme-example)
+* [Trireme implementing NetworkPolicies on Kubernetes](https://github.com/aporeto-inc/trireme-kubernetes/tree/master/deployment)
 
 # Description
 
 In the Trireme world, a processing unit end-point can be a container, Kubernetes POD, or a general Linux process. We will be referring to processing units as PUs throughout this discussion.
-
 
 The technology behind Trireme is streamlined, elegant, and simple. It is based on The concepts of Zero-Trust networking:
 
@@ -69,7 +67,7 @@ With these mechanisms, the Trireme run-time on each node will only allow communi
 # Trireme Architecture
 
 
-Trireme is built as a set of modules (Go packages) that provide a default implementation for each component.  It is simple to swap the default implementation of each of those modules with custom-built ones for more complex and specific features.
+Trireme-lib is built as a set of modules (Go packages) that provide a default implementation for each component.  It is simple to swap the default implementation of each of those modules with custom-built ones for more complex and specific features.
 
 Conceptually, Trireme acts on PU events. In the default implementation, the PU is a Docker container.  Trireme can be extended easily to other PUs such as processes, files, sockets, and so forth.
 
@@ -124,10 +122,10 @@ type PolicyUpdater interface {
 
 # Prerequisites
 
-* Trireme requires IPTables with access to the `Mangle` module.
-* Trireme requires access to the Docker event API socket (`/var/run/docker.sock` by default)
-* Trireme requires privileged access.
-* Trireme requires to run in the Host PID namespace.
+* Trireme-lib requires IPTables with access to the `Mangle` module.
+* Trireme-lib requires access to the Docker event API socket (`/var/run/docker.sock` by default)
+* Trireme-lib requires privileged access.
+* Trireme-lib requires to run in the Host PID namespace.
 
 # License
 
