@@ -79,9 +79,9 @@ func TestRange(t *testing.T) {
 			s, err := NewPortSpecFromString("10:20", "string")
 			So(err, ShouldBeNil)
 			Convey("Range  should return the value ranges", func() {
-				m, err := s.Range()
-				So(err, ShouldBeNil)
-				So(m, ShouldResemble, "10:20")
+				min, max := s.Range()
+				So(min, ShouldEqual, 10)
+				So(max, ShouldEqual, 20)
 			})
 		})
 
@@ -89,9 +89,9 @@ func TestRange(t *testing.T) {
 			s, err := NewPortSpecFromString("10", "string")
 			So(err, ShouldBeNil)
 			Convey("Multiport should an error", func() {
-				m, err := s.Range()
-				So(err, ShouldBeNil)
-				So(m, ShouldResemble, "10")
+				min, max := s.Range()
+				So(min, ShouldEqual, 10)
+				So(max, ShouldEqual, 10)
 			})
 		})
 	})
