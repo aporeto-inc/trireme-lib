@@ -18,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packetgen"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -1214,12 +1215,13 @@ func TestDoCreatePU(t *testing.T) {
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
 
+		spec, _ := portcache.NewPortSpecFromString(80, nil)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
 			CgroupMark: "100",
 			Services: []policy.Service{
 				policy.Service{
 					Protocol: uint8(6),
-					Port:     uint16(80),
+					Ports:    spec,
 				},
 			},
 		})
@@ -1233,7 +1235,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err, ShouldBeNil)
 				_, err1 := enforcer.puFromMark.Get("100")
 				So(err1, ShouldBeNil)
-				_, err2 := enforcer.contextIDFromPort.Get("80")
+				_, err2 := enforcer.contextIDFromPort.GetSpecFromPort(80)
 				So(err2, ShouldBeNil)
 				_, err3 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
 				So(err3, ShouldNotBeNil)
@@ -1328,14 +1330,14 @@ func TestContextFromIP(t *testing.T) {
 		Convey("If I try to get the context based on the PU IP, it should succeed ", func() {
 			enforcer.puFromIP.AddOrUpdate("10.1.1.1", context)
 
-			ctx, err := enforcer.contextFromIP(true, "10.1.1.1", "", "")
+			ctx, err := enforcer.contextFromIP(true, "10.1.1.1", "", 0)
 			So(err, ShouldBeNil)
 			So(ctx, ShouldNotBeNil)
 			So(ctx, ShouldEqual, context)
 		})
 
 		Convey("If I try to get context based on IP and its  not there and its a local container it should fail ", func() {
-			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", "")
+			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -1343,7 +1345,7 @@ func TestContextFromIP(t *testing.T) {
 			enforcer.puFromIP.AddOrUpdate(enforcerconstants.DefaultNetwork, context)
 			enforcer.mode = constants.LocalServer
 
-			ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "", "")
+			ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0)
 			So(err, ShouldBeNil)
 			So(ctx, ShouldNotBeNil)
 			So(ctx, ShouldEqual, context)
@@ -1354,32 +1356,33 @@ func TestContextFromIP(t *testing.T) {
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the mark exists", func() {
-				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", "")
+				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", 0)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)
 			})
 
 			Convey("If the mark doesn't exist", func() {
-				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", "")
+				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", 0)
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("If there is no IP match, it should try the port for net packets ", func() {
-			enforcer.contextIDFromPort.AddOrUpdate("8000", contextID)
+			s, _ := portcache.NewPortSpec(8000, 8000, nil)
+			enforcer.contextIDFromPort.AddPortSpec(s)
 			enforcer.puFromContextID.AddOrUpdate(contextID, context)
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the port exists", func() {
-				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", "8000")
+				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", 8000)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)
 			})
 
 			Convey("If the port doesn't exist", func() {
-				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", "9000")
+				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", 9000)
 				So(err, ShouldNotBeNil)
 			})
 		})
