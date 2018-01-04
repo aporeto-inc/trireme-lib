@@ -1369,7 +1369,7 @@ func TestContextFromIP(t *testing.T) {
 		})
 
 		Convey("If there is no IP match, it should try the port for net packets ", func() {
-			s, _ := portcache.NewPortSpec(8000, 8000, nil)
+			s, _ := portcache.NewPortSpec(8000, 8000, contextID)
 			enforcer.contextIDFromPort.AddPortSpec(s)
 			enforcer.puFromContextID.AddOrUpdate(contextID, context)
 			enforcer.mode = constants.LocalServer
