@@ -2,7 +2,6 @@ package policy
 
 import (
 	"errors"
-	"strconv"
 
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
@@ -310,13 +309,7 @@ func ConvertServicesToPortList(services []Service) string {
 
 	portlist := ""
 	for _, s := range services {
-		if s.Ports.IsMultiPort() {
-			val, _ := s.Ports.MultiPort() // nolint
-			portlist = portlist + val + ","
-		} else {
-			val, _ := s.Ports.SinglePort() // nolint
-			portlist = portlist + strconv.Itoa(int(val)) + ","
-		}
+		portlist = portlist + s.Ports.String() + ","
 	}
 
 	if len(portlist) == 0 {
