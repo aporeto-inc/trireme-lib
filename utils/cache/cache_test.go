@@ -27,9 +27,9 @@ func TestElements(t *testing.T) {
 	t.Parallel()
 
 	c := NewCache("cache")
-	id := uuid.NewV4()
-	fakeid := uuid.NewV4()
-	newid := uuid.NewV4()
+	id := uuid.Must(uuid.NewV4())
+	fakeid := uuid.Must(uuid.NewV4())
+	newid := uuid.Must(uuid.NewV4())
 	value := "element"
 	secondValue := "element2"
 	thirdValue := "element3"
@@ -70,7 +70,7 @@ func TestElements(t *testing.T) {
 		})
 
 		Convey("Given that I try to update an element that doesn't exist, I should get an error ", func() {
-			nextid := uuid.NewV4()
+			nextid := uuid.Must(uuid.NewV4())
 			err := c.Update(nextid, value)
 			So(err, ShouldNotBeNil)
 		})
