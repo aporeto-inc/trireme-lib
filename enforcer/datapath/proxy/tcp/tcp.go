@@ -273,15 +273,19 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		}
 	}()
 
+	isEncrypted := false
 	// Now let us handle the state machine for the down connection
-	if err := p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
+	if isEncrypted, err = p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
-	if !p.Encrypt {
+	if !isEncrypted {
 		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
 			fmt.Printf("pipe failed: %s", err)
 		}
+	} else {
+		// Hand off encryption to service processor for proxied traffic
+
 	}
 }
 
@@ -392,11 +396,11 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 
 // CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
-func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
+func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) (bool, error) {
 
 	puContext, err := p.puContextFromContextID(contextID)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	puContext.Lock()
@@ -430,12 +434,12 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 }
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
-func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) error {
+func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) (bool, error) {
 
 	// We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
 	puContext, err := p.puContextFromContextID(contextID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	conn := connection.NewProxyConnection()
 	toAddr, _ := syscall.Getpeername(downConn)
@@ -458,31 +462,31 @@ L:
 			case connection.ClientTokenSend:
 				token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 				if err != nil {
-					return fmt.Errorf("unable to create syn token: %s", err)
+					return false, fmt.Errorf("unable to create syn token: %s", err)
 				}
 				if err := syscall.Sendto(downConn, token, 0, toAddr); err != nil {
-					return fmt.Errorf("unable to send syn: %s", err)
+					return false, fmt.Errorf("unable to send syn: %s", err)
 				}
 				conn.SetState(connection.ClientPeerTokenReceive)
 
 			case connection.ClientPeerTokenReceive:
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
-					return fmt.Errorf("unable to recvfrom: %s", err)
+					return false, fmt.Errorf("unable to recvfrom: %s", err)
 				}
 
 				msg = msg[:n]
 				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-					return fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v", err, claims)
+					return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v", err, claims)
 				}
 
 				if p.mutualAuthorization {
 					report, packet := puContext.SearchTxtRules(claims.T, !p.mutualAuthorization)
 					if packet.Action.Rejected() {
 						p.reportRejectedFlow(flowProperties, conn, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
-						return errors.New("dropping because of reject rule on transmitter")
+						return false, errors.New("dropping because of reject rule on transmitter")
 					}
 				}
 				conn.SetState(connection.ClientSendSignedPair)
@@ -490,26 +494,26 @@ L:
 			case connection.ClientSendSignedPair:
 				token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
 				if err != nil {
-					return fmt.Errorf("unable to create ack token: %s", err)
+					return false, fmt.Errorf("unable to create ack token: %s", err)
 				}
 				if err := syscall.Sendto(downConn, token, 0, toAddr); err != nil {
-					return fmt.Errorf("unable to send ack: %s", err)
+					return false, fmt.Errorf("unable to send ack: %s", err)
 				}
 				break L
 			}
 
 		}
 	}
-	return nil
+	return false, nil
 
 }
 
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
-func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) error {
+func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport uint16, upConn io.ReadWriter, downConn int, contextID string) (bool, error) {
 
 	puContext, err := p.puContextFromContextID(contextID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	toAddr, _ := syscall.Getpeername(downConn)
 	localaddr, _ := syscall.Getsockname(downConn)
@@ -539,7 +543,7 @@ E:
 						break
 					}
 					if err != nil {
-						return err
+						return false, err
 					}
 					msg = append(msg, data[:n]...)
 				}
@@ -547,14 +551,14 @@ E:
 				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-					return fmt.Errorf("reported rejected flow due to invalid token: %s", err)
+					return false, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 				}
 
 				claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
 				report, packet := puContext.SearchRcvRules(claims.T)
 				if packet.Action.Rejected() {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
-					return fmt.Errorf("connection dropped by policy %s: %s", packet.PolicyID, err)
+					return false, fmt.Errorf("connection dropped by policy %s: %s", packet.PolicyID, err)
 				}
 
 				conn.ReportFlowPolicy = report
@@ -564,7 +568,7 @@ E:
 			case connection.ServerSendToken:
 				claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
 				if err != nil {
-					return fmt.Errorf("unable to create synack token: %s", err)
+					return false, fmt.Errorf("unable to create synack token: %s", err)
 				}
 				synackn, err := upConn.Write(claims)
 				if err != nil {
@@ -582,13 +586,13 @@ E:
 						break
 					}
 					if err != nil {
-						return err
+						return false, err
 					}
 					msg = append(msg, data[:n]...)
 				}
 				if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
-					return fmt.Errorf("ack packet dropped because signature validation failed %s", err)
+					return false, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 				}
 
 				break E
@@ -597,7 +601,7 @@ E:
 	}
 
 	p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
-	return nil
+	return false, nil
 }
 
 func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
