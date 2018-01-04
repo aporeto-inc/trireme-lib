@@ -97,6 +97,13 @@ func OptionEnforceFqConfig(f *fqconfig.FilterQueue) Option {
 	}
 }
 
+// OptionDisableMutualAuth is an option to disable MutualAuth (enabled by default)
+func OptionDisableMutualAuth() Option {
+	return func(cfg *config) {
+		cfg.mutualAuth = false
+	}
+}
+
 // OptionTargetNetworks is an option to provide target network configuration.
 func OptionTargetNetworks(n []string) Option {
 	return func(cfg *config) {
