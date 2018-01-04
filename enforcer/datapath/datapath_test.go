@@ -1235,7 +1235,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err, ShouldBeNil)
 				_, err1 := enforcer.puFromMark.Get("100")
 				So(err1, ShouldBeNil)
-				_, err2 := enforcer.contextIDFromPort.GetSpecFromPort(80)
+				_, err2 := enforcer.contextIDFromPort.GetSpecValueFromPort(80)
 				So(err2, ShouldBeNil)
 				_, err3 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
 				So(err3, ShouldNotBeNil)

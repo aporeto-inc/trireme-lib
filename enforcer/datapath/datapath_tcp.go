@@ -944,7 +944,7 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port ui
 		return pu.(*pucontext.PUContext), nil
 	}
 
-	contextID, err := d.contextIDFromPort.GetSpecFromPort(port)
+	contextID, err := d.contextIDFromPort.GetSpecValueFromPort(port)
 	if err != nil {
 		return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
 	}

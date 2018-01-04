@@ -70,34 +70,34 @@ func TestSearch(t *testing.T) {
 			p.AddPortSpec(s)
 
 			Convey("If I match both exact and range, I should get the exact", func() {
-				s, err := p.GetSpecFromPort(15)
+				s, err := p.GetSpecValueFromPort(15)
 				So(err, ShouldBeNil)
 				So(s.(string), ShouldResemble, "15")
-				s, err = p.GetSpecFromPort(25)
+				s, err = p.GetSpecValueFromPort(25)
 				So(err, ShouldBeNil)
 				So(s.(string), ShouldResemble, "25")
 			})
 
 			Convey("If I match the range beginning, I should get the result", func() {
-				s, err := p.GetSpecFromPort(10)
+				s, err := p.GetSpecValueFromPort(10)
 				So(err, ShouldBeNil)
 				So(s.(string), ShouldResemble, "range1")
 			})
 
 			Convey("If I match the range end , I should get the result", func() {
-				s, err := p.GetSpecFromPort(19)
+				s, err := p.GetSpecValueFromPort(19)
 				So(err, ShouldBeNil)
 				So(s.(string), ShouldResemble, "range1")
-				s, err = p.GetSpecFromPort(39)
+				s, err = p.GetSpecValueFromPort(39)
 				So(err, ShouldBeNil)
 				So(s.(string), ShouldResemble, "range2")
-				s, err = p.GetSpecFromPort(59)
+				s, err = p.GetSpecValueFromPort(59)
 				So(err, ShouldBeNil)
 				So(s.(string), ShouldResemble, "range3")
 			})
 
 			Convey("Last number is not included ", func() {
-				_, err := p.GetSpecFromPort(20)
+				_, err := p.GetSpecValueFromPort(20)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -129,7 +129,7 @@ func TestGetAll(t *testing.T) {
 			p.AddPortSpec(s)
 
 			Convey("If I match both exact and range, I should get the exact", func() {
-				s, err := p.GetAllSpecFromPort(15)
+				s, err := p.GetAllSpecValueFromPort(15)
 				So(err, ShouldBeNil)
 				So(len(s), ShouldEqual, 2)
 
@@ -204,7 +204,7 @@ func TestAddUnique(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(p.AddUnique(s), ShouldNotBeNil)
 
-			a, err := p.GetAllSpecFromPort(15)
+			a, err := p.GetAllSpecValueFromPort(15)
 			So(err, ShouldBeNil)
 			So(len(a), ShouldEqual, 1)
 			So(a[0].(string), ShouldResemble, "range1")

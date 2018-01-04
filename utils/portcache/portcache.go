@@ -62,11 +62,11 @@ func (p *PortCache) AddUnique(s *portspec.PortSpec) error {
 	return nil
 }
 
-// GetSpecFromPort searches the cache for a match based on a port
+// GetSpecValueFromPort searches the cache for a match based on a port
 // It will return the first match found on exact ports or on the ranges
 // of ports. If there are multiple intervals that match it will randomly
 // return one of them.
-func (p *PortCache) GetSpecFromPort(port uint16) (interface{}, error) {
+func (p *PortCache) GetSpecValueFromPort(port uint16) (interface{}, error) {
 	if spec, err := p.ports.Get(port); err == nil {
 		return spec.(*portspec.PortSpec).Value(), nil
 	}
@@ -82,9 +82,9 @@ func (p *PortCache) GetSpecFromPort(port uint16) (interface{}, error) {
 	return nil, fmt.Errorf("No match for port %d", port)
 }
 
-// GetAllSpecFromPort will return all the specs that potentially match. This
+// GetAllSpecValueFromPort will return all the specs that potentially match. This
 // will allow for overlapping ranges
-func (p *PortCache) GetAllSpecFromPort(port uint16) ([]interface{}, error) {
+func (p *PortCache) GetAllSpecValueFromPort(port uint16) ([]interface{}, error) {
 	var allMatches []interface{}
 
 	if spec, err := p.ports.Get(port); err == nil {
