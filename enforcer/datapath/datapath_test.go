@@ -1215,7 +1215,7 @@ func TestDoCreatePU(t *testing.T) {
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
 
-		spec, _ := portcache.NewPortSpecFromString(80, nil)
+		spec, _ := portcache.NewPortSpecFromString("80", nil)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
 			CgroupMark: "100",
 			Services: []policy.Service{
