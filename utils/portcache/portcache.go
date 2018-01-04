@@ -36,22 +36,28 @@ func (p *PortCache) AddPortSpec(s *portspec.PortSpec) {
 	}
 }
 
-// AddUnique adds a port spec into the cache
+// AddUnique adds a port spec into the cache and makes sure its unique
 func (p *PortCache) AddUnique(s *portspec.PortSpec) error {
 	p.Lock()
 	defer p.Unlock()
 
 	if s.Min == s.Max {
-		if err := p.ports.Add(s.Min, s); err != nil {
-			return err
+		if err, _ := p.ports.Get(s.Min); err != nil {
+			return fmt.Errorf("Port already exists: %s", err)
 		}
 	}
+
 	for _, r := range p.ranges {
 		if r.Max <= s.Min || r.Min >= s.Max {
 			continue
 		}
 		return fmt.Errorf("Overlap detected: %d %d ", r.Max, r.Min)
 	}
+
+	if s.Min == s.Max {
+		return p.ports.Add(s.Min, s)
+	}
+
 	p.ranges = append(p.ranges, s)
 	return nil
 }

@@ -157,7 +157,7 @@ func TestAddUnique(t *testing.T) {
 			So(p.AddUnique(s), ShouldBeNil)
 		})
 
-		Convey("When I add no unique entries, I should get  errors ", func() {
+		Convey("When I add non-unique entries, I should get  errors ", func() {
 			s, err := portspec.NewPortSpec(10, 20, "range1")
 			So(err, ShouldBeNil)
 			So(p.AddUnique(s), ShouldBeNil)
