@@ -73,24 +73,25 @@ func TestIsMultiPort(t *testing.T) {
 	})
 }
 
-func TestMultiPort(t *testing.T) {
+func TestRange(t *testing.T) {
 	Convey("Given a portspec", t, func() {
 		Convey("If it is multiport", func() {
 			s, err := NewPortSpecFromString("10:20", "string")
 			So(err, ShouldBeNil)
-			Convey("Multiport should return the value ranges", func() {
-				m, err := s.MultiPort()
+			Convey("Range  should return the value ranges", func() {
+				m, err := s.Range()
 				So(err, ShouldBeNil)
 				So(m, ShouldResemble, "10:20")
 			})
 		})
 
-		Convey("If it is not multiport", func() {
+		Convey("If it is not multiport, it should return the one port", func() {
 			s, err := NewPortSpecFromString("10", "string")
 			So(err, ShouldBeNil)
 			Convey("Multiport should an error", func() {
-				_, err := s.MultiPort()
-				So(err, ShouldNotBeNil)
+				m, err := s.Range()
+				So(err, ShouldBeNil)
+				So(m, ShouldResemble, "10")
 			})
 		})
 	})

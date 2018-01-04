@@ -61,7 +61,7 @@ func NewPortSpecFromString(ports string, value interface{}) (*PortSpec, error) {
 	return NewPortSpec(uint16(min), uint16(max), value)
 }
 
-// IsMultiPort returns true if the spec is for multiple ports
+// IsMultiPort returns true if the spec is for multiple ports.
 func (s *PortSpec) IsMultiPort() bool {
 	return s.Min != s.Max
 }
@@ -75,13 +75,18 @@ func (s *PortSpec) SinglePort() (uint16, error) {
 	return s.Min, nil
 }
 
-// MultiPort returns the multi-port range as a string
-func (s *PortSpec) MultiPort() (string, error) {
+// Range returns the range of a spec.
+func (s *PortSpec) Range() (uint16, uint16) {
+	return s.Min, s.Max
+}
+
+// MultiPort returns the multi-port range as a string.
+func (s *PortSpec) String() string {
 	if s.IsMultiPort() {
-		return strconv.Itoa(int(s.Min)) + ":" + strconv.Itoa(int(s.Max)), nil
+		return strconv.Itoa(int(s.Min)) + ":" + strconv.Itoa(int(s.Max))
 	}
 
-	return "", errors.New("Not a multiport specification")
+	return strconv.Itoa(int(s.Min))
 }
 
 // Value returns the value of the portspec if one is there
