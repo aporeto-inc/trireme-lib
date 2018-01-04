@@ -25,6 +25,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -48,7 +49,7 @@ type Datapath struct {
 	puFromContextID   cache.DataStore
 	puFromIP          cache.DataStore
 	puFromMark        cache.DataStore
-	contextIDFromPort cache.DataStore
+	contextIDFromPort *portcache.PortCache
 
 	// Hash based on source IP/Port to capture SynAck packets with possible NAT.
 	// When a new connection is created, we has the source IP/port. A return
@@ -138,7 +139,7 @@ func New(
 	// This cache is shared with portSetInstance. The portSetInstance
 	// cleans up the entry corresponding to port when port is no longer
 	// part of ipset portset.
-	contextIDFromPort := cache.NewCache("contextIDFromPort")
+	contextIDFromPort := portcache.NewPortCache("contextIDFromPort")
 
 	var portSetInstance portset.PortSet
 
@@ -242,7 +243,11 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromMark.AddOrUpdate(mark, pu)
 
 		for _, port := range ports {
-			d.contextIDFromPort.AddOrUpdate(port, contextID)
+			portSpec, err := portcache.NewPortSpecFromString(port, contextID)
+			if err != nil {
+				continue
+			}
+			d.contextIDFromPort.AddPortSpec(portSpec)
 		}
 	} else {
 		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
@@ -275,6 +280,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		)
 	}
 
+	// Cleanup the IP based lookup
 	pu := puContext.(*pucontext.PUContext)
 	if err := d.puFromIP.Remove(pu.IP()); err != nil {
 		zap.L().Debug("Unable to remove cache entry during unenforcement",
@@ -283,15 +289,17 @@ func (d *Datapath) Unenforce(contextID string) error {
 		)
 	}
 
-	if err := d.puFromIP.Remove(pu.Mark()); err != nil {
+	// Cleanup the mark information
+	if err := d.puFromMark.Remove(pu.Mark()); err != nil {
 		zap.L().Debug("Unable to remove cache entry during unenforcement",
 			zap.String("Mark", pu.Mark()),
 			zap.Error(err),
 		)
 	}
 
+	// Cleanup the port cache
 	for _, port := range pu.Ports() {
-		if err := d.puFromIP.Remove(port); err != nil {
+		if err := d.contextIDFromPort.RemoveStringPorts(port); err != nil {
 			zap.L().Debug("Unable to remove cache entry during unenforcement",
 				zap.String("Port", port),
 				zap.Error(err),
@@ -299,6 +307,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 		}
 	}
 
+	// Cleanup the contextID cache
 	if err := d.puFromContextID.RemoveWithDelay(contextID, 10*time.Second); err != nil {
 		zap.L().Warn("Unable to remove context from cache",
 			zap.String("contextID", contextID),

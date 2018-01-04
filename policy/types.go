@@ -1,6 +1,10 @@
 package policy
 
-import "strconv"
+import (
+	"strconv"
+
+	"github.com/aporeto-inc/trireme-lib/utils/portcache"
+)
 
 const (
 	// DefaultNamespace is the default namespace for applying policy
@@ -237,8 +241,8 @@ type Service struct {
 	// Protocol is the protocol number
 	Protocol uint8
 
-	// Port is the target port
-	Port uint16
+	// Ports are the corresponding ports
+	Ports *portcache.PortSpec
 }
 
 // ConvertServicesToPortList converts an array of services to a port list
@@ -246,7 +250,13 @@ func ConvertServicesToPortList(services []Service) string {
 
 	portlist := ""
 	for _, s := range services {
-		portlist = portlist + strconv.Itoa(int(s.Port)) + ","
+		if s.Ports.IsMultiPort() {
+			val, _ := s.Ports.MultiPort() // nolint
+			portlist = portlist + val + ","
+		} else {
+			val, _ := s.Ports.SinglePort() // nolint
+			portlist = portlist + strconv.Itoa(int(val)) + ","
+		}
 	}
 
 	if len(portlist) == 0 {

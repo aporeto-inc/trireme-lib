@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
@@ -34,7 +35,7 @@ type portSetInstance struct {
 	userPortSet       cache.DataStore
 	userPortMap       cache.DataStore
 	markUserMap       cache.DataStore
-	contextIDFromPort cache.DataStore
+	contextIDFromPort *portcache.PortCache
 }
 
 // expirer deletes the port entry in the portset when the key uid:port expires.
@@ -61,14 +62,14 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 	}
 
 	// delete the port from contextIDFromPort cache
-	if err := portSetObject.contextIDFromPort.Remove(port); err != nil {
+	if err := portSetObject.contextIDFromPort.RemoveStringPorts(port); err != nil {
 		zap.L().Debug("Unable to remove port from contextIDFromPort Cache")
 	}
 
 }
 
 // New creates an implementation portset interface.
-func New(contextIDFromPort cache.DataStore) PortSet {
+func New(contextIDFromPort *portcache.PortCache) PortSet {
 
 	p := &portSetInstance{
 		userPortSet:       cache.NewCache("userPortSet"),

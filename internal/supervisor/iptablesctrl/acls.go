@@ -366,7 +366,6 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
 func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, ip string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
-
 	if i.mode == constants.LocalServer {
 		if port != "0" || uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Append")
