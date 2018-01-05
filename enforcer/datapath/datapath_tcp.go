@@ -18,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -742,7 +743,7 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 // It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
-	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
+	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
 	if err != nil {
 		return nil, errors.New("No context in app processing")
 	}
@@ -763,7 +764,12 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 
 	contextID := context.ID()
 
-	d.contextIDFromPort.AddOrUpdate(strconv.Itoa(int(p.SourcePort)), contextID)
+	portSpec, err := portspec.NewPortSpec(p.SourcePort, p.SourcePort, contextID)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid port format %s", err)
+	}
+
+	d.contextIDFromPort.AddPortSpec(portSpec)
 	// Find the uid for which mark was asserted.
 	uid, err := d.portSetInstance.GetUserMark(p.Mark)
 	if err != nil {
@@ -792,7 +798,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 			if d.mode != constants.RemoteContainer && p.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 				// We see a syn ack for which we have not recorded a syn
 				// Update the port for the context matching the mark this packet has comes with
-				context, perr := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, strconv.Itoa(int(p.SourcePort)))
+				context, perr := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
 				if perr == nil {
 					return processSynAck(d, p, context)
 				}
@@ -816,7 +822,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 // Obviously if no state is found, it generates a new connection record.
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
-	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, strconv.Itoa(int(p.DestinationPort)))
+	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort)
 	if err != nil {
 		//This needs to hit only for local processes never for containers
 		//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
@@ -913,7 +919,7 @@ func updateTimer(c cache.DataStore, hash string, conn *connection.TCPConnection)
 // packets are again special and the flow is reversed. If a container doesn't supply
 // its IP information, we use the default IP. This will only work with remotes
 // and Linux processes.
-func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port string) (*pucontext.PUContext, error) {
+func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port uint16) (*pucontext.PUContext, error) {
 
 	pu, err := d.puFromIP.Get(packetIP)
 	if err == nil {
@@ -938,9 +944,9 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port st
 		return pu.(*pucontext.PUContext), nil
 	}
 
-	contextID, err := d.contextIDFromPort.Get(port)
+	contextID, err := d.contextIDFromPort.GetSpecValueFromPort(port)
 	if err != nil {
-		return nil, fmt.Errorf("pu contextID cannot be found using port %s: %s", port, err)
+		return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
 	}
 
 	pu, err = d.puFromContextID.Get(contextID)
