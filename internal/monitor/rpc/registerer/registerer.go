@@ -42,6 +42,7 @@ func (r *registerer) RegisterProcessor(puType constants.PUType, ep processor.Pro
 }
 
 func (r *registerer) GetHandler(puType constants.PUType, eventType events.Event) (events.EventHandler, error) {
+
 	handlers, ok := r.handlers[puType]
 	if !ok {
 		return nil, fmt.Errorf("PUType %d not registered", puType)

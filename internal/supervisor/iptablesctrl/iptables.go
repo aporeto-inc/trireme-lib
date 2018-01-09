@@ -25,7 +25,7 @@ const (
 	appChainPrefix   = chainPrefix + "App-"
 	netChainPrefix   = chainPrefix + "Net-"
 	targetNetworkSet = "TargetNetSet"
-	//PuPortSet The prefix for portset names
+	// PuPortSet The prefix for portset names
 	PuPortSet                 = "PUPort-"
 	proxyPortSet              = "Proxy-"
 	ipTableSectionOutput      = "OUTPUT"
@@ -37,7 +37,7 @@ const (
 	proxyOutputChain          = "Proxy-App"
 	proxyInputChain           = "Proxy-Net"
 	proxyMark                 = "0x40"
-	//ProxyPort DefaultProxyPort
+	// ProxyPort DefaultProxyPort
 	ProxyPort = "5000"
 )
 
