@@ -1,6 +1,10 @@
 package policy
 
-import "strconv"
+import (
+	"errors"
+
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+)
 
 const (
 	// DefaultNamespace is the default namespace for applying policy
@@ -62,18 +66,6 @@ func (f ActionType) Logged() bool {
 // Observed returns if the action mask contains the Observed mask.
 func (f ActionType) Observed() bool {
 	return f&Observe > 0
-}
-
-// ShortActionString returns if the action if accepted of rejected as a short string.
-func (f ActionType) ShortActionString() string {
-	if f.Accepted() && !f.Rejected() {
-		return "a"
-	}
-
-	if !f.Accepted() && f.Rejected() {
-		return "r"
-	}
-	return "p"
 }
 
 // ActionString returns if the action if accepted of rejected as a long string.
@@ -167,6 +159,77 @@ type FlowPolicy struct {
 	PolicyID      string
 }
 
+// LogPrefix is the prefix used in nf-log action. It must be less than
+func (f *FlowPolicy) LogPrefix(contextID string) string {
+	prefix := contextID + ":" + f.PolicyID + ":" + f.ServiceID + f.EncodedActionString()
+	return prefix
+}
+
+// DefaultLogPrefix return the prefix used in nf-log action for default rule.
+func DefaultLogPrefix(contextID string) string {
+	return contextID + ":default:default" + "6"
+}
+
+// EncodedActionString is used to encode observed action as well as action
+func (f *FlowPolicy) EncodedActionString() string {
+
+	var e string
+
+	if f.Action.Accepted() && !f.Action.Rejected() {
+		if f.ObserveAction.ObserveContinue() {
+			e = "1"
+		} else if f.ObserveAction.ObserveApply() {
+			e = "2"
+		} else {
+			e = "3"
+		}
+	} else if !f.Action.Accepted() && f.Action.Rejected() {
+		if f.ObserveAction.ObserveContinue() {
+			e = "4"
+		} else if f.ObserveAction.ObserveApply() {
+			e = "5"
+		} else {
+			e = "6"
+		}
+	} else {
+		if f.ObserveAction.ObserveContinue() {
+			e = "7"
+		} else if f.ObserveAction.ObserveApply() {
+			e = "8"
+		} else {
+			e = "9"
+		}
+	}
+	return e
+}
+
+// EncodedStringToAction returns action and observed action from encoded string.
+func EncodedStringToAction(e string) (ActionType, ObserveActionType, error) {
+
+	switch e {
+	case "1":
+		return Observe | Accept, ObserveContinue, nil
+	case "2":
+		return Observe | Accept, ObserveApply, nil
+	case "3":
+		return Accept, ObserveNone, nil
+	case "4":
+		return Observe | Reject, ObserveContinue, nil
+	case "5":
+		return Observe | Reject, ObserveApply, nil
+	case "6":
+		return Reject, ObserveNone, nil
+	case "7":
+		return Observe, ObserveContinue, nil
+	case "8":
+		return Observe, ObserveApply, nil
+	case "9":
+		return 0, ObserveNone, nil
+	}
+
+	return 0, 0, errors.New("Invalid encoding")
+}
+
 // IPRule holds IP rules to external services
 type IPRule struct {
 	Address  string
@@ -237,8 +300,8 @@ type Service struct {
 	// Protocol is the protocol number
 	Protocol uint8
 
-	// Port is the target port
-	Port uint16
+	// Ports are the corresponding ports
+	Ports *portspec.PortSpec
 }
 
 // ConvertServicesToPortList converts an array of services to a port list
@@ -246,7 +309,7 @@ func ConvertServicesToPortList(services []Service) string {
 
 	portlist := ""
 	for _, s := range services {
-		portlist = portlist + strconv.Itoa(int(s.Port)) + ","
+		portlist = portlist + s.Ports.String() + ","
 	}
 
 	if len(portlist) == 0 {
