@@ -356,7 +356,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			Event:     collector.ContainerFailed,
 		})
 
-		return fmt.Errorf("policy error for %s. container killed: %s", contextID, err)
+		return fmt.Errorf("policy error for %s: %s", contextID, err)
 	}
 
 	t.mergeRuntimeAndPolicy(runtimeInfo, policyInfo)
