@@ -66,6 +66,8 @@ const (
 	DefaultAporetoProcMountPoint = "/aporetoproc"
 	// DockerHostMode is the string of the network mode that indicates a host namespace
 	DockerHostMode = "host"
+	// DockerLinkedMode is the string of the network mode that indicates shared network namespace
+	DockerLinkedMode = "container:"
 )
 
 // DockerMonitorMode defines the different modes the docker monitor can be in depending on the environment where trireme-lib is running
