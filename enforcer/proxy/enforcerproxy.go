@@ -46,6 +46,7 @@ type ProxyInfo struct {
 	prochdl                processmon.ProcessManager
 	rpchdl                 rpcwrapper.RPCClient
 	initDone               map[string]bool
+	exitDone               map[string]bool
 	filterQueue            *fqconfig.FilterQueue
 	commandArg             string
 	statsServerSecret      string
@@ -88,6 +89,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	s.Lock()
 	s.initDone[contextID] = true
+	s.exitDone[contextID] = false
 	s.Unlock()
 
 	return nil
