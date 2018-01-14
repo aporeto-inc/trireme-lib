@@ -78,10 +78,12 @@ func (s *store) Retrieve(contextID string, context interface{}) error {
 
 	if err = json.Unmarshal(data, context); err != nil {
 		if s.dataErrorHandler != nil {
-			if err := s.dataErrorHandler(string(data), context); err == nil {
-				s.Store(contextID, context)
+			if err = s.dataErrorHandler(string(data), context); err == nil {
+				if err = s.Store(contextID, context); err != nil {
+					return fmt.Errorf("Remap attempt failed with error %s", err)
+				}
 				return nil
-			} 
+			}
 		}
 		if err = s.Remove(contextID); err != nil {
 			return fmt.Errorf("invalid format of data detected, cleanup failed: %s", err)

@@ -50,7 +50,7 @@ func baseName(name, separator string) string {
 // RemapData Remaps the contextstore data from an old format to the newer format.
 func (l *linuxProcessor) RemapData(data string, fixedData interface{}) error {
 	event := &events.EventInfo{}
-	
+
 	if err := json.Unmarshal([]byte(data), event); err != nil {
 		return fmt.Errorf("Received error %s while remapping data", err)
 	}
