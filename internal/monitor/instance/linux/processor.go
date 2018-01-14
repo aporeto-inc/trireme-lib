@@ -54,7 +54,7 @@ func (l *linuxProcessor) RemapData(data string, fixedData interface{}) error {
 	if err := json.Unmarshal([]byte(data), event); err != nil {
 		return fmt.Errorf("Received error %s while remapping data", err)
 	}
-	//Convert the eventInfo data to new format
+	// Convert the eventInfo data to new format
 	for index, s := range event.Services {
 		if s.Port != 0 {
 			s.Ports = &portspec.PortSpec{
@@ -64,10 +64,14 @@ func (l *linuxProcessor) RemapData(data string, fixedData interface{}) error {
 		}
 		event.Services[index].Ports = s.Ports
 	}
-	if fixedData.(*StoredContext).Tags == nil {
-		fixedData.(*StoredContext).Tags = policy.NewTagStore()
+	sc, ok := fixedData.(*StoredContext)
+	if !ok {
+		return fmt.Errorf("Invalid data type")
 	}
-	fixedData.(*StoredContext).EventInfo = event
+	if sc.Tags == nil {
+		sc.Tags = policy.NewTagStore()
+	}
+	sc.EventInfo = event
 	return nil
 }
 
@@ -219,12 +223,16 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 	metadataExtractionFailed := 0
 	syncFailed := 0
 	puStartFailed := 0
+	invalidContextWithNoTags := 0
+	newPUCreated := 0
 
 	defer func() {
 		if retrieveFailed == 0 &&
 			metadataExtractionFailed == 0 &&
 			syncFailed == 0 &&
-			puStartFailed == 0 {
+			puStartFailed == 0 &&
+			invalidContextWithNoTags == 0 &&
+			newPUCreated == 0 {
 			zap.L().Debug("Linux process resync completed",
 				zap.Bool("host", l.host),
 				zap.Strings("deleted", deleted),
@@ -239,6 +247,8 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 				zap.Int("metadata-extraction-failed", metadataExtractionFailed),
 				zap.Int("sync-failed", syncFailed),
 				zap.Int("start-failed", puStartFailed),
+				zap.Int("invalidContextWithNoTags", invalidContextWithNoTags),
+				zap.Int("newPUCreated", newPUCreated),
 			)
 		}
 	}()
@@ -259,6 +269,10 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 		storedContext := StoredContext{}
 		if err := l.contextStore.Retrieve("/"+contextID, &storedContext); err != nil {
 			retrieveFailed++
+			continue
+		}
+		if storedContext.Tags == nil {
+			invalidContextWithNoTags++
 			continue
 		}
 
@@ -319,16 +333,20 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 		reacquired = append(reacquired, eventInfo.PUID)
 
 		// Synchronize
-		if l.config.SyncHandler != nil && storedContext.Tags != nil && len(storedContext.Tags.GetSlice()) != 0 {
-			if err := l.config.SyncHandler.HandleSynchronization(
-				contextID,
-				events.StateStarted,
-				runtimeInfo,
-				processor.SynchronizationTypeInitial,
-			); err != nil {
-				zap.L().Debug("Failed to sync", zap.Error(err))
-				syncFailed++
-				continue
+		if storedContext.Tags.IsEmpty() {
+			newPUCreated++
+		} else {
+			if l.config.SyncHandler != nil {
+				if err := l.config.SyncHandler.HandleSynchronization(
+					contextID,
+					events.StateStarted,
+					runtimeInfo,
+					processor.SynchronizationTypeInitial,
+				); err != nil {
+					zap.L().Debug("Failed to sync", zap.Error(err))
+					syncFailed++
+					continue
+				}
 			}
 		}
 
