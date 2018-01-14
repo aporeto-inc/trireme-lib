@@ -325,7 +325,7 @@ func TestResync(t *testing.T) {
 
 			store.EXPECT().Walk().Return(contextlist, nil)
 			store.EXPECT().Retrieve("/test1", gomock.Any()).SetArg(1, storedContext).Return(nil)
-			store.EXPECT().Remove("/test1").Return(nil)
+			// store.EXPECT().Remove("/test1").Return(nil)
 
 			Convey("Start server returns no error", func() {
 				err := p.ReSync(nil)
