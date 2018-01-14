@@ -61,6 +61,23 @@ func (s *store) Store(contextID string, item interface{}) error {
 	return ioutil.WriteFile(filepath.Join(folder, itemFile), data, 0600)
 }
 
+func (s *store) upgrade(contextID string, context interface{}, data []byte) (err error) {
+
+	if s.dataErrorHandler == nil {
+		return fmt.Errorf("No upgrade possible")
+	}
+
+	if err = s.dataErrorHandler(string(data), context); err != nil {
+		return fmt.Errorf("Data upgrade failed: %s", err)
+	}
+
+	if err = s.Store(contextID, context); err != nil {
+		return fmt.Errorf("Data storage failed: %s", err)
+	}
+
+	return nil
+}
+
 // Retrieve retrieves a context from the file
 func (s *store) Retrieve(contextID string, context interface{}) error {
 
@@ -77,18 +94,17 @@ func (s *store) Retrieve(contextID string, context interface{}) error {
 	}
 
 	if err = json.Unmarshal(data, context); err != nil {
-		if s.dataErrorHandler != nil {
-			if err = s.dataErrorHandler(string(data), context); err == nil {
-				if err = s.Store(contextID, context); err != nil {
-					return fmt.Errorf("Remap attempt failed with error %s", err)
-				}
-				return nil
-			}
+
+		uerr := s.upgrade(contextID, context, data)
+		if uerr == nil {
+			return nil
 		}
+
 		if err = s.Remove(contextID); err != nil {
-			return fmt.Errorf("invalid format of data detected, cleanup failed: %s", err)
+			return fmt.Errorf("invalid format of data detected, cleanup failed: %s upgrade failed: %s", err, uerr)
 		}
-		return fmt.Errorf("invalid format of data: %s", err)
+
+		return fmt.Errorf("data format error: %s upgrade failed: %s", err, uerr)
 	}
 
 	return nil
