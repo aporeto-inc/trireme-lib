@@ -82,3 +82,8 @@ func (t *TagStore) AppendKeyValue(key, value string) {
 func (t *TagStore) String() string {
 	return strings.Join(t.Tags, " ")
 }
+
+// IsEmpty if no key value pairs exist.
+func (t *TagStore) IsEmpty() bool {
+	return len(t.Tags) == 0
+}
