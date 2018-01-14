@@ -301,7 +301,10 @@ type Service struct {
 	Protocol uint8
 
 	// Ports are the corresponding ports
-	Ports *portspec.PortSpec
+	Ports *portspec.PortSpec `json:"Ports,omitempty"`
+
+	//Port is the service port. This has been deprecated and will be removed in later releases 01/13/2018
+	Port uint16
 }
 
 // ConvertServicesToPortList converts an array of services to a port list

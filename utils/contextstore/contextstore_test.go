@@ -23,7 +23,7 @@ func cleanupstore(storebasePath string) {
 }
 
 func TestStore(t *testing.T) {
-	cstore := NewFileContextStore("./base")
+	cstore := NewFileContextStore("./base", nil)
 	defer cleanupstore("./base")
 
 	testdata := &testdatastruct{Data: 10}
@@ -45,7 +45,7 @@ func TestStore(t *testing.T) {
 
 func TestDestroyStore(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 
 	os.RemoveAll(storebasePath) //nolint
@@ -55,7 +55,7 @@ func TestDestroyStore(t *testing.T) {
 	}
 
 	//Reinit store
-	cstore = NewFileContextStore(storebasePath)
+	cstore = NewFileContextStore(storebasePath, nil)
 	testdata := &testdatastruct{Data: 10}
 	if err := cstore.Store(testcontextID, testdata); err != nil {
 		t.Errorf("Failed to store context %s", err.Error())
@@ -69,7 +69,7 @@ func TestDestroyStore(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 
 	context := testdatastruct{}
@@ -98,7 +98,7 @@ func TestRetrieve(t *testing.T) {
 
 func TestRemove(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 
 	err := cstore.Remove(testcontextID)
@@ -124,7 +124,7 @@ func TestRemove(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 	testdata := &testdatastruct{Data: 10}
 	contextIDList := []string{"/test1", "/test2", "/test3"}

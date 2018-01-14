@@ -9,7 +9,8 @@ import (
 )
 
 type store struct {
-	storebasePath string
+	storebasePath    string
+	dataErrorHandler func(string, interface{}) error
 }
 
 const (
@@ -32,14 +33,15 @@ func checkAndCreateDir(folder string) error {
 
 // NewFileContextStore is an implementation of ContextStore using a file. Each context is
 // stored in its directory identified by id in a file called eventInfo.data
-func NewFileContextStore(basePath string) ContextStore {
+func NewFileContextStore(basePath string, onDataFormatError func(string, interface{}) error) ContextStore {
 
 	if err := checkAndCreateDir(basePath); err != nil {
 		return nil
 	}
 
 	return &store{
-		storebasePath: basePath,
+		storebasePath:    basePath,
+		dataErrorHandler: onDataFormatError,
 	}
 }
 
@@ -69,11 +71,18 @@ func (s *store) Retrieve(contextID string, context interface{}) error {
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(folder, itemFile))
+
 	if err != nil {
 		return fmt.Errorf("unable to retrieve context from store: %s", err)
 	}
 
 	if err = json.Unmarshal(data, context); err != nil {
+		if s.dataErrorHandler != nil {
+			if err := s.dataErrorHandler(string(data), context); err == nil {
+				s.Store(contextID, context)
+				return nil
+			} 
+		}
 		if err = s.Remove(contextID); err != nil {
 			return fmt.Errorf("invalid format of data detected, cleanup failed: %s", err)
 		}

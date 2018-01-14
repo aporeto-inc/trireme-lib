@@ -11,9 +11,9 @@ import (
 
 // PortSpec is the specification of a port or port range
 type PortSpec struct {
-	Min   uint16
-	Max   uint16
-	value interface{}
+	Min   uint16      `json:"Min,omitempty"`
+	Max   uint16      `json:"Max,omitempty"`
+	value interface{} `json:"value,omitempty"`
 }
 
 // NewPortSpec creates a new port spec

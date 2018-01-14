@@ -1,6 +1,7 @@
 package linuxmonitor
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"regexp"
@@ -15,12 +16,13 @@ import (
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 // StoredContext is the information stored to retrieve the context in case of restart.
 type StoredContext struct {
 	EventInfo *events.EventInfo
-	Tags      *policy.TagStore
+	Tags      *policy.TagStore `json:"Tags,omitempty"`
 }
 
 // linuxProcessor captures all the monitor processor information
@@ -43,6 +45,30 @@ func baseName(name, separator string) string {
 		return ""
 	}
 	return name[lastseparator+1:]
+}
+
+// RemapData Remaps the contextstore data from an old format to the newer format.
+func (l *linuxProcessor) RemapData(data string, fixedData interface{}) error {
+	event := &events.EventInfo{}
+	
+	if err := json.Unmarshal([]byte(data), event); err != nil {
+		return fmt.Errorf("Received error %s while remapping data", err)
+	}
+	//Convert the eventInfo data to new format
+	for index, s := range event.Services {
+		if s.Port != 0 {
+			s.Ports = &portspec.PortSpec{
+				Min: s.Port,
+				Max: s.Port,
+			}
+		}
+		event.Services[index].Ports = s.Ports
+	}
+	if fixedData.(*StoredContext).Tags == nil {
+		fixedData.(*StoredContext).Tags = policy.NewTagStore()
+	}
+	fixedData.(*StoredContext).EventInfo = event
+	return nil
 }
 
 // Create handles create events
@@ -293,7 +319,7 @@ func (l *linuxProcessor) ReSync(e *events.EventInfo) error {
 		reacquired = append(reacquired, eventInfo.PUID)
 
 		// Synchronize
-		if l.config.SyncHandler != nil {
+		if l.config.SyncHandler != nil && storedContext.Tags != nil && len(storedContext.Tags.GetSlice()) != 0 {
 			if err := l.config.SyncHandler.HandleSynchronization(
 				contextID,
 				events.StateStarted,
