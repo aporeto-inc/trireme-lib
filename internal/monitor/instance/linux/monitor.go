@@ -120,7 +120,7 @@ func (l *linuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	// Setup config
 	l.proc.host = linuxConfig.Host
 	l.proc.netcls = cgnetcls.NewCgroupNetController(linuxConfig.ReleasePath)
-	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StoredPath)
+	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StoredPath, l.proc.RemapData)
 	l.proc.storePath = linuxConfig.StoredPath
 
 	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")

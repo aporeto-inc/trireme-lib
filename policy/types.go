@@ -341,7 +341,7 @@ type OptionsType struct {
 	PolicyExtensions interface{}
 }
 
-//ProxiedServicesInfo holds the info for a proxied service.
+// ProxiedServicesInfo holds the info for a proxied service.
 type ProxiedServicesInfo struct {
 	// PublicIPPortPair  is an array public ip,port  of load balancer or passthrough object per pu
 	PublicIPPortPair []string

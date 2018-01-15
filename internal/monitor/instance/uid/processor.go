@@ -1,6 +1,7 @@
 package uidmonitor
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -59,6 +60,23 @@ func baseName(name, separator string) string {
 		return ""
 	}
 	return name[lastseparator+1:]
+}
+
+// RemapData Remaps the contextstore data from an old format to the newer format.
+func (u *uidProcessor) RemapData(data string, fixedData interface{}) error {
+	event := &events.EventInfo{}
+	if err := json.Unmarshal([]byte(data), event); err != nil {
+		return fmt.Errorf("Received error %s while remapping data", err)
+	}
+	sc, ok := fixedData.(*StoredContext)
+	if !ok {
+		return fmt.Errorf("Invalid data type")
+	}
+	if sc.Tags == nil {
+		sc.Tags = policy.NewTagStore()
+	}
+	sc.EventInfo = event
+	return nil
 }
 
 // Start handles start events
@@ -246,12 +264,16 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 	metadataExtractionFailed := 0
 	syncFailed := 0
 	puStartFailed := 0
+	invalidContextWithNoTags := 0
+	newPUCreated := 0
 
 	defer func() {
 		if retrieveFailed == 0 &&
 			metadataExtractionFailed == 0 &&
 			syncFailed == 0 &&
-			puStartFailed == 0 {
+			puStartFailed == 0 &&
+			invalidContextWithNoTags == 0 &&
+			newPUCreated == 0 {
 			zap.L().Debug("UID resync completed",
 				zap.Strings("deleted", deleted),
 				zap.Strings("reacquired", reacquired),
@@ -264,6 +286,8 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 				zap.Int("metadata-extraction-failed", metadataExtractionFailed),
 				zap.Int("sync-failed", syncFailed),
 				zap.Int("start-failed", puStartFailed),
+				zap.Int("invalidContextWithNoTags", invalidContextWithNoTags),
+				zap.Int("newPUCreated", newPUCreated),
 			)
 		}
 	}()
@@ -307,6 +331,10 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 			retrieveFailed++
 			continue
 		}
+		if storedContext.Tags == nil {
+			invalidContextWithNoTags++
+			continue
+		}
 
 		// Add specific tags
 		eventInfo := storedContext.EventInfo
@@ -335,16 +363,20 @@ func (u *uidProcessor) ReSync(e *events.EventInfo) error {
 		} else {
 
 			// Synchronize
-			if u.config.SyncHandler != nil {
-				if err := u.config.SyncHandler.HandleSynchronization(
-					contextID,
-					events.StateStarted,
-					runtimeInfo,
-					processor.SynchronizationTypeInitial,
-				); err != nil {
-					zap.L().Debug("Failed to sync", zap.Error(err))
-					syncFailed++
-					continue
+			if storedContext.Tags.IsEmpty() {
+				newPUCreated++
+			} else {
+				if u.config.SyncHandler != nil {
+					if err := u.config.SyncHandler.HandleSynchronization(
+						contextID,
+						events.StateStarted,
+						runtimeInfo,
+						processor.SynchronizationTypeInitial,
+					); err != nil {
+						zap.L().Debug("Failed to sync", zap.Error(err))
+						syncFailed++
+						continue
+					}
 				}
 			}
 

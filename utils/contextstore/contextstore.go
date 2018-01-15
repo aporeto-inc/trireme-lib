@@ -9,7 +9,8 @@ import (
 )
 
 type store struct {
-	storebasePath string
+	storebasePath    string
+	dataErrorHandler func(string, interface{}) error
 }
 
 const (
@@ -32,14 +33,15 @@ func checkAndCreateDir(folder string) error {
 
 // NewFileContextStore is an implementation of ContextStore using a file. Each context is
 // stored in its directory identified by id in a file called eventInfo.data
-func NewFileContextStore(basePath string) ContextStore {
+func NewFileContextStore(basePath string, onDataFormatError func(string, interface{}) error) ContextStore {
 
 	if err := checkAndCreateDir(basePath); err != nil {
 		return nil
 	}
 
 	return &store{
-		storebasePath: basePath,
+		storebasePath:    basePath,
+		dataErrorHandler: onDataFormatError,
 	}
 }
 
@@ -59,6 +61,23 @@ func (s *store) Store(contextID string, item interface{}) error {
 	return ioutil.WriteFile(filepath.Join(folder, itemFile), data, 0600)
 }
 
+func (s *store) upgrade(contextID string, context interface{}, data []byte) (err error) {
+
+	if s.dataErrorHandler == nil {
+		return fmt.Errorf("No upgrade possible")
+	}
+
+	if err = s.dataErrorHandler(string(data), context); err != nil {
+		return fmt.Errorf("Data upgrade failed: %s", err)
+	}
+
+	if err = s.Store(contextID, context); err != nil {
+		return fmt.Errorf("Data storage failed: %s", err)
+	}
+
+	return nil
+}
+
 // Retrieve retrieves a context from the file
 func (s *store) Retrieve(contextID string, context interface{}) error {
 
@@ -69,15 +88,23 @@ func (s *store) Retrieve(contextID string, context interface{}) error {
 	}
 
 	data, err := ioutil.ReadFile(filepath.Join(folder, itemFile))
+
 	if err != nil {
 		return fmt.Errorf("unable to retrieve context from store: %s", err)
 	}
 
 	if err = json.Unmarshal(data, context); err != nil {
-		if err = s.Remove(contextID); err != nil {
-			return fmt.Errorf("invalid format of data detected, cleanup failed: %s", err)
+
+		uerr := s.upgrade(contextID, context, data)
+		if uerr == nil {
+			return nil
 		}
-		return fmt.Errorf("invalid format of data: %s", err)
+
+		if err = s.Remove(contextID); err != nil {
+			return fmt.Errorf("invalid format of data detected, cleanup failed: %s upgrade failed: %s", err, uerr)
+		}
+
+		return fmt.Errorf("data format error: %s upgrade failed: %s", err, uerr)
 	}
 
 	return nil
