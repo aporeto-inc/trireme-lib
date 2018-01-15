@@ -926,10 +926,6 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port ui
 		return pu.(*pucontext.PUContext), nil
 	}
 
-	if err != nil && d.mode == constants.LocalContainer {
-		return nil, fmt.Errorf("ip must be always populated to local containers: %s", err)
-	}
-
 	// Look for context based on the default IP
 	defaultPU, err := d.puFromIP.Get(enforcerconstants.DefaultNetwork)
 	if err == nil {

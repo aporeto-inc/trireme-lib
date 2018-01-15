@@ -50,8 +50,8 @@ func TestNewSupervisor(t *testing.T) {
 
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
-		mode := constants.LocalContainer
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc")
+		mode := constants.LocalServer
 		implementation := constants.IPTables
 
 		Convey("When I provide correct parameters", func() {
@@ -90,9 +90,9 @@ func TestSupervise(t *testing.T) {
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -158,9 +158,9 @@ func TestUnsupervise(t *testing.T) {
 	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -195,9 +195,9 @@ func TestStart(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -229,9 +229,9 @@ func TestStop(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)

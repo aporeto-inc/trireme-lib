@@ -148,10 +148,6 @@ func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
 		return ip, true
 	}
 
-	if i.mode == constants.LocalContainer {
-		return "0.0.0.0/0", false
-	}
-
 	return "0.0.0.0/0", true
 }
 
@@ -433,12 +429,6 @@ func (i *Instance) Start() error {
 	// Clean any previous ACLs
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
-	}
-
-	if i.mode == constants.LocalContainer {
-		if i.acceptMarkedPackets() != nil {
-			return errors.New("filter of marked packets is not set")
-		}
 	}
 
 	zap.L().Debug("Started the iptables controller")
