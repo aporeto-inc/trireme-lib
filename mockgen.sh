@@ -1,8 +1,8 @@
 #! /bin/bash -e
 
-#go get github.com/aporeto-inc/mock/mockgen
-#go get -u github.com/golang/mock/gomock
-#go get -u golang.org/x/tools/cmd/goimports
+go get github.com/aporeto-inc/mock/mockgen
+go get -u github.com/golang/mock/gomock
+go get -u golang.org/x/tools/cmd/goimports
 
 goimport_sanitize () {
   goimports $1 > $1.bk
