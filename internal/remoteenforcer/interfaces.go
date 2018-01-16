@@ -19,6 +19,8 @@ const (
 	Enforce = "RemoteEnforcer.Enforce"
 	// EnforcerExit is string for invoking RPC
 	EnforcerExit = "RemoteEnforcer.EnforcerExit"
+	// UpdateSecrets is string for invoking updatesecrets RPC
+	UpdateSecrets = "RemoteEnforcer.UpdateSecrets"
 )
 
 // RemoteIntf is the interface implemented by the remote enforcer
