@@ -232,7 +232,6 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 				s.collector,
 				s.enforcer,
 				constants.RemoteContainer,
-				constants.IPTables,
 				payload.TriremeNetworks,
 			)
 			if err != nil {

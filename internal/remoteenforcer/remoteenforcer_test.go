@@ -454,7 +454,7 @@ func TestInitSupervisor(t *testing.T) {
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(*datapath.Datapath)
-				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, constants.IPTables, []string{})
+				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{})
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -540,7 +540,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 				c := &collector.DefaultCollector{}
 				secrets := secrets.NewPSKSecrets([]byte("test password"))
 				e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{})
+				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
 				server.enforcer = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
 
@@ -927,7 +927,7 @@ func TestUnSupervise(t *testing.T) {
 				secrets := secrets.NewPSKSecrets([]byte("test password"))
 				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{})
+				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
 
 				err := server.Unsupervise(rpcwrperreq, &rpcwrperres)
 
