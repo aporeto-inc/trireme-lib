@@ -97,13 +97,6 @@ func TestBasicFunctions(t *testing.T) {
 			So(runtime.Name(), ShouldEqual, "container1")
 		})
 
-		Convey("I should get the right IP addresses", func() {
-			So(runtime.IPAddresses(), ShouldResemble, ips)
-			defaultIP, ok := runtime.DefaultIPAddress()
-			So(ok, ShouldBeTrue)
-			So(defaultIP, ShouldResemble, "172.0.0.1")
-		})
-
 		Convey("If I update the IP addresses, they should updated", func() {
 			runtime.SetIPAddresses(ExtendedMap{DefaultNamespace: "10.1.1.1"})
 			So(runtime.IPAddresses(), ShouldResemble, ExtendedMap{DefaultNamespace: "10.1.1.1"})

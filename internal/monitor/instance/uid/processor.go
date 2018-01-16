@@ -111,7 +111,6 @@ func (u *uidProcessor) Start(eventInfo *events.EventInfo) error {
 			return err
 		}
 
-		defaultIP, _ := runtimeInfo.DefaultIPAddress()
 		if perr := u.config.PUHandler.HandlePUEvent(publishedContextID, events.EventStart); perr != nil {
 			zap.L().Error("Failed to activate process", zap.Error(perr))
 			return perr
@@ -124,7 +123,7 @@ func (u *uidProcessor) Start(eventInfo *events.EventInfo) error {
 
 		u.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: defaultIP,
+			IPAddress: runtimeInfo.IPAddresses(),
 			Tags:      runtimeInfo.Tags(),
 			Event:     collector.ContainerStart,
 		})

@@ -1237,8 +1237,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err1, ShouldBeNil)
 				_, err2 := enforcer.contextIDFromPort.GetSpecValueFromPort(80)
 				So(err2, ShouldBeNil)
-				_, err3 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
-				So(err3, ShouldNotBeNil)
+				So(enforcer.puFromIP, ShouldBeNil)
 			})
 		})
 	})
@@ -1258,37 +1257,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err, ShouldBeNil)
 				_, err := enforcer.puFromContextID.Get(contextID)
 				So(err, ShouldBeNil)
-				_, err4 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
-				So(err4, ShouldNotBeNil)
-			})
-		})
-	})
-
-	Convey("Given an initialized enforcer for local Linux Containers", t, func() {
-		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-		collector := &collector.DefaultCollector{}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
-
-		contextID := "123"
-		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
-
-		PacketFlow := packetgen.NewTemplateFlow()
-		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
-		So(err, ShouldBeNil)
-		for i := 0; i < PacketFlow.GetNumPackets(); i++ {
-			//PacketFlowInBytes = append(PacketFlowInBytes, PacketFlow.GetNthPacket(i).ToBytes())
-		}
-		Convey("When I create a new PU with an IP", func() {
-			ip := policy.ExtendedMap{
-				"bridge": PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String(),
-			}
-			puInfo.Runtime.SetIPAddresses(ip)
-			err := enforcer.Enforce(contextID, puInfo)
-
-			Convey("It should succeed ", func() {
-				So(err, ShouldBeNil)
-				_, err2 := enforcer.puFromIP.Get(PacketFlow.GetNthPacket(0).GetIPPacket().SrcIP.String())
-				So(err2, ShouldBeNil)
+				So(enforcer.puFromIP, ShouldBeNil)
 			})
 		})
 	})
@@ -1307,8 +1276,7 @@ func TestDoCreatePU(t *testing.T) {
 
 			Convey("It should succeed ", func() {
 				So(err, ShouldBeNil)
-				_, err2 := enforcer.puFromIP.Get(enforcerconstants.DefaultNetwork)
-				So(err2, ShouldBeNil)
+				So(enforcer.puFromIP, ShouldNotBeNil)
 			})
 		})
 	})
@@ -1327,28 +1295,9 @@ func TestContextFromIP(t *testing.T) {
 		contextID := "AporetoContext"
 		So(err, ShouldBeNil)
 
-		Convey("If I try to get the context based on the PU IP, it should succeed ", func() {
-			enforcer.puFromIP.AddOrUpdate("10.1.1.1", context)
-
-			ctx, err := enforcer.contextFromIP(true, "10.1.1.1", "", 0)
-			So(err, ShouldBeNil)
-			So(ctx, ShouldNotBeNil)
-			So(ctx, ShouldEqual, context)
-		})
-
 		Convey("If I try to get context based on IP and its  not there and its a local container it should fail ", func() {
 			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0)
 			So(err, ShouldNotBeNil)
-		})
-
-		Convey("If I try to get context based on IP and a remote container, it should try the default ", func() {
-			enforcer.puFromIP.AddOrUpdate(enforcerconstants.DefaultNetwork, context)
-			enforcer.mode = constants.LocalServer
-
-			ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0)
-			So(err, ShouldBeNil)
-			So(ctx, ShouldNotBeNil)
-			So(ctx, ShouldEqual, context)
 		})
 
 		Convey("If there is no IP match, it should try the mark for app packets ", func() {

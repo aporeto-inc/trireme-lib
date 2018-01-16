@@ -246,17 +246,6 @@ func (p *PUPolicy) SetIPAddresses(l ExtendedMap) {
 	p.ips = l
 }
 
-// DefaultIPAddress returns the default IP address for the processing unit
-func (p *PUPolicy) DefaultIPAddress() (string, bool) {
-	p.Lock()
-	defer p.Unlock()
-
-	if ip, ok := p.ips[DefaultNamespace]; ok {
-		return ip, true
-	}
-	return "0.0.0.0/0", false
-}
-
 // TriremeNetworks  returns the list of networks that Trireme must be applied
 func (p *PUPolicy) TriremeNetworks() []string {
 	p.Lock()

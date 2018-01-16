@@ -12,7 +12,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/internal/supervisor/ipsetctrl"
 	"github.com/aporeto-inc/trireme-lib/internal/supervisor/iptablesctrl"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
@@ -60,37 +59,29 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 	}
 
 	filterQueue := enforcerInstance.GetFilterQueue()
-
 	if filterQueue == nil {
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
 	portSetInstance := enforcerInstance.GetPortSetInstance()
-
 	if mode != constants.RemoteContainer && portSetInstance == nil {
 		return nil, errors.New("portSetInstance cannot be nil")
 	}
 
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
+	}
+
 	s := &Config{
 		mode:            mode,
-		impl:            nil,
+		impl:            impl,
 		versionTracker:  cache.NewCache("SupVersionTracker"),
 		collector:       collector,
 		filterQueue:     filterQueue,
 		excludedIPs:     []string{},
 		triremeNetworks: networks,
 		portSetInstance: portSetInstance,
-	}
-
-	var err error
-	switch implementation {
-	case constants.IPSets:
-		s.impl, err = ipsetctrl.NewInstance(s.filterQueue, false, mode)
-	default:
-		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, portSetInstance)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
 	return s, nil
@@ -135,7 +126,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	cacheEntry := version.(*cacheData)
 	port := cacheEntry.containerInfo.Runtime.Options().ProxyPort
 	proxyPortSetName := iptablesctrl.PuPortSetName(contextID, cacheEntry.mark, "Proxy-")
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port, proxyPortSetName); err != nil {
+	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port, proxyPortSetName); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 

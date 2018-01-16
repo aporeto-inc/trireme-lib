@@ -303,7 +303,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	if err != nil {
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: "N/A",
+			IPAddress: nil,
 			Tags:      nil,
 			Event:     collector.ContainerFailed,
 		})
@@ -319,7 +319,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	if err != nil || policyInfo == nil {
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: "N/A",
+			IPAddress: nil,
 			Tags:      nil,
 			Event:     collector.ContainerFailed,
 		})
@@ -328,8 +328,6 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	}
 
 	t.mergeRuntimeAndPolicy(runtimeInfo, policyInfo)
-
-	ip, _ := policyInfo.DefaultIPAddress()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 	newOptions := containerInfo.Runtime.Options()
@@ -341,7 +339,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	if !mustEnforce(contextID, containerInfo) {
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: ip,
+			IPAddress: runtimeInfo.IPAddresses(),
 			Tags:      policyInfo.Annotations(),
 			Event:     collector.ContainerIgnored,
 		})
@@ -351,7 +349,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: ip,
+			IPAddress: runtimeInfo.IPAddresses(),
 			Tags:      policyInfo.Annotations(),
 			Event:     collector.ContainerFailed,
 		})
@@ -368,7 +366,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: ip,
+			IPAddress: runtimeInfo.IPAddresses(),
 			Tags:      policyInfo.Annotations(),
 			Event:     collector.ContainerFailed,
 		})
@@ -378,7 +376,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
-		IPAddress: ip,
+		IPAddress: runtimeInfo.IPAddresses(),
 		Tags:      containerInfo.Policy.Annotations(),
 		Event:     collector.ContainerStart,
 	})
@@ -392,7 +390,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	if err != nil {
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: "N/A",
+			IPAddress: nil,
 			Tags:      nil,
 			Event:     collector.ContainerDeleteUnknown,
 		})
@@ -404,8 +402,6 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	// Serialize operations
 	runtime.GlobalLock.Lock()
 	defer runtime.GlobalLock.Unlock()
-
-	ip, _ := runtime.DefaultIPAddress()
 
 	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
 	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
@@ -422,7 +418,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 	if errS != nil || errE != nil {
 		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 			ContextID: contextID,
-			IPAddress: ip,
+			IPAddress: runtime.IPAddresses(),
 			Tags:      nil,
 			Event:     collector.ContainerDelete,
 		})
@@ -432,7 +428,7 @@ func (t *trireme) doHandleDelete(contextID string) error {
 
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
-		IPAddress: ip,
+		IPAddress: runtime.IPAddresses(),
 		Tags:      nil,
 		Event:     collector.ContainerDelete,
 	})
@@ -502,10 +498,9 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy) e
 		return fmt.Errorf("supervisor failed to update policy for pu %s: %s", contextID, err)
 	}
 
-	ip, _ := newPolicy.DefaultIPAddress()
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
-		IPAddress: ip,
+		IPAddress: runtime.IPAddresses(),
 		Tags:      containerInfo.Runtime.Tags(),
 		Event:     collector.ContainerUpdate,
 	})
