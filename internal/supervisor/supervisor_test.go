@@ -52,20 +52,18 @@ func TestNewSupervisor(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc")
 		mode := constants.LocalServer
-		implementation := constants.IPTables
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, mode, implementation, []string{})
+			s, err := NewSupervisor(c, e, mode, []string{})
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
 				So(s.collector, ShouldEqual, c)
-				So(s.mode, ShouldEqual, constants.IPTables)
 			})
 		})
 
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, mode, implementation, []string{})
+			s, err := NewSupervisor(nil, e, mode, []string{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -73,7 +71,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, mode, implementation, []string{})
+			s, err := NewSupervisor(c, nil, mode, []string{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -92,7 +90,7 @@ func TestSupervise(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -160,7 +158,7 @@ func TestUnsupervise(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -197,7 +195,7 @@ func TestStart(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -231,7 +229,7 @@ func TestStop(t *testing.T) {
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)

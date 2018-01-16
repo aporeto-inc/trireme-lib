@@ -82,7 +82,6 @@ func (t *trireme) newSupervisors() error {
 			t.config.collector,
 			t.enforcers[constants.LocalServer],
 			constants.LocalServer,
-			constants.IPTables,
 			t.config.targetNetworks,
 		)
 		if err != nil {

@@ -48,7 +48,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, implementation constants.ImplementationType, networks []string) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, networks []string) (*Config, error) {
 
 	if collector == nil {
 		return nil, errors.New("collector cannot be nil")
