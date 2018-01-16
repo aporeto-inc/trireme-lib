@@ -112,10 +112,9 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 		payload.Token = s.Secrets.TransmittedKey()
 		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
 		payload.SecretType = secrets.PKICompactType
-		zap.L().Error("TOKEN" + string(payload.Token))
 	}
+
 	for _, contextID := range s.rpchdl.ContextList() {
-		zap.L().Error("Calling Update Proxy for contextID::" + contextID)
 		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.UpdateSecrets, request, resp); err != nil {
 			return fmt.Errorf("Failed to update secrets. status %s: %s", resp.Status, err)
 		}
@@ -341,7 +340,6 @@ type StatsServer struct {
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		zap.L().Error("Message sender cannot be verified")
 		return errors.New("message sender cannot be verified")
 	}
 

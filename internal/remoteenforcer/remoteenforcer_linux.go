@@ -436,8 +436,7 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	}
 
 	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
-	zap.L().Error("Received a secrets update for secret Type ", zap.Int("Type", int(payload.SecretType)))
-	zap.L().Error("Enforcer TOKEN::" + string(payload.Token))
+
 	switch payload.SecretType {
 	case secrets.PKIType:
 		// PKI params
@@ -465,6 +464,7 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 			return fmt.Errorf("unable to initialize secrets: %s", err)
 		}
 	}
+
 	return nil
 
 }
