@@ -1178,7 +1178,6 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 func (i *Instance) addExclusionACLs(appChain, netChain string, ip string, exclusions []string) error {
 
 	for _, e := range exclusions {
-
 		if err := i.ipt.Insert(
 			i.appPacketIPTableContext, appChain, 1,
 			"-s", ip,
