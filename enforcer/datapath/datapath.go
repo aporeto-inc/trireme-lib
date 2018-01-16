@@ -362,6 +362,12 @@ func (d *Datapath) Stop() error {
 
 	d.nflogger.Stop()
 
+	if d.service != nil {
+		if err := d.service.Stop(); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

@@ -14,6 +14,9 @@ type PacketProcessor interface {
 	// Initialize  initializes the secrets of the processor
 	Initialize(s secrets.Secrets, fq *fqconfig.FilterQueue)
 
+	// Stop stops the packet processor
+	Stop() error
+
 	// PreProcessTCPAppPacket will be called for application packets and return value of false means drop packet.
 	PreProcessTCPAppPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) bool
 
