@@ -408,7 +408,7 @@ func TestInitSupervisor(t *testing.T) {
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
 				Convey("Then I should get error for no enforcer", func() {
-					So(err, ShouldResemble, errors.New("enforcer cannot be nil"))
+					So(err, ShouldNotBeNil)
 				})
 			})
 

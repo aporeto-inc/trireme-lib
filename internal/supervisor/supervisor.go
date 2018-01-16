@@ -38,7 +38,7 @@ type Config struct {
 	portSetInstance portset.PortSet
 	// collector is the stats collector implementation
 	collector collector.EventCollector
-	// filterQueue is the filterqueue paramters
+	// filterQueue is the filterqueue parameters
 	filterQueue *fqconfig.FilterQueue
 	// excludeIPs are the IPs that must be always excluded
 	excludedIPs []string
