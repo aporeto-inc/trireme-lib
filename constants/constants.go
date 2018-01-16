@@ -19,17 +19,6 @@ const (
 	LocalServer
 )
 
-// ImplementationType defines the type of iptables or ipsets implementation
-type ImplementationType int
-
-const (
-	// IPSets mandates an IPset supervisor implementation
-	IPSets ImplementationType = iota
-	// IPTables mandates an IPTable supervisor implementation
-	IPTables
-	// Remote indicates that this is a remote supervisor
-)
-
 // PUType defines the PU type
 type PUType int
 
