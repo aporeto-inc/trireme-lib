@@ -18,19 +18,19 @@ const observeMark = "39"
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string) [][]string {
 
-	str := [][]string{
+	return [][]string{
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
 			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server-specific-chain",
+			"-m", "comment", "--comment", "PU-specific-chain",
 			"-j", "MARK", "--set-mark", mark,
 		},
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
 			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server-specific-chain",
+			"-m", "comment", "--comment", "PU-specific-chain",
 			"-j", appChain,
 		},
 		{
@@ -39,12 +39,10 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-p", "tcp",
 			"-m", "multiport",
 			"--destination-ports", port,
-			"-m", "comment", "--comment", "Container-specific-chain",
+			"-m", "comment", "--comment", "PU-specific-chain",
 			"-j", netChain,
 		},
 	}
-
-	return str
 }
 
 func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string) [][]string {
@@ -59,7 +57,6 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string) [][]str
 			"--mark", proxyMark,
 			"-m", "set",
 			"--match-set", srcSetName, "src,dst",
-			"-m", "comment", "--comment", "Container-proxy-chain",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -71,7 +68,6 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string) [][]str
 			"--match-set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
-			"-m", "comment", "--comment", "Container-proxy-chain",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -83,7 +79,6 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string) [][]str
 			"--match-set", destSetName, "src,src",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
-			"-m", "comment", "--comment", "Container-proxy-chain",
 			"-j", "ACCEPT",
 		},
 		{
@@ -94,7 +89,6 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string) [][]str
 			"--match-set", srcSetName, "src,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
-			"-m", "comment", "--comment", "Container-proxy-chain",
 			"-j", "ACCEPT",
 		},
 		{
@@ -102,7 +96,6 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string) [][]str
 			proxyInputChain,
 			"-p", "tcp",
 			"--dport", proxyPort,
-			"-m", "comment", "--comment", "Container-proxy-chain",
 			"-j", "ACCEPT",
 		},
 		{
@@ -113,11 +106,9 @@ func (i *Instance) proxyRules(proxyPort string, proxyPortSetName string) [][]str
 			"--match-set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
-			"-m", "comment", "--comment", "Container-proxy-chain",
 			"-j", "ACCEPT",
 		},
 	}
-
 }
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string) [][]string {
@@ -132,7 +123,6 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			i.appPacketIPTableContext,
 			uidchain,
 			"-m", "mark", "--mark", mark,
-			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
 		{
@@ -147,11 +137,9 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			"-p", "tcp",
 			"-m", "mark",
 			"--mark", mark,
-			"-m", "comment", "--comment", "Container-specific-chain 1",
 			"-j", netChain,
 		},
 	}
-
 }
 
 // chainRules provides the list of rules that are used to send traffic to
@@ -179,65 +167,41 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string) [][]s
 //trapRules provides the packet trap rules to add/delete
 func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 
-	rules := [][]string{}
-
-	// Application Packets - SYN
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
-	})
-
-	// Application Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	})
-
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	})
-
-	// Network Packets - SYN
-	rules = append(rules, []string{
-		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
-	})
-	// Network Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
-	rules = append(rules, []string{
-		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
-	})
-
-	return rules
+	return [][]string{
+		{ // Application Packets - SYN
+			i.appPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
+		},
+		{ // Applications packets SynAck
+			i.appPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		},
+		{ // Application packets - ACK
+			i.appPacketIPTableContext, appChain,
+			"-m", "set", "--match-set", targetNetworkSet, "dst",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+		},
+		{ // Network packet SYN
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
+		},
+		{ // Network packet ACK
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
+		},
+	}
 }
 
-// addContainerChain adds a chain for the specific container and redirects traffic there
-// This simplifies significantly the management and makes the iptable rules more readable
-// All rules related to a container are contained within the dedicated chain
-func (i *Instance) addContainerChain(appChain string, netChain string) error {
-
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
-		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
-	}
-
-	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
-		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
-	}
-
-	return nil
-}
-
+// processRulesFromList is a generic function that processes iptable rules from a list
 func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) error {
 	for _, cr := range rulelist {
 		switch methodType {
@@ -257,6 +221,22 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 			return errors.New("invalid method type")
 		}
 	}
+	return nil
+}
+
+// addContainerChain adds a chain for the specific container and redirects traffic there
+// This simplifies significantly the management and makes the iptable rules more readable
+// All rules related to a container are contained within the dedicated chain
+func (i *Instance) addContainerChain(appChain string, netChain string) error {
+
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
+		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
+	}
+
+	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
+		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
+	}
+
 	return nil
 }
 
