@@ -75,14 +75,6 @@ func OptionMonitors(m *monitor.Config) Option {
 	}
 }
 
-// OptionEnforceLocal is an option to request local enforcer. Absence of this options
-// implies use remote enforcers.
-func OptionEnforceLocal() Option {
-	return func(cfg *config) {
-		cfg.mode = constants.LocalContainer
-	}
-}
-
 // OptionEnforceLinuxProcess is an option to request support for linux process support.
 func OptionEnforceLinuxProcess() Option {
 	return func(cfg *config) {
@@ -94,6 +86,13 @@ func OptionEnforceLinuxProcess() Option {
 func OptionEnforceFqConfig(f *fqconfig.FilterQueue) Option {
 	return func(cfg *config) {
 		cfg.fq = f
+	}
+}
+
+// OptionDisableMutualAuth is an option to disable MutualAuth (enabled by default)
+func OptionDisableMutualAuth() Option {
+	return func(cfg *config) {
+		cfg.mutualAuth = false
 	}
 }
 

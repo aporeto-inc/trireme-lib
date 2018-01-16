@@ -12,7 +12,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/policyenforcer"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/internal/supervisor/ipsetctrl"
 	"github.com/aporeto-inc/trireme-lib/internal/supervisor/iptablesctrl"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
@@ -49,7 +48,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, implementation constants.ImplementationType, networks []string) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, networks []string) (*Config, error) {
 
 	if collector == nil {
 		return nil, errors.New("collector cannot be nil")
@@ -83,12 +82,8 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance policyen
 	}
 
 	var err error
-	switch implementation {
-	case constants.IPSets:
-		s.impl, err = ipsetctrl.NewInstance(s.filterQueue, false, mode)
-	default:
-		s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, portSetInstance)
-	}
+
+	s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, portSetInstance)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}

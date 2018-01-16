@@ -15,22 +15,8 @@ const (
 	// RemoteContainer indicates that the Supervisor is implemented in the
 	// container namespace
 	RemoteContainer ModeType = iota
-	// LocalContainer indicates that the Supervisor is implemented in the host
-	// namespace
-	LocalContainer
 	// LocalServer indicates that the Supervisor applies to Linux processes
 	LocalServer
-)
-
-// ImplementationType defines the type of iptables or ipsets implementation
-type ImplementationType int
-
-const (
-	// IPSets mandates an IPset supervisor implementation
-	IPSets ImplementationType = iota
-	// IPTables mandates an IPTable supervisor implementation
-	IPTables
-	// Remote indicates that this is a remote supervisor
 )
 
 // PUType defines the PU type
@@ -66,6 +52,8 @@ const (
 	DefaultAporetoProcMountPoint = "/aporetoproc"
 	// DockerHostMode is the string of the network mode that indicates a host namespace
 	DockerHostMode = "host"
+	// DockerLinkedMode is the string of the network mode that indicates shared network namespace
+	DockerLinkedMode = "container:"
 )
 
 // DockerMonitorMode defines the different modes the docker monitor can be in depending on the environment where trireme-lib is running

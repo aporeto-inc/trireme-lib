@@ -53,6 +53,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.packetLogs,
 		)
 	}
+
 	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
 	if t.config.mode == constants.RemoteContainer {
 		t.enforcers[constants.RemoteContainer] = enforcerproxy.NewProxyEnforcer(
@@ -69,20 +70,6 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 		)
-	} else {
-		t.enforcers[constants.LocalContainer] = enforcer.New(
-			t.config.mutualAuth,
-			t.config.fq,
-			t.config.collector,
-			t.config.service,
-			t.config.secret,
-			t.config.serverID,
-			t.config.validity,
-			constants.LocalServer,
-			t.config.procMountPoint,
-			t.config.externalIPcacheTimeout,
-			t.config.packetLogs,
-		)
 	}
 
 	return nil
@@ -95,7 +82,6 @@ func (t *trireme) newSupervisors() error {
 			t.config.collector,
 			t.enforcers[constants.LocalServer],
 			constants.LocalServer,
-			constants.IPTables,
 			t.config.targetNetworks,
 		)
 		if err != nil {
@@ -115,22 +101,6 @@ func (t *trireme) newSupervisors() error {
 			return nil
 		}
 		t.supervisors[constants.RemoteContainer] = s
-	} else {
-		if _, ok := t.supervisors[constants.LocalServer]; ok {
-			t.supervisors[constants.LocalContainer] = t.supervisors[constants.LocalServer]
-		} else {
-			sup, err := supervisor.NewSupervisor(
-				t.config.collector,
-				t.enforcers[constants.LocalContainer],
-				constants.LocalContainer,
-				constants.IPTables,
-				t.config.targetNetworks,
-			)
-			if err != nil {
-				return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
-			}
-			t.supervisors[constants.LocalContainer] = sup
-		}
 	}
 
 	return nil
@@ -171,9 +141,6 @@ func newTrireme(c *config) Trireme {
 	if t.config.mode == constants.RemoteContainer {
 		t.puTypeToEnforcerType[constants.ContainerPU] = constants.RemoteContainer
 		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.RemoteContainer
-	} else {
-		t.puTypeToEnforcerType[constants.ContainerPU] = constants.LocalContainer
-		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.LocalContainer
 	}
 
 	zap.L().Debug("Creating Monitors")
@@ -356,7 +323,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 			Event:     collector.ContainerFailed,
 		})
 
-		return fmt.Errorf("policy error for %s. container killed: %s", contextID, err)
+		return fmt.Errorf("policy error for %s: %s", contextID, err)
 	}
 
 	t.mergeRuntimeAndPolicy(runtimeInfo, policyInfo)

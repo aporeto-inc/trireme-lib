@@ -287,7 +287,7 @@ func TestStartDockerContainer(t *testing.T) {
 			err := dmi.startDockerContainer(initTestDockerInfo(ID, "default", true))
 
 			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to set policy: killed container 74cc486f9ec3: Error"))
+				So(err, ShouldResemble, errors.New("unable to set policy: unable to remove container 74cc486f9ec3: Error, Error response from daemon: No such container: 74cc486f9ec3256d7bee789853ce05510167c7daf893f90a7577cdcba259d063"))
 			})
 		})
 
@@ -682,8 +682,6 @@ func TestSyncContainers(t *testing.T) {
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), processor.SynchronizationTypeInitial)
-				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.SetupHandlers(&processor.Config{
 					Collector:   eventCollector(),
 					PUHandler:   mockPU,
@@ -779,8 +777,6 @@ func TestStart(t *testing.T) {
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), processor.SynchronizationTypeInitial)
-				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.SetupHandlers(&processor.Config{
 					Collector:   eventCollector(),
 					PUHandler:   mockPU,

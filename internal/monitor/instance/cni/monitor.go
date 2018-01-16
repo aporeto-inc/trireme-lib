@@ -98,7 +98,7 @@ func (c *cniMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	cniConfig = SetupDefaultConfig(cniConfig)
 
 	// Setup configuration
-	c.proc.contextStore = contextstore.NewFileContextStore(cniConfig.ContextStorePath)
+	c.proc.contextStore = contextstore.NewFileContextStore(cniConfig.ContextStorePath, nil)
 	if c.proc.contextStore == nil {
 		return fmt.Errorf("Unable to create new context store")
 	}

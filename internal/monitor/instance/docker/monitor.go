@@ -28,6 +28,7 @@ import (
 	tevents "github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -161,13 +162,14 @@ func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
 
 	for p := range dockerInfo.Config.ExposedPorts {
 		if p.Proto() == "tcp" {
-			port, err := strconv.Atoi(p.Port())
+			s, err := portspec.NewPortSpecFromString(p.Port(), nil)
 			if err != nil {
 				continue
 			}
+
 			options.Services = append(options.Services, policy.Service{
 				Protocol: uint8(6),
-				Port:     uint16(port),
+				Ports:    s,
 			})
 		}
 	}
@@ -269,7 +271,7 @@ func (d *dockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
 	d.NoProxyMode = dockerConfig.NoProxyMode
-	d.cstore = contextstore.NewFileContextStore(cstorePath)
+	d.cstore = contextstore.NewFileContextStore(cstorePath, nil)
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
 		d.stopprocessor[i] = make(chan bool)
@@ -642,8 +644,6 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 
 func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
 
-	timeout := time.Second * 0
-
 	if !dockerInfo.State.Running {
 		return nil
 	}
@@ -691,13 +691,10 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 
 	if err = d.config.PUHandler.HandlePUEvent(contextID, event); err != nil {
 		if d.killContainerOnPolicyError {
-			if derr := d.dockerClient.ContainerStop(context.Background(), dockerInfo.ID, &timeout); derr != nil {
-				zap.L().Error("Unable to stop bad container",
-					zap.String("dockerID", contextID),
-					zap.Error(derr),
-				)
+			if derr := d.dockerClient.ContainerRemove(context.Background(), dockerInfo.ID, types.ContainerRemoveOptions{Force: true}); derr != nil {
+				return fmt.Errorf("unable to set policy: unable to remove container %s: %s, %s", contextID, err, derr)
 			}
-			return fmt.Errorf("unable to set policy: killed container %s: %s", contextID, err)
+			return fmt.Errorf("unable to set policy: removed container %s: %s", contextID, err)
 		}
 		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", contextID, err)
 	}

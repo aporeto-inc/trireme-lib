@@ -2,6 +2,7 @@ package contextstore
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -23,7 +24,7 @@ func cleanupstore(storebasePath string) {
 }
 
 func TestStore(t *testing.T) {
-	cstore := NewFileContextStore("./base")
+	cstore := NewFileContextStore("./base", nil)
 	defer cleanupstore("./base")
 
 	testdata := &testdatastruct{Data: 10}
@@ -45,7 +46,7 @@ func TestStore(t *testing.T) {
 
 func TestDestroyStore(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 
 	os.RemoveAll(storebasePath) //nolint
@@ -55,7 +56,7 @@ func TestDestroyStore(t *testing.T) {
 	}
 
 	//Reinit store
-	cstore = NewFileContextStore(storebasePath)
+	cstore = NewFileContextStore(storebasePath, nil)
 	testdata := &testdatastruct{Data: 10}
 	if err := cstore.Store(testcontextID, testdata); err != nil {
 		t.Errorf("Failed to store context %s", err.Error())
@@ -69,7 +70,7 @@ func TestDestroyStore(t *testing.T) {
 
 func TestRetrieve(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 
 	context := testdatastruct{}
@@ -98,7 +99,7 @@ func TestRetrieve(t *testing.T) {
 
 func TestRemove(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 
 	err := cstore.Remove(testcontextID)
@@ -124,7 +125,7 @@ func TestRemove(t *testing.T) {
 
 func TestWalk(t *testing.T) {
 
-	cstore := NewFileContextStore(storebasePath)
+	cstore := NewFileContextStore(storebasePath, nil)
 	defer cleanupstore("./base")
 	testdata := &testdatastruct{Data: 10}
 	contextIDList := []string{"/test1", "/test2", "/test3"}
@@ -146,5 +147,47 @@ func TestWalk(t *testing.T) {
 	if index != len(contextIDList) {
 		t.Errorf("Walk did not get all contextIDs %d", index)
 		t.SkipNow()
+	}
+}
+
+func TestRetrieveOnError(t *testing.T) {
+	cstore := NewFileContextStore("./base", func(contextID string, value interface{}) error {
+		if _, ok := value.(testdatastruct); !ok {
+			return fmt.Errorf("Cannot Remap")
+		}
+		return nil
+	})
+	defer cleanupstore("./base")
+	testdata := &testdatastruct{Data: 10}
+	data := &testdatastruct{}
+	contextID := "/test1"
+
+	if err := cstore.Retrieve(contextID, &data); err == nil {
+		t.Errorf("Retrieve should return error if context is not present %s", err)
+	}
+
+	if err := cstore.Store(contextID, testdata); err != nil {
+		t.Errorf("Failed to store %s", err)
+	}
+	if err := cstore.Retrieve(contextID, &data); err != nil {
+		t.Errorf("Retrieve should return error if context is not present %s", err)
+	}
+	if data.Data != testdata.Data {
+		t.Errorf("Failed to Retrieve :: data does not match %d, %d", data.Data, testdata.Data)
+	}
+
+	contextID = "/test2"
+	type newStructType struct {
+		Data string
+	}
+	testdatatest2 := &newStructType{}
+	if err := cstore.Store(contextID, testdatatest2); err != nil {
+		t.Errorf("Failed to store %s", err)
+	}
+	if err := cstore.Retrieve(contextID, &data); err == nil {
+		t.Errorf("Retrieve should return error if context is not present %s", err)
+	}
+	if _, err := os.Stat("./base/test2"); err == nil {
+		t.Errorf("Failed to cleanup store on error from remap")
 	}
 }
