@@ -43,22 +43,21 @@ const (
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
-	fqc                        *fqconfig.FilterQueue
-	ipt                        provider.IptablesProvider
-	ipset                      provider.IpsetProvider
-	vipTargetSet               provider.Ipset
-	pipTargetSet               provider.Ipset
-	targetSet                  provider.Ipset
-	appPacketIPTableContext    string
-	appAckPacketIPTableContext string
-	appProxyIPTableContext     string
-	appPacketIPTableSection    string
-	netPacketIPTableContext    string
-	netPacketIPTableSection    string
-	appCgroupIPTableSection    string
-	appSynAckIPTableSection    string
-	mode                       constants.ModeType
-	portSetInstance            portset.PortSet
+	fqc                     *fqconfig.FilterQueue
+	ipt                     provider.IptablesProvider
+	ipset                   provider.IpsetProvider
+	vipTargetSet            provider.Ipset
+	pipTargetSet            provider.Ipset
+	targetSet               provider.Ipset
+	appPacketIPTableContext string
+	appProxyIPTableContext  string
+	appPacketIPTableSection string
+	netPacketIPTableContext string
+	netPacketIPTableSection string
+	appCgroupIPTableSection string
+	appSynAckIPTableSection string
+	mode                    constants.ModeType
+	portSetInstance         portset.PortSet
 }
 
 // NewInstance creates a new iptables controller instance
@@ -78,24 +77,15 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 		fqc:   fqc,
 		ipt:   ipt,
 		ipset: ips,
-		appPacketIPTableContext:    "raw",
-		appAckPacketIPTableContext: "mangle",
-		netPacketIPTableContext:    "mangle",
-		appProxyIPTableContext:     "nat",
-		mode:            mode,
-		portSetInstance: portset,
-	}
-
-	if mode == constants.LocalServer || mode == constants.RemoteContainer {
-		i.appPacketIPTableSection = ipTableSectionOutput
-		i.appCgroupIPTableSection = ipTableSectionOutput
-		i.netPacketIPTableSection = ipTableSectionInput
-		i.appSynAckIPTableSection = ipTableSectionOutput
-	} else {
-		i.appPacketIPTableSection = ipTableSectionPreRouting
-		i.appCgroupIPTableSection = ipTableSectionOutput
-		i.netPacketIPTableSection = ipTableSectionPostRouting
-		i.appSynAckIPTableSection = ipTableSectionInput
+		appPacketIPTableContext: "mangle",
+		netPacketIPTableContext: "mangle",
+		appProxyIPTableContext:  "nat",
+		mode:                    mode,
+		portSetInstance:         portset,
+		appPacketIPTableSection: ipTableSectionOutput,
+		appCgroupIPTableSection: ipTableSectionOutput,
+		netPacketIPTableSection: ipTableSectionInput,
+		appSynAckIPTableSection: ipTableSectionOutput,
 	}
 
 	return i, nil
@@ -453,8 +443,8 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 	if i.mode == constants.LocalServer {
-		if err := i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain); err != nil {
-			zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidchain); err != nil {
+			zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", uidchain))
 			return err
 		}
 	}
@@ -466,15 +456,15 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	}
 	zap.L().Debug("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
-	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyOutputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyOutputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
 	}
-	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyInputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyInputChain))
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", proxyInputChain))
 	}
 	if i.mode == constants.LocalServer {
-		if err := i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
-			zap.L().Error("Unable to Insert", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+		if err := i.ipt.Insert(i.appPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
+			zap.L().Error("Unable to Insert", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", uidchain))
 		}
 	}
 	// Insert the ACLS that point to the target networks
