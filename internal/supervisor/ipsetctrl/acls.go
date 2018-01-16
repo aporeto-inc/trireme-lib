@@ -57,14 +57,14 @@ func (i *Instance) createACLSets(version string, set string, rules policy.IPRule
 func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 
 	if err := i.ipt.Insert(
-		i.appAckPacketIPTableContext, i.appPacketIPTableSection, 3,
+		i.appPacketIPTableContext, i.appPacketIPTableSection, 3,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", setPrefix+rejectPrefix+version, "dst",
 		"-s", ip,
 		"-j", "DROP",
 	); err != nil {
 		zap.L().Debug("Error when adding app acl rule",
-			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
+			zap.String("appPacketIPTableContext", i.appPacketIPTableContext),
 			zap.Error(err),
 		)
 		return fmt.Errorf("unable to add app acl rule: %s", err)
@@ -72,14 +72,14 @@ func (i *Instance) addAppSetRules(version, setPrefix, ip string) error {
 	}
 
 	if err := i.ipt.Insert(
-		i.appAckPacketIPTableContext, i.appPacketIPTableSection, 3,
+		i.appPacketIPTableContext, i.appPacketIPTableSection, 3,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", setPrefix+allowPrefix+version, "dst",
 		"-s", ip,
 		"-j", "ACCEPT",
 	); err != nil {
 		zap.L().Debug("Error when adding app acl rule",
-			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
+			zap.String("appPacketIPTableContext", i.appPacketIPTableContext),
 			zap.Error(err),
 		)
 		return fmt.Errorf("unable to add app acl rule: %s", err)
@@ -126,20 +126,20 @@ func (i *Instance) addNetSetRules(version, setPrefix, ip string) error {
 func (i *Instance) deleteAppSetRules(version, setPrefix, ip string) error {
 
 	if err := i.ipt.Delete(
-		i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+		i.appPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", setPrefix+rejectPrefix+version, "dst",
 		"-s", ip,
 		"-j", "DROP",
 	); err != nil {
 		zap.L().Debug("Error when removing app acl rule",
-			zap.String("appAckPacketIPTableContext", i.appAckPacketIPTableContext),
+			zap.String("appPacketIPTableContext", i.appPacketIPTableContext),
 			zap.Error(err),
 		)
 	}
 
 	if err := i.ipt.Delete(
-		i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+		i.appPacketIPTableContext, i.appPacketIPTableSection,
 		"-m", "state", "--state", "NEW",
 		"-m", "set", "--match-set", setPrefix+allowPrefix+version, "dst",
 		"-s", ip,
@@ -281,17 +281,9 @@ func (i *Instance) deleteIpsetOption(ip string) error {
 func (i *Instance) setupTrapRules(set string) error {
 
 	rules := [][]string{
-		// Application Syn
-		{
-			i.appPacketIPTableContext, i.appPacketIPTableSection,
-			"-m", "set", "--match-set", set, "dst",
-			"-m", "set", "--match-set", containerSet, "src",
-			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-			"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
-		},
 		// Application Syn and Syn/Ack accepted
 		{
-			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+			i.appPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", set, "dst",
 			"-m", "set", "--match-set", containerSet, "src",
 			"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
@@ -299,7 +291,7 @@ func (i *Instance) setupTrapRules(set string) error {
 		},
 		// Application Matching Trireme SRC and DST. everything but SYN, first 4 packets
 		{
-			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+			i.appPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", containerSet, "src",
 			"-m", "set", "--match-set", set, "dst",
 			"-p", "tcp",
@@ -308,7 +300,7 @@ func (i *Instance) setupTrapRules(set string) error {
 		},
 		// Default Drop from Trireme to Network
 		{
-			i.appAckPacketIPTableContext, i.appPacketIPTableSection,
+			i.appPacketIPTableContext, i.appPacketIPTableSection,
 			"-m", "set", "--match-set", containerSet, "src",
 			"-p", "tcp", "-m", "state", "--state", "NEW",
 			"-j", "DROP",
@@ -353,10 +345,6 @@ func (i *Instance) setupTrapRules(set string) error {
 func (i *Instance) cleanIPSets() error {
 
 	if err := i.ipt.ClearChain(i.appPacketIPTableContext, i.appPacketIPTableSection); err != nil {
-		zap.L().Warn("Failed to cleanup app packet chain", zap.Error(err))
-	}
-
-	if err := i.ipt.ClearChain(i.appAckPacketIPTableContext, i.appPacketIPTableSection); err != nil {
 		zap.L().Warn("Failed to cleanup ack packet chain", zap.Error(err))
 	}
 

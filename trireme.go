@@ -75,14 +75,6 @@ func OptionMonitors(m *monitor.Config) Option {
 	}
 }
 
-// OptionEnforceLocal is an option to request local enforcer. Absence of this options
-// implies use remote enforcers.
-func OptionEnforceLocal() Option {
-	return func(cfg *config) {
-		cfg.mode = constants.LocalContainer
-	}
-}
-
 // OptionEnforceLinuxProcess is an option to request support for linux process support.
 func OptionEnforceLinuxProcess() Option {
 	return func(cfg *config) {

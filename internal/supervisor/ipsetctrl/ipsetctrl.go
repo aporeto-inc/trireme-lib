@@ -20,17 +20,16 @@ const (
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
-	fqc                        *fqconfig.FilterQueue
-	ipt                        provider.IptablesProvider
-	ips                        provider.IpsetProvider
-	targetSet                  provider.Ipset
-	containerSet               provider.Ipset
-	appPacketIPTableContext    string
-	appAckPacketIPTableContext string
-	appPacketIPTableSection    string
-	netPacketIPTableContext    string
-	netPacketIPTableSection    string
-	mode                       constants.ModeType
+	fqc                     *fqconfig.FilterQueue
+	ipt                     provider.IptablesProvider
+	ips                     provider.IpsetProvider
+	targetSet               provider.Ipset
+	containerSet            provider.Ipset
+	appPacketIPTableContext string
+	appPacketIPTableSection string
+	netPacketIPTableContext string
+	netPacketIPTableSection string
+	mode                    constants.ModeType
 }
 
 // NewInstance creates a new iptables controller instance
@@ -47,9 +46,8 @@ func NewInstance(fqc *fqconfig.FilterQueue, remote bool, mode constants.ModeType
 		fqc: fqc,
 		ipt: ipt,
 		ips: ips,
-		appPacketIPTableContext:    "raw",
-		appAckPacketIPTableContext: "mangle",
-		netPacketIPTableContext:    "mangle",
+		appPacketIPTableContext: "mangle",
+		netPacketIPTableContext: "mangle",
 		mode: mode,
 	}
 

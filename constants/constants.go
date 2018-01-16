@@ -15,9 +15,6 @@ const (
 	// RemoteContainer indicates that the Supervisor is implemented in the
 	// container namespace
 	RemoteContainer ModeType = iota
-	// LocalContainer indicates that the Supervisor is implemented in the host
-	// namespace
-	LocalContainer
 	// LocalServer indicates that the Supervisor applies to Linux processes
 	LocalServer
 )

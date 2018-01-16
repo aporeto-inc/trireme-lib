@@ -17,7 +17,7 @@ func TestNewInstance(t *testing.T) {
 
 		Convey("If I create a local implemenetation and iptables and ipsets exists", func() {
 			fqc := fqconfig.NewFilterQueueWithDefaults()
-			i, err := NewInstance(fqc, false, constants.LocalContainer)
+			i, err := NewInstance(fqc, false, constants.RemoteContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -31,7 +31,7 @@ func TestNewInstance(t *testing.T) {
 
 		Convey("If I create a remote implemenetation and iptables and ipsets exists", func() {
 			fqc := fqconfig.NewFilterQueueWithDefaults()
-			i, err := NewInstance(fqc, true, constants.LocalContainer)
+			i, err := NewInstance(fqc, true, constants.RemoteContainer)
 			Convey("It should succeed", func() {
 				So(i, ShouldNotBeNil)
 				So(err, ShouldBeNil)
@@ -48,7 +48,7 @@ func TestNewInstance(t *testing.T) {
 func TestDefaultIP(t *testing.T) {
 	Convey("Given an iptables controller", t, func() {
 		fqc := fqconfig.NewFilterQueueWithDefaults()
-		i, _ := NewInstance(fqc, true, constants.LocalContainer)
+		i, _ := NewInstance(fqc, true, constants.RemoteContainer)
 		Convey("When I get the default IP address of a list that has the default namespace", func() {
 			addresslist := map[string]string{
 				policy.DefaultNamespace: "10.1.1.1",
@@ -76,7 +76,7 @@ func TestDefaultIP(t *testing.T) {
 func TestSetPrefix(t *testing.T) {
 	Convey("When I test the creation of the name of the chain", t, func() {
 		fqc := fqconfig.NewFilterQueueWithDefaults()
-		i, _ := NewInstance(fqc, true, constants.LocalContainer)
+		i, _ := NewInstance(fqc, true, constants.RemoteContainer)
 		Convey("With a contextID of Context and version of 1", func() {
 			app, net := i.setPrefix("Context")
 			Convey("I should get the right names", func() {
@@ -91,7 +91,7 @@ func TestConfigureRules(t *testing.T) {
 	Convey("Given an ipset controller properly configured", t, func() {
 
 		fqc := fqconfig.NewFilterQueueWithDefaults()
-		i, _ := NewInstance(fqc, true, constants.LocalContainer)
+		i, _ := NewInstance(fqc, true, constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -215,7 +215,7 @@ func TestConfigureRules(t *testing.T) {
 func TestDeleteRules(t *testing.T) {
 	Convey("Given a properly configured ipset controller", t, func() {
 		fqc := fqconfig.NewFilterQueueWithDefaults()
-		i, _ := NewInstance(fqc, true, constants.LocalContainer)
+		i, _ := NewInstance(fqc, true, constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -255,7 +255,7 @@ func TestDeleteRules(t *testing.T) {
 func TestUpdateRules(t *testing.T) {
 	Convey("Given a properly configured ipset controller", t, func() {
 		fqc := fqconfig.NewFilterQueueWithDefaults()
-		i, _ := NewInstance(fqc, true, constants.LocalContainer)
+		i, _ := NewInstance(fqc, true, constants.RemoteContainer)
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 		ipsets := provider.NewTestIpsetProvider()
@@ -340,12 +340,12 @@ func TestAddExcludedIP(t *testing.T) {
 	Convey("Testing AddExcludedIP", t, func() {
 		fqc := fqconfig.NewFilterQueueWithDefaults()
 		Convey("When i call with empty list it returns nil error", func() {
-			i, _ := NewInstance(fqc, true, constants.LocalContainer)
+			i, _ := NewInstance(fqc, true, constants.RemoteContainer)
 			err := i.AddExcludedIP([]string{})
 			So(err, ShouldBeNil)
 		})
 		Convey("When i call with a populate list error should be nil", func() {
-			i, _ := NewInstance(fqc, true, constants.LocalContainer)
+			i, _ := NewInstance(fqc, true, constants.RemoteContainer)
 			err := i.AddExcludedIP([]string{"172.22.197.32"})
 			//Since nothing is initialized
 			So(err, ShouldNotBeNil)
