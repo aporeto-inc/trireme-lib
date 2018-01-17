@@ -339,7 +339,7 @@ func sendRPC(address string, request *events.EventInfo) error {
 
 	rpcClient := jsonrpc.NewClient(client)
 
-	// Version is set automatically by library and will be checked by other end to ensure compatability.
+	// Version is set automatically by library and will be checked by other end to ensure compatibility.
 	request.Version = events.EventInfoCurrentVersion
 
 	err = rpcClient.Call(remoteMethodCall, request, response)

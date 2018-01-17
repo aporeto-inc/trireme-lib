@@ -14,7 +14,7 @@ const (
 // EventInfo should be used as a normalized struct container that
 type EventInfo struct {
 
-	// Version holds the version for compatability purposes.
+	// Version holds the version for compatibility purposes.
 	Version int
 
 	// EventType refers to one of the standard events that Trireme handles.
