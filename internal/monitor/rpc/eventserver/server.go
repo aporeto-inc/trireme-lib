@@ -73,6 +73,10 @@ func (s *Server) HandleEvent(eventInfo *events.EventInfo, result *events.EventRe
 
 func validateEvent(event *events.EventInfo) error {
 
+	if event.Version != events.EventInfoCurrentVersion {
+		return fmt.Errorf("RPC version mismatch. Expected: %d Received: %d", events.EventInfoCurrentVersion, event.Version)
+	}
+
 	if event.EventType == events.EventCreate || event.EventType == events.EventStart {
 		if len(event.Name) > maxEventNameLength {
 			return fmt.Errorf("Invalid Event Name - Must not be nil or greater than 64 characters")
