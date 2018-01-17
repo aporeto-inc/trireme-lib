@@ -5,9 +5,17 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
+const (
+	// EventInfoCurrentVersion specifies the current version in use.
+	EventInfoCurrentVersion = 1
+)
+
 // EventInfo is a generic structure that defines all the information related to a PU event.
 // EventInfo should be used as a normalized struct container that
 type EventInfo struct {
+
+	// Version holds the version for compatability purposes.
+	Version int
 
 	// EventType refers to one of the standard events that Trireme handles.
 	EventType Event
