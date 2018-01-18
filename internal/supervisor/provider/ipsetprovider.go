@@ -27,6 +27,7 @@ func (i *goIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (
 	return ipset.New(name, hasht, p)
 }
 
+// DestroyAll destroys all the ipsets - it will fail if there are existing references
 func (i *goIpsetProvider) DestroyAll() error {
 	return ipset.DestroyAll()
 }
