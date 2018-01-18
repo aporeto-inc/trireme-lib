@@ -84,7 +84,7 @@ func TestAddChainRules(t *testing.T) {
 				return nil
 			})
 
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 		})
 
@@ -95,7 +95,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 
 		})
@@ -107,7 +107,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 
 		})
@@ -123,7 +123,7 @@ func TestAddChainRules(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 		})
 
@@ -134,7 +134,7 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 		})
 
@@ -145,14 +145,14 @@ func TestAddChainRules(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSet")
 			So(err, ShouldNotBeNil)
 		})
 		Convey("When i add chain rules with non-zero uid and port 0", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "0", "0", "1001", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "0", "0", "1001", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 
 		})
@@ -165,7 +165,7 @@ func TestAddChainRules(t *testing.T) {
 
 				return fmt.Errorf("added to different chain: %s", chain)
 			})
-			err := i.addChainRules("appchain", "netchain", "172.17.0.1", "80", "0", "1001", "", "5000", "proxyPortSet")
+			err := i.addChainRules("appchain", "netchain", "80", "0", "1001", "", "5000", "proxyPortSet")
 			So(err, ShouldBeNil)
 
 		})
@@ -184,7 +184,7 @@ func TestAddPacketTrap(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1", []string{"172.17.0.0/24"})
+			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -197,7 +197,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1", []string{"172.17.0.0/24"})
+			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -210,7 +210,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1", []string{"172.17.0.0/24"})
+			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -227,7 +227,7 @@ func TestAddPacketTrap(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1", []string{"172.17.0.0/24"})
+			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -240,7 +240,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1", []string{"172.17.0.0/24"})
+			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -253,7 +253,7 @@ func TestAddPacketTrap(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", "172.17.0.1", []string{"172.17.0.0/24"})
+			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -285,7 +285,7 @@ func TestAddAppACLs(t *testing.T) {
 				return errors.New("error")
 			})
 
-			err := i.addAppACLs("", "chain", "", policy.IPRuleList{})
+			err := i.addAppACLs("", "chain", policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -299,7 +299,7 @@ func TestAddAppACLs(t *testing.T) {
 				return nil
 			})
 
-			err := i.addAppACLs("", "chain", "", policy.IPRuleList{})
+			err := i.addAppACLs("", "chain", policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -335,7 +335,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addAppACLs("chain", "", "", rules)
+			err := i.addAppACLs("chain", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -368,7 +368,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addAppACLs("chain", "", "", rules)
+			err := i.addAppACLs("chain", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -401,7 +401,7 @@ func TestAddAppACLs(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addAppACLs("chain", "", "", rules)
+			err := i.addAppACLs("chain", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -433,7 +433,7 @@ func TestAddNetAcls(t *testing.T) {
 				return errors.New("error")
 			})
 
-			err := i.addNetACLs("", "chain", "", policy.IPRuleList{})
+			err := i.addNetACLs("", "chain", policy.IPRuleList{})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -447,7 +447,7 @@ func TestAddNetAcls(t *testing.T) {
 				return nil
 			})
 
-			err := i.addNetACLs("", "chain", "", policy.IPRuleList{})
+			err := i.addNetACLs("", "chain", policy.IPRuleList{})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -486,7 +486,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addNetACLs("chain", "", "", rules)
+			err := i.addNetACLs("chain", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -522,7 +522,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addNetACLs("chain", "", "", rules)
+			err := i.addNetACLs("chain", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -558,7 +558,7 @@ func TestAddNetAcls(t *testing.T) {
 				}
 				return fmt.Errorf("error %s", rulespec)
 			})
-			err := i.addNetACLs("chain", "", "", rules)
+			err := i.addNetACLs("chain", "", rules)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -578,7 +578,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSetName")
+			err := i.deleteChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSetName")
 			So(err, ShouldBeNil)
 		})
 
@@ -586,7 +586,7 @@ func TestDeleteChainRules(t *testing.T) {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.deleteChainRules("appchain", "netchain", "172.17.0.1", "0", "100", "", "", "5000", "proxyPortSetName")
+			err := i.deleteChainRules("appchain", "netchain", "0", "100", "", "", "5000", "proxyPortSetName")
 			So(err, ShouldBeNil)
 
 		})
@@ -694,7 +694,7 @@ func TestAddExclusionACLs(t *testing.T) {
 				return nil
 			})
 
-			err := i.addExclusionACLs("appchain", "netchain", "1.2.3.4/32", []string{"10.1.1.1/32"})
+			err := i.addExclusionACLs("appchain", "netchain", []string{"10.1.1.1/32"})
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
@@ -707,7 +707,7 @@ func TestAddExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addExclusionACLs("appchain", "netchain", "1.2.3.4/32", []string{"10.1.1.1/32"})
+			err := i.addExclusionACLs("appchain", "netchain", []string{"10.1.1.1/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -720,7 +720,7 @@ func TestAddExclusionACLs(t *testing.T) {
 				}
 				return nil
 			})
-			err := i.addExclusionACLs("appchain", "netchain", "1.2.3.4/32", []string{"10.1.1.1/32"})
+			err := i.addExclusionACLs("appchain", "netchain", []string{"10.1.1.1/32"})
 			Convey("I should get  error", func() {
 				So(err, ShouldNotBeNil)
 			})

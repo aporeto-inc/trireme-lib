@@ -43,35 +43,6 @@ func TestChainName(t *testing.T) {
 	})
 }
 
-func TestDefaultIP(t *testing.T) {
-
-	Convey("Given an iptables controller with remote on ", t, func() {
-		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
-		Convey("When I get the default IP address of a list that has the default namespace", func() {
-			addresslist := map[string]string{
-				policy.DefaultNamespace: "10.1.1.1",
-			}
-			address, status := i.defaultIP(addresslist)
-
-			Convey("I should get the right IP", func() {
-				So(address, ShouldResemble, "10.1.1.1")
-				So(status, ShouldBeTrue)
-			})
-		})
-
-		Convey("When I provide list with no matching default", func() {
-			addresslist := map[string]string{}
-			address, status := i.defaultIP(addresslist)
-
-			Convey("I should get back the default IP and true status", func() {
-				So(address, ShouldResemble, "0.0.0.0/0")
-				So(status, ShouldBeTrue)
-			})
-		})
-	})
-
-}
-
 func TestConfigureRules(t *testing.T) {
 	Convey("Given an iptables controllers", t, func() {
 		i, _ := NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.RemoteContainer, portset.New(nil))
@@ -217,12 +188,6 @@ func TestDeleteRules(t *testing.T) {
 		iptables := provider.NewTestIptablesProvider()
 		i.ipt = iptables
 
-		Convey("If I try to delete with nil IP addreses", func() {
-			err := i.DeleteRules(1, "context", nil, "0", "0", "", "5000", "proxyPortSetName")
-			So(err, ShouldNotBeNil)
-
-		})
-
 		Convey("I try to delete with a valid default IP address ", func() {
 			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
 				return nil
@@ -233,7 +198,7 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", policy.ExtendedMap{policy.DefaultNamespace: "172.17.0.2"}, "0", "0", "", "5000", "proxyPortSetName")
+			err := i.DeleteRules(1, "context", "0", "0", "", "5000", "proxyPortSetName")
 			So(err, ShouldBeNil)
 		})
 
