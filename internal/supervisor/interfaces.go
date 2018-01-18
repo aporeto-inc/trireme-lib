@@ -24,10 +24,10 @@ type Supervisor interface {
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc
 type Implementor interface {
 
-	// ConfigureRules
+	// ConfigureRules configures the rules in the ACLs and datapath
 	ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error
 
-	// UpdateRules
+	// UpdateRules updates the rules with a new version
 	UpdateRules(version int, contextID string, containerInfo *policy.PUInfo, oldContainerInfo *policy.PUInfo) error
 
 	// DeleteRules
