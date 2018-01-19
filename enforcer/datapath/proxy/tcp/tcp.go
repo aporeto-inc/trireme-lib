@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strconv"
 	"sync"
 	"syscall"
@@ -285,10 +286,46 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		}
 	} else {
 		// Hand off encryption to service processor for proxied traffic
-
+		if err = p.handleEncryptedData(upConn, downConn); err != nil {
+			zap.L().Error("Failed to setup encrypted connection", zap.Error(err))
+		}
 	}
+
 }
 
+func (p *Proxy) handleEncryptedData(upConn net.Conn, downConn int) error {
+	backendip := upConn.RemoteAddr().Network()
+	isLocalIP := func() bool {
+		for _, ip := range p.IPList {
+			if ip == backendip {
+				return true
+			}
+		}
+		return false
+	}()
+	if isLocalIP {
+		//if upConn.RemoteAddress is local address then we are server
+		tlsServConn := tls.Server(upConn, &tls.Config{InsecureSkipVerify: true})
+		tlsServConn.Handshake()
+		copyEncryptedFlow(tlsServConn, downConn)
+	} else {
+
+		tlsFs := os.NewFile(uintptr(downConn), "serversock")
+		netConn, err := net.FileConn(tlsFs)
+		if err != nil {
+			return fmt.Errorf("Cannot convert sys fd to netConn %s", err)
+		}
+		tlsClientConn := tls.Client(netConn, &tls.Config{InsecureSkipVerify: true})
+		tlsClientConn.Handshake()
+		var fs *os.File
+		fs, err = upConn.(*net.TCPConn).File()
+		if err != nil {
+			return fmt.Errorf("Cannot convert upconn TCP Connection to Fd %s", err)
+		}
+		copyEncryptedFlow(tlsClientConn, int(fs.Fd()))
+	}
+	return nil
+}
 func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
 	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
 	if e1 != 0 {

@@ -3,6 +3,7 @@
 package tcp
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -115,4 +116,8 @@ func CopyPipe(a, b net.Conn) error {
 		return err2
 	}
 	return nil
+}
+
+func copyEncryptedFlow(tlsConn *tls.Conn, fd int) {
+
 }
