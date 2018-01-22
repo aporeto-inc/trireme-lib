@@ -340,17 +340,6 @@ func TestAllLockedSetGet(t *testing.T) {
 		Convey("If I update the IPS, it should succeed", func() {
 			p.SetIPAddresses(ExtendedMap{DefaultNamespace: "40.0.0.0/8"})
 			So(p.IPAddresses(), ShouldResemble, ExtendedMap{DefaultNamespace: "40.0.0.0/8"})
-
-			defaultIP, ok := p.DefaultIPAddress()
-			So(ok, ShouldBeTrue)
-			So(defaultIP, ShouldResemble, "40.0.0.0/8")
-		})
-
-		Convey("If I update the IPs with a non default bridge, I should get the default IP", func() {
-			p.SetIPAddresses(ExtendedMap{"random bridge": "40.0.0.0/8"})
-			defaultIP, ok := p.DefaultIPAddress()
-			So(ok, ShouldBeFalse)
-			So(defaultIP, ShouldResemble, "0.0.0.0/0")
 		})
 
 		Convey("If I update the trireme networks it should succeed", func() {

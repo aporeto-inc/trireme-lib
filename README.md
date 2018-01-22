@@ -141,4 +141,3 @@ We are taking this step to protect any users of the library from an accidental v
 of the GPL guidelines.
 
 [![Analytics](https://ga-beacon.appspot.com/UA-90317101-1/welcome-page)](https://github.com/igrigorik/ga-beacon)
-

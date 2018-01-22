@@ -921,19 +921,12 @@ func updateTimer(c cache.DataStore, hash string, conn *connection.TCPConnection)
 // and Linux processes.
 func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port uint16) (*pucontext.PUContext, error) {
 
-	pu, err := d.puFromIP.Get(packetIP)
-	if err == nil {
-		return pu.(*pucontext.PUContext), nil
-	}
-
-	// Look for context based on the default IP
-	defaultPU, err := d.puFromIP.Get(enforcerconstants.DefaultNetwork)
-	if err == nil {
-		return defaultPU.(*pucontext.PUContext), nil
+	if d.puFromIP != nil {
+		return d.puFromIP, nil
 	}
 
 	if app {
-		pu, err = d.puFromMark.Get(mark)
+		pu, err := d.puFromMark.Get(mark)
 		if err != nil {
 			return nil, fmt.Errorf("pu context cannot be found using mark %s: %s", mark, err)
 		}
@@ -945,7 +938,7 @@ func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port ui
 		return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
 	}
 
-	pu, err = d.puFromContextID.Get(contextID)
+	pu, err := d.puFromContextID.Get(contextID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to find contextID: %s", contextID)
 	}

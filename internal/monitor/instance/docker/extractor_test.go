@@ -47,12 +47,8 @@ func TestReturnedFunc(t *testing.T) {
 	if err != nil {
 		t.Skipf("Skip test because no support for writing files to /tmp")
 	}
-	PUruntime, err := function(nil)
+	_, err = function(nil)
 	if err != nil {
 		t.Errorf("Failed to create extractor")
-	}
-	ip, _ := PUruntime.DefaultIPAddress()
-	if ip != "172.17.0.2" {
-		t.Errorf("Unmarshalled information %s didn't correspond to Mock data %s", ip, "172.17.0.2")
 	}
 }

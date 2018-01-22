@@ -40,15 +40,13 @@ func (c *cniProcessor) Start(eventInfo *events.EventInfo) error {
 		return err
 	}
 
-	defaultIP, _ := runtimeInfo.DefaultIPAddress()
-
 	if err := c.config.PUHandler.HandlePUEvent(contextID, events.EventStart); err != nil {
 		return err
 	}
 
 	c.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
-		IPAddress: defaultIP,
+		IPAddress: runtimeInfo.IPAddresses(),
 		Tags:      runtimeInfo.Tags(),
 		Event:     collector.ContainerStart,
 	})

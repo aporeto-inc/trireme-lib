@@ -52,24 +52,24 @@ type PURuntimeJSON struct {
 // NewPURuntime Generate a new RuntimeInfo
 func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType constants.PUType, options *OptionsType) *PURuntime {
 
-	t := tags
-	if t == nil {
-		t = NewTagStore()
+	if tags == nil {
+		tags = NewTagStore()
 	}
 
-	i := ips
-	if i == nil {
-		i = ExtendedMap{}
+	if ips == nil {
+		ips = ExtendedMap{}
 	}
+
 	if options == nil {
 		options = &OptionsType{
 			ProxyPort: "5000",
 		}
 	}
+
 	return &PURuntime{
 		puType:     puType,
-		tags:       t,
-		ips:        i,
+		tags:       tags,
+		ips:        ips,
 		options:    options,
 		pid:        pid,
 		nsPath:     nsPath,
@@ -183,16 +183,6 @@ func (r *PURuntime) PUType() constants.PUType {
 	defer r.Unlock()
 
 	return r.puType
-}
-
-// DefaultIPAddress returns the default IP address for the processing unit
-func (r *PURuntime) DefaultIPAddress() (string, bool) {
-	r.Lock()
-	defer r.Unlock()
-
-	ip, ok := r.ips[DefaultNamespace]
-
-	return ip, ok
 }
 
 // IPAddresses returns all the IP addresses for the processing unit

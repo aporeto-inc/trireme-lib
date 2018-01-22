@@ -34,8 +34,6 @@ type PUContext struct {
 	applicationACLs   *acls.ACLCache
 	networkACLs       *acls.ACLCache
 	externalIPCache   cache.DataStore
-	Extension         interface{}
-	ip                string
 	mark              string
 	ProxyPort         string
 	ports             []string
@@ -43,22 +41,17 @@ type PUContext struct {
 	synToken          []byte
 	synServiceContext []byte
 	synExpiration     time.Time
+	Extension         interface{}
 	sync.RWMutex
 }
 
 // NewPU creates a new PU context
 func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
 
-	ip, ok := puInfo.Runtime.DefaultIPAddress()
-	if !ok {
-		ip = "0.0.0.0/0"
-	}
-
 	pu := &PUContext{
 		id:              contextID,
 		managementID:    puInfo.Policy.ManagementID(),
 		puType:          puInfo.Runtime.PUType(),
-		ip:              ip,
 		identity:        puInfo.Policy.Identity(),
 		annotations:     puInfo.Policy.Annotations(),
 		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
@@ -104,11 +97,6 @@ func (p *PUContext) Type() constants.PUType {
 // Identity returns the indentity
 func (p *PUContext) Identity() *policy.TagStore {
 	return p.identity
-}
-
-// IP returns the IP of the PU
-func (p *PUContext) IP() string {
-	return p.ip
 }
 
 // Mark returns the PU mark

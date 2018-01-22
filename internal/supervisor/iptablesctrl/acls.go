@@ -139,7 +139,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
-func (i *Instance) chainRules(appChain string, netChain string, ip string, port string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) chainRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string) [][]string {
 
 	rules := [][]string{}
 	destSetName, srcSetName := i.getSetNamePair(proxyPortSetName)
@@ -147,7 +147,6 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 	rules = append(rules, []string{
 		i.appPacketIPTableContext,
 		i.appPacketIPTableSection,
-		"-s", ip,
 		"-m", "comment", "--comment", "Container-specific-chain",
 		"-j", appChain,
 	})
@@ -155,7 +154,6 @@ func (i *Instance) chainRules(appChain string, netChain string, ip string, port 
 	rules = append(rules, []string{
 		i.netPacketIPTableContext,
 		i.netPacketIPTableSection,
-		"-d", ip,
 		"-m", "comment", "--comment", "Container-specific-chain",
 		"-j", netChain,
 	})
@@ -310,7 +308,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, ip string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 	if i.mode == constants.LocalServer {
 		if port != "0" || uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Append")
@@ -320,12 +318,12 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort, proxyPortSetName), "Append")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, port, proxyPort, proxyPortSetName), "Append")
 
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, networks []string) error {
+func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string) error {
 
 	return i.processRulesFromList(i.trapRules(appChain, netChain), "Append")
 
@@ -333,7 +331,7 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, ip string, ne
 
 // addAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleList) error {
+func (i *Instance) addAppACLs(contextID, chain string, rules policy.IPRuleList) error {
 
 	for loop := 0; loop < 3; loop++ {
 
@@ -576,7 +574,7 @@ func (i *Instance) addAppACLs(contextID, chain, ip string, rules policy.IPRuleLi
 
 // addNetACLs adds iptables rules that manage traffic from external services. The
 // explicit rules are added with the highest priority since they are direct allows.
-func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleList) error {
+func (i *Instance) addNetACLs(contextID, chain string, rules policy.IPRuleList) error {
 
 	for loop := 0; loop < 3; loop++ {
 
@@ -820,7 +818,7 @@ func (i *Instance) addNetACLs(contextID, chain, ip string, rules policy.IPRuleLi
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(portSetName, appChain, netChain, ip string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) deleteChainRules(portSetName, appChain, netChain, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
@@ -829,7 +827,7 @@ func (i *Instance) deleteChainRules(portSetName, appChain, netChain, ip string, 
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Delete")
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, ip, port, proxyPort, proxyPortSetName), "Delete")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, port, proxyPort, proxyPortSetName), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
@@ -1238,13 +1236,12 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 }
 
 // addExclusionACLs adds the set of IP addresses that must be excluded
-func (i *Instance) addExclusionACLs(appChain, netChain string, ip string, exclusions []string) error {
+func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []string) error {
 
 	for _, e := range exclusions {
 
 		if err := i.ipt.Insert(
 			i.appPacketIPTableContext, appChain, 1,
-			"-s", ip,
 			"-d", e,
 			"-j", "ACCEPT",
 		); err != nil {
@@ -1254,7 +1251,6 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, ip string, exclus
 		if err := i.ipt.Insert(
 			i.netPacketIPTableContext, netChain, 1,
 			"-s", e,
-			"-d", ip,
 			"-p", "tcp", "!", "--tcp-option", strconv.Itoa(int(packet.TCPAuthenticationOption)),
 			"-j", "ACCEPT",
 		); err != nil {

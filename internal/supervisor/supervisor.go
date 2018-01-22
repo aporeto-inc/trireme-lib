@@ -28,18 +28,22 @@ type cacheData struct {
 
 // Config is the structure holding all information about the supervisor
 type Config struct {
-	//implType ImplementationType
+	// mode is LocalServer or RemoteContainer
 	mode constants.ModeType
-
+	// versionTracker tracks the current version of the ACLs
 	versionTracker cache.DataStore
-	collector      collector.EventCollector
-	filterQueue    *fqconfig.FilterQueue
-	excludedIPs    []string
-	impl           Implementor
-
-	triremeNetworks []string
-
+	// impl is the packet filter implementation
+	impl Implementor
+	// portSetInstance is the controller of the port set
 	portSetInstance portset.PortSet
+	// collector is the stats collector implementation
+	collector collector.EventCollector
+	// filterQueue is the filterqueue parameters
+	filterQueue *fqconfig.FilterQueue
+	// excludeIPs are the IPs that must be always excluded
+	excludedIPs []string
+	// triremeNetworks are the target networks where Trireme is implemented
+	triremeNetworks []string
 
 	sync.Mutex
 }
@@ -50,70 +54,53 @@ type Config struct {
 // simplifies the lookup operations at the expense of memory.
 func NewSupervisor(collector collector.EventCollector, enforcerInstance policyenforcer.Enforcer, mode constants.ModeType, networks []string) (*Config, error) {
 
-	if collector == nil {
-		return nil, errors.New("collector cannot be nil")
-	}
-
-	if enforcerInstance == nil {
-		return nil, errors.New("enforcer cannot be nil")
+	if collector == nil || enforcerInstance == nil {
+		return nil, errors.New("Invalid parameters")
 	}
 
 	filterQueue := enforcerInstance.GetFilterQueue()
-
 	if filterQueue == nil {
 		return nil, errors.New("enforcer filter queues cannot be nil")
 	}
 
 	portSetInstance := enforcerInstance.GetPortSetInstance()
-
 	if mode != constants.RemoteContainer && portSetInstance == nil {
 		return nil, errors.New("portSetInstance cannot be nil")
 	}
 
-	s := &Config{
+	impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
+	}
+
+	return &Config{
 		mode:            mode,
-		impl:            nil,
+		impl:            impl,
 		versionTracker:  cache.NewCache("SupVersionTracker"),
 		collector:       collector,
 		filterQueue:     filterQueue,
 		excludedIPs:     []string{},
 		triremeNetworks: networks,
 		portSetInstance: portSetInstance,
-	}
-
-	var err error
-
-	s.impl, err = iptablesctrl.NewInstance(s.filterQueue, mode, portSetInstance)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
-	}
-
-	return s, nil
+	}, nil
 }
 
 // Supervise creates a mapping between an IP address and the corresponding labels.
 // it invokes the various handlers that process the parameter policy.
-func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error {
+func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
 
-	if containerInfo == nil {
-		return errors.New("containerinfo must not be nil")
-	}
-	if containerInfo.Policy == nil {
-		return errors.New("containerinfo.policy must not be nil")
-	}
-	if containerInfo.Runtime == nil {
-		return errors.New("containerinfo.runtime must not be nil")
+	if pu == nil || pu.Policy == nil || pu.Runtime == nil {
+		return errors.New("Invalid PU or policy info")
 	}
 
 	_, err := s.versionTracker.Get(contextID)
-
 	if err != nil {
 		// ContextID is not found in Cache, New PU: Do create.
-		return s.doCreatePU(contextID, containerInfo)
+		return s.doCreatePU(contextID, pu)
 	}
 
 	// Context already in the cache. Just run update
-	return s.doUpdatePU(contextID, containerInfo)
+	return s.doUpdatePU(contextID, pu)
 }
 
 // Unsupervise removes the mapping from cache and cleans up the iptable rules. ALL
@@ -121,16 +108,16 @@ func (s *Config) Supervise(contextID string, containerInfo *policy.PUInfo) error
 // as much cleanup as possible to avoid stale state
 func (s *Config) Unsupervise(contextID string) error {
 
-	version, err := s.versionTracker.Get(contextID)
-
+	data, err := s.versionTracker.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("cannot find policy version: %s", err)
 	}
 
-	cacheEntry := version.(*cacheData)
-	port := cacheEntry.containerInfo.Runtime.Options().ProxyPort
-	proxyPortSetName := iptablesctrl.PuPortSetName(contextID, cacheEntry.mark, "Proxy-")
-	if err := s.impl.DeleteRules(cacheEntry.version, contextID, cacheEntry.ips, cacheEntry.port, cacheEntry.mark, cacheEntry.uid, port, proxyPortSetName); err != nil {
+	cfg := data.(*cacheData)
+	port := cfg.containerInfo.Runtime.Options().ProxyPort
+	proxyPortSetName := iptablesctrl.PuPortSetName(contextID, cfg.mark, "Proxy-")
+
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.port, cfg.mark, cfg.uid, port, proxyPortSetName); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -149,24 +136,13 @@ func (s *Config) Start() error {
 	}
 
 	s.Lock()
-	if err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks); err != nil {
-		return err
-	}
-	s.Unlock()
-
-	zap.L().Debug("Started the supervisor")
-
-	return nil
+	defer s.Unlock()
+	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
 }
 
 // Stop stops the supervisor
 func (s *Config) Stop() error {
-
-	if err := s.impl.Stop(); err != nil {
-		return fmt.Errorf("unable to stop the implementer: %s", err)
-	}
-
-	return nil
+	return s.impl.Stop()
 }
 
 // SetTargetNetworks sets the target networks of the supervisor
@@ -179,44 +155,29 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
-
-	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
-		return err
-	}
-
 	s.triremeNetworks = networks
 
-	return nil
+	return s.impl.SetTargetNetworks(s.triremeNetworks, networks)
 }
 
-func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) error {
+func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 
-	zap.L().Debug("IPTables update for the creation of a pu", zap.String("contextID", contextID))
-
-	version := 0
-	mark := containerInfo.Runtime.Options().CgroupMark
-	port := policy.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
-	uid := containerInfo.Runtime.Options().UserID
-
-	cacheEntry := &cacheData{
-		version:       version,
-		ips:           containerInfo.Policy.IPAddresses(),
-		mark:          mark,
-		port:          port,
-		uid:           uid,
-		containerInfo: containerInfo,
+	c := &cacheData{
+		version:       0,
+		ips:           pu.Policy.IPAddresses(),
+		mark:          pu.Runtime.Options().CgroupMark,
+		port:          policy.ConvertServicesToPortList(pu.Runtime.Options().Services),
+		uid:           pu.Runtime.Options().UserID,
+		containerInfo: pu,
 	}
 
 	// Version the policy so that we can do hitless policy changes
-	s.versionTracker.AddOrUpdate(contextID, cacheEntry)
+	s.versionTracker.AddOrUpdate(contextID, c)
 
-	if err := s.impl.ConfigureRules(version, contextID, containerInfo); err != nil {
-		if uerr := s.Unsupervise(contextID); uerr != nil {
-			zap.L().Warn("Failed to clean up state while creating the PU",
-				zap.String("contextID", contextID),
-				zap.Error(uerr),
-			)
-		}
+	// Configure the rules
+	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
+		// Revert what you can since we have an error - it will fail most likely
+		s.Unsupervise(contextID) // nolint
 		return err
 	}
 
@@ -225,29 +186,24 @@ func (s *Config) doCreatePU(contextID string, containerInfo *policy.PUInfo) erro
 
 // UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
-func (s *Config) doUpdatePU(contextID string, containerInfo *policy.PUInfo) error {
+func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
-	cacheEntry, err := s.versionTracker.LockedModify(contextID, add, 1)
-
+	data, err := s.versionTracker.LockedModify(contextID, revert, 1)
 	if err != nil {
 		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
 
-	cachedEntry := cacheEntry.(*cacheData)
-	if err := s.impl.UpdateRules(cachedEntry.version, contextID, containerInfo, cachedEntry.containerInfo); err != nil {
-		if uerr := s.Unsupervise(contextID); uerr != nil {
-			zap.L().Warn("Failed to clean up state while updating the PU",
-				zap.String("contextID", contextID),
-				zap.Error(uerr),
-			)
-		}
+	c := data.(*cacheData)
+	if err := s.impl.UpdateRules(c.version, contextID, pu, c.containerInfo); err != nil {
+		// Try to clean up, even though this is fatal and it will most likely fail
+		s.Unsupervise(contextID) // nolint
 		return err
 	}
 
 	return nil
 }
 
-func add(a, b interface{}) interface{} {
+func revert(a, b interface{}) interface{} {
 	entry := a.(*cacheData)
 	entry.version = entry.version ^ 1
 	return entry
