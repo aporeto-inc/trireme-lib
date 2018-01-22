@@ -37,6 +37,12 @@ const (
 
 )
 
+type secretsPEM interface {
+	AuthPEM() []byte
+	TransmittedPEM() []byte
+	EncodingPEM() []byte
+}
+
 // Proxy maintains state for proxies connections from listen to backend.
 type Proxy struct {
 	// Listen specifies port to listen on.
@@ -57,7 +63,8 @@ type Proxy struct {
 	puFromContextID     cache.DataStore
 	socketListeners     *cache.Cache
 	// List of local IP's
-	IPList []string
+	IPList         []string
+	tlsCertificate tls.Certificate
 }
 
 // proxyFlowProperties is a struct used to pass flow information up
@@ -224,7 +231,14 @@ func (p *Proxy) Stop() error {
 
 // UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 func (p *Proxy) UpdateSecrets(secrets secrets.Secrets) error {
-	return nil
+	pkier := secrets.(secretsPEM)
+	if certificate, err := tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM()); err != nil {
+		return fmt.Errorf("Cannot extract cert and key from secrets %s", err)
+	} else {
+		p.tlsCertificate = certificate
+	}
+	return p.tokenaccessor.SetToken(p.tokenaccessor.GetTokenServerID(), p.tokenaccessor.GetTokenValidity(), secrets)
+
 }
 
 // loadTLS configuration - static files for the time being
@@ -292,39 +306,109 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 	}
 
 }
-
-func (p *Proxy) handleEncryptedData(upConn net.Conn, downConn int) error {
-	backendip := upConn.RemoteAddr().Network()
-	isLocalIP := func() bool {
-		for _, ip := range p.IPList {
-			if ip == backendip {
-				return true
+func islocalIP(backendip string) bool {
+	ifaces, _ := net.Interfaces()
+	iplist := []string{}
+	for _, intf := range ifaces {
+		addrs, _ := intf.Addrs()
+		for _, addr := range addrs {
+			ip, _, _ := net.ParseCIDR(addr.String())
+			if ip.To4() != nil {
+				iplist = append(iplist, ip.String())
 			}
 		}
-		return false
-	}()
-	if isLocalIP {
-		//if upConn.RemoteAddress is local address then we are server
-		tlsServConn := tls.Server(upConn, &tls.Config{InsecureSkipVerify: true})
-		tlsServConn.Handshake()
-		copyEncryptedFlow(tlsServConn, downConn)
-	} else {
-
-		tlsFs := os.NewFile(uintptr(downConn), "serversock")
-		netConn, err := net.FileConn(tlsFs)
-		if err != nil {
-			return fmt.Errorf("Cannot convert sys fd to netConn %s", err)
-		}
-		tlsClientConn := tls.Client(netConn, &tls.Config{InsecureSkipVerify: true})
-		tlsClientConn.Handshake()
-		var fs *os.File
-		fs, err = upConn.(*net.TCPConn).File()
-		if err != nil {
-			return fmt.Errorf("Cannot convert upconn TCP Connection to Fd %s", err)
-		}
-		copyEncryptedFlow(tlsClientConn, int(fs.Fd()))
 	}
-	return nil
+	for _, ip := range iplist {
+		fmt.Println("IPS", ip, net.IPv4(backendip[0], backendip[1], backendip[2], backendip[3]).String())
+		if ip == net.IPv4(backendip[0], backendip[1], backendip[2], backendip[3]).String() {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Proxy) startEncryptedClientDataPath(fd int, conn net.Conn) error {
+	tlsFs := os.NewFile(uintptr(fd), "TLSSOCK")
+	if tlsFs == nil {
+		return fmt.Errorf("Cannot convert to Fs")
+	}
+	netConn, _ := net.FileConn(tlsFs)
+	tlsConn := tls.Client(netConn, &tls.Config{
+		InsecureSkipVerify: true,
+	})
+	zap.L().Error("Started Client Handshake")
+	if tlsConn == nil {
+		zap.L().Error("TLS Conn is nil")
+		return fmt.Errorf("Cannot convert to tls Connection")
+	}
+	if err := tlsConn.Handshake(); err != nil {
+		zap.L().Error("Failed Client Handshake", zap.Error(err))
+		return err
+	}
+	zap.L().Error("Handshake Complete", zap.String("ServerName", tlsConn.ConnectionState().ServerName))
+
+	b := make([]byte, 4*1024)
+	for {
+
+		if n, err := conn.Read(b); err == nil {
+			zap.L().Error("Read ", zap.String("From", conn.RemoteAddr().String()), zap.Int("NumBytes", n))
+			if n, err = tlsConn.Write(b[:n]); err != nil {
+				fmt.Println("TlsCONN returned error", err)
+				return err
+			}
+			zap.L().Error("Write ", zap.String("From", tlsConn.RemoteAddr().String()), zap.Int("NumBytes", n))
+			continue
+		} else {
+			zap.L().Error("Received Error")
+			return err
+		}
+	}
+
+}
+
+func (p *Proxy) startEncryptedServerDataPath(fd int, conn net.Conn) error {
+	zap.L().Error("StartServerDataPath")
+
+	certs := []tls.Certificate{p.tlsCertificate}
+	tlsConn := tls.Server(conn, &tls.Config{
+		Certificates: certs,
+	})
+	zap.L().Error("HANDSHAKE")
+	if err := tlsConn.Handshake(); err != nil {
+		zap.L().Error("Handshake Failed", zap.Error(err))
+		return err
+	}
+
+	fs := os.NewFile(uintptr(fd), "NONTLSSOCK")
+	netConn, _ := net.FileConn(fs)
+	b := make([]byte, 1024)
+
+	for {
+		zap.L().Error("Blocked on TLS READ")
+		n, err := tlsConn.Read(b)
+		if err != nil {
+			zap.L().Error("Could Not read data ", zap.Error(err))
+			return err
+		}
+		if _, err = netConn.Write(b[:n]); err != nil {
+			zap.L().Error("Could Not write data", zap.Error(err))
+			return err
+		}
+
+	}
+	//copyBytes(tlsConn, netConn)
+}
+func (p *Proxy) handleEncryptedData(upConn net.Conn, downConn int) error {
+	//	backendip := upConn.RemoteAddr().Network()
+	ip, _, err := getOriginalDestination(upConn)
+	if err != nil {
+		return err
+	}
+	if islocalIP(string(ip)) {
+		return p.startEncryptedServerDataPath(downConn, upConn)
+	}
+	return p.startEncryptedClientDataPath(downConn, upConn)
+
 }
 func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
 	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
