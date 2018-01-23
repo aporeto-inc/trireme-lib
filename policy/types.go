@@ -312,7 +312,10 @@ func ConvertServicesToPortList(services []Service) string {
 
 	portlist := ""
 	for _, s := range services {
-		portlist = portlist + s.Ports.String() + ","
+		if s.Ports != nil {
+			portlist = portlist + s.Ports.String() + ","
+		}
+
 	}
 
 	if len(portlist) == 0 {

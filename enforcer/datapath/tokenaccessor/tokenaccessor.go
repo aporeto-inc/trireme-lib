@@ -11,6 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/tokens"
+	"go.uber.org/zap"
 )
 
 // tokenAccessor is a wrapper around tokenEngine to provide locks for accessing
@@ -85,9 +86,9 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 
 // createSynPacketToken creates the authentication token
 func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
-
+	zap.L().Error("CreateSynPacketToken")
 	token, serviceContext, err := context.GetCachedTokenAndServiceContext()
-
+	zap.L().Error("CreateSynPacketToken")
 	if err == nil && bytes.Equal(auth.LocalServiceContext, serviceContext) {
 		// Randomize the nonce and send it
 		auth.LocalContext, err = t.getToken().Randomize(token)
@@ -96,18 +97,18 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		}
 		// If there is an error, let's try to create a new one
 	}
-
+	zap.L().Error("CreateSynPacketToken")
 	claims := &tokens.ConnectionClaims{
 		T:  context.Identity(),
 		EK: auth.LocalServiceContext,
 	}
-
+	zap.L().Error("CreateSynPacketToken")
 	if token, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
 		return []byte{}, nil
 	}
-
+	zap.L().Error("CreateSynPacketToken")
 	context.UpdateCachedTokenAndServiceContext(token, auth.LocalServiceContext)
-
+	zap.L().Error("CreateSynPacketToken")
 	return token, nil
 }
 

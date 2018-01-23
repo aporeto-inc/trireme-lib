@@ -113,9 +113,9 @@ func New(
 	}
 
 	puFromContextID := cache.NewCache("puFromContextID")
-
-	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, puFromContextID, mutualAuth)
-
+	zap.L().Error("Starting Proxy Engine")
+	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, puFromContextID, mutualAuth, secrets)
+	zap.L().Error("Started Proxy Engine")
 	if ExternalIPCacheTimeout <= 0 {
 		var err error
 		ExternalIPCacheTimeout, err = time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
@@ -231,15 +231,16 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	if err := d.proxyhdl.Enforce(contextID, puInfo); err != nil {
 		return fmt.Errorf("Unable to enforce proxy: %s", err)
 	}
-
+	zap.L().Error("Finished Enforcing")
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
 	if err != nil {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
-
+	zap.L().Error("Finished Enforcing")
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() == constants.LinuxProcessPU || pu.Type() == constants.UIDLoginPU {
+
 		mark, ports := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
@@ -253,7 +254,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	} else {
 		d.puFromIP = pu
 	}
-
+	zap.L().Error("Finished Enforcing")
 	// Cache PU from contextID for management and policy updates
 	d.puFromContextID.AddOrUpdate(contextID, pu)
 
