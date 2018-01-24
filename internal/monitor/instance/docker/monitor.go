@@ -471,9 +471,11 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 			}
 			if err == io.ErrUnexpectedEOF {
 				ctx, cancel := context.WithTimeout(context.Background(), dockerInitializationWait)
+				zap.L().Error("Waiting For Docker Daemon", zap.String("Start time", time.Now().String()))
 				if err = d.waitForDockerDaemon(ctx); err != nil {
 					zap.L().Warn("Received docker event error", zap.Error(err))
 				}
+				zap.L().Error("Docker Daemon restarted", zap.String("Exit time", time.Now().String()))
 				cancel()
 				if err = d.ReSync(); err != nil {
 					zap.L().Error("Resync Error", zap.Error(err))
