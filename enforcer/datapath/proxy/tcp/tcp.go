@@ -65,7 +65,7 @@ type Proxy struct {
 	socketListeners     *cache.Cache
 	// List of local IP's
 	IPList         []string
-	tlsCertificate tls.Certificate
+	tlsCertificate *tls.Certificate
 	certLock       sync.Mutex
 }
 
@@ -87,7 +87,7 @@ type sockaddr struct {
 }
 
 // NewProxy creates a new instance of proxy reate a new instance of Proxy
-func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromContextID cache.DataStore, mutualAuthorization bool, secrets secrets.Secrets) policyenforcer.Enforcer {
+func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromContextID cache.DataStore, mutualAuthorization bool, secret secrets.Secrets) policyenforcer.Enforcer {
 	ifaces, _ := net.Interfaces()
 	iplist := []string{}
 	for _, intf := range ifaces {
@@ -99,10 +99,14 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenA
 			}
 		}
 	}
-	pkier := secrets.(secretsPEM)
-	certificate, err := tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM())
-	if err != nil {
-		return nil
+	pkier := secret.(secretsPEM)
+	var certificate tls.Certificate
+	var err error
+	if secret.Type() != secrets.PSKType {
+		certificate, err = tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM())
+		if err != nil {
+			return nil
+		}
 	}
 
 	return &Proxy{
@@ -116,7 +120,7 @@ func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenA
 		socketListeners:     cache.NewCache("socketlisterner"),
 		IPList:              iplist,
 		certLock:            sync.Mutex{},
-		tlsCertificate:      certificate,
+		tlsCertificate:      &certificate,
 	}
 }
 
@@ -239,18 +243,19 @@ func (p *Proxy) Stop() error {
 }
 
 // UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
-func (p *Proxy) UpdateSecrets(secrets secrets.Secrets) error {
-	pkier := secrets.(secretsPEM)
+func (p *Proxy) UpdateSecrets(secret secrets.Secrets) error {
+	pkier := secret.(secretsPEM)
 	var certificate tls.Certificate
 	var err error
-	if certificate, err = tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM()); err != nil {
-		return fmt.Errorf("Cannot extract cert and key from secrets %s", err)
+	if secret.Type() != secrets.PSKType {
+		if certificate, err = tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM()); err != nil {
+			return fmt.Errorf("Cannot extract cert and key from secrets %s", err)
+		}
+		p.certLock.Lock()
+		p.tlsCertificate = &certificate
+		p.certLock.Unlock()
 	}
-	p.certLock.Lock()
-	p.tlsCertificate = certificate
-	p.certLock.Unlock()
-
-	return p.tokenaccessor.SetToken(p.tokenaccessor.GetTokenServerID(), p.tokenaccessor.GetTokenValidity(), secrets)
+	return p.tokenaccessor.SetToken(p.tokenaccessor.GetTokenServerID(), p.tokenaccessor.GetTokenValidity(), secret)
 
 }
 
@@ -313,6 +318,9 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		}
 	} else {
 		// Hand off encryption to service processor for proxied traffic
+		if p.tlsCertificate == nil {
+			zap.L().Error("Cannot do Encrypted proxy connection without certifcates")
+		}
 		if err = p.handleEncryptedData(upConn, downConn); err != nil {
 			zap.L().Error("Failed to setup encrypted connection", zap.Error(err))
 		}
@@ -395,7 +403,7 @@ func (p *Proxy) startEncryptedClientDataPath(fd int, conn io.ReadWriter) error {
 func (p *Proxy) startEncryptedServerDataPath(fd int, conn net.Conn) error {
 
 	p.certLock.Lock()
-	certs := []tls.Certificate{p.tlsCertificate}
+	certs := []tls.Certificate{*p.tlsCertificate}
 	p.certLock.Unlock()
 	tlsConn := tls.Server(conn, &tls.Config{
 		Certificates: certs,
