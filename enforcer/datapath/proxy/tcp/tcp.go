@@ -274,7 +274,7 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 			zap.L().Error("Failed to close UpConn", zap.Error(err))
 		}
 	}()
-	zap.L().Error("Handle Connection")
+
 	//backend := p.Backend
 	if p.Forward {
 		ip, port, err = getOriginalDestination(upConn)
@@ -298,21 +298,18 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 			zap.L().Error("Unable to close DownConn", zap.Error(err))
 		}
 	}()
-	zap.L().Error("Starting EndPoint Authorization")
+
 	isEncrypted := false
 	// Now let us handle the state machine for the down connection
 	if isEncrypted, err = p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
-	zap.L().Error("Finixhed Endpoint authorization")
 	if !isEncrypted {
-		zap.L().Error("Not Encrypted Connection")
 		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
 			fmt.Printf("pipe failed: %s", err)
 		}
 	} else {
-		zap.L().Error("Encrypted Connection Setup")
 		// Hand off encryption to service processor for proxied traffic
 		if err = p.handleEncryptedData(upConn, downConn); err != nil {
 			zap.L().Error("Failed to setup encrypted connection", zap.Error(err))
@@ -350,30 +347,23 @@ func (p *Proxy) startEncryptedClientDataPath(fd int, conn net.Conn) error {
 	tlsConn := tls.Client(netConn, &tls.Config{
 		InsecureSkipVerify: true,
 	})
-	zap.L().Error("Started Client Handshake")
+
 	if tlsConn == nil {
-		zap.L().Error("TLS Conn is nil")
 		return fmt.Errorf("Cannot convert to tls Connection")
 	}
 	if err := tlsConn.Handshake(); err != nil {
-		zap.L().Error("Failed Client Handshake", zap.Error(err))
 		return err
 	}
-	zap.L().Error("Handshake Complete", zap.String("ServerName", tlsConn.ConnectionState().ServerName))
 
 	b := make([]byte, 4*1024)
 	for {
 
 		if n, err := conn.Read(b); err == nil {
-			zap.L().Error("Read ", zap.String("From", conn.RemoteAddr().String()), zap.Int("NumBytes", n))
 			if n, err = tlsConn.Write(b[:n]); err != nil {
-				zap.L().Error("TlsCONN returned error", zap.Error(err))
 				return err
 			}
-			zap.L().Error("Write ", zap.String("From", tlsConn.RemoteAddr().String()), zap.Int("NumBytes", n))
 			continue
 		} else {
-			zap.L().Error("Received Error")
 			return err
 		}
 	}
@@ -381,16 +371,15 @@ func (p *Proxy) startEncryptedClientDataPath(fd int, conn net.Conn) error {
 }
 
 func (p *Proxy) startEncryptedServerDataPath(fd int, conn net.Conn) error {
-	zap.L().Error("StartServerDataPath")
+
 	p.certLock.Lock()
 	certs := []tls.Certificate{p.tlsCertificate}
 	p.certLock.Unlock()
 	tlsConn := tls.Server(conn, &tls.Config{
 		Certificates: certs,
 	})
-	zap.L().Error("HANDSHAKE")
+
 	if err := tlsConn.Handshake(); err != nil {
-		zap.L().Error("Handshake Failed", zap.Error(err))
 		return err
 	}
 
@@ -399,14 +388,11 @@ func (p *Proxy) startEncryptedServerDataPath(fd int, conn net.Conn) error {
 	b := make([]byte, 1024)
 
 	for {
-		zap.L().Error("Blocked on TLS READ")
 		n, err := tlsConn.Read(b)
 		if err != nil {
-			zap.L().Error("Could Not read data ", zap.Error(err))
 			return err
 		}
 		if _, err = netConn.Write(b[:n]); err != nil {
-			zap.L().Error("Could Not write data", zap.Error(err))
 			return err
 		}
 
@@ -491,8 +477,6 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 	address := &syscall.SockaddrInet4{
 		Port: int(port),
 	}
-
-	zap.L().Error("Remote Address %s", zap.String("IP", net.IPv4(ip[0], ip[1], ip[2], ip[3]).String()), zap.Uint16("Port", port))
 	copy(address.Addr[:], ip)
 	if p.Encrypt && p.Forward {
 		// config, err := p.loadTLS()
@@ -535,24 +519,18 @@ func (p *Proxy) downConnection(ip []byte, port uint16) (int, error) {
 // CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint16, upConn net.Conn, downConn int, contextID string) (bool, error) {
-	zap.L().Error("Compelte End Point")
 	puContext, err := p.puContextFromContextID(contextID)
 	if err != nil {
 		return false, err
 	}
 
-	// puContext.Lock()
-	// defer puContext.Unlock()
-
 	if puContext.Type() == constants.LinuxProcessPU {
 		//Are we client or server proxy
 
 		if len(puContext.Ports()) > 0 && puContext.Ports()[0] != "0" {
-			zap.L().Error("Starting Server Auth")
 			return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 		}
 		//We are client no advertised port
-		zap.L().Error("Starting Client Auth")
 		return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 
 	}
@@ -567,10 +545,8 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		return false
 	}()
 	if islocalIP {
-		zap.L().Error("Starting Server Auth")
 		return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 	}
-	zap.L().Error("Starting Client Auth")
 	return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn, contextID)
 
 }
@@ -595,23 +571,20 @@ func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport uint16
 		SourcePort: uint16(localinet4ip.Port),
 		DestPort:   uint16(remoteinet4ip.Port),
 	}
-	zap.L().Error("Entering State machine")
+
 L:
 	for conn.GetState() == connection.ClientTokenSend {
 		msg := make([]byte, 1024)
 		for {
-			zap.L().Error("State", zap.Int("ProxyConnState", int(conn.GetState())))
 			switch conn.GetState() {
 
 			case connection.ClientTokenSend:
-				zap.L().Error("Sending token")
+
 				if p.tokenaccessor == nil {
-					zap.L().Error("NIL token accessor")
 					return isEncrypted, fmt.Errorf("NIL TOKENAccessor")
 				}
 				token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 				if err != nil {
-					zap.L().Error("Unabel to create Syn Token", zap.Error(err))
 					return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
 				}
 
@@ -619,11 +592,9 @@ L:
 				if err := syscall.Sendto(downConn, token, 0, toAddr); err != nil {
 					return isEncrypted, fmt.Errorf("unable to send syn: %s", err)
 				}
-				zap.L().Error("Sent SYN TOken")
 				conn.SetState(connection.ClientPeerTokenReceive)
 
 			case connection.ClientPeerTokenReceive:
-				zap.L().Error("Sending token")
 				n, _, err := syscall.Recvfrom(downConn, msg, 0)
 				if err != nil {
 					return isEncrypted, fmt.Errorf("unable to recvfrom: %s", err)
@@ -657,8 +628,6 @@ L:
 					return isEncrypted, fmt.Errorf("unable to send ack: %s", err)
 				}
 				break L
-			default:
-				zap.L().Error("UNKNOWN STATE")
 			}
 
 		}
@@ -695,7 +664,6 @@ E:
 
 			switch conn.GetState() {
 			case connection.ServerReceivePeerToken:
-				zap.L().Error("Waiting for syn token")
 				for {
 					data := make([]byte, 1024)
 					n, err := upConn.Read(data)
@@ -706,10 +674,9 @@ E:
 					if err != nil {
 						return isEncrypted, err
 					}
-					zap.L().Error("Read", zap.Int("Bytes", n))
 					msg = append(msg, data[:n]...)
 				}
-				zap.L().Error("Received syn token.Length of token", zap.Int("Length", len(msg)))
+
 				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 				if err != nil || claims == nil {
 					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)

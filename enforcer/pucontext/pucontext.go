@@ -13,7 +13,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/enforcer/utils/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -60,11 +59,14 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		networkACLs:     acls.NewACLCache(),
 		mark:            puInfo.Runtime.Options().CgroupMark,
 	}
+
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
 
 	pu.CreateTxtRules(puInfo.Policy.TransmitterRules())
+
 	ports := policy.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
 	pu.ports = strings.Split(ports, ",")
+
 	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
 	}
@@ -148,22 +150,20 @@ func (p *PUContext) SynServiceContext() []byte {
 func (p *PUContext) UpdateSynServiceContext(synServiceContext []byte) {
 
 	p.Lock()
-	zap.L().Error("ACQUIRED LOCK")
 	p.synServiceContext = synServiceContext
 	p.Unlock()
-	zap.L().Error("RELEASED LOCK")
 }
 
 // GetCachedTokenAndServiceContext returns the cached syn packet token
 func (p *PUContext) GetCachedTokenAndServiceContext() ([]byte, []byte, error) {
-	zap.L().Error("Check Expired TOken")
+
 	p.RLock()
 	defer p.RUnlock()
-	zap.L().Error("Check Expired TOken")
+
 	if p.synExpiration.After(time.Now()) && len(p.synToken) > 0 {
 		return p.synToken, p.synServiceContext, nil
 	}
-	zap.L().Error("Expired TOken")
+
 	return nil, nil, fmt.Errorf("expired Token")
 }
 
@@ -171,13 +171,13 @@ func (p *PUContext) GetCachedTokenAndServiceContext() ([]byte, []byte, error) {
 func (p *PUContext) UpdateCachedTokenAndServiceContext(token []byte, serviceContext []byte) {
 
 	p.Lock()
-	zap.L().Error("ACQUIRED LOCK")
+
 	p.synToken = token
 	p.synExpiration = time.Now().Add(time.Millisecond * 500)
 	p.synServiceContext = serviceContext
 
 	p.Unlock()
-	zap.L().Error("RELEASED LOCK")
+
 }
 
 // createRuleDBs creates the database of rules from the policy

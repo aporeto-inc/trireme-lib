@@ -354,7 +354,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 		})
 		return fmt.Errorf("unable to setup enforcer: %s", err)
 	}
-	zap.L().Error("Finished Enforcing")
+
 	if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Supervise(contextID, containerInfo); err != nil {
 		if werr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); werr != nil {
 			zap.L().Warn("Failed to clean up state after failures",
@@ -372,7 +372,7 @@ func (t *trireme) doHandleCreate(contextID string) error {
 
 		return fmt.Errorf("unable to setup supervisor: %s", err)
 	}
-	zap.L().Error("Finished Enforcing")
+
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: runtimeInfo.IPAddresses(),

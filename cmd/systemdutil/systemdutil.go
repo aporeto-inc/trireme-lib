@@ -20,7 +20,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/rpc/events"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
-	"go.uber.org/zap"
 )
 
 const (
@@ -187,10 +186,7 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 	if value, ok := arguments["<params>"]; ok && value != nil {
 		c.Parameters = value.([]string)
 	}
-	v, o := arguments["--ports"]
-	if o {
-		zap.L().Error("Atgs", zap.String("Value", v.(string)), zap.Bool("IsPresent", o))
-	}
+
 	if value, ok := arguments["--ports"]; ok && value != nil {
 		services, err := ParseServices(value.([]string))
 		if err != nil {
