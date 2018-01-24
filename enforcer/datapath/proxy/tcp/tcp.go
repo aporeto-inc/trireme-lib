@@ -354,20 +354,40 @@ func (p *Proxy) startEncryptedClientDataPath(fd int, conn net.Conn) error {
 	if err := tlsConn.Handshake(); err != nil {
 		return err
 	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		b := make([]byte, 4*1024)
+		for {
 
-	b := make([]byte, 4*1024)
-	for {
-
-		if n, err := conn.Read(b); err == nil {
-			if n, err = tlsConn.Write(b[:n]); err != nil {
-				return err
+			if n, err := conn.Read(b); err == nil {
+				if n, err = tlsConn.Write(b[:n]); err != nil {
+					return
+				}
+				continue
+			} else {
+				return
 			}
-			continue
-		} else {
-			return err
 		}
-	}
+	}()
+	go func() {
+		defer wg.Done()
+		b := make([]byte, 4*1024)
+		for {
 
+			if n, err := tlsConn.Read(b); err == nil {
+				if n, err = conn.Write(b[:n]); err != nil {
+					return
+				}
+				continue
+			} else {
+				return
+			}
+		}
+	}()
+	wg.Wait()
+	return nil
 }
 
 func (p *Proxy) startEncryptedServerDataPath(fd int, conn net.Conn) error {
@@ -385,19 +405,40 @@ func (p *Proxy) startEncryptedServerDataPath(fd int, conn net.Conn) error {
 
 	fs := os.NewFile(uintptr(fd), "NONTLSSOCK")
 	netConn, _ := net.FileConn(fs)
-	b := make([]byte, 1024)
 
-	for {
-		n, err := tlsConn.Read(b)
-		if err != nil {
-			return err
-		}
-		if _, err = netConn.Write(b[:n]); err != nil {
-			return err
-		}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		b := make([]byte, 1024)
+		for {
+			n, err := tlsConn.Read(b)
+			if err != nil {
+				return
+			}
+			if _, err = netConn.Write(b[:n]); err != nil {
+				return
+			}
 
-	}
-	//copyBytes(tlsConn, netConn)
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		b := make([]byte, 1024)
+		for {
+			n, err := netConn.Read(b)
+			if err != nil {
+				return
+			}
+			if _, err = tlsConn.Write(b[:n]); err != nil {
+				return
+			}
+
+		}
+	}()
+	wg.Wait()
+	return nil
 }
 func (p *Proxy) handleEncryptedData(upConn net.Conn, downConn int) error {
 	//	backendip := upConn.RemoteAddr().Network()
