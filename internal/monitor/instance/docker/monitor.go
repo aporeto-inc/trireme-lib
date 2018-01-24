@@ -525,6 +525,7 @@ func (d *dockerMonitor) ReSync() error {
 
 			PURuntime, _ := d.extractMetadata(&container)
 			var state tevents.State
+			state = tevents.StateStarted
 			if container.State.Running {
 				if !container.State.Paused {
 					state = tevents.StateStarted

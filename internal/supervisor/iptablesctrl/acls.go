@@ -16,6 +16,27 @@ import (
 
 const observeMark = "39"
 
+func (i *Instance) udpProxyRules(udpProxySetName string, port string) [][]string {
+	udpProxySetName i.getSetNamePair(udpProxySetName)
+	str := [][]string {
+		{
+			i.appProxyIPTableContext,
+			ipTableSectionPreRouting,
+			"-p","udp",
+			"-m","set",
+			"--match-set",destSetName,"dst,dst",
+			"-j", "ACCEPT",
+		},
+		{
+			i.appProxyIPTableContext,
+			ipTableSectionPreRouting,
+			"-p","udp",
+			"-m","set",
+			"--match-set",destSetName,"src,src",
+			"-j", "ACCEPT",
+		},
+	}
+}
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 
 	destSetName, srcSetName := i.getSetNamePair(proxyPortSetName)
@@ -309,6 +330,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
 func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+	udpProxyRules := i.udpProxyRules()
 	if i.mode == constants.LocalServer {
 		if port != "0" || uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Append")

@@ -69,3 +69,17 @@ const (
 	// NoProxyMode is a mode for docker monitor when trireme is running on host which is part of ECS/AWS cluster
 	NoProxyMode
 )
+
+const (
+	// RouteTableID is the table ID we create to redirect traffic to our tproxy socket
+	RouteTableID = 0x100
+
+	// UDP TPROXY Port
+	UDPTproxyPort = 6000
+)
+
+type AporetoMarks int
+
+const (
+	UDPProxiedMark = 0x40
+)
