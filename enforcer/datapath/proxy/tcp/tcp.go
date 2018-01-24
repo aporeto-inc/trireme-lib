@@ -241,13 +241,15 @@ func (p *Proxy) Stop() error {
 // UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 func (p *Proxy) UpdateSecrets(secrets secrets.Secrets) error {
 	pkier := secrets.(secretsPEM)
-	if certificate, err := tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM()); err != nil {
+	var certificate tls.Certificate
+	var err error
+	if certificate, err = tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM()); err != nil {
 		return fmt.Errorf("Cannot extract cert and key from secrets %s", err)
-	} else {
-		p.certLock.Lock()
-		p.tlsCertificate = certificate
-		p.certLock.Unlock()
 	}
+	p.certLock.Lock()
+	p.tlsCertificate = certificate
+	p.certLock.Unlock()
+
 	return p.tokenaccessor.SetToken(p.tokenaccessor.GetTokenServerID(), p.tokenaccessor.GetTokenValidity(), secrets)
 
 }
@@ -299,14 +301,14 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 		}
 	}()
 
-	isEncrypted := false
+	var isEncrypted bool
 	// Now let us handle the state machine for the down connection
 	if isEncrypted, err = p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
 	if !isEncrypted {
-		if err := Pipe(upConn.(*net.TCPConn), downConn); err != nil {
+		if err = Pipe(upConn.(*net.TCPConn), downConn); err != nil {
 			fmt.Printf("pipe failed: %s", err)
 		}
 	} else {
@@ -338,7 +340,7 @@ func islocalIP(backendip string) bool {
 	return false
 }
 
-func (p *Proxy) startEncryptedClientDataPath(fd int, conn net.Conn) error {
+func (p *Proxy) startEncryptedClientDataPath(fd int, conn io.ReadWriter) error {
 	tlsFs := os.NewFile(uintptr(fd), "TLSSOCK")
 	if tlsFs == nil {
 		return fmt.Errorf("Cannot convert to Fs")
@@ -362,7 +364,7 @@ func (p *Proxy) startEncryptedClientDataPath(fd int, conn net.Conn) error {
 		for {
 
 			if n, err := conn.Read(b); err == nil {
-				if n, err = tlsConn.Write(b[:n]); err != nil {
+				if _, err = tlsConn.Write(b[:n]); err != nil {
 					return
 				}
 				continue
@@ -377,7 +379,7 @@ func (p *Proxy) startEncryptedClientDataPath(fd int, conn net.Conn) error {
 		for {
 
 			if n, err := tlsConn.Read(b); err == nil {
-				if n, err = conn.Write(b[:n]); err != nil {
+				if _, err = conn.Write(b[:n]); err != nil {
 					return
 				}
 				continue
