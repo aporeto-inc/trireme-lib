@@ -470,6 +470,8 @@ func (d *dockerMonitor) eventListener(listenerReady chan struct{}) {
 				)
 			}
 			if err == io.ErrUnexpectedEOF {
+				d.dockerClient.Close()
+				d.dockerClient = nil
 				ctx, cancel := context.WithTimeout(context.Background(), dockerInitializationWait)
 				zap.L().Error("Waiting For Docker Daemon", zap.String("Start time", time.Now().String()))
 				if err = d.waitForDockerDaemon(ctx); err != nil {
@@ -538,6 +540,7 @@ func (d *dockerMonitor) ReSync() error {
 
 			PURuntime, _ := d.extractMetadata(&container)
 			var state tevents.State
+			state = tevents.StateStarted
 			if container.State.Running {
 				if !container.State.Paused {
 					state = tevents.StateStarted
