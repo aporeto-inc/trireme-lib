@@ -16,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/rpc/processor"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 // StoredContext is the information stored to retrieve the context in case of restart.
@@ -52,6 +53,16 @@ func (l *linuxProcessor) RemapData(data string, fixedData interface{}) error {
 
 	if err := json.Unmarshal([]byte(data), event); err != nil {
 		return fmt.Errorf("Received error %s while remapping data", err)
+	}
+	// Convert the eventInfo data to new format
+	for index, s := range event.Services {
+		if s.Port != 0 {
+			s.Ports = &portspec.PortSpec{
+				Min: s.Port,
+				Max: s.Port,
+			}
+		}
+		event.Services[index].Ports = s.Ports
 	}
 	sc, ok := fixedData.(*StoredContext)
 	if !ok {
