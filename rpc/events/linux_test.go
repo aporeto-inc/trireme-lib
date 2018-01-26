@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -92,10 +93,11 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 		Convey("If its valid data", func() {
 
+			s, _ := portspec.NewPortSpecFromString("1000", nil) // nolint
 			services := []policy.Service{
 				policy.Service{
 					Protocol: uint8(6),
-					Port:     uint16(1000),
+					Ports:    s,
 				},
 			}
 

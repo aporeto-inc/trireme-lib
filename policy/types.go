@@ -2,7 +2,8 @@ package policy
 
 import (
 	"errors"
-	"strconv"
+
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 const (
@@ -299,8 +300,8 @@ type Service struct {
 	// Protocol is the protocol number
 	Protocol uint8
 
-	// Port is the target port
-	Port uint16
+	// Ports are the corresponding ports
+	Ports *portspec.PortSpec
 }
 
 // ConvertServicesToPortList converts an array of services to a port list
@@ -308,7 +309,7 @@ func ConvertServicesToPortList(services []Service) string {
 
 	portlist := ""
 	for _, s := range services {
-		portlist = portlist + strconv.Itoa(int(s.Port)) + ","
+		portlist = portlist + s.Ports.String() + ","
 	}
 
 	if len(portlist) == 0 {

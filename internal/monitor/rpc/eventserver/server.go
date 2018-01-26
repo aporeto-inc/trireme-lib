@@ -52,7 +52,8 @@ func (s *Server) HandleEvent(eventInfo *events.EventInfo, result *events.EventRe
 	puID := eventInfo.PUID[lastSlash:]
 	if _, err = os.Stat("/var/run/trireme/linux/" + puID); os.IsNotExist(err) &&
 		eventInfo.EventType != events.EventCreate &&
-		eventInfo.EventType != events.EventStart {
+		eventInfo.EventType != events.EventStart &&
+		!eventInfo.HostService {
 		eventInfo.PUType = constants.UIDLoginPU
 	}
 

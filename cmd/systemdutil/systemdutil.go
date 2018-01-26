@@ -19,6 +19,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 const (
@@ -366,18 +367,14 @@ func ParseServices(ports []string) ([]policy.Service, error) {
 	// Parse the ports and create the services. Cleanup any bad ports
 	services := []policy.Service{}
 	for _, p := range ports {
-		intPort, err := strconv.Atoi(p)
+		s, err := portspec.NewPortSpecFromString(p, nil)
 		if err != nil {
-			return nil, err
-		}
-		if intPort > 0xFFFF || intPort < 0 {
-			return nil, fmt.Errorf("invalid service: port must be greater than 0xffff and lesser than 0: %d", intPort)
+			return nil, fmt.Errorf("Invalid port spec: %s ", err)
 		}
 
-		// TODO: Assumes only TCP here until we add UDP support
 		services = append(services, policy.Service{
 			Protocol: uint8(6),
-			Port:     uint16(intPort),
+			Ports:    s,
 		})
 	}
 
