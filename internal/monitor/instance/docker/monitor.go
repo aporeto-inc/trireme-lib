@@ -757,7 +757,7 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 
 // handleCreateEvent generates a create event type.
 func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
-
+	zap.L().Info("Created container", zap.String("ID", event.ID))
 	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
 		return err
