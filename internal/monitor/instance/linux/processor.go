@@ -111,10 +111,9 @@ func (l *linuxProcessor) startInternal(runtimeInfo *policy.PURuntime, eventInfo 
 		return fmt.Errorf("start pu failed: %s", err)
 	}
 
-	defaultIP, _ := runtimeInfo.DefaultIPAddress()
 	l.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: eventInfo.PUID,
-		IPAddress: defaultIP,
+		IPAddress: runtimeInfo.IPAddresses(),
 		Tags:      runtimeInfo.Tags(),
 		Event:     collector.ContainerStart,
 	})

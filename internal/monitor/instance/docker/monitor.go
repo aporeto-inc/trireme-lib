@@ -777,7 +777,7 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 
 			d.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
 				ContextID: contextID,
-				IPAddress: "N/A",
+				IPAddress: nil,
 				Tags:      nil,
 				Event:     collector.ContainerFailed,
 			})

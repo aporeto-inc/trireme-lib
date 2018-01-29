@@ -50,22 +50,20 @@ func TestNewSupervisor(t *testing.T) {
 
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
-		mode := constants.LocalContainer
-		implementation := constants.IPTables
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc")
+		mode := constants.LocalServer
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, mode, implementation, []string{})
+			s, err := NewSupervisor(c, e, mode, []string{})
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
 				So(s.collector, ShouldEqual, c)
-				So(s.mode, ShouldEqual, constants.IPTables)
 			})
 		})
 
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, mode, implementation, []string{})
+			s, err := NewSupervisor(nil, e, mode, []string{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -73,7 +71,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, mode, implementation, []string{})
+			s, err := NewSupervisor(c, nil, mode, []string{})
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -90,9 +88,9 @@ func TestSupervise(t *testing.T) {
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -117,7 +115,7 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I supervise a new PU with valid policy, but there is an error", func() {
 			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			err := s.Supervise("errorPU", puInfo)
 			Convey("I should  get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -138,7 +136,7 @@ func TestSupervise(t *testing.T) {
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
@@ -158,9 +156,9 @@ func TestUnsupervise(t *testing.T) {
 	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -177,7 +175,7 @@ func TestUnsupervise(t *testing.T) {
 
 		Convey("When I try to unsupervise a valid PU ", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Unsupervise("contextID")
@@ -195,9 +193,9 @@ func TestStart(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)
@@ -229,9 +227,9 @@ func TestStop(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalContainer, "/proc")
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
 
-		s, _ := NewSupervisor(c, e, constants.LocalContainer, constants.IPTables, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
 		impl := mock_supervisor.NewMockImplementor(ctrl)

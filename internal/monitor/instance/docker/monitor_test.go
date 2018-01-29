@@ -682,8 +682,6 @@ func TestSyncContainers(t *testing.T) {
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), processor.SynchronizationTypeInitial)
-				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.SetupHandlers(&processor.Config{
 					Collector:   eventCollector(),
 					PUHandler:   mockPU,
@@ -779,8 +777,6 @@ func TestStart(t *testing.T) {
 			if err == nil && len(containers) > 0 {
 				mockPU.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 				mockPU.EXPECT().HandlePUEvent(gomock.Any(), tevents.EventStart).AnyTimes().Return(nil)
-				mockSH.EXPECT().HandleSynchronization(gomock.Any(), tevents.StateStarted, gomock.Any(), processor.SynchronizationTypeInitial)
-				mockSH.EXPECT().HandleSynchronizationComplete(gomock.Any())
 				dm.SetupHandlers(&processor.Config{
 					Collector:   eventCollector(),
 					PUHandler:   mockPU,

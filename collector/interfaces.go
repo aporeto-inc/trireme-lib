@@ -123,7 +123,7 @@ func (f *FlowRecord) String() string {
 // ContainerRecord is a statistics record for a container
 type ContainerRecord struct {
 	ContextID string
-	IPAddress string
+	IPAddress policy.ExtendedMap
 	Tags      *policy.TagStore
 	Event     string
 }

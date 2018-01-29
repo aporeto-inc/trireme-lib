@@ -29,9 +29,6 @@ type RuntimeReader interface {
 	// Options returns a copy of the list of options.
 	Options() OptionsType
 
-	// DefaultIPAddress retutns the default IP address.
-	DefaultIPAddress() (string, bool)
-
 	// IPAddresses returns a copy of all the IP addresses.
 	IPAddresses() ExtendedMap
 

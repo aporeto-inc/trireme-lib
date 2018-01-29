@@ -48,9 +48,11 @@ type Datapath struct {
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
 	puFromContextID   cache.DataStore
-	puFromIP          cache.DataStore
 	puFromMark        cache.DataStore
 	contextIDFromPort *portcache.PortCache
+
+	// For remotes this is a reverse link to the context
+	puFromIP *pucontext.PUContext
 
 	// Hash based on source IP/Port to capture SynAck packets with possible NAT.
 	// When a new connection is created, we has the source IP/port. A return
@@ -149,7 +151,6 @@ func New(
 	}
 
 	d := &Datapath{
-		puFromIP:          cache.NewCache("puFromIP"),
 		puFromMark:        cache.NewCache("puFromMark"),
 		contextIDFromPort: contextIDFromPort,
 
@@ -240,7 +241,6 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() == constants.LinuxProcessPU || pu.Type() == constants.UIDLoginPU {
 		mark, ports := pu.GetProcessKeys()
-
 		d.puFromMark.AddOrUpdate(mark, pu)
 
 		for _, port := range ports {
@@ -251,11 +251,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			d.contextIDFromPort.AddPortSpec(portSpec)
 		}
 	} else {
-		if ip, ok := puInfo.Runtime.DefaultIPAddress(); ok {
-			d.puFromIP.AddOrUpdate(ip, pu)
-		} else {
-			d.puFromIP.AddOrUpdate(enforcerconstants.DefaultNetwork, pu)
-		}
+		d.puFromIP = pu
 	}
 
 	// Cache PU from contextID for management and policy updates
@@ -283,12 +279,6 @@ func (d *Datapath) Unenforce(contextID string) error {
 
 	// Cleanup the IP based lookup
 	pu := puContext.(*pucontext.PUContext)
-	if err := d.puFromIP.Remove(pu.IP()); err != nil {
-		zap.L().Debug("Unable to remove cache entry during unenforcement",
-			zap.String("IP", pu.IP()),
-			zap.Error(err),
-		)
-	}
 
 	// Cleanup the mark information
 	if err := d.puFromMark.Remove(pu.Mark()); err != nil {
@@ -361,6 +351,12 @@ func (d *Datapath) Stop() error {
 	}
 
 	d.nflogger.Stop()
+
+	if d.service != nil {
+		if err := d.service.Stop(); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

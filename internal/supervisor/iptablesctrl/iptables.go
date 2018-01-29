@@ -26,39 +26,37 @@ const (
 	netChainPrefix   = chainPrefix + "Net-"
 	targetNetworkSet = "TargetNetSet"
 	// PuPortSet The prefix for portset names
-	PuPortSet                 = "PUPort-"
-	proxyPortSet              = "Proxy-"
-	ipTableSectionOutput      = "OUTPUT"
-	ipTableSectionInput       = "INPUT"
-	ipTableSectionPreRouting  = "PREROUTING"
-	ipTableSectionPostRouting = "POSTROUTING"
-	natProxyOutputChain       = "RedirProxy-App"
-	natProxyInputChain        = "RedirProxy-Net"
-	proxyOutputChain          = "Proxy-App"
-	proxyInputChain           = "Proxy-Net"
-	proxyMark                 = "0x40"
+	PuPortSet                = "PUPort-"
+	proxyPortSet             = "Proxy-"
+	ipTableSectionOutput     = "OUTPUT"
+	ipTableSectionInput      = "INPUT"
+	ipTableSectionPreRouting = "PREROUTING"
+	natProxyOutputChain      = "RedirProxy-App"
+	natProxyInputChain       = "RedirProxy-Net"
+	proxyOutputChain         = "Proxy-App"
+	proxyInputChain          = "Proxy-Net"
+	proxyMark                = "0x40"
 	// ProxyPort DefaultProxyPort
 	ProxyPort = "5000"
 )
 
 // Instance  is the structure holding all information about a implementation
 type Instance struct {
-	fqc                        *fqconfig.FilterQueue
-	ipt                        provider.IptablesProvider
-	ipset                      provider.IpsetProvider
-	vipTargetSet               provider.Ipset
-	pipTargetSet               provider.Ipset
-	targetSet                  provider.Ipset
-	appPacketIPTableContext    string
-	appAckPacketIPTableContext string
-	appProxyIPTableContext     string
-	appPacketIPTableSection    string
-	netPacketIPTableContext    string
-	netPacketIPTableSection    string
-	appCgroupIPTableSection    string
-	appSynAckIPTableSection    string
-	mode                       constants.ModeType
-	portSetInstance            portset.PortSet
+	fqc                     *fqconfig.FilterQueue
+	ipt                     provider.IptablesProvider
+	ipset                   provider.IpsetProvider
+	vipTargetSet            provider.Ipset
+	pipTargetSet            provider.Ipset
+	targetSet               provider.Ipset
+	appPacketIPTableContext string
+	appProxyIPTableContext  string
+	appPacketIPTableSection string
+	netPacketIPTableContext string
+	netPacketIPTableSection string
+	appCgroupIPTableSection string
+	appSynAckIPTableSection string
+	mode                    constants.ModeType
+	portSetInstance         portset.PortSet
 }
 
 // NewInstance creates a new iptables controller instance
@@ -78,24 +76,15 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 		fqc:   fqc,
 		ipt:   ipt,
 		ipset: ips,
-		appPacketIPTableContext:    "raw",
-		appAckPacketIPTableContext: "mangle",
-		netPacketIPTableContext:    "mangle",
-		appProxyIPTableContext:     "nat",
-		mode:            mode,
-		portSetInstance: portset,
-	}
-
-	if mode == constants.LocalServer || mode == constants.RemoteContainer {
-		i.appPacketIPTableSection = ipTableSectionOutput
-		i.appCgroupIPTableSection = ipTableSectionOutput
-		i.netPacketIPTableSection = ipTableSectionInput
-		i.appSynAckIPTableSection = ipTableSectionOutput
-	} else {
-		i.appPacketIPTableSection = ipTableSectionPreRouting
-		i.appCgroupIPTableSection = ipTableSectionOutput
-		i.netPacketIPTableSection = ipTableSectionPostRouting
-		i.appSynAckIPTableSection = ipTableSectionInput
+		appPacketIPTableContext: "mangle",
+		netPacketIPTableContext: "mangle",
+		appProxyIPTableContext:  "nat",
+		mode:                    mode,
+		portSetInstance:         portset,
+		appPacketIPTableSection: ipTableSectionOutput,
+		appCgroupIPTableSection: ipTableSectionOutput,
+		netPacketIPTableSection: ipTableSectionInput,
+		appSynAckIPTableSection: ipTableSectionOutput,
 	}
 
 	return i, nil
@@ -141,20 +130,6 @@ func PuPortSetName(contextID string, mark string, prefix string) string {
 	return (prefix + contextID + mark)
 }
 
-// DefaultIPAddress returns the default IP address for the processing unit
-func (i *Instance) defaultIP(addresslist map[string]string) (string, bool) {
-
-	if ip, ok := addresslist[policy.DefaultNamespace]; ok && len(ip) > 0 {
-		return ip, true
-	}
-
-	if i.mode == constants.LocalContainer {
-		return "0.0.0.0/0", false
-	}
-
-	return "0.0.0.0/0", true
-}
-
 // ConfigureRules implmenets the ConfigureRules interface
 func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error {
 	policyrules := containerInfo.Policy
@@ -162,12 +137,6 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
 		return err
-	}
-
-	// Supporting only one ip
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
-	if !ok {
-		return errors.New("no ip address found")
 	}
 
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
@@ -187,7 +156,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			return fmt.Errorf("Failed to create ProxySet %s : %s", proxyPortSetName, err)
 		}
 
-		if err = i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
+		if err = i.addChainRules("", appChain, netChain, "", "", "", proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 
@@ -229,43 +198,29 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 			return fmt.Errorf("Failed to create ProxySet %s : %s", proxyPortSetName, err)
 		}
 
-		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
+		if err := i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
 
 			return err
 		}
 	}
 
-	if err := i.addPacketTrap(appChain, netChain, ipAddress, containerInfo.Policy.TriremeNetworks()); err != nil {
+	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
 		return err
 	}
 
-	if err := i.addAppACLs(contextID, appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(contextID, appChain, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(contextID, netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(contextID, netChain, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
-	return i.addExclusionACLs(appChain, netChain, ipAddress, policyrules.ExcludedNetworks())
+	return i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks())
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy.ExtendedMap, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
-	var ipAddress string
-	var ok bool
-
-	// Supporting only one ip
-	if i.mode != constants.LocalServer {
-		if ipAddresses == nil {
-			return errors.New("provided map of ip addresses is nil")
-		}
-
-		ipAddress, ok = i.defaultIP(ipAddresses)
-		if !ok {
-			return errors.New("no ip address found")
-		}
-	}
+func (i *Instance) DeleteRules(version int, contextID string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
@@ -273,7 +228,7 @@ func (i *Instance) DeleteRules(version int, contextID string, ipAddresses policy
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 	portSetName := PuPortSetName(contextID, mark, PuPortSet)
-	if derr := i.deleteChainRules(portSetName, appChain, netChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); derr != nil {
+	if derr := i.deleteChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -327,11 +282,6 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return errors.New("policy rules cannot be nil")
 	}
 
-	// Supporting only one ip
-	ipAddress, ok := i.defaultIP(policyrules.IPAddresses())
-	if !ok {
-		return errors.New("no ip address found")
-	}
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
 
 	appChain, netChain, err := i.chainName(contextID, version)
@@ -351,26 +301,26 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	if err := i.addPacketTrap(appChain, netChain, ipAddress, containerInfo.Policy.TriremeNetworks()); err != nil {
+	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
 		return err
 	}
 
-	if err := i.addAppACLs(contextID, appChain, ipAddress, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(contextID, appChain, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(contextID, netChain, ipAddress, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(contextID, netChain, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addExclusionACLs(appChain, netChain, ipAddress, policyrules.ExcludedNetworks()); err != nil {
+	if err := i.addExclusionACLs(appChain, netChain, policyrules.ExcludedNetworks()); err != nil {
 		return err
 	}
 
 	// Add mapping to new chain
 	if i.mode != constants.LocalServer {
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
-		if err := i.addChainRules("", appChain, netChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
+		if err := i.addChainRules("", appChain, netChain, "", "", "", proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 	} else {
@@ -383,7 +333,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 		portSetName := PuPortSetName(contextID, mark, PuPortSet)
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
-		if err := i.addChainRules(portSetName, appChain, netChain, ipAddress, portlist, mark, uid, proxyPort, proxyPortSetName); err != nil {
+		if err := i.addChainRules(portSetName, appChain, netChain, portlist, mark, uid, proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 
@@ -392,7 +342,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
 		proxyPortSetName := PuPortSetName(contextID, "", proxyPortSet)
-		if err := i.deleteChainRules("", oldAppChain, oldNetChain, ipAddress, "", "", "", proxyPort, proxyPortSetName); err != nil {
+		if err := i.deleteChainRules("", oldAppChain, oldNetChain, "", "", "", proxyPort, proxyPortSetName); err != nil {
 
 			return err
 		}
@@ -403,7 +353,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 		portSetName := PuPortSetName(contextID, mark, PuPortSet)
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
-		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, ipAddress, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
+		if err := i.deleteChainRules(portSetName, oldAppChain, oldNetChain, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
 			return err
 		}
 
@@ -435,12 +385,6 @@ func (i *Instance) Start() error {
 		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
 	}
 
-	if i.mode == constants.LocalContainer {
-		if i.acceptMarkedPackets() != nil {
-			return errors.New("filter of marked packets is not set")
-		}
-	}
-
 	zap.L().Debug("Started the iptables controller")
 
 	return nil
@@ -463,8 +407,8 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 	if i.mode == constants.LocalServer {
-		if err := i.ipt.NewChain(i.appAckPacketIPTableContext, uidchain); err != nil {
-			zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidchain); err != nil {
+			zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", uidchain))
 			return err
 		}
 	}
@@ -476,15 +420,15 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
 	}
 	zap.L().Debug("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
-	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyOutputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyOutputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
 	}
-	if err := i.ipt.NewChain(i.appAckPacketIPTableContext, proxyInputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", proxyInputChain))
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain); err != nil {
+		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", proxyInputChain))
 	}
 	if i.mode == constants.LocalServer {
-		if err := i.ipt.Insert(i.appAckPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
-			zap.L().Error("Unable to Insert", zap.String("TableContext", i.appAckPacketIPTableContext), zap.String("ChainName", uidchain))
+		if err := i.ipt.Insert(i.appPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
+			zap.L().Error("Unable to Insert", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", uidchain))
 		}
 	}
 	// Insert the ACLS that point to the target networks
