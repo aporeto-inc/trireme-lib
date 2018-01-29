@@ -53,7 +53,7 @@ type InitRequestPayload struct {
 	ExternalIPCacheTimeout time.Duration              `json:",omitempty"`
 }
 
-// UpdateSecretsPayload
+// UpdateSecretsPayload payload for the update secrets to remote enforcers
 type UpdateSecretsPayload struct {
 	SecretType   secrets.PrivateSecretsType `json:",omitempty"`
 	CAPEM        []byte                     `json:",omitempty"`
