@@ -17,6 +17,15 @@ import (
 
 // MockTrireme is a mock of Trireme interface
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 type MockTrireme struct {
 	ctrl     *gomock.Controller
 	recorder *MockTriremeMockRecorder
@@ -24,11 +33,29 @@ type MockTrireme struct {
 
 // MockTriremeMockRecorder is the mock recorder for MockTrireme
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 type MockTriremeMockRecorder struct {
 	mock *MockTrireme
 }
 
 // NewMockTrireme creates a new mock instance
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func NewMockTrireme(ctrl *gomock.Controller) *MockTrireme {
 	mock := &MockTrireme{ctrl: ctrl}
@@ -38,11 +65,29 @@ func NewMockTrireme(ctrl *gomock.Controller) *MockTrireme {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (m *MockTrireme) EXPECT() *MockTriremeMockRecorder {
 	return m.recorder
 }
 
 // PURuntime mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) PURuntime(contextID string) (policy.RuntimeReader, error) {
 	ret := m.ctrl.Call(m, "PURuntime", contextID)
@@ -53,11 +98,29 @@ func (m *MockTrireme) PURuntime(contextID string) (policy.RuntimeReader, error) 
 
 // PURuntime indicates an expected call of PURuntime
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) PURuntime(contextID interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PURuntime", reflect.TypeOf((*MockTrireme)(nil).PURuntime), contextID)
 }
 
 // Start mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) Start() error {
 	ret := m.ctrl.Call(m, "Start")
@@ -67,11 +130,29 @@ func (m *MockTrireme) Start() error {
 
 // Start indicates an expected call of Start
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) Start() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockTrireme)(nil).Start))
 }
 
 // Stop mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) Stop() error {
 	ret := m.ctrl.Call(m, "Stop")
@@ -81,11 +162,29 @@ func (m *MockTrireme) Stop() error {
 
 // Stop indicates an expected call of Stop
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) Stop() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTrireme)(nil).Stop))
 }
 
 // Supervisor mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 	ret := m.ctrl.Call(m, "Supervisor", kind)
@@ -95,11 +194,29 @@ func (m *MockTrireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
 
 // Supervisor indicates an expected call of Supervisor
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) Supervisor(kind interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Supervisor", reflect.TypeOf((*MockTrireme)(nil).Supervisor), kind)
 }
 
 // CreatePURuntime mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURuntime) error {
 	ret := m.ctrl.Call(m, "CreatePURuntime", contextID, runtimeInfo)
@@ -109,11 +226,29 @@ func (m *MockTrireme) CreatePURuntime(contextID string, runtimeInfo *policy.PURu
 
 // CreatePURuntime indicates an expected call of CreatePURuntime
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) CreatePURuntime(contextID, runtimeInfo interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePURuntime", reflect.TypeOf((*MockTrireme)(nil).CreatePURuntime), contextID, runtimeInfo)
 }
 
 // HandlePUEvent mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) HandlePUEvent(contextID string, event events.Event) error {
 	ret := m.ctrl.Call(m, "HandlePUEvent", contextID, event)
@@ -123,11 +258,29 @@ func (m *MockTrireme) HandlePUEvent(contextID string, event events.Event) error 
 
 // HandlePUEvent indicates an expected call of HandlePUEvent
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) HandlePUEvent(contextID, event interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePUEvent", reflect.TypeOf((*MockTrireme)(nil).HandlePUEvent), contextID, event)
 }
 
 // UpdatePolicy mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) UpdatePolicy(contextID string, policy *policy.PUPolicy) error {
 	ret := m.ctrl.Call(m, "UpdatePolicy", contextID, policy)
@@ -137,11 +290,29 @@ func (m *MockTrireme) UpdatePolicy(contextID string, policy *policy.PUPolicy) er
 
 // UpdatePolicy indicates an expected call of UpdatePolicy
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) UpdatePolicy(contextID, policy interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePolicy", reflect.TypeOf((*MockTrireme)(nil).UpdatePolicy), contextID, policy)
 }
 
 // UpdateSecrets mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockTrireme) UpdateSecrets(secrets secrets.Secrets) error {
 	ret := m.ctrl.Call(m, "UpdateSecrets", secrets)
@@ -151,11 +322,29 @@ func (m *MockTrireme) UpdateSecrets(secrets secrets.Secrets) error {
 
 // UpdateSecrets indicates an expected call of UpdateSecrets
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockTriremeMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockTrireme)(nil).UpdateSecrets), secrets)
 }
 
 // MockPolicyUpdater is a mock of PolicyUpdater interface
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 type MockPolicyUpdater struct {
 	ctrl     *gomock.Controller
@@ -164,11 +353,29 @@ type MockPolicyUpdater struct {
 
 // MockPolicyUpdaterMockRecorder is the mock recorder for MockPolicyUpdater
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 type MockPolicyUpdaterMockRecorder struct {
 	mock *MockPolicyUpdater
 }
 
 // NewMockPolicyUpdater creates a new mock instance
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func NewMockPolicyUpdater(ctrl *gomock.Controller) *MockPolicyUpdater {
 	mock := &MockPolicyUpdater{ctrl: ctrl}
@@ -178,11 +385,29 @@ func NewMockPolicyUpdater(ctrl *gomock.Controller) *MockPolicyUpdater {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (m *MockPolicyUpdater) EXPECT() *MockPolicyUpdaterMockRecorder {
 	return m.recorder
 }
 
 // UpdatePolicy mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockPolicyUpdater) UpdatePolicy(contextID string, policy *policy.PUPolicy) error {
 	ret := m.ctrl.Call(m, "UpdatePolicy", contextID, policy)
@@ -192,11 +417,29 @@ func (m *MockPolicyUpdater) UpdatePolicy(contextID string, policy *policy.PUPoli
 
 // UpdatePolicy indicates an expected call of UpdatePolicy
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockPolicyUpdaterMockRecorder) UpdatePolicy(contextID, policy interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePolicy", reflect.TypeOf((*MockPolicyUpdater)(nil).UpdatePolicy), contextID, policy)
 }
 
 // MockPolicyResolver is a mock of PolicyResolver interface
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 type MockPolicyResolver struct {
 	ctrl     *gomock.Controller
@@ -205,11 +448,29 @@ type MockPolicyResolver struct {
 
 // MockPolicyResolverMockRecorder is the mock recorder for MockPolicyResolver
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 type MockPolicyResolverMockRecorder struct {
 	mock *MockPolicyResolver
 }
 
 // NewMockPolicyResolver creates a new mock instance
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func NewMockPolicyResolver(ctrl *gomock.Controller) *MockPolicyResolver {
 	mock := &MockPolicyResolver{ctrl: ctrl}
@@ -219,11 +480,29 @@ func NewMockPolicyResolver(ctrl *gomock.Controller) *MockPolicyResolver {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (m *MockPolicyResolver) EXPECT() *MockPolicyResolverMockRecorder {
 	return m.recorder
 }
 
 // ResolvePolicy mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockPolicyResolver) ResolvePolicy(contextID string, RuntimeReader policy.RuntimeReader) (*policy.PUPolicy, error) {
 	ret := m.ctrl.Call(m, "ResolvePolicy", contextID, RuntimeReader)
@@ -234,11 +513,29 @@ func (m *MockPolicyResolver) ResolvePolicy(contextID string, RuntimeReader polic
 
 // ResolvePolicy indicates an expected call of ResolvePolicy
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockPolicyResolverMockRecorder) ResolvePolicy(contextID, RuntimeReader interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolvePolicy", reflect.TypeOf((*MockPolicyResolver)(nil).ResolvePolicy), contextID, RuntimeReader)
 }
 
 // HandlePUEvent mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockPolicyResolver) HandlePUEvent(contextID string, eventType events.Event) {
 	m.ctrl.Call(m, "HandlePUEvent", contextID, eventType)
@@ -246,11 +543,29 @@ func (m *MockPolicyResolver) HandlePUEvent(contextID string, eventType events.Ev
 
 // HandlePUEvent indicates an expected call of HandlePUEvent
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (mr *MockPolicyResolverMockRecorder) HandlePUEvent(contextID, eventType interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePUEvent", reflect.TypeOf((*MockPolicyResolver)(nil).HandlePUEvent), contextID, eventType)
 }
 
 // MockSecretsUpdater is a mock of SecretsUpdater interface
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 type MockSecretsUpdater struct {
 	ctrl     *gomock.Controller
@@ -259,11 +574,29 @@ type MockSecretsUpdater struct {
 
 // MockSecretsUpdaterMockRecorder is the mock recorder for MockSecretsUpdater
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 type MockSecretsUpdaterMockRecorder struct {
 	mock *MockSecretsUpdater
 }
 
 // NewMockSecretsUpdater creates a new mock instance
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func NewMockSecretsUpdater(ctrl *gomock.Controller) *MockSecretsUpdater {
 	mock := &MockSecretsUpdater{ctrl: ctrl}
@@ -273,11 +606,29 @@ func NewMockSecretsUpdater(ctrl *gomock.Controller) *MockSecretsUpdater {
 
 // EXPECT returns an object that allows the caller to indicate expected use
 // nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 func (m *MockSecretsUpdater) EXPECT() *MockSecretsUpdaterMockRecorder {
 	return m.recorder
 }
 
 // UpdateSecrets mocks base method
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (m *MockSecretsUpdater) UpdateSecrets(secrets secrets.Secrets) error {
 	ret := m.ctrl.Call(m, "UpdateSecrets", secrets)
@@ -286,6 +637,15 @@ func (m *MockSecretsUpdater) UpdateSecrets(secrets secrets.Secrets) error {
 }
 
 // UpdateSecrets indicates an expected call of UpdateSecrets
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
+// nolint
 // nolint
 func (mr *MockSecretsUpdaterMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockSecretsUpdater)(nil).UpdateSecrets), secrets)

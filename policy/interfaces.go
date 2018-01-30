@@ -9,7 +9,10 @@
 // data.
 package policy
 
-import "github.com/aporeto-inc/trireme-lib/constants"
+import (
+	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/constants"
+)
 
 // A RuntimeReader allows to get the specific parameters stored in the Runtime
 type RuntimeReader interface {
@@ -35,3 +38,31 @@ type RuntimeReader interface {
 	// Returns the PUType for the PU
 	PUType() constants.PUType
 }
+
+// A Resolver must be implemnted by a policy engine that receives monitor events.
+type Resolver interface {
+
+	// CreatePURuntime is called when a monitor detects creation of a new ProcessingUnit.
+	CreatePURuntime(contextID string, runtime RuntimeReader) error
+
+	// HandlePUEvent is called by all monitors when a PU event is generated. The implementer
+	// is responsible to update all components by explicitly adding a new PU.
+	HandlePUEvent(contextID string, event common.Event) error
+
+	// HandleSynchronization handles a synchronization routine.
+	HandleSynchronization(contextID string, state common.State, runtime RuntimeReader, syncType SynchronizationType) error
+
+	// HandleSynchronizationComplete is called when a synchronization job is complete.
+	HandleSynchronizationComplete(syncType SynchronizationType)
+}
+
+// A SynchronizationType represents the type of synchronization job.
+type SynchronizationType int
+
+const (
+	// SynchronizationTypeInitial indicates the initial synchronization job.
+	SynchronizationTypeInitial SynchronizationType = iota + 1
+
+	// SynchronizationTypePeriodic indicates subsequent synchronization jobs.
+	SynchronizationTypePeriodic
+)

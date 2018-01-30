@@ -15,10 +15,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
@@ -75,7 +74,7 @@ type CLIRequest struct {
 	// ServiceID is the ID of the service
 	ServiceID string
 	// Services are the user defined services (protocol, port)
-	Services []policy.Service
+	Services []common.Service
 	// HostPolicy indicates that this is a host policy
 	HostPolicy bool
 	// NetworkOnly indicates that the request is only for traffic coming from the network
@@ -234,7 +233,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 
 	// This is added since the release_notification comes in this format
 	// Easier to massage it while creation rather than change at the receiving end depending on event
-	request := &events.EventInfo{
+	request := &common.EventInfo{
 		PUType:             constants.LinuxProcessPU,
 		Name:               c.ServiceName,
 		Tags:               c.Labels,
@@ -274,11 +273,11 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		host = true
 	}
 
-	request := &events.EventInfo{
+	request := &common.EventInfo{
 		PUType:      constants.LinuxProcessPU,
 		PUID:        puid,
 		Cgroup:      c.Cgroup,
-		EventType:   events.EventStop,
+		EventType:   common.EventStop,
 		HostService: host,
 	}
 	// Handle the special case with the User ID monitor and deletes
@@ -301,7 +300,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	}
 
 	// Send destroy request
-	request.EventType = events.EventDestroy
+	request.EventType = common.EventDestroy
 
 	return sendRPC(rpcAdress, request)
 }
@@ -320,7 +319,7 @@ func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
 }
 
 // sendRPC sends an RPC request to the provided address
-func sendRPC(address string, request *events.EventInfo) error {
+func sendRPC(address string, request *common.EventInfo) error {
 	// Make RPC call and only retry if the resource is temporarily unavailable
 	numRetries := 0
 	client, err := net.Dial("unix", address)
@@ -336,7 +335,7 @@ func sendRPC(address string, request *events.EventInfo) error {
 		client, err = net.Dial("unix", address)
 	}
 
-	response := &events.EventResponse{}
+	response := &common.EventResponse{}
 
 	rpcClient := jsonrpc.NewClient(client)
 
@@ -354,7 +353,7 @@ func sendRPC(address string, request *events.EventInfo) error {
 
 // ParseServices parses strings with the services and returns them in an
 // validated slice
-func ParseServices(ports []string) ([]policy.Service, error) {
+func ParseServices(ports []string) ([]common.Service, error) {
 
 	// If no ports are provided, we add the default 0 port
 	if len(ports) == 0 {
@@ -362,14 +361,14 @@ func ParseServices(ports []string) ([]policy.Service, error) {
 	}
 
 	// Parse the ports and create the services. Cleanup any bad ports
-	services := []policy.Service{}
+	services := []common.Service{}
 	for _, p := range ports {
 		s, err := portspec.NewPortSpecFromString(p, nil)
 		if err != nil {
 			return nil, fmt.Errorf("Invalid port spec: %s ", err)
 		}
 
-		services = append(services, policy.Service{
+		services = append(services, common.Service{
 			Protocol: uint8(6),
 			Ports:    s,
 		})
