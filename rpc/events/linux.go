@@ -32,6 +32,11 @@ func DefaultHostMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
+	userdata := ProcessInfo(event.PID)
+	for _, u := range userdata {
+		runtimeTags.AppendKeyValue("@sys:"+u, "true")
+	}
+
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
 		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
@@ -62,7 +67,6 @@ func SystemdEventMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) 
 	}
 
 	userdata := ProcessInfo(event.PID)
-
 	for _, u := range userdata {
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
 	}
