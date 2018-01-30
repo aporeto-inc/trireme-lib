@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
@@ -140,6 +141,25 @@ func ProcessInfo(pidString string) []string {
 	}
 
 	userdata = append(userdata, "username:"+username)
+
+	userid, err := user.Lookup(username)
+	if err != nil {
+		return userdata
+	}
+
+	gids, err := userid.GroupIds()
+	if err != nil {
+		return userdata
+	}
+
+	for i := 0; i < len(gids); i++ {
+		userdata = append(userdata, "gids:"+gids[i])
+		group, err := user.LookupGroupId(gids[i])
+		if err != nil {
+			continue
+		}
+		userdata = append(userdata, "groups:"+group.Name)
+	}
 
 	return userdata
 }
