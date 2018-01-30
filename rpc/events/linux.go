@@ -8,10 +8,11 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
-	"os/user"
+
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
