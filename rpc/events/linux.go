@@ -8,10 +8,11 @@ import (
 	"io"
 	"net"
 	"os"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
-	os_user "os/user"
+
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
@@ -141,19 +142,19 @@ func ProcessInfo(pidString string) []string {
 
 	userdata = append(userdata, "username:"+username)
 
-	user, err := os_user.Lookup(username)
+	userid, err := user.Lookup(username)
 	if err != nil {
 		return userdata
 	}
 
-	gids, err := user.GroupIds()
+	gids, err := userid.GroupIds()
 	if err != nil {
 		return userdata
 	}
 
 	for i := 0; i < len(gids); i++ {
 		userdata = append(userdata, "gids:"+gids[i])
-		group, err := os_user.LookupGroupId(gids[i])
+		group, err := user.LookupGroupId(gids[i])
 		if err != nil {
 			continue
 		}
