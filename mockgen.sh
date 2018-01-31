@@ -83,6 +83,6 @@ goimport_sanitize policy/mock/mockpolicy.go
 echo "Trireme Controller Mock"
 mkdir -p controller/mock
 mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/rpc/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
-goimport_sanitize mock/mocktrireme.go
+goimport_sanitize controller/mock/mocktrireme.go
 
 echo >&2 "OK"
