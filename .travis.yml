@@ -28,7 +28,8 @@ install:
   - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd -
   - cd $GOPATH/src/github.com/aporeto-inc && git clone https://github.com/aporeto-inc/netlink-go.git && cd -
   - cd $GOPATH/src/github.com/aporeto-inc/netlink-go && git checkout context && cd - 
-  - go get -t -v -d ./...
+  - cd $GOPATH/src/github.com/aporeto-in/trireme-lib && git checkout split
+  - go get -t -v ./...
 
 script:
   - gometalinter.v1 --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell --deadline=5m ./...
