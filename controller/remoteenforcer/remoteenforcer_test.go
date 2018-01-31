@@ -18,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/mock"

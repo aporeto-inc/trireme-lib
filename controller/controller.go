@@ -271,12 +271,12 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 			//and do not depend on the remote instance running and can be called here
 			switch t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].(type) {
 			case *enforcerproxy.ProxyInfo:
-				if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); err != nil {
-					return err
+				if lerr := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unenforce(contextID); lerr != nil {
+					return lerr
 				}
 
-				if err := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unsupervise(contextID); err != nil {
-					return err
+				if lerr := t.supervisors[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Unsupervise(contextID); lerr != nil {
+					return lerr
 				}
 
 				if lerr := t.doHandleCreate(contextID, newPolicy, runtime); lerr != nil {
