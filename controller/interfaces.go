@@ -16,14 +16,9 @@ type TriremeController interface {
 	// ProcessEvent processes an event or policy update. Returns false if the container
 	ProcessEvent(ctx context.Context, event common.Event, id string, policy *policy.PUPolicy, runtime *policy.PURuntime) (err error)
 
-	// // UpdateConfiguration updates the configuration of the controller.
-	// UpdateConfiguration(ctx context.Context, ) error
-
-	// PolicyUpdater
 	// UpdatePolicy updates the policy of the isolator for a container.
 	UpdatePolicy(contextID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error
 
-	// SecretsUpdater
 	// UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
 }
