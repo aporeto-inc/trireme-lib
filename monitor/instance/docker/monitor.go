@@ -249,8 +249,8 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 
 	allContainers := map[string]types.ContainerJSON{}
 
-	for _, c:= range containers {
-        container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
+	for _, c := range containers {
+		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 		if err != nil {
 			zap.L().Error("unable to sync existing container",
 				zap.String("dockerID", c.ID),
@@ -261,17 +261,12 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 
 		contextID, _ := contextIDFromDockerID(container.ID)
 
+		storedContext := &StoredContext{}
 		if d.NoProxyMode {
-			storedContext := &StoredContext{}
 			if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
 				container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
-			} 
+			}
 		}
-
-		allContainers[contextID] = container 
-	}
-
-	for contextID, container := range allContainers {
 
 		PURuntime, _ := d.extractMetadata(&container)
 		var state tevents.State
@@ -305,12 +300,14 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 				zap.Error(err),
 			)
 		}
+
+		allContainers[contextID] = container
 	}
 
 	for _, container := range allContainers {
 		if err := d.startDockerContainer(&container); err != nil {
 			zap.L().Error("Unable to sync existing container during start handling",
-				zap.String("dockerID", c.ID),
+				zap.String("dockerID", container.ID),
 				zap.Error(err),
 			)
 			continue
