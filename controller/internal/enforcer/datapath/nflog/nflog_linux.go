@@ -44,13 +44,12 @@ func (a *nfLog) Run(ctx context.Context) {
 	a.Unlock()
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			a.Lock()
-			a.srcNflogHandle.NFlogClose()
-			a.dstNflogHandle.NFlogClose()
-			a.Unlock()
-		}
+		<-ctx.Done()
+		a.Lock()
+		a.srcNflogHandle.NFlogClose()
+		a.dstNflogHandle.NFlogClose()
+		a.Unlock()
+
 	}()
 }
 

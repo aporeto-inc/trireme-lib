@@ -18,7 +18,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/mock"
@@ -191,7 +190,7 @@ func TestNewServer(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mock_rpcwrapper.NewMockRPCServer(ctrl)
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -240,7 +239,7 @@ func TestInitEnforcer(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mock_rpcwrapper.NewMockRPCServer(ctrl)
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 		mockStats := mockstatsclient.NewMockStatsClient(ctrl)
 
@@ -481,7 +480,7 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mock_rpcwrapper.NewMockRPCServer(ctrl)
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
 			So(rpcHdl, ShouldNotBeNil)
@@ -568,7 +567,7 @@ func TestSupervise(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mock_rpcwrapper.NewMockRPCServer(ctrl)
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockSup := mocksupervisor.NewMockSupervisor(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {
@@ -665,7 +664,7 @@ func TestEnforce(t *testing.T) {
 	defer ctrl.Finish()
 
 	Convey("When I try to retrieve rpc server handle", t, func() {
-		rpcHdl := mock_rpcwrapper.NewMockRPCServer(ctrl)
+		rpcHdl := mockrpcwrapper.NewMockRPCServer(ctrl)
 		mockEnf := mockenforcer.NewMockEnforcer(ctrl)
 
 		Convey("Then rpcHdl should resemble rpcwrapper struct", func() {

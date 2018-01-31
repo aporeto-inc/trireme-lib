@@ -213,10 +213,8 @@ func (p *Proxy) GetPortSetInstance() portset.PortSet {
 func (p *Proxy) Run(ctx context.Context) error {
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			p.wg.Wait()
-		}
+		<-ctx.Done()
+		p.wg.Wait()
 	}()
 
 	return nil

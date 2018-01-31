@@ -72,7 +72,7 @@ goimport_sanitize monitor/rpc/processor/mock/mockprocessor.go
 
 echo "RPC Wrapper Mocks"
 mkdir -p controller/internal/enforcer/utils/rpcwrapper/mock 
-mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go -source_package github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper 
+mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go -package mockrpcwrapper -source_package github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper 
 goimport_sanitize controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go
 
 echo "Policy Interfaces Mock"
