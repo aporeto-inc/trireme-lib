@@ -28,7 +28,6 @@ install:
   - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd -
   - cd $GOPATH/src/github.com/aporeto-inc && git clone https://github.com/aporeto-inc/netlink-go.git && cd -
   - cd $GOPATH/src/github.com/aporeto-inc/netlink-go && git checkout context && cd - 
-  - cd $GOPATH/src/github.com/aporeto-inc/trireme-lib && git checkout split
   - go get -t -v ./...
 
 script:
