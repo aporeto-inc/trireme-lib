@@ -93,8 +93,6 @@ func (p *Proxy) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 // StartListener is a dummy implementation of the enforcer.Enforcer for nonlinux compilers.
 func (p *Proxy) StartListener(contextID string, reterr chan error, port string) {
-
-	return
 }
 
 // Unenforce is a dummy implementation of the enforcer.Enforcer for nonlinux compilers.

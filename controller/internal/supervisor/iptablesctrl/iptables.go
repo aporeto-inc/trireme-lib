@@ -387,19 +387,18 @@ func (i *Instance) Run(ctx context.Context) error {
 	}
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			zap.L().Debug("Stop the supervisor")
+		<-ctx.Done()
+		zap.L().Debug("Stop the supervisor")
 
-			// Clean any previous ACLs that we have installed
-			if err := i.cleanACLs(); err != nil {
-				zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
-			}
-
-			if err := i.ipset.DestroyAll(); err != nil {
-				zap.L().Error("Failed to clean up ipsets", zap.Error(err))
-			}
+		// Clean any previous ACLs that we have installed
+		if err := i.cleanACLs(); err != nil {
+			zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 		}
+
+		if err := i.ipset.DestroyAll(); err != nil {
+			zap.L().Error("Failed to clean up ipsets", zap.Error(err))
+		}
+
 	}()
 
 	zap.L().Debug("Started the iptables controller")

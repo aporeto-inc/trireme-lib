@@ -59,11 +59,7 @@ func New() monitorinstance.Implementation {
 // Run implements Implementation interface
 func (c *cniMonitor) Run(ctx context.Context) error {
 
-	if err := c.proc.config.IsComplete(); err != nil {
-		return err
-	}
-
-	return nil
+	return c.proc.config.IsComplete()
 }
 
 // SetupConfig provides a configuration to implmentations. Every implmentation

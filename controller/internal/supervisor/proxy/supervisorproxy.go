@@ -113,11 +113,9 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 func (s *ProxyInfo) Run(ctx context.Context) error {
 
 	go func() {
-		select {
-		case <-ctx.Done():
-			for c := range s.initDone {
-				s.Unsupervise(c) // nolint
-			}
+		<-ctx.Done()
+		for c := range s.initDone {
+			s.Unsupervise(c) // nolint
 		}
 	}()
 

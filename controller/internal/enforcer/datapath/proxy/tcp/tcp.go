@@ -209,7 +209,7 @@ func (p *Proxy) GetPortSetInstance() portset.PortSet {
 	return nil
 }
 
-// Start is a stub for TCP proxy
+// Run is a stub for TCP proxy
 func (p *Proxy) Run(ctx context.Context) error {
 
 	go func() {
