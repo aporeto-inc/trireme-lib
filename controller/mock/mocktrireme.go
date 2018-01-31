@@ -6,12 +6,11 @@ package mockcontroller
 
 import (
 	context "context"
-	reflect "reflect"
-
 	common "github.com/aporeto-inc/trireme-lib/common"
 	secrets "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockTriremeController is a mock of TriremeController interface
