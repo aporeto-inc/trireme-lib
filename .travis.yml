@@ -27,6 +27,7 @@ before_install:
 install:
   - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd -
   - go get -t -v ./...
+  - cd $GOPATCH/src/github.com/aporeto-inc/netlink-go && git checkout context && cd - 
 
 
 script:
