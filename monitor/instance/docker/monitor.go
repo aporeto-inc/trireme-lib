@@ -158,19 +158,6 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
 
-// Stop monitoring docker events.
-func (d *dockerMonitor) Stop() error {
-
-	zap.L().Debug("Stopping the docker monitor")
-
-	d.stoplistener <- true
-	for i := 0; i < d.numberOfQueues; i++ {
-		d.stopprocessor[i] <- true
-	}
-
-	return nil
-}
-
 // eventProcessor processes docker events
 func (d *dockerMonitor) eventProcessors(ctx context.Context) {
 
@@ -247,7 +234,7 @@ func (d *dockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 // same process as when a container is initially spawn up
 func (d *dockerMonitor) ReSync(ctx context.Context) error {
 
-	if !d.syncAtStart {
+	if !d.syncAtStart || d.config.Policy == nil {
 		zap.L().Debug("No synchronization of containers performed")
 		return nil
 	}
@@ -256,98 +243,71 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 
 	options := types.ContainerListOptions{All: true}
 	containers, err := d.dockerClient.ContainerList(ctx, options)
-
 	if err != nil {
 		return fmt.Errorf("unable to get container list: %s", err)
 	}
 
-	if d.config.Policy != nil {
+	allContainers := map[string]types.ContainerJSON{}
 
-		for _, c := range containers {
-
-			container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
-			if err != nil {
-				zap.L().Error("unable to sync existing container",
-					zap.String("dockerID", c.ID),
-					zap.Error(err),
-				)
-				continue
-			}
-
-			contextID, _ := contextIDFromDockerID(container.ID)
-
-			if d.NoProxyMode {
-				storedContext := &StoredContext{}
-				if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
-					container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
-				} else {
-					if err = d.startDockerContainer(&container); err != nil {
-						zap.L().Debug("Could Not restart docker container", zap.String("ID", container.ID), zap.Error(err))
-					}
-					continue
-				}
-
-			}
-
-			PURuntime, _ := d.extractMetadata(&container)
-			var state tevents.State
-			if container.State.Running {
-				if !container.State.Paused {
-					state = tevents.StateStarted
-				} else {
-					state = tevents.StatePaused
-				}
-			} else {
-				state = tevents.StateStopped
-			}
-			if d.config.Policy != nil {
-				if d.NoProxyMode {
-					storedContext := &StoredContext{}
-					if err = d.cstore.Retrieve(contextID, &storedContext); err != nil {
-						//We don't know about this container lets not sync
-						continue
-					}
-
-					t := PURuntime.Tags()
-					if t != nil && storedContext.Tags != nil {
-						t.Merge(storedContext.Tags)
-						PURuntime.SetTags(t)
-					}
-
-				}
-				if err := d.config.Policy.HandleSynchronization(
-					contextID,
-					state,
-					PURuntime,
-					policy.SynchronizationTypeInitial,
-				); err != nil {
-					zap.L().Error("Unable to sync existing Container",
-						zap.String("dockerID", c.ID),
-						zap.Error(err),
-					)
-				}
-			}
-		}
-	}
-
-	for _, c := range containers {
-
-		container, err := d.dockerClient.ContainerInspect(context.Background(), c.ID)
+	for _, c:= range containers {
+        container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 		if err != nil {
-			zap.L().Error("Unable to sync existing container during inspect",
+			zap.L().Error("unable to sync existing container",
 				zap.String("dockerID", c.ID),
 				zap.Error(err),
 			)
 			continue
 		}
+
 		contextID, _ := contextIDFromDockerID(container.ID)
+
 		if d.NoProxyMode {
 			storedContext := &StoredContext{}
 			if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
 				container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
-			}
+			} 
 		}
 
+		allContainers[contextID] = container 
+	}
+
+	for contextID, container := range allContainers {
+
+		PURuntime, _ := d.extractMetadata(&container)
+		var state tevents.State
+		if container.State.Running {
+			if !container.State.Paused {
+				state = tevents.StateStarted
+			} else {
+				state = tevents.StatePaused
+			}
+		} else {
+			state = tevents.StateStopped
+		}
+
+		if d.NoProxyMode {
+			t := PURuntime.Tags()
+			if t != nil && storedContext.Tags != nil {
+				t.Merge(storedContext.Tags)
+				PURuntime.SetTags(t)
+			}
+
+		}
+
+		if err := d.config.Policy.HandleSynchronization(
+			contextID,
+			state,
+			PURuntime,
+			policy.SynchronizationTypeInitial,
+		); err != nil {
+			zap.L().Error("Unable to sync existing Container",
+				zap.String("dockerID", c.ID),
+				zap.Error(err),
+			)
+		}
+	}
+
+	for _, container := range allContainers {
 		if err := d.startDockerContainer(&container); err != nil {
 			zap.L().Error("Unable to sync existing container during start handling",
 				zap.String("dockerID", c.ID),
@@ -357,7 +317,6 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 		}
 
 		zap.L().Debug("Successfully synced container", zap.String("dockerID", container.ID))
-
 	}
 
 	return nil
