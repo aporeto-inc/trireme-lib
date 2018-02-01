@@ -1,12 +1,12 @@
 package packetprocessor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/connection"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/pucontext"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/packet"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/tokens"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/connection"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/pucontext"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/fqconfig"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/packet"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/tokens"
 )
 
 // PacketProcessor is an interface for extending packet processing functions such

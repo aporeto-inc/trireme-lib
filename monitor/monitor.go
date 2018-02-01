@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	monitorinstance "github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
@@ -28,13 +27,19 @@ type monitors struct {
 }
 
 // NewMonitors instantiates all/any combination of monitors supported.
-func NewMonitors(collector collector.EventCollector, puhandler policy.Resolver, c *config.MonitorConfig) (Monitor, error) {
+func NewMonitors(opts ...Options) (Monitor, error) {
 
 	var err error
 
-	c.Common.Collector = collector
-	c.Common.Policy = puhandler
-	c.Common.MergeTags = c.MergeTags
+	c := &config.MonitorConfig{
+		MergeTags: []string{},
+		Common:    &config.ProcessorConfig{},
+		Monitors:  map[config.Type]interface{}{},
+	}
+
+	for _, opt := range opts {
+		opt(c)
+	}
 
 	if err = c.Common.IsComplete(); err != nil {
 		return nil, err
@@ -136,12 +141,27 @@ func (m *monitors) Run(ctx context.Context) (err error) {
 
 // UpdateConfiguration updates the configuration of the monitors.
 func (m *monitors) UpdateConfiguration(ctx context.Context, config *config.MonitorConfig) error {
+	// Monitor configuration cannot change at this time.
 	// TODO:
 	return nil
 }
 
 // Resync resyncs the monitor
 func (m *monitors) Resync(ctx context.Context) error {
-	// TODO
+
+	failure := false
+	var errs string
+
+	for _, i := range m.monitors {
+		if err := i.ReSync(ctx); err != nil {
+			errs = errs + err.Error()
+			failure = true
+		}
+	}
+
+	if failure {
+		return fmt.Errorf("Monitor resync failed: %s", errs)
+	}
+
 	return nil
 }

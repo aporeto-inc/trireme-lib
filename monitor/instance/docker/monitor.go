@@ -377,10 +377,6 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		runtimeInfo.SetTags(t)
 	}
 
-	if err = d.config.Policy.CreatePURuntime(contextID, runtimeInfo); err != nil {
-		return err
-	}
-
 	var event tevents.Event
 	switch dockerInfo.State.Status {
 	case "paused":
@@ -395,7 +391,7 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		event = tevents.EventStart
 	}
 
-	if err = d.config.Policy.HandlePUEvent(contextID, event); err != nil {
+	if err = d.config.Policy.HandlePUEvent(contextID, event, runtimeInfo); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerRemove(context.Background(), dockerInfo.ID, types.ContainerRemoveOptions{Force: true}); derr != nil {
 				return fmt.Errorf("unable to set policy: unable to remove container %s: %s, %s", contextID, err, derr)
@@ -430,7 +426,7 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventStop)
+	return d.config.Policy.HandlePUEvent(contextID, tevents.EventStop, nil)
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -455,7 +451,7 @@ func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventCreate)
+	return d.config.Policy.HandlePUEvent(contextID, tevents.EventCreate, nil)
 }
 
 // handleStartEvent will notify the agent immediately about the event in order
@@ -512,7 +508,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 		return err
 	}
 
-	err = d.config.Policy.HandlePUEvent(contextID, tevents.EventDestroy)
+	err = d.config.Policy.HandlePUEvent(contextID, tevents.EventDestroy, nil)
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
 			zap.Error(err),
@@ -538,7 +534,7 @@ func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventPause)
+	return d.config.Policy.HandlePUEvent(contextID, tevents.EventPause, nil)
 }
 
 // handleCreateEvent generates a create event type.
@@ -549,7 +545,7 @@ func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventUnpause)
+	return d.config.Policy.HandlePUEvent(contextID, tevents.EventUnpause, nil)
 }
 
 func contextIDFromDockerID(dockerID string) (string, error) {

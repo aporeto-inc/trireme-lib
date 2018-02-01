@@ -1,6 +1,7 @@
 package monitor
 
 import (
+	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
@@ -8,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // Options is provided using functional arguments.
@@ -167,6 +169,20 @@ func OptionMergeTags(tags []string) Options {
 	return func(cfg *config.MonitorConfig) {
 		cfg.MergeTags = tags
 		cfg.Common.MergeTags = tags
+	}
+}
+
+// OptionCollector provide a way to add to the docker monitor the collector instance
+func OptionCollector(c collector.EventCollector) Options {
+	return func(cfg *config.MonitorConfig) {
+		cfg.Common.Collector = c
+	}
+}
+
+// OptionPolicyResolver provides a way to add to the docker monitor the policy resolver instance
+func OptionPolicyResolver(p policy.Resolver) Options {
+	return func(cfg *config.MonitorConfig) {
+		cfg.Common.Policy = p
 	}
 }
 

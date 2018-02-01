@@ -26,14 +26,14 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	_ "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer"
+	_ "github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/nsenter" // nolint
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/rpcwrapper"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/packetprocessor"
 	"github.com/aporeto-inc/trireme-lib/controller/remoteenforcer/internal/statsclient"
 	"github.com/aporeto-inc/trireme-lib/controller/remoteenforcer/internal/statscollector"
+	"github.com/aporeto-inc/trireme-lib/controller/supervisor"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 

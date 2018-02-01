@@ -15,25 +15,25 @@ mkdir -p utils/cgnetcls/mock
 mockgen -source utils/cgnetcls/interfaces.go -destination utils/cgnetcls/mock/mockcgnetcls.go -package mockcgnetcls -source_package github.com/aporeto-inc/trireme-lib/utils/cgnetcls
 goimport_sanitize utils/cgnetcls/mock/mockcgnetcls.go
 
-echo "Controller/Internal/Supervisor/Provider Mocks"
-mkdir -p controller/internal/supervisor/mock
-mockgen -source controller/internal/supervisor/interfaces.go -destination controller/internal/supervisor/mock/mocksupervisor.go -package mocksupervisor
-goimport_sanitize controller/internal/supervisor/mock/mocksupervisor.go
+echo "Controller/Supervisor/Provider Mocks"
+mkdir -p controller/supervisor/mock
+mockgen -source controller/supervisor/interfaces.go -destination controller/supervisor/mock/mocksupervisor.go -package mocksupervisor
+goimport_sanitize controller/supervisor/mock/mocksupervisor.go
 
 echo "Enforcer Mocks"
-mkdir -p controller/internal/enforcer/mock
-mockgen -source controller/internal/enforcer/enforcer.go -destination controller/internal/enforcer/mock/mockenforcer.go -package mockenforcer
-goimport_sanitize controller/internal/enforcer/mock/mockenforcer.go
+mkdir -p controller/enforcer/mock
+mockgen -source controller/enforcer/enforcer.go -destination controller/enforcer/mock/mockenforcer.go -package mockenforcer
+goimport_sanitize controller/enforcer/mock/mockenforcer.go
 
-echo "Controller/Internal/ContextStore Mocks"
+echo "Controller/ContextStore Mocks"
 mkdir -p utils/contextstore/mock
 mockgen -source utils/contextstore/interfaces.go -destination utils/contextstore/mock/mockcontextstore.go -package mockcontextstore
 goimport_sanitize utils/contextstore/mock/mockcontextstore.go
 
-echo "Controller/Internal/Processmon Mocks"
-mkdir -p controller/internal/processmon/mock
-mockgen -source controller/internal/processmon/interfaces.go -destination controller/internal/processmon/mock/mockprocessmon.go -package mockprocessmon
-goimport_sanitize controller/internal/processmon/mock/mockprocessmon.go
+echo "Controller/Processmon Mocks"
+mkdir -p controller/processmon/mock
+mockgen -source controller/processmon/interfaces.go -destination controller/processmon/mock/mockprocessmon.go -package mockprocessmon
+goimport_sanitize controller/processmon/mock/mockprocessmon.go
 
 echo "Controller/RemoteEnforcer Mocks"
 mkdir -p controller/remoteenforcer/mock
@@ -41,12 +41,12 @@ mockgen -source controller/remoteenforcer/interfaces.go -destination controller/
 goimport_sanitize controller/remoteenforcer/mock/mockremoteenforcer.go
 
 echo "Controller/RemoteEnforcer/StatsClient Mocks"
-mkdir -p controller/remoteenforcer/internal/statsclient/mock
+mkdir -p controller/remoteenforcer/statsclient/mock
 mockgen -source controller/remoteenforcer/internal/statsclient/interfaces.go -destination controller/remoteenforcer/internal/statsclient/mock/mockstatsclient.go -package mockstatsclient
 goimport_sanitize controller/remoteenforcer/internal/statsclient/mock/mockstatsclient.go
 
 echo "Controller/RemoteEnforcer/StatsCollector Mocks"
-mkdir -p controller/remoteenforcer/internal/statscollector/mock
+mkdir -p controller/remoteenforcer/statscollector/mock
 mockgen -source controller/remoteenforcer/internal/statscollector/interfaces.go -aux_files collector=collector/interfaces.go -destination controller/remoteenforcer/internal/statscollector/mock/mockstatscollector.go -package mockstatscollector
 goimport_sanitize controller/remoteenforcer/internal/statscollector/mock/mockstatscollector.go
 
@@ -71,9 +71,9 @@ mockgen -source monitor/rpc/processor/interfaces.go -destination monitor/rpc/pro
 goimport_sanitize monitor/rpc/processor/mock/mockprocessor.go
 
 echo "RPC Wrapper Mocks"
-mkdir -p controller/internal/enforcer/utils/rpcwrapper/mock 
-mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go -package mockrpcwrapper -source_package github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper 
-goimport_sanitize controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go
+mkdir -p controller/enforcer/utils/rpcwrapper/mock 
+mockgen -source controller/enforcer/utils/rpcwrapper/interfaces.go -destination controller/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go -package mockrpcwrapper -source_package github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/rpcwrapper 
+goimport_sanitize controller/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go
 
 echo "Policy Interfaces Mock"
 mkdir -p policy/mock
@@ -82,7 +82,7 @@ goimport_sanitize policy/mock/mockpolicy.go
 
 echo "Trireme Controller Mock"
 mkdir -p controller/mock
-mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/rpc/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
+mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/rpc/processor/interfaces.go supervisor=controller/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
 goimport_sanitize controller/mock/mocktrireme.go
 
 echo >&2 "OK"

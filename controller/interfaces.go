@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 

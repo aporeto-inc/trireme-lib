@@ -4,12 +4,12 @@ import (
 	"os"
 
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/processmon"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/iptablesctrl"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/packetprocessor"
+	"github.com/aporeto-inc/trireme-lib/controller/processmon"
 	"github.com/aporeto-inc/trireme-lib/controller/remoteenforcer"
+	"github.com/aporeto-inc/trireme-lib/controller/supervisor/iptablesctrl"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
 )

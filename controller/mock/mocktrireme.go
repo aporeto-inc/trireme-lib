@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	common "github.com/aporeto-inc/trireme-lib/common"
-	secrets "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
+	secrets "github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/secrets"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )

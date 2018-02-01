@@ -40,12 +40,9 @@ type RuntimeReader interface {
 // A Resolver must be implemnted by a policy engine that receives monitor events.
 type Resolver interface {
 
-	// CreatePURuntime is called when a monitor detects creation of a new ProcessingUnit.
-	CreatePURuntime(contextID string, runtime RuntimeReader) error
-
 	// HandlePUEvent is called by all monitors when a PU event is generated. The implementer
 	// is responsible to update all components by explicitly adding a new PU.
-	HandlePUEvent(contextID string, event common.Event) error
+	HandlePUEvent(contextID string, event common.Event, runtime RuntimeReader) error
 
 	// HandleSynchronization handles a synchronization routine.
 	HandleSynchronization(contextID string, state common.State, runtime RuntimeReader, syncType SynchronizationType) error

@@ -83,7 +83,7 @@ func (l *linuxProcessor) Create(eventInfo *common.EventInfo) error {
 		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
-	return l.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventCreate)
+	return l.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventCreate, nil)
 }
 
 // startInternal is called while starting and reacquiring.
@@ -94,12 +94,7 @@ func (l *linuxProcessor) startInternal(runtimeInfo *policy.PURuntime, eventInfo 
 		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
-	// Setup the run time
-	if err = l.config.Policy.CreatePURuntime(eventInfo.PUID, runtimeInfo); err != nil {
-		return fmt.Errorf("create runtime failed: %s", err)
-	}
-
-	if err = l.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventStart); err != nil {
+	if err = l.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventStart, runtimeInfo); err != nil {
 		return fmt.Errorf("handle pu failed: %s", err)
 	}
 
@@ -151,7 +146,7 @@ func (l *linuxProcessor) Stop(eventInfo *common.EventInfo) error {
 	}
 
 	contextID = baseName(contextID, "/")
-	return l.config.Policy.HandlePUEvent(contextID, common.EventStop)
+	return l.config.Policy.HandlePUEvent(contextID, common.EventStop, nil)
 }
 
 // Destroy handles a destroy event
@@ -171,7 +166,7 @@ func (l *linuxProcessor) Destroy(eventInfo *common.EventInfo) error {
 	contextID = baseName(contextID, "/")
 
 	// Send the event upstream
-	if err := l.config.Policy.HandlePUEvent(contextID, common.EventDestroy); err != nil {
+	if err := l.config.Policy.HandlePUEvent(contextID, common.EventDestroy, nil); err != nil {
 		zap.L().Warn("Unable to clean trireme ",
 			zap.String("contextID", contextID),
 			zap.Error(err),
@@ -210,7 +205,7 @@ func (l *linuxProcessor) Pause(eventInfo *common.EventInfo) error {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return l.config.Policy.HandlePUEvent(contextID, common.EventPause)
+	return l.config.Policy.HandlePUEvent(contextID, common.EventPause, nil)
 }
 
 // ReSync resyncs with all the existing services that were there before we start

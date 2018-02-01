@@ -108,11 +108,7 @@ func (u *uidProcessor) Start(eventInfo *common.EventInfo) error {
 
 		publishedContextID := contextID + runtimeInfo.Options().CgroupMark
 		// Setup the run time
-		if err = u.config.Policy.CreatePURuntime(publishedContextID, runtimeInfo); err != nil {
-			return err
-		}
-
-		if perr := u.config.Policy.HandlePUEvent(publishedContextID, common.EventStart); perr != nil {
+		if perr := u.config.Policy.HandlePUEvent(publishedContextID, common.EventStart, runtimeInfo); perr != nil {
 			zap.L().Error("Failed to activate process", zap.Error(perr))
 			return perr
 		}
@@ -207,7 +203,7 @@ func (u *uidProcessor) Stop(eventInfo *common.EventInfo) error {
 			return u.netcls.DeleteCgroup(stoppedpid)
 		}
 
-		if err = u.config.Policy.HandlePUEvent(publishedContextID, common.EventStop); err != nil {
+		if err = u.config.Policy.HandlePUEvent(publishedContextID, common.EventStop, nil); err != nil {
 			zap.L().Warn("Failed to stop trireme PU ",
 				zap.String("contextID", contextID),
 				zap.Error(err),
@@ -225,7 +221,7 @@ func (u *uidProcessor) Stop(eventInfo *common.EventInfo) error {
 			)
 		}
 
-		if err = u.config.Policy.HandlePUEvent(publishedContextID, common.EventDestroy); err != nil {
+		if err = u.config.Policy.HandlePUEvent(publishedContextID, common.EventDestroy, nil); err != nil {
 			zap.L().Warn("Failed to Destroy clean trireme ",
 				zap.String("contextID", contextID),
 				zap.Error(err),
@@ -242,7 +238,7 @@ func (u *uidProcessor) Stop(eventInfo *common.EventInfo) error {
 // Create handles create events
 func (u *uidProcessor) Create(eventInfo *common.EventInfo) error {
 
-	return u.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventCreate)
+	return u.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventCreate, nil)
 }
 
 // Destroy handles a destroy event
@@ -261,7 +257,7 @@ func (u *uidProcessor) Pause(eventInfo *common.EventInfo) error {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return u.config.Policy.HandlePUEvent(contextID, common.EventPause)
+	return u.config.Policy.HandlePUEvent(contextID, common.EventPause, nil)
 }
 
 // ReSync resyncs with all the existing services that were there before we start

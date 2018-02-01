@@ -165,32 +165,18 @@ func (m *MockResolver) EXPECT() *MockResolverMockRecorder {
 	return m.recorder
 }
 
-// CreatePURuntime mocks base method
-// nolint
-func (m *MockResolver) CreatePURuntime(contextID string, runtime policy.RuntimeReader) error {
-	ret := m.ctrl.Call(m, "CreatePURuntime", contextID, runtime)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CreatePURuntime indicates an expected call of CreatePURuntime
-// nolint
-func (mr *MockResolverMockRecorder) CreatePURuntime(contextID, runtime interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePURuntime", reflect.TypeOf((*MockResolver)(nil).CreatePURuntime), contextID, runtime)
-}
-
 // HandlePUEvent mocks base method
 // nolint
-func (m *MockResolver) HandlePUEvent(contextID string, event common.Event) error {
-	ret := m.ctrl.Call(m, "HandlePUEvent", contextID, event)
+func (m *MockResolver) HandlePUEvent(contextID string, event common.Event, runtime policy.RuntimeReader) error {
+	ret := m.ctrl.Call(m, "HandlePUEvent", contextID, event, runtime)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandlePUEvent indicates an expected call of HandlePUEvent
 // nolint
-func (mr *MockResolverMockRecorder) HandlePUEvent(contextID, event interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePUEvent", reflect.TypeOf((*MockResolver)(nil).HandlePUEvent), contextID, event)
+func (mr *MockResolverMockRecorder) HandlePUEvent(contextID, event, runtime interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePUEvent", reflect.TypeOf((*MockResolver)(nil).HandlePUEvent), contextID, event, runtime)
 }
 
 // HandleSynchronization mocks base method

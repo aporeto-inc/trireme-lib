@@ -38,11 +38,7 @@ func (c *cniProcessor) Start(eventInfo *common.EventInfo) error {
 		return err
 	}
 
-	if err = c.config.Policy.CreatePURuntime(contextID, runtimeInfo); err != nil {
-		return err
-	}
-
-	if err := c.config.Policy.HandlePUEvent(contextID, common.EventStart); err != nil {
+	if err := c.config.Policy.HandlePUEvent(contextID, common.EventStart, runtimeInfo); err != nil {
 		return err
 	}
 
@@ -65,7 +61,7 @@ func (c *cniProcessor) Stop(eventInfo *common.EventInfo) error {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return c.config.Policy.HandlePUEvent(contextID, common.EventStop)
+	return c.config.Policy.HandlePUEvent(contextID, common.EventStop, nil)
 }
 
 // Destroy handles a destroy event
