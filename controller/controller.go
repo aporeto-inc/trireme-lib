@@ -131,7 +131,6 @@ func (t *trireme) UpdateConfiguration(networks []string) error {
 func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, runtimeInfo *policy.PURuntime) error {
 
 	runtimeInfo.GlobalLock.Lock()
-	defer runtimeInfo.GlobalLock.Unlock()
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 	newOptions := containerInfo.Runtime.Options()
@@ -145,7 +144,10 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 		Event:     collector.ContainerStart,
 	}
 
-	defer t.config.collector.CollectContainerEvent(logEvent)
+	defer func() {
+		t.config.collector.CollectContainerEvent(logEvent)
+		runtimeInfo.GlobalLock.Unlock()
+	}()
 
 	addTransmitterLabel(contextID, containerInfo)
 	if !mustEnforce(contextID, containerInfo) {
