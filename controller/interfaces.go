@@ -21,4 +21,8 @@ type TriremeController interface {
 
 	// UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
+
+	// UpdateConfiguration updates the configuration of the controller. Only specific configuration
+	// parameters can be updated during run time.
+	UpdateConfiguration(networks []string) error
 }

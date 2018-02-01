@@ -36,8 +36,8 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 	sc := &statsClient{
 		collector:     cr,
 		rpchdl:        rpcwrapper.NewRPCWrapper(),
-		secret:        os.Getenv(constants.AporetoEnvStatsSecret),
-		statsChannel:  os.Getenv(constants.AporetoEnvStatsChannel),
+		secret:        os.Getenv(constants.EnvStatsSecret),
+		statsChannel:  os.Getenv(constants.EnvStatsChannel),
 		statsInterval: defaultStatsIntervalMiliseconds * time.Millisecond,
 		stop:          make(chan bool),
 	}

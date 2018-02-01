@@ -96,3 +96,17 @@ func (m *MockTriremeController) UpdateSecrets(secrets secrets.Secrets) error {
 func (mr *MockTriremeControllerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockTriremeController)(nil).UpdateSecrets), secrets)
 }
+
+// UpdateConfiguration mocks base method
+// nolint
+func (m *MockTriremeController) UpdateConfiguration(networks []string) error {
+	ret := m.ctrl.Call(m, "UpdateConfiguration", networks)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateConfiguration indicates an expected call of UpdateConfiguration
+// nolint
+func (mr *MockTriremeControllerMockRecorder) UpdateConfiguration(networks interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateConfiguration", reflect.TypeOf((*MockTriremeController)(nil).UpdateConfiguration), networks)
+}

@@ -33,7 +33,7 @@ import (
 	dockerClient "github.com/docker/docker/client"
 )
 
-// dockerMonitor implements the connection to Docker and monitoring based on events
+// dockerMonitor implements the connection to Docker and monitoring based on docker events.
 type dockerMonitor struct {
 	dockerClient       *dockerClient.Client
 	socketType         string
@@ -53,7 +53,7 @@ type dockerMonitor struct {
 	cstore                     contextstore.ContextStore
 }
 
-// New returns a new docker monitor
+// New returns a new docker monitor.
 func New() monitorinstance.Implementation {
 	return &dockerMonitor{}
 }
@@ -158,7 +158,9 @@ func (d *dockerMonitor) sendRequestToQueue(r *events.Message) {
 	d.eventnotifications[int(h%uint64(d.numberOfQueues))] <- r
 }
 
-// eventProcessor processes docker events
+// eventProcessor processes docker events. We are processing multiple
+// queues in parallel so that we can activate containers as fast
+// as possible.
 func (d *dockerMonitor) eventProcessors(ctx context.Context) {
 
 	for i := 0; i < d.numberOfQueues; i++ {
@@ -166,26 +168,14 @@ func (d *dockerMonitor) eventProcessors(ctx context.Context) {
 			for {
 				select {
 				case event := <-d.eventnotifications[i]:
-					if event.Action != "" {
-						f, ok := d.handlers[Event(event.Action)]
-						if ok {
-							err := f(event)
-							if err != nil {
-								zap.L().Error("Unable to handle docker event",
-									zap.String("action", event.Action),
-									zap.Error(err),
-								)
-							}
-						} else {
-							zap.L().Debug("Docker event not handled",
+					if f, ok := d.handlers[Event(event.Action)]; ok {
+						if err := f(event); err != nil {
+							zap.L().Error("Unable to handle docker event",
 								zap.String("action", event.Action),
-								zap.String("ID", event.ID),
+								zap.Error(err),
 							)
 						}
-					} else {
-						zap.L().Info("Empty event",
-							zap.String("ID", event.ID),
-						)
+						continue
 					}
 				case <-ctx.Done():
 					return
@@ -200,9 +190,11 @@ func (d *dockerMonitor) eventProcessors(ctx context.Context) {
 // that we will miss events because the processor is delayed
 func (d *dockerMonitor) eventListener(ctx context.Context, listenerReady chan struct{}) {
 
-	options := types.EventsOptions{}
-	options.Filters = filters.NewArgs()
-	options.Filters.Add("type", "container")
+	f := filters.NewArgs()
+	f.Add("type", "container")
+	options := types.EventsOptions{
+		Filters: f,
+	}
 
 	messages, errs := d.dockerClient.Events(context.Background(), options)
 
@@ -320,44 +312,36 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 }
 
 // setupHostMode sets up the net_cls cgroup for the host mode
-func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) error {
+func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) (err error) {
 
-	if err := d.netcls.Creategroup(contextID); err != nil {
+	if err = d.netcls.Creategroup(contextID); err != nil {
 		return err
 	}
 
+	// Clean the cgroup on exit, if we have failed t activate.
+	defer func() {
+		if err != nil {
+			if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+				zap.L().Warn("Failed to clean cgroup",
+					zap.String("contextID", contextID),
+					zap.Error(derr),
+					zap.Error(err),
+				)
+			}
+		}
+	}()
+
 	markval := runtimeInfo.Options().CgroupMark
 	if markval == "" {
-		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
-			zap.L().Warn("Failed to clean cgroup",
-				zap.String("contextID", contextID),
-				zap.Error(derr),
-			)
-		}
-
 		return errors.New("mark value not found")
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
 	if err := d.netcls.AssignMark(contextID, mark); err != nil {
-		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
-			zap.L().Warn("Failed to clean cgroup",
-				zap.String("contextID", contextID),
-				zap.Error(derr),
-			)
-		}
-
 		return err
 	}
 
 	if err := d.netcls.AddProcess(contextID, dockerInfo.State.Pid); err != nil {
-		if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
-			zap.L().Warn("Failed to clean cgroup",
-				zap.String("contextID", contextID),
-				zap.Error(derr),
-			)
-		}
-
 		return err
 	}
 
@@ -374,24 +358,25 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	if err != nil {
 		return err
 	}
-	storedContext := &StoredContext{}
-	if d.cstore != nil {
-		if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
-			if storedContext.Tags != nil {
-				dockerInfo.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
-			}
 
+	storedContext := &StoredContext{}
+	if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+		if storedContext.Tags != nil {
+			dockerInfo.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
 		}
 	}
+
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
 	if err != nil {
 		return err
 	}
+
 	t := runtimeInfo.Tags()
 	if t != nil && storedContext.Tags != nil {
 		t.Merge(storedContext.Tags)
 		runtimeInfo.SetTags(t)
 	}
+
 	if err = d.config.Policy.CreatePURuntime(contextID, runtimeInfo); err != nil {
 		return err
 	}
@@ -407,7 +392,6 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 	default:
 		//We are restarting.Feeding start here. might as well be stop since we will get start notification when the
 		//container finishes restarting
-
 		event = tevents.EventStart
 	}
 
@@ -425,8 +409,8 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		if err = d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
 		}
-
 	}
+
 	storedContext = &StoredContext{
 		containerInfo: dockerInfo,
 		Tags:          runtimeInfo.Tags(),
@@ -441,9 +425,11 @@ func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
 	if err != nil {
 		return err
 	}
+
 	if err = d.cstore.Remove(contextID); err != nil {
 		return err
 	}
+
 	return d.config.Policy.HandlePUEvent(contextID, tevents.EventStop)
 }
 
@@ -485,7 +471,6 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 	}
 
 	info, err := d.dockerClient.ContainerInspect(context.Background(), event.ID)
-
 	if err != nil {
 		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
 		if d.killContainerOnPolicyError {
@@ -528,7 +513,6 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 	}
 
 	err = d.config.Policy.HandlePUEvent(contextID, tevents.EventDestroy)
-
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
 			zap.Error(err),
@@ -548,6 +532,7 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 // handlePauseEvent generates a create event type.
 func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
 	zap.L().Info("UnPause Event for nativeID", zap.String("ID", event.ID))
+
 	contextID, err := contextIDFromDockerID(event.ID)
 	if err != nil {
 		return err
@@ -587,21 +572,19 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 	switch socketType {
 	case "tcp":
 		socket = "https://" + socketAddress
-
 	case "unix":
 		// Sanity check that this path exists
 		if _, oserr := os.Stat(socketAddress); os.IsNotExist(oserr) {
 			return nil, oserr
 		}
 		socket = "unix://" + socketAddress
-
 	default:
 		return nil, fmt.Errorf("bad socket type: %s", socketType)
 	}
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
-	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 
+	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create docker client: %s", err)
 	}
@@ -620,6 +603,7 @@ func (d *dockerMonitor) setupDockerDaemon() (err error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), dockerPingTimeout)
 	defer cancel()
+
 	_, err = d.dockerClient.Ping(ctx)
 	return err
 }

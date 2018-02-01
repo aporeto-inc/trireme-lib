@@ -16,12 +16,12 @@ void nsexec(void) {
   char path[STRBUF_SIZE];
   char msg[STRBUF_SIZE];
   char mountpoint[STRBUF_SIZE] = {0};
-  char *container_pid_env = getenv("APORETO_ENV_CONTAINER_PID");
-  char *netns_path_env = getenv("APORETO_ENV_NS_PATH");
-  char *proc_mountpoint = getenv("APORETO_ENV_PROC_MOUNTPOINT");
+  char *container_pid_env = getenv("TRIREME_ENV_CONTAINER_PID");
+  char *netns_path_env = getenv("TRIREME_ENV_NS_PATH");
+  char *proc_mountpoint = getenv("TRIREME_ENV_PROC_MOUNTPOINT");
   if(container_pid_env == NULL){
     // We are not running as remote enforcer
-    setenv("APORETO_ENV_NSENTER_LOGS", "no container pid", 1);
+    setenv("TRIREME_ENV_NSENTER_LOGS", "no container pid", 1);
     return;
   }
   if(netns_path_env == NULL){
@@ -42,15 +42,15 @@ void nsexec(void) {
   fd = open(path, O_RDONLY);
   if(fd < 0) {
     snprintf(msg, sizeof(msg), "path:%s fd:%d", path, fd);
-    setenv("APORETO_ENV_NSENTER_ERROR_STATE",strerror(-ENOENT), 1);
-    setenv("APORETO_ENV_NSENTER_LOGS", path, 1);
+    setenv("TRIREME_ENV_NSENTER_ERROR_STATE",strerror(-ENOENT), 1);
+    setenv("TRIREME_ENV_NSENTER_LOGS", path, 1);
     return;
   }
 
   // Set namespace
   int retval = setns(fd,0);
   snprintf(msg, sizeof(msg), "path:%s fd:%d retval:%d", path, fd, retval);
-  setenv("APORETO_ENV_NSENTER_LOGS",msg,1);
+  setenv("TRIREME_ENV_NSENTER_LOGS",msg,1);
   if(retval < 0){
     setenv("APORET_ENV_NSENTER_ERROR_STATE",strerror(errno),1);
   }

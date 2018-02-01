@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
@@ -97,15 +96,7 @@ func (t *trireme) ProcessEvent(ctx context.Context, event common.Event, contextI
 	}
 }
 
-// Supervisor returns the Trireme supervisor for the given PU Type
-func (t *trireme) Supervisor(kind common.PUType) supervisor.Supervisor {
-
-	if s, ok := t.supervisors[t.puTypeToEnforcerType[kind]]; ok {
-		return s
-	}
-	return nil
-}
-
+// UpdateSecrets updates the secrets of the controllers.
 func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 	for _, enforcer := range t.enforcers {
 		if err := enforcer.UpdateSecrets(secrets); err != nil {
@@ -115,49 +106,28 @@ func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
 	return nil
 }
 
-// Supervisors returns a slice of all initialized supervisors.
-func Supervisors(t *trireme) []supervisor.Supervisor {
+// UpdateConfiguration updates the configuration of the controller. Only
+// a limited number of parameters can be updated at run time.
+func (t *trireme) UpdateConfiguration(networks []string) error {
 
-	supervisors := []supervisor.Supervisor{}
+	failure := false
 
-	// LinuxProcessPU, UIDLoginPU and HostPU share the same supervisor so only one lookup suffices
-	if s := t.Supervisor(common.LinuxProcessPU); s != nil {
-		supervisors = append(supervisors, s)
+	for _, s := range t.supervisors {
+		err := s.SetTargetNetworks(networks)
+		if err != nil {
+			zap.L().Error("Failed to update target networks in supervisor")
+			failure = true
+		}
 	}
 
-	if s := t.Supervisor(common.ContainerPU); s != nil {
-		supervisors = append(supervisors, s)
+	if failure {
+		return fmt.Errorf("Configuration update failed")
 	}
-	return supervisors
+
+	return nil
 }
 
-// addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.
-// The ManagementID part of the policy is used as the enforcerconstants.TransmitterLabel.
-// If the Policy didn't set the ManagementID, we use the Local contextID as the
-// default enforcerconstants.TransmitterLabel.
-func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
-
-	if containerInfo.Policy.ManagementID() == "" {
-		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, contextID)
-	} else {
-		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, containerInfo.Policy.ManagementID())
-	}
-}
-
-// MustEnforce returns true if the Policy should go Through the Enforcer/Supervisor.
-// Return false if:
-//   - PU is in host namespace.
-//   - Policy got the AllowAll tag.
-func mustEnforce(contextID string, containerInfo *policy.PUInfo) bool {
-
-	if containerInfo.Policy.TriremeAction() == policy.AllowAll {
-		zap.L().Debug("PUPolicy with AllowAll Action. Not policing", zap.String("contextID", contextID))
-		return false
-	}
-
-	return true
-}
-
+// doHandleCreate is the detailed implementation of the create event.
 func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, runtimeInfo *policy.PURuntime) error {
 
 	runtimeInfo.GlobalLock.Lock()
@@ -203,6 +173,7 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 	return nil
 }
 
+// doHandleDelete is the detailed implementation of the delete event.
 func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
 
 	// Serialize operations
@@ -227,6 +198,7 @@ func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runt
 	return nil
 }
 
+// doUpdatePolicy is the detailed implementation of the update policy event.
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, runtime *policy.PURuntime) error {
 
 	// Serialize operations

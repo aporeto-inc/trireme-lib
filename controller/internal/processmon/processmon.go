@@ -248,25 +248,25 @@ func (p *processMon) getLaunchProcessEnvVars(
 ) []string {
 
 	newEnvVars := []string{
-		constants.AporetoEnvMountPoint + "=" + procMountPoint,
-		constants.AporetoEnvContextSocket + "=" + contextID2SocketPath(contextID),
-		constants.AporetoEnvStatsChannel + "=" + rpcwrapper.StatsChannel,
-		constants.AporetoEnvRPCClientSecret + "=" + randomkeystring,
-		constants.AporetoEnvStatsSecret + "=" + statsServerSecret,
-		constants.AporetoEnvContainerPID + "=" + strconv.Itoa(refPid),
-		constants.AporetoEnvLogLevel + "=" + p.logLevel,
-		constants.AporetoEnvLogFormat + "=" + p.logFormat,
+		constants.EnvMountPoint + "=" + procMountPoint,
+		constants.EnvContextSocket + "=" + contextID2SocketPath(contextID),
+		constants.EnvStatsChannel + "=" + rpcwrapper.StatsChannel,
+		constants.EnvRPCClientSecret + "=" + randomkeystring,
+		constants.EnvStatsSecret + "=" + statsServerSecret,
+		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
+		constants.EnvLogLevel + "=" + p.logLevel,
+		constants.EnvLogFormat + "=" + p.logFormat,
 	}
 
 	if p.logToConsole {
-		newEnvVars = append(newEnvVars, constants.AporetoEnvLogToConsole+"="+constants.AporetoEnvLogToConsoleEnable)
+		newEnvVars = append(newEnvVars, constants.EnvLogToConsole+"="+constants.EnvLogToConsoleEnable)
 	} else if p.logWithID {
-		newEnvVars = append(newEnvVars, constants.AporetoEnvLogID+"="+contextID)
+		newEnvVars = append(newEnvVars, constants.EnvLogID+"="+contextID)
 	}
 
 	// If the PURuntime Specified a NSPath, then it is added as a new env var also.
 	if refNSPath != "" {
-		newEnvVars = append(newEnvVars, constants.AporetoEnvNSPath+"="+refNSPath)
+		newEnvVars = append(newEnvVars, constants.EnvNSPath+"="+refNSPath)
 	}
 
 	return newEnvVars

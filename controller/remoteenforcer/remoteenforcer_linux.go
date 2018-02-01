@@ -59,7 +59,7 @@ func newServer(
 		}
 	}
 
-	procMountPoint := os.Getenv(constants.AporetoEnvMountPoint)
+	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
 	}
@@ -151,8 +151,8 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	// Check if successfully switched namespace
-	nsEnterState := getCEnvVariable(constants.AporetoEnvNsenterErrorState)
-	nsEnterLogMsg := getCEnvVariable(constants.AporetoEnvNsenterLogs)
+	nsEnterState := getCEnvVariable(constants.EnvNsenterErrorState)
+	nsEnterLogMsg := getCEnvVariable(constants.EnvNsenterLogs)
 	if nsEnterState != "" {
 		zap.L().Error("Remote enforcer failed",
 			zap.String("nsErr", nsEnterState),
@@ -403,8 +403,8 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
 	defer cancelMainCtx()
 
-	namedPipe := os.Getenv(constants.AporetoEnvContextSocket)
-	secret := os.Getenv(constants.AporetoEnvRPCClientSecret)
+	namedPipe := os.Getenv(constants.EnvContextSocket)
+	secret := os.Getenv(constants.EnvRPCClientSecret)
 	if secret == "" {
 		zap.L().Fatal("No secret found")
 	}
