@@ -2,7 +2,8 @@ package policy
 
 import "github.com/aporeto-inc/trireme-lib/common"
 
-// PUInfo  captures all policy information related to a connection
+// PUInfo  captures all policy information related to a connection as well as runtime.
+// It makes passing data around simpler.
 type PUInfo struct {
 	// ContextID is the ID of the container that the policy applies to
 	ContextID string

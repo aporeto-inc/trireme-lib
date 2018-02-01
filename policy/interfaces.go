@@ -3,10 +3,9 @@
 // Mesos or other custom environments. An implementation has to provide
 // a method for retrieving policy based on the metadata associated with the container
 // and deleting the policy when the container dies. It is up to the implementation
-// to decide how to generate the policy.
-// The package also defines the basic data structure for communicating policy
-// information. The implementations are responsible for providing all the necessary
-// data.
+// to decide how to generate the policy. The package also defines the basic data
+// structure for communicating policy information. The implementations are responsible
+// for providing all the necessary data.
 package policy
 
 import (
