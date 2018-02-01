@@ -16,8 +16,13 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/process"
 )
+
+func getCPUInfo() ([]cpu.InfoStat, error) {
+	return cpu.Info()
+}
 
 // DefaultHostMetadataExtractor is a host specific metadata extractor
 func DefaultHostMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
@@ -35,6 +40,15 @@ func DefaultHostMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 	userdata := ProcessInfo(event.PID)
 	for _, u := range userdata {
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
+	}
+	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
+	if cpuInfo, err := getCPUInfo(); err != nil {
+		for i, c := range cpuInfo {
+			runtimeTags.AppendKeyValue("@sys:cpumodelName_"+strconv.Itoa(i), c.ModelName)
+			runtimeTags.AppendKeyValue("@sys:cpufamily_"+strconv.Itoa(i), c.Family)
+			runtimeTags.AppendKeyValue("@sys:cpumodel"+strconv.Itoa(i), c.Model)
+		}
+
 	}
 
 	options := &policy.OptionsType{
