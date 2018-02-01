@@ -10,7 +10,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"

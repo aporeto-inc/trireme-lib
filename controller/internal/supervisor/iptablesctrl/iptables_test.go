@@ -5,7 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/provider"
@@ -79,7 +80,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
-			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -110,7 +111,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
-			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -133,7 +134,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
-			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -164,7 +165,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
-			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 
@@ -297,7 +298,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
-			containerinfo := policy.NewPUInfo("Context", constants.ContainerPU)
+			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
 			containerinfo.Runtime = policy.NewPURuntimeWithDefaults()
 

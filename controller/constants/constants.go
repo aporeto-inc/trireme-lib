@@ -1,6 +1,20 @@
 package constants
 
 const (
+	//DefaultProxyPort  the default port the l4 proxy listens on
+	DefaultProxyPort = "5000"
+	//DefaultProcMountPoint The default proc mountpoint
+	DefaultProcMountPoint = "/proc"
+)
+
+const (
+	// DefaultRemoteArg is the default arguments for a remote enforcer
+	DefaultRemoteArg = "enforce"
+	// DefaultConnMark is the default conn mark for all data packets
+	DefaultConnMark = uint32(0xEEEE)
+)
+
+const (
 
 	// AporetoEnvMountPoint is an environment variable which will contain the mount point
 	AporetoEnvMountPoint = "APORETO_ENV_PROC_MOUNTPOINT"
@@ -43,4 +57,15 @@ const (
 
 	// AporetoEnvLogID store the context Id for the log file to be used.
 	AporetoEnvLogID = "APORETO_ENV_LOG_ID"
+)
+
+// ModeType defines the mode of the enforcement and supervisor.
+type ModeType int
+
+const (
+	// RemoteContainer indicates that the Supervisor is implemented in the
+	// container namespace
+	RemoteContainer ModeType = iota
+	// LocalServer indicates that the Supervisor applies to Linux processes
+	LocalServer
 )

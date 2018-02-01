@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/acls"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/lookup"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/packet"
@@ -38,7 +37,7 @@ type PUContext struct {
 	mark              string
 	ProxyPort         string
 	ports             []string
-	puType            constants.PUType
+	puType            common.PUType
 	synToken          []byte
 	synServiceContext []byte
 	synExpiration     time.Time
@@ -91,7 +90,7 @@ func (p *PUContext) ManagementID() string {
 }
 
 // Type return the pu type
-func (p *PUContext) Type() constants.PUType {
+func (p *PUContext) Type() common.PUType {
 	return p.puType
 }
 

@@ -5,7 +5,8 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/proxy"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
@@ -187,7 +188,7 @@ func newTrireme(c *config) TriremeController {
 		rpchdl:               rpcwrapper.NewRPCWrapper(),
 		enforcers:            map[constants.ModeType]enforcer.Enforcer{},
 		supervisors:          map[constants.ModeType]supervisor.Supervisor{},
-		puTypeToEnforcerType: map[constants.PUType]constants.ModeType{},
+		puTypeToEnforcerType: map[common.PUType]constants.ModeType{},
 	}
 
 	zap.L().Debug("Creating Enforcers")
@@ -203,13 +204,13 @@ func newTrireme(c *config) TriremeController {
 	}
 
 	if c.linuxProcess {
-		t.puTypeToEnforcerType[constants.LinuxProcessPU] = constants.LocalServer
-		t.puTypeToEnforcerType[constants.UIDLoginPU] = constants.LocalServer
+		t.puTypeToEnforcerType[common.LinuxProcessPU] = constants.LocalServer
+		t.puTypeToEnforcerType[common.UIDLoginPU] = constants.LocalServer
 	}
 
 	if t.config.mode == constants.RemoteContainer {
-		t.puTypeToEnforcerType[constants.ContainerPU] = constants.RemoteContainer
-		t.puTypeToEnforcerType[constants.KubernetesPU] = constants.RemoteContainer
+		t.puTypeToEnforcerType[common.ContainerPU] = constants.RemoteContainer
+		t.puTypeToEnforcerType[common.KubernetesPU] = constants.RemoteContainer
 	}
 
 	return t

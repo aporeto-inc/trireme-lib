@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -28,7 +27,7 @@ func KubernetesMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, er
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, 1, "", runtimeTags, runtimeIps, constants.LinuxProcessPU, nil), nil
+	return policy.NewPURuntime(event.Name, 1, "", runtimeTags, runtimeIps, common.LinuxProcessPU, nil), nil
 }
 
 // DockerMetadataExtractor is a systemd based metadata extractor
@@ -49,5 +48,5 @@ func DockerMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error)
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	return policy.NewPURuntime(event.Name, 0, event.NS, runtimeTags, runtimeIps, constants.ContainerPU, nil), nil
+	return policy.NewPURuntime(event.Name, 0, event.NS, runtimeTags, runtimeIps, common.ContainerPU, nil), nil
 }

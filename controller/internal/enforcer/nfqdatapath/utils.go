@@ -1,4 +1,4 @@
-package datapath
+package nfqdatapath
 
 import (
 	"github.com/aporeto-inc/trireme-lib/collector"

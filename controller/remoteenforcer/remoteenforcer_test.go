@@ -12,9 +12,8 @@ import (
 	"github.com/cnf/structhash"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
@@ -387,7 +386,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(*datapath.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -433,7 +432,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(*datapath.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -458,7 +457,7 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(*datapath.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{})
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
@@ -743,7 +742,7 @@ func TestEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(*datapath.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
@@ -842,7 +841,7 @@ func TestUnEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc").(*datapath.Datapath)
+				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 

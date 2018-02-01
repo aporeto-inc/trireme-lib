@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"
 	mock_supervisor "github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/mock"

@@ -1,4 +1,4 @@
-package datapath
+package nfqdatapath
 
 // Go libraries
 import (
@@ -11,12 +11,12 @@ import (
 
 	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/nflog"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/proxy/tcp"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tokenaccessor"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/packet"
@@ -42,7 +42,6 @@ type Datapath struct {
 	service        packetprocessor.PacketProcessor
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
-	proxyhdl       *tcp.Proxy
 	procMountPoint string
 
 	// Internal structures and caches
@@ -101,16 +100,9 @@ func New(
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	packetLogs bool,
+	tokenaccessor tokenaccessor.TokenAccessor,
+	puFromContextID cache.DataStore,
 ) *Datapath {
-
-	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
-	if err != nil {
-		zap.L().Fatal("Cannot create a token engine")
-	}
-
-	puFromContextID := cache.NewCache("puFromContextID")
-
-	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, puFromContextID, mutualAuth)
 
 	if ExternalIPCacheTimeout <= 0 {
 		var err error
@@ -163,13 +155,12 @@ func New(
 		mutualAuthorization:         mutualAuth,
 		service:                     service,
 		collector:                   collector,
-		tokenAccessor:               tokenAccessor,
+		tokenAccessor:               tokenaccessor,
 		secrets:                     secrets,
 		ackSize:                     secrets.AckSize(),
 		mode:                        mode,
 		procMountPoint:              procMountPoint,
 		conntrackHdl:                conntrack.NewHandle(),
-		proxyhdl:                    tcpProxy,
 		portSetInstance:             portSetInstance,
 		packetLogs:                  packetLogs,
 	}
@@ -203,6 +194,14 @@ func NewWithDefaults(
 		defaultExternalIPCacheTimeout = time.Second
 	}
 	defaultPacketLogs := false
+
+	tokenaccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
+	if err != nil {
+		zap.L().Fatal("Cannot create a token engine")
+	}
+
+	puFromContextID := cache.NewCache("puFromContextID")
+
 	return New(
 		defaultMutualAuthorization,
 		defaultFQConfig,
@@ -215,6 +214,8 @@ func NewWithDefaults(
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
 		defaultPacketLogs,
+		tokenaccessor,
+		puFromContextID,
 	)
 }
 
@@ -223,11 +224,6 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	zap.L().Debug("Called Proxy Enforce")
 
-	// setup proxy before creating PU
-	if err := d.proxyhdl.Enforce(contextID, puInfo); err != nil {
-		return fmt.Errorf("Unable to enforce proxy: %s", err)
-	}
-
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
 	if err != nil {
@@ -235,7 +231,7 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	// Cache PUs for retrieval based on packet information
-	if pu.Type() == constants.LinuxProcessPU || pu.Type() == constants.UIDLoginPU {
+	if pu.Type() == common.LinuxProcessPU || pu.Type() == common.UIDLoginPU {
 		mark, ports := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
@@ -262,15 +258,6 @@ func (d *Datapath) Unenforce(contextID string) error {
 	puContext, err := d.puFromContextID.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("contextid not found in enforcer: %s", err)
-	}
-
-	// Call unenforce on the proxy before anything else. We won;t touch any Datapath fields
-	// Datapath is a strict readonly struct for proxy
-	if err = d.proxyhdl.Unenforce(contextID); err != nil {
-		zap.L().Error("Failed to unenforce contextID",
-			zap.String("ContextID", contextID),
-			zap.Error(err),
-		)
 	}
 
 	// Cleanup the IP based lookup
@@ -330,7 +317,7 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 	go d.nflogger.Run(ctx)
 
-	return d.proxyhdl.Run(ctx)
+	return nil
 }
 
 // UpdateSecrets updates the secrets used for signing communication between trireme instances

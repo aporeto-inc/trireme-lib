@@ -9,7 +9,6 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -195,7 +194,7 @@ func TestStart(t *testing.T) {
 				PID:       "1",
 				PUID:      "12345",
 				EventType: common.EventStop,
-				PUType:    constants.LinuxProcessPU,
+				PUType:    common.LinuxProcessPU,
 			}
 			Convey("I should get an error ", func() {
 				puHandler.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Return(fmt.Errorf("Error"))
@@ -210,7 +209,7 @@ func TestStart(t *testing.T) {
 				PID:       "1",
 				PUID:      "12345",
 				EventType: common.EventStop,
-				PUType:    constants.LinuxProcessPU,
+				PUType:    common.LinuxProcessPU,
 			}
 			Convey("I should get an error ", func() {
 				puHandler.EXPECT().CreatePURuntime(gomock.Any(), gomock.Any()).Return(nil)
@@ -227,7 +226,7 @@ func TestStart(t *testing.T) {
 				PID:       "1",
 				PUID:      "12345",
 				EventType: common.EventStop,
-				PUType:    constants.LinuxProcessPU,
+				PUType:    common.LinuxProcessPU,
 			}
 
 			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
@@ -249,7 +248,7 @@ func TestStart(t *testing.T) {
 				PID:       "1",
 				PUID:      "12345",
 				EventType: common.EventStop,
-				PUType:    constants.LinuxProcessPU,
+				PUType:    common.LinuxProcessPU,
 			}
 
 			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
@@ -315,7 +314,7 @@ func TestResync(t *testing.T) {
 			storedContext := StoredContext{
 				EventInfo: &common.EventInfo{
 					PID:       "1",
-					PUType:    constants.LinuxProcessPU,
+					PUType:    common.LinuxProcessPU,
 					EventType: common.EventStart,
 					PUID:      "/test1",
 				},

@@ -1,4 +1,4 @@
-package datapath
+package nfqdatapath
 
 // ContextProcessor is an interface to provide context checks
 type ContextProcessor interface {

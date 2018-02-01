@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 )
@@ -39,5 +38,5 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 	runtimePID, _ := strconv.Atoi(event.PID)
-	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, constants.UIDLoginPU, options), nil
+	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, common.UIDLoginPU, options), nil
 }

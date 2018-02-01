@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
@@ -57,7 +57,7 @@ func (u *uidMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	}
 
 	if registerer != nil {
-		if err := registerer.RegisterProcessor(constants.UIDLoginPU, u.proc); err != nil {
+		if err := registerer.RegisterProcessor(common.UIDLoginPU, u.proc); err != nil {
 			return err
 		}
 	}

@@ -1,6 +1,6 @@
 // +build linux
 
-package datapath
+package nfqdatapath
 
 // Go libraries
 import (

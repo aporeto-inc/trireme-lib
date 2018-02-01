@@ -10,7 +10,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/connection"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tokenaccessor"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/secrets"

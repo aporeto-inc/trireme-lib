@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
@@ -56,7 +56,7 @@ func (l *linuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	}
 
 	if registerer != nil {
-		if err := registerer.RegisterProcessor(constants.LinuxProcessPU, l.proc); err != nil {
+		if err := registerer.RegisterProcessor(common.LinuxProcessPU, l.proc); err != nil {
 			return err
 		}
 	}

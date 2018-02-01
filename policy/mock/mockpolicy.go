@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	common "github.com/aporeto-inc/trireme-lib/common"
-	constants "github.com/aporeto-inc/trireme-lib/constants"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -127,9 +126,9 @@ func (mr *MockRuntimeReaderMockRecorder) IPAddresses() *gomock.Call {
 
 // PUType mocks base method
 // nolint
-func (m *MockRuntimeReader) PUType() constants.PUType {
+func (m *MockRuntimeReader) PUType() common.PUType {
 	ret := m.ctrl.Call(m, "PUType")
-	ret0, _ := ret[0].(constants.PUType)
+	ret0, _ := ret[0].(common.PUType)
 	return ret0
 }
 

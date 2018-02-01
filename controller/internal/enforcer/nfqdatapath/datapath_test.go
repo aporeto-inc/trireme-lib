@@ -1,4 +1,4 @@
-package datapath
+package nfqdatapath
 
 import (
 	"encoding/binary"
@@ -11,7 +11,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/collector/mock"
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/pucontext"
@@ -64,7 +64,7 @@ func TestInvalidIPContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.LinuxProcessPU)
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		Convey("Then enforcer instance must be initialized", func() {
@@ -104,7 +104,7 @@ func TestInvalidTokenContext(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-		puInfo := policy.NewPUInfo("SomeProcessingUnitId", constants.LinuxProcessPU)
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
 
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -190,7 +190,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		serverID := "SomeServerId"
 
 		// Create ProcessingUnit 1
-		puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
+		puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
 
 		ip1 := policy.ExtendedMap{}
 		ip1["bridge"] = puIP1
@@ -201,7 +201,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		puInfo1.Policy.AddReceiverRules(tagSelector)
 
 		// Create processing unit 2
-		puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+		puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
 
 		ip2 := policy.ExtendedMap{"bridge": puIP2}
 		puInfo2.Runtime.SetIPAddresses(ip2)
@@ -258,7 +258,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	serverID := "SomeServerId"
 
 	// Create ProcessingUnit 1
-	puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
+	puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
 
 	ip1 := policy.ExtendedMap{}
 	ip1["bridge"] = puIP1
@@ -269,7 +269,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	puInfo1.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 2
-	puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+	puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
 	ip2 := policy.ExtendedMap{"bridge": puIP2, "proxyPort": "5001"}
 	puInfo2.Runtime.SetIPAddresses(ip2)
 	ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2, "proxyPort": "5002"}
@@ -278,7 +278,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	puInfo2.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 3
-	puInfo3 := policy.NewPUInfo(puID3, constants.ContainerPU)
+	puInfo3 := policy.NewPUInfo(puID3, common.ContainerPU)
 	ip3 := policy.ExtendedMap{policy.DefaultNamespace: puIP2, "proxyPort": "5003"}
 	puInfo3.Runtime.SetIPAddresses(ip3)
 	ipl3 := policy.ExtendedMap{policy.DefaultNamespace: puIP3, "proxyPort": "5004"}
@@ -287,7 +287,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	puInfo3.Policy.AddReceiverRules(tagSelector)
 
 	// Create processing unit 4
-	puInfo4 := policy.NewPUInfo(puID4, constants.ContainerPU)
+	puInfo4 := policy.NewPUInfo(puID4, common.ContainerPU)
 	ip4 := policy.ExtendedMap{policy.DefaultNamespace: puIP4}
 	puInfo4.Runtime.SetIPAddresses(ip4)
 	ipl4 := policy.ExtendedMap{policy.DefaultNamespace: puIP4}
@@ -1167,7 +1167,7 @@ func TestCacheState(t *testing.T) {
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		contextID := "123"
 
-		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
+		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
 
 		// Should fail: Not in cache
 		err := enforcer.Unenforce(contextID)
@@ -1214,7 +1214,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
-		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
 
 		spec, _ := portspec.NewPortSpecFromString("80", nil)
 		puInfo.Runtime.SetOptions(policy.OptionsType{
@@ -1249,7 +1249,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
-		puInfo := policy.NewPUInfo(contextID, constants.LinuxProcessPU)
+		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
 
 		Convey("When I create a new PU without ports or mark", func() {
 			err := enforcer.Enforce(contextID, puInfo)
@@ -1270,7 +1270,7 @@ func TestDoCreatePU(t *testing.T) {
 		enforcer.mode = constants.RemoteContainer
 
 		contextID := "123"
-		puInfo := policy.NewPUInfo(contextID, constants.ContainerPU)
+		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
 
 		Convey("When I create a new PU without an IP", func() {
 			err := enforcer.Enforce(contextID, puInfo)
@@ -1290,7 +1290,7 @@ func TestContextFromIP(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.RemoteContainer, "/proc")
 
-		puInfo := policy.NewPUInfo("SomePU", constants.ContainerPU)
+		puInfo := policy.NewPUInfo("SomePU", common.ContainerPU)
 
 		context, err := pucontext.NewPU("SomePU", puInfo, 10*time.Second)
 		contextID := "AporetoContext"
@@ -4151,7 +4151,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			serverID := "SomeServerId"
 
 			// Create ProcessingUnit 1
-			puInfo1 := policy.NewPUInfo(puID1, constants.ContainerPU)
+			puInfo1 := policy.NewPUInfo(puID1, common.ContainerPU)
 
 			ip1 := policy.ExtendedMap{}
 			ip1["bridge"] = puIP1
@@ -4162,7 +4162,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			puInfo1.Policy.AddReceiverRules(tagSelector)
 
 			// Create processing unit 2
-			puInfo2 := policy.NewPUInfo(puID2, constants.ContainerPU)
+			puInfo2 := policy.NewPUInfo(puID2, common.ContainerPU)
 			ip2 := policy.ExtendedMap{"bridge": puIP2}
 			puInfo2.Runtime.SetIPAddresses(ip2)
 			ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4504,7 +4504,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						serverID := "SomeServerId"
 
 						// Create ProcessingUnit 1
-						puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
+						puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
 
 						ip1 := policy.ExtendedMap{}
 						ip1["bridge"] = puIP1
@@ -4515,7 +4515,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
-						puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+						puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
 						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}
@@ -4557,7 +4557,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						serverID := "SomeServerId"
 
 						// Create ProcessingUnit 1
-						puInfo1 = policy.NewPUInfo(puID1, constants.ContainerPU)
+						puInfo1 = policy.NewPUInfo(puID1, common.ContainerPU)
 
 						ip1 := policy.ExtendedMap{}
 						ip1["bridge"] = puIP1
@@ -4568,7 +4568,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						puInfo1.Policy.AddReceiverRules(tagSelector)
 
 						// Create processing unit 2
-						puInfo2 = policy.NewPUInfo(puID2, constants.ContainerPU)
+						puInfo2 = policy.NewPUInfo(puID2, common.ContainerPU)
 						ip2 := policy.ExtendedMap{"bridge": puIP2}
 						puInfo2.Runtime.SetIPAddresses(ip2)
 						ipl2 := policy.ExtendedMap{policy.DefaultNamespace: puIP2}

@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
@@ -36,10 +36,10 @@ func DefaultMetadataExtractor(info *types.ContainerJSON) (*policy.PURuntime, err
 	}
 
 	if info.HostConfig.NetworkMode == constants.DockerHostMode {
-		return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, constants.LinuxProcessPU, hostModeOptions(info)), nil
+		return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.LinuxProcessPU, hostModeOptions(info)), nil
 	}
 
-	return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, constants.ContainerPU, nil), nil
+	return policy.NewPURuntime(info.Name, info.State.Pid, "", tags, ipa, common.ContainerPU, nil), nil
 }
 
 // hostModeOptions creates the default options for a host-mode container. This is done

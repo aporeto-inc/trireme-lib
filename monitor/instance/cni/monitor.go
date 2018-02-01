@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 
@@ -77,7 +77,7 @@ func (c *cniMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	}
 
 	if registerer != nil {
-		if err := registerer.RegisterProcessor(constants.KubernetesPU, c.proc); err != nil {
+		if err := registerer.RegisterProcessor(common.KubernetesPU, c.proc); err != nil {
 			return err
 		}
 	}

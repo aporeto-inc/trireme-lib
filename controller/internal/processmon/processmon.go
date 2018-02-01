@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/controller/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"

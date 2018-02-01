@@ -7,7 +7,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/proxy"
@@ -21,12 +21,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// trireme contains references to all the different components involved.
+// trireme contains references to all the different components of the controller.
+// Depending on the configuration we might have multiple supervisor and enforcer types.
+// The initialization process must provide the mode that Trireme will run in.
 type trireme struct {
 	config               *config
 	supervisors          map[constants.ModeType]supervisor.Supervisor
 	enforcers            map[constants.ModeType]enforcer.Enforcer
-	puTypeToEnforcerType map[constants.PUType]constants.ModeType
+	puTypeToEnforcerType map[common.PUType]constants.ModeType
 	port                 allocator.Allocator
 	rpchdl               rpcwrapper.RPCClient
 }
@@ -54,8 +56,8 @@ func New(serverID string, opts ...Option) TriremeController {
 	return newTrireme(c)
 }
 
-// Run starts the supervisor and the enforcer. It will also start to handling requests
-// For new PU Creation and Policy Updates.
+// Run starts the supervisor and the enforcer and go routines. It doesn't try to clean
+// up if something went wrong. It will be up to the caller to decide what to do.
 func (t *trireme) Run(ctx context.Context) error {
 
 	// Start all the supervisors.
@@ -77,9 +79,9 @@ func (t *trireme) Run(ctx context.Context) error {
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
-func (t *trireme) UpdatePolicy(contextID string, newPolicy *policy.PUPolicy, runtime *policy.PURuntime) error {
+func (t *trireme) UpdatePolicy(contextID string, plc *policy.PUPolicy, runtime *policy.PURuntime) error {
 
-	return t.doUpdatePolicy(contextID, newPolicy, runtime)
+	return t.doUpdatePolicy(contextID, plc, runtime)
 }
 
 // HandlePUEvent implements processor.ProcessingUnitsHandler
@@ -96,7 +98,7 @@ func (t *trireme) ProcessEvent(ctx context.Context, event common.Event, contextI
 }
 
 // Supervisor returns the Trireme supervisor for the given PU Type
-func (t *trireme) Supervisor(kind constants.PUType) supervisor.Supervisor {
+func (t *trireme) Supervisor(kind common.PUType) supervisor.Supervisor {
 
 	if s, ok := t.supervisors[t.puTypeToEnforcerType[kind]]; ok {
 		return s
@@ -118,12 +120,12 @@ func Supervisors(t *trireme) []supervisor.Supervisor {
 
 	supervisors := []supervisor.Supervisor{}
 
-	// LinuxProcessPU, UIDLoginPU and HOstPU share the same supervisor so only one lookup suffices
-	if s := t.Supervisor(constants.LinuxProcessPU); s != nil {
+	// LinuxProcessPU, UIDLoginPU and HostPU share the same supervisor so only one lookup suffices
+	if s := t.Supervisor(common.LinuxProcessPU); s != nil {
 		supervisors = append(supervisors, s)
 	}
 
-	if s := t.Supervisor(constants.ContainerPU); s != nil {
+	if s := t.Supervisor(common.ContainerPU); s != nil {
 		supervisors = append(supervisors, s)
 	}
 	return supervisors
@@ -164,27 +166,25 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 	newOptions := containerInfo.Runtime.Options()
 	newOptions.ProxyPort = t.port.Allocate()
-
 	containerInfo.Runtime.SetOptions(newOptions)
+
+	logEvent := &collector.ContainerRecord{
+		ContextID: contextID,
+		IPAddress: runtimeInfo.IPAddresses(),
+		Tags:      policyInfo.Annotations(),
+		Event:     collector.ContainerStart,
+	}
+
+	defer t.config.collector.CollectContainerEvent(logEvent)
 
 	addTransmitterLabel(contextID, containerInfo)
 	if !mustEnforce(contextID, containerInfo) {
-		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: runtimeInfo.IPAddresses(),
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerIgnored,
-		})
+		logEvent.Event = collector.ContainerIgnored
 		return nil
 	}
 
 	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
-		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: runtimeInfo.IPAddresses(),
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerFailed,
-		})
+		logEvent.Event = collector.ContainerFailed
 		return fmt.Errorf("unable to setup enforcer: %s", err)
 	}
 
@@ -196,22 +196,9 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 			)
 		}
 
-		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: runtimeInfo.IPAddresses(),
-			Tags:      policyInfo.Annotations(),
-			Event:     collector.ContainerFailed,
-		})
-
+		logEvent.Event = collector.ContainerFailed
 		return fmt.Errorf("unable to setup supervisor: %s", err)
 	}
-
-	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
-		ContextID: contextID,
-		IPAddress: runtimeInfo.IPAddresses(),
-		Tags:      containerInfo.Policy.Annotations(),
-		Event:     collector.ContainerStart,
-	})
 
 	return nil
 }
@@ -222,29 +209,20 @@ func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runt
 	runtime.GlobalLock.Lock()
 	defer runtime.GlobalLock.Unlock()
 
-	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
-	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
-	port := runtime.Options().ProxyPort
-	zap.L().Debug("Releasing Port", zap.String("Port", port))
-	t.port.Release(port)
-
-	if errS != nil || errE != nil {
-		t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
-			IPAddress: runtime.IPAddresses(),
-			Tags:      nil,
-			Event:     collector.ContainerDelete,
-		})
-
-		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
-	}
-
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: runtime.IPAddresses(),
 		Tags:      nil,
 		Event:     collector.ContainerDelete,
 	})
+
+	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
+	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
+	t.port.Release(runtime.Options().ProxyPort)
+
+	if errS != nil || errE != nil {
+		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
+	}
 
 	return nil
 }
@@ -266,7 +244,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 		zap.L().Warn("Re-initializing enforcers - connection lost")
-		if containerInfo.Runtime.PUType() == constants.ContainerPU {
+		if containerInfo.Runtime.PUType() == common.ContainerPU {
 			//The unsupervise and unenforce functions just make changes to the proxy structures
 			//and do not depend on the remote instance running and can be called here
 			switch t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].(type) {

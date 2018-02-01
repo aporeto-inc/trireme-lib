@@ -11,8 +11,8 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	tevents "github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
+	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance"
 	"github.com/aporeto-inc/trireme-lib/policy/mock"

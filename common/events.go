@@ -1,7 +1,20 @@
 package common
 
-import (
-	"github.com/aporeto-inc/trireme-lib/constants"
+// PUType defines the PU type
+type PUType int
+
+const (
+	// ContainerPU indicates that this PU is a container
+	ContainerPU PUType = iota
+	// LinuxProcessPU indicates that this is Linux process
+	LinuxProcessPU
+	// KubernetesPU indicates that this is KubernetesPod
+	KubernetesPU
+	// UIDLoginPU -- PU representing a user session
+	UIDLoginPU
+	// TransientPU PU -- placeholder to run processing. This should not
+	// be inserted in any cache. This is valid only for processing a packet
+	TransientPU
 )
 
 // EventInfo is a generic structure that defines all the information related to a PU event.
@@ -12,7 +25,7 @@ type EventInfo struct {
 	EventType Event
 
 	// PUType is the the type of the PU
-	PUType constants.PUType
+	PUType PUType
 
 	// The PUID is a unique value for the Processing Unit. Ideally this should be the UUID.
 	PUID string

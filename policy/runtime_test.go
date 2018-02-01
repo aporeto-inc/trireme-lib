@@ -5,7 +5,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
 )
 
 func TestNewPURunTime(t *testing.T) {
@@ -23,12 +23,12 @@ func TestNewPURunTime(t *testing.T) {
 			"",
 			tags,
 			ips,
-			constants.ContainerPU,
+			common.ContainerPU,
 			nil,
 		)
 
 		So(runtime, ShouldNotBeNil)
-		So(runtime.puType, ShouldEqual, constants.ContainerPU)
+		So(runtime.puType, ShouldEqual, common.ContainerPU)
 		So(runtime.tags, ShouldResemble, tags)
 		So(runtime.ips, ShouldResemble, ips)
 		So(runtime.options, ShouldNotBeNil)
@@ -42,7 +42,7 @@ func TestNewPDefaultURunTime(t *testing.T) {
 		runtime := NewPURuntimeWithDefaults()
 
 		So(runtime, ShouldNotBeNil)
-		So(runtime.puType, ShouldEqual, constants.ContainerPU)
+		So(runtime.puType, ShouldEqual, common.ContainerPU)
 		So(runtime.tags, ShouldResemble, NewTagStore())
 		So(runtime.ips, ShouldResemble, ExtendedMap{})
 		So(runtime.options, ShouldNotBeNil)
@@ -65,7 +65,7 @@ func TestBasicFunctions(t *testing.T) {
 			"",
 			tags,
 			ips,
-			constants.ContainerPU,
+			common.ContainerPU,
 			nil,
 		)
 
@@ -84,8 +84,8 @@ func TestBasicFunctions(t *testing.T) {
 		})
 
 		Convey("I should be able to update and get the PUType", func() {
-			runtime.SetPUType(constants.LinuxProcessPU)
-			So(runtime.PUType(), ShouldEqual, constants.LinuxProcessPU)
+			runtime.SetPUType(common.LinuxProcessPU)
+			So(runtime.PUType(), ShouldEqual, common.LinuxProcessPU)
 		})
 
 		Convey("I should be able to set and ge the right options", func() {

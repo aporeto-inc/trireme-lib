@@ -11,7 +11,6 @@ package policy
 
 import (
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 )
 
 // A RuntimeReader allows to get the specific parameters stored in the Runtime
@@ -36,7 +35,7 @@ type RuntimeReader interface {
 	IPAddresses() ExtendedMap
 
 	// Returns the PUType for the PU
-	PUType() constants.PUType
+	PUType() common.PUType
 }
 
 // A Resolver must be implemnted by a policy engine that receives monitor events.

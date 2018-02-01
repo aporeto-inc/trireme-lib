@@ -1,8 +1,8 @@
 package monitor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
+	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
 	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"

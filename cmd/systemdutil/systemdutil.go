@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
@@ -234,7 +233,7 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 	// This is added since the release_notification comes in this format
 	// Easier to massage it while creation rather than change at the receiving end depending on event
 	request := &common.EventInfo{
-		PUType:             constants.LinuxProcessPU,
+		PUType:             common.LinuxProcessPU,
 		Name:               c.ServiceName,
 		Tags:               c.Labels,
 		PID:                strconv.Itoa(os.Getpid()),
@@ -274,7 +273,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	}
 
 	request := &common.EventInfo{
-		PUType:      constants.LinuxProcessPU,
+		PUType:      common.LinuxProcessPU,
 		PUID:        puid,
 		Cgroup:      c.Cgroup,
 		EventType:   common.EventStop,
@@ -289,7 +288,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 
 		if !c.HostPolicy {
 			if _, ferr := os.Stat(filepath.Join(linuxPath, parts[2])); os.IsNotExist(ferr) {
-				request.PUType = constants.UIDLoginPU
+				request.PUType = common.UIDLoginPU
 			}
 		}
 	}

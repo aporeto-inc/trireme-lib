@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
 )
 
@@ -54,7 +53,7 @@ func (s *Server) HandleEvent(eventInfo *common.EventInfo, result *common.EventRe
 		eventInfo.EventType != common.EventCreate &&
 		eventInfo.EventType != common.EventStart &&
 		!eventInfo.HostService {
-		eventInfo.PUType = constants.UIDLoginPU
+		eventInfo.PUType = common.UIDLoginPU
 	}
 
 	f, err := s.registerer.GetHandler(eventInfo.PUType, eventInfo.EventType)
@@ -100,7 +99,7 @@ func validateEvent(event *common.EventInfo) error {
 			}
 
 		} else {
-			if event.PUType != constants.UIDLoginPU || event.PUID == "" {
+			if event.PUType != common.UIDLoginPU || event.PUID == "" {
 				event.PUID = event.PID
 			}
 		}

@@ -1,8 +1,8 @@
 #! /bin/bash -e
 
-go get github.com/aporeto-inc/mock/mockgen
-go get -u github.com/golang/mock/gomock
-go get -u golang.org/x/tools/cmd/goimports
+#go get github.com/aporeto-inc/mock/mockgen
+#go get -u github.com/golang/mock/gomock
+#go get -u golang.org/x/tools/cmd/goimports
 
 goimport_sanitize () {
   goimports $1 > $1.bk
@@ -22,7 +22,7 @@ goimport_sanitize controller/internal/supervisor/mock/mocksupervisor.go
 
 echo "Enforcer Mocks"
 mkdir -p controller/internal/enforcer/mock
-mockgen -source controller/internal/enforcer/interfaces.go -destination controller/internal/enforcer/mock/mockenforcer.go -package mockenforcer
+mockgen -source controller/internal/enforcer/enforcer.go -destination controller/internal/enforcer/mock/mockenforcer.go -package mockenforcer
 goimport_sanitize controller/internal/enforcer/mock/mockenforcer.go
 
 echo "Controller/Internal/ContextStore Mocks"
@@ -82,7 +82,7 @@ goimport_sanitize policy/mock/mockpolicy.go
 
 echo "Trireme Controller Mock"
 mkdir -p controller/mock
-mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/rpc/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
+mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/rpc/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
 goimport_sanitize controller/mock/mocktrireme.go
 
 echo >&2 "OK"

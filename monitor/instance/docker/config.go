@@ -1,7 +1,7 @@
 package dockermonitor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 )
 

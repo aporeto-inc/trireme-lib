@@ -4,26 +4,25 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
 )
 
 // registerer provides a way for others to register a registerer
 type registerer struct {
-	handlers map[constants.PUType]map[common.Event]common.EventHandler
+	handlers map[common.PUType]map[common.Event]common.EventHandler
 }
 
 // New returns a new registerer
 func New() Registerer {
 
 	return &registerer{
-		handlers: map[constants.PUType]map[common.Event]common.EventHandler{},
+		handlers: map[common.PUType]map[common.Event]common.EventHandler{},
 	}
 }
 
 // RegisterProcessor registers an event processor for a given PUTYpe. Only one
 // processor is allowed for a given PU Type.
-func (r *registerer) RegisterProcessor(puType constants.PUType, ep processor.Processor) error {
+func (r *registerer) RegisterProcessor(puType common.PUType, ep processor.Processor) error {
 
 	if _, ok := r.handlers[puType]; ok {
 		return fmt.Errorf("Processor already registered for this PU type %d ", puType)
@@ -41,7 +40,7 @@ func (r *registerer) RegisterProcessor(puType constants.PUType, ep processor.Pro
 	return nil
 }
 
-func (r *registerer) GetHandler(puType constants.PUType, eventType common.Event) (common.EventHandler, error) {
+func (r *registerer) GetHandler(puType common.PUType, eventType common.Event) (common.EventHandler, error) {
 
 	handlers, ok := r.handlers[puType]
 	if !ok {
@@ -57,6 +56,6 @@ func (r *registerer) GetHandler(puType constants.PUType, eventType common.Event)
 }
 
 // addHandler adds a handler for a puType/event.
-func (r *registerer) addHandler(puType constants.PUType, event common.Event, handler common.EventHandler) {
+func (r *registerer) addHandler(puType common.PUType, event common.Event, handler common.EventHandler) {
 	r.handlers[puType][event] = handler
 }
