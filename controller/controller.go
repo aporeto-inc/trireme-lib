@@ -77,23 +77,20 @@ func (t *trireme) Run(ctx context.Context) error {
 	return nil
 }
 
-// UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
-func (t *trireme) UpdatePolicy(contextID string, plc *policy.PUPolicy, runtime *policy.PURuntime) error {
-
-	return t.doUpdatePolicy(contextID, plc, runtime)
+// Enforce asks the controller to enforce policy to a processing unit
+func (t *trireme) Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+	return t.doHandleCreate(puID, policy, runtime)
 }
 
-// HandlePUEvent implements processor.ProcessingUnitsHandler
-func (t *trireme) ProcessEvent(ctx context.Context, event common.Event, contextID string, policy *policy.PUPolicy, runtime *policy.PURuntime) (err error) {
+// Enforce asks the controller to enforce policy to a processing unit
+func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+	return t.doHandleDelete(puID, policy, runtime)
+}
 
-	switch event {
-	case common.EventStart:
-		return t.doHandleCreate(contextID, policy, runtime)
-	case common.EventStop:
-		return t.doHandleDelete(contextID, policy, runtime)
-	default:
-		return nil
-	}
+// UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
+func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUPolicy, runtime *policy.PURuntime) error {
+
+	return t.doUpdatePolicy(puID, plc, runtime)
 }
 
 // UpdateSecrets updates the secrets of the controllers.
