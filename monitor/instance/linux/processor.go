@@ -1,6 +1,7 @@
 package linuxmonitor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -77,24 +78,24 @@ func (l *linuxProcessor) RemapData(data string, fixedData interface{}) error {
 }
 
 // Create handles create events
-func (l *linuxProcessor) Create(eventInfo *common.EventInfo) error {
+func (l *linuxProcessor) Create(ctx context.Context, eventInfo *common.EventInfo) error {
 
 	if !l.regStart.Match([]byte(eventInfo.PUID)) {
 		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
-	return l.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventCreate, nil)
+	return l.config.Policy.HandlePUEvent(ctx, eventInfo.PUID, common.EventCreate, nil)
 }
 
 // startInternal is called while starting and reacquiring.
-func (l *linuxProcessor) startInternal(runtimeInfo *policy.PURuntime, eventInfo *common.EventInfo) (err error) {
+func (l *linuxProcessor) startInternal(ctx context.Context, runtimeInfo *policy.PURuntime, eventInfo *common.EventInfo) (err error) {
 
 	// Validate the PUID format
 	if !l.regStart.Match([]byte(eventInfo.PUID)) {
 		return fmt.Errorf("invalid pu id: %s", eventInfo.PUID)
 	}
 
-	if err = l.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventStart, runtimeInfo); err != nil {
+	if err = l.config.Policy.HandlePUEvent(ctx, eventInfo.PUID, common.EventStart, runtimeInfo); err != nil {
 		return fmt.Errorf("handle pu failed: %s", err)
 	}
 
@@ -122,7 +123,7 @@ func (l *linuxProcessor) startInternal(runtimeInfo *policy.PURuntime, eventInfo 
 }
 
 // Start handles start events
-func (l *linuxProcessor) Start(eventInfo *common.EventInfo) error {
+func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) error {
 
 	// Extract the metadata
 	runtimeInfo, err := l.metadataExtractor(eventInfo)
@@ -130,45 +131,45 @@ func (l *linuxProcessor) Start(eventInfo *common.EventInfo) error {
 		return err
 	}
 
-	return l.startInternal(runtimeInfo, eventInfo)
+	return l.startInternal(ctx, runtimeInfo, eventInfo)
 }
 
 // Stop handles a stop event
-func (l *linuxProcessor) Stop(eventInfo *common.EventInfo) error {
+func (l *linuxProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) error {
 
-	contextID, err := l.generateContextID(eventInfo)
+	puID, err := l.generateContextID(eventInfo)
 	if err != nil {
 		return err
 	}
 
-	if contextID == "/trireme" {
+	if puID == "/trireme" {
 		return nil
 	}
 
-	contextID = baseName(contextID, "/")
-	return l.config.Policy.HandlePUEvent(contextID, common.EventStop, nil)
+	puID = baseName(puID, "/")
+	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, nil)
 }
 
 // Destroy handles a destroy event
-func (l *linuxProcessor) Destroy(eventInfo *common.EventInfo) error {
+func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInfo) error {
 
-	contextID, err := l.generateContextID(eventInfo)
+	puID, err := l.generateContextID(eventInfo)
 	if err != nil {
 		return err
 	}
 
-	if contextID == "/trireme" {
-		contextID = strings.TrimLeft(contextID, "/")
-		l.netcls.Deletebasepath(contextID)
+	if puID == "/trireme" {
+		puID = strings.TrimLeft(puID, "/")
+		l.netcls.Deletebasepath(puID)
 		return nil
 	}
 
-	contextID = baseName(contextID, "/")
+	puID = baseName(puID, "/")
 
 	// Send the event upstream
-	if err := l.config.Policy.HandlePUEvent(contextID, common.EventDestroy, nil); err != nil {
+	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, nil); err != nil {
 		zap.L().Warn("Unable to clean trireme ",
-			zap.String("contextID", contextID),
+			zap.String("puID", puID),
 			zap.Error(err),
 		)
 	}
@@ -180,16 +181,16 @@ func (l *linuxProcessor) Destroy(eventInfo *common.EventInfo) error {
 	}
 
 	//let us remove the cgroup files now
-	if err := l.netcls.DeleteCgroup(contextID); err != nil {
+	if err := l.netcls.DeleteCgroup(puID); err != nil {
 		zap.L().Warn("Failed to clean netcls group",
-			zap.String("contextID", contextID),
+			zap.String("puID", puID),
 			zap.Error(err),
 		)
 	}
 
-	if err := l.contextStore.Remove(contextID); err != nil {
+	if err := l.contextStore.Remove(puID); err != nil {
 		zap.L().Error("Failed to clean cache while destroying process",
-			zap.String("contextID", contextID),
+			zap.String("puID", puID),
 			zap.Error(err),
 		)
 	}
@@ -198,18 +199,18 @@ func (l *linuxProcessor) Destroy(eventInfo *common.EventInfo) error {
 }
 
 // Pause handles a pause event
-func (l *linuxProcessor) Pause(eventInfo *common.EventInfo) error {
+func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) error {
 
-	contextID, err := l.generateContextID(eventInfo)
+	puID, err := l.generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return l.config.Policy.HandlePUEvent(contextID, common.EventPause, nil)
+	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventPause, nil)
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (l *linuxProcessor) ReSync(e *common.EventInfo) error {
+func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -255,14 +256,14 @@ func (l *linuxProcessor) ReSync(e *common.EventInfo) error {
 
 	for {
 
-		contextID := <-walker
-		if contextID == "" {
+		puID := <-walker
+		if puID == "" {
 			break
 		}
 
 		// Get contexts, runtime, eventinfo, etc ..
 		storedContext := StoredContext{}
-		if err := l.contextStore.Retrieve("/"+contextID, &storedContext); err != nil {
+		if err := l.contextStore.Retrieve("/"+puID, &storedContext); err != nil {
 			retrieveFailed++
 			continue
 		}
@@ -333,7 +334,8 @@ func (l *linuxProcessor) ReSync(e *common.EventInfo) error {
 		} else {
 			if l.config.Policy != nil {
 				if err := l.config.Policy.HandleSynchronization(
-					contextID,
+					ctx,
+					puID,
 					common.StateStarted,
 					runtimeInfo,
 					policy.SynchronizationTypeInitial,
@@ -345,7 +347,7 @@ func (l *linuxProcessor) ReSync(e *common.EventInfo) error {
 			}
 		}
 
-		if err := l.startInternal(runtimeInfo, eventInfo); err != nil {
+		if err := l.startInternal(ctx, runtimeInfo, eventInfo); err != nil {
 			zap.L().Debug("Failed to start", zap.Error(err))
 			puStartFailed++
 		}
@@ -354,20 +356,20 @@ func (l *linuxProcessor) ReSync(e *common.EventInfo) error {
 	return nil
 }
 
-// generateContextID creates the contextID from the event information
+// generateContextID creates the puID from the event information
 func (l *linuxProcessor) generateContextID(eventInfo *common.EventInfo) (string, error) {
 
-	contextID := eventInfo.PUID
+	puID := eventInfo.PUID
 	if eventInfo.Cgroup == "" {
-		return contextID, nil
+		return puID, nil
 	}
 
 	if !l.regStop.Match([]byte(eventInfo.Cgroup)) {
 		return "", fmt.Errorf("invalid pu id: %s", eventInfo.Cgroup)
 	}
 
-	contextID = baseName(eventInfo.Cgroup, "/")
-	return contextID, nil
+	puID = baseName(eventInfo.Cgroup, "/")
+	return puID, nil
 }
 
 func (l *linuxProcessor) processLinuxServiceStart(event *common.EventInfo, runtimeInfo *policy.PURuntime) error {

@@ -91,5 +91,5 @@ func (u *uidMonitor) SetupHandlers(m *config.ProcessorConfig) {
 
 func (u *uidMonitor) ReSync(ctx context.Context) error {
 
-	return u.proc.ReSync(nil)
+	return u.proc.ReSync(ctx, nil)
 }

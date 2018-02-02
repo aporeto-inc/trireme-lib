@@ -1,5 +1,7 @@
 package common
 
+import "context"
+
 // PUType defines the PU type
 type PUType int
 
@@ -93,7 +95,7 @@ type EventResponse struct {
 }
 
 // A EventHandler is type of event handler functions.
-type EventHandler func(*EventInfo) error
+type EventHandler func(ctx context.Context, event *EventInfo) error
 
 // A State describes the state of the PU.
 type State int

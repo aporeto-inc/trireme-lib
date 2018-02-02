@@ -1,6 +1,7 @@
 package dockermonitor
 
 import (
+	"context"
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -56,4 +57,4 @@ type StoredContext struct {
 }
 
 // A EventHandler is type of docker event handler functions.
-type EventHandler func(event *events.Message) error
+type EventHandler func(ctx context.Context, event *events.Message) error

@@ -48,5 +48,7 @@ func (l *listener) Run(ctx context.Context) (err error) {
 
 	zap.L().Debug("Starting RPC monitor")
 
+	l.eventProcessor.SetContext(ctx)
+
 	return l.rpcServer.Run(ctx)
 }

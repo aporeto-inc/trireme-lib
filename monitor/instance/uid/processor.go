@@ -1,6 +1,7 @@
 package uidmonitor
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -92,13 +93,13 @@ func (u *uidProcessor) RemapData(data string, fixedData interface{}) error {
 }
 
 // Start handles start events
-func (u *uidProcessor) Start(eventInfo *common.EventInfo) error {
+func (u *uidProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) error {
 
 	u.Lock()
 	defer u.Unlock()
 
-	contextID := eventInfo.PUID
-	pids, err := u.putoPidMap.Get(contextID)
+	puID := eventInfo.PUID
+	pids, err := u.putoPidMap.Get(puID)
 	var runtimeInfo *policy.PURuntime
 	if err != nil {
 		runtimeInfo, err = u.metadataExtractor(eventInfo)
@@ -106,9 +107,9 @@ func (u *uidProcessor) Start(eventInfo *common.EventInfo) error {
 			return err
 		}
 
-		publishedContextID := contextID + runtimeInfo.Options().CgroupMark
+		publishedContextID := puID + runtimeInfo.Options().CgroupMark
 		// Setup the run time
-		if perr := u.config.Policy.HandlePUEvent(publishedContextID, common.EventStart, runtimeInfo); perr != nil {
+		if perr := u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventStart, runtimeInfo); perr != nil {
 			zap.L().Error("Failed to activate process", zap.Error(perr))
 			return perr
 		}
@@ -119,7 +120,7 @@ func (u *uidProcessor) Start(eventInfo *common.EventInfo) error {
 		}
 
 		u.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: contextID,
+			ContextID: puID,
 			IPAddress: runtimeInfo.IPAddresses(),
 			Tags:      runtimeInfo.Tags(),
 			Event:     collector.ContainerStart,
@@ -132,21 +133,21 @@ func (u *uidProcessor) Start(eventInfo *common.EventInfo) error {
 
 		entry.pidlist[eventInfo.PID] = true
 
-		if err := u.putoPidMap.Add(contextID, entry); err != nil {
-			zap.L().Warn("Failed to add contextID/PU in the cache",
+		if err := u.putoPidMap.Add(puID, entry); err != nil {
+			zap.L().Warn("Failed to add puID/PU in the cache",
 				zap.Error(err),
-				zap.String("contextID", contextID),
+				zap.String("puID", puID),
 			)
 		}
 
-		if err := u.pidToPU.Add(eventInfo.PID, contextID); err != nil {
-			zap.L().Warn("Failed to add eventInfoID/contextID in the cache",
+		if err := u.pidToPU.Add(eventInfo.PID, puID); err != nil {
+			zap.L().Warn("Failed to add eventInfoID/puID in the cache",
 				zap.Error(err),
-				zap.String("contextID", contextID),
+				zap.String("puID", puID),
 			)
 		}
 		// Store the state in the context store for future access
-		return u.contextStore.Store(contextID, &StoredContext{
+		return u.contextStore.Store(puID, &StoredContext{
 			MarkVal:   runtimeInfo.Options().CgroupMark,
 			EventInfo: eventInfo,
 			Tags:      runtimeInfo.Tags(),
@@ -168,31 +169,31 @@ func (u *uidProcessor) Start(eventInfo *common.EventInfo) error {
 }
 
 // Stop handles a stop event and destroy as well. Destroy does nothing for the uid monitor
-func (u *uidProcessor) Stop(eventInfo *common.EventInfo) error {
+func (u *uidProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) error {
 
-	contextID, err := u.generateContextID(eventInfo)
+	puID, err := u.generateContextID(eventInfo)
 	if err != nil {
 		return err
 	}
 
-	if contextID == triremeBaseCgroup {
-		u.netcls.Deletebasepath(contextID)
+	if puID == triremeBaseCgroup {
+		u.netcls.Deletebasepath(puID)
 		return nil
 	}
 	u.Lock()
 	defer u.Unlock()
 	//ignore the leading / here this is a special case for stop where i need to do a reverse lookup
-	stoppedpid := strings.TrimLeft(contextID, "/")
+	stoppedpid := strings.TrimLeft(puID, "/")
 	if puid, err := u.pidToPU.Get(stoppedpid); err == nil {
-		contextID = puid.(string)
+		puID = puid.(string)
 	}
 
 	var publishedContextID string
-	if pidlist, err := u.putoPidMap.Get(contextID); err == nil {
-		ctx := pidlist.(*puToPidEntry)
-		publishedContextID = ctx.publishedContextID
+	if pidlist, err := u.putoPidMap.Get(puID); err == nil {
+		pidCxt := pidlist.(*puToPidEntry)
+		publishedContextID = pidCxt.publishedContextID
 		// Clean pid from both caches
-		delete(ctx.pidlist, stoppedpid)
+		delete(pidCxt.pidlist, stoppedpid)
 
 		if err = u.pidToPU.Remove(stoppedpid); err != nil {
 			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("stoppedpid", stoppedpid))
@@ -203,27 +204,27 @@ func (u *uidProcessor) Stop(eventInfo *common.EventInfo) error {
 			return u.netcls.DeleteCgroup(stoppedpid)
 		}
 
-		if err = u.config.Policy.HandlePUEvent(publishedContextID, common.EventStop, nil); err != nil {
+		if err = u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventStop, nil); err != nil {
 			zap.L().Warn("Failed to stop trireme PU ",
-				zap.String("contextID", contextID),
+				zap.String("puID", puID),
 				zap.Error(err),
 			)
 		}
 
-		if err = u.putoPidMap.Remove(contextID); err != nil {
-			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("contextID", contextID))
+		if err = u.putoPidMap.Remove(puID); err != nil {
+			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("puID", puID))
 		}
 
-		if err = u.contextStore.Remove(contextID); err != nil {
+		if err = u.contextStore.Remove(puID); err != nil {
 			zap.L().Error("Failed to clean cache while destroying process",
-				zap.String("contextID", contextID),
+				zap.String("puID", puID),
 				zap.Error(err),
 			)
 		}
 
-		if err = u.config.Policy.HandlePUEvent(publishedContextID, common.EventDestroy, nil); err != nil {
+		if err = u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventDestroy, nil); err != nil {
 			zap.L().Warn("Failed to Destroy clean trireme ",
-				zap.String("contextID", contextID),
+				zap.String("puID", puID),
 				zap.Error(err),
 			)
 		}
@@ -236,13 +237,13 @@ func (u *uidProcessor) Stop(eventInfo *common.EventInfo) error {
 }
 
 // Create handles create events
-func (u *uidProcessor) Create(eventInfo *common.EventInfo) error {
+func (u *uidProcessor) Create(ctx context.Context, eventInfo *common.EventInfo) error {
 
-	return u.config.Policy.HandlePUEvent(eventInfo.PUID, common.EventCreate, nil)
+	return u.config.Policy.HandlePUEvent(ctx, eventInfo.PUID, common.EventCreate, nil)
 }
 
 // Destroy handles a destroy event
-func (u *uidProcessor) Destroy(eventInfo *common.EventInfo) error {
+func (u *uidProcessor) Destroy(ctx context.Context, eventInfo *common.EventInfo) error {
 	// Destroy is not used for the UIDMonitor since we will destroy when we get stop
 	// This is to try and save some time .Stop/Destroy is two RPC calls.
 	// We don't define pause on uid monitor so stop is always followed by destroy
@@ -250,18 +251,18 @@ func (u *uidProcessor) Destroy(eventInfo *common.EventInfo) error {
 }
 
 // Pause handles a pause event
-func (u *uidProcessor) Pause(eventInfo *common.EventInfo) error {
+func (u *uidProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) error {
 
-	contextID, err := u.generateContextID(eventInfo)
+	puID, err := u.generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return u.config.Policy.HandlePUEvent(contextID, common.EventPause, nil)
+	return u.config.Policy.HandlePUEvent(ctx, puID, common.EventPause, nil)
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (u *uidProcessor) ReSync(e *common.EventInfo) error {
+func (u *uidProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -328,13 +329,13 @@ func (u *uidProcessor) ReSync(e *common.EventInfo) error {
 	}
 
 	for {
-		contextID := <-walker
-		if contextID == "" {
+		puID := <-walker
+		if puID == "" {
 			break
 		}
 
 		storedContext := &StoredContext{}
-		if err := u.contextStore.Retrieve("/"+contextID, &storedContext); err != nil {
+		if err := u.contextStore.Retrieve("/"+puID, &storedContext); err != nil {
 			retrieveFailed++
 			continue
 		}
@@ -364,7 +365,7 @@ func (u *uidProcessor) ReSync(e *common.EventInfo) error {
 		mark := storedContext.MarkVal
 		if pids, ok := marktoPID[mark]; !ok {
 			// No pids with stored mark destroy the context record and go to next context
-			if err := u.contextStore.Remove("/" + contextID); err != nil {
+			if err := u.contextStore.Remove("/" + puID); err != nil {
 				zap.L().Warn("Error when removing context in the store", zap.Error(err))
 			}
 		} else {
@@ -375,7 +376,8 @@ func (u *uidProcessor) ReSync(e *common.EventInfo) error {
 			} else {
 				if u.config.Policy != nil {
 					if err := u.config.Policy.HandleSynchronization(
-						contextID,
+						ctx,
+						puID,
 						common.StateStarted,
 						runtimeInfo,
 						policy.SynchronizationTypeInitial,
@@ -389,7 +391,7 @@ func (u *uidProcessor) ReSync(e *common.EventInfo) error {
 
 			for _, pid := range pids {
 				eventInfo.PID = pid
-				if err := u.Start(eventInfo); err != nil {
+				if err := u.Start(ctx, eventInfo); err != nil {
 					zap.L().Debug("Failed to start", zap.Error(err), zap.String("eventInfoPID", eventInfo.PID))
 					puStartFailed++
 				}
@@ -400,19 +402,19 @@ func (u *uidProcessor) ReSync(e *common.EventInfo) error {
 	return nil
 }
 
-// generateContextID creates the contextID from the event information
+// generateContextID creates the puID from the event information
 func (u *uidProcessor) generateContextID(eventInfo *common.EventInfo) (string, error) {
 
-	contextID := eventInfo.PUID
+	puID := eventInfo.PUID
 	if eventInfo.Cgroup != "" {
 		if !u.regStop.Match([]byte(eventInfo.Cgroup)) {
 			return "", fmt.Errorf("invalid pu id: %s", eventInfo.Cgroup)
 		}
-		contextID = eventInfo.Cgroup
+		puID = eventInfo.Cgroup
 	}
 
-	contextID = baseName(contextID, "/")
-	return contextID, nil
+	puID = baseName(puID, "/")
+	return puID, nil
 }
 
 func (u *uidProcessor) processLinuxServiceStart(event *common.EventInfo, runtimeInfo *policy.PURuntime) error {

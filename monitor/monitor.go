@@ -133,7 +133,7 @@ func (m *monitors) Run(ctx context.Context) (err error) {
 	}
 
 	if m.policy != nil {
-		m.policy.HandleSynchronizationComplete(policy.SynchronizationTypeInitial)
+		m.policy.HandleSynchronizationComplete(ctx, policy.SynchronizationTypeInitial)
 	}
 
 	return nil

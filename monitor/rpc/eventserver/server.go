@@ -1,6 +1,7 @@
 package eventserver
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
@@ -19,6 +20,8 @@ const (
 type Server struct {
 	root       bool
 	registerer registerer.Registerer
+	// We need to store the context for the RPC server callbacks
+	ctx context.Context
 }
 
 // New provides a new event server. This server will be responsible for listening
@@ -30,6 +33,11 @@ func New(root bool) (Processor, registerer.Registerer) {
 		registerer: registerer.New(),
 	}
 	return es, es.registerer
+}
+
+// SetContext sets the context of the server
+func (s *Server) SetContext(ctx context.Context) {
+	s.ctx = ctx
 }
 
 // HandleEvent Gets called when clients generate common.
@@ -63,7 +71,7 @@ func (s *Server) HandleEvent(eventInfo *common.EventInfo, result *common.EventRe
 		return err
 	}
 
-	if err := f(eventInfo); err != nil {
+	if err := f(s.ctx, eventInfo); err != nil {
 		result.Error = err.Error()
 		return err
 	}

@@ -91,5 +91,5 @@ func (l *linuxMonitor) SetupHandlers(m *config.ProcessorConfig) {
 
 func (l *linuxMonitor) ReSync(ctx context.Context) error {
 
-	return l.proc.ReSync(nil)
+	return l.proc.ReSync(ctx, nil)
 }

@@ -1,6 +1,7 @@
 package cnimonitor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -22,12 +23,12 @@ type cniProcessor struct {
 }
 
 // Create handles create events
-func (c *cniProcessor) Create(eventInfo *common.EventInfo) error {
+func (c *cniProcessor) Create(ctx context.Context, eventInfo *common.EventInfo) error {
 	return nil
 }
 
 // Start handles start events
-func (c *cniProcessor) Start(eventInfo *common.EventInfo) error {
+func (c *cniProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) error {
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return err
@@ -38,7 +39,7 @@ func (c *cniProcessor) Start(eventInfo *common.EventInfo) error {
 		return err
 	}
 
-	if err := c.config.Policy.HandlePUEvent(contextID, common.EventStart, runtimeInfo); err != nil {
+	if err := c.config.Policy.HandlePUEvent(ctx, contextID, common.EventStart, runtimeInfo); err != nil {
 		return err
 	}
 
@@ -54,28 +55,28 @@ func (c *cniProcessor) Start(eventInfo *common.EventInfo) error {
 }
 
 // Stop handles a stop event
-func (c *cniProcessor) Stop(eventInfo *common.EventInfo) error {
+func (c *cniProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) error {
 
 	contextID, err := generateContextID(eventInfo)
 	if err != nil {
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	return c.config.Policy.HandlePUEvent(contextID, common.EventStop, nil)
+	return c.config.Policy.HandlePUEvent(ctx, contextID, common.EventStop, nil)
 }
 
 // Destroy handles a destroy event
-func (c *cniProcessor) Destroy(eventInfo *common.EventInfo) error {
+func (c *cniProcessor) Destroy(ctx context.Context, eventInfo *common.EventInfo) error {
 	return nil
 }
 
 // Pause handles a pause event
-func (c *cniProcessor) Pause(eventInfo *common.EventInfo) error {
+func (c *cniProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) error {
 	return nil
 }
 
 // ReSync resyncs with all the existing services that were there before we start
-func (c *cniProcessor) ReSync(e *common.EventInfo) error {
+func (c *cniProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
 	deleted := []string{}
 	reacquired := []string{}
@@ -109,7 +110,7 @@ func (c *cniProcessor) ReSync(e *common.EventInfo) error {
 
 		reacquired = append(reacquired, eventInfo.PUID)
 
-		if err := c.Start(&eventInfo); err != nil {
+		if err := c.Start(ctx, &eventInfo); err != nil {
 			return fmt.Errorf("error in processing existing data: %s", err)
 		}
 

@@ -39,7 +39,7 @@ type dockerMonitor struct {
 	socketType         string
 	socketAddress      string
 	metadataExtractor  extractors.DockerMetadataExtractor
-	handlers           map[Event]func(event *events.Message) error
+	handlers           map[Event]func(ctx context.Context, event *events.Message) error
 	eventnotifications []chan *events.Message
 	stopprocessor      []chan bool
 	numberOfQueues     int
@@ -81,7 +81,7 @@ func (d *dockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.metadataExtractor = dockerConfig.EventMetadataExtractor
 	d.syncAtStart = dockerConfig.SyncAtStart
 	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
-	d.handlers = make(map[Event]func(event *events.Message) error)
+	d.handlers = make(map[Event]func(ctx context.Context, event *events.Message) error)
 	d.stoplistener = make(chan bool)
 	d.netcls = cgnetcls.NewDockerCgroupNetController()
 	d.numberOfQueues = runtime.NumCPU() * 8
@@ -169,7 +169,7 @@ func (d *dockerMonitor) eventProcessors(ctx context.Context) {
 				select {
 				case event := <-d.eventnotifications[i]:
 					if f, ok := d.handlers[Event(event.Action)]; ok {
-						if err := f(event); err != nil {
+						if err := f(ctx, event); err != nil {
 							zap.L().Error("Unable to handle docker event",
 								zap.String("action", event.Action),
 								zap.Error(err),
@@ -251,11 +251,11 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 			continue
 		}
 
-		contextID, _ := contextIDFromDockerID(container.ID)
+		puID, _ := puIDFromDockerID(container.ID)
 
 		storedContext := &StoredContext{}
 		if d.NoProxyMode {
-			if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+			if err = d.cstore.Retrieve(puID, &storedContext); err == nil {
 				container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
 			}
 		}
@@ -282,7 +282,8 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 		}
 
 		if err := d.config.Policy.HandleSynchronization(
-			contextID,
+			ctx,
+			puID,
 			state,
 			PURuntime,
 			policy.SynchronizationTypeInitial,
@@ -293,11 +294,11 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 			)
 		}
 
-		allContainers[contextID] = container
+		allContainers[puID] = container
 	}
 
 	for _, container := range allContainers {
-		if err := d.startDockerContainer(&container); err != nil {
+		if err := d.startDockerContainer(ctx, &container); err != nil {
 			zap.L().Error("Unable to sync existing container during start handling",
 				zap.String("dockerID", container.ID),
 				zap.Error(err),
@@ -312,18 +313,18 @@ func (d *dockerMonitor) ReSync(ctx context.Context) error {
 }
 
 // setupHostMode sets up the net_cls cgroup for the host mode
-func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) (err error) {
+func (d *dockerMonitor) setupHostMode(puID string, runtimeInfo *policy.PURuntime, dockerInfo *types.ContainerJSON) (err error) {
 
-	if err = d.netcls.Creategroup(contextID); err != nil {
+	if err = d.netcls.Creategroup(puID); err != nil {
 		return err
 	}
 
 	// Clean the cgroup on exit, if we have failed t activate.
 	defer func() {
 		if err != nil {
-			if derr := d.netcls.DeleteCgroup(contextID); derr != nil {
+			if derr := d.netcls.DeleteCgroup(puID); derr != nil {
 				zap.L().Warn("Failed to clean cgroup",
-					zap.String("contextID", contextID),
+					zap.String("puID", puID),
 					zap.Error(derr),
 					zap.Error(err),
 				)
@@ -337,30 +338,30 @@ func (d *dockerMonitor) setupHostMode(contextID string, runtimeInfo *policy.PURu
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	if err := d.netcls.AssignMark(contextID, mark); err != nil {
+	if err := d.netcls.AssignMark(puID, mark); err != nil {
 		return err
 	}
 
-	if err := d.netcls.AddProcess(contextID, dockerInfo.State.Pid); err != nil {
+	if err := d.netcls.AddProcess(puID, dockerInfo.State.Pid); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) error {
+func (d *dockerMonitor) startDockerContainer(ctx context.Context, dockerInfo *types.ContainerJSON) error {
 
 	if !dockerInfo.State.Running {
 		return nil
 	}
 
-	contextID, err := contextIDFromDockerID(dockerInfo.ID)
+	puID, err := puIDFromDockerID(dockerInfo.ID)
 	if err != nil {
 		return err
 	}
 
 	storedContext := &StoredContext{}
-	if err = d.cstore.Retrieve(contextID, &storedContext); err == nil {
+	if err = d.cstore.Retrieve(puID, &storedContext); err == nil {
 		if storedContext.Tags != nil {
 			dockerInfo.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
 		}
@@ -391,19 +392,19 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		event = tevents.EventStart
 	}
 
-	if err = d.config.Policy.HandlePUEvent(contextID, event, runtimeInfo); err != nil {
+	if err = d.config.Policy.HandlePUEvent(ctx, puID, event, runtimeInfo); err != nil {
 		if d.killContainerOnPolicyError {
 			if derr := d.dockerClient.ContainerRemove(context.Background(), dockerInfo.ID, types.ContainerRemoveOptions{Force: true}); derr != nil {
-				return fmt.Errorf("unable to set policy: unable to remove container %s: %s, %s", contextID, err, derr)
+				return fmt.Errorf("unable to set policy: unable to remove container %s: %s, %s", puID, err, derr)
 			}
-			return fmt.Errorf("unable to set policy: removed container %s: %s", contextID, err)
+			return fmt.Errorf("unable to set policy: removed container %s: %s", puID, err)
 		}
-		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", contextID, err)
+		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", puID, err)
 	}
 
 	if dockerInfo.HostConfig.NetworkMode == constants.DockerHostMode {
-		if err = d.setupHostMode(contextID, runtimeInfo, dockerInfo); err != nil {
-			return fmt.Errorf("unable to setup host mode for container %s: %s", contextID, err)
+		if err = d.setupHostMode(puID, runtimeInfo, dockerInfo); err != nil {
+			return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
 		}
 	}
 
@@ -412,21 +413,21 @@ func (d *dockerMonitor) startDockerContainer(dockerInfo *types.ContainerJSON) er
 		Tags:          runtimeInfo.Tags(),
 	}
 
-	return d.cstore.Store(contextID, storedContext)
+	return d.cstore.Store(puID, storedContext)
 }
 
-func (d *dockerMonitor) stopDockerContainer(dockerID string) error {
+func (d *dockerMonitor) stopDockerContainer(ctx context.Context, dockerID string) error {
 
-	contextID, err := contextIDFromDockerID(dockerID)
+	puID, err := puIDFromDockerID(dockerID)
 	if err != nil {
 		return err
 	}
 
-	if err = d.cstore.Remove(contextID); err != nil {
+	if err = d.cstore.Remove(puID); err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventStop, nil)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, nil)
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -444,24 +445,24 @@ func (d *dockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 }
 
 // handleCreateEvent generates a create event type.
-func (d *dockerMonitor) handleCreateEvent(event *events.Message) error {
+func (d *dockerMonitor) handleCreateEvent(ctx context.Context, event *events.Message) error {
 
-	contextID, err := contextIDFromDockerID(event.ID)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventCreate, nil)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, nil)
 }
 
 // handleStartEvent will notify the agent immediately about the event in order
 //to start the implementation of the functions. The agent must query
 //the policy engine for details on what to do with this container.
-func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
+func (d *dockerMonitor) handleStartEvent(ctx context.Context, event *events.Message) error {
 
 	timeout := time.Second * 0
 
-	contextID, err := contextIDFromDockerID(event.ID)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
@@ -473,51 +474,51 @@ func (d *dockerMonitor) handleStartEvent(event *events.Message) error {
 
 			if err1 := d.dockerClient.ContainerStop(context.Background(), event.ID, &timeout); err1 != nil {
 				zap.L().Warn("Unable to stop illegal container",
-					zap.String("dockerID", contextID),
+					zap.String("dockerID", puID),
 					zap.Error(err1),
 				)
 			}
 
 			d.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
-				ContextID: contextID,
+				ContextID: puID,
 				IPAddress: nil,
 				Tags:      nil,
 				Event:     collector.ContainerFailed,
 			})
 
-			return fmt.Errorf("unable to read container information: container %s killed: %s", contextID, err)
+			return fmt.Errorf("unable to read container information: container %s killed: %s", puID, err)
 		}
 
-		return fmt.Errorf("unable to read container information: container %s kept alive per policy: %s", contextID, err)
+		return fmt.Errorf("unable to read container information: container %s kept alive per policy: %s", puID, err)
 	}
 
-	return d.startDockerContainer(&info)
+	return d.startDockerContainer(ctx, &info)
 }
 
 //handleDie event is called when a container dies. It generates a "Stop" event.
-func (d *dockerMonitor) handleDieEvent(event *events.Message) error {
+func (d *dockerMonitor) handleDieEvent(ctx context.Context, event *events.Message) error {
 
-	return d.stopDockerContainer(event.ID)
+	return d.stopDockerContainer(ctx, event.ID)
 }
 
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
-func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
+func (d *dockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Message) error {
 
-	contextID, err := contextIDFromDockerID(event.ID)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	err = d.config.Policy.HandlePUEvent(contextID, tevents.EventDestroy, nil)
+	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, nil)
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
 			zap.Error(err),
 		)
 	}
 
-	if err := d.netcls.DeleteCgroup(contextID); err != nil {
+	if err := d.netcls.DeleteCgroup(puID); err != nil {
 		zap.L().Warn("Failed to clean netcls group",
-			zap.String("contextID", contextID),
+			zap.String("puID", puID),
 			zap.Error(err),
 		)
 	}
@@ -526,29 +527,29 @@ func (d *dockerMonitor) handleDestroyEvent(event *events.Message) error {
 }
 
 // handlePauseEvent generates a create event type.
-func (d *dockerMonitor) handlePauseEvent(event *events.Message) error {
+func (d *dockerMonitor) handlePauseEvent(ctx context.Context, event *events.Message) error {
 	zap.L().Info("UnPause Event for nativeID", zap.String("ID", event.ID))
 
-	contextID, err := contextIDFromDockerID(event.ID)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventPause, nil)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventPause, nil)
 }
 
 // handleCreateEvent generates a create event type.
-func (d *dockerMonitor) handleUnpauseEvent(event *events.Message) error {
+func (d *dockerMonitor) handleUnpauseEvent(ctx context.Context, event *events.Message) error {
 
-	contextID, err := contextIDFromDockerID(event.ID)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(contextID, tevents.EventUnpause, nil)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventUnpause, nil)
 }
 
-func contextIDFromDockerID(dockerID string) (string, error) {
+func puIDFromDockerID(dockerID string) (string, error) {
 
 	if dockerID == "" {
 		return "", errors.New("unable to generate context id: empty docker id")
