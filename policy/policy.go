@@ -1,6 +1,8 @@
 package policy
 
-import "sync"
+import (
+	"sync"
+)
 
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {

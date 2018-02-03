@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/dchest/siphash"
@@ -359,45 +360,12 @@ func (d *DockerMonitor) startDockerContainer(ctx context.Context, dockerInfo *ty
 		return err
 	}
 
-	storedContext := &StoredContext{}
-	if err = d.cstore.Retrieve(puID, &storedContext); err == nil {
-		if storedContext.Tags != nil {
-			dockerInfo.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
-		}
-	}
-
 	runtimeInfo, err := d.extractMetadata(dockerInfo)
 	if err != nil {
 		return err
 	}
 
-	t := runtimeInfo.Tags()
-	if t != nil && storedContext.Tags != nil {
-		t.Merge(storedContext.Tags)
-		runtimeInfo.SetTags(t)
-	}
-
-	var event tevents.Event
-	switch dockerInfo.State.Status {
-	case "paused":
-		event = tevents.EventPause
-	case "running":
-		event = tevents.EventStart
-	case "dead":
-		event = tevents.EventStop
-	default:
-		//We are restarting.Feeding start here. might as well be stop since we will get start notification when the
-		//container finishes restarting
-		event = tevents.EventStart
-	}
-
-	if err = d.config.Policy.HandlePUEvent(ctx, puID, event, runtimeInfo); err != nil {
-		if d.killContainerOnPolicyError {
-			if derr := d.dockerClient.ContainerRemove(context.Background(), dockerInfo.ID, types.ContainerRemoveOptions{Force: true}); derr != nil {
-				return fmt.Errorf("unable to set policy: unable to remove container %s: %s, %s", puID, err, derr)
-			}
-			return fmt.Errorf("unable to set policy: removed container %s: %s", puID, err)
-		}
+	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtimeInfo); err != nil {
 		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", puID, err)
 	}
 
@@ -407,26 +375,33 @@ func (d *DockerMonitor) startDockerContainer(ctx context.Context, dockerInfo *ty
 		}
 	}
 
-	storedContext = &StoredContext{
-		containerInfo: dockerInfo,
-		Tags:          runtimeInfo.Tags(),
-	}
-
-	return d.cstore.Store(puID, storedContext)
+	return nil
 }
 
-func (d *DockerMonitor) stopDockerContainer(ctx context.Context, dockerID string) error {
+func (d *DockerMonitor) retrieveDockerInfo(ctx context.Context, event *events.Message) (*types.ContainerJSON, error) {
 
-	puID, err := puIDFromDockerID(dockerID)
+	info, err := d.dockerClient.ContainerInspect(ctx, event.ID)
 	if err != nil {
-		return err
+		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
+		if d.killContainerOnPolicyError {
+			timeout := 0 * time.Second
+			if err1 := d.dockerClient.ContainerStop(ctx, event.ID, &timeout); err1 != nil {
+				zap.L().Warn("Unable to stop illegal container",
+					zap.String("dockerID", event.ID),
+					zap.Error(err1),
+				)
+			}
+			d.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
+				ContextID: event.ID,
+				IPAddress: nil,
+				Tags:      nil,
+				Event:     collector.ContainerFailed,
+			})
+			return nil, fmt.Errorf("unable to read container information: container %s killed: %s", event.ID, err)
+		}
+		return nil, fmt.Errorf("unable to read container information: container %s kept alive per policy: %s", event.ID, err)
 	}
-
-	if err = d.cstore.Remove(puID); err != nil {
-		return err
-	}
-
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, nil)
+	return &info, nil
 }
 
 // ExtractMetadata generates the RuntimeInfo based on Docker primitive
@@ -443,7 +418,9 @@ func (d *DockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 	return extractors.DefaultMetadataExtractor(dockerInfo)
 }
 
-// handleCreateEvent generates a create event type.
+// handleCreateEvent generates a create event type. We extract the metadata
+// and start the policy resolution at the create event. No need to wait
+// for the start event.
 func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Message) error {
 
 	puID, err := puIDFromDockerID(event.ID)
@@ -451,53 +428,61 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, nil)
+	info, err := d.retrieveDockerInfo(ctx, event)
+	if err != nil {
+		return err
+	}
+
+	runtimeInfo, err := d.extractMetadata(info)
+	if err != nil {
+		return err
+	}
+
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, runtimeInfo)
 }
 
-// handleStartEvent will notify the agent immediately about the event in order
-//to start the implementation of the functions. The agent must query
-//the policy engine for details on what to do with this container.
+// handleStartEvent will notify the policy engine immediately about the event in order
+// to start the implementation of the functions. At this point we know the process ID
+// that is needed for the remote enforcers.
 func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Message) error {
 
-	timeout := time.Second * 0
+	info, err := d.retrieveDockerInfo(ctx, event)
+	if err != nil {
+		return err
+	}
+
+	if !info.State.Running {
+		return nil
+	}
+
+	puID, err := puIDFromDockerID(info.ID)
+	if err != nil {
+		return err
+	}
+
+	pidInfo := policy.NewPURuntime(info.Name, info.State.Pid, "", nil, nil, common.ContainerPU, nil)
+
+	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, pidInfo); err != nil {
+		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", puID, err)
+	}
+
+	if info.HostConfig.NetworkMode == constants.DockerHostMode {
+		if err = d.setupHostMode(puID, pidInfo, info); err != nil {
+			return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
+		}
+	}
+	return nil
+}
+
+//handleDie event is called when a container dies. It generates a "Stop" event.
+func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Message) error {
 
 	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	info, err := d.dockerClient.ContainerInspect(context.Background(), event.ID)
-	if err != nil {
-		// If we see errors, we will kill the container for security reasons if DockerMonitor was configured to do so.
-		if d.killContainerOnPolicyError {
-
-			if err1 := d.dockerClient.ContainerStop(context.Background(), event.ID, &timeout); err1 != nil {
-				zap.L().Warn("Unable to stop illegal container",
-					zap.String("dockerID", puID),
-					zap.Error(err1),
-				)
-			}
-
-			d.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
-				ContextID: puID,
-				IPAddress: nil,
-				Tags:      nil,
-				Event:     collector.ContainerFailed,
-			})
-
-			return fmt.Errorf("unable to read container information: container %s killed: %s", puID, err)
-		}
-
-		return fmt.Errorf("unable to read container information: container %s kept alive per policy: %s", puID, err)
-	}
-
-	return d.startDockerContainer(ctx, &info)
-}
-
-//handleDie event is called when a container dies. It generates a "Stop" event.
-func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Message) error {
-
-	return d.stopDockerContainer(ctx, event.ID)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, nil)
 }
 
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
