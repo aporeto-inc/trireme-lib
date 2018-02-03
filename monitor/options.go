@@ -5,10 +5,10 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/cni"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/linux"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/uid"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 

@@ -5,6 +5,7 @@
 package mockpolicy
 
 import (
+	context "context"
 	reflect "reflect"
 
 	common "github.com/aporeto-inc/trireme-lib/common"
@@ -167,40 +168,40 @@ func (m *MockResolver) EXPECT() *MockResolverMockRecorder {
 
 // HandlePUEvent mocks base method
 // nolint
-func (m *MockResolver) HandlePUEvent(contextID string, event common.Event, runtime policy.RuntimeReader) error {
-	ret := m.ctrl.Call(m, "HandlePUEvent", contextID, event, runtime)
+func (m *MockResolver) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
+	ret := m.ctrl.Call(m, "HandlePUEvent", ctx, puID, event, runtime)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandlePUEvent indicates an expected call of HandlePUEvent
 // nolint
-func (mr *MockResolverMockRecorder) HandlePUEvent(contextID, event, runtime interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePUEvent", reflect.TypeOf((*MockResolver)(nil).HandlePUEvent), contextID, event, runtime)
+func (mr *MockResolverMockRecorder) HandlePUEvent(ctx, puID, event, runtime interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlePUEvent", reflect.TypeOf((*MockResolver)(nil).HandlePUEvent), ctx, puID, event, runtime)
 }
 
 // HandleSynchronization mocks base method
 // nolint
-func (m *MockResolver) HandleSynchronization(contextID string, state common.State, runtime policy.RuntimeReader, syncType policy.SynchronizationType) error {
-	ret := m.ctrl.Call(m, "HandleSynchronization", contextID, state, runtime, syncType)
+func (m *MockResolver) HandleSynchronization(ctx context.Context, puID string, state common.State, runtime policy.RuntimeReader, syncType policy.SynchronizationType) error {
+	ret := m.ctrl.Call(m, "HandleSynchronization", ctx, puID, state, runtime, syncType)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandleSynchronization indicates an expected call of HandleSynchronization
 // nolint
-func (mr *MockResolverMockRecorder) HandleSynchronization(contextID, state, runtime, syncType interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSynchronization", reflect.TypeOf((*MockResolver)(nil).HandleSynchronization), contextID, state, runtime, syncType)
+func (mr *MockResolverMockRecorder) HandleSynchronization(ctx, puID, state, runtime, syncType interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSynchronization", reflect.TypeOf((*MockResolver)(nil).HandleSynchronization), ctx, puID, state, runtime, syncType)
 }
 
 // HandleSynchronizationComplete mocks base method
 // nolint
-func (m *MockResolver) HandleSynchronizationComplete(syncType policy.SynchronizationType) {
-	m.ctrl.Call(m, "HandleSynchronizationComplete", syncType)
+func (m *MockResolver) HandleSynchronizationComplete(ctx context.Context, syncType policy.SynchronizationType) {
+	m.ctrl.Call(m, "HandleSynchronizationComplete", ctx, syncType)
 }
 
 // HandleSynchronizationComplete indicates an expected call of HandleSynchronizationComplete
 // nolint
-func (mr *MockResolverMockRecorder) HandleSynchronizationComplete(syncType interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSynchronizationComplete", reflect.TypeOf((*MockResolver)(nil).HandleSynchronizationComplete), syncType)
+func (mr *MockResolverMockRecorder) HandleSynchronizationComplete(ctx, syncType interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSynchronizationComplete", reflect.TypeOf((*MockResolver)(nil).HandleSynchronizationComplete), ctx, syncType)
 }

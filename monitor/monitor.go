@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	monitorinstance "github.com/aporeto-inc/trireme-lib/monitor/instance"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/instance/uid"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/cni"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/linux"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/uid"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -18,7 +17,7 @@ import (
 
 type monitors struct {
 	config          *config.MonitorConfig
-	monitors        map[config.Type]monitorinstance.Implementation
+	monitors        map[config.Type]Implementation
 	userRPCListener rpcmonitor.Listener
 	userRegisterer  registerer.Registerer
 	rootRPCListener rpcmonitor.Listener
@@ -47,7 +46,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 
 	m := &monitors{
 		config:   c,
-		monitors: make(map[config.Type]monitorinstance.Implementation),
+		monitors: make(map[config.Type]Implementation),
 	}
 
 	if m.userRPCListener, m.userRegisterer, err = rpcmonitor.New(

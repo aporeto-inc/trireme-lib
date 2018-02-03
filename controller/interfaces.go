@@ -3,7 +3,7 @@ package controller
 import (
 	"context"
 
-	"github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/secrets"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 

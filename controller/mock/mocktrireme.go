@@ -8,8 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	common "github.com/aporeto-inc/trireme-lib/common"
-	secrets "github.com/aporeto-inc/trireme-lib/controller/enforcer/utils/secrets"
+	secrets "github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	policy "github.com/aporeto-inc/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )
@@ -55,32 +54,46 @@ func (mr *MockTriremeControllerMockRecorder) Run(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockTriremeController)(nil).Run), ctx)
 }
 
-// ProcessEvent mocks base method
+// Enforce mocks base method
 // nolint
-func (m *MockTriremeController) ProcessEvent(ctx context.Context, event common.Event, id string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
-	ret := m.ctrl.Call(m, "ProcessEvent", ctx, event, id, policy, runtime)
+func (m *MockTriremeController) Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+	ret := m.ctrl.Call(m, "Enforce", ctx, puID, policy, runtime)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ProcessEvent indicates an expected call of ProcessEvent
+// Enforce indicates an expected call of Enforce
 // nolint
-func (mr *MockTriremeControllerMockRecorder) ProcessEvent(ctx, event, id, policy, runtime interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessEvent", reflect.TypeOf((*MockTriremeController)(nil).ProcessEvent), ctx, event, id, policy, runtime)
+func (mr *MockTriremeControllerMockRecorder) Enforce(ctx, puID, policy, runtime interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enforce", reflect.TypeOf((*MockTriremeController)(nil).Enforce), ctx, puID, policy, runtime)
+}
+
+// UnEnforce mocks base method
+// nolint
+func (m *MockTriremeController) UnEnforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+	ret := m.ctrl.Call(m, "UnEnforce", ctx, puID, policy, runtime)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UnEnforce indicates an expected call of UnEnforce
+// nolint
+func (mr *MockTriremeControllerMockRecorder) UnEnforce(ctx, puID, policy, runtime interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnEnforce", reflect.TypeOf((*MockTriremeController)(nil).UnEnforce), ctx, puID, policy, runtime)
 }
 
 // UpdatePolicy mocks base method
 // nolint
-func (m *MockTriremeController) UpdatePolicy(contextID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
-	ret := m.ctrl.Call(m, "UpdatePolicy", contextID, policy, runtime)
+func (m *MockTriremeController) UpdatePolicy(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+	ret := m.ctrl.Call(m, "UpdatePolicy", ctx, puID, policy, runtime)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdatePolicy indicates an expected call of UpdatePolicy
 // nolint
-func (mr *MockTriremeControllerMockRecorder) UpdatePolicy(contextID, policy, runtime interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePolicy", reflect.TypeOf((*MockTriremeController)(nil).UpdatePolicy), contextID, policy, runtime)
+func (mr *MockTriremeControllerMockRecorder) UpdatePolicy(ctx, puID, policy, runtime interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePolicy", reflect.TypeOf((*MockTriremeController)(nil).UpdatePolicy), ctx, puID, policy, runtime)
 }
 
 // UpdateSecrets mocks base method
