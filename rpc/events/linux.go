@@ -16,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/constants"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	portspec "github.com/aporeto-inc/trireme-lib/utils/portspec"
 	"github.com/shirou/gopsutil/process"
 )
 
@@ -79,6 +80,16 @@ func SystemdEventMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) 
 	}
 
 	options := policy.OptionsType{}
+	for index, s := range event.Services {
+		if s.Port != 0 && s.Ports == nil {
+			if pspec, err := portspec.NewPortSpec(s.Port, s.Port, nil); err == nil {
+				event.Services[index].Ports = pspec
+				event.Services[index].Port = 0
+			} else {
+				return nil, fmt.Errorf("Invalid Port Spec %s", err)
+			}
+		}
+	}
 	options.Services = event.Services
 	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
 	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
