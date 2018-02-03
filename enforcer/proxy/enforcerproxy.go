@@ -97,6 +97,29 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	s.Lock()
 	defer s.Unlock()
+	resp := &rpcwrapper.Response{}
+	pkier := s.Secrets.(pkiCertifier)
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.UpdateSecretsPayload{
+			CAPEM:      pkier.AuthPEM(),
+			PublicPEM:  pkier.TransmittedPEM(),
+			PrivatePEM: pkier.EncodingPEM(),
+			SecretType: s.Secrets.Type(),
+		},
+	}
+	if s.Secrets.Type() == secrets.PKICompactType {
+		payload := request.Payload.(*rpcwrapper.UpdateSecretsPayload)
+		payload.Token = s.Secrets.TransmittedKey()
+		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
+		payload.SecretType = secrets.PKICompactType
+	}
+
+	for _, contextID := range s.rpchdl.ContextList() {
+		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.UpdateSecrets, request, resp); err != nil {
+			return fmt.Errorf("Failed to update secrets. status %s: %s", resp.Status, err)
+		}
+	}
+
 	s.Secrets = token
 	return nil
 }
@@ -317,7 +340,6 @@ type StatsServer struct {
 func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if !r.rpchdl.ProcessMessage(&req, r.secret) {
-		zap.L().Error("Message sender cannot be verified")
 		return errors.New("message sender cannot be verified")
 	}
 

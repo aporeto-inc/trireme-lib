@@ -53,6 +53,16 @@ type InitRequestPayload struct {
 	ExternalIPCacheTimeout time.Duration              `json:",omitempty"`
 }
 
+// UpdateSecretsPayload payload for the update secrets to remote enforcers
+type UpdateSecretsPayload struct {
+	SecretType   secrets.PrivateSecretsType `json:",omitempty"`
+	CAPEM        []byte                     `json:",omitempty"`
+	TokenKeyPEMs [][]byte                   `json:",omitempty"`
+	PublicPEM    []byte                     `json:",omitempty"`
+	PrivatePEM   []byte                     `json:",omitempty"`
+	Token        []byte                     `json:",omitempty"`
+}
+
 //InitSupervisorPayload for supervisor init request
 type InitSupervisorPayload struct {
 	TriremeNetworks []string    `json:",omitempty"`
