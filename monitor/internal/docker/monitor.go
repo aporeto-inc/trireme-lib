@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
@@ -239,74 +238,31 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 		return fmt.Errorf("unable to get container list: %s", err)
 	}
 
-	allContainers := map[string]types.ContainerJSON{}
-
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 		if err != nil {
-			zap.L().Error("unable to sync existing container",
-				zap.String("dockerID", c.ID),
-				zap.Error(err),
-			)
 			continue
 		}
 
 		puID, _ := puIDFromDockerID(container.ID)
 
-		storedContext := &StoredContext{}
-		if d.NoProxyMode {
-			if err = d.cstore.Retrieve(puID, &storedContext); err == nil {
-				container.Config.Labels["storedTags"] = strings.Join(storedContext.Tags.GetSlice(), ",")
-			}
-		}
-
 		PURuntime, _ := d.extractMetadata(&container)
-		var state tevents.State
+
+		event := common.EventStop
 		if container.State.Running {
 			if !container.State.Paused {
-				state = tevents.StateStarted
+				event = common.EventStart
 			} else {
-				state = tevents.StatePaused
+				event = common.EventPause
 			}
-		} else {
-			state = tevents.StateStopped
 		}
 
-		if d.NoProxyMode {
-			t := PURuntime.Tags()
-			if t != nil && storedContext.Tags != nil {
-				t.Merge(storedContext.Tags)
-				PURuntime.SetTags(t)
-			}
-
-		}
-
-		if err := d.config.Policy.HandleSynchronization(
-			ctx,
-			puID,
-			state,
-			PURuntime,
-			policy.SynchronizationTypeInitial,
-		); err != nil {
+		if err := d.config.Policy.HandlePUEvent(ctx, puID, event, PURuntime); err != nil {
 			zap.L().Error("Unable to sync existing Container",
 				zap.String("dockerID", c.ID),
 				zap.Error(err),
 			)
 		}
-
-		allContainers[puID] = container
-	}
-
-	for _, container := range allContainers {
-		if err := d.startDockerContainer(ctx, &container); err != nil {
-			zap.L().Error("Unable to sync existing container during start handling",
-				zap.String("dockerID", container.ID),
-				zap.Error(err),
-			)
-			continue
-		}
-
-		zap.L().Debug("Successfully synced container", zap.String("dockerID", container.ID))
 	}
 
 	return nil
