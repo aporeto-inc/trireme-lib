@@ -90,7 +90,6 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 // Supervise creates a mapping between an IP address and the corresponding labels.
 // it invokes the various handlers that process the parameter policy.
 func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
-
 	if pu == nil || pu.Policy == nil || pu.Runtime == nil {
 		return errors.New("Invalid PU or policy info")
 	}

@@ -141,7 +141,6 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	}
 
 	proxyPort := containerInfo.Runtime.Options().ProxyPort
-	zap.L().Debug("Configure rules", zap.String("proxyPort", proxyPort))
 	proxiedServices := containerInfo.Policy.ProxiedServices()
 
 	// Configure all the ACLs
@@ -164,6 +163,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
 		if mark == "" {
+			fmt.Println("no mark found")
 			return errors.New("no mark value found")
 		}
 
@@ -195,12 +195,13 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		proxyPortSetName := PuPortSetName(contextID, mark, proxyPortSet)
 
 		if err = i.createProxySets(proxiedServices.PublicIPPortPair, proxiedServices.PrivateIPPortPair, proxyPortSetName); err != nil {
+			fmt.Println("failed on proxy sets ")
 			zap.L().Debug("Failed to create ProxySets", zap.Error(err))
 			return fmt.Errorf("Failed to create ProxySet %s : %s", proxyPortSetName, err)
 		}
 
 		if err := i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName); err != nil {
-
+			fmt.Println("failed on chain rules  ")
 			return err
 		}
 	}
@@ -386,6 +387,10 @@ func (i *Instance) Run(ctx context.Context) error {
 		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
 	}
 
+	if err := i.InitializeChains(); err != nil {
+		return fmt.Errorf("Unable to initialize chains: %s", err)
+	}
+
 	go func() {
 		<-ctx.Done()
 		zap.L().Debug("Stop the supervisor")
@@ -422,34 +427,44 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	if err := i.createTargetSet(networks); err != nil {
 		return err
 	}
-	if i.mode == constants.LocalServer {
-		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidchain); err != nil {
-			zap.L().Error("Unable to create new chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", uidchain))
-			return err
-		}
-	}
-	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
-		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyInputChain))
-	}
-	zap.L().Debug("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
-	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain); err != nil {
-		zap.L().Info("Unable to create New Chain", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
-	}
-	zap.L().Debug("Created NewChain ", zap.String("TableContext", i.appProxyIPTableContext), zap.String("ChainName", natProxyOutputChain))
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyOutputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", proxyOutputChain))
-	}
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain); err != nil {
-		zap.L().Error("Unable to create New Chain", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", proxyInputChain))
-	}
-	if i.mode == constants.LocalServer {
-		if err := i.ipt.Insert(i.appPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
-			zap.L().Error("Unable to Insert", zap.String("TableContext", i.appPacketIPTableContext), zap.String("ChainName", uidchain))
-		}
-	}
+
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
+	}
+
+	return nil
+}
+
+// InitializeChains initializes the chains.
+func (i *Instance) InitializeChains() error {
+
+	if i.mode == constants.LocalServer {
+		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidchain); err != nil {
+			return err
+		}
+	}
+
+	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyInputChain); err != nil {
+		return err
+	}
+
+	if err := i.ipt.NewChain(i.appProxyIPTableContext, natProxyOutputChain); err != nil {
+		return err
+	}
+
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyOutputChain); err != nil {
+		return err
+	}
+
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, proxyInputChain); err != nil {
+		return err
+	}
+
+	if i.mode == constants.LocalServer {
+		if err := i.ipt.Insert(i.appPacketIPTableContext, i.appPacketIPTableSection, 1, "-j", uidchain); err != nil {
+			return err
+		}
 	}
 
 	return nil

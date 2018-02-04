@@ -114,7 +114,10 @@ func (l *linuxProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) 
 		return nil
 	}
 
-	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, nil)
+	runtime := policy.NewPURuntimeWithDefaults()
+	runtime.SetPUType(common.LinuxProcessPU)
+
+	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventStop, runtime)
 }
 
 // Destroy handles a destroy event
@@ -131,8 +134,11 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 		return nil
 	}
 
+	runtime := policy.NewPURuntimeWithDefaults()
+	runtime.SetPUType(common.LinuxProcessPU)
+
 	// Send the event upstream
-	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, nil); err != nil {
+	if err := l.config.Policy.HandlePUEvent(ctx, puID, common.EventDestroy, runtime); err != nil {
 		zap.L().Warn("Unable to clean trireme ",
 			zap.String("puID", puID),
 			zap.Error(err),
@@ -197,6 +203,12 @@ func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error 
 			}
 			continue
 		}
+
+		runtime.SetOptions(policy.OptionsType{
+			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+			CgroupName: cgroup,
+			ProxyPort:  "5000",
+		})
 
 		// Processes are still alive. We should enforce policy.
 		if err := l.config.Policy.HandlePUEvent(ctx, cgroup, common.EventStart, runtime); err != nil {
@@ -270,11 +282,9 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 	pid, _ := strconv.Atoi(event.PID)
 	err = l.netcls.AddProcess(nativeID, pid)
 	if err != nil {
-
 		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
-
 		return err
 	}
 
