@@ -12,6 +12,9 @@ type TriremeController interface {
 	// Run initializes and runs the controller.
 	Run(ctx context.Context) error
 
+	// CleanUp cleans all the supervisors and ACLs for a clean exit
+	CleanUp() error
+
 	// Enforce asks the controller to enforce policy on a processing unit
 	Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) (err error)
 

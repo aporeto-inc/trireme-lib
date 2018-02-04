@@ -109,16 +109,16 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 	return nil
 }
 
+// CleanUp implements the cleanup interface
+func (s *ProxyInfo) CleanUp() error {
+	for c := range s.initDone {
+		s.Unsupervise(c) // nolint
+	}
+	return nil
+}
+
 // Run runs the proxy supervisor and initializes the cleaners.
 func (s *ProxyInfo) Run(ctx context.Context) error {
-
-	go func() {
-		<-ctx.Done()
-		for c := range s.initDone {
-			s.Unsupervise(c) // nolint
-		}
-	}()
-
 	return nil
 }
 

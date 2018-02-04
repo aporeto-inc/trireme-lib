@@ -392,6 +392,9 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 // EnforcerExit is processing messages from the remote that are requesting an exit. In this
 // case we simply cancel the context.
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+
+	s.supervisor.CleanUp()
+
 	s.cancel()
 
 	return nil
@@ -401,7 +404,6 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
-	defer cancelMainCtx()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)
 	secret := os.Getenv(constants.EnvRPCClientSecret)

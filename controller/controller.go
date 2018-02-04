@@ -77,6 +77,14 @@ func (t *trireme) Run(ctx context.Context) error {
 	return nil
 }
 
+// CleanUp cleans all the acls and all the remote supervisors
+func (t *trireme) CleanUp() error {
+	for _, s := range t.supervisors {
+		s.CleanUp() // nolint
+	}
+	return nil
+}
+
 // Enforce asks the controller to enforce policy to a processing unit
 func (t *trireme) Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
 	return t.doHandleCreate(puID, policy, runtime)

@@ -141,6 +141,11 @@ func (s *Config) Run(ctx context.Context) error {
 	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
 }
 
+// CleanUp implements the cleanup interface
+func (s *Config) CleanUp() error {
+	return s.impl.CleanUp()
+}
+
 // SetTargetNetworks sets the target networks of the supervisor
 func (s *Config) SetTargetNetworks(networks []string) error {
 

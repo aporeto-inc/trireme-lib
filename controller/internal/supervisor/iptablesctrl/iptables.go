@@ -395,18 +395,24 @@ func (i *Instance) Run(ctx context.Context) error {
 		<-ctx.Done()
 		zap.L().Debug("Stop the supervisor")
 
-		// Clean any previous ACLs that we have installed
-		if err := i.cleanACLs(); err != nil {
-			zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
-		}
-
-		if err := i.ipset.DestroyAll(); err != nil {
-			zap.L().Error("Failed to clean up ipsets", zap.Error(err))
-		}
-
+		i.CleanUp() // nolint
 	}()
 
 	zap.L().Debug("Started the iptables controller")
+
+	return nil
+}
+
+// CleanUp requires the implementor to clean up all ACLs
+func (i *Instance) CleanUp() error {
+
+	if err := i.cleanACLs(); err != nil {
+		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
+	}
+
+	if err := i.ipset.DestroyAll(); err != nil {
+		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
+	}
 
 	return nil
 }

@@ -20,6 +20,9 @@ type Supervisor interface {
 
 	// SetTargetNetworks sets the target networks of the supervisor
 	SetTargetNetworks([]string) error
+
+	// CleanUp requests the supervisor to clean up all ACLs
+	CleanUp() error
 }
 
 // Implementor is the interface of the implementation based on iptables, ipsets, remote etc
@@ -39,4 +42,7 @@ type Implementor interface {
 
 	// Start initializes any defaults
 	Run(ctx context.Context) error
+
+	// CleanUp requests the implementor to clean up all ACLs
+	CleanUp() error
 }

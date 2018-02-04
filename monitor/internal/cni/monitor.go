@@ -9,20 +9,17 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 )
 
 // Config is the configuration options to start a CNI monitor
 type Config struct {
 	EventMetadataExtractor extractors.EventMetadataExtractor
-	ContextStorePath       string
 }
 
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
 		EventMetadataExtractor: DockerMetadataExtractor,
-		ContextStorePath:       "/var/run/trireme/cni",
 	}
 }
 
@@ -31,9 +28,6 @@ func SetupDefaultConfig(cniConfig *Config) *Config {
 
 	defaultConfig := DefaultConfig()
 
-	if cniConfig.ContextStorePath == "" {
-		cniConfig.ContextStorePath = defaultConfig.ContextStorePath
-	}
 	if cniConfig.EventMetadataExtractor == nil {
 		cniConfig.EventMetadataExtractor = defaultConfig.EventMetadataExtractor
 	}
@@ -85,10 +79,6 @@ func (c *CniMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 	cniConfig = SetupDefaultConfig(cniConfig)
 
 	// Setup configuration
-	c.proc.contextStore = contextstore.NewFileContextStore(cniConfig.ContextStorePath, nil)
-	if c.proc.contextStore == nil {
-		return fmt.Errorf("Unable to create new context store")
-	}
 	c.proc.metadataExtractor = cniConfig.EventMetadataExtractor
 	if c.proc.metadataExtractor == nil {
 		return fmt.Errorf("Unable to setup a metadata extractor")

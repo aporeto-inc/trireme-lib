@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
-
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -34,22 +32,20 @@ import (
 
 // DockerMonitor implements the connection to Docker and monitoring based on docker events.
 type DockerMonitor struct {
-	dockerClient       *dockerClient.Client
-	socketType         string
-	socketAddress      string
-	metadataExtractor  extractors.DockerMetadataExtractor
-	handlers           map[Event]func(ctx context.Context, event *events.Message) error
-	eventnotifications []chan *events.Message
-	stopprocessor      []chan bool
-	numberOfQueues     int
-	stoplistener       chan bool
-	config             *config.ProcessorConfig
-	netcls             cgnetcls.Cgroupnetcls
-	// killContainerError if enabled kills the container if a policy setting resulted in an error.
+	dockerClient               *dockerClient.Client
+	socketType                 string
+	socketAddress              string
+	metadataExtractor          extractors.DockerMetadataExtractor
+	handlers                   map[Event]func(ctx context.Context, event *events.Message) error
+	eventnotifications         []chan *events.Message
+	stopprocessor              []chan bool
+	numberOfQueues             int
+	stoplistener               chan bool
+	config                     *config.ProcessorConfig
+	netcls                     cgnetcls.Cgroupnetcls
 	killContainerOnPolicyError bool
 	syncAtStart                bool
 	NoProxyMode                bool
-	cstore                     contextstore.ContextStore
 }
 
 // New returns a new docker monitor.
@@ -87,7 +83,6 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
 	d.NoProxyMode = dockerConfig.NoProxyMode
-	d.cstore = contextstore.NewFileContextStore(cstorePath, nil)
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
 		d.stopprocessor[i] = make(chan bool)
@@ -239,6 +234,7 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 	}
 
 	for _, c := range containers {
+		// go func(c types.Container) {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 		if err != nil {
 			continue
@@ -263,6 +259,7 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 				zap.Error(err),
 			)
 		}
+		// }(c)
 	}
 
 	return nil
@@ -438,7 +435,7 @@ func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Messag
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, nil)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, policy.NewPURuntimeWithDefaults())
 }
 
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
@@ -449,7 +446,7 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 		return err
 	}
 
-	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, nil)
+	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, policy.NewPURuntimeWithDefaults())
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
 			zap.Error(err),
@@ -475,7 +472,7 @@ func (d *DockerMonitor) handlePauseEvent(ctx context.Context, event *events.Mess
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventPause, nil)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventPause, policy.NewPURuntimeWithDefaults())
 }
 
 // handleCreateEvent generates a create event type.
@@ -486,7 +483,7 @@ func (d *DockerMonitor) handleUnpauseEvent(ctx context.Context, event *events.Me
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventUnpause, nil)
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventUnpause, policy.NewPURuntimeWithDefaults())
 }
 
 func puIDFromDockerID(dockerID string) (string, error) {

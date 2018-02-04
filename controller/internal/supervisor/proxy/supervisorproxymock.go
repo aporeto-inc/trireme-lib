@@ -14,6 +14,7 @@ type mockedMethods struct {
 	UnsuperviseMock       func(string) error
 	RunMock               func(ctx context.Context) error
 	SetTargetNetworksMock func([]string) error
+	CleanUpMock           func() error
 }
 
 // TestSupervisorLauncher is a mock
@@ -66,10 +67,13 @@ func (m *testSupervisorLauncher) MockSetTargetNetworks(t *testing.T, impl func([
 	m.currentMocks(t).SetTargetNetworksMock = impl
 }
 
+func (m *testSupervisorLauncher) MockCleanUp(t *testing.T, impl func() error) {
+	m.currentMocks(t).CleanUpMock = impl
+}
+
 func (m *testSupervisorLauncher) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.SuperviseMock != nil {
 		return mock.SuperviseMock(contextID, puInfo)
-
 	}
 	return nil
 }
@@ -77,7 +81,6 @@ func (m *testSupervisorLauncher) Supervise(contextID string, puInfo *policy.PUIn
 func (m *testSupervisorLauncher) Unsupervise(contextID string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.UnsuperviseMock != nil {
 		return mock.UnsuperviseMock(contextID)
-
 	}
 	return nil
 }
@@ -85,7 +88,6 @@ func (m *testSupervisorLauncher) Unsupervise(contextID string) error {
 func (m *testSupervisorLauncher) Run(ctx context.Context) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.RunMock != nil {
 		return mock.RunMock(ctx)
-
 	}
 	return nil
 }
@@ -93,7 +95,13 @@ func (m *testSupervisorLauncher) Run(ctx context.Context) error {
 func (m *testSupervisorLauncher) SetTargetNetworks(networks []string) error {
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.SetTargetNetworksMock != nil {
 		return mock.SetTargetNetworksMock(networks)
+	}
+	return nil
+}
 
+func (m *testSupervisorLauncher) CleanUp() error {
+	if mock := m.currentMocks(m.currentTest); mock != nil && mock.CleanUpMock != nil {
+		return mock.CleanUpMock()
 	}
 	return nil
 }
