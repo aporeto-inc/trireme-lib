@@ -18,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/process"
+	"go.uber.org/zap"
 )
 
 func getCPUInfo() ([]cpu.InfoStat, error) {
@@ -42,9 +43,10 @@ func DefaultHostMetadataExtractor(event *EventInfo) (*policy.PURuntime, error) {
 		runtimeTags.AppendKeyValue("@sys:"+u, "true")
 	}
 	runtimeTags.AppendKeyValue("@sys:hostname", findFQDN(time.Second))
-	if cpuInfo, err := getCPUInfo(); err != nil {
+	if cpuInfo, err := getCPUInfo(); err == nil {
 		for i, c := range cpuInfo {
-			runtimeTags.AppendKeyValue("@sys:cpumodelName_"+strconv.Itoa(i), c.ModelName)
+
+			runtimeTags.AppendKeyValue("@sys:cpumodelName_"+strconv.Itoa(i), strings.Replace(strings.Replace(c.ModelName, "(", " ", -1), ")", " ", -1))
 			runtimeTags.AppendKeyValue("@sys:cpufamily_"+strconv.Itoa(i), c.Family)
 			runtimeTags.AppendKeyValue("@sys:cpumodel"+strconv.Itoa(i), c.Model)
 		}
