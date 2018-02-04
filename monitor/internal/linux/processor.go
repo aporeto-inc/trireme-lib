@@ -179,9 +179,6 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
 	cgroups := cgnetcls.ListAllCgroups()
-	runtime := policy.NewPURuntimeWithDefaults()
-	runtime.SetPUType(common.LinuxProcessPU)
-
 	for _, cgroup := range cgroups {
 		if cgroup == "trireme_host" {
 			continue
@@ -204,6 +201,8 @@ func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error 
 			continue
 		}
 
+		runtime := policy.NewPURuntimeWithDefaults()
+		runtime.SetPUType(common.LinuxProcessPU)
 		runtime.SetOptions(policy.OptionsType{
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 			CgroupName: cgroup,
