@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -262,12 +261,10 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 	}
 
 	rpcAdress := rpcmonitor.DefaultRPCAddress
-	linuxPath := r.LinuxPath
 	puid := c.ServiceID
 	host := false
 	if c.ServiceName != "" {
 		rpcAdress = rpcmonitor.DefaultRootRPCAddress
-		linuxPath = r.HostPath
 		puid = c.ServiceName
 		host = true
 	}
@@ -279,6 +276,7 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 		EventType:   common.EventStop,
 		HostService: host,
 	}
+
 	// Handle the special case with the User ID monitor and deletes
 	if c.Cgroup != "" {
 		parts := strings.Split(c.Cgroup, "/")
@@ -286,11 +284,12 @@ func (r *RequestProcessor) Delete(c *CLIRequest) error {
 			return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
 		}
 
-		if !c.HostPolicy {
-			if _, ferr := os.Stat(filepath.Join(linuxPath, parts[2])); os.IsNotExist(ferr) {
-				request.PUType = common.UIDLoginPU
-			}
-		}
+		// TODO WITH THE UID PUS
+		// if !c.HostPolicy {
+		// 	if _, ferr := os.Stat(filepath.Join(linuxPath, parts[2])); os.IsNotExist(ferr) {
+		// 		request.PUType = common.UIDLoginPU
+		// 	}
+		// }
 	}
 
 	// Send Stop request

@@ -274,3 +274,18 @@ func ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 	return procs, nil
 }
+
+// ListAllCgroups returns a list of the cgroups that are managed in the Trireme path
+func ListAllCgroups() []string {
+	cgroups, err := ioutil.ReadDir(filepath.Join(basePath, TriremeBasePath))
+	if err != nil {
+		return []string{}
+	}
+
+	names := make([]string, len(cgroups))
+	for i := 0; i < len(cgroups); i++ {
+		names[i] = cgroups[i].Name()
+	}
+
+	return names
+}

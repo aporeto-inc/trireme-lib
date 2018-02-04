@@ -99,7 +99,7 @@ func (e *enforcer) Unenforce(contextID string) error {
 
 	if e.transport != nil {
 		if nerr = e.transport.Unenforce(contextID); nerr != nil {
-			zap.L().Error("Failed to unenforce contextID in proxy",
+			zap.L().Error("Failed to unenforce contextID in transport",
 				zap.String("ContextID", contextID),
 				zap.Error(nerr),
 			)

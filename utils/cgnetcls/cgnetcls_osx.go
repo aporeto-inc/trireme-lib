@@ -57,3 +57,8 @@ func MarkVal() uint64 {
 func ListCgroupProcesses(cgroupname string) ([]string, error) {
 	return []string{}, nil
 }
+
+// ListAllCgroups returns a list of the cgroups that are managed in the Trireme path
+func ListAllCgroups() []string {
+	return []string{}
+}

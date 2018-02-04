@@ -9,7 +9,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 )
 
 // LinuxMonitor captures all the monitor processor information
@@ -66,8 +65,6 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	// Setup config
 	l.proc.host = linuxConfig.Host
 	l.proc.netcls = cgnetcls.NewCgroupNetController(linuxConfig.ReleasePath)
-	l.proc.contextStore = contextstore.NewFileContextStore(linuxConfig.StoredPath, l.proc.RemapData)
-	l.proc.storePath = linuxConfig.StoredPath
 
 	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
 	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")

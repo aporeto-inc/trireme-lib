@@ -136,7 +136,7 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 
 	logEvent := &collector.ContainerRecord{
 		ContextID: contextID,
-		IPAddress: runtimeInfo.IPAddresses(),
+		IPAddress: policyInfo.IPAddresses(),
 		Tags:      policyInfo.Annotations(),
 		Event:     collector.ContainerStart,
 	}
@@ -188,7 +188,9 @@ func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runt
 
 	errS := t.supervisors[t.puTypeToEnforcerType[runtime.PUType()]].Unsupervise(contextID)
 	errE := t.enforcers[t.puTypeToEnforcerType[runtime.PUType()]].Unenforce(contextID)
-	t.port.Release(runtime.Options().ProxyPort)
+	if runtime.Options().ProxyPort != "" {
+		t.port.Release(runtime.Options().ProxyPort)
+	}
 
 	if errS != nil || errE != nil {
 		return fmt.Errorf("unable to delete context id %s, supervisor %s, enforcer %s", contextID, errS, errE)
