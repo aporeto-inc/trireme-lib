@@ -18,7 +18,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/process"
-	"go.uber.org/zap"
 )
 
 func getCPUInfo() ([]cpu.InfoStat, error) {
