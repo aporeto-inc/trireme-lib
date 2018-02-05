@@ -41,7 +41,7 @@ func (c UIDConnection) RemoteAddr() net.Addr {
 	uidAddr := &UIDAddr{
 		NetworkAddress: c.nc.RemoteAddr().Network(),
 	}
-	var address string
+
 	f, err := c.nc.File()
 	if err != nil {
 		uidAddr.Address = "NotAvailable"
