@@ -45,12 +45,6 @@ type Resolver interface {
 	// HandlePUEvent is called by all monitors when a PU event is generated. The implementer
 	// is responsible to update all components by explicitly adding a new PU.
 	HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime RuntimeReader) error
-
-	// HandleSynchronization handles a synchronization routine.
-	HandleSynchronization(ctx context.Context, puID string, state common.State, runtime RuntimeReader, syncType SynchronizationType) error
-
-	// HandleSynchronizationComplete is called when a synchronization job is complete.
-	HandleSynchronizationComplete(ctx context.Context, syncType SynchronizationType)
 }
 
 // A SynchronizationType represents the type of synchronization job.

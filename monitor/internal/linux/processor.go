@@ -18,10 +18,14 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 )
 
-// StoredContext is the information stored to retrieve the context in case of restart.
-type StoredContext struct {
-	EventInfo *common.EventInfo
-	Tags      *policy.TagStore `json:"Tags,omitempty"`
+var ignoreNames = map[string]*struct{}{
+	"cgroup.clone_children": nil,
+	"cgroup.procs":          nil,
+	"net_cls.classid":       nil,
+	"net_prio.ifpriomap":    nil,
+	"net_prio.prioidx":      nil,
+	"notify_on_release":     nil,
+	"tasks":                 nil,
 }
 
 // linuxProcessor captures all the monitor processor information
@@ -178,9 +182,9 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 // ReSync resyncs with all the existing services that were there before we start
 func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
-	cgroups := l.netcls.ListAllCgroups(common.TriremeCgroupPath)
+	cgroups := l.netcls.ListAllCgroups("")
 	for _, cgroup := range cgroups {
-		if cgroup == "trireme_host" {
+		if _, ok := ignoreNames[cgroup]; ok {
 			continue
 		}
 

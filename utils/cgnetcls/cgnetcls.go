@@ -190,6 +190,7 @@ func (s *netCls) ListCgroupProcesses(cgroupname string) ([]string, error) {
 
 // ListAllCgroups returns a list of the cgroups that are managed in the Trireme path
 func (s *netCls) ListAllCgroups(path string) []string {
+
 	cgroups, err := ioutil.ReadDir(filepath.Join(basePath, s.TriremePath, path))
 	if err != nil {
 		return []string{}
@@ -265,7 +266,7 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 	controller := &netCls{
 		markchan:         make(chan uint64),
 		ReleaseAgentPath: "",
-		TriremePath:      TriremeBasePath,
+		TriremePath:      "",
 	}
 
 	return controller
@@ -277,6 +278,7 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 	controller := &netCls{
 		markchan:         make(chan uint64),
 		ReleaseAgentPath: binpath,
+		TriremePath:      "",
 	}
 
 	if releasePath != "" {

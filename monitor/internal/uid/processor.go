@@ -23,6 +23,16 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
+var ignoreNames = map[string]*struct{}{
+	"cgroup.clone_children": nil,
+	"cgroup.procs":          nil,
+	"net_cls.classid":       nil,
+	"net_prio.ifpriomap":    nil,
+	"net_prio.prioidx":      nil,
+	"notify_on_release":     nil,
+	"tasks":                 nil,
+}
+
 // uidProcessor captures all the monitor processor information for a UIDLoginPU
 // It implements the EventProcessor interface of the rpc monitor
 type uidProcessor struct {
@@ -261,12 +271,20 @@ func (u *uidProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) e
 // ReSync resyncs with all the existing services that were there before we start
 func (u *uidProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
-	uids := u.netcls.ListAllCgroups(common.TriremeUIDCgroupPath)
+	uids := u.netcls.ListAllCgroups("")
 	for _, uid := range uids {
-		processesOfUID := u.netcls.ListAllCgroups(common.TriremeUIDCgroupPath + uid)
+
+		if _, ok := ignoreNames[uid]; ok {
+			continue
+		}
+
+		processesOfUID := u.netcls.ListAllCgroups(uid)
 		activePids := []int32{}
 
 		for _, pid := range processesOfUID {
+			if _, ok := ignoreNames[pid]; ok {
+				continue
+			}
 			pidlist, _ := u.netcls.ListCgroupProcesses(common.TriremeUIDCgroupPath + pid)
 			if len(pidlist) == 0 {
 				if err := u.netcls.DeleteCgroup(common.TriremeUIDCgroupPath + pid); err != nil {
