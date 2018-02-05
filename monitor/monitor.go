@@ -109,7 +109,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 
 func (m *monitors) Run(ctx context.Context) (err error) {
 
-	if err := m.server.Run(ctx); err != nil {
+	if err = m.server.Run(ctx); err != nil {
 		return err
 	}
 

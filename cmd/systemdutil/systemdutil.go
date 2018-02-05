@@ -16,11 +16,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
-const (
-	maxRetries       = 20
-	remoteMethodCall = "Server.HandleEvent"
-)
-
 var stderrlogger *log.Logger
 
 func init() {

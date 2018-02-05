@@ -70,12 +70,12 @@ func (e *EventServer) Run(ctx context.Context) error {
 	listener := &UIDListener{nl}
 
 	// Start serving HTTP requests in the background
-	go e.server.Serve(listener)
+	go e.server.Serve(listener) // nolint
 
 	// Listen for context cancellation to close the socket.
 	go func() {
 		<-ctx.Done()
-		nl.Close()
+		nl.Close() // nolint
 	}()
 
 	return nil

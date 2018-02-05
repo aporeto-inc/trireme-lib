@@ -394,7 +394,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if s.supervisor != nil {
-		s.supervisor.CleanUp()
+		s.supervisor.CleanUp() // nolint
 	}
 	s.cancel()
 
@@ -405,6 +405,7 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
+	defer cancelMainCtx()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)
 	secret := os.Getenv(constants.EnvRPCClientSecret)
@@ -433,7 +434,6 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-c
 
-	cancelMainCtx()
 	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
 		zap.L().Fatal("Failed to stop the server", zap.Error(err))
 	}

@@ -38,24 +38,24 @@ func (c UIDConnection) LocalAddr() net.Addr {
 // socket to find the remote UID.
 func (c UIDConnection) RemoteAddr() net.Addr {
 
+	uidAddr := &UIDAddr{
+		NetworkAddress: c.nc.RemoteAddr().Network(),
+	}
 	var address string
 	f, err := c.nc.File()
 	if err != nil {
-		address = "NotAvailable"
+		uidAddr.Address = "NotAvailable"
 	}
-	defer f.Close()
+	defer f.Close() // nolint
 
 	cred, err := syscall.GetsockoptUcred(int(f.Fd()), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
 	if err != nil {
-		address = "NotAvailable"
+		uidAddr.Address = "NotAvailable"
 	}
 
-	address = strconv.Itoa(int(cred.Uid)) + ":" + strconv.Itoa(int(cred.Gid)) + ":" + strconv.Itoa(int(cred.Pid))
+	uidAddr.Address = strconv.Itoa(int(cred.Uid)) + ":" + strconv.Itoa(int(cred.Gid)) + ":" + strconv.Itoa(int(cred.Pid))
 
-	return &UIDAddr{
-		NetworkAddress: c.nc.RemoteAddr().Network(),
-		Address:        address,
-	}
+	return uidAddr
 
 }
 

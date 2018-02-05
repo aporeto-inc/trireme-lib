@@ -45,9 +45,6 @@ const (
 	// dockerInitializationWait is the time after which we will retry to bring docker up.
 	dockerInitializationWait = 2 * dockerRetryTimer
 )
-const (
-	cstorePath = "/var/run/trireme/docker"
-)
 
 // A EventHandler is type of docker event handler functions.
 type EventHandler func(ctx context.Context, event *events.Message) error

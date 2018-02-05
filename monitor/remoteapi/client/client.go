@@ -40,7 +40,10 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 	}
 
 	b := new(bytes.Buffer)
-	json.NewEncoder(b).Encode(event)
+	if err := json.NewEncoder(b).Encode(event); err != nil {
+		return fmt.Errorf("Unable to encode message: %s", err)
+	}
+
 	resp, err := httpc.Post("http://unix", "application/json", b)
 	if err != nil {
 		return err

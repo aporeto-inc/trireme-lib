@@ -38,7 +38,6 @@ type uidProcessor struct {
 	netcls            cgnetcls.Cgroupnetcls
 	regStart          *regexp.Regexp
 	regStop           *regexp.Regexp
-	storePath         string
 	putoPidMap        *cache.Cache
 	pidToPU           *cache.Cache
 	sync.Mutex
@@ -53,13 +52,6 @@ type puToPidEntry struct {
 	pidlist            map[int32]bool
 	Info               *policy.PURuntime
 	publishedContextID string
-}
-
-// StoredContext is the information stored to retrieve the context in case of restart.
-type StoredContext struct {
-	MarkVal   string
-	EventInfo *common.EventInfo
-	Tags      *policy.TagStore
 }
 
 func baseName(name, separator string) string {

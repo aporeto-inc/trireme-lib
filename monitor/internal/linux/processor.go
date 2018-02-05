@@ -76,7 +76,7 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	}
 
 	// We need to send a create event to the policy engine.
-	if err := l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventCreate, runtime); err != nil {
+	if err = l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventCreate, runtime); err != nil {
 		return fmt.Errorf("Unable to create PU: %s", err)
 	}
 
