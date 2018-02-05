@@ -49,9 +49,6 @@ type EventInfo struct {
 	// Tags represents the set of MetadataTags associated with this PUID.
 	Tags []string `json:"tags,omitempty"`
 
-	// The PID is the PID on the system where this Processing Unit is running.
-	PID int32 `json:"pid,omitempty"`
-
 	// The path for the Network Namespace.
 	NS string `json:"namespace,omitempty"`
 
@@ -63,6 +60,9 @@ type EventInfo struct {
 
 	// Services is a list of services of interest - for host control
 	Services []Service `json:"services,omitempty"`
+
+	// The PID is the PID on the system where this Processing Unit is running.
+	PID int32 `json:"pid,omitempty"`
 
 	// HostService indicates that the request is for the root namespace
 	HostService bool `json:"hostservice,omitempty"`

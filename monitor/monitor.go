@@ -12,7 +12,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/uid"
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/server"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
@@ -21,7 +20,6 @@ type monitors struct {
 	monitors   map[config.Type]Implementation
 	registerer registerer.Registerer
 	server     server.APIServer
-	policy     policy.Resolver
 }
 
 // NewMonitors instantiates all/any combination of monitors supported.
