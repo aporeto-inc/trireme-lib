@@ -25,11 +25,6 @@ mkdir -p controller/internal/enforcer/mock
 mockgen -source controller/internal/enforcer/enforcer.go -destination controller/internal/enforcer/mock/mockenforcer.go -package mockenforcer
 goimport_sanitize controller/internal/enforcer/mock/mockenforcer.go
 
-echo "Controller/ContextStore Mocks"
-mkdir -p utils/contextstore/mock
-mockgen -source utils/contextstore/interfaces.go -destination utils/contextstore/mock/mockcontextstore.go -package mockcontextstore
-goimport_sanitize utils/contextstore/mock/mockcontextstore.go
-
 echo "Controller/Processmon Mocks"
 mkdir -p controller/internal/processmon/mock
 mockgen -source controller/internal/processmon/interfaces.go -destination controller/internal/processmon/mock/mockprocessmon.go -package mockprocessmon

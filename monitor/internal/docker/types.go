@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 )
@@ -50,11 +49,23 @@ const (
 	cstorePath = "/var/run/trireme/docker"
 )
 
-//StoredContext is the format of the data stored in the contextstore
-type StoredContext struct {
-	containerInfo *types.ContainerJSON
-	Tags          *policy.TagStore
-}
-
 // A EventHandler is type of docker event handler functions.
 type EventHandler func(ctx context.Context, event *events.Message) error
+
+// DockerClientInterface creates an interface for the docker client so that we can do tests.
+type DockerClientInterface interface {
+	// ContainerInspect corresponds to the ContainerInspect of docker.
+	ContainerInspect(ctx context.Context, containerID string) (types.ContainerJSON, error)
+
+	// ContainerList abstracts the ContainerList as interface.
+	ContainerList(ctx context.Context, options types.ContainerListOptions) ([]types.Container, error)
+
+	// ContainerStop abstracts the ContainerStop as interface.
+	ContainerStop(ctx context.Context, containerID string, timeout *time.Duration) error
+
+	// Events abstracts the Event method as an interface.
+	Events(ctx context.Context, options types.EventsOptions) (<-chan events.Message, <-chan error)
+
+	// Ping abstracts the Event method as an interface
+	Ping(ctx context.Context) (types.Ping, error)
+}

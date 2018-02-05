@@ -393,8 +393,9 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 // case we simply cancel the context.
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
-	s.supervisor.CleanUp()
-
+	if s.supervisor != nil {
+		s.supervisor.CleanUp()
+	}
 	s.cancel()
 
 	return nil

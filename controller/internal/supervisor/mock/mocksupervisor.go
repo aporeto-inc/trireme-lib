@@ -95,6 +95,20 @@ func (mr *MockSupervisorMockRecorder) SetTargetNetworks(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockSupervisor)(nil).SetTargetNetworks), arg0)
 }
 
+// CleanUp mocks base method
+// nolint
+func (m *MockSupervisor) CleanUp() error {
+	ret := m.ctrl.Call(m, "CleanUp")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CleanUp indicates an expected call of CleanUp
+// nolint
+func (mr *MockSupervisorMockRecorder) CleanUp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockSupervisor)(nil).CleanUp))
+}
+
 // MockImplementor is a mock of Implementor interface
 // nolint
 type MockImplementor struct {
@@ -190,4 +204,18 @@ func (m *MockImplementor) Run(ctx context.Context) error {
 // nolint
 func (mr *MockImplementorMockRecorder) Run(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockImplementor)(nil).Run), ctx)
+}
+
+// CleanUp mocks base method
+// nolint
+func (m *MockImplementor) CleanUp() error {
+	ret := m.ctrl.Call(m, "CleanUp")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CleanUp indicates an expected call of CleanUp
+// nolint
+func (mr *MockImplementorMockRecorder) CleanUp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockImplementor)(nil).CleanUp))
 }

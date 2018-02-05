@@ -10,7 +10,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
 )
 
 // UIDMonitor captures all the monitor processor information for a UIDLoginPU
@@ -66,8 +65,6 @@ func (u *UIDMonitor) SetupConfig(registerer registerer.Registerer, cfg interface
 
 	// Setup config
 	u.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeUIDCgroupPath, uidConfig.ReleasePath)
-	u.proc.contextStore = contextstore.NewFileContextStore(uidConfig.StoredPath, u.proc.RemapData)
-	u.proc.storePath = uidConfig.StoredPath
 	u.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
 	u.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
 	u.proc.putoPidMap = cache.NewCache("putoPidMap")

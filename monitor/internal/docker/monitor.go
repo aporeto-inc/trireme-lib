@@ -32,7 +32,7 @@ import (
 
 // DockerMonitor implements the connection to Docker and monitoring based on docker events.
 type DockerMonitor struct {
-	dockerClient               *dockerClient.Client
+	dockerClient               dockerClient.CommonAPIClient
 	socketType                 string
 	socketAddress              string
 	metadataExtractor          extractors.DockerMetadataExtractor

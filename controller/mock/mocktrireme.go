@@ -54,6 +54,20 @@ func (mr *MockTriremeControllerMockRecorder) Run(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockTriremeController)(nil).Run), ctx)
 }
 
+// CleanUp mocks base method
+// nolint
+func (m *MockTriremeController) CleanUp() error {
+	ret := m.ctrl.Call(m, "CleanUp")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CleanUp indicates an expected call of CleanUp
+// nolint
+func (mr *MockTriremeControllerMockRecorder) CleanUp() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanUp", reflect.TypeOf((*MockTriremeController)(nil).CleanUp))
+}
+
 // Enforce mocks base method
 // nolint
 func (m *MockTriremeController) Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {

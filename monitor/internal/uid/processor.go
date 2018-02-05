@@ -2,7 +2,6 @@ package uidmonitor
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -19,8 +18,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/contextstore"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
 var ignoreNames = map[string]*struct{}{
@@ -39,7 +36,6 @@ type uidProcessor struct {
 	config            *config.ProcessorConfig
 	metadataExtractor extractors.EventMetadataExtractor
 	netcls            cgnetcls.Cgroupnetcls
-	contextStore      contextstore.ContextStore
 	regStart          *regexp.Regexp
 	regStop           *regexp.Regexp
 	storePath         string
@@ -73,33 +69,6 @@ func baseName(name, separator string) string {
 		return ""
 	}
 	return name[lastseparator+1:]
-}
-
-// RemapData Remaps the contextstore data from an old format to the newer format.
-func (u *uidProcessor) RemapData(data string, fixedData interface{}) error {
-	event := &common.EventInfo{}
-	if err := json.Unmarshal([]byte(data), event); err != nil {
-		return fmt.Errorf("Received error %s while remapping data", err)
-	}
-	//Convert the eventInfo data to new format
-	for index, s := range event.Services {
-		if s.Port != 0 {
-			s.Ports = &portspec.PortSpec{
-				Min: s.Port,
-				Max: s.Port,
-			}
-		}
-		event.Services[index].Ports = s.Ports
-	}
-	sc, ok := fixedData.(*StoredContext)
-	if !ok {
-		return fmt.Errorf("Invalid data type")
-	}
-	if sc.Tags == nil {
-		sc.Tags = policy.NewTagStore()
-	}
-	sc.EventInfo = event
-	return nil
 }
 
 // Start handles start events

@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	config "github.com/aporeto-inc/trireme-lib/monitor/config"
-	registerer "github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	registerer "github.com/aporeto-inc/trireme-lib/monitor/registerer"
 	gomock "github.com/golang/mock/gomock"
 )
 

@@ -74,7 +74,7 @@ func TestSystemdEventMetadataExtractor(t *testing.T) {
 		Convey("If all data are present", func() {
 			event := &common.EventInfo{
 				Name: "./testdata/curl",
-				PID:  "1234",
+				PID:  1234,
 				PUID: "/1234",
 				Tags: []string{"app=web"},
 			}
@@ -104,7 +104,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 			event := &common.EventInfo{
 				Name:     "Web",
-				PID:      "1234",
+				PID:      1234,
 				PUID:     "Web",
 				Tags:     []string{"app=web"},
 				Services: services,
@@ -123,7 +123,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 			event := &common.EventInfo{
 				Name: "Web",
-				PID:  "1234",
+				PID:  1234,
 				PUID: "Web",
 				Tags: []string{"invalid"},
 			}
@@ -138,7 +138,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 			event := &common.EventInfo{
 				Name: "Web",
-				PID:  "zxczxc",
+				PID:  -1233,
 				PUID: "Web",
 				Tags: []string{"invalid"},
 			}
