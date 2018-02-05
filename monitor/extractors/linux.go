@@ -40,12 +40,7 @@ func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, e
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	runtimePID, err := strconv.Atoi(event.PID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid pid: %s %s", event.PID, err)
-	}
-
-	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, common.LinuxProcessPU, options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, options), nil
 }
 
 // SystemdEventMetadataExtractor is a systemd based metadata extractor
@@ -85,36 +80,16 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
 
-	runtimePID, err := strconv.Atoi(event.PID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid pid: %s %s", event.PID, err)
-	}
-
-	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, common.LinuxProcessPU, &options), nil
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.LinuxProcessPU, &options), nil
 }
 
 // ProcessInfo returns all metadata captured by a process
-func ProcessInfo(pidString string) []string {
+func ProcessInfo(pid int32) []string {
 	userdata := []string{}
 
-	pid, err := strconv.Atoi(pidString)
+	p, err := process.NewProcess(pid)
 	if err != nil {
 		return userdata
-	}
-
-	p, err := process.NewProcess(int32(pid))
-	if err != nil {
-		processes, cerr := cgnetcls.ListCgroupProcesses("/" + pidString)
-		if cerr != nil {
-			return userdata
-		}
-		for _, c := range processes {
-			pid, _ = strconv.Atoi(c)
-			p, _ = process.NewProcess(int32(pid))
-			if childRunning, cerr := p.IsRunning(); cerr != nil && childRunning {
-				break
-			}
-		}
 	}
 
 	uids, err := p.Uids()

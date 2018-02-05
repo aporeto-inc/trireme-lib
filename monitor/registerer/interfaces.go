@@ -2,7 +2,7 @@ package registerer
 
 import (
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/processor"
+	"github.com/aporeto-inc/trireme-lib/monitor/processor"
 )
 
 // Registerer inteface allows event processors to register themselves with the event server.

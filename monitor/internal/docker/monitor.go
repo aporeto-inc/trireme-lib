@@ -24,7 +24,7 @@ import (
 	tevents "github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 
 	dockerClient "github.com/docker/docker/client"

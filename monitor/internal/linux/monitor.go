@@ -7,7 +7,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 )
 
@@ -64,7 +64,7 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 
 	// Setup config
 	l.proc.host = linuxConfig.Host
-	l.proc.netcls = cgnetcls.NewCgroupNetController(linuxConfig.ReleasePath)
+	l.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeCgroupPath, linuxConfig.ReleasePath)
 
 	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
 	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")

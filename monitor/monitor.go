@@ -9,20 +9,18 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/linux"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/uid"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/server"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 
 type monitors struct {
-	config          *config.MonitorConfig
-	monitors        map[config.Type]Implementation
-	userRPCListener rpcmonitor.Listener
-	userRegisterer  registerer.Registerer
-	rootRPCListener rpcmonitor.Listener
-	rootRegisterer  registerer.Registerer
-	policy          policy.Resolver
+	config     *config.MonitorConfig
+	monitors   map[config.Type]Implementation
+	registerer registerer.Registerer
+	server     server.APIServer
+	policy     policy.Resolver
 }
 
 // NewMonitors instantiates all/any combination of monitors supported.
@@ -49,26 +47,16 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 		monitors: make(map[config.Type]Implementation),
 	}
 
-	if m.userRPCListener, m.userRegisterer, err = rpcmonitor.New(
-		rpcmonitor.DefaultRPCAddress,
-		false,
-	); err != nil {
-		return nil, fmt.Errorf("Unable to create user RPC Listener %s", err.Error())
-	}
+	m.registerer = registerer.New()
 
-	if m.rootRPCListener, m.rootRegisterer, err = rpcmonitor.New(
-		rpcmonitor.DefaultRootRPCAddress,
-		true,
-	); err != nil {
-		return nil, fmt.Errorf("Unable to create user RPC Listener %s", err.Error())
-	}
+	m.server = server.NewEventServer("/var/run/trireme.sock", m.registerer)
 
 	for k, v := range c.Monitors {
 		switch k {
 		case config.CNI:
 			mon := cnimonitor.New()
 			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("CNI: %s", err.Error())
 			}
 			m.monitors[config.CNI] = mon
@@ -84,7 +72,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 		case config.LinuxProcess:
 			mon := linuxmonitor.New()
 			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Process: %s", err.Error())
 			}
 			m.monitors[config.LinuxProcess] = mon
@@ -92,7 +80,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 		case config.LinuxHost:
 			mon := linuxmonitor.New()
 			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(m.rootRegisterer, v); err != nil {
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("Host: %s", err.Error())
 			}
 			m.monitors[config.LinuxHost] = mon
@@ -100,7 +88,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 		case config.UID:
 			mon := uidmonitor.New()
 			mon.SetupHandlers(c.Common)
-			if err := mon.SetupConfig(m.userRegisterer, v); err != nil {
+			if err := mon.SetupConfig(m.registerer, v); err != nil {
 				return nil, fmt.Errorf("UID: %s", err.Error())
 			}
 			m.monitors[config.UID] = mon
@@ -117,11 +105,7 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 
 func (m *monitors) Run(ctx context.Context) (err error) {
 
-	if err = m.userRPCListener.Run(ctx); err != nil {
-		return err
-	}
-
-	if err = m.rootRPCListener.Run(ctx); err != nil {
+	if err := m.server.Run(ctx); err != nil {
 		return err
 	}
 
@@ -129,10 +113,6 @@ func (m *monitors) Run(ctx context.Context) (err error) {
 		if err = v.Run(ctx); err != nil {
 			return err
 		}
-	}
-
-	if m.policy != nil {
-		m.policy.HandleSynchronizationComplete(ctx, policy.SynchronizationTypeInitial)
 	}
 
 	return nil

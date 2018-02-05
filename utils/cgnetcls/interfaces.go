@@ -8,4 +8,6 @@ type Cgroupnetcls interface {
 	RemoveProcess(cgroupname string, pid int) error
 	DeleteCgroup(cgroupname string) error
 	Deletebasepath(contextID string) bool
+	ListCgroupProcesses(cgroupname string) ([]string, error)
+	ListAllCgroups() []string
 }

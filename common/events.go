@@ -19,74 +19,83 @@ const (
 	TransientPU
 )
 
+const (
+	// TriremeCgroupPath is the standard Trireme cgroup path
+	TriremeCgroupPath = "/trireme/"
+
+	// TriremeUIDCgroupPath is the standard path for UID based activations
+	TriremeUIDCgroupPath = "/trireme/uid/"
+)
+
 // EventInfo is a generic structure that defines all the information related to a PU event.
 // EventInfo should be used as a normalized struct container that
 type EventInfo struct {
 
 	// EventType refers to one of the standard events that Trireme handles.
-	EventType Event
+	EventType Event `json:"eventtype,omitempty"`
 
 	// PUType is the the type of the PU
-	PUType PUType
+	PUType PUType `json:"putype,omitempty"`
 
 	// The PUID is a unique value for the Processing Unit. Ideally this should be the UUID.
-	PUID string
+	PUID string `json:"puid,omitempty"`
 
 	// The Name is a user-friendly name for the Processing Unit.
-	Name string
+	Name string `json:"name,omitempty"`
 
 	// Tags represents the set of MetadataTags associated with this PUID.
-	Tags []string
+	Tags []string `json:"tags,omitempty"`
 
 	// The PID is the PID on the system where this Processing Unit is running.
-	PID string
+	PID int32 `json:"pid,omitempty"`
 
 	// The path for the Network Namespace.
-	NS string
+	NS string `json:"namespace,omitempty"`
 
 	// Cgroup is the path to the cgroup - used for deletes
-	Cgroup string
+	Cgroup string `json:"cgroup,omitempty"`
 
 	// IPs is a map of all the IPs that fully belong to this processing Unit.
-	IPs map[string]string
+	IPs map[string]string `json:"ipaddressesutype,omitempty"`
 
 	// Services is a list of services of interest - for host control
-	Services []Service
+	Services []Service `json:"services,omitempty"`
 
 	// HostService indicates that the request is for the root namespace
-	HostService bool
+	HostService bool `json:"hostservice,omitempty"`
 
 	// NetworkOnlyTraffic indicates that traffic towards the applications must be controlled.
-	NetworkOnlyTraffic bool
+	NetworkOnlyTraffic bool `json:"networktrafficonly,omitempty"`
 
 	// Root indicates that this request is coming from a roor user. Its overwritten by the enforcer
-	Root bool
+	Root bool `json:"root,omitempty"`
 }
 
 // Event represents the event picked up by the monitor.
 type Event string
 
+// Values of the events
 const (
-	// EventStart is the event generated when a PU starts.
-	EventStart Event = "start"
-
-	// EventStop is the event generated when a PU stops/dies.
-	EventStop Event = "stop"
-
-	// EventCreate is the event generated when a PU gets created.
-	EventCreate Event = "create"
-
-	// EventDestroy is the event generated when a PU is definitely removed.
+	EventStart   Event = "start"
+	EventStop    Event = "stop"
+	EventCreate  Event = "create"
 	EventDestroy Event = "destroy"
-
-	// EventPause is the event generated when a PU is set to pause.
-	EventPause Event = "pause"
-
-	// EventUnpause is the event generated when a PU is unpaused.
+	EventPause   Event = "pause"
 	EventUnpause Event = "unpause"
+	EventResync  Event = "resync"
+)
 
-	// EventResync instructs the processors to resync
-	EventResync Event = "resync"
+var (
+	// EventMap used for validations
+	EventMap = map[Event]*struct{}{
+		"start":   nil,
+		"stop":    nil,
+		"create":  nil,
+		"destroy": nil,
+		"pause":   nil,
+		"unpause": nil,
+		"resync":  nil,
+	}
 )
 
 // EventResponse encapsulate the error response if any.

@@ -44,7 +44,7 @@ const (
 
 // puToPidEntry represents an entry to puToPidMap
 type puToPidEntry struct {
-	pidlist            map[string]bool
+	pidlist            map[int32]bool
 	Info               *policy.PURuntime
 	publishedContextID string
 }
@@ -128,7 +128,7 @@ func (u *uidProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) e
 		entry := &puToPidEntry{
 			Info:               runtimeInfo,
 			publishedContextID: publishedContextID,
-			pidlist:            map[string]bool{},
+			pidlist:            map[int32]bool{},
 		}
 
 		entry.pidlist[eventInfo.PID] = true
@@ -159,7 +159,7 @@ func (u *uidProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) e
 	if err := u.pidToPU.Add(eventInfo.PID, eventInfo.PUID); err != nil {
 		zap.L().Warn("Failed to add eventInfoPID/eventInfoPUID in the cache",
 			zap.Error(err),
-			zap.String("eventInfo.PID", eventInfo.PID),
+			zap.Int32("eventInfo.PID", eventInfo.PID),
 			zap.String("eventInfo.PUID", eventInfo.PUID),
 		)
 	}
@@ -188,12 +188,14 @@ func (u *uidProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) er
 		puID = puid.(string)
 	}
 
+	istoppedpid, _ := strconv.Atoi(stoppedpid)
+
 	var publishedContextID string
 	if pidlist, err := u.putoPidMap.Get(puID); err == nil {
 		pidCxt := pidlist.(*puToPidEntry)
 		publishedContextID = pidCxt.publishedContextID
 		// Clean pid from both caches
-		delete(pidCxt.pidlist, stoppedpid)
+		delete(pidCxt.pidlist, int32(istoppedpid))
 
 		if err = u.pidToPU.Remove(stoppedpid); err != nil {
 			zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("stoppedpid", stoppedpid))
@@ -309,7 +311,7 @@ func (u *uidProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
 	for _, cgroup := range cgroups {
 
-		pidlist, _ := cgnetcls.ListCgroupProcesses(cgroup)
+		pidlist, _ := u.netcls.ListCgroupProcesses(cgroup)
 		if len(pidlist) == 0 {
 			if err := u.netcls.DeleteCgroup(cgroup); err != nil {
 				zap.L().Warn("Unable to delete cgroup",
@@ -390,9 +392,10 @@ func (u *uidProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 			}
 
 			for _, pid := range pids {
-				eventInfo.PID = pid
+				iPid, _ := strconv.Atoi(pid)
+				eventInfo.PID = int32(iPid)
 				if err := u.Start(ctx, eventInfo); err != nil {
-					zap.L().Debug("Failed to start", zap.Error(err), zap.String("eventInfoPID", eventInfo.PID))
+					zap.L().Debug("Failed to start", zap.Error(err), zap.Int("eventInfoPID", int(eventInfo.PID)))
 					puStartFailed++
 				}
 			}
@@ -419,13 +422,14 @@ func (u *uidProcessor) generateContextID(eventInfo *common.EventInfo) (string, e
 
 func (u *uidProcessor) processLinuxServiceStart(event *common.EventInfo, runtimeInfo *policy.PURuntime) error {
 
-	if err := u.netcls.Creategroup(event.PID); err != nil {
+	pidName := strconv.Itoa(int(event.PID))
+	if err := u.netcls.Creategroup(pidName); err != nil {
 		return err
 	}
 
 	markval := runtimeInfo.Options().CgroupMark
 	if markval == "" {
-		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
+		if derr := u.netcls.DeleteCgroup(pidName); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
 		return errors.New("mark value not found")
@@ -436,20 +440,15 @@ func (u *uidProcessor) processLinuxServiceStart(event *common.EventInfo, runtime
 		return err
 	}
 
-	if err = u.netcls.AssignMark(event.PID, mark); err != nil {
-		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
+	if err = u.netcls.AssignMark(pidName, mark); err != nil {
+		if derr := u.netcls.DeleteCgroup(pidName); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
 		return err
 	}
 
-	pid, err := strconv.Atoi(event.PID)
-	if err != nil {
-		return err
-	}
-
-	if err := u.netcls.AddProcess(event.PID, pid); err != nil {
-		if derr := u.netcls.DeleteCgroup(event.PID); derr != nil {
+	if err := u.netcls.AddProcess(pidName, int(event.PID)); err != nil {
+		if derr := u.netcls.DeleteCgroup(pidName); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
 		}
 		return err

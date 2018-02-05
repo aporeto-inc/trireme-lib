@@ -38,8 +38,18 @@ func (s *netCls) GetCgroupList() {
 
 }
 
+// ListCgroupProcesses lists the processes of the cgroup
+func (s *netCls) ListCgroupProcesses(cgroupname string) ([]string, error) {
+	return []string{}, nil
+}
+
+// ListAllCgroups returns a list of the cgroups that are managed in the Trireme path
+func (s *netCls) ListAllCgroups() []string {
+	return []string{}
+}
+
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
-func NewCgroupNetController(releasePath string) Cgroupnetcls {
+func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls {
 	return &netCls{}
 }
 
@@ -51,14 +61,4 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 // MarkVal returns a new Mark
 func MarkVal() uint64 {
 	return 0
-}
-
-// ListCgroupProcesses lists the processes of the cgroup
-func ListCgroupProcesses(cgroupname string) ([]string, error) {
-	return []string{}, nil
-}
-
-// ListAllCgroups returns a list of the cgroups that are managed in the Trireme path
-func ListAllCgroups() []string {
-	return []string{}
 }

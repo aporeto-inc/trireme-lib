@@ -60,10 +60,10 @@ mkdir -p monitor/mock
 mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
 goimport_sanitize monitor/mock/mockmonitor.go
 
-echo "Monitor/RPC/Processor Mocks"
-mkdir -p monitor/rpc/processor/mock
-mockgen -source monitor/rpc/processor/interfaces.go -destination monitor/rpc/processor/mock/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/monitor/rpc/processor
-goimport_sanitize monitor/rpc/processor/mock/mockprocessor.go
+echo "Monitor/processor Mocks"
+mkdir -p monitor/processor/mock
+mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mock/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/monitor/processor
+goimport_sanitize monitor/processor/mock/mockprocessor.go
 
 echo "RPC Wrapper Mocks"
 mkdir -p controller/internal/enforcer/utils/rpcwrapper/mock 
@@ -77,7 +77,7 @@ goimport_sanitize policy/mock/mockpolicy.go
 
 echo "Trireme Controller Mock"
 mkdir -p controller/mock
-mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/rpc/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
+mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
 goimport_sanitize controller/mock/mocktrireme.go
 
 echo >&2 "OK"

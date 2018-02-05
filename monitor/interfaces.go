@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 )
 
 // A Monitor is an interface implmented to start/stop monitors.

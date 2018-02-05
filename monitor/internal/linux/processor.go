@@ -103,9 +103,9 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 }
 
 // Stop handles a stop event
-func (l *linuxProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) error {
+func (l *linuxProcessor) Stop(ctx context.Context, event *common.EventInfo) error {
 
-	puID, err := l.generateContextID(eventInfo)
+	puID, err := l.generateContextID(event)
 	if err != nil {
 		return err
 	}
@@ -178,14 +178,14 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 // ReSync resyncs with all the existing services that were there before we start
 func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
-	cgroups := cgnetcls.ListAllCgroups()
+	cgroups := l.netcls.ListAllCgroups()
 	for _, cgroup := range cgroups {
 		if cgroup == "trireme_host" {
 			continue
 		}
 
 		// List all the cgroup processes. If its empty, we can remove it.
-		procs, err := cgnetcls.ListCgroupProcesses(cgroup)
+		procs, err := l.netcls.ListCgroupProcesses(cgroup)
 		if err != nil {
 			continue
 		}
@@ -235,12 +235,12 @@ func (l *linuxProcessor) generateContextID(eventInfo *common.EventInfo) (string,
 
 func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common.EventInfo, runtimeInfo *policy.PURuntime) error {
 
-	list, err := cgnetcls.ListCgroupProcesses(nativeID)
+	list, err := l.netcls.ListCgroupProcesses(nativeID)
 	if err == nil {
 		//cgroup exists and pid might be a member
 		isrestart := func() bool {
 			for _, element := range list {
-				if element == event.PID {
+				if element == strconv.Itoa(int(event.PID)) {
 					//pid is already there it is restart
 					return true
 				}
@@ -249,8 +249,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 		}()
 
 		if !isrestart {
-			pid, _ := strconv.Atoi(event.PID)
-			l.netcls.AddProcess(nativeID, pid) // nolint
+			l.netcls.AddProcess(nativeID, int(event.PID)) // nolint
 			return nil
 		}
 	}
@@ -278,8 +277,7 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 		return err
 	}
 
-	pid, _ := strconv.Atoi(event.PID)
-	err = l.netcls.AddProcess(nativeID, pid)
+	err = l.netcls.AddProcess(nativeID, int(event.PID))
 	if err != nil {
 		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))

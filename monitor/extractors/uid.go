@@ -37,6 +37,6 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 	}
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}
-	runtimePID, _ := strconv.Atoi(event.PID)
-	return policy.NewPURuntime(event.Name, runtimePID, "", runtimeTags, runtimeIps, common.UIDLoginPU, options), nil
+
+	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.UIDLoginPU, options), nil
 }

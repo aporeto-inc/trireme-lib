@@ -8,7 +8,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/rpc/registerer"
+	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 )
 
 // Config is the configuration options to start a CNI monitor
