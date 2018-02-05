@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 
@@ -49,5 +50,10 @@ func (c *Client) SendRequest(event *common.EventInfo) error {
 		return nil
 	}
 
-	return fmt.Errorf("Invalid request")
+	errorBuffer, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("Invalid request: %s", err)
+	}
+
+	return fmt.Errorf("Invalid request : %s", string(errorBuffer))
 }

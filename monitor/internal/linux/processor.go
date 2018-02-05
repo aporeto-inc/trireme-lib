@@ -178,7 +178,7 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 // ReSync resyncs with all the existing services that were there before we start
 func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 
-	cgroups := l.netcls.ListAllCgroups()
+	cgroups := l.netcls.ListAllCgroups(common.TriremeCgroupPath)
 	for _, cgroup := range cgroups {
 		if cgroup == "trireme_host" {
 			continue

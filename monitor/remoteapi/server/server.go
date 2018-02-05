@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,11 +25,19 @@ type EventServer struct {
 }
 
 // NewEventServer creates a new event server
-func NewEventServer(address string, registerer registerer.Registerer) *EventServer {
+func NewEventServer(address string, registerer registerer.Registerer) (*EventServer, error) {
+
+	// Cleanup the socket first.
+	if _, err := os.Stat(address); err == nil {
+		if err := os.Remove(address); err != nil {
+			return nil, fmt.Errorf("Cannot create clean up socket: %s", err)
+		}
+	}
+
 	return &EventServer{
 		Socket:     address,
 		registerer: registerer,
-	}
+	}, nil
 }
 
 // ServeHTTP is called for every request.
@@ -41,9 +50,8 @@ func (e *EventServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (e *EventServer) Run(ctx context.Context) error {
 
 	// Create the handler
-	handler := &EventServer{}
 	e.server = &http.Server{
-		Handler: handler,
+		Handler: e,
 	}
 
 	// Start a custom listener
@@ -52,6 +60,13 @@ func (e *EventServer) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("Unable to start API server: %s", err)
 	}
+
+	// We make the socket accesible to all users of the system.
+	// TODO: create a trireme group for this
+	if err := os.Chmod(addr.String(), 0766); err != nil {
+		return fmt.Errorf("Cannot make the socket accessible to all users: %s", err)
+	}
+
 	listener := &UIDListener{nl}
 
 	// Start serving HTTP requests in the background
@@ -76,20 +91,22 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validateTypes(event); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid request fields: %s", err), http.StatusBadRequest)
+		return
 	}
 
 	if err := validateUser(r, event); err != nil {
-		http.Error(w, fmt.Sprintf("invalid-request"), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("Invalid user to pid mapping"), http.StatusForbidden)
 		return
 	}
 
 	if err := validateEvent(event); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid request: %s", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Bad request: %s", err), http.StatusBadRequest)
+		return
 	}
 
 	if err := e.processEvent(r.Context(), event); err != nil {
-		http.Error(w, "Cannot handle request", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -160,7 +177,7 @@ func validateUser(r *http.Request, event *common.EventInfo) error {
 // validateTypes validates the various types and prevents any bad strings.
 func validateTypes(event *common.EventInfo) error {
 
-	regexStrings := regexp.MustCompile("^[a-zA-Z0-9_:.$%]{0,64}$")
+	regexStrings := regexp.MustCompile("^[a-zA-Z0-9_:.$%/]{0,64}$")
 	regexNS := regexp.MustCompile("^[a-zA-Z0-9/]{0,128}$")
 	regexCgroup := regexp.MustCompile("^/trireme/(uid/){0,1}[a-zA-Z0-9_:.$%]{1,64}$")
 

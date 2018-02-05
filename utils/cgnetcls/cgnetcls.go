@@ -189,8 +189,8 @@ func (s *netCls) ListCgroupProcesses(cgroupname string) ([]string, error) {
 }
 
 // ListAllCgroups returns a list of the cgroups that are managed in the Trireme path
-func (s *netCls) ListAllCgroups() []string {
-	cgroups, err := ioutil.ReadDir(filepath.Join(basePath, s.TriremePath))
+func (s *netCls) ListAllCgroups(path string) []string {
+	cgroups, err := ioutil.ReadDir(filepath.Join(basePath, s.TriremePath, path))
 	if err != nil {
 		return []string{}
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 type cniProcessor struct {
@@ -59,11 +60,13 @@ func (c *cniProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) er
 		return fmt.Errorf("unable to generate context id: %s", err)
 	}
 
-	if err := c.config.Policy.HandlePUEvent(ctx, contextID, common.EventStop, nil); err != nil {
+	runtime := policy.NewPURuntimeWithDefaults()
+
+	if err := c.config.Policy.HandlePUEvent(ctx, contextID, common.EventStop, runtime); err != nil {
 		return err
 	}
 
-	return c.config.Policy.HandlePUEvent(ctx, contextID, common.EventDestroy, nil)
+	return c.config.Policy.HandlePUEvent(ctx, contextID, common.EventDestroy, runtime)
 }
 
 // Destroy handles a destroy event

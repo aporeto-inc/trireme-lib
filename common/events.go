@@ -24,7 +24,10 @@ const (
 	TriremeCgroupPath = "/trireme/"
 
 	// TriremeUIDCgroupPath is the standard path for UID based activations
-	TriremeUIDCgroupPath = "/trireme/uid/"
+	TriremeUIDCgroupPath = "/trireme_uid/"
+
+	// TriremeSocket is the standard API server Trireme socket path
+	TriremeSocket = "/var/run/trireme.sock"
 )
 
 // EventInfo is a generic structure that defines all the information related to a PU event.

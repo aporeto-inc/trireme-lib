@@ -44,7 +44,7 @@ func (s *netCls) ListCgroupProcesses(cgroupname string) ([]string, error) {
 }
 
 // ListAllCgroups returns a list of the cgroups that are managed in the Trireme path
-func (s *netCls) ListAllCgroups() []string {
+func (s *netCls) ListAllCgroups(path string) []string {
 	return []string{}
 }
 

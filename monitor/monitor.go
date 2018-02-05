@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/cni"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
@@ -49,7 +50,10 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 
 	m.registerer = registerer.New()
 
-	m.server = server.NewEventServer("/var/run/trireme.sock", m.registerer)
+	m.server, err = server.NewEventServer(common.TriremeSocket, m.registerer)
+	if err != nil {
+		return nil, err
+	}
 
 	for k, v := range c.Monitors {
 		switch k {

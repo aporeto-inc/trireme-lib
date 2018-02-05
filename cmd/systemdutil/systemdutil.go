@@ -84,7 +84,7 @@ type RequestProcessor struct {
 // NewRequestProcessor creates a default request processor
 func NewRequestProcessor() *RequestProcessor {
 	return &RequestProcessor{
-		address: "/var/run/trireme.sock",
+		address: common.TriremeSocket,
 	}
 }
 
@@ -139,7 +139,7 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 	// First parse a command that only provides the cgroup
 	// The kernel will only send us a command with one argument
 	if value, ok := arguments["<cgroup>"]; ok && value != nil {
-		c.ServiceName = value.(string)
+		c.Cgroup = value.(string)
 		c.Request = DeleteCgroupRequest
 		return c, nil
 	}
@@ -269,18 +269,24 @@ func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 // DeleteCgroup will issue a delete command based on the cgroup
 // This is used mainly by the cleaner.
 func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
-	regexCgroup := regexp.MustCompile("^/trireme/(uid/){0,1}[a-zA-Z0-9_:.$%]{1,64}$")
+	regexCgroup := regexp.MustCompile("^/trireme(_uid){0,1}/[a-zA-Z0-9_:.$%]{1,64}$")
 
 	if !regexCgroup.Match([]byte(c.Cgroup)) {
 		return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
 	}
 
-	eventType := common.LinuxProcessPU
-	eventPUID := c.Cgroup[len(common.TriremeCgroupPath):]
+	var eventPUID string
+	var eventType common.PUType
 
-	if strings.HasPrefix(c.Cgroup, "/trireme/uid") {
+	if strings.HasPrefix(c.Cgroup, common.TriremeUIDCgroupPath) {
 		eventType = common.UIDLoginPU
 		eventPUID = c.Cgroup[len(common.TriremeUIDCgroupPath):]
+	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath) {
+		eventType = common.LinuxProcessPU
+		eventPUID = c.Cgroup[len(common.TriremeCgroupPath):]
+	} else {
+		// Not our Cgroup
+		return nil
 	}
 
 	request := &common.EventInfo{

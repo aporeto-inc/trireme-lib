@@ -9,5 +9,5 @@ type Cgroupnetcls interface {
 	DeleteCgroup(cgroupname string) error
 	Deletebasepath(contextID string) bool
 	ListCgroupProcesses(cgroupname string) ([]string, error)
-	ListAllCgroups() []string
+	ListAllCgroups(path string) []string
 }
