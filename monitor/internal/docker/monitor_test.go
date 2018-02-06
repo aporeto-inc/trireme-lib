@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"syscall"
 	"testing"
 
@@ -13,10 +14,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/constants"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker/mockdocker"
 	"github.com/aporeto-inc/trireme-lib/policy/mock"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
-
-	"github.com/aporeto-inc/trireme-lib/monitor/dockermock"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -90,16 +90,28 @@ func initTestMessage(id string) *events.Message {
 }
 
 func defaultContainer() types.ContainerJSON {
-	c := types.ContainerJSON{&types.ContainerJSONBase{}, nil, nil, nil}
-	c.ID = ID
-	c.State = &types.ContainerState{
-		Running: true,
-		Paused:  false,
+
+	c := types.ContainerJSON{
+		ContainerJSONBase: &types.ContainerJSONBase{
+			ID: ID,
+			State: &types.ContainerState{
+				Running: true,
+				Paused:  false,
+			},
+			HostConfig: &container.HostConfig{
+				NetworkMode: "bridge",
+			},
+		},
+		Mounts: nil,
+		Config: &container.Config{
+			Labels: map[string]string{"app": "web"},
+		},
+		NetworkSettings: &types.NetworkSettings{
+			DefaultNetworkSettings: types.DefaultNetworkSettings{
+				IPAddress: "172.17.0.1",
+			},
+		},
 	}
-	c.Config = &container.Config{Labels: map[string]string{"app": "web"}}
-	c.NetworkSettings = &types.NetworkSettings{}
-	c.NetworkSettings.IPAddress = "127.2.2.2"
-	c.HostConfig = &container.HostConfig{NetworkMode: "bridge"}
 
 	return c
 }
@@ -684,4 +696,26 @@ func TestSyncContainers(t *testing.T) {
 
 		})
 	})
+}
+
+func Test_initTestDockerInfo(t *testing.T) {
+	type args struct {
+		id     string
+		nwmode container.NetworkMode
+		state  bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want *types.ContainerJSON
+	}{
+	// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := initTestDockerInfo(tt.args.id, tt.args.nwmode, tt.args.state); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("initTestDockerInfo() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
