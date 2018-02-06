@@ -667,30 +667,63 @@ func TestSyncContainers(t *testing.T) {
 	Convey("When I try to initialize a new docker monitor", t, func() {
 
 		dmi, mockPU := setupDockerMonitor(ctrl)
+		dmi.SetupHandlers(&config.ProcessorConfig{
+			Collector: eventCollector(),
+			Policy:    mockPU,
+		})
 
 		Convey("Then docker monitor should not be nil", func() {
 			So(dmi, ShouldNotBeNil)
 		})
 
-		Convey("When I try to call sync containers", func() {
+		Convey("If I try to sync containers where when SyncAtStart is not set, I should get nil", func() {
+			dmi.syncAtStart = false
+			err := dmi.ReSync(context.Background())
+			So(err, ShouldBeNil)
+		})
+
+		Convey("If I try to sync containers and docker list fails, I should get an error", func() {
+			dmi.syncAtStart = true
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, errors.New("error"))
+
+			err := dmi.ReSync(context.Background())
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I try to call sync containers and a policy call fails", func() {
+			dmi.syncAtStart = true
+
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
 				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, nil)
 
-			c := defaultContainer()
-
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerInspect(gomock.Any(), ID).Return(c, nil)
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
 
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
-			dmi.SetupHandlers(&config.ProcessorConfig{
-				Collector: eventCollector(),
-				Policy:    mockPU,
-			})
-			dmi.syncAtStart = true
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("blah"))
 
 			err := dmi.ReSync(context.Background())
 
-			Convey("Then I should not get any error", func() {
+			Convey("Then I should  get  error since we ignore bad containers", func() {
+				So(err, ShouldBeNil)
+			})
+
+		})
+
+		Convey("When I try to call sync containers", func() {
+			dmi.syncAtStart = true
+
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, nil)
+
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
+
+			err := dmi.ReSync(context.Background())
+
+			Convey("Then I should not get no error ", func() {
 				So(err, ShouldBeNil)
 			})
 

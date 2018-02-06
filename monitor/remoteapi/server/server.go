@@ -19,7 +19,7 @@ import (
 
 // EventServer is a new event server
 type EventServer struct {
-	Socket     string
+	socketPath string
 	server     *http.Server
 	registerer registerer.Registerer
 }
@@ -35,7 +35,7 @@ func NewEventServer(address string, registerer registerer.Registerer) (*EventSer
 	}
 
 	return &EventServer{
-		Socket:     address,
+		socketPath: address,
 		registerer: registerer,
 	}, nil
 }
@@ -55,7 +55,7 @@ func (e *EventServer) Run(ctx context.Context) error {
 	}
 
 	// Start a custom listener
-	addr, _ := net.ResolveUnixAddr("unix", e.Socket)
+	addr, _ := net.ResolveUnixAddr("unix", e.socketPath)
 	nl, err := net.ListenUnix("unix", addr)
 	if err != nil {
 		return fmt.Errorf("Unable to start API server: %s", err)

@@ -1,0 +1,285 @@
+package server
+
+import (
+	"net/http"
+	"os"
+	"strconv"
+	"testing"
+
+	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	. "github.com/smartystreets/goconvey/convey"
+)
+
+func TestNewEventServer(t *testing.T) {
+	Convey("When I create a new server", t, func() {
+		reg := registerer.New()
+		s, err := NewEventServer("/tmp/trireme.sock", reg)
+		Convey("The object should be correct", func() {
+			So(err, ShouldBeNil)
+			So(s, ShouldNotBeNil)
+			So(s.socketPath, ShouldResemble, "/tmp/trireme.sock")
+			So(s.registerer, ShouldEqual, reg)
+		})
+	})
+}
+
+func TestValidateUser(t *testing.T) {
+	Convey("When I try to validate a user", t, func() {
+
+		Convey("When I get a bad remote address, it should fail", func() {
+			r := &http.Request{}
+			r.RemoteAddr = "badpath"
+			event := &common.EventInfo{}
+
+			err := validateUser(r, event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I issue the request as a superuser it should always succeed", func() {
+			r := &http.Request{}
+			r.RemoteAddr = "0:0:1000"
+			event := &common.EventInfo{}
+
+			err := validateUser(r, event)
+			So(err, ShouldBeNil)
+		})
+
+		Convey("When I issue the request as a regular user with a bad process it should fail", func() {
+			r := &http.Request{}
+			r.RemoteAddr = "1:1:1000"
+			event := &common.EventInfo{PID: -1}
+
+			err := validateUser(r, event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I issue the request as a regular user to a foreign process", func() {
+
+			myuid := strconv.Itoa(os.Getuid())
+			myguyid := strconv.Itoa(os.Getgid())
+			mypid := int32(os.Getpid())
+			mypidstring := strconv.Itoa(int(mypid))
+
+			r := &http.Request{}
+			r.RemoteAddr = myuid + ":" + myguyid + ":" + mypidstring
+			event := &common.EventInfo{PID: 0}
+
+			err := validateUser(r, event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I issue the request as a regular user with valid pid", func() {
+
+			myuid := strconv.Itoa(os.Getuid())
+			myguyid := strconv.Itoa(os.Getgid())
+			mypid := int32(os.Getpid())
+			mypidstring := strconv.Itoa(int(mypid))
+
+			r := &http.Request{}
+			r.RemoteAddr = myuid + ":" + myguyid + ":" + mypidstring
+			event := &common.EventInfo{PID: mypid}
+
+			err := validateUser(r, event)
+			So(err, ShouldBeNil)
+		})
+
+	})
+}
+
+func TestValidateTypes(t *testing.T) {
+	Convey("When I validate the types of an event", t, func() {
+
+		Convey("If I have a bad eventtype it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.Event(123),
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If I have a bad PUType it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.PUType(123),
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If the event name has bad charaters, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				Name:      "^^^",
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If the cgroup has bad charaters, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				Name:      "Container",
+				Cgroup:    "/potatoes",
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If the namespace path has bad charaters, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				Name:      "Container",
+				Cgroup:    "/trireme/123",
+				NS:        "!@##$!#",
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If the IPs have a bad name, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				Name:      "Container",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"^^^": "123"},
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If the IP address is bad, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				Name:      "Container",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"bridge": "123"},
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If all the types are correct, it should succeed.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				Name:      "Container",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"bridge": "172.17.0.1"},
+			}
+
+			err := validateTypes(event)
+			So(err, ShouldBeNil)
+		})
+
+	})
+}
+
+func TestValidateEvent(t *testing.T) {
+	Convey("When I validate events", t, func() {
+
+		Convey("If I get a Create  with no HostService, and PUID is nil, I should update it.", func() {
+			event := &common.EventInfo{
+				EventType:   common.EventCreate,
+				PID:         1,
+				HostService: false,
+			}
+
+			err := validateEvent(event)
+			So(err, ShouldBeNil)
+			So(event.PUID, ShouldResemble, "1")
+		})
+
+		Convey("If I get a Create  with no HostService, and PUID is not nil, I should get the right PUID", func() {
+			event := &common.EventInfo{
+				EventType:   common.EventCreate,
+				PID:         1,
+				HostService: false,
+				PUID:        "mypu",
+			}
+
+			err := validateEvent(event)
+			So(err, ShouldBeNil)
+			So(event.PUID, ShouldResemble, "mypu")
+		})
+
+		Convey("If I get a Create  with the HostService and no networktraffic only, I should get PUID of host", func() {
+			event := &common.EventInfo{
+				EventType:          common.EventCreate,
+				PID:                1,
+				HostService:        true,
+				NetworkOnlyTraffic: false,
+				PUID:               "mypu",
+			}
+
+			err := validateEvent(event)
+			So(err, ShouldBeNil)
+			So(event.PUID, ShouldResemble, "host")
+		})
+
+		Convey("If I get a Create  with the HostService and networktraffic only, I should get PUID as my name", func() {
+			event := &common.EventInfo{
+				EventType:          common.EventCreate,
+				PID:                1,
+				HostService:        true,
+				NetworkOnlyTraffic: true,
+				Name:               "myservice",
+				PUID:               "mypu",
+			}
+
+			err := validateEvent(event)
+			So(err, ShouldBeNil)
+			So(event.PUID, ShouldResemble, "myservice")
+		})
+
+		Convey("If I get a Create  with the HostService and networktraffic only, and bad service name, I should get an error ", func() {
+			event := &common.EventInfo{
+				EventType:          common.EventCreate,
+				PID:                1,
+				HostService:        true,
+				NetworkOnlyTraffic: true,
+				Name:               "default",
+				PUID:               "mypu",
+			}
+
+			err := validateEvent(event)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("If I get a Stop event and cgroup is in the right format, it should return nil.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStop,
+				Cgroup:    "/trireme/1234",
+			}
+
+			err := validateEvent(event)
+			So(err, ShouldBeNil)
+		})
+
+		Convey("If I get a Stop event and cgroup is in the wrong format, it should error.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStop,
+				Cgroup:    "/potatoes",
+			}
+
+			err := validateEvent(event)
+			So(err, ShouldNotBeNil)
+		})
+
+	})
+}
