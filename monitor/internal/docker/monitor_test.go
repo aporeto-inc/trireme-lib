@@ -16,7 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy/mock"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
 
-	"github.com/aporeto-inc/trireme-lib/mock"
+	"github.com/aporeto-inc/trireme-lib/monitor/dockermock"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
