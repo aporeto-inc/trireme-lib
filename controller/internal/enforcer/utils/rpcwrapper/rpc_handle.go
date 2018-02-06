@@ -232,7 +232,8 @@ func RegisterTypes() {
 	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
 	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
 
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
+	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
 }

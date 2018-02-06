@@ -401,6 +401,54 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	return nil
 }
 
+// UpdateSecrets updates the secrets used by the remote enforcer
+func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	var err error
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "enforce message auth failed"
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	if s.enforcer != nil {
+		return nil
+	}
+
+	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
+
+	switch payload.SecretType {
+	case secrets.PKIType:
+		// PKI params
+		s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
+		if err != nil {
+			return fmt.Errorf("unable to initialize secrets: %s", err)
+		}
+
+	case secrets.PSKType:
+		// PSK params
+		s.secrets = secrets.NewPSKSecrets(payload.PrivatePEM)
+
+	case secrets.PKICompactType:
+		// Compact PKI Parameters
+		s.secrets, err = secrets.NewCompactPKIWithTokenCA(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.TokenKeyPEMs, payload.Token)
+		if err != nil {
+			return fmt.Errorf("unable to initialize secrets: %s", err)
+		}
+
+	case secrets.PKINull:
+		// Null Encryption
+		zap.L().Info("Using Null Secrets")
+		s.secrets, err = secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
+		if err != nil {
+			return fmt.Errorf("unable to initialize secrets: %s", err)
+		}
+	}
+
+	return nil
+
+}
+
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
