@@ -120,3 +120,32 @@ func (m *MockCgroupnetcls) Deletebasepath(contextID string) bool {
 func (mr *MockCgroupnetclsMockRecorder) Deletebasepath(contextID interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Deletebasepath", reflect.TypeOf((*MockCgroupnetcls)(nil).Deletebasepath), contextID)
 }
+
+// ListCgroupProcesses mocks base method
+// nolint
+func (m *MockCgroupnetcls) ListCgroupProcesses(cgroupname string) ([]string, error) {
+	ret := m.ctrl.Call(m, "ListCgroupProcesses", cgroupname)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListCgroupProcesses indicates an expected call of ListCgroupProcesses
+// nolint
+func (mr *MockCgroupnetclsMockRecorder) ListCgroupProcesses(cgroupname interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCgroupProcesses", reflect.TypeOf((*MockCgroupnetcls)(nil).ListCgroupProcesses), cgroupname)
+}
+
+// ListAllCgroups mocks base method
+// nolint
+func (m *MockCgroupnetcls) ListAllCgroups(path string) []string {
+	ret := m.ctrl.Call(m, "ListAllCgroups", path)
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// ListAllCgroups indicates an expected call of ListAllCgroups
+// nolint
+func (mr *MockCgroupnetclsMockRecorder) ListAllCgroups(path interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAllCgroups", reflect.TypeOf((*MockCgroupnetcls)(nil).ListAllCgroups), path)
+}
