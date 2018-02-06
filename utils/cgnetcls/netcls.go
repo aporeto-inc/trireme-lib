@@ -11,6 +11,7 @@ import (
 type netCls struct {
 	markchan         chan uint64
 	ReleaseAgentPath string
+	TriremePath      string
 }
 
 var basePath = "/sys/fs/cgroup/net_cls"

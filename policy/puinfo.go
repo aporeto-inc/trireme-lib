@@ -1,8 +1,9 @@
 package policy
 
-import "github.com/aporeto-inc/trireme-lib/constants"
+import "github.com/aporeto-inc/trireme-lib/common"
 
-// PUInfo  captures all policy information related to a connection
+// PUInfo  captures all policy information related to a connection as well as runtime.
+// It makes passing data around simpler.
 type PUInfo struct {
 	// ContextID is the ID of the container that the policy applies to
 	ContextID string
@@ -13,7 +14,7 @@ type PUInfo struct {
 }
 
 // NewPUInfo instantiates a new ContainerPolicy
-func NewPUInfo(contextID string, puType constants.PUType) *PUInfo {
+func NewPUInfo(contextID string, puType common.PUType) *PUInfo {
 	policy := NewPUPolicy(contextID, AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{})
 	runtime := NewPURuntime("", 0, "", nil, nil, puType, nil)
 	return PUInfoFromPolicyAndRuntime(contextID, policy, runtime)

@@ -76,7 +76,6 @@ func GenerateRandomString(s int) (string, error) {
 func CreateEphemeralKey(curve func() elliptic.Curve, pub *ecdsa.PublicKey) (*ecdsa.PrivateKey, []byte) {
 
 	ephemeral, err := ecdsa.GenerateKey(curve(), rand.Reader)
-
 	if err != nil {
 		zap.L().Error("CreateEphemeralKey failed, returning empty array of bytes", zap.Error(err))
 		return nil, []byte{}
@@ -94,7 +93,6 @@ func LoadRootCertificates(rootPEM []byte) *x509.CertPool {
 	roots := x509.NewCertPool()
 
 	ok := roots.AppendCertsFromPEM(rootPEM)
-
 	if !ok {
 		zap.L().Error("AppendCertsFromPEM failed", zap.ByteString("rootPEM", rootPEM))
 		return nil
@@ -106,15 +104,14 @@ func LoadRootCertificates(rootPEM []byte) *x509.CertPool {
 
 // LoadEllipticCurveKey parses and creates an EC key
 func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
-	block, _ := pem.Decode(keyPEM)
 
+	block, _ := pem.Decode(keyPEM)
 	if block == nil {
 		return nil, fmt.Errorf("unable to parse pem block: %s", string(keyPEM))
 	}
 
 	// Parse the key
 	key, err := x509.ParseECPrivateKey(block.Bytes)
-
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +145,6 @@ func LoadAndVerifyECSecrets(keyPEM, certPEM, caCertPEM []byte) (key *ecdsa.Priva
 
 	// Parse the key
 	key, err = LoadEllipticCurveKey(keyPEM)
-
 	if err != nil {
 		return nil, nil, nil, err
 	}
