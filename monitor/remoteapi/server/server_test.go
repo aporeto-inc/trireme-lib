@@ -1,13 +1,19 @@
 package server
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/monitor/processor/mock"
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -282,4 +288,154 @@ func TestValidateEvent(t *testing.T) {
 		})
 
 	})
+}
+
+func TestCreate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a new server", t, func() {
+		reg := registerer.New()
+		s, err := NewEventServer("/tmp/trireme.sock", reg)
+		proc := mockprocessor.NewMockProcessor(ctrl)
+		reg.RegisterProcessor(common.ContainerPU, proc)
+
+		So(err, ShouldBeNil)
+
+		Convey("Given a valid event, I should get 200 response.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				PID:       int32(os.Getpid()),
+				Name:      "Container",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"bridge": "172.17.0.1"},
+			}
+
+			proc.EXPECT().Start(gomock.Any(), gomock.Any()).Return(nil)
+
+			b := new(bytes.Buffer)
+			err := json.NewEncoder(b).Encode(event)
+			So(err, ShouldBeNil)
+
+			req := httptest.NewRequest("POST", "http://unix", b)
+			req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
+			w := httptest.NewRecorder()
+			s.create(w, req)
+
+			So(w.Result().StatusCode, ShouldEqual, http.StatusAccepted)
+		})
+
+		Convey("Given bad json a BadRequest", func() {
+
+			b := new(bytes.Buffer)
+			b.WriteString("garbage")
+
+			req := httptest.NewRequest("POST", "http://unix", b)
+
+			w := httptest.NewRecorder()
+			s.create(w, req)
+
+			So(w.Result().StatusCode, ShouldEqual, http.StatusBadRequest)
+		})
+
+		Convey("Given bad event type, I should get BadRequest ", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				PID:       -1,
+				Name:      "^^^^",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"bridge": "172.17.0.1"},
+			}
+
+			b := new(bytes.Buffer)
+			err := json.NewEncoder(b).Encode(event)
+			So(err, ShouldBeNil)
+
+			req := httptest.NewRequest("POST", "http://unix", b)
+			// req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
+			w := httptest.NewRecorder()
+			s.create(w, req)
+
+			So(w.Result().StatusCode, ShouldEqual, http.StatusBadRequest)
+		})
+
+		Convey("Given a bad user request, I should get StatusForbidden ", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				PID:       1,
+				Name:      "name",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"bridge": "172.17.0.1"},
+			}
+
+			b := new(bytes.Buffer)
+			err := json.NewEncoder(b).Encode(event)
+			So(err, ShouldBeNil)
+
+			req := httptest.NewRequest("POST", "http://unix", b)
+			req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
+			w := httptest.NewRecorder()
+			s.create(w, req)
+
+			So(w.Result().StatusCode, ShouldEqual, http.StatusForbidden)
+		})
+
+		Convey("Given a bad event, I should get BadRequest ", func() {
+			event := &common.EventInfo{
+				EventType:          common.EventStart,
+				PUType:             common.ContainerPU,
+				PID:                int32(os.Getpid()),
+				Name:               "",
+				Cgroup:             "/trireme/123",
+				NS:                 "/var/run/docker/netns/6f7287cc342b",
+				IPs:                map[string]string{"bridge": "172.17.0.1"},
+				HostService:        true,
+				NetworkOnlyTraffic: true,
+			}
+
+			b := new(bytes.Buffer)
+			err := json.NewEncoder(b).Encode(event)
+			So(err, ShouldBeNil)
+
+			req := httptest.NewRequest("POST", "http://unix", b)
+			req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
+			w := httptest.NewRecorder()
+			s.create(w, req)
+
+			So(w.Result().StatusCode, ShouldEqual, http.StatusBadRequest)
+		})
+
+		Convey("Given a valid event,where the processor fails, I should get InternalServerError.", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				PID:       int32(os.Getpid()),
+				Name:      "Container",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"bridge": "172.17.0.1"},
+			}
+
+			proc.EXPECT().Start(gomock.Any(), gomock.Any()).Return(errors.New("some error"))
+
+			b := new(bytes.Buffer)
+			err := json.NewEncoder(b).Encode(event)
+			So(err, ShouldBeNil)
+
+			req := httptest.NewRequest("POST", "http://unix", b)
+			req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
+			w := httptest.NewRecorder()
+			s.create(w, req)
+
+			So(w.Result().StatusCode, ShouldEqual, http.StatusInternalServerError)
+		})
+
+	})
+
 }
