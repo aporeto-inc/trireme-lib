@@ -26,11 +26,11 @@ before_install:
   - gometalinter.v1 --install
 
 install:
-  - mkdir -p vendor
-  - govendor fetch -tree github.com/docker/docker/client
   - cd $GOPATH/src/github.com/aporeto-inc && git clone https://github.com/aporeto-inc/netlink-go.git && cd -
   - cd $GOPATH/src/github.com/aporeto-inc/netlink-go && git checkout context && cd - 
   - go get -t -v ./...
+  - mkdir -p vendor
+  - govendor fetch -tree github.com/docker/docker/client
 
 script:
   - gometalinter.v1 --vendor --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=gosimple --enable=staticcheck --enable=unused --enable=misspell --deadline=5m ./...
