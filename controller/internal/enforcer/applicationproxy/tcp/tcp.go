@@ -20,6 +20,7 @@ import (
 
 	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -575,7 +576,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 		return false, err
 	}
 
-	if puContext.Type() == constants.LinuxProcessPU {
+	if puContext.Type() == common.LinuxProcessPU {
 		//Are we client or server proxy
 
 		if len(puContext.Ports()) > 0 && puContext.Ports()[0] != "0" {

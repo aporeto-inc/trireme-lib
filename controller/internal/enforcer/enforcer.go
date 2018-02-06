@@ -178,7 +178,7 @@ func New(
 		puFromContextID,
 	)
 
-	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, puFromContextID, mutualAuthorization)
+	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, puFromContextID, mutualAuthorization, secrets)
 
 	return &enforcer{
 		proxy:     tcpProxy,
