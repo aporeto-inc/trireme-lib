@@ -298,7 +298,8 @@ func TestCreate(t *testing.T) {
 		reg := registerer.New()
 		s, err := NewEventServer("/tmp/trireme.sock", reg)
 		proc := mockprocessor.NewMockProcessor(ctrl)
-		reg.RegisterProcessor(common.ContainerPU, proc)
+		procerr := reg.RegisterProcessor(common.ContainerPU, proc)
+		So(procerr, ShouldBeNil)
 
 		So(err, ShouldBeNil)
 
