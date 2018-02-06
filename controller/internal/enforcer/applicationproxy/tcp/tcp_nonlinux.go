@@ -66,7 +66,7 @@ type sockaddr struct {
 }
 
 // NewProxy creates a new instance of proxy reate a new instance of Proxy
-func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool) *Proxy {
+func NewProxy(listen string, forward bool, encrypt bool, tp tokenaccessor.TokenAccessor, c collector.EventCollector, contextTracker cache.DataStore, mutualAuthorization bool, secrets secrets.Secrets) *Proxy {
 
 	return &Proxy{
 		Forward:             forward,

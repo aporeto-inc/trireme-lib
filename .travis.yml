@@ -22,10 +22,12 @@ env:
 before_install:
   - go get -u gopkg.in/alecthomas/gometalinter.v1
   - go get -v github.com/Masterminds/glide
+  - go get -u github.com/kardianos/govendor
   - gometalinter.v1 --install
 
 install:
-  - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b 1.13.x docker && cd -
+  - mkdir -p vendor
+  - govendor fetch -tree github.com/docker/docker/client
   - cd $GOPATH/src/github.com/aporeto-inc && git clone https://github.com/aporeto-inc/netlink-go.git && cd -
   - cd $GOPATH/src/github.com/aporeto-inc/netlink-go && git checkout context && cd - 
   - go get -t -v ./...

@@ -234,7 +234,6 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 	}
 
 	for _, c := range containers {
-		// go func(c types.Container) {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 		if err != nil {
 			continue
@@ -259,7 +258,6 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 				zap.Error(err),
 			)
 		}
-		// }(c)
 	}
 
 	return nil

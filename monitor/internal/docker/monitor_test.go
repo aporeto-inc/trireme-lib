@@ -7,7 +7,6 @@ import (
 	"os"
 	"syscall"
 	"testing"
-	"time"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	tevents "github.com/aporeto-inc/trireme-lib/common"
@@ -17,6 +16,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy/mock"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
 
+	"github.com/aporeto-inc/trireme-lib/mock"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -87,6 +87,21 @@ func initTestMessage(id string) *events.Message {
 	testMessage.ID = id
 
 	return &testMessage
+}
+
+func defaultContainer() types.ContainerJSON {
+	c := types.ContainerJSON{&types.ContainerJSONBase{}, nil, nil, nil}
+	c.ID = ID
+	c.State = &types.ContainerState{
+		Running: true,
+		Paused:  false,
+	}
+	c.Config = &container.Config{Labels: map[string]string{"app": "web"}}
+	c.NetworkSettings = &types.NetworkSettings{}
+	c.NetworkSettings.IPAddress = "127.2.2.2"
+	c.HostConfig = &container.HostConfig{NetworkMode: "bridge"}
+
+	return c
 }
 
 func TestNewDockerMonitor(t *testing.T) {
@@ -207,10 +222,14 @@ func setupDockerMonitor(ctrl *gomock.Controller) (*DockerMonitor, *mockpolicy.Mo
 	})
 	So(err, ShouldBeNil)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
+	mockDocker := mockdocker.NewMockCommonAPIClient(ctrl)
+	dm.dockerClient = mockDocker
 
-	err = dm.Run(ctx)
+	// ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	// defer cancel()
+	// // mockDocker.EXPECT().Ping(gomock.Any()).Return(types.Ping{}, nil)
+
+	// err = dm.Run(ctx)
 	// err = dm.waitForDockerDaemon(ctx)
 	So(err, ShouldBeNil)
 	return dm, mockPolicy
@@ -351,93 +370,125 @@ func TestStopDockerContainer(t *testing.T) {
 	})
 }
 
-// func TestHandleCreateEvent(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+func TestHandleCreateEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// 	Convey("When I try to initialize a new docker monitor", t, func() {
+	Convey("When I try to initialize a new docker monitor", t, func() {
 
-// 		dmi, mockPU := setupDockerMonitor(ctrl)
+		dmi, mockPU := setupDockerMonitor(ctrl)
+		Convey("Then docker monitor should not be nil", func() {
+			So(dmi, ShouldNotBeNil)
+		})
 
-// 		Convey("Then docker monitor should not be nil", func() {
-// 			So(dmi, ShouldNotBeNil)
-// 		})
+		Convey("When I try to handle create event", func() {
+			dmi.SetupHandlers(&config.ProcessorConfig{
+				Collector: eventCollector(),
+				Policy:    mockPU,
+			})
 
-// 		Convey("When I try to handle create event", func() {
-// 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), "74cc486f9ec3", tevents.EventCreate, gomock.Any()).Times(1).Return(nil)
-// 			dmi.SetupHandlers(&config.ProcessorConfig{
-// 				Collector: eventCollector(),
-// 				Policy:    mockPU,
-// 			})
-// 			err := dmi.handleCreateEvent(context.Background(), initTestMessage(ID))
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+			mockPU.EXPECT().
+				HandlePUEvent(gomock.Any(), ID[:12], tevents.EventCreate, gomock.Any()).Times(1).Return(nil)
 
-// 			Convey("Then I should not get any error", func() {
-// 				So(err, ShouldBeNil)
-// 			})
-// 		})
+			err := dmi.handleCreateEvent(context.Background(), initTestMessage(ID))
 
-// 		Convey("When I try to handle create event with no ID given", func() {
-// 			err := dmi.handleCreateEvent(context.Background(), initTestMessage(""))
+			Convey("Then I should not get any error", func() {
+				So(err, ShouldBeNil)
+			})
+		})
 
-// 			Convey("Then I should get error", func() {
-// 				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
-// 			})
-// 		})
-// 	})
-// }
+		Convey("When I try to handle create event with failed container ", func() {
+			dmi.SetupHandlers(&config.ProcessorConfig{
+				Collector: eventCollector(),
+				Policy:    mockPU,
+			})
 
-// func TestHandleStartEvent(t *testing.T) {
-// 	ctrl := gomock.NewController(t)
-// 	defer ctrl.Finish()
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), errors.New("error1"))
+			err := dmi.handleCreateEvent(context.Background(), initTestMessage(ID))
 
-// 	Convey("When I try to initialize a new docker monitor", t, func() {
+			Convey("Then I should get error", func() {
+				So(err, ShouldResemble, errors.New("unable to read container information: container 74cc486f9ec3256d7bee789853ce05510167c7daf893f90a7577cdcba259d063 kept alive per policy: error1"))
+			})
+		})
 
-// 		dmi, _ := setupDockerMonitor(ctrl)
+		Convey("When I try to handle create event with no ID given", func() {
+			err := dmi.handleCreateEvent(context.Background(), initTestMessage(""))
 
-// 		Convey("Then docker monitor should not be nil", func() {
-// 			So(dmi, ShouldNotBeNil)
-// 		})
+			Convey("Then I should get error", func() {
+				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
+			})
+		})
+	})
+}
 
-// 		Convey("When I try to handle start event", func() {
-// 			options := types.ContainerListOptions{All: true}
-// 			containers, err := dmi.dockerClient.ContainerList(context.Background(), options)
+func TestHandleStartEvent(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 
-// 			if err == nil && len(containers) > 0 {
+	Convey("When I try to initialize a new docker monitor", t, func() {
 
-// 				err = dmi.handleStartEvent(context.Background(), initTestMessage(ID))
+		dmi, mockPU := setupDockerMonitor(ctrl)
+		Convey("Then docker monitor should not be nil", func() {
+			So(dmi, ShouldNotBeNil)
+		})
 
-// 				Convey("Then I should get error", func() {
-// 					So(err, ShouldResemble, errors.New("unable to read container information: container 74cc486f9ec3 kept alive per policy: Error: No such container: 74cc486f9ec3256d7bee789853ce05510167c7daf893f90a7577cdcba259d063"))
-// 				})
-// 			}
-// 		})
+		dmi.SetupHandlers(&config.ProcessorConfig{
+			Collector: eventCollector(),
+			Policy:    mockPU,
+		})
 
-// 		Convey("When I try to handle start event with no ID given", func() {
-// 			err := dmi.handleStartEvent(context.Background(), initTestMessage(""))
+		Convey("When I try to handle start event with a valid container", func() {
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+			mockPU.EXPECT().
+				HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).Times(1).Return(nil)
 
-// 			Convey("Then I should get error", func() {
-// 				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
-// 			})
-// 		})
+			err := dmi.handleStartEvent(context.Background(), initTestMessage(ID))
+			Convey("Then I should get no errors", func() {
+				So(err, ShouldBeNil)
+			})
+		})
 
-// 		Convey("When I try to handle start event with invalid ID given and killContainerOnPolicyError is set", func() {
-// 			dmi.killContainerOnPolicyError = true
-// 			err := dmi.handleStartEvent(context.Background(), initTestMessage("74cc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
+		Convey("When I try to handle start event with a bad container", func() {
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), errors.New("error"))
 
-// 			Convey("Then I should get error", func() {
-// 				So(err, ShouldResemble, errors.New("unable to read container information: container 74cc486f9ec3 killed: Error: No such container: 74cc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
-// 			})
-// 		})
+			err := dmi.handleStartEvent(context.Background(), initTestMessage(ID))
 
-// 		Convey("When I try to handle start event with invalid ID given", func() {
-// 			err := dmi.handleStartEvent(context.Background(), initTestMessage("abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
+			Convey("Then I should get error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
 
-// 			Convey("Then I should get error", func() {
-// 				So(err, ShouldResemble, errors.New("unable to read container information: container abcc486f9ec3 kept alive per policy: Error: No such container: abcc486f9ec3256d7bee789853ce05510117c7daf893f90a7577cdcba259d063"))
-// 			})
-// 		})
-// 	})
-// }
+		Convey("When I try to handle start event with no ID given", func() {
+			container := defaultContainer()
+			container.ID = ""
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), gomock.Any()).Return(container, nil)
+
+			err := dmi.handleStartEvent(context.Background(), initTestMessage(""))
+
+			Convey("Then I should get error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+
+		Convey("When I try to handle start event with a valid container and policy fails", func() {
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(defaultContainer(), nil)
+			mockPU.EXPECT().
+				HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).Times(1).Return(errors.New("policy"))
+
+			err := dmi.handleStartEvent(context.Background(), initTestMessage(ID))
+			Convey("Then I should an error", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+	})
+}
 
 func TestHandleDieEvent(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -610,106 +661,27 @@ func TestSyncContainers(t *testing.T) {
 		})
 
 		Convey("When I try to call sync containers", func() {
-			options := types.ContainerListOptions{All: true}
-			containers, err := dmi.dockerClient.ContainerList(context.Background(), options)
-			if err == nil && len(containers) > 0 {
-				mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
-				dmi.SetupHandlers(&config.ProcessorConfig{
-					Collector: eventCollector(),
-					Policy:    mockPU,
-				})
-				err = dmi.ReSync(context.Background())
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, nil)
 
-				Convey("Then I should not get any error", func() {
-					So(err, ShouldBeNil)
-				})
-			}
-		})
-	})
+			c := defaultContainer()
 
-	Convey("When I try to initialize a new docker monitor with synchandler", t, func() {
+			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
+				ContainerInspect(gomock.Any(), ID).Return(c, nil)
 
-		dmi, mockPU := setupDockerMonitor(ctrl)
+			mockPU.EXPECT().HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
+			dmi.SetupHandlers(&config.ProcessorConfig{
+				Collector: eventCollector(),
+				Policy:    mockPU,
+			})
+			dmi.syncAtStart = true
 
-		Convey("Then docker monitor should not be nil", func() {
-			So(dmi, ShouldNotBeNil)
-		})
+			err := dmi.ReSync(context.Background())
 
-		Convey("When I try to call sync containers", func() {
-			options := types.ContainerListOptions{All: true}
-			containers, err := dmi.dockerClient.ContainerList(context.Background(), options)
-			if err == nil && len(containers) > 0 {
-				mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
-				dmi.SetupHandlers(&config.ProcessorConfig{
-					Collector: eventCollector(),
-					Policy:    mockPU,
-				})
-				err = dmi.ReSync(context.Background())
+			Convey("Then I should not get any error", func() {
+				So(err, ShouldBeNil)
+			})
 
-				Convey("Then I should not get any error", func() {
-					So(err, ShouldBeNil)
-				})
-			}
-		})
-	})
-}
-
-func TestStart(t *testing.T) {
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	Convey("When I try to initialize a new docker monitor with syncatstart set to false", t, func() {
-
-		dmi, _ := setupDockerMonitor(ctrl)
-
-		Convey("Then docker monitor should not be nil", func() {
-			So(dmi, ShouldNotBeNil)
-		})
-
-		Convey("When I try to call extractmetadata with nil docker info", func() {
-
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			_, pingerr := dmi.dockerClient.Ping(ctx)
-			if pingerr != nil {
-				err := dmi.Run(context.Background())
-				Convey("I should get error", func() {
-					So(err, ShouldResemble, errors.New("docker daemon not running"))
-				})
-			} else {
-
-				err := dmi.Run(context.Background())
-				Convey("I should not get error", func() {
-					So(err, ShouldBeNil)
-				})
-			}
-		})
-	})
-
-	Convey("When I try to initialize a new docker monitor", t, func() {
-
-		dmi, mockPU := setupDockerMonitor(ctrl)
-
-		Convey("Then docker monitor should not be nil", func() {
-			So(dmi, ShouldNotBeNil)
-		})
-
-		Convey("When I try to call extractmetadata with nil docker info", func() {
-			options := types.ContainerListOptions{All: true}
-			containers, err := dmi.dockerClient.ContainerList(context.Background(), options)
-			if err == nil && len(containers) > 0 {
-				mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
-				dmi.SetupHandlers(&config.ProcessorConfig{
-					Collector: eventCollector(),
-					Policy:    mockPU,
-				})
-				err := dmi.Run(context.Background())
-
-				Convey("I should not get any error", func() {
-					So(err, ShouldBeNil)
-				})
-			}
 		})
 	})
 }
