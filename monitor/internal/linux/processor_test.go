@@ -151,7 +151,6 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a valid processor", t, func() {
 		puHandler := mockpolicy.NewMockResolver(ctrl)
-
 		p := testLinuxProcessor(puHandler)
 
 		Convey("When I get a start event with no PUID", func() {
@@ -164,9 +163,20 @@ func TestStart(t *testing.T) {
 			})
 		})
 
+		Convey("When I get a start event that is valid that fails on the generation of PU ID", func() {
+			event := &common.EventInfo{
+				Name: "^^^",
+			}
+			Convey("I should get an error", func() {
+				err := p.Start(context.Background(), event)
+				So(err, ShouldNotBeNil)
+			})
+		})
+
 		Convey("When I get a start event that is valid that fails on the metadata extractor", func() {
 			event := &common.EventInfo{
-				Name: "PU",
+				Name: "service",
+				Tags: []string{"badtag"},
 			}
 			Convey("I should get an error", func() {
 				err := p.Start(context.Background(), event)
