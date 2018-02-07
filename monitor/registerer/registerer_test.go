@@ -53,12 +53,12 @@ func TestRegisterProcessor(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
-		Convey("If I ask for the hanlder, with a non-existend PU Type I should get an error ", func() {
+		Convey("If I ask for the handler with a bad PUType, I should get an error ", func() {
 			_, err := r.GetHandler(common.LinuxProcessPU, common.EventCreate)
 			So(err, ShouldNotBeNil)
 		})
 
-		Convey("If I ask for the hanlder, with a bad event, I should get an error ", func() {
+		Convey("If I ask for the handler, with a bad event, I should get an error ", func() {
 			_, err := r.GetHandler(common.LinuxProcessPU, common.Event(300))
 			So(err, ShouldNotBeNil)
 		})
