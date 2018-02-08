@@ -28,6 +28,10 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 		user = ""
 	}
 
+	if event.Name == "" {
+		event.Name = event.PUID
+	}
+
 	// TODO: improve with additional information here.
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,

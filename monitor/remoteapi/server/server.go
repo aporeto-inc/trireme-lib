@@ -96,7 +96,7 @@ func (e *EventServer) create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validateUser(r, event); err != nil {
-		http.Error(w, fmt.Sprintf("Invalid user to pid mapping"), http.StatusForbidden)
+		http.Error(w, fmt.Sprintf("Invalid user to pid mapping found: %s", err), http.StatusForbidden)
 		return
 	}
 
@@ -144,7 +144,7 @@ func validateUser(r *http.Request, event *common.EventInfo) error {
 	}
 
 	// Accept all requests from root users
-	if parts[0] == "0" && parts[1] == "0" {
+	if parts[0] == "0" {
 		return nil
 	}
 
@@ -168,7 +168,7 @@ func validateUser(r *http.Request, event *common.EventInfo) error {
 	}
 
 	if !match {
-		return fmt.Errorf("Invalid user - no access to this process")
+		return fmt.Errorf("Invalid user - no access to this process: %+v PARTS: %+v", event, parts)
 	}
 
 	return nil

@@ -264,9 +264,10 @@ func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 // DeleteCgroup will issue a delete command based on the cgroup
 // This is used mainly by the cleaner.
 func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
-	regexCgroup := regexp.MustCompile("^/trireme(_uid){0,1}/[a-zA-Z0-9_:.$%]{1,64}$")
+	regexCgroup := regexp.MustCompile(`^/trireme/[a-zA-Z0-9_\-:.$%]{1,64}$`)
+	regexUser := regexp.MustCompile(`^/trireme_uid/[a-zA-Z0-9_\-]{1,32}(/[0-9]{1,32}){0,1}$`)
 
-	if !regexCgroup.Match([]byte(c.Cgroup)) {
+	if !regexCgroup.Match([]byte(c.Cgroup)) && !regexUser.Match([]byte(c.Cgroup)) {
 		return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
 	}
 

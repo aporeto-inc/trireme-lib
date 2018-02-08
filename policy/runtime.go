@@ -243,5 +243,7 @@ func (r *PURuntime) SetServices(services []common.Service) {
 	r.Lock()
 	defer r.Unlock()
 
-	r.options.Services = services
+	if r.options != nil {
+		r.options.Services = services
+	}
 }
