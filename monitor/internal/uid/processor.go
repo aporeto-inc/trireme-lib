@@ -53,15 +53,6 @@ type puToPidEntry struct {
 	publishedContextID string
 }
 
-func baseName(name, separator string) string {
-
-	lastseparator := strings.LastIndex(name, separator)
-	if len(name) <= lastseparator {
-		return ""
-	}
-	return name[lastseparator+1:]
-}
-
 // Start handles start events
 func (u *uidProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) error {
 
@@ -204,11 +195,7 @@ func (u *uidProcessor) Stop(ctx context.Context, eventInfo *common.EventInfo) er
 		zap.L().Warn("Failed to remove entry in the cache", zap.Error(err), zap.String("puID", puID))
 	}
 
-	err := u.netcls.DeleteCgroup(strings.TrimRight(userID, "/"))
-	if err != nil {
-	}
-
-	return err
+	return u.netcls.DeleteCgroup(strings.TrimRight(userID, "/"))
 }
 
 // Create handles create events
