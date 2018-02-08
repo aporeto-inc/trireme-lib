@@ -37,6 +37,9 @@ type RuntimeReader interface {
 
 	// Returns the PUType for the PU
 	PUType() common.PUType
+
+	// SetServices sets the services of the runtime.
+	SetServices(services []common.Service)
 }
 
 // A Resolver must be implemnted by a policy engine that receives monitor events.

@@ -237,3 +237,11 @@ func (r *PURuntime) Options() OptionsType {
 
 	return *r.options
 }
+
+// SetServices updates the services of the runtime.
+func (r *PURuntime) SetServices(services []common.Service) {
+	r.Lock()
+	defer r.Unlock()
+
+	r.options.Services = services
+}
