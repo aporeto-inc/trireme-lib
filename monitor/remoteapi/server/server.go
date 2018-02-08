@@ -177,8 +177,8 @@ func validateUser(r *http.Request, event *common.EventInfo) error {
 // validateTypes validates the various types and prevents any bad strings.
 func validateTypes(event *common.EventInfo) error {
 
-	regexStrings := regexp.MustCompile("^[a-zA-Z0-9_:.$%/]{0,64}$")
-	regexNS := regexp.MustCompile("^[a-zA-Z0-9/]{0,128}$")
+	regexStrings := regexp.MustCompile("^[a-zA-Z0-9_:.$%/-]{0,64}$")
+	regexNS := regexp.MustCompile("^[a-zA-Z0-9/-]{0,128}$")
 	regexCgroup := regexp.MustCompile("^/trireme/(uid/){0,1}[a-zA-Z0-9_:.$%]{1,64}$")
 
 	if _, ok := common.EventMap[event.EventType]; !ok {
