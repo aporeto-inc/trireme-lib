@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -189,6 +190,7 @@ func newTrireme(c *config) TriremeController {
 		enforcers:            map[constants.ModeType]enforcer.Enforcer{},
 		supervisors:          map[constants.ModeType]supervisor.Supervisor{},
 		puTypeToEnforcerType: map[common.PUType]constants.ModeType{},
+		locks:                sync.Map{},
 	}
 
 	zap.L().Debug("Creating Enforcers")

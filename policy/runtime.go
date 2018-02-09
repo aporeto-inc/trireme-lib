@@ -24,10 +24,6 @@ type PURuntime struct {
 	// options
 	options *OptionsType
 
-	// GlobalLock is used by Trireme to make sure that two operations do not
-	// get interleaved for the same container.
-	GlobalLock *sync.Mutex
-
 	sync.Mutex
 }
 
@@ -67,14 +63,13 @@ func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips Exten
 	}
 
 	return &PURuntime{
-		puType:     puType,
-		tags:       tags,
-		ips:        ips,
-		options:    options,
-		pid:        pid,
-		nsPath:     nsPath,
-		name:       name,
-		GlobalLock: &sync.Mutex{},
+		puType:  puType,
+		tags:    tags,
+		ips:     ips,
+		options: options,
+		pid:     pid,
+		nsPath:  nsPath,
+		name:    name,
 	}
 }
 

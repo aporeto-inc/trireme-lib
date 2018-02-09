@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -30,6 +31,7 @@ type trireme struct {
 	puTypeToEnforcerType map[common.PUType]constants.ModeType
 	port                 allocator.Allocator
 	rpchdl               rpcwrapper.RPCClient
+	locks                sync.Map
 }
 
 // New returns a trireme interface implementation based on configuration provided.
@@ -87,17 +89,32 @@ func (t *trireme) CleanUp() error {
 
 // Enforce asks the controller to enforce policy to a processing unit
 func (t *trireme) Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
 	return t.doHandleCreate(puID, policy, runtime)
 }
 
 // Enforce asks the controller to enforce policy to a processing unit
 func (t *trireme) UnEnforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
+	lock, _ := t.locks.LoadOrStore(puID, &sync.Mutex{})
+	lock.(*sync.Mutex).Lock()
+	defer func() {
+		t.locks.Delete(puID)
+		lock.(*sync.Mutex).Unlock()
+	}()
 	return t.doHandleDelete(puID, policy, runtime)
 }
 
 // UpdatePolicy updates a policy for an already activated PU. The PU is identified by the contextID
 func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUPolicy, runtime *policy.PURuntime) error {
+	lock, ok := t.locks.Load(puID)
+	if !ok {
+		return nil
+	}
 
+	lock.(*sync.Mutex).Lock()
+	defer lock.(*sync.Mutex).Unlock()
 	return t.doUpdatePolicy(puID, plc, runtime)
 }
 
@@ -135,8 +152,6 @@ func (t *trireme) UpdateConfiguration(networks []string) error {
 // doHandleCreate is the detailed implementation of the create event.
 func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, runtimeInfo *policy.PURuntime) error {
 
-	runtimeInfo.GlobalLock.Lock()
-
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, policyInfo, runtimeInfo)
 	newOptions := containerInfo.Runtime.Options()
 	newOptions.ProxyPort = t.port.Allocate()
@@ -151,7 +166,6 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 
 	defer func() {
 		t.config.collector.CollectContainerEvent(logEvent)
-		runtimeInfo.GlobalLock.Unlock()
 	}()
 
 	addTransmitterLabel(contextID, containerInfo)
@@ -183,10 +197,6 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 // doHandleDelete is the detailed implementation of the delete event.
 func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runtime *policy.PURuntime) error {
 
-	// Serialize operations
-	runtime.GlobalLock.Lock()
-	defer runtime.GlobalLock.Unlock()
-
 	t.config.collector.CollectContainerEvent(&collector.ContainerRecord{
 		ContextID: contextID,
 		IPAddress: runtime.IPAddresses(),
@@ -210,10 +220,6 @@ func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runt
 // doUpdatePolicy is the detailed implementation of the update policy event.
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, runtime *policy.PURuntime) error {
 
-	// Serialize operations
-	runtime.GlobalLock.Lock()
-	defer runtime.GlobalLock.Unlock()
-
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtime)
 
 	addTransmitterLabel(contextID, containerInfo)
@@ -224,7 +230,7 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 
 	if err := t.enforcers[t.puTypeToEnforcerType[containerInfo.Runtime.PUType()]].Enforce(contextID, containerInfo); err != nil {
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
-		zap.L().Warn("Re-initializing enforcers - connection lost")
+		zap.L().Warn("Re-initializing enforcers - connection lost", zap.Error(err))
 		if containerInfo.Runtime.PUType() == common.ContainerPU {
 			//The unsupervise and unenforce functions just make changes to the proxy structures
 			//and do not depend on the remote instance running and can be called here
