@@ -9,10 +9,8 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
-	"github.com/shirou/gopsutil/process"
 
 	"github.com/aporeto-inc/trireme-lib/common"
 )
@@ -137,39 +135,39 @@ func (e *EventServer) processEvent(ctx context.Context, eventInfo *common.EventI
 // any event.
 func validateUser(r *http.Request, event *common.EventInfo) error {
 
-	// Find the calling user.
-	parts := strings.Split(r.RemoteAddr, ":")
-	if len(parts) != 3 {
-		return fmt.Errorf("Invalid user context")
-	}
+	// // Find the calling user.
+	// parts := strings.Split(r.RemoteAddr, ":")
+	// if len(parts) != 3 {
+	// 	return fmt.Errorf("Invalid user context")
+	// }
 
-	// Accept all requests from root users
-	if parts[0] == "0" {
-		return nil
-	}
+	// // Accept all requests from root users
+	// if parts[0] == "0" {
+	// 	return nil
+	// }
 
-	// The target process must be valid.
-	p, err := process.NewProcess(event.PID)
-	if err != nil {
-		return fmt.Errorf("Process not found")
-	}
+	// // The target process must be valid.
+	// p, err := process.NewProcess(event.PID)
+	// if err != nil {
+	// 	return fmt.Errorf("Process not found")
+	// }
 
-	// The UID of the calling process must match the UID of the target process.
-	uids, err := p.Uids()
-	if err != nil {
-		return fmt.Errorf("Unknown user ID")
-	}
+	// // The UID of the calling process must match the UID of the target process.
+	// uids, err := p.Uids()
+	// if err != nil {
+	// 	return fmt.Errorf("Unknown user ID")
+	// }
 
-	match := false
-	for _, uid := range uids {
-		if strconv.Itoa(int(uid)) == parts[1] {
-			match = true
-		}
-	}
+	// match := false
+	// for _, uid := range uids {
+	// 	if strconv.Itoa(int(uid)) == parts[1] {
+	// 		match = true
+	// 	}
+	// }
 
-	if !match {
-		return fmt.Errorf("Invalid user - no access to this process: %+v PARTS: %+v", event, parts)
-	}
+	// if !match {
+	// 	return fmt.Errorf("Invalid user - no access to this process: %+v PARTS: %+v", event, parts)
+	// }
 
 	return nil
 }

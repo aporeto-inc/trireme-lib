@@ -20,6 +20,9 @@ import (
 	"github.com/shirou/gopsutil/process"
 )
 
+// LinuxMetadataExtractorType is a type of Linux metadata extractors
+type LinuxMetadataExtractorType func(event *common.EventInfo) (*policy.PURuntime, error)
+
 // DefaultHostMetadataExtractor is a host specific metadata extractor
 func DefaultHostMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 

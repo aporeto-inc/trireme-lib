@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -37,6 +38,7 @@ type linuxProcessor struct {
 	netcls            cgnetcls.Cgroupnetcls
 	regStart          *regexp.Regexp
 	regStop           *regexp.Regexp
+	sync.Mutex
 }
 
 func baseName(name, separator string) string {
@@ -85,12 +87,14 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 		return fmt.Errorf("Unable to start PU: %s", err)
 	}
 
+	l.Lock()
 	// We can now program cgroups and everything else.
 	if eventInfo.HostService {
 		err = l.processHostServiceStart(eventInfo, runtime)
 	} else {
 		err = l.processLinuxServiceStart(nativeID, eventInfo, runtime)
 	}
+	l.Unlock()
 	if err != nil {
 		return fmt.Errorf("Failed to program cgroups: %s", err)
 	}
@@ -149,6 +153,8 @@ func (l *linuxProcessor) Destroy(ctx context.Context, eventInfo *common.EventInf
 		)
 	}
 
+	l.Lock()
+	defer l.Unlock()
 	if eventInfo.HostService {
 		if err := ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte("0"), 0644); err != nil {
 			return fmt.Errorf("unable to write to net_cls.classid file for new cgroup: %s", err)
@@ -181,7 +187,6 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 
 // ReSync resyncs with all the existing services that were there before we start
 func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
-
 	cgroups := l.netcls.ListAllCgroups("")
 	for _, cgroup := range cgroups {
 		if _, ok := ignoreNames[cgroup]; ok {
