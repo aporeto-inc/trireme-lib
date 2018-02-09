@@ -12,7 +12,6 @@ type Config struct {
 	SocketAddress              string
 	SyncAtStart                bool
 	KillContainerOnPolicyError bool
-	NoProxyMode                bool
 }
 
 // DefaultConfig provides a default configuration
@@ -23,7 +22,6 @@ func DefaultConfig() *Config {
 		SocketAddress:              constants.DefaultDockerSocket,
 		SyncAtStart:                true,
 		KillContainerOnPolicyError: false,
-		NoProxyMode:                false,
 	}
 }
 
