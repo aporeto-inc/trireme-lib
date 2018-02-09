@@ -45,7 +45,6 @@ type DockerMonitor struct {
 	netcls                     cgnetcls.Cgroupnetcls
 	killContainerOnPolicyError bool
 	syncAtStart                bool
-	NoProxyMode                bool
 }
 
 // New returns a new docker monitor.
@@ -82,7 +81,6 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.numberOfQueues = runtime.NumCPU() * 8
 	d.eventnotifications = make([]chan *events.Message, d.numberOfQueues)
 	d.stopprocessor = make([]chan bool, d.numberOfQueues)
-	d.NoProxyMode = dockerConfig.NoProxyMode
 	for i := 0; i < d.numberOfQueues; i++ {
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
 		d.stopprocessor[i] = make(chan bool)
