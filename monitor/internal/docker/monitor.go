@@ -26,6 +26,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -239,7 +240,10 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 
 		puID, _ := puIDFromDockerID(container.ID)
 
-		PURuntime, _ := d.extractMetadata(&container)
+		runtime, err := d.extractMetadata(&container)
+		if err != nil {
+			continue
+		}
 
 		event := common.EventStop
 		if container.State.Running {
@@ -250,7 +254,14 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 			}
 		}
 
-		if err := d.config.Policy.HandlePUEvent(ctx, puID, event, PURuntime); err != nil {
+		if container.HostConfig.NetworkMode == constants.DockerHostMode {
+			options := hostModeOptions(&container)
+			options.PolicyExtensions = runtime.Options().PolicyExtensions
+			runtime.SetOptions(*options)
+			runtime.SetPUType(common.LinuxProcessPU)
+		}
+
+		if err := d.config.Policy.HandlePUEvent(ctx, puID, event, runtime); err != nil {
 			zap.L().Error("Unable to sync existing Container",
 				zap.String("dockerID", c.ID),
 				zap.Error(err),
@@ -293,35 +304,6 @@ func (d *DockerMonitor) setupHostMode(puID string, runtimeInfo *policy.PURuntime
 
 	if err := d.netcls.AddProcess(puID, dockerInfo.State.Pid); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (d *DockerMonitor) startDockerContainer(ctx context.Context, dockerInfo *types.ContainerJSON) error {
-
-	if !dockerInfo.State.Running {
-		return nil
-	}
-
-	puID, err := puIDFromDockerID(dockerInfo.ID)
-	if err != nil {
-		return err
-	}
-
-	runtimeInfo, err := d.extractMetadata(dockerInfo)
-	if err != nil {
-		return err
-	}
-
-	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtimeInfo); err != nil {
-		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", puID, err)
-	}
-
-	if dockerInfo.HostConfig.NetworkMode == constants.DockerHostMode {
-		if err = d.setupHostMode(puID, runtimeInfo, dockerInfo); err != nil {
-			return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
-		}
 	}
 
 	return nil
@@ -377,17 +359,27 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 		return err
 	}
 
-	info, err := d.retrieveDockerInfo(ctx, event)
+	container, err := d.retrieveDockerInfo(ctx, event)
 	if err != nil {
 		return err
 	}
 
-	runtimeInfo, err := d.extractMetadata(info)
+	runtime, err := d.extractMetadata(container)
 	if err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, runtimeInfo)
+	// If it is a host container, we need to activate it as a Linux process. We will
+	// override the options that the metadata extractor provided. We will maintain
+	// any policy extensions in the object.
+	if container.HostConfig.NetworkMode == constants.DockerHostMode {
+		options := hostModeOptions(container)
+		options.PolicyExtensions = runtime.Options().PolicyExtensions
+		runtime.SetOptions(*options)
+		runtime.SetPUType(common.LinuxProcessPU)
+	}
+
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, runtime)
 }
 
 // handleStartEvent will notify the policy engine immediately about the event in order
@@ -395,28 +387,39 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 // that is needed for the remote enforcers.
 func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Message) error {
 
-	info, err := d.retrieveDockerInfo(ctx, event)
+	container, err := d.retrieveDockerInfo(ctx, event)
 	if err != nil {
 		return err
 	}
 
-	if !info.State.Running {
+	if !container.State.Running {
 		return nil
 	}
 
-	puID, err := puIDFromDockerID(info.ID)
+	puID, err := puIDFromDockerID(container.ID)
 	if err != nil {
 		return err
 	}
 
-	pidInfo := policy.NewPURuntime(info.Name, info.State.Pid, "", nil, nil, common.ContainerPU, nil)
+	// If it is a host container, we need to activate it as a Linux process. We will
+	// override the options that the metadata extractor provided.
+	var options *policy.OptionsType
+	puType := common.ContainerPU
+	if container.HostConfig.NetworkMode == constants.DockerHostMode {
+		fmt.Println("Container is in host mode")
+		options = hostModeOptions(container)
+		puType = common.LinuxProcessPU
+	}
 
-	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, pidInfo); err != nil {
+	fmt.Println("I am starting with PUTYPE ", puType)
+	runtime := policy.NewPURuntime(container.Name, container.State.Pid, "", nil, nil, puType, options)
+
+	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
 		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", puID, err)
 	}
 
-	if info.HostConfig.NetworkMode == constants.DockerHostMode {
-		if err = d.setupHostMode(puID, pidInfo, info); err != nil {
+	if container.HostConfig.NetworkMode == constants.DockerHostMode {
+		if err = d.setupHostMode(puID, runtime, container); err != nil {
 			return fmt.Errorf("unable to setup host mode for container %s: %s", puID, err)
 		}
 	}
@@ -566,4 +569,30 @@ func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 	<-listenerReady
 
 	return err
+}
+
+// hostModeOptions creates the default options for a host-mode container. The
+// container must be activated as a Linux Process.
+func hostModeOptions(dockerInfo *types.ContainerJSON) *policy.OptionsType {
+
+	options := policy.OptionsType{
+		CgroupName: strconv.Itoa(dockerInfo.State.Pid),
+		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
+	}
+
+	for p := range dockerInfo.Config.ExposedPorts {
+		if p.Proto() == "tcp" {
+			s, err := portspec.NewPortSpecFromString(p.Port(), nil)
+			if err != nil {
+				continue
+			}
+
+			options.Services = append(options.Services, common.Service{
+				Protocol: uint8(6),
+				Ports:    s,
+			})
+		}
+	}
+
+	return &options
 }
