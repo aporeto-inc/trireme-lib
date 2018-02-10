@@ -37,11 +37,16 @@ func (s *netCls) Creategroup(cgroupname string) error {
 		}
 	}
 
-	if err = os.MkdirAll(filepath.Join(basePath, s.TriremePath, cgroupname), 0700); err != nil {
+	cgroupPath := filepath.Join(basePath, s.TriremePath, cgroupname)
+	if _, err = os.Stat(cgroupPath); err == nil {
+		return nil
+	}
+
+	if err = os.MkdirAll(cgroupPath, 0700); err != nil {
 		return err
 	}
 
-	//Write to the notify on release file and release agent files
+	// Write to the notify on release file and release agent files
 
 	if s.ReleaseAgentPath != "" {
 		err = ioutil.WriteFile(filepath.Join(basePath, releaseAgentConfFile), []byte(s.ReleaseAgentPath), 0644)

@@ -222,6 +222,10 @@ func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error 
 		if err := l.config.Policy.HandlePUEvent(ctx, cgroup, common.EventStart, runtime); err != nil {
 			zap.L().Error("Failed to restart cgroup control", zap.String("cgroup ID", cgroup), zap.Error(err))
 		}
+
+		if err := l.processLinuxServiceStart(cgroup, nil, runtime); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -244,27 +248,8 @@ func (l *linuxProcessor) generateContextID(eventInfo *common.EventInfo) (string,
 
 func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common.EventInfo, runtimeInfo *policy.PURuntime) error {
 
-	list, err := l.netcls.ListCgroupProcesses(nativeID)
-	if err == nil {
-		//cgroup exists and pid might be a member
-		isrestart := func() bool {
-			for _, element := range list {
-				if element == strconv.Itoa(int(event.PID)) {
-					//pid is already there it is restart
-					return true
-				}
-			}
-			return false
-		}()
-
-		if !isrestart {
-			l.netcls.AddProcess(nativeID, int(event.PID)) // nolint
-			return nil
-		}
-	}
-
 	//It is okay to launch this so let us create a cgroup for it
-	err = l.netcls.Creategroup(nativeID)
+	err := l.netcls.Creategroup(nativeID)
 	if err != nil {
 		return err
 	}
@@ -286,12 +271,14 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 		return err
 	}
 
-	err = l.netcls.AddProcess(nativeID, int(event.PID))
-	if err != nil {
-		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
-			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+	if event != nil {
+		err = l.netcls.AddProcess(nativeID, int(event.PID))
+		if err != nil {
+			if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
+				zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
+			}
+			return err
 		}
-		return err
 	}
 
 	return nil

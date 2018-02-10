@@ -364,28 +364,28 @@ func TestCreate(t *testing.T) {
 			So(w.Result().StatusCode, ShouldEqual, http.StatusBadRequest)
 		})
 
-		Convey("Given a bad user request, I should get StatusForbidden ", func() {
-			event := &common.EventInfo{
-				EventType: common.EventStart,
-				PUType:    common.ContainerPU,
-				PID:       1,
-				Name:      "name",
-				Cgroup:    "/trireme/123",
-				NS:        "/var/run/docker/netns/6f7287cc342b",
-				IPs:       map[string]string{"bridge": "172.17.0.1"},
-			}
+		// Convey("Given a bad user request, I should get StatusForbidden ", func() {
+		// 	event := &common.EventInfo{
+		// 		EventType: common.EventStart,
+		// 		PUType:    common.ContainerPU,
+		// 		PID:       1,
+		// 		Name:      "name",
+		// 		Cgroup:    "/trireme/123",
+		// 		NS:        "/var/run/docker/netns/6f7287cc342b",
+		// 		IPs:       map[string]string{"bridge": "172.17.0.1"},
+		// 	}
 
-			b := new(bytes.Buffer)
-			err := json.NewEncoder(b).Encode(event)
-			So(err, ShouldBeNil)
+		// 	b := new(bytes.Buffer)
+		// 	err := json.NewEncoder(b).Encode(event)
+		// 	So(err, ShouldBeNil)
 
-			req := httptest.NewRequest("POST", "http://unix", b)
-			req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
-			w := httptest.NewRecorder()
-			s.create(w, req)
+		// 	req := httptest.NewRequest("POST", "http://unix", b)
+		// 	req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
+		// 	w := httptest.NewRecorder()
+		// 	s.create(w, req)
 
-			So(w.Result().StatusCode, ShouldEqual, http.StatusForbidden)
-		})
+		// 	So(w.Result().StatusCode, ShouldEqual, http.StatusForbidden)
+		// })
 
 		Convey("Given a bad event, I should get BadRequest ", func() {
 			event := &common.EventInfo{
