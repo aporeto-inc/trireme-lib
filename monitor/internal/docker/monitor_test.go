@@ -3,7 +3,6 @@ package dockermonitor
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"reflect"
 	"syscall"
@@ -245,113 +244,6 @@ func setupDockerMonitor(ctrl *gomock.Controller) (*DockerMonitor, *mockpolicy.Mo
 	// err = dm.waitForDockerDaemon(ctx)
 	So(err, ShouldBeNil)
 	return dm, mockPolicy
-}
-
-func TestStartDockerContainer(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	Convey("When I try to initialize a new docker monitor", t, func() {
-
-		dm, mockPU := setupDockerMonitor(ctrl)
-
-		mockCG := mockcgnetcls.NewMockCgroupnetcls(ctrl)
-		Convey("Then docker monitor should not be nil", func() {
-			So(dm, ShouldNotBeNil)
-		})
-
-		Convey("When I try to start default docker container", func() {
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), "74cc486f9ec3", tevents.EventStart, gomock.Any()).Times(1).Return(nil)
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "default", true))
-			Convey("Then I should not get error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I try to start default docker container and state running set to false", func() {
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "default", false))
-			Convey("Then I should not get error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I try to start default docker container with empty ID", func() {
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo("", "default", true))
-			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to generate context id: empty docker id"))
-			})
-		})
-
-		Convey("When I try to start default docker container with invalid context ID and killContainerOnPolicyError not set", func() {
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "default", true))
-
-			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to set policy: container 74cc486f9ec3 kept alive per policy: Error"))
-			})
-		})
-
-		Convey("When I try to start from default docker container with invalid context ID", func() {
-			dm.killContainerOnPolicyError = true
-
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "default", true))
-			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to set policy: container 74cc486f9ec3 kept alive per policy: Error"))
-			})
-		})
-
-		Convey("When I try to start host docker container", func() {
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).Times(1).Return(nil)
-			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
-			mockCG.EXPECT().AssignMark("74cc486f9ec3", uint64(102)).Times(1).Return(nil)
-			mockCG.EXPECT().AddProcess("74cc486f9ec3", int(4912)).Times(1).Return(nil)
-			dm.netcls = mockCG
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "host", true))
-
-			Convey("Then I should not get any error", func() {
-				So(err, ShouldBeNil)
-			})
-		})
-
-		Convey("When I try to start host docker container with error in assigning mark", func() {
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).Times(1).Return(nil)
-			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
-			mockCG.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("error"))
-			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
-			dm.netcls = mockCG
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "host", true))
-
-			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: error"))
-			})
-		})
-
-		Convey("When I try start docker container with error adding process", func() {
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).Times(1).Return(nil)
-			mockCG.EXPECT().Creategroup("74cc486f9ec3").Times(1).Return(nil)
-			mockCG.EXPECT().AssignMark("74cc486f9ec3", uint64(104)).Times(1).Return(nil)
-			mockCG.EXPECT().AddProcess(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("error"))
-			mockCG.EXPECT().DeleteCgroup("74cc486f9ec3").Times(1).Return(nil)
-			dm.netcls = mockCG
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "host", true))
-
-			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: error"))
-			})
-		})
-
-		Convey("When I try to start host docker container with error in create group", func() {
-			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), tevents.EventStart, gomock.Any()).Times(1).Return(nil)
-			mockCG.EXPECT().Creategroup(gomock.Any()).Times(1).Return(fmt.Errorf("Error"))
-			dm.netcls = mockCG
-			err := dm.startDockerContainer(context.Background(), initTestDockerInfo(ID, "host", true))
-
-			Convey("Then I should get error", func() {
-				So(err, ShouldResemble, errors.New("unable to setup host mode for container 74cc486f9ec3: Error"))
-			})
-		})
-	})
 }
 
 func TestStopDockerContainer(t *testing.T) {

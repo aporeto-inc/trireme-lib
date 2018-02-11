@@ -139,6 +139,18 @@ func (mr *MockRuntimeReaderMockRecorder) PUType() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PUType", reflect.TypeOf((*MockRuntimeReader)(nil).PUType))
 }
 
+// SetServices mocks base method
+// nolint
+func (m *MockRuntimeReader) SetServices(services []common.Service) {
+	m.ctrl.Call(m, "SetServices", services)
+}
+
+// SetServices indicates an expected call of SetServices
+// nolint
+func (mr *MockRuntimeReaderMockRecorder) SetServices(services interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetServices", reflect.TypeOf((*MockRuntimeReader)(nil).SetServices), services)
+}
+
 // MockResolver is a mock of Resolver interface
 // nolint
 type MockResolver struct {

@@ -212,9 +212,7 @@ func TestStart(t *testing.T) {
 			p.netcls = mockcls
 
 			Convey("I should get an error ", func() {
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				mockcls.EXPECT().ListCgroupProcesses(gomock.Any()).Return([]string{"1234"}, errors.New("error"))
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil)
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(errors.New("error"))
 
 				err := p.Start(context.Background(), event)
@@ -235,9 +233,7 @@ func TestStart(t *testing.T) {
 			p.netcls = mockcls
 
 			Convey("I should not get an error ", func() {
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
-				mockcls.EXPECT().ListCgroupProcesses(gomock.Any()).Return([]string{"1234"}, errors.New("error"))
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(2).Return(nil)
 				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
 				mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
 				mockcls.EXPECT().AddProcess(gomock.Any(), gomock.Any())
