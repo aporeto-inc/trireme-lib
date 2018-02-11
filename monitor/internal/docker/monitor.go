@@ -406,15 +406,29 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 	var options *policy.OptionsType
 	puType := common.ContainerPU
 	if container.HostConfig.NetworkMode == constants.DockerHostMode {
-		fmt.Println("Container is in host mode")
 		options = hostModeOptions(container)
 		puType = common.LinuxProcessPU
 	}
 
-	fmt.Println("I am starting with PUTYPE ", puType)
 	runtime := policy.NewPURuntime(container.Name, container.State.Pid, "", nil, nil, puType, options)
 
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
+		if d.killContainerOnPolicyError {
+			timeout := 0 * time.Second
+			if err1 := d.dockerClient.ContainerStop(ctx, event.ID, &timeout); err1 != nil {
+				zap.L().Warn("Unable to stop illegal container",
+					zap.String("dockerID", event.ID),
+					zap.Error(err1),
+				)
+			}
+			d.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
+				ContextID: event.ID,
+				IPAddress: nil,
+				Tags:      nil,
+				Event:     collector.ContainerFailed,
+			})
+			return fmt.Errorf("unable to start container because of policy: container %s killed: %s", event.ID, err)
+		}
 		return fmt.Errorf("unable to set policy: container %s kept alive per policy: %s", puID, err)
 	}
 
