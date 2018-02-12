@@ -49,14 +49,3 @@ type Resolver interface {
 	// is responsible to update all components by explicitly adding a new PU.
 	HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime RuntimeReader) error
 }
-
-// A SynchronizationType represents the type of synchronization job.
-type SynchronizationType int
-
-const (
-	// SynchronizationTypeInitial indicates the initial synchronization job.
-	SynchronizationTypeInitial SynchronizationType = iota + 1
-
-	// SynchronizationTypePeriodic indicates subsequent synchronization jobs.
-	SynchronizationTypePeriodic
-)
