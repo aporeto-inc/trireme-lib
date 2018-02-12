@@ -3,6 +3,7 @@ package uidmonitor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,75 +57,7 @@ type puToPidEntry struct {
 // Start handles start events
 func (u *uidProcessor) Start(ctx context.Context, eventInfo *common.EventInfo) error {
 
-	u.Lock()
-	defer u.Unlock()
-
-	if eventInfo.Name == "" {
-		eventInfo.Name = eventInfo.PUID
-	}
-
-	puID := eventInfo.PUID
-	pids, err := u.putoPidMap.Get(puID)
-	var runtimeInfo *policy.PURuntime
-	if err != nil {
-		runtimeInfo, err = u.metadataExtractor(eventInfo)
-		if err != nil {
-			return err
-		}
-
-		publishedContextID := puID
-		// Setup the run time
-		if perr := u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventCreate, runtimeInfo); perr != nil {
-			zap.L().Error("Failed to create process", zap.Error(perr))
-			return perr
-		}
-
-		if perr := u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventStart, runtimeInfo); perr != nil {
-			zap.L().Error("Failed to start process", zap.Error(perr))
-			return perr
-		}
-
-		if err = u.processLinuxServiceStart(puID, eventInfo, runtimeInfo); err != nil {
-			zap.L().Error("processLinuxServiceStart", zap.Error(err))
-			return err
-		}
-
-		u.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
-			ContextID: puID,
-			IPAddress: runtimeInfo.IPAddresses(),
-			Tags:      runtimeInfo.Tags(),
-			Event:     collector.ContainerStart,
-		})
-
-		entry := &puToPidEntry{
-			Info:               runtimeInfo,
-			publishedContextID: publishedContextID,
-			pidlist:            map[int32]bool{},
-		}
-
-		if err := u.putoPidMap.Add(puID, entry); err != nil {
-			zap.L().Warn("Failed to add puID/PU in the cache",
-				zap.Error(err),
-				zap.String("puID", puID),
-			)
-		}
-
-		pids = entry
-	}
-
-	pids.(*puToPidEntry).pidlist[eventInfo.PID] = true
-	if err := u.pidToPU.Add(eventInfo.PID, eventInfo.PUID); err != nil {
-		zap.L().Warn("Failed to add eventInfoPID/eventInfoPUID in the cache",
-			zap.Error(err),
-			zap.Int32("eventInfo.PID", eventInfo.PID),
-			zap.String("eventInfo.PUID", eventInfo.PUID),
-		)
-	}
-
-	pidPath := puID + "/" + strconv.Itoa(int(eventInfo.PID))
-
-	return u.processLinuxServiceStart(pidPath, eventInfo, pids.(*puToPidEntry).Info)
-
+	return u.createAndStart(ctx, eventInfo, false)
 }
 
 // Stop handles a stop event and destroy as well. Destroy does nothing for the uid monitor
@@ -262,26 +195,104 @@ func (u *uidProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
 		}
 
 		event := &common.EventInfo{
-			PID:  activePids[0],
-			PUID: uid,
+			PID:    activePids[0],
+			PUID:   uid,
+			PUType: common.UIDLoginPU,
 		}
 
-		if err := u.Start(ctx, event); err != nil {
+		if err := u.createAndStart(ctx, event, true); err != nil {
 			zap.L().Error("Can not synchronize user", zap.String("user", uid))
 		}
 
 		for i := 1; i < len(activePids); i++ {
 			event := &common.EventInfo{
-				PID:  activePids[i],
-				PUID: uid,
+				PID:    activePids[i],
+				PUID:   uid,
+				PUType: common.UIDLoginPU,
 			}
-			if err := u.Start(ctx, event); err != nil {
+			if err := u.createAndStart(ctx, event, true); err != nil {
 				zap.L().Error("Can not synchronize user", zap.String("user", uid))
 			}
 		}
 	}
 
 	return nil
+}
+
+func (u *uidProcessor) createAndStart(ctx context.Context, eventInfo *common.EventInfo, startOnly bool) error {
+
+	u.Lock()
+	defer u.Unlock()
+
+	if eventInfo.Name == "" {
+		eventInfo.Name = eventInfo.PUID
+	}
+
+	puID := eventInfo.PUID
+	pids, err := u.putoPidMap.Get(puID)
+	var runtimeInfo *policy.PURuntime
+	if err != nil {
+		runtimeInfo, err = u.metadataExtractor(eventInfo)
+		if err != nil {
+			return err
+		}
+
+		publishedContextID := puID
+		// Setup the run time
+		if !startOnly {
+			fmt.Println("RESTARTINT NOT ... ")
+			if perr := u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventCreate, runtimeInfo); perr != nil {
+				zap.L().Error("Failed to create process", zap.Error(perr))
+				return perr
+			}
+		}
+
+		if perr := u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventStart, runtimeInfo); perr != nil {
+			zap.L().Error("Failed to start process", zap.Error(perr))
+			return perr
+		}
+
+		if err = u.processLinuxServiceStart(puID, eventInfo, runtimeInfo); err != nil {
+			zap.L().Error("processLinuxServiceStart", zap.Error(err))
+			return err
+		}
+
+		u.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
+			ContextID: puID,
+			IPAddress: runtimeInfo.IPAddresses(),
+			Tags:      runtimeInfo.Tags(),
+			Event:     collector.ContainerStart,
+		})
+
+		entry := &puToPidEntry{
+			Info:               runtimeInfo,
+			publishedContextID: publishedContextID,
+			pidlist:            map[int32]bool{},
+		}
+
+		if err := u.putoPidMap.Add(puID, entry); err != nil {
+			zap.L().Warn("Failed to add puID/PU in the cache",
+				zap.Error(err),
+				zap.String("puID", puID),
+			)
+		}
+
+		pids = entry
+	}
+
+	pids.(*puToPidEntry).pidlist[eventInfo.PID] = true
+	if err := u.pidToPU.Add(eventInfo.PID, eventInfo.PUID); err != nil {
+		zap.L().Warn("Failed to add eventInfoPID/eventInfoPUID in the cache",
+			zap.Error(err),
+			zap.Int32("eventInfo.PID", eventInfo.PID),
+			zap.String("eventInfo.PUID", eventInfo.PUID),
+		)
+	}
+
+	pidPath := puID + "/" + strconv.Itoa(int(eventInfo.PID))
+
+	return u.processLinuxServiceStart(pidPath, eventInfo, pids.(*puToPidEntry).Info)
+
 }
 
 func (u *uidProcessor) processLinuxServiceStart(pidName string, event *common.EventInfo, runtimeInfo *policy.PURuntime) error {

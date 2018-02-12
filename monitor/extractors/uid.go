@@ -23,11 +23,6 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 		runtimeTags.AppendKeyValue("@usr:"+parts[0], parts[1])
 	}
 
-	user, ok := runtimeTags.Get("@usr:user")
-	if !ok {
-		user = ""
-	}
-
 	if event.Name == "" {
 		event.Name = event.PUID
 	}
@@ -36,7 +31,7 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
 		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
-		UserID:     user,
+		UserID:     event.PUID,
 		Services:   event.Services,
 	}
 
