@@ -401,6 +401,11 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 		return err
 	}
 
+	runtime, err := d.extractMetadata(container)
+	if err != nil {
+		return err
+	}
+
 	// If it is a host container, we need to activate it as a Linux process. We will
 	// override the options that the metadata extractor provided.
 	var options *policy.OptionsType
@@ -410,7 +415,8 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 		puType = common.LinuxProcessPU
 	}
 
-	runtime := policy.NewPURuntime(container.Name, container.State.Pid, "", nil, nil, puType, options)
+	runtime.SetOptions(*options)
+	runtime.SetPUType(puType)
 
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
 		if d.killContainerOnPolicyError {
