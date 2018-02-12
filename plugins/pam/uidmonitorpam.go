@@ -22,10 +22,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/client"
 )
 
-const (
-	remoteMethodCall = "Server.HandleEvent"
-)
-
+// nolint
 //export pam_sm_open_session
 func pam_sm_open_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C.int {
 	C.initLog()
@@ -64,7 +61,7 @@ func pam_sm_open_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C
 			return C.PAM_SUCCESS
 		}
 
-		slog.Alert("Calling Trireme")
+		slog.Alert("Calling Trireme") // nolit
 		if err := client.SendRequest(request); err != nil {
 			err = fmt.Errorf("Policy Server call failed %s", err)
 			_ = slog.Alert(err.Error())
@@ -74,11 +71,12 @@ func pam_sm_open_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C
 	return C.PAM_SUCCESS
 }
 
+// nolint
 //export pam_sm_close_session
 func pam_sm_close_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C.int {
 	slog, _ := syslog.New(syslog.LOG_ALERT|syslog.LOG_AUTH, "mypam")
-	slog.Alert("pam_sm_close_session")
-	slog.Close()
+	slog.Alert("pam_sm_close_session") // nolint
+	slog.Close()                       // nolint
 	return C.PAM_SUCCESS
 }
 
