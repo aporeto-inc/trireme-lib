@@ -408,15 +408,12 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 
 	// If it is a host container, we need to activate it as a Linux process. We will
 	// override the options that the metadata extractor provided.
-	var options *policy.OptionsType
-	puType := common.ContainerPU
 	if container.HostConfig.NetworkMode == constants.DockerHostMode {
-		options = hostModeOptions(container)
-		puType = common.LinuxProcessPU
+		options := hostModeOptions(container)
+		options.PolicyExtensions = runtime.Options().PolicyExtensions
+		runtime.SetOptions(*options)
+		runtime.SetPUType(common.LinuxProcessPU)
 	}
-
-	runtime.SetOptions(*options)
-	runtime.SetPUType(puType)
 
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
 		if d.killContainerOnPolicyError {
