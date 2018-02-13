@@ -1,14 +1,16 @@
 package policy
 
-import "sync"
+import (
+	"sync"
+)
 
 // PUPolicy captures all policy information related ot the container
 type PUPolicy struct {
 
 	// ManagementID is provided for the policy implementations as a means of
-	// holding a policy identifier related to the implementation
+	// holding a policy identifier related to the implementation.
 	managementID string
-	//TriremeAction defines what level of policy should be applied to that container.
+	// triremeAction defines what level of policy should be applied to that container.
 	triremeAction PUAction
 	// applicationACLs is the list of ACLs to be applied when the container talks
 	// to IP Addresses outside the data center
@@ -30,8 +32,9 @@ type PUPolicy struct {
 	triremeNetworks []string
 	// excludedNetworks a list of networks that must be excluded
 	excludedNetworks []string
-	//Proxied Services string format ip:port
+	// ProxiedServices string format ip:port
 	proxiedServices *ProxiedServicesInfo
+
 	sync.Mutex
 }
 

@@ -4,27 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net"
-	"net/rpc/jsonrpc"
 	"os"
 	"os/exec"
 	"path"
-	"path/filepath"
-	"strconv"
+	"regexp"
 	"strings"
 	"syscall"
-	"time"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
-	"github.com/aporeto-inc/trireme-lib/internal/monitor/rpc"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/rpc/events"
+	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/client"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
-)
-
-const (
-	maxRetries       = 20
-	remoteMethodCall = "Server.HandleEvent"
 )
 
 var stderrlogger *log.Logger
@@ -72,40 +61,34 @@ type CLIRequest struct {
 	Labels []string
 	// ServiceName is a user defined service name
 	ServiceName string
-	// ServiceID is the ID of the service
-	ServiceID string
 	// Services are the user defined services (protocol, port)
-	Services []policy.Service
+	Services []common.Service
 	// HostPolicy indicates that this is a host policy
 	HostPolicy bool
 	// NetworkOnly indicates that the request is only for traffic coming from the network
 	NetworkOnly bool
+	// UIDPOlicy indicates that the request is for a UID policy
+	UIDPolicy bool
 }
 
 // RequestProcessor is an instance of the processor
 type RequestProcessor struct {
-	LinuxPath string
-	HostPath  string
+	address string
 }
 
 // NewRequestProcessor creates a default request processor
 func NewRequestProcessor() *RequestProcessor {
 	return &RequestProcessor{
-		LinuxPath: "/var/run/trireme/linux",
-		HostPath:  "/var/run/trireme/host",
+		address: common.TriremeSocket,
 	}
 }
 
 // NewCustomRequestProcessor creates a new request processor
-func NewCustomRequestProcessor(linux, host string) *RequestProcessor {
+func NewCustomRequestProcessor(address string) *RequestProcessor {
 	r := NewRequestProcessor()
 
-	if linux != "" {
-		r.LinuxPath = linux
-	}
-
-	if host != "" {
-		r.HostPath = host
+	if address != "" {
+		r.address = address
 	}
 
 	return r
@@ -123,10 +106,12 @@ func NewCustomRequestProcessor(linux, host string) *RequestProcessor {
 // 			[[--label=<keyvalue>]...]
 // 			[--networkonly]
 // 			[--hostpolicy]
+//          [--uidpolicy]
 // 			[<command> [--] [<params>...]]
 // 		 trireme rm
-//      [--service-id=<id>]
-//      [--service-name=<sname>]
+//          [--service-name=<sname>]
+// 			[--hostpolicy]
+//          [--uidpolicy]
 // 		 trireme <cgroup>
 //
 // Run Client Options:
@@ -135,6 +120,7 @@ func NewCustomRequestProcessor(linux, host string) *RequestProcessor {
 // 	--label=<keyvalue>                  Label (key/value pair) attached to the service [default ].
 // 	--networkonly                       Control traffic from the network only and not from applications [default false].
 // 	--hostpolicy                        Default control of the base namespace [default false].
+// 	--uidpolicy                         Default control of the base namespace [default false].
 //
 // `
 
@@ -153,12 +139,16 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 		return c, nil
 	}
 
-	if value, ok := arguments["--service-id"]; ok && value != nil {
-		c.ServiceID = value.(string)
-	}
-
 	if value, ok := arguments["--service-name"]; ok && value != nil {
 		c.ServiceName = value.(string)
+	}
+
+	if value, ok := arguments["--hostpolicy"]; ok && value != nil {
+		c.HostPolicy = value.(bool)
+	}
+
+	if value, ok := arguments["--uidpolicy"]; ok && value != nil {
+		c.UIDPolicy = value.(bool)
 	}
 
 	// If the command is remove use hostpolicy and service-id
@@ -167,7 +157,7 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 		return c, nil
 	}
 
-	// Process the rest of the arguments of the create command
+	// Process the rest of the arguments of the run command
 	if value, ok := arguments["run"]; !ok || value == nil {
 		return nil, errors.New("invalid command")
 	}
@@ -199,10 +189,6 @@ func (r *RequestProcessor) ParseCommand(arguments map[string]interface{}) (*CLIR
 		c.NetworkOnly = value.(bool)
 	}
 
-	if value, ok := arguments["--hostpolicy"]; ok && value != nil {
-		c.HostPolicy = value.(bool)
-	}
-
 	return c, nil
 }
 
@@ -226,26 +212,20 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		}
 	}
 
-	// Determine the right RPC address. If we are not root, Root RPC will reject.
-	rpcAdress := rpcmonitor.DefaultRPCAddress
-	if c.HostPolicy {
-		rpcAdress = rpcmonitor.DefaultRootRPCAddress
-	}
-
 	// This is added since the release_notification comes in this format
 	// Easier to massage it while creation rather than change at the receiving end depending on event
-	request := &events.EventInfo{
-		PUType:             constants.LinuxProcessPU,
+	request := &common.EventInfo{
+		PUType:             common.LinuxProcessPU,
 		Name:               c.ServiceName,
 		Tags:               c.Labels,
-		PID:                strconv.Itoa(os.Getpid()),
-		EventType:          "start",
+		PID:                int32(os.Getpid()),
+		EventType:          common.EventStart,
 		Services:           c.Services,
 		NetworkOnlyTraffic: c.NetworkOnly,
 		HostService:        c.HostPolicy,
 	}
 
-	if err := sendRPC(rpcAdress, request); err != nil {
+	if err := sendRequest(r.address, request); err != nil {
 		return err
 	}
 
@@ -256,54 +236,70 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), os.Environ())
 }
 
-// Delete will issue a delete command
-func (r *RequestProcessor) Delete(c *CLIRequest) error {
+// DeleteService will issue a delete command
+func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 
-	if c.Cgroup == "" && c.ServiceName == "" && c.ServiceID == "" {
-		return fmt.Errorf("cgroup, service id and service name must all be defined: cgroup=%s servicename=%s serviceid=%s", c.Cgroup, c.ServiceName, c.ServiceID)
+	request := &common.EventInfo{
+		PUType:      common.LinuxProcessPU,
+		PUID:        c.ServiceName,
+		EventType:   common.EventStop,
+		HostService: c.HostPolicy,
 	}
 
-	rpcAdress := rpcmonitor.DefaultRPCAddress
-	linuxPath := r.LinuxPath
-	puid := c.ServiceID
-	host := false
-	if c.ServiceName != "" {
-		rpcAdress = rpcmonitor.DefaultRootRPCAddress
-		linuxPath = r.HostPath
-		puid = c.ServiceName
-		host = true
-	}
-
-	request := &events.EventInfo{
-		PUType:      constants.LinuxProcessPU,
-		PUID:        puid,
-		Cgroup:      c.Cgroup,
-		EventType:   events.EventStop,
-		HostService: host,
-	}
-	// Handle the special case with the User ID monitor and deletes
-	if c.Cgroup != "" {
-		parts := strings.Split(c.Cgroup, "/")
-		if len(parts) != 3 {
-			return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
-		}
-
-		if !c.HostPolicy {
-			if _, ferr := os.Stat(filepath.Join(linuxPath, parts[2])); os.IsNotExist(ferr) {
-				request.PUType = constants.UIDLoginPU
-			}
-		}
+	if c.UIDPolicy {
+		request.PUType = common.UIDLoginPU
 	}
 
 	// Send Stop request
-	if err := sendRPC(rpcAdress, request); err != nil {
+	if err := sendRequest(r.address, request); err != nil {
 		return err
 	}
 
 	// Send destroy request
-	request.EventType = events.EventDestroy
+	request.EventType = common.EventDestroy
 
-	return sendRPC(rpcAdress, request)
+	return sendRequest(r.address, request)
+}
+
+// DeleteCgroup will issue a delete command based on the cgroup
+// This is used mainly by the cleaner.
+func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
+	regexCgroup := regexp.MustCompile(`^/trireme/[a-zA-Z0-9_\-:.$%]{1,64}$`)
+	regexUser := regexp.MustCompile(`^/trireme_uid/[a-zA-Z0-9_\-]{1,32}(/[0-9]{1,32}){0,1}$`)
+
+	if !regexCgroup.Match([]byte(c.Cgroup)) && !regexUser.Match([]byte(c.Cgroup)) {
+		return fmt.Errorf("invalid cgroup: %s", c.Cgroup)
+	}
+
+	var eventPUID string
+	var eventType common.PUType
+
+	if strings.HasPrefix(c.Cgroup, common.TriremeUIDCgroupPath) {
+		eventType = common.UIDLoginPU
+		eventPUID = c.Cgroup[len(common.TriremeUIDCgroupPath):]
+	} else if strings.HasPrefix(c.Cgroup, common.TriremeCgroupPath) {
+		eventType = common.LinuxProcessPU
+		eventPUID = c.Cgroup[len(common.TriremeCgroupPath):]
+	} else {
+		// Not our Cgroup
+		return nil
+	}
+
+	request := &common.EventInfo{
+		PUType:    eventType,
+		PUID:      eventPUID,
+		EventType: common.EventStop,
+	}
+
+	// Send Stop request
+	if err := sendRequest(r.address, request); err != nil {
+		return err
+	}
+
+	// Send destroy request
+	request.EventType = common.EventDestroy
+
+	return sendRequest(r.address, request)
 }
 
 // ExecuteRequest executes the command with an RPC request
@@ -312,52 +308,29 @@ func (r *RequestProcessor) ExecuteRequest(c *CLIRequest) error {
 	switch c.Request {
 	case CreateRequest:
 		return r.CreateAndRun(c)
-	case DeleteCgroupRequest, DeleteServiceRequest:
-		return r.Delete(c)
+	case DeleteCgroupRequest:
+		return r.DeleteCgroup(c)
+	case DeleteServiceRequest:
+		return r.DeleteService(c)
 	default:
 		return fmt.Errorf("unknown request: %d", c.Request)
 	}
 }
 
-// sendRPC sends an RPC request to the provided address
-func sendRPC(address string, request *events.EventInfo) error {
-	// Make RPC call and only retry if the resource is temporarily unavailable
-	numRetries := 0
-	client, err := net.Dial("unix", address)
-	for err != nil {
-		numRetries++
-		nerr, ok := err.(*net.OpError)
+// sendRequest sends an RPC request to the provided address
+func sendRequest(address string, event *common.EventInfo) error {
 
-		if numRetries >= maxRetries || !(ok && nerr.Err == syscall.EAGAIN) {
-			return fmt.Errorf("cannot connect to policy process: %s", nerr)
-		}
-
-		time.Sleep(5 * time.Millisecond)
-		client, err = net.Dial("unix", address)
-	}
-
-	response := &events.EventResponse{}
-
-	rpcClient := jsonrpc.NewClient(client)
-
-	// Version is set automatically by library and will be checked by other end to ensure compatibility.
-	request.Version = events.EventInfoCurrentVersion
-
-	err = rpcClient.Call(remoteMethodCall, request, response)
+	client, err := client.NewClient(address)
 	if err != nil {
 		return err
 	}
 
-	if response.Error != "" {
-		return fmt.Errorf("policy does not allow to run this command: %s", response.Error)
-	}
-
-	return nil
+	return client.SendRequest(event)
 }
 
 // ParseServices parses strings with the services and returns them in an
 // validated slice
-func ParseServices(ports []string) ([]policy.Service, error) {
+func ParseServices(ports []string) ([]common.Service, error) {
 
 	// If no ports are provided, we add the default 0 port
 	if len(ports) == 0 {
@@ -365,14 +338,14 @@ func ParseServices(ports []string) ([]policy.Service, error) {
 	}
 
 	// Parse the ports and create the services. Cleanup any bad ports
-	services := []policy.Service{}
+	services := []common.Service{}
 	for _, p := range ports {
 		s, err := portspec.NewPortSpecFromString(p, nil)
 		if err != nil {
 			return nil, fmt.Errorf("Invalid port spec: %s ", err)
 		}
 
-		services = append(services, policy.Service{
+		services = append(services, common.Service{
 			Protocol: uint8(6),
 			Ports:    s,
 		})

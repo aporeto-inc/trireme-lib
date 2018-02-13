@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/constants"
+	"github.com/aporeto-inc/trireme-lib/common"
 )
 
 // PURuntime holds all data related to the status of the container run time
 type PURuntime struct {
 	// puType is the type of the PU (container or process )
-	puType constants.PUType
+	puType common.PUType
 	// Pid holds the value of the first process of the container
 	pid int
 	// NsPath is the path to the networking namespace for this PURuntime if applicable.
@@ -24,17 +24,13 @@ type PURuntime struct {
 	// options
 	options *OptionsType
 
-	// GlobalLock is used by Trireme to make sure that two operations do not
-	// get interleaved for the same container.
-	GlobalLock *sync.Mutex
-
 	sync.Mutex
 }
 
 // PURuntimeJSON is a Json representation of PURuntime
 type PURuntimeJSON struct {
 	// PUType is the type of the PU
-	PUType constants.PUType
+	PUType common.PUType
 	// Pid holds the value of the first process of the container
 	Pid int
 	// NSPath is the path to the networking namespace for this PURuntime if applicable.
@@ -50,7 +46,7 @@ type PURuntimeJSON struct {
 }
 
 // NewPURuntime Generate a new RuntimeInfo
-func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType constants.PUType, options *OptionsType) *PURuntime {
+func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips ExtendedMap, puType common.PUType, options *OptionsType) *PURuntime {
 
 	if tags == nil {
 		tags = NewTagStore()
@@ -67,21 +63,20 @@ func NewPURuntime(name string, pid int, nsPath string, tags *TagStore, ips Exten
 	}
 
 	return &PURuntime{
-		puType:     puType,
-		tags:       tags,
-		ips:        ips,
-		options:    options,
-		pid:        pid,
-		nsPath:     nsPath,
-		name:       name,
-		GlobalLock: &sync.Mutex{},
+		puType:  puType,
+		tags:    tags,
+		ips:     ips,
+		options: options,
+		pid:     pid,
+		nsPath:  nsPath,
+		name:    name,
 	}
 }
 
 // NewPURuntimeWithDefaults sets up PURuntime with defaults
 func NewPURuntimeWithDefaults() *PURuntime {
 
-	return NewPURuntime("", 0, "", nil, nil, constants.ContainerPU, nil)
+	return NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
 }
 
 // Clone returns a copy of the policy
@@ -154,7 +149,7 @@ func (r *PURuntime) SetNSPath(nsPath string) {
 }
 
 // SetPUType sets the PU Type
-func (r *PURuntime) SetPUType(puType constants.PUType) {
+func (r *PURuntime) SetPUType(puType common.PUType) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -178,7 +173,7 @@ func (r *PURuntime) Name() string {
 }
 
 // PUType returns the PU type
-func (r *PURuntime) PUType() constants.PUType {
+func (r *PURuntime) PUType() common.PUType {
 	r.Lock()
 	defer r.Unlock()
 
@@ -236,4 +231,14 @@ func (r *PURuntime) Options() OptionsType {
 	}
 
 	return *r.options
+}
+
+// SetServices updates the services of the runtime.
+func (r *PURuntime) SetServices(services []common.Service) {
+	r.Lock()
+	defer r.Unlock()
+
+	if r.options != nil {
+		r.options.Services = services
+	}
 }

@@ -37,7 +37,7 @@ func TestCreategroup(t *testing.T) {
 		t.SkipNow()
 	}
 
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController("/tmp", "")
 	if err := cg.Creategroup(testcgroupnameformat); err != nil {
 		//Check if all the files required are created
 		t.Errorf("Failed to create group error returned %s", err.Error())
@@ -91,7 +91,7 @@ func TestCreategroup(t *testing.T) {
 }
 
 func TestAssignMark(t *testing.T) {
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController("/tmp", "")
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
@@ -131,7 +131,7 @@ func TestAddProcess(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController("/tmp", "")
 	//AddProcess to a non-existent group
 	if err := cg.AddProcess(testcgroupname, os.Getpid()); err == nil {
 		t.Errorf("Process successfully added to a non existent group")
@@ -174,7 +174,7 @@ func TestRemoveProcess(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController("/tmp", "")
 	//Removing process from non-existent group
 	if err := cg.RemoveProcess(testcgroupname, 1); err == nil {
 		t.Errorf("RemoveProcess succeeded without valid group being present ")
@@ -205,7 +205,7 @@ func TestDeleteCgroup(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController("/tmp", "")
 	//Removing process from non-existent group
 	if err := cg.DeleteCgroup(testcgroupnameformat); err != nil {
 		t.Errorf("Non-existent cgroup delelte returned an error")
@@ -229,7 +229,7 @@ func TestDeleteBasePath(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController("/tmp", "")
 	//Removing process from non-existent group
 	if err := cg.DeleteCgroup(testcgroupname); err != nil {
 		t.Errorf("Delete of group failed %s", err.Error())
@@ -251,9 +251,9 @@ func TestListCgroupProcesses(t *testing.T) {
 	if os.Getenv("USER") != "root" {
 		t.SkipNow()
 	}
-	cg := NewCgroupNetController("")
+	cg := NewCgroupNetController("/tmp", "")
 
-	_, err := ListCgroupProcesses(testcgroupname)
+	_, err := cg.ListCgroupProcesses(testcgroupname)
 	if err == nil {
 		t.Errorf("No process found but succeeded")
 	}
@@ -291,7 +291,7 @@ func TestListCgroupProcesses(t *testing.T) {
 		}
 	}
 
-	procs, err := ListCgroupProcesses(testcgroupname)
+	procs, err := cg.ListCgroupProcesses(testcgroupname)
 	if procs[0] != "1" && err != nil {
 		t.Errorf("No process found %d", err)
 	}
