@@ -1,11 +1,9 @@
-// +build linux
+// +build darwin
 
 package server
 
 import (
 	"net"
-	"strconv"
-	"syscall"
 	"time"
 )
 
@@ -39,26 +37,7 @@ func (c UIDConnection) LocalAddr() net.Addr {
 // This is the main change where we actually use the FD of the unix
 // socket to find the remote UID.
 func (c UIDConnection) RemoteAddr() net.Addr {
-
-	uidAddr := &UIDAddr{
-		NetworkAddress: c.nc.RemoteAddr().Network(),
-	}
-
-	f, err := c.nc.File()
-	if err != nil {
-		uidAddr.Address = "NotAvailable"
-	}
-	defer f.Close() // nolint
-
-	cred, err := syscall.GetsockoptUcred(int(f.Fd()), syscall.SOL_SOCKET, syscall.SO_PEERCRED)
-	if err != nil {
-		uidAddr.Address = "NotAvailable"
-	}
-
-	uidAddr.Address = strconv.Itoa(int(cred.Uid)) + ":" + strconv.Itoa(int(cred.Gid)) + ":" + strconv.Itoa(int(cred.Pid))
-
-	return uidAddr
-
+	return c.nc.RemoteAddr()
 }
 
 // SetDeadline implements the SetDeadLine interface.
