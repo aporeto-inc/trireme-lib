@@ -30,68 +30,68 @@ func TestNewEventServer(t *testing.T) {
 	})
 }
 
-// func TestValidateUser(t *testing.T) {
-// 	Convey("When I try to validate a user", t, func() {
+func TestValidateUser(t *testing.T) {
+	Convey("When I try to validate a user", t, func() {
 
-// 		Convey("When I get a bad remote address, it should fail", func() {
-// 			r := &http.Request{}
-// 			r.RemoteAddr = "badpath"
-// 			event := &common.EventInfo{}
+		Convey("When I get a bad remote address, it should fail", func() {
+			r := &http.Request{}
+			r.RemoteAddr = "badpath"
+			event := &common.EventInfo{}
 
-// 			err := validateUser(r, event)
-// 			So(err, ShouldNotBeNil)
-// 		})
+			err := validateUser(r, event)
+			So(err, ShouldNotBeNil)
+		})
 
-// 		Convey("When I issue the request as a superuser it should always succeed", func() {
-// 			r := &http.Request{}
-// 			r.RemoteAddr = "0:0:1000"
-// 			event := &common.EventInfo{}
+		Convey("When I issue the request as a superuser it should always succeed", func() {
+			r := &http.Request{}
+			r.RemoteAddr = "0:0:1000"
+			event := &common.EventInfo{}
 
-// 			err := validateUser(r, event)
-// 			So(err, ShouldBeNil)
-// 		})
+			err := validateUser(r, event)
+			So(err, ShouldBeNil)
+		})
 
-// 		Convey("When I issue the request as a regular user with a bad process it should fail", func() {
-// 			r := &http.Request{}
-// 			r.RemoteAddr = "1:1:1000"
-// 			event := &common.EventInfo{PID: -1}
+		Convey("When I issue the request as a regular user with a bad process it should fail", func() {
+			r := &http.Request{}
+			r.RemoteAddr = "1:10:1000"
+			event := &common.EventInfo{PID: -1}
 
-// 			err := validateUser(r, event)
-// 			So(err, ShouldNotBeNil)
-// 		})
+			err := validateUser(r, event)
+			So(err, ShouldNotBeNil)
+		})
 
-// 		Convey("When I issue the request as a regular user to a foreign process", func() {
+		Convey("When I issue the request as a regular user to a foreign process", func() {
 
-// 			myuid := strconv.Itoa(os.Getuid())
-// 			myguyid := strconv.Itoa(os.Getgid())
-// 			mypid := int32(os.Getpid())
-// 			mypidstring := strconv.Itoa(int(mypid))
+			myuid := strconv.Itoa(os.Getuid())
+			myguyid := strconv.Itoa(os.Getgid())
+			mypid := int32(os.Getpid())
+			mypidstring := strconv.Itoa(int(mypid))
 
-// 			r := &http.Request{}
-// 			r.RemoteAddr = myuid + ":" + myguyid + ":" + mypidstring
-// 			event := &common.EventInfo{PID: 0}
+			r := &http.Request{}
+			r.RemoteAddr = myuid + ":" + myguyid + ":" + mypidstring
+			event := &common.EventInfo{PID: 0}
 
-// 			err := validateUser(r, event)
-// 			So(err, ShouldNotBeNil)
-// 		})
+			err := validateUser(r, event)
+			So(err, ShouldNotBeNil)
+		})
 
-// 		Convey("When I issue the request as a regular user with valid pid", func() {
+		Convey("When I issue the request as a regular user with valid pid", func() {
 
-// 			myuid := strconv.Itoa(os.Getuid())
-// 			myguyid := strconv.Itoa(os.Getgid())
-// 			mypid := int32(os.Getpid())
-// 			mypidstring := strconv.Itoa(int(mypid))
+			myuid := strconv.Itoa(os.Getuid())
+			myguyid := strconv.Itoa(os.Getgid())
+			mypid := int32(os.Getpid())
+			mypidstring := strconv.Itoa(int(mypid))
 
-// 			r := &http.Request{}
-// 			r.RemoteAddr = myuid + ":" + myguyid + ":" + mypidstring
-// 			event := &common.EventInfo{PID: mypid}
+			r := &http.Request{}
+			r.RemoteAddr = myuid + ":" + myguyid + ":" + mypidstring
+			event := &common.EventInfo{PID: mypid}
 
-// 			err := validateUser(r, event)
-// 			So(err, ShouldBeNil)
-// 		})
+			err := validateUser(r, event)
+			So(err, ShouldBeNil)
+		})
 
-// 	})
-// }
+	})
+}
 
 func TestValidateTypes(t *testing.T) {
 	Convey("When I validate the types of an event", t, func() {
@@ -364,28 +364,28 @@ func TestCreate(t *testing.T) {
 			So(w.Result().StatusCode, ShouldEqual, http.StatusBadRequest)
 		})
 
-		// Convey("Given a bad user request, I should get StatusForbidden ", func() {
-		// 	event := &common.EventInfo{
-		// 		EventType: common.EventStart,
-		// 		PUType:    common.ContainerPU,
-		// 		PID:       1,
-		// 		Name:      "name",
-		// 		Cgroup:    "/trireme/123",
-		// 		NS:        "/var/run/docker/netns/6f7287cc342b",
-		// 		IPs:       map[string]string{"bridge": "172.17.0.1"},
-		// 	}
+		Convey("Given a bad user request, I should get StatusForbidden ", func() {
+			event := &common.EventInfo{
+				EventType: common.EventStart,
+				PUType:    common.ContainerPU,
+				PID:       1,
+				Name:      "name",
+				Cgroup:    "/trireme/123",
+				NS:        "/var/run/docker/netns/6f7287cc342b",
+				IPs:       map[string]string{"bridge": "172.17.0.1"},
+			}
 
-		// 	b := new(bytes.Buffer)
-		// 	err := json.NewEncoder(b).Encode(event)
-		// 	So(err, ShouldBeNil)
+			b := new(bytes.Buffer)
+			err := json.NewEncoder(b).Encode(event)
+			So(err, ShouldBeNil)
 
-		// 	req := httptest.NewRequest("POST", "http://unix", b)
-		// 	req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
-		// 	w := httptest.NewRecorder()
-		// 	s.create(w, req)
+			req := httptest.NewRequest("POST", "http://unix", b)
+			req.RemoteAddr = strconv.Itoa(os.Getuid()) + ":" + strconv.Itoa(os.Getgid()) + ":" + strconv.Itoa(int(event.PID))
+			w := httptest.NewRecorder()
+			s.create(w, req)
 
-		// 	So(w.Result().StatusCode, ShouldEqual, http.StatusForbidden)
-		// })
+			So(w.Result().StatusCode, ShouldEqual, http.StatusForbidden)
+		})
 
 		Convey("Given a bad event, I should get BadRequest ", func() {
 			event := &common.EventInfo{
