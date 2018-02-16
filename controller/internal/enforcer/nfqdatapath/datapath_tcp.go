@@ -413,6 +413,31 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		return nil, nil
 	}
 
+	if conn.GetState() == connection.UnknownState {
+		// Check if the destination is in the external servicess approved cache
+		// and if yes, allow the packet to go and release the flow.
+		_, packet, perr := context.ApplicationACLPolicy(tcpPacket)
+		if perr != nil || packet.Action.Rejected() {
+			return nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
+		}
+
+		if err := d.conntrackHdl.ConntrackTableUpdateMark(
+			tcpPacket.SourceAddress.String(),
+			tcpPacket.DestinationAddress.String(),
+			tcpPacket.IPProto,
+			tcpPacket.SourcePort,
+			tcpPacket.DestinationPort,
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack entry for flow",
+				zap.String("context", string(conn.Auth.LocalContext)),
+				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+			)
+		}
+		return nil, nil
+	}
+
 	// Here we capture the first data packet after an ACK packet by modyfing the
 	// state. We will not release the caches though to deal with re-transmissions.
 	// We will let the caches expire.
@@ -658,6 +683,31 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, nil
 	}
 
+	if conn.GetState() == connection.UnknownState {
+		// Check if the destination is in the external servicess approved cache
+		// and if yes, allow the packet to go and release the flow.
+		_, packet, perr := context.NetworkACLPolicy(tcpPacket)
+		if perr != nil || packet.Action.Rejected() {
+			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
+		}
+
+		if err := d.conntrackHdl.ConntrackTableUpdateMark(
+			tcpPacket.DestinationAddress.String(),
+			tcpPacket.SourceAddress.String(),
+			tcpPacket.IPProto,
+			tcpPacket.DestinationPort,
+			tcpPacket.SourcePort,
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack entry for flow",
+				zap.String("context", string(conn.Auth.LocalContext)),
+				zap.String("app-conn", tcpPacket.L4ReverseFlowHash()),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+			)
+		}
+		return nil, nil, nil
+	}
+
 	hash := tcpPacket.L4FlowHash()
 
 	// Validate that the source/destination nonse matches. The signature has validated both directions
@@ -803,8 +853,17 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 					return processSynAck(d, p, context)
 				}
 			}
-
-			return nil, fmt.Errorf("app state not found: %s", err)
+			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+				// Let's try if its an existing connection
+				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
+				if err != nil {
+					return nil, errors.New("No context in app processing")
+				}
+				conn = connection.NewTCPConnection(context)
+				conn.(*connection.TCPConnection).SetState(connection.UnknownState)
+				return conn.(*connection.TCPConnection), nil
+			}
+			return nil, errors.New("no context or connection found")
 		}
 		if uerr := updateTimer(d.appOrigConnectionTracker, hash, conn.(*connection.TCPConnection)); uerr != nil {
 			return nil, uerr
@@ -888,6 +947,16 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 	if err != nil {
 		conn, err = d.netOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
+			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
+				// Let's try if its an existing connection
+				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
+				if err != nil {
+					return nil, errors.New("No context in app processing")
+				}
+				conn = connection.NewTCPConnection(context)
+				conn.(*connection.TCPConnection).SetState(connection.UnknownState)
+				return conn.(*connection.TCPConnection), nil
+			}
 			return nil, fmt.Errorf("net state not found: %s", err)
 		}
 		if err = updateTimer(d.netOrigConnectionTracker, hash, conn.(*connection.TCPConnection)); err != nil {
