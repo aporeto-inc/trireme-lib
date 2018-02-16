@@ -949,7 +949,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		if err != nil {
 			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 				// Let's try if its an existing connection
-				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
+				context, err := d.contextFromIP(true, p.DestinationAddress.String(), p.Mark, p.SourcePort)
 				if err != nil {
 					return nil, errors.New("No context in app processing")
 				}
