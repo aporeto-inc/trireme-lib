@@ -416,9 +416,15 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
-		_, packet, perr := context.ApplicationACLPolicy(tcpPacket)
-		if perr != nil || packet.Action.Rejected() {
-			return nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
+		_, policy, perr := context.ApplicationACLPolicy(tcpPacket)
+		if perr != nil {
+			tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
+			return nil, nil
+		}
+
+		if policy.Action.Rejected() {
+			// send a reset to the connection
+			return nil, errors.New("Reject the packet")
 		}
 
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
@@ -686,9 +692,15 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
-		_, packet, perr := context.NetworkACLPolicy(tcpPacket)
-		if perr != nil || packet.Action.Rejected() {
-			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
+		_, policy, perr := context.NetworkACLPolicy(tcpPacket)
+		if perr != nil {
+			tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
+			return nil, nil, nil
+		}
+
+		if policy.Action.Rejected() {
+			// send a reset to the connection
+			return nil, nil, errors.New("Reject the packet")
 		}
 
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
