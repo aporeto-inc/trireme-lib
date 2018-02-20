@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -94,6 +95,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 
 	// For updates, we don't need to do much. Policy updates are done in the cache.
 	if _, err := p.clients.Get(puID); err != nil {
+		// TODO : Update registered services.
 		return nil
 	}
 
@@ -113,25 +115,37 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPApplication, err)
 	}
 
-	// Listen to HTTPS requests only on the network side
+	// Listen to HTTPS requests only on the network side.
 	client.netserver[protomux.HTTPSNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPSNetwork, client.protomux, false)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPSNetwork, err)
 	}
 
-	// Listen to both TCP and TLS - TCP proxies are smart enough and they can find their IP
-	client.netserver[protomux.TCP], err = p.registerAndRun(ctx, puID, protomux.TCP, client.protomux, false)
+	// TCP Requests for clients
+	client.netserver[protomux.TCPApplication], err = p.registerAndRun(ctx, puID, protomux.TCPApplication, client.protomux, true)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCP, err)
+		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPApplication, err)
 	}
 
-	client.netserver[protomux.TLS], err = p.registerAndRun(ctx, puID, protomux.TLS, client.protomux, false)
+	// TCP Requests from the network side
+	client.netserver[protomux.TCPNetwork], err = p.registerAndRun(ctx, puID, protomux.TCPNetwork, client.protomux, false)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TLS, err)
+		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
 
-	// HERE: Register all the services with the mux, and the context with our local
-	// cache. Below, we will assume that exposedServices has map of port to ContextID
+	// Register the ExposedServices
+	for _, service := range puInfo.Policy.ExposedServices() {
+		address := ":" + strconv.Itoa(service.Port)
+		client.protomux.RegisterService(serviceTypeToNetworkListenerType(service.Type), address)
+	}
+
+	// Register the DependentServices
+	for _, service := range puInfo.Policy.DependentServices() {
+		for _, ip := range service.Addresses {
+			address := ip + ":" + strconv.Itoa(service.Port)
+			client.protomux.RegisterService(serviceTypeToNetworkListenerType(service.Type), address)
+		}
+	}
 
 	// Add the client to the cache
 	p.clients.AddOrUpdate(puID, client)
@@ -216,7 +230,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Create a new sub-ordinate listerner and register it for the requested type.
 	listener, err = mux.RegisterListener(ltype)
 	if err != nil {
-		return nil, fmt.Errorf("Cannot register HTTP listener: %s", err)
+		return nil, fmt.Errorf("Cannot register  listener: %s", err)
 	}
 
 	// If the protocol is encrypted, wrapp it with TLS.
@@ -247,4 +261,22 @@ func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
 	}
 
 	return net.ListenTCP("tcp", addr)
+}
+
+func serviceTypeToNetworkListenerType(serviceType policy.ServiceType) protomux.ListenerType {
+	switch serviceType {
+	case policy.ServiceHTTP:
+		return protomux.HTTPSNetwork
+	default:
+		return protomux.TCPNetwork
+	}
+}
+
+func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protomux.ListenerType {
+	switch serviceType {
+	case policy.ServiceHTTP:
+		return protomux.HTTPNetwork
+	default:
+		return protomux.TCPApplication
+	}
 }

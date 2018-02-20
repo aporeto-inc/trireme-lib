@@ -15,8 +15,8 @@ type ListenerType int
 
 // Values of ListenerType
 const (
-	TCP ListenerType = iota
-	TLS
+	TCPApplication ListenerType = iota
+	TCPNetwork
 	HTTPApplication
 	HTTPNetwork
 	HTTPSApplication

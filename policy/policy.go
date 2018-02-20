@@ -34,6 +34,10 @@ type PUPolicy struct {
 	excludedNetworks []string
 	// ProxiedServices string format ip:port
 	proxiedServices *ProxiedServicesInfo
+	// exposedServices is the list of services that this PU is exposing.
+	exposedServices ApplicationServicesList
+	// dependentServices is the list of services that this PU depends on.
+	dependentServices ApplicationServicesList
 
 	sync.Mutex
 }
@@ -64,6 +68,8 @@ func NewPUPolicy(
 	triremeNetworks []string,
 	excludedNetworks []string,
 	proxiedServices *ProxiedServicesInfo,
+	exposedServices ApplicationServicesList,
+	dependentServices ApplicationServicesList,
 ) *PUPolicy {
 
 	if appACLs == nil {
@@ -90,28 +96,40 @@ func NewPUPolicy(
 	if ips == nil {
 		ips = ExtendedMap{}
 	}
+
 	if proxiedServices == nil {
 		proxiedServices = &ProxiedServicesInfo{}
 	}
+
+	if exposedServices == nil {
+		exposedServices = ApplicationServicesList{}
+	}
+
+	if dependentServices == nil {
+		dependentServices = ApplicationServicesList{}
+	}
+
 	return &PUPolicy{
-		managementID:     id,
-		triremeAction:    action,
-		applicationACLs:  appACLs,
-		networkACLs:      netACLs,
-		transmitterRules: txtags,
-		receiverRules:    rxtags,
-		identity:         identity,
-		annotations:      annotations,
-		ips:              ips,
-		triremeNetworks:  triremeNetworks,
-		excludedNetworks: excludedNetworks,
-		proxiedServices:  proxiedServices,
+		managementID:      id,
+		triremeAction:     action,
+		applicationACLs:   appACLs,
+		networkACLs:       netACLs,
+		transmitterRules:  txtags,
+		receiverRules:     rxtags,
+		identity:          identity,
+		annotations:       annotations,
+		ips:               ips,
+		triremeNetworks:   triremeNetworks,
+		excludedNetworks:  excludedNetworks,
+		proxiedServices:   proxiedServices,
+		exposedServices:   exposedServices,
+		dependentServices: dependentServices,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{})
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{}, nil, nil)
 }
 
 // Clone returns a copy of the policy
@@ -132,6 +150,8 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.triremeNetworks,
 		p.excludedNetworks,
 		p.proxiedServices,
+		p.exposedServices,
+		p.dependentServices,
 	)
 
 	return np
@@ -263,6 +283,22 @@ func (p *PUPolicy) ProxiedServices() *ProxiedServicesInfo {
 	defer p.Unlock()
 
 	return p.proxiedServices
+}
+
+// ExposedServices returns the exposed services
+func (p *PUPolicy) ExposedServices() ApplicationServicesList {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.exposedServices
+}
+
+// DependentServices returns the external services.
+func (p *PUPolicy) DependentServices() ApplicationServicesList {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.dependentServices
 }
 
 // UpdateTriremeNetworks updates the set of networks for trireme
