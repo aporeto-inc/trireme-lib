@@ -18,7 +18,7 @@ type Service struct {
 	Protocol uint8 `json:"protocol,omitempty"`
 
 	// Addresses are the IP addresses. An empty list means 0.0.0.0
-	Addresses []net.IPNet `json:"addresses,omitempty"`
+	Addresses []*net.IPNet `json:"addresses,omitempty"`
 }
 
 // ConvertServicesToPortList converts an array of services to a port list

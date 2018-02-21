@@ -17,7 +17,7 @@ const (
 )
 
 // ApplicationServicesList is a list of ApplicationServices.
-type ApplicationServicesList []ApplicationService
+type ApplicationServicesList []*ApplicationService
 
 // ApplicationService is the type of service that this PU exposes.
 type ApplicationService struct {
@@ -35,7 +35,7 @@ type ApplicationService struct {
 	ServiceCertificates []*x509.Certificate
 	// externalCAs is a certPool of external CAs that should be trusted by the services.
 	// Applies to outgoing traffic only.
-	externalCAs *x509.CertPool
+	ExternalCAs *x509.CertPool
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule
