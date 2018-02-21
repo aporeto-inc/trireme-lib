@@ -159,8 +159,9 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) DeleteRules(version int, contextID string, port string, mark string, uid string, proxyPort string) error {
 
+	proxyPortSetName := puPortSetName(contextID, proxyPortSetPrefix)
 	appChain, netChain, err := i.chainName(contextID, version)
 	if err != nil {
 		// Don't return here we can still try and reclaims portset and targetnetwork sets
