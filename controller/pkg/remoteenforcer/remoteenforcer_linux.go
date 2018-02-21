@@ -379,8 +379,10 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		return errors.New("unable to instantiate pu info")
 	}
 	if s.enforcer == nil {
-		zap.L().Fatal("Enforcer not initialized")
+		resp.Status = "Cannot initialize enforcer - enforcer is nil"
+		return fmt.Errorf(resp.Status)
 	}
+
 	if err := s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err
