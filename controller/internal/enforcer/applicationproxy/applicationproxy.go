@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"strconv"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -133,18 +132,14 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
 
-	// Register the ExposedServices
+	// Register the ExposedServices with the multiplexer.
 	for _, service := range puInfo.Policy.ExposedServices() {
-		address := ":" + strconv.Itoa(service.Port)
-		client.protomux.RegisterService(serviceTypeToNetworkListenerType(service.Type), address)
+		client.protomux.RegisterService(service.NetworkInfo, serviceTypeToNetworkListenerType(service.Type))
 	}
 
-	// Register the DependentServices
+	// Register the DependentServices with the multiplexer.
 	for _, service := range puInfo.Policy.DependentServices() {
-		for _, ip := range service.Addresses {
-			address := ip + ":" + strconv.Itoa(service.Port)
-			client.protomux.RegisterService(serviceTypeToNetworkListenerType(service.Type), address)
-		}
+		client.protomux.RegisterService(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type))
 	}
 
 	// Add the client to the cache

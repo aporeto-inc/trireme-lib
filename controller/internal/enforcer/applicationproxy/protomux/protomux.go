@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strconv"
 	"sync"
 
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
 )
 
 // ListenerType are the types of listeners that can be used.
@@ -53,7 +54,7 @@ type MultiplexedListener struct {
 	shutdown        chan struct{}
 	wg              sync.WaitGroup
 	protomap        map[ListenerType]*ProtoListener
-	servicemap      map[string]ListenerType
+	servicecache    *servicecache.ServiceCache
 	defaultListener *ProtoListener
 	sync.RWMutex
 }
@@ -62,12 +63,12 @@ type MultiplexedListener struct {
 // must register protocols outside of the new object creation.
 func NewMultiplexedListener(l net.Listener) *MultiplexedListener {
 	return &MultiplexedListener{
-		root:       l,
-		done:       make(chan struct{}),
-		shutdown:   make(chan struct{}),
-		wg:         sync.WaitGroup{},
-		protomap:   map[ListenerType]*ProtoListener{},
-		servicemap: map[string]ListenerType{},
+		root:         l,
+		done:         make(chan struct{}),
+		shutdown:     make(chan struct{}),
+		wg:           sync.WaitGroup{},
+		protomap:     map[ListenerType]*ProtoListener{},
+		servicecache: servicecache.NewTable(),
 	}
 }
 
@@ -98,11 +99,11 @@ func (m *MultiplexedListener) UnregisterListener(ltype ListenerType) error {
 	m.Lock()
 	defer m.Unlock()
 
-	for _, l := range m.servicemap {
-		if l == ltype {
-			return fmt.Errorf("Services using the listener")
-		}
-	}
+	// for _, l := range m.servicemap {
+	// 	if l == ltype {
+	// 		return fmt.Errorf("Services using the listener")
+	// 	}
+	// }
 
 	delete(m.protomap, ltype)
 
@@ -137,20 +138,20 @@ func (m *MultiplexedListener) UnregisterDefaultListener() error {
 }
 
 // RegisterService associates a service (ip, port) with a listener.
-func (m *MultiplexedListener) RegisterService(ltype ListenerType, addr string) {
+func (m *MultiplexedListener) RegisterService(spec *common.Service, ltype ListenerType) error {
 	m.Lock()
 	defer m.Unlock()
 
-	m.servicemap[addr] = ltype
+	return m.servicecache.Add(spec, ltype)
 }
 
 // UnregisterService unregisters a service. Returns error if the service doesn't exist.
-func (m *MultiplexedListener) UnregisterService(addr string) error {
-	if _, ok := m.servicemap[addr]; !ok {
-		return fmt.Errorf("Service does not exist")
-	}
+func (m *MultiplexedListener) UnregisterService(spec *common.Service) error {
+	// if _, ok := m.servicemap[addr]; !ok {
+	// 	return fmt.Errorf("Service does not exist")
+	// }
 
-	delete(m.servicemap, addr)
+	// delete(m.servicemap, addr)
 
 	return nil
 }
@@ -203,15 +204,15 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 		return
 	}
 
-	address := ip.String() + ":" + strconv.Itoa(port)
-
-	m.RLock()
-	ltype, ok := m.servicemap[address]
-	if !ok {
+	entry := m.servicecache.Find(ip, port)
+	if entry == nil {
 		c.Close()
 		return
 	}
 
+	ltype := entry.(ListenerType)
+
+	m.RLock()
 	target, ok := m.protomap[ltype]
 	if !ok {
 		c.Close()
