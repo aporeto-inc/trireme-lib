@@ -351,6 +351,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 	uid := puInfo.Runtime.Options().UserID
 	portSetName := ""
 	if uid != "" {
+		portSetName = puPortSetName(contextID, PuPortSet)
 		// update the portset cache, so that it can program the portset
 		if i.portSetInstance == nil {
 			return errors.New("enforcer portset instance cannot be nil for host")
