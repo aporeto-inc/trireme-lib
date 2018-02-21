@@ -94,7 +94,7 @@ func TestConfigureRules(t *testing.T) {
 			//This will fail for ipset since we need to run this as root for ipsets
 			Convey("It should succeed", func() {
 				//This is erroring since ipset creation is not available to a unpriveleged user
-				So(err.Error(), ShouldContainSubstring, "ProxySet")
+				So(err.Error(), ShouldContainSubstring, "Proxy")
 				//So(err, ShouldBeNil)
 			})
 
@@ -200,8 +200,9 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", "0", "0", "", "5000", "proxyPortSetName")
-			So(err, ShouldBeNil)
+			err := i.DeleteRules(1, "context", "0", "0", "", "5000")
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "Proxy")
 		})
 
 	})
@@ -228,13 +229,6 @@ func TestUpdateRules(t *testing.T) {
 				Policy:   &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
-
-		Convey("If I try to update with nil IP addreses", func() {
-			err := i.UpdateRules(1, "context", nil, nil)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
 
 		Convey("I try to update with a valid default IP address ", func() {
 			app0, net0, err0 := i.chainName("Context", 0)
