@@ -64,7 +64,7 @@ type AppProxy struct {
 }
 
 // NewAppProxy creates a new instance of the application proxy.
-func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, caPool *x509.CertPool, server string) *AppProxy {
+func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, caPool *x509.CertPool) *AppProxy {
 
 	return &AppProxy{
 		collector:         c,

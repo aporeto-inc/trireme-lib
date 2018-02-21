@@ -7,7 +7,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
@@ -44,7 +44,7 @@ type Enforcer interface {
 
 // enforcer holds all the active implementations of the enforcer
 type enforcer struct {
-	proxy     *tcp.Proxy
+	proxy     *applicationproxy.AppProxy
 	transport *nfqdatapath.Datapath
 }
 
@@ -70,7 +70,7 @@ func (e *enforcer) Run(ctx context.Context) error {
 func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if e.proxy != nil {
-		if err := e.proxy.Enforce(contextID, puInfo); err != nil {
+		if err := e.proxy.Enforce(context.Background(), contextID, puInfo); err != nil {
 			return fmt.Errorf("Failed to enforce in proxy %s", err.Error())
 		}
 	}
@@ -89,7 +89,7 @@ func (e *enforcer) Unenforce(contextID string) error {
 
 	var perr, nerr error
 	if e.proxy != nil {
-		if perr = e.proxy.Unenforce(contextID); perr != nil {
+		if perr = e.proxy.Unenforce(context.Background(), contextID); perr != nil {
 			zap.L().Error("Failed to unenforce contextID in proxy",
 				zap.String("ContextID", contextID),
 				zap.Error(perr),
@@ -178,7 +178,7 @@ func New(
 		puFromContextID,
 	)
 
-	tcpProxy := tcp.NewProxy(":5000", true, false, tokenAccessor, collector, puFromContextID, mutualAuthorization, secrets)
+	tcpProxy := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, nil)
 
 	return &enforcer{
 		proxy:     tcpProxy,
