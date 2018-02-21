@@ -288,7 +288,9 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
 		payload.ExcludedNetworks,
-		payload.ProxiedServices)
+		payload.ProxiedServices,
+		payload.ExposedServices,
+		payload.DependentServices)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -367,7 +369,9 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		payload.PolicyIPs,
 		payload.TriremeNetworks,
 		payload.ExcludedNetworks,
-		payload.ProxiedServices)
+		payload.ProxiedServices,
+		payload.ExposedServices,
+		payload.DependentServices)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
@@ -375,8 +379,10 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		return errors.New("unable to instantiate pu info")
 	}
 	if s.enforcer == nil {
-		zap.L().Fatal("Enforcer not initialized")
+		resp.Status = "Cannot initialize enforcer - enforcer is nil"
+		return fmt.Errorf(resp.Status)
 	}
+
 	if err := s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err

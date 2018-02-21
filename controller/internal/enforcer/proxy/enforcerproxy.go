@@ -146,19 +146,21 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 	pkier := s.Secrets.(pkiCertifier)
 	enforcerPayload := &rpcwrapper.EnforcePayload{
-		ContextID:        contextID,
-		ManagementID:     puInfo.Policy.ManagementID(),
-		TriremeAction:    puInfo.Policy.TriremeAction(),
-		ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
-		NetworkACLs:      puInfo.Policy.NetworkACLs(),
-		PolicyIPs:        puInfo.Policy.IPAddresses(),
-		Annotations:      puInfo.Policy.Annotations(),
-		Identity:         puInfo.Policy.Identity(),
-		ReceiverRules:    puInfo.Policy.ReceiverRules(),
-		TransmitterRules: puInfo.Policy.TransmitterRules(),
-		TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
-		ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
-		ProxiedServices:  puInfo.Policy.ProxiedServices(),
+		ContextID:         contextID,
+		ManagementID:      puInfo.Policy.ManagementID(),
+		TriremeAction:     puInfo.Policy.TriremeAction(),
+		ApplicationACLs:   puInfo.Policy.ApplicationACLs(),
+		NetworkACLs:       puInfo.Policy.NetworkACLs(),
+		PolicyIPs:         puInfo.Policy.IPAddresses(),
+		Annotations:       puInfo.Policy.Annotations(),
+		Identity:          puInfo.Policy.Identity(),
+		ReceiverRules:     puInfo.Policy.ReceiverRules(),
+		TransmitterRules:  puInfo.Policy.TransmitterRules(),
+		TriremeNetworks:   puInfo.Policy.TriremeNetworks(),
+		ExcludedNetworks:  puInfo.Policy.ExcludedNetworks(),
+		ProxiedServices:   puInfo.Policy.ProxiedServices(),
+		ExposedServices:   puInfo.Policy.ExposedServices(),
+		DependentServices: puInfo.Policy.DependentServices(),
 	}
 	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
 	s.RLock()

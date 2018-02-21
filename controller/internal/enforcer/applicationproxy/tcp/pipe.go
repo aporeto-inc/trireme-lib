@@ -3,6 +3,7 @@
 package tcp
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -13,7 +14,7 @@ import (
 )
 
 // Pipe proxies data bi-directionally between in and out.
-func Pipe(in *net.TCPConn, out int) error {
+func Pipe(ctx context.Context, in *net.TCPConn, out int) error {
 	defer func() {
 		if err := in.Close(); err != nil {
 			zap.L().Error("Failed to close inFile")
@@ -27,6 +28,7 @@ func Pipe(in *net.TCPConn, out int) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err := inFile.Close(); err != nil {
 			zap.L().Error("Failed to close inFile")

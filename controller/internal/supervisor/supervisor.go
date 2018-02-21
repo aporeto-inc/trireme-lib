@@ -116,9 +116,8 @@ func (s *Config) Unsupervise(contextID string) error {
 
 	cfg := data.(*cacheData)
 	port := cfg.containerInfo.Runtime.Options().ProxyPort
-	proxyPortSetName := iptablesctrl.PuPortSetName(contextID, cfg.mark, "Proxy-")
 
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.port, cfg.mark, cfg.uid, port, proxyPortSetName); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.port, cfg.mark, cfg.uid, port); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
