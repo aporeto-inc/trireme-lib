@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )
@@ -58,42 +59,36 @@ func (i *Instance) createTargetSet(networks []string) error {
 }
 
 // createProxySet creates a new target set -- ipportset is a list of {ip,port}
-func (i *Instance) createProxySets(vipipportset []string, pipipportset []string, portSetName string) error {
+func (i *Instance) createProxySets(portSetName string) error {
 	destSetName, srcSetName := i.getSetNamePair(portSetName)
 
-	ips, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
+	_, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", destSetName, err)
 	}
 
-	i.vipTargetSet = ips
-
-	for _, net := range vipipportset {
-		if err = i.vipTargetSet.Add(net, 0); err != nil {
-			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
-		}
-	}
-
-	ips, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
+	_, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", srcSetName, err)
-	}
-
-	i.pipTargetSet = ips
-
-	for _, net := range pipipportset {
-		zap.L().Error("Adding Net", zap.String("IPPORT", net))
-		if err := i.pipTargetSet.Add(net, 0); err != nil {
-			zap.L().Error("Failed to add pip", zap.Error(err))
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
-		}
 	}
 
 	return nil
 }
 
-func (i *Instance) updateProxySet(vipipportset []string, pipipportset []string, portSetName string) error {
+// createUIDSets creates the UID specific sets
+func (i *Instance) createUIDSets(contextID string, puInfo *policy.PUInfo) error {
+	if puInfo.Runtime.Options().UserID != "" {
+		portSetName := puPortSetName(contextID, PuPortSet)
+
+		if puseterr := i.createPUPortSet(portSetName); puseterr != nil {
+			return puseterr
+		}
+	}
+	return nil
+}
+
+func (i *Instance) updateProxySet(services *policy.ProxiedServicesInfo, portSetName string) error {
+
 	dstSetName, srcSetName := i.getSetNamePair(portSetName)
 	vipTargetSet := ipset.IPSet{
 		Name: dstSetName,
@@ -102,7 +97,7 @@ func (i *Instance) updateProxySet(vipipportset []string, pipipportset []string, 
 		zap.L().Warn("Unable to flush the vip proxy set")
 	}
 
-	for _, net := range vipipportset {
+	for _, net := range services.PublicIPPortPair {
 		if err := i.vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
 			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
@@ -116,14 +111,13 @@ func (i *Instance) updateProxySet(vipipportset []string, pipipportset []string, 
 		zap.L().Warn("Unable to flush the pip proxy set")
 	}
 
-	for _, net := range pipipportset {
+	for _, net := range services.PrivateIPPortPair {
 		if err := i.pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
 			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 	return nil
-
 }
 
 //getSetNamePair returns a pair of strings represent proxySetNames

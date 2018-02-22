@@ -818,12 +818,13 @@ func (i *Instance) addNetACLs(contextID, chain string, rules policy.IPRuleList) 
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(portSetName, appChain, netChain, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) deleteChainRules(contextID, appChain, netChain, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Delete")
 		}
+		portSetName := puPortSetName(contextID, PuPortSet)
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Delete")
 	}
 
