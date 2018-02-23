@@ -2,12 +2,14 @@ package applicationproxy
 
 import (
 	"context"
+	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"net"
 	"sync"
 
+	"github.com/aporeto-inc/enforcerd/certmanager"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/http"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
@@ -18,6 +20,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	cryptohelpers "github.com/aporeto-inc/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +31,8 @@ const (
 
 // ServerInterface describes the methods required by an application processor.
 type ServerInterface interface {
-	RunNetworkServer(ctx context.Context, l net.Listener) error
+	RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error
+	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool)
 	ShutDown() error
 }
 
@@ -50,11 +54,14 @@ type AppProxy struct {
 	cert *tls.Certificate
 	ca   *x509.CertPool
 
-	tokenaccessor     tokenaccessor.TokenAccessor
-	collector         collector.EventCollector
-	puFromID          cache.DataStore
-	exposedServices   cache.DataStore
-	dependentServices cache.DataStore
+	tokenaccessor       tokenaccessor.TokenAccessor
+	collector           collector.EventCollector
+	puFromID            cache.DataStore
+	exposedServices     cache.DataStore
+	dependentServices   cache.DataStore
+	servicesCertificate *x509.Certificate
+	servicesKey         crypto.PrivateKey
+	systemCAPool        *x509.CertPool
 
 	protoMux  *protomux.MultiplexedListener
 	netserver map[protomux.ListenerType]ServerInterface
@@ -64,7 +71,12 @@ type AppProxy struct {
 }
 
 // NewAppProxy creates a new instance of the application proxy.
-func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, caPool *x509.CertPool) *AppProxy {
+func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, caPool *x509.CertPool) (*AppProxy, error) {
+
+	systemPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, err
+	}
 
 	return &AppProxy{
 		collector:         c,
@@ -75,7 +87,8 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		clients:           cache.NewCache("clients"),
 		exposedServices:   cache.NewCache("exposed services"),
 		dependentServices: cache.NewCache("dependencies"),
-	}
+		systemCAPool:      systemPool,
+	}, nil
 }
 
 // Run starts all the network side proxies. Application side proxies will
@@ -92,20 +105,52 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	p.Lock()
 	defer p.Unlock()
 
-	// For updates, we don't need to do much. Policy updates are done in the cache.
-	if _, err := p.clients.Get(puID); err != nil {
-		// TODO : Update registered services.
+	// For updates we need to update the policy and certificates.
+	if c, err := p.clients.Get(puID); err == nil {
+		// Update all the certificates from the new policy.
+		client := c.(*clientData)
+		for _, server := range client.netserver {
+			certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
+			if certPEM == "" || keyPEM == "" {
+				return nil
+			}
+
+			certificate, err := certmanager.ReadCertificatePEMFromData([]byte(certPEM))
+			if err != nil {
+				return fmt.Errorf("Unable to decode certificate: %s", err)
+			}
+
+			var caPool *x509.CertPool
+			if caPEM != "" {
+				caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
+			} else {
+				caPool = p.systemCAPool
+			}
+
+			key, err := cryptohelpers.LoadEllipticCurveKey([]byte(keyPEM))
+			if err != nil {
+				return err
+			}
+
+			tlsCert, err := certmanager.ToTLSCertificate(certificate, key)
+			if err != nil {
+				return fmt.Errorf("Failed to update certificates during enforcement: %s", err)
+			}
+			server.UpdateSecrets(&tlsCert, caPool)
+		}
 		return nil
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
-	l, err := p.createNetworkListener(puInfo.Runtime.Options().ProxyPort)
+	l, err := p.createNetworkListener(":" + puInfo.Runtime.Options().ProxyPort)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener: %s", err)
 	}
 
 	// Create a new client entry and start the servers.
-	client := &clientData{}
+	client := &clientData{
+		netserver: map[protomux.ListenerType]ServerInterface{},
+	}
 	client.protomux = protomux.NewMultiplexedListener(l)
 
 	// Listen to HTTP requests from the clients
@@ -229,21 +274,19 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	}
 
 	// If the protocol is encrypted, wrapp it with TLS.
+	encrypted := false
 	if ltype == protomux.HTTPSApplication {
-		config := &tls.Config{
-			GetCertificate: p.GetCertificateFunc(),
-		}
-		listener = tls.NewListener(listener, config)
+		encrypted = true
 	}
 
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
 		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.ca, p.exposedServices, p.dependentServices, appproxy)
-		return c, c.RunNetworkServer(ctx, listener)
+		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.ca, p.exposedServices, p.dependentServices)
-		return c, c.RunNetworkServer(ctx, listener)
+		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }
 

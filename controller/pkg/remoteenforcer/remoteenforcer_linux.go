@@ -125,9 +125,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		}
 	}
 
-	// New returns a new policy enforcer
-	// TODO: return an err to tell why!
-	if s.enforcer = enforcer.New(
+	if s.enforcer, err = enforcer.New(
 		payload.MutualAuth,
 		payload.FqConfig,
 		s.collector,
@@ -139,7 +137,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
-	); s.enforcer == nil {
+	); err != nil || s.enforcer == nil {
 		return errors.New("unable to setup enforcer: we don't know as this function does not return an error")
 	}
 
@@ -372,6 +370,8 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		payload.ProxiedServices,
 		payload.ExposedServices,
 		payload.DependentServices)
+
+	pupolicy.UpdateServiceCertificates(payload.ServiceCertificate, payload.ServicePrivateKey, payload.ServiceCA)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)

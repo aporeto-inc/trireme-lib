@@ -1,8 +1,6 @@
 package policy
 
 import (
-	"crypto/x509"
-
 	"github.com/aporeto-inc/trireme-lib/common"
 )
 
@@ -29,13 +27,6 @@ type ApplicationService struct {
 	HTTPRules []HTTPRule
 	// Tags are the tags of the service.
 	Tags *TagStore
-	// serviceCertificates are the certificates and private keys
-	// that should be used for the services. If nil, only the enforcer
-	//certificate will be used. Applies to incoming traffic.
-	ServiceCertificates []*x509.Certificate
-	// externalCAs is a certPool of external CAs that should be trusted by the services.
-	// Applies to outgoing traffic only.
-	ExternalCAs *x509.CertPool
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule

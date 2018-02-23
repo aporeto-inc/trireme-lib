@@ -31,11 +31,16 @@ func NewTCPProxy(
 }
 
 // RunNetworkServer implements enforcer.Enforcer interface
-func (p *Proxy) RunNetworkServer(ctx context.Context, listener net.Listener) error {
+func (p *Proxy) RunNetworkServer(ctx context.Context, listener net.Listener, encrypted bool) error {
 	return nil
 }
 
 // ShutDown shuts it down
 func (p *Proxy) ShutDown() error {
 	return nil
+}
+
+// UpdateSecrets updates the secrets of the connections.
+func (p *Proxy) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool) {
+
 }

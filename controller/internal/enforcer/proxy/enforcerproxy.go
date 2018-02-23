@@ -145,23 +145,29 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		}
 	}
 	pkier := s.Secrets.(pkiCertifier)
+	serviceCert, serviceKey, ca := puInfo.Policy.ServiceCertificates()
+
 	enforcerPayload := &rpcwrapper.EnforcePayload{
-		ContextID:         contextID,
-		ManagementID:      puInfo.Policy.ManagementID(),
-		TriremeAction:     puInfo.Policy.TriremeAction(),
-		ApplicationACLs:   puInfo.Policy.ApplicationACLs(),
-		NetworkACLs:       puInfo.Policy.NetworkACLs(),
-		PolicyIPs:         puInfo.Policy.IPAddresses(),
-		Annotations:       puInfo.Policy.Annotations(),
-		Identity:          puInfo.Policy.Identity(),
-		ReceiverRules:     puInfo.Policy.ReceiverRules(),
-		TransmitterRules:  puInfo.Policy.TransmitterRules(),
-		TriremeNetworks:   puInfo.Policy.TriremeNetworks(),
-		ExcludedNetworks:  puInfo.Policy.ExcludedNetworks(),
-		ProxiedServices:   puInfo.Policy.ProxiedServices(),
-		ExposedServices:   puInfo.Policy.ExposedServices(),
-		DependentServices: puInfo.Policy.DependentServices(),
+		ContextID:          contextID,
+		ManagementID:       puInfo.Policy.ManagementID(),
+		TriremeAction:      puInfo.Policy.TriremeAction(),
+		ApplicationACLs:    puInfo.Policy.ApplicationACLs(),
+		NetworkACLs:        puInfo.Policy.NetworkACLs(),
+		PolicyIPs:          puInfo.Policy.IPAddresses(),
+		Annotations:        puInfo.Policy.Annotations(),
+		Identity:           puInfo.Policy.Identity(),
+		ReceiverRules:      puInfo.Policy.ReceiverRules(),
+		TransmitterRules:   puInfo.Policy.TransmitterRules(),
+		TriremeNetworks:    puInfo.Policy.TriremeNetworks(),
+		ExcludedNetworks:   puInfo.Policy.ExcludedNetworks(),
+		ProxiedServices:    puInfo.Policy.ProxiedServices(),
+		ExposedServices:    puInfo.Policy.ExposedServices(),
+		DependentServices:  puInfo.Policy.DependentServices(),
+		ServiceCertificate: serviceCert,
+		ServicePrivateKey:  serviceKey,
+		ServiceCA:          ca,
 	}
+
 	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
 	s.RLock()
 	enforcerPayload.CAPEM = pkier.AuthPEM()
@@ -180,7 +186,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		delete(s.initDone, contextID)
 		s.Unlock()
 		s.prochdl.KillProcess(contextID)
-		return fmt.Errorf("failed to enforce rules: %s", err)
+		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
 
 	return nil

@@ -153,7 +153,7 @@ func New(
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
-) Enforcer {
+) (Enforcer, error) {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
 	if err != nil {
@@ -178,12 +178,15 @@ func New(
 		puFromContextID,
 	)
 
-	tcpProxy := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, nil)
+	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return &enforcer{
 		proxy:     tcpProxy,
 		transport: transport,
-	}
+	}, nil
 }
 
 // NewWithDefaults create a new data path with most things used by default

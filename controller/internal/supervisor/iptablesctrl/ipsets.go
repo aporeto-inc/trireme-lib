@@ -73,7 +73,8 @@ func (i *Instance) createProxySets(portSetName string) error {
 		return fmt.Errorf("unable to create ipset for %s: %s", srcSetName, err)
 	}
 
-	_, err = i.ipset.NewIpset(srvSetName, "hash:port", &ipset.Params{})
+	err = i.createPUPortSet(srvSetName)
+	// _, err = i.ipset.NewIpset(srvSetName, "bitmap:port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", srvSetName, err)
 	}

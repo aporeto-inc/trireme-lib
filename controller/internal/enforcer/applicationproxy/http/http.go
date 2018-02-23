@@ -82,7 +82,7 @@ func NewHTTPProxy(
 
 // RunNetworkServer runs an HTTP network server. If TLS is needed, the
 // listener should be already a TLS listener.
-func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener) error {
+func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error {
 
 	p.Lock()
 	defer p.Unlock()
@@ -91,6 +91,15 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener) error {
 		return fmt.Errorf("Server already running")
 	}
 
+	// If its an encrypted, wrap it in a TLS context.
+	if encrypted {
+		config := &tls.Config{
+			GetCertificate: p.GetCertificateFunc(),
+		}
+		l = tls.NewListener(l, config)
+	}
+
+	// Create an encrypted downstream transport
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
@@ -130,6 +139,28 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener) error {
 // ShutDown terminates the server.
 func (p *Config) ShutDown() error {
 	return p.server.Close()
+}
+
+// UpdateSecrets updates the secrets
+func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.cert = cert
+	p.ca = caPool
+}
+
+// GetCertificateFunc implements the TLS interface for getting the certificate. This
+// allows us to update the certificates of the connection on the fly.
+func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		p.RLock()
+		defer p.RUnlock()
+		if p.cert != nil {
+			return p.cert, nil
+		}
+		return nil, fmt.Errorf("no cert available")
+	}
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {

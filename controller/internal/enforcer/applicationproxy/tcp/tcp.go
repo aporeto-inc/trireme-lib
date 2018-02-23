@@ -99,11 +99,21 @@ func NewTCPProxy(
 }
 
 // RunNetworkServer implements enforcer.Enforcer interface
-func (p *Proxy) RunNetworkServer(ctx context.Context, listener net.Listener) error {
+func (p *Proxy) RunNetworkServer(ctx context.Context, listener net.Listener, encrypted bool) error {
 
+	// Encryption is done transparently for TCP.
 	go p.serve(ctx, listener)
 
 	return nil
+}
+
+// UpdateSecrets updates the secrets of the connections.
+func (p *Proxy) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.certificate = cert
+	p.ca = caPool
 }
 
 func (p *Proxy) serve(ctx context.Context, listener net.Listener) {

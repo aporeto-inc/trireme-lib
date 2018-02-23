@@ -38,6 +38,12 @@ type PUPolicy struct {
 	exposedServices ApplicationServicesList
 	// dependentServices is the list of services that this PU depends on.
 	dependentServices ApplicationServicesList
+	// servicesCertificate is the services certificate
+	servicesCertificate string
+	// servicePrivateKey is the service private key
+	servicesPrivateKey string
+	// servicesCA is the CA to be used for the outgoing services
+	servicesCA string
 
 	sync.Mutex
 }
@@ -328,4 +334,22 @@ func (p *PUPolicy) UpdateExcludedNetworks(networks []string) {
 	p.excludedNetworks = make([]string, len(networks))
 
 	copy(p.excludedNetworks, networks)
+}
+
+// UpdateServiceCertificates updates the certificate and private key of the policy
+func (p *PUPolicy) UpdateServiceCertificates(cert, key, caPool string) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.servicesCertificate = cert
+	p.servicesPrivateKey = key
+	p.servicesCA = caPool
+}
+
+// ServiceCertificates returns the service certificate.
+func (p *PUPolicy) ServiceCertificates() (string, string, string) {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.servicesCertificate, p.servicesPrivateKey, p.servicesCA
 }
