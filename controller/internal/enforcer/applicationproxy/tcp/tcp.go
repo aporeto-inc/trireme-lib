@@ -175,6 +175,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		if err := p.handleEncryptedData(ctx, upConn, downConn, ip); err != nil {
 			zap.L().Error("Failed to process connection - aborting", zap.Error(err))
 		}
+		return
 	}
 
 	if err := connproc.Pipe(ctx, upConn, downConn); err != nil {
@@ -317,7 +318,17 @@ func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upCon
 		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
 	}
 
-	return p.StartServerAuthStateMachine(downIP, downPort, upConn)
+	isEncrypted, reader, err := p.StartServerAuthStateMachine(downIP, downPort, upConn)
+	if err != nil {
+		return false, err
+	}
+
+	if length := reader.Buffered(); length > 0 {
+		if err := flushBuffer(reader, downConn, length); err != nil {
+			return false, err
+		}
+	}
+	return isEncrypted, nil
 }
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
@@ -339,6 +350,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	reader := bufio.NewReader(downConn)
 
 	for {
+		downConn.SetDeadline(time.Now().Add(2 * time.Second))
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
 
@@ -387,18 +399,18 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 				return isEncrypted, fmt.Errorf("unable to send ack: %s", err)
 			}
 
-			time.Sleep(1000 * time.Microsecond)
+			// time.Sleep(1000 * time.Microsecond)
 			return isEncrypted, nil
 		}
 	}
 }
 
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
-func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, error) {
+func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, *bufio.Reader, error) {
 
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	isEncrypted := false
 
@@ -413,25 +425,26 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 	reader := bufio.NewReader(upConn)
 
 	for {
+		upConn.SetDeadline(time.Now().Add(2 * time.Second))
 		switch conn.GetState() {
 		case connection.ServerReceivePeerToken:
 
 			msg, err := readMsg(reader)
 			if err != nil {
-				return false, fmt.Errorf("unable to receive syn token: %s", err)
+				return false, nil, fmt.Errorf("unable to receive syn token: %s", err)
 			}
 
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
+				return isEncrypted, nil, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 
 			claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
 			report, packet := puContext.SearchRcvRules(claims.T)
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
-				return isEncrypted, fmt.Errorf("connection dropped by policy %s: %s", packet.PolicyID, err)
+				return isEncrypted, nil, fmt.Errorf("connection dropped by policy %s: %s", packet.PolicyID, err)
 			}
 
 			if packet.Action.Encrypted() {
@@ -447,12 +460,12 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 
 			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
 			if err != nil {
-				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
+				return isEncrypted, nil, fmt.Errorf("unable to create synack token: %s", err)
 			}
 
 			if n, err := writeMsg(upConn, claims); err != nil || n < len(claims) {
 				zap.L().Error("Failed to write", zap.Error(err))
-				return false, fmt.Errorf("Failed to write ack: %s", err)
+				return false, nil, fmt.Errorf("Failed to write ack: %s", err)
 			}
 
 			conn.SetState(connection.ServerAuthenticatePair)
@@ -460,15 +473,15 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 		case connection.ServerAuthenticatePair:
 			msg, err := readMsg(reader)
 			if err != nil {
-				return false, fmt.Errorf("unable to receive ack token: %s", err)
+				return false, nil, fmt.Errorf("unable to receive ack token: %s", err)
 			}
 
 			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
-				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
+				return isEncrypted, nil, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 			}
 			p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
-			return isEncrypted, nil
+			return isEncrypted, reader, nil
 		}
 	}
 }
@@ -531,6 +544,7 @@ func readMsg(reader *bufio.Reader) ([]byte, error) {
 		msg = append(msg, data...)
 		i = i + len(data)
 	}
+
 	return msg[:len(msg)-1], nil
 }
 
@@ -539,4 +553,19 @@ func writeMsg(conn net.Conn, data []byte) (n int, err error) {
 	data = append(data, '\n')
 	n, err = conn.Write(data)
 	return n - 1, err
+}
+
+func flushBuffer(reader *bufio.Reader, downConn net.Conn, length int) error {
+	data := make([]byte, length)
+	for n := 0; n < length; {
+		l, err := reader.Read(data)
+		if err != nil {
+			return err
+		}
+		n = n + l
+		if _, err := downConn.Write(data); err != nil {
+			return err
+		}
+	}
+	return nil
 }
