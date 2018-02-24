@@ -193,7 +193,6 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("OK .. I received the HTTP application call ")
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
@@ -206,8 +205,14 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
 	}
 
+	r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	if err != nil {
+		fmt.Println("I am stupid ")
+	}
+
 	w.Header().Set("X-APORETO-AUTH", string(token))
-	p.fwdTLS.ServeHTTP(w, r)
+	// p.fwdTLS.ServeHTTP(w, r)
+	p.fwd.ServeHTTP(w, r)
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {

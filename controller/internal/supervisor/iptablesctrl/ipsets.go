@@ -52,7 +52,7 @@ func (i *Instance) createTargetSet(networks []string) error {
 
 	for _, net := range networks {
 		if err := i.targetSet.Add(net, 0); err != nil {
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
+			return fmt.Errorf("createTargetSet: unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 
@@ -108,7 +108,7 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 	for _, net := range services.PublicIPPortPair {
 		if err := vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
+			return fmt.Errorf("unable to add public ip %s to target networks ipset: %s", net, err)
 		}
 	}
 
@@ -117,9 +117,9 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 		min, max := dependentService.NetworkInfo.Ports.Range()
 		for _, addr := range addresses {
 			for i := int(min); i <= int(max); i++ {
-				pair := addr.IP.To4().String() + ":" + strconv.Itoa(i)
+				pair := addr.IP.To4().String() + "," + strconv.Itoa(i)
 				if err := vipTargetSet.Add(pair, 0); err != nil {
-					return fmt.Errorf("unable to add ip %s to target networks ipset: %s", pair, err)
+					return fmt.Errorf("unable to add dependent ip %s to target networks ipset: %s", pair, err)
 				}
 			}
 		}
@@ -135,7 +135,7 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 	for _, net := range services.PrivateIPPortPair {
 		if err := pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
+			return fmt.Errorf("unable to add private ip %s to target networks ipset: %s", net, err)
 		}
 	}
 

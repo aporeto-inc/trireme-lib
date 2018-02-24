@@ -184,6 +184,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 
 	// Register the DependentServices with the multiplexer.
 	for _, service := range puInfo.Policy.DependentServices() {
+		fmt.Println("Registering services", service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type))
 		client.protomux.RegisterService(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type))
 	}
 
@@ -313,7 +314,7 @@ func serviceTypeToNetworkListenerType(serviceType policy.ServiceType) protomux.L
 func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protomux.ListenerType {
 	switch serviceType {
 	case policy.ServiceHTTP:
-		return protomux.HTTPNetwork
+		return protomux.HTTPApplication
 	default:
 		return protomux.TCPApplication
 	}
