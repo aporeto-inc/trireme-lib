@@ -8,6 +8,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
 )
 
@@ -28,12 +29,14 @@ const (
 type ProtoListener struct {
 	net.Listener
 	connection chan net.Conn
+	mark       int
 }
 
 // NewProtoListener creates a listener for a particular protocol.
-func NewProtoListener() *ProtoListener {
+func NewProtoListener(mark int) *ProtoListener {
 	return &ProtoListener{
 		connection: make(chan net.Conn),
+		mark:       mark,
 	}
 }
 
@@ -43,6 +46,12 @@ func (p *ProtoListener) Accept() (net.Conn, error) {
 	if !ok {
 		return nil, fmt.Errorf("mux: listener closed")
 	}
+
+	// Mark the connection
+	if err := markedconn.MarkConnection(c, p.mark); err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -56,12 +65,13 @@ type MultiplexedListener struct {
 	protomap        map[ListenerType]*ProtoListener
 	servicecache    *servicecache.ServiceCache
 	defaultListener *ProtoListener
+	mark            int
 	sync.RWMutex
 }
 
 // NewMultiplexedListener returns a new multiplexed listener. Caller
 // must register protocols outside of the new object creation.
-func NewMultiplexedListener(l net.Listener) *MultiplexedListener {
+func NewMultiplexedListener(l net.Listener, mark int) *MultiplexedListener {
 	return &MultiplexedListener{
 		root:         l,
 		done:         make(chan struct{}),
@@ -69,6 +79,7 @@ func NewMultiplexedListener(l net.Listener) *MultiplexedListener {
 		wg:           sync.WaitGroup{},
 		protomap:     map[ListenerType]*ProtoListener{},
 		servicecache: servicecache.NewTable(),
+		mark:         mark,
 	}
 }
 
@@ -87,6 +98,7 @@ func (m *MultiplexedListener) RegisterListener(ltype ListenerType) (*ProtoListen
 	p := &ProtoListener{
 		Listener:   m.root,
 		connection: make(chan net.Conn),
+		mark:       m.mark,
 	}
 	m.protomap[ltype] = p
 
@@ -163,11 +175,10 @@ func (m *MultiplexedListener) Close() {
 
 // Serve will demux the connections
 func (m *MultiplexedListener) Serve(ctx context.Context) error {
-	var wg sync.WaitGroup
 
 	defer func() {
 		close(m.done)
-		wg.Wait()
+		m.wg.Wait()
 
 		for _, l := range m.protomap {
 			close(l.connection)
@@ -189,7 +200,7 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			wg.Add(1)
+			m.wg.Add(1)
 			go m.serve(c)
 		}
 	}
@@ -204,7 +215,9 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 		return
 	}
 
+	m.RLock()
 	entry := m.servicecache.Find(ip, port)
+	m.RUnlock()
 	if entry == nil {
 		c.Close()
 		return
@@ -214,11 +227,11 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 
 	m.RLock()
 	target, ok := m.protomap[ltype]
+	m.RUnlock()
 	if !ok {
 		c.Close()
 		return
 	}
-	m.RUnlock()
 
 	select {
 	case target.connection <- c:

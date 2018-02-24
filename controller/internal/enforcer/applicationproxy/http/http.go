@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
@@ -48,6 +50,8 @@ type Config struct {
 
 	applicationProxy bool
 
+	mark int
+
 	server *http.Server
 	fwd    *forward.Forwarder
 	fwdTLS *forward.Forwarder
@@ -65,6 +69,7 @@ func NewHTTPProxy(
 	exposedServices cache.DataStore,
 	dependentServices cache.DataStore,
 	applicationProxy bool,
+	mark int,
 ) *Config {
 
 	return &Config{
@@ -77,6 +82,7 @@ func NewHTTPProxy(
 		exposedServices:   exposedServices,
 		dependentServices: dependentServices,
 		applicationProxy:  applicationProxy,
+		mark:              mark,
 	}
 }
 
@@ -93,26 +99,49 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	// If its an encrypted, wrap it in a TLS context.
 	if encrypted {
-		config := &tls.Config{
-			GetCertificate: p.GetCertificateFunc(),
-		}
-		l = tls.NewListener(l, config)
+		// config := &tls.Config{
+		// 	GetCertificate: p.GetCertificateFunc(),
+		// }
+		// l = tls.NewListener(l, config)
 	}
 
 	// Create an encrypted downstream transport
-	transport := &http.Transport{
+	encryptedTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
+		},
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			raddr, err := net.ResolveTCPAddr(network, addr)
+			if err != nil {
+				return nil, err
+			}
+			return markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		},
+	}
+
+	// Create an unencrypted transport for talking to the application
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			raddr, err := net.ResolveTCPAddr(network, addr)
+			if err != nil {
+				return nil, err
+			}
+			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+			if err != nil {
+				fmt.Printf("Connection error %s\n", err)
+				return nil, err
+			}
+			return conn, nil
 		},
 	}
 
 	var err error
-	p.fwdTLS, err = forward.New(forward.RoundTripper(transport))
+	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport))
 	if err != nil {
 		return fmt.Errorf("Cannot initialize encrypted transport: %s", err)
 	}
 
-	p.fwd, err = forward.New()
+	p.fwd, err = forward.New(forward.RoundTripper(transport))
 	if err != nil {
 		return fmt.Errorf("Cannot initialize unencrypted transport: %s", err)
 	}
@@ -164,6 +193,7 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("OK .. I received the HTTP application call ")
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
@@ -191,6 +221,12 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if token != "" {
 		fmt.Println("TODO - do the matching now")
 	}
+
+	r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	if err != nil {
+		fmt.Println("I am stupid ")
+	}
+
 	p.fwd.ServeHTTP(w, r)
 }
 

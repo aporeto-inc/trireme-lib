@@ -151,7 +151,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	client := &clientData{
 		netserver: map[protomux.ListenerType]ServerInterface{},
 	}
-	client.protomux = protomux.NewMultiplexedListener(l)
+	client.protomux = protomux.NewMultiplexedListener(l, proxyMarkInt)
 
 	// Listen to HTTP requests from the clients
 	client.netserver[protomux.HTTPApplication], err = p.registerAndRun(ctx, puID, protomux.HTTPApplication, client.protomux, true)
@@ -275,14 +275,14 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 
 	// If the protocol is encrypted, wrapp it with TLS.
 	encrypted := false
-	if ltype == protomux.HTTPSApplication {
+	if ltype == protomux.HTTPSNetwork {
 		encrypted = true
 	}
 
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.ca, p.exposedServices, p.dependentServices, appproxy)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.ca, p.exposedServices, p.dependentServices, appproxy, proxyMarkInt)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.ca, p.exposedServices, p.dependentServices)

@@ -32,6 +32,13 @@ func NewTable() *ServiceCache {
 func (s *ServiceCache) Add(e *common.Service, data interface{}) error {
 	s.Lock()
 	defer s.Unlock()
+
+	// If addresses are nil, I only care about ports.
+	if len(e.Addresses) == 0 {
+		_, ip, _ := net.ParseCIDR("0.0.0.0/0")
+		e.Addresses = []*net.IPNet{ip}
+	}
+
 	for _, addr := range e.Addresses {
 		binPrefix := binary.BigEndian.Uint32(addr.IP) & binary.BigEndian.Uint32(addr.Mask)
 		len, _ := addr.Mask.Size()
@@ -58,6 +65,7 @@ func (s *ServiceCache) Add(e *common.Service, data interface{}) error {
 func (s *ServiceCache) Find(ip net.IP, port int) interface{} {
 	s.RLock()
 	defer s.RUnlock()
+
 	for len, prefix := range s.prefixes {
 		binPrefix := binary.BigEndian.Uint32(ip) & binary.BigEndian.Uint32(net.CIDRMask(len, 32))
 		entries, ok := prefix[binPrefix]
