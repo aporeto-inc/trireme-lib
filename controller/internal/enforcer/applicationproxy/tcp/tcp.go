@@ -1,26 +1,24 @@
-// +build linux
-
 package tcp
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
@@ -64,8 +62,8 @@ type Proxy struct {
 
 // proxyFlowProperties is a struct used to pass flow information up
 type proxyFlowProperties struct {
-	SourceIP   net.IP
-	DestIP     net.IP
+	SourceIP   string
+	DestIP     string
 	SourcePort uint16
 	DestPort   uint16
 }
@@ -123,21 +121,11 @@ func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
 			return
 		default:
 			if conn, err := listener.Accept(); err == nil {
-				filehdl, err := conn.(*net.TCPConn).File()
-				if err != nil {
-					zap.L().Error("Cannot open file handle for connection", zap.Error(err))
+				if err := markedconn.MarkConnection(conn, proxyMarkInt); err != nil {
+					zap.L().Error("Failed to mark connection", zap.Error(err))
 				}
 
-				if err = syscall.SetsockoptInt(int(filehdl.Fd()), syscall.SOL_SOCKET, syscall.SO_MARK, proxyMarkInt); err != nil {
-					zap.L().Error("Cannot set mark for connection:", zap.Error(err))
-				}
-
-				go func() {
-					p.handle(ctx, conn)
-					if connErr := conn.Close(); connErr != nil {
-						zap.L().Error("Failed to close DownConn", zap.String("PU ID", p.puContext))
-					}
-				}()
+				go p.handle(ctx, conn)
 			} else {
 				return
 			}
@@ -145,12 +133,15 @@ func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
 	}
 }
 
+// ShutDown shuts down the server.
 func (p *Proxy) ShutDown() error {
 	return nil
 }
 
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
+
+	defer upConn.Close()
 
 	ip, port, err := connproc.GetOriginalDestination(upConn)
 	if err != nil {
@@ -159,23 +150,23 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
-		if downConn > 0 {
-			if err = syscall.Close(downConn); err != nil {
-				zap.L().Error("Cannot close DownConn", zap.String("ContextID", p.puContext), zap.Error(err))
-			}
-		}
 		return
 	}
+	defer downConn.Close()
 
-	defer func() {
-		if err = syscall.Close(downConn); err != nil {
-			zap.L().Error("Unable to close DownConn", zap.Error(err))
+	// Before we start the process, listen to context signals and cancel
+	// everything
+	go func() {
+		select {
+		case <-ctx.Done():
+			upConn.Close()
+			downConn.Close()
 		}
 	}()
 
 	var isEncrypted bool
 	// Now let us handle the state machine for the down connection
-	if isEncrypted, err = p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn); err != nil {
+	if isEncrypted, err = p.CompleteEndPointAuthorization(ip, port, upConn, downConn); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
@@ -186,39 +177,36 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		}
 	}
 
-	if err := Pipe(ctx, upConn.(*net.TCPConn), downConn); err != nil {
+	if err := connproc.Pipe(ctx, upConn, downConn); err != nil {
 		zap.L().Error("Failed to handle data pipe - aborting", zap.Error(err))
 	}
 }
 
-func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, fd int, conn io.ReadWriter) error {
-	tlsFs := os.NewFile(uintptr(fd), "TLSSOCK")
-	if tlsFs == nil {
-		return fmt.Errorf("Cannot convert to Fs")
-	}
-	netConn, _ := net.FileConn(tlsFs)
-	tlsConn := tls.Client(netConn, &tls.Config{
+func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
+
+	tlsConn := tls.Client(downConn, &tls.Config{
 		ClientCAs: p.ca,
 	})
 
 	if tlsConn == nil {
 		return fmt.Errorf("Cannot convert to tls Connection")
 	}
+
 	if err := tlsConn.Handshake(); err != nil {
 		return err
 	}
 
-	p.copyData(ctx, netConn, tlsConn)
+	p.copyData(ctx, serverConn, tlsConn)
 	return nil
 }
 
-func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, fd int, conn net.Conn) error {
+func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
 
 	p.Lock()
 	certs := []tls.Certificate{*p.certificate}
 	p.Unlock()
 
-	tlsConn := tls.Server(conn, &tls.Config{
+	tlsConn := tls.Server(serverConn, &tls.Config{
 		Certificates: certs,
 	})
 	defer tlsConn.Close()
@@ -227,10 +215,8 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, fd int, conn n
 		return err
 	}
 
-	fs := os.NewFile(uintptr(fd), "NONTLSSOCK")
-	netConn, _ := net.FileConn(fs)
+	p.copyData(ctx, downConn, tlsConn)
 
-	p.copyData(ctx, netConn, tlsConn)
 	return nil
 }
 
@@ -277,7 +263,7 @@ func (p *Proxy) copyData(ctx context.Context, netConn net.Conn, tlsConn *tls.Con
 	wg.Wait()
 }
 
-func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn int, ip net.IP) error {
+func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
 	if _, ok := p.localIPs[ip.String()]; !ok {
 		return p.startEncryptedClientDataPath(ctx, downConn, upConn)
@@ -309,229 +295,182 @@ func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error
 }
 
 // Initiate the downstream connection
-func (p *Proxy) downConnection(ip net.IP, port int) (int, error) {
+func (p *Proxy) downConnection(ip net.IP, port int) (net.Conn, error) {
 
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
-	if err != nil {
-		zap.L().Error("Socket create failed", zap.String("Error", err.Error()))
-	}
-
-	err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, proxyMarkInt)
-	if err != nil {
-		zap.L().Error("Sockopt  failed", zap.String("Error", err.Error()))
-	}
-
-	address := &syscall.SockaddrInet4{
+	raddr := &net.TCPAddr{
+		IP:   ip,
 		Port: port,
 	}
-	copy(address.Addr[:], ip)
 
-	err = syscall.Connect(fd, address)
-	if err != nil {
-		zap.L().Error("Connect Error", zap.String("Connect Error", err.Error()))
-		return fd, err
-	}
+	return markedconn.DialMarkedTCP("tcp", nil, raddr, proxyMarkInt)
 
-	return fd, nil
 }
 
 // CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
-func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport int, upConn net.Conn, downConn int) (bool, error) {
+func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
+
+	backendip := downIP.String()
+
 	// If the backend is not a local IP it means that we are a client.
 	if _, ok := p.localIPs[backendip]; !ok {
-		return p.StartClientAuthStateMachine(backendip, backendport, upConn, downConn)
+		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
 	}
 
-	return p.StartServerAuthStateMachine(backendip, backendport, upConn, downConn)
+	return p.StartServerAuthStateMachine(downIP, downPort, upConn)
 }
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
-func (p *Proxy) StartClientAuthStateMachine(backendip string, backendport int, upConn net.Conn, downConn int) (bool, error) {
+func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downConn net.Conn) (bool, error) {
 
 	// We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
+	puContext, err := p.puContextFromContextID(p.puContext)
+	if err != nil {
+		return false, fmt.Errorf("Cannot find policy context: %s", err)
+	}
+	isEncrypted := false
+	conn := connection.NewProxyConnection()
+
+	flowproperties := &proxyFlowProperties{
+		DestIP: downIP.String(),
+		// SourceIP: downConn.LocalAddr().Network(),
+	}
+
+	reader := bufio.NewReader(downConn)
+
+	for {
+		switch conn.GetState() {
+		case connection.ClientTokenSend:
+
+			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
+			if err != nil {
+				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
+			}
+
+			if n, err := writeMsg(downConn, token); err != nil || n < len(token) {
+				return isEncrypted, fmt.Errorf("unable to send auth token: %s", err)
+			}
+
+			conn.SetState(connection.ClientPeerTokenReceive)
+
+		case connection.ClientPeerTokenReceive:
+			msg, err := readMsg(reader)
+			if err != nil {
+				return false, fmt.Errorf("Failed to read peer token: %s", err)
+			}
+
+			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
+			if err != nil || claims == nil {
+				p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
+			}
+
+			report, packet := puContext.SearchTxtRules(claims.T, false)
+			if packet.Action.Rejected() {
+				p.reportRejectedFlow(flowproperties, conn, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
+				return isEncrypted, errors.New("dropping because of reject rule on transmitter")
+			}
+
+			if packet.Action.Encrypted() {
+				isEncrypted = true
+			}
+
+			conn.SetState(connection.ClientSendSignedPair)
+
+		case connection.ClientSendSignedPair:
+			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
+			if err != nil {
+				return isEncrypted, fmt.Errorf("unable to create ack token: %s", err)
+			}
+
+			if n, err := writeMsg(downConn, token); err != nil || n < len(token) {
+				return isEncrypted, fmt.Errorf("unable to send ack: %s", err)
+			}
+
+			time.Sleep(1000 * time.Microsecond)
+			return isEncrypted, nil
+		}
+	}
+}
+
+// StartServerAuthStateMachine -- Start the aporeto handshake for a server application
+func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, error) {
+
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
 		return false, err
 	}
 	isEncrypted := false
-	conn := connection.NewProxyConnection()
-	toAddr, _ := syscall.Getpeername(downConn)
-	localaddr, _ := syscall.Getsockname(downConn)
-	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
-	remoteinet4ip, _ := toAddr.(*syscall.SockaddrInet4)
+
 	flowProperties := &proxyFlowProperties{
-		SourceIP:   net.IPv4(localinet4ip.Addr[0], localinet4ip.Addr[1], localinet4ip.Addr[2], localinet4ip.Addr[3]),
-		DestIP:     net.IPv4(remoteinet4ip.Addr[0], remoteinet4ip.Addr[1], remoteinet4ip.Addr[2], remoteinet4ip.Addr[3]),
-		SourcePort: uint16(localinet4ip.Port),
-		DestPort:   uint16(remoteinet4ip.Port),
+		DestIP:   ip.String(),
+		DestPort: uint16(backendport),
 	}
 
-L:
-	for conn.GetState() == connection.ClientTokenSend {
-		msg := make([]byte, 1024)
-		for {
-			switch conn.GetState() {
-
-			case connection.ClientTokenSend:
-
-				if p.tokenaccessor == nil {
-					return isEncrypted, fmt.Errorf("NIL TOKENAccessor")
-				}
-				token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
-				if err != nil {
-					return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
-				}
-
-				zap.L().Error("Sending token", zap.String("Token", hex.Dump(token)))
-				if err := syscall.Sendto(downConn, token, 0, toAddr); err != nil {
-					return isEncrypted, fmt.Errorf("unable to send syn: %s", err)
-				}
-				conn.SetState(connection.ClientPeerTokenReceive)
-
-			case connection.ClientPeerTokenReceive:
-				n, _, err := syscall.Recvfrom(downConn, msg, 0)
-				if err != nil {
-					return isEncrypted, fmt.Errorf("unable to recvfrom: %s", err)
-				}
-
-				msg = msg[:n]
-				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
-				if err != nil || claims == nil {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-					return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v", err, claims)
-				}
-
-				report, packet := puContext.SearchTxtRules(claims.T, false)
-				if packet.Action.Rejected() {
-					p.reportRejectedFlow(flowProperties, conn, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
-					return isEncrypted, errors.New("dropping because of reject rule on transmitter")
-				}
-				if packet.Action.Encrypted() {
-					isEncrypted = true
-				}
-
-				conn.SetState(connection.ClientSendSignedPair)
-
-			case connection.ClientSendSignedPair:
-				token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
-				if err != nil {
-					return isEncrypted, fmt.Errorf("unable to create ack token: %s", err)
-				}
-				if err := syscall.Sendto(downConn, token, 0, toAddr); err != nil {
-					return isEncrypted, fmt.Errorf("unable to send ack: %s", err)
-				}
-				break L
-			}
-
-		}
-	}
-	return isEncrypted, nil
-
-}
-
-// StartServerAuthStateMachine -- Start the aporeto handshake for a server application
-func (p *Proxy) StartServerAuthStateMachine(backendip string, backendport int, upConn io.ReadWriter, downConn int) (bool, error) {
-
-	puID, err := p.exposedServices.Get(backendport)
-	if err != nil {
-		return false, fmt.Errorf("Failed to find context for this service")
-	}
-
-	puContext, err := p.puContextFromContextID(puID.(string))
-	if err != nil {
-		return false, err
-	}
-	isEncrypted := false
-	toAddr, _ := syscall.Getpeername(downConn)
-	localaddr, _ := syscall.Getsockname(downConn)
-	localinet4ip, _ := localaddr.(*syscall.SockaddrInet4)
-	remoteinet4ip, _ := toAddr.(*syscall.SockaddrInet4)
-	flowProperties := &proxyFlowProperties{
-		SourceIP:   net.IPv4(localinet4ip.Addr[0], localinet4ip.Addr[1], localinet4ip.Addr[2], localinet4ip.Addr[3]),
-		DestIP:     net.IPv4(remoteinet4ip.Addr[0], remoteinet4ip.Addr[1], remoteinet4ip.Addr[2], remoteinet4ip.Addr[3]),
-		SourcePort: uint16(localinet4ip.Port),
-		DestPort:   uint16(remoteinet4ip.Port),
-	}
 	conn := connection.NewProxyConnection()
 	conn.SetState(connection.ServerReceivePeerToken)
 
-E:
-	for conn.GetState() == connection.ServerReceivePeerToken {
-		for {
-			msg := []byte{}
+	reader := bufio.NewReader(upConn)
 
-			switch conn.GetState() {
-			case connection.ServerReceivePeerToken:
-				for {
-					data := make([]byte, 1024)
-					n, err := upConn.Read(data)
-					if n < 1024 || err == nil {
-						msg = append(msg, data[:n]...)
-						break
-					}
-					if err != nil {
-						return isEncrypted, err
-					}
-					msg = append(msg, data[:n]...)
-				}
+	for {
+		switch conn.GetState() {
+		case connection.ServerReceivePeerToken:
 
-				claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
-				if err != nil || claims == nil {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-					return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
-				}
-
-				claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
-				report, packet := puContext.SearchRcvRules(claims.T)
-				if packet.Action.Rejected() {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
-					return isEncrypted, fmt.Errorf("connection dropped by policy %s: %s", packet.PolicyID, err)
-				}
-				if packet.Action.Encrypted() {
-					isEncrypted = true
-				}
-				conn.ReportFlowPolicy = report
-				conn.PacketFlowPolicy = packet
-				conn.SetState(connection.ServerSendToken)
-
-			case connection.ServerSendToken:
-				claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
-				if err != nil {
-					return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
-				}
-				synackn, err := upConn.Write(claims)
-				if err != nil {
-					zap.L().Error("Failed to write", zap.Error(err))
-				}
-				zap.L().Debug("Returned SynACK Token size", zap.Int("Token Length", synackn))
-				conn.SetState(connection.ServerAuthenticatePair)
-
-			case connection.ServerAuthenticatePair:
-				for {
-					data := make([]byte, 1024)
-					n, err := upConn.Read(data)
-					if n < 1024 || err == nil {
-						msg = append(msg, data[:n]...)
-						break
-					}
-					if err != nil {
-						return isEncrypted, err
-					}
-					msg = append(msg, data[:n]...)
-				}
-				if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
-					p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
-					return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
-				}
-
-				break E
+			msg, err := readMsg(reader)
+			if err != nil {
+				return false, fmt.Errorf("unable to receive syn token: %s", err)
 			}
+
+			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
+			if err != nil || claims == nil {
+				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
+			}
+
+			claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
+			report, packet := puContext.SearchRcvRules(claims.T)
+			if packet.Action.Rejected() {
+				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
+				return isEncrypted, fmt.Errorf("connection dropped by policy %s: %s", packet.PolicyID, err)
+			}
+
+			if packet.Action.Encrypted() {
+				isEncrypted = true
+			}
+
+			conn.ReportFlowPolicy = report
+			conn.PacketFlowPolicy = packet
+
+			conn.SetState(connection.ServerSendToken)
+
+		case connection.ServerSendToken:
+
+			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
+			if err != nil {
+				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
+			}
+
+			if n, err := writeMsg(upConn, claims); err != nil || n < len(claims) {
+				zap.L().Error("Failed to write", zap.Error(err))
+				return false, fmt.Errorf("Failed to write ack: %s", err)
+			}
+
+			conn.SetState(connection.ServerAuthenticatePair)
+
+		case connection.ServerAuthenticatePair:
+			msg, err := readMsg(reader)
+			if err != nil {
+				return false, fmt.Errorf("unable to receive ack token: %s", err)
+			}
+
+			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
+				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
+				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
+			}
+			p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+			return isEncrypted, nil
 		}
 	}
-
-	p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
-	return isEncrypted, nil
 }
 
 func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
@@ -539,13 +478,13 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 		ContextID: context.ID(),
 		Source: &collector.EndPoint{
 			ID:   sourceID,
-			IP:   flowproperties.SourceIP.String(),
+			IP:   flowproperties.SourceIP,
 			Port: flowproperties.SourcePort,
 			Type: collector.PU,
 		},
 		Destination: &collector.EndPoint{
 			ID:   destID,
-			IP:   flowproperties.DestIP.String(),
+			IP:   flowproperties.DestIP,
 			Port: flowproperties.DestPort,
 			Type: collector.PU,
 		},
@@ -580,4 +519,24 @@ func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *co
 		packet = report
 	}
 	p.reportFlow(flowproperties, conn, sourceID, destID, context, mode, report, packet)
+}
+
+func readMsg(reader *bufio.Reader) ([]byte, error) {
+	msg := []byte{}
+	for i := 0; i < 20; {
+		data, err := reader.ReadBytes('\n')
+		if err != nil {
+			return []byte{}, fmt.Errorf("unable to recv reply token: %s", err)
+		}
+		msg = append(msg, data...)
+		i = i + len(data)
+	}
+	return msg[:len(msg)-1], nil
+}
+
+func writeMsg(conn net.Conn, data []byte) (n int, err error) {
+
+	data = append(data, '\n')
+	n, err = conn.Write(data)
+	return n - 1, err
 }
