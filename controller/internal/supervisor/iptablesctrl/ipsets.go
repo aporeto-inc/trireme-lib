@@ -155,7 +155,6 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 			}
 		}
 	}
-
 	return nil
 }
 
