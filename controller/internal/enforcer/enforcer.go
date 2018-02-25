@@ -178,7 +178,7 @@ func New(
 		puFromContextID,
 	)
 
-	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, nil)
+	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,7 @@ type Secrets interface {
 	TransmittedKey() []byte
 	VerifyPublicKey(pkey []byte) (interface{}, error)
 	AckSize() uint32
+	AuthPEM() []byte
 }
 
 // PrivateSecretsType identifies the different secrets that are supported

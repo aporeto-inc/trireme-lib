@@ -52,7 +52,6 @@ type AppProxy struct {
 	serverPort string
 
 	cert *tls.Certificate
-	ca   *x509.CertPool
 
 	tokenaccessor       tokenaccessor.TokenAccessor
 	collector           collector.EventCollector
@@ -71,11 +70,15 @@ type AppProxy struct {
 }
 
 // NewAppProxy creates a new instance of the application proxy.
-func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, caPool *x509.CertPool) (*AppProxy, error) {
+func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, s secrets.Secrets) (*AppProxy, error) {
 
 	systemPool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, err
+	}
+
+	if ok := systemPool.AppendCertsFromPEM(s.(*secrets.CompactPKI).CertPool); !ok {
+		return nil, fmt.Errorf("Cannot append ca chain")
 	}
 
 	return &AppProxy{
@@ -83,7 +86,6 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		tokenaccessor:     tp,
 		puFromID:          puFromID,
 		cert:              certificate,
-		ca:                caPool,
 		clients:           cache.NewCache("clients"),
 		exposedServices:   cache.NewCache("exposed services"),
 		dependentServices: cache.NewCache("dependencies"),
@@ -110,6 +112,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		// Update all the certificates from the new policy.
 		client := c.(*clientData)
 		for _, server := range client.netserver {
+
 			certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
 			if certPEM == "" || keyPEM == "" {
 				return nil
@@ -282,10 +285,10 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.ca, p.exposedServices, p.dependentServices, appproxy, proxyMarkInt)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.systemCAPool, p.exposedServices, p.dependentServices, appproxy, proxyMarkInt)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
-		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.ca, p.exposedServices, p.dependentServices)
+		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool, p.exposedServices, p.dependentServices)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }

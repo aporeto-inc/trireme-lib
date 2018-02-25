@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -99,10 +100,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	// If its an encrypted, wrap it in a TLS context.
 	if encrypted {
-		// config := &tls.Config{
-		// 	GetCertificate: p.GetCertificateFunc(),
-		// }
-		// l = tls.NewListener(l, config)
+		config := &tls.Config{
+			GetCertificate: p.GetCertificateFunc(),
+		}
+		l = tls.NewListener(l, config)
 	}
 
 	// Create an encrypted downstream transport
@@ -110,12 +111,23 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
+
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			raddr, err := net.ResolveTCPAddr(network, addr)
 			if err != nil {
 				return nil, err
 			}
-			return markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+			if err != nil {
+				return nil, err
+			}
+
+			tlsConn := tls.Client(conn, &tls.Config{
+				ServerName:         getServerName(addr),
+				RootCAs:            p.ca,
+				InsecureSkipVerify: false,
+			})
+			return tlsConn, nil
 		},
 	}
 
@@ -128,8 +140,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			}
 			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
 			if err != nil {
-				fmt.Printf("Connection error %s\n", err)
-				return nil, err
+				return nil, fmt.Errorf("Failed to dial remote: %s", err)
 			}
 			return conn, nil
 		},
@@ -185,6 +196,7 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
+
 		if p.cert != nil {
 			return p.cert, nil
 		}
@@ -203,16 +215,18 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	token, err := p.createClientToken(puContext)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
+		return
 	}
 
 	r.URL, err = url.ParseRequestURI("http://" + r.Host)
 	if err != nil {
-		fmt.Println("I am stupid ")
+		http.Error(w, fmt.Sprintf("Invalid host name: %s ", err), http.StatusUnprocessableEntity)
+		return
 	}
 
-	w.Header().Set("X-APORETO-AUTH", string(token))
-	// p.fwdTLS.ServeHTTP(w, r)
-	p.fwd.ServeHTTP(w, r)
+	r.Header.Add("X-APORETO-AUTH", string(token[2:]))
+
+	p.fwdTLS.ServeHTTP(w, r)
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
@@ -220,16 +234,25 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
+		return
 	}
 
 	token := r.Header.Get("X-APORETO-AUTH")
 	if token != "" {
-		fmt.Println("TODO - do the matching now")
+		r.Header.Del("X-APORETO-AUTH")
 	}
 
-	r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	parts := strings.Split(r.Host, ":")
+	port := "80"
+	if len(parts) == 2 {
+		port = parts[1]
+	}
+
+	r.URL, err = url.ParseRequestURI("http://localhost:" + port)
 	if err != nil {
-		fmt.Println("I am stupid ")
+		zap.L().Error("Invalid HTTP Host parameter", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusUnprocessableEntity)
+		return
 	}
 
 	p.fwd.ServeHTTP(w, r)
@@ -238,4 +261,12 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 func (p *Config) createClientToken(puContext *pucontext.PUContext) ([]byte, error) {
 	conn := connection.NewProxyConnection()
 	return p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
+}
+
+func getServerName(addr string) string {
+	parts := strings.Split(addr, ":")
+	if len(parts) == 2 {
+		return parts[0]
+	}
+	return addr
 }

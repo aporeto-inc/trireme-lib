@@ -61,7 +61,7 @@ type ProxyInfo struct {
 func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
-	pkier := s.Secrets.(pkiCertifier)
+	pkier := s.Secrets.(*secrets.CompactPKI)
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitRequestPayload{
@@ -70,7 +70,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			Validity:               s.validity,
 			SecretType:             s.Secrets.Type(),
 			ServerID:               s.serverID,
-			CAPEM:                  pkier.AuthPEM(),
+			CAPEM:                  pkier.CertPool,
 			PublicPEM:              pkier.TransmittedPEM(),
 			PrivatePEM:             pkier.EncodingPEM(),
 			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,

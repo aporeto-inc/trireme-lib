@@ -18,7 +18,7 @@ type CompactPKI struct {
 	TokenKeyPEMs  [][]byte
 	privateKey    *ecdsa.PrivateKey
 	publicKey     *x509.Certificate
-	certPool      *x509.CertPool
+	CertPool      []byte
 	txKey         []byte
 	verifier      pkiverifier.PKITokenVerifier
 }
@@ -35,19 +35,17 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 
 	zap.L().Debug("Initializing with Compact PKI")
 
-	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
+	key, cert, _, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
 		return nil, err
 	}
 
 	var tokenKeys []*ecdsa.PublicKey
 	for _, ca := range tokenKeyPEMs {
-
 		caCert, err := crypto.LoadCertificate(ca)
 		if err != nil {
 			return nil, err
 		}
-
 		tokenKeys = append(tokenKeys, caCert.PublicKey.(*ecdsa.PublicKey))
 	}
 
@@ -62,7 +60,7 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 		TokenKeyPEMs:  tokenKeyPEMs,
 		privateKey:    key,
 		publicKey:     cert,
-		certPool:      caCertPool,
+		CertPool:      caPEM,
 		txKey:         txKey,
 		verifier:      pkiverifier.NewPKIVerifier(tokenKeys, -1),
 	}

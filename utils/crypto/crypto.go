@@ -58,7 +58,9 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 		return nil, err
 	}
 
-	return b, nil
+	s := base64.StdEncoding.EncodeToString(b)
+
+	return []byte(s[:n]), nil
 }
 
 // GenerateRandomString returns a URL-safe, base64 encoded
