@@ -98,7 +98,7 @@ func (i *Instance) updateProxySet(services *policy.ProxiedServicesInfo, portSetN
 	}
 
 	for _, net := range services.PublicIPPortPair {
-		if err := i.vipTargetSet.Add(net, 0); err != nil {
+		if err := vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
 			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
@@ -112,7 +112,7 @@ func (i *Instance) updateProxySet(services *policy.ProxiedServicesInfo, portSetN
 	}
 
 	for _, net := range services.PrivateIPPortPair {
-		if err := i.pipTargetSet.Add(net, 0); err != nil {
+		if err := pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
 			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
 		}
