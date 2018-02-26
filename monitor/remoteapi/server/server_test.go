@@ -224,7 +224,7 @@ func TestValidateEvent(t *testing.T) {
 			So(event.PUID, ShouldResemble, "mypu")
 		})
 
-		Convey("If I get a Create  with the HostService and no networktraffic only, I should get PUID of host", func() {
+		Convey("If I get a Create  with the HostService and no networktraffic only, I should get PUID with the same name", func() {
 			event := &common.EventInfo{
 				EventType:          common.EventCreate,
 				PID:                1,
@@ -235,7 +235,7 @@ func TestValidateEvent(t *testing.T) {
 
 			err := validateEvent(event)
 			So(err, ShouldBeNil)
-			So(event.PUID, ShouldResemble, "host")
+			So(event.PUID, ShouldResemble, "mypu")
 		})
 
 		Convey("If I get a Create  with the HostService and networktraffic only, I should get PUID as my name", func() {
@@ -251,20 +251,6 @@ func TestValidateEvent(t *testing.T) {
 			err := validateEvent(event)
 			So(err, ShouldBeNil)
 			So(event.PUID, ShouldResemble, "myservice")
-		})
-
-		Convey("If I get a Create  with the HostService and networktraffic only, and bad service name, I should get an error ", func() {
-			event := &common.EventInfo{
-				EventType:          common.EventCreate,
-				PID:                1,
-				HostService:        true,
-				NetworkOnlyTraffic: true,
-				Name:               "default",
-				PUID:               "mypu",
-			}
-
-			err := validateEvent(event)
-			So(err, ShouldNotBeNil)
 		})
 
 		Convey("If I get a Stop event and cgroup is in the right format, it should return nil.", func() {
