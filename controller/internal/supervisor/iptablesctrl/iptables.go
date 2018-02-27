@@ -46,8 +46,6 @@ type Instance struct {
 	fqc                     *fqconfig.FilterQueue
 	ipt                     provider.IptablesProvider
 	ipset                   provider.IpsetProvider
-	vipTargetSet            provider.Ipset
-	pipTargetSet            provider.Ipset
 	targetSet               provider.Ipset
 	appPacketIPTableContext string
 	appProxyIPTableContext  string
