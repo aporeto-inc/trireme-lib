@@ -46,10 +46,8 @@ type Proxy struct {
 	tokenaccessor tokenaccessor.TokenAccessor
 	collector     collector.EventCollector
 
-	puContext         string
-	puFromID          cache.DataStore
-	exposedServices   cache.DataStore
-	dependentServices cache.DataStore
+	puContext string
+	puFromID  cache.DataStore
 
 	certificate *tls.Certificate
 	ca          *x509.CertPool
@@ -76,23 +74,19 @@ func NewTCPProxy(
 	puContext string,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
-	exposedServices cache.DataStore,
-	dependentServices cache.DataStore,
 ) *Proxy {
 
 	localIPs := connproc.GetInterfaces()
 
 	return &Proxy{
-		wg:                sync.WaitGroup{},
-		collector:         c,
-		tokenaccessor:     tp,
-		puFromID:          puFromID,
-		puContext:         puContext,
-		localIPs:          localIPs,
-		certificate:       certificate,
-		exposedServices:   exposedServices,
-		dependentServices: dependentServices,
-		ca:                caPool,
+		wg:            sync.WaitGroup{},
+		collector:     c,
+		tokenaccessor: tp,
+		puFromID:      puFromID,
+		puContext:     puContext,
+		localIPs:      localIPs,
+		certificate:   certificate,
+		ca:            caPool,
 	}
 }
 

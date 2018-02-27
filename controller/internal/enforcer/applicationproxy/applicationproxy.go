@@ -9,6 +9,8 @@ import (
 	"net"
 	"sync"
 
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
+
 	"github.com/aporeto-inc/enforcerd/certmanager"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/http"
@@ -56,8 +58,8 @@ type AppProxy struct {
 	tokenaccessor       tokenaccessor.TokenAccessor
 	collector           collector.EventCollector
 	puFromID            cache.DataStore
-	exposedServices     cache.DataStore
-	dependentServices   cache.DataStore
+	exposedAPICache     cache.DataStore
+	dependentAPICache   cache.DataStore
 	servicesCertificate *x509.Certificate
 	servicesKey         crypto.PrivateKey
 	systemCAPool        *x509.CertPool
@@ -87,8 +89,8 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		puFromID:          puFromID,
 		cert:              certificate,
 		clients:           cache.NewCache("clients"),
-		exposedServices:   cache.NewCache("exposed services"),
-		dependentServices: cache.NewCache("dependencies"),
+		exposedAPICache:   cache.NewCache("exposed services"),
+		dependentAPICache: cache.NewCache("dependencies"),
 		systemCAPool:      systemPool,
 	}, nil
 }
@@ -106,6 +108,8 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 
 	p.Lock()
 	defer p.Unlock()
+
+	p.exposedAPICache.AddOrUpdate(puID, buildAPICache(puInfo.Policy.ExposedServices()))
 
 	// For updates we need to update the policy and certificates.
 	if c, err := p.clients.Get(puID); err == nil {
@@ -285,10 +289,10 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.systemCAPool, p.exposedServices, p.dependentServices, appproxy, proxyMarkInt)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, appproxy, proxyMarkInt)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
-		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool, p.exposedServices, p.dependentServices)
+		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }
@@ -320,4 +324,17 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 	default:
 		return protomux.TCPApplication
 	}
+}
+
+func buildAPICache(services policy.ApplicationServicesList) map[string]*urisearch.APICache {
+	cache := map[string]*urisearch.APICache{}
+
+	for _, service := range services {
+		if service.Type != policy.ServiceHTTP {
+			continue
+		}
+		cache[service.NetworkInfo.Ports.String()] = urisearch.NewAPICache(service.HTTPRules)
+	}
+
+	return cache
 }

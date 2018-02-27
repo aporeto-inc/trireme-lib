@@ -24,7 +24,7 @@ type ApplicationService struct {
 	// Type is the type of the service.
 	Type ServiceType
 	// ApplicationRules are only valid for non TCP or L3 services
-	HTTPRules []HTTPRule
+	HTTPRules []*HTTPRule
 	// Tags are the tags of the service.
 	Tags *TagStore
 }

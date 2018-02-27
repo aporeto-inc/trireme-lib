@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -16,6 +18,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 
@@ -46,8 +50,8 @@ type Config struct {
 	collector         collector.EventCollector
 	puContext         string
 	puFromIDCache     cache.DataStore
-	exposedServices   cache.DataStore
-	dependentServices cache.DataStore
+	exposedAPICache   cache.DataStore
+	dependentAPICache cache.DataStore
 
 	applicationProxy bool
 
@@ -67,8 +71,8 @@ func NewHTTPProxy(
 	puFromIDCache cache.DataStore,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
-	exposedServices cache.DataStore,
-	dependentServices cache.DataStore,
+	exposedAPICache cache.DataStore,
+	dependentAPICache cache.DataStore,
 	applicationProxy bool,
 	mark int,
 ) *Config {
@@ -80,8 +84,8 @@ func NewHTTPProxy(
 		puContext:         puContext,
 		cert:              certificate,
 		ca:                caPool,
-		exposedServices:   exposedServices,
-		dependentServices: dependentServices,
+		exposedAPICache:   exposedAPICache,
+		dependentAPICache: dependentAPICache,
 		applicationProxy:  applicationProxy,
 		mark:              mark,
 	}
@@ -224,13 +228,15 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	len := binary.BigEndian.Uint16(token[:2])
+	r.Header.Add("X-APORETO-LEN", strconv.Itoa(int(len)))
 	r.Header.Add("X-APORETO-AUTH", string(token[2:]))
 
 	p.fwdTLS.ServeHTTP(w, r)
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
-	_, err := p.puFromIDCache.Get(p.puContext)
+	pctx, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
@@ -242,10 +248,52 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del("X-APORETO-AUTH")
 	}
 
-	parts := strings.Split(r.Host, ":")
+	length := r.Header.Get("X-APORETO-LEN")
+	if length != "" {
+		r.Header.Del("X-APORETO-LEN")
+	}
+
+	strlen, _ := strconv.Atoi(length)
+	btoken := make([]byte, 2)
+	binary.BigEndian.PutUint16(btoken, uint16(strlen))
+	btoken = append(btoken, []byte(token)...)
+
 	port := "80"
-	if len(parts) == 2 {
-		port = parts[1]
+	if strings.Contains(r.Host, ":") {
+		_, port, err = net.SplitHostPort(r.Host)
+		if err != nil {
+			zap.L().Error("Invalid HTTP port parameter", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Invalid HTTP port parameter: %s", err), http.StatusUnprocessableEntity)
+			return
+		}
+	}
+
+	data, err := p.exposedAPICache.Get(p.puContext)
+	if err != nil {
+		zap.L().Error("API service not recognized", zap.Error(err))
+		http.Error(w, fmt.Sprintf("API service not recognized: %s", err), http.StatusUnprocessableEntity)
+		return
+	}
+
+	apiCaches := data.(map[string]*urisearch.APICache)
+	apiCache, ok := apiCaches[port]
+	if !ok {
+		zap.L().Error("Uknown service", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Unknown service: %s", err), http.StatusUnprocessableEntity)
+		return
+	}
+
+	found, t := apiCache.Find(r.Method, r.RequestURI)
+	if !found {
+		zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Unknown or unauthorized service"), http.StatusForbidden)
+		return
+	}
+
+	if err := p.parseClientToken(pctx.(*pucontext.PUContext), string(btoken), t.(*policy.TagStore).Tags); err != nil {
+		zap.L().Error("Unauthorized request", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+		return
 	}
 
 	r.URL, err = url.ParseRequestURI("http://localhost:" + port)
@@ -261,6 +309,23 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 func (p *Config) createClientToken(puContext *pucontext.PUContext) ([]byte, error) {
 	conn := connection.NewProxyConnection()
 	return p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
+}
+
+func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, apitags []string) error {
+	conn := connection.NewProxyConnection()
+	claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, []byte(token))
+	if err != nil || claims == nil {
+		return fmt.Errorf("Failed to parse claims: %s", err)
+	}
+
+	for _, c := range claims.T.Tags {
+		for _, a := range apitags {
+			if a == c {
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("Not found")
 }
 
 func getServerName(addr string) string {
