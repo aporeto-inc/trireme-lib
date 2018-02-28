@@ -115,6 +115,7 @@ func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUP
 
 	lock.(*sync.Mutex).Lock()
 	defer lock.(*sync.Mutex).Unlock()
+	fmt.Println("Updating Policy for PU", puID, plc, runtime)
 	return t.doUpdatePolicy(puID, plc, runtime)
 }
 
