@@ -2,6 +2,8 @@ package httpproxy
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/binary"
@@ -19,10 +21,10 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/vulcand/oxy/forward"
 )
 
@@ -52,6 +54,7 @@ type Config struct {
 	puFromIDCache     cache.DataStore
 	exposedAPICache   cache.DataStore
 	dependentAPICache cache.DataStore
+	jwtCache          cache.DataStore
 
 	applicationProxy bool
 
@@ -73,6 +76,7 @@ func NewHTTPProxy(
 	caPool *x509.CertPool,
 	exposedAPICache cache.DataStore,
 	dependentAPICache cache.DataStore,
+	jwtCache cache.DataStore,
 	applicationProxy bool,
 	mark int,
 ) *Config {
@@ -87,6 +91,7 @@ func NewHTTPProxy(
 		exposedAPICache:   exposedAPICache,
 		dependentAPICache: dependentAPICache,
 		applicationProxy:  applicationProxy,
+		jwtCache:          jwtCache,
 		mark:              mark,
 	}
 }
@@ -106,6 +111,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	if encrypted {
 		config := &tls.Config{
 			GetCertificate: p.GetCertificateFunc(),
+			ClientAuth:     tls.RequestClientCert,
 		}
 		l = tls.NewListener(l, config)
 	}
@@ -283,6 +289,16 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	jwtcache, err := p.jwtCache.Get(p.puContext)
+	if err != nil {
+		zap.L().Warn("No JWT cache found for this pu", zap.Error(err))
+	}
+
+	jwtCert, ok := jwtcache.(map[string]*x509.Certificate)[port]
+	if !ok {
+		zap.L().Warn("No JWT found for this port")
+	}
+
 	found, t := apiCache.Find(r.Method, r.RequestURI)
 	if !found {
 		zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
@@ -290,7 +306,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := p.parseClientToken(pctx.(*pucontext.PUContext), string(btoken), t.(*policy.TagStore).Tags); err != nil {
+	userAttributes := parseUserAttributes(r, jwtCert)
+
+	if err := p.parseClientToken(pctx.(*pucontext.PUContext), string(btoken), t.([]string), userAttributes); err != nil {
 		zap.L().Error("Unauthorized request", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 		return
@@ -311,8 +329,16 @@ func (p *Config) createClientToken(puContext *pucontext.PUContext) ([]byte, erro
 	return p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 }
 
-func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, apitags []string) error {
+func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, apitags []string, userAttributes []string) error {
 	conn := connection.NewProxyConnection()
+	for _, user := range userAttributes {
+		for _, a := range apitags {
+			if user == a {
+				return nil
+			}
+		}
+	}
+
 	claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, []byte(token))
 	if err != nil || claims == nil {
 		return fmt.Errorf("Failed to parse claims: %s", err)
@@ -325,6 +351,7 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 			}
 		}
 	}
+
 	return fmt.Errorf("Not found")
 }
 
@@ -334,4 +361,74 @@ func getServerName(addr string) string {
 		return parts[0]
 	}
 	return addr
+}
+
+// InternalMidgardClaims HACK: Remove
+type InternalMidgardClaims struct {
+	Realm string            `json:"realm"`
+	Data  map[string]string `json:"data"`
+
+	jwt.StandardClaims
+}
+
+func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
+	attributes := []string{}
+	for _, cert := range r.TLS.PeerCertificates {
+		attributes = append(attributes, "user="+cert.Subject.CommonName)
+		for _, email := range cert.EmailAddresses {
+			attributes = append(attributes, "email="+email)
+		}
+	}
+
+	authorization := r.Header.Get("Authorization")
+	if len(authorization) < 7 {
+		return attributes
+	}
+
+	authorization = strings.TrimPrefix(authorization, "Bearer ")
+	if len(authorization) == 0 {
+		return attributes
+	}
+
+	// Use a generic claims map. This allows us to customize the user attributes
+	// by providing the right scopes in the API policy.
+	claims := &jwt.MapClaims{}
+	token, err := jwt.ParseWithClaims(authorization, claims, func(token *jwt.Token) (interface{}, error) {
+		switch token.Method {
+		case token.Method.(*jwt.SigningMethodECDSA):
+			return cert.PublicKey.(*ecdsa.PublicKey), nil
+		case token.Method.(*jwt.SigningMethodRSA):
+			return cert.PublicKey.(*rsa.PublicKey), nil
+		default:
+			return nil, fmt.Errorf("Unknown signing method")
+		}
+	})
+
+	// We can't decode it. Just ignore the user attributes at this point.
+	if err != nil || token == nil {
+		return attributes
+	}
+
+	if !token.Valid {
+		return attributes
+	}
+
+	for k, v := range *claims {
+		if slice, ok := v.([]string); ok {
+			for _, data := range slice {
+				attributes = append(attributes, k+"="+data)
+			}
+		}
+		if attr, ok := v.(string); ok {
+			attributes = append(attributes, k+"="+attr)
+		}
+		if kv, ok := v.(map[string]interface{}); ok {
+			for key, value := range kv {
+				if attr, ok := value.(string); ok {
+					attributes = append(attributes, key+"="+attr)
+				}
+			}
+		}
+	}
+	return attributes
 }

@@ -70,7 +70,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			Validity:               s.validity,
 			SecretType:             s.Secrets.Type(),
 			ServerID:               s.serverID,
-			CAPEM:                  pkier.CertPool,
+			CAPEM:                  s.Secrets.AuthPEM(),
 			PublicPEM:              pkier.TransmittedPEM(),
 			PrivatePEM:             pkier.EncodingPEM(),
 			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
@@ -298,8 +298,6 @@ func newProxyEnforcer(mutualAuth bool,
 		portSetInstance:        portSetInstance,
 		collector:              collector,
 	}
-
-	zap.L().Debug("Called NewDataPathEnforcer")
 
 	return proxydata
 }

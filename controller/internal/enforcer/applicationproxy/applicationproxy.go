@@ -23,6 +23,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	cryptohelpers "github.com/aporeto-inc/trireme-lib/utils/crypto"
+	cryptoutils "github.com/aporeto-inc/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 
@@ -60,6 +61,7 @@ type AppProxy struct {
 	puFromID            cache.DataStore
 	exposedAPICache     cache.DataStore
 	dependentAPICache   cache.DataStore
+	jwtcache            cache.DataStore
 	servicesCertificate *x509.Certificate
 	servicesKey         crypto.PrivateKey
 	systemCAPool        *x509.CertPool
@@ -79,7 +81,7 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		return nil, err
 	}
 
-	if ok := systemPool.AppendCertsFromPEM(s.(*secrets.CompactPKI).CertPool); !ok {
+	if ok := systemPool.AppendCertsFromPEM(s.AuthPEM()); !ok {
 		return nil, fmt.Errorf("Cannot append ca chain")
 	}
 
@@ -91,6 +93,7 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		clients:           cache.NewCache("clients"),
 		exposedAPICache:   cache.NewCache("exposed services"),
 		dependentAPICache: cache.NewCache("dependencies"),
+		jwtcache:          cache.NewCache("jwtcache"),
 		systemCAPool:      systemPool,
 	}, nil
 }
@@ -109,7 +112,9 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	p.Lock()
 	defer p.Unlock()
 
-	p.exposedAPICache.AddOrUpdate(puID, buildAPICache(puInfo.Policy.ExposedServices()))
+	apicache, jwtcache := buildCaches(puInfo.Policy.ExposedServices())
+	p.exposedAPICache.AddOrUpdate(puID, apicache)
+	p.jwtcache.AddOrUpdate(puID, jwtcache)
 
 	// For updates we need to update the policy and certificates.
 	if c, err := p.clients.Get(puID); err == nil {
@@ -209,6 +214,14 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	p.Lock()
 	defer p.Unlock()
 
+	if err := p.exposedAPICache.Remove(puID); err != nil {
+		zap.L().Warn("Cannot find PU in the API cache")
+	}
+
+	if err := p.jwtcache.Remove(puID); err != nil {
+		zap.L().Warn("Cannot find PU in the JWT cache")
+	}
+
 	// Find the correct client.
 	c, err := p.clients.Get(puID)
 	if err != nil {
@@ -289,7 +302,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, appproxy, proxyMarkInt)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.jwtcache, appproxy, proxyMarkInt)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)
@@ -326,15 +339,23 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 	}
 }
 
-func buildAPICache(services policy.ApplicationServicesList) map[string]*urisearch.APICache {
-	cache := map[string]*urisearch.APICache{}
+func buildCaches(services policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*x509.Certificate) {
+	apicache := map[string]*urisearch.APICache{}
+	jwtcache := map[string]*x509.Certificate{}
 
 	for _, service := range services {
 		if service.Type != policy.ServiceHTTP {
 			continue
 		}
-		cache[service.NetworkInfo.Ports.String()] = urisearch.NewAPICache(service.HTTPRules)
+		apicache[service.NetworkInfo.Ports.String()] = urisearch.NewAPICache(service.HTTPRules)
+		cert, err := cryptoutils.LoadCertificate(service.JWTCertificate)
+		if err != nil {
+			// We just ignore bad certificates and move on.
+			zap.L().Warn("Unable to decode provided JWT PEM", zap.Error(err))
+			continue
+		}
+		jwtcache[service.NetworkInfo.Ports.String()] = cert
 	}
 
-	return cache
+	return apicache, jwtcache
 }

@@ -10,7 +10,7 @@ import (
 
 // APIStore is a database of API rules.
 type APIStore struct {
-	Tags       map[string]*policy.TagStore
+	Scopes     map[string][]string
 	RegEx      *regexp.Regexp
 	RegExNames []string
 }
@@ -22,15 +22,15 @@ func NewAPIStore(rules []*policy.HTTPRule) (*APIStore, error) {
 		return nil, fmt.Errorf("Empty rules")
 	}
 
-	tags := make(map[string]*policy.TagStore)
+	scopes := make(map[string][]string)
 	ruleName := "rule" + strconv.Itoa(0)
 	regexString := ruleString(ruleName, rules[0])
-	tags[ruleName] = rules[0].Tags
+	scopes[ruleName] = rules[0].Scopes
 
 	for i := 1; i < len(rules); i++ {
 		ruleName := "rule" + strconv.Itoa(i)
 		regexString = regexString + "|" + ruleString(ruleName, rules[i])
-		tags[ruleName] = rules[i].Tags
+		scopes[ruleName] = rules[i].Scopes
 	}
 
 	re, err := regexp.Compile(regexString)
@@ -39,14 +39,14 @@ func NewAPIStore(rules []*policy.HTTPRule) (*APIStore, error) {
 	}
 
 	return &APIStore{
-		Tags:       tags,
+		Scopes:     scopes,
 		RegEx:      re,
 		RegExNames: re.SubexpNames(),
 	}, nil
 }
 
 // Find finds an API call in the database.
-func (a *APIStore) Find(verb, api string) (*policy.TagStore, error) {
+func (a *APIStore) Find(verb, api string) ([]string, error) {
 	// index := a.RegEx.FindSubmatchIndex([]byte(verb + api))
 
 	match := a.RegEx.FindStringSubmatch(verb + api)
@@ -60,7 +60,7 @@ func (a *APIStore) Find(verb, api string) (*policy.TagStore, error) {
 		}
 
 		if match[i] != "" {
-			return a.Tags[name], nil
+			return a.Scopes[name], nil
 		}
 	}
 

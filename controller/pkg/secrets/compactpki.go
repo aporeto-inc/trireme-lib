@@ -18,7 +18,6 @@ type CompactPKI struct {
 	TokenKeyPEMs  [][]byte
 	privateKey    *ecdsa.PrivateKey
 	publicKey     *x509.Certificate
-	CertPool      []byte
 	txKey         []byte
 	verifier      pkiverifier.PKITokenVerifier
 }
@@ -60,7 +59,6 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 		TokenKeyPEMs:  tokenKeyPEMs,
 		privateKey:    key,
 		publicKey:     cert,
-		CertPool:      caPEM,
 		txKey:         txKey,
 		verifier:      pkiverifier.NewPKIVerifier(tokenKeys, -1),
 	}

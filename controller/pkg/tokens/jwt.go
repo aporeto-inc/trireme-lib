@@ -118,7 +118,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) (token [
 		// Copy the JWT tokenn
 		copy(token[tokenPosition:], []byte(strtoken))
 
-		token[tokenPosition+len(strtoken)] = []byte("%")[0]
+		token[tokenPosition+len(strtoken)] = '%'
 		// Copy the public key
 		if len(txKey) > 0 {
 			copy(token[tokenPosition+len(strtoken)+1:], txKey)
