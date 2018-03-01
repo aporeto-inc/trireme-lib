@@ -16,9 +16,7 @@ func initTrieRules() []*policy.HTTPRule {
 				"/users/*/name",
 				"/things/*",
 			},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=old"},
-			},
+			Scopes: []string{"app=old"},
 		},
 		&policy.HTTPRule{
 			Verbs: []string{"POST"},
@@ -26,23 +24,17 @@ func initTrieRules() []*policy.HTTPRule {
 				"/v1/users/*/name",
 				"/v1/things/*",
 			},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=v1"},
-			},
+			Scopes: []string{"app=v1"},
 		},
 		&policy.HTTPRule{
-			Verbs: []string{"POST"},
-			URIs:  []string{"/"},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=root"},
-			},
+			Verbs:  []string{"POST"},
+			URIs:   []string{"/"},
+			Scopes: []string{"app=root"},
 		},
 		&policy.HTTPRule{
-			Verbs: []string{"PATCH"},
-			URIs:  []string{"/*"},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=rootstart"},
-			},
+			Verbs:  []string{"PATCH"},
+			URIs:   []string{"/*"},
+			Scopes: []string{"app=rootstart"},
 		},
 	}
 }
@@ -55,9 +47,9 @@ func TestNewAPICache(t *testing.T) {
 			c := NewAPICache(rules)
 			So(c, ShouldNotBeNil)
 			So(c.root.leaf, ShouldBeTrue)
-			So(c.root.data.(*policy.TagStore), ShouldNotBeNil)
+			So(c.root.data.([]string), ShouldNotBeNil)
 			So(c.root.verbs, ShouldResemble, map[string]struct{}{"POST": struct{}{}})
-			So(len(c.root.data.(*policy.TagStore).Tags), ShouldEqual, 1)
+			So(len(c.root.data.([]string)), ShouldEqual, 1)
 			So(len(c.root.children), ShouldEqual, 4)
 		})
 	})

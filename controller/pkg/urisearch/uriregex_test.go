@@ -16,9 +16,7 @@ func initRules() []*policy.HTTPRule {
 				"/users/.+/name",
 				"/things/.+/",
 			},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=old"},
-			},
+			Scopes: []string{"app=old"},
 		},
 		&policy.HTTPRule{
 			Verbs: []string{"POST"},
@@ -26,23 +24,17 @@ func initRules() []*policy.HTTPRule {
 				"/v1/users/.+/name",
 				"/v1/things/.+/",
 			},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=v1"},
-			},
+			Scopes: []string{"app=v1"},
 		},
 		&policy.HTTPRule{
-			Verbs: []string{},
-			URIs:  []string{"/empty"},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=empty"},
-			},
+			Verbs:  []string{},
+			URIs:   []string{"/empty"},
+			Scopes: []string{"app=empty"},
 		},
 		&policy.HTTPRule{
-			Verbs: []string{},
-			URIs:  []string{},
-			Tags: &policy.TagStore{
-				Tags: []string{"app=emptyuri"},
-			},
+			Verbs:  []string{},
+			URIs:   []string{},
+			Scopes: []string{"app=emptyuri"},
 		},
 	}
 }
@@ -92,16 +84,16 @@ func TestFind(t *testing.T) {
 		Convey("When I search for the rules, I should get the correct tags", func() {
 			t0, err0 := db.Find("GET", "/users/1234/name")
 			So(err0, ShouldBeNil)
-			So(t0.Tags, ShouldContain, "app=old")
+			So(t0, ShouldContain, "app=old")
 			t1, err1 := db.Find("POST", "/v1/users/123/name")
 			So(err1, ShouldBeNil)
-			So(t1.Tags, ShouldContain, "app=v1")
+			So(t1, ShouldContain, "app=v1")
 			t2, err2 := db.Find("PATCH", "/empty")
 			So(err2, ShouldBeNil)
-			So(t2.Tags, ShouldContain, "app=empty")
+			So(t2, ShouldContain, "app=empty")
 			t3, err3 := db.Find("PATCH", "/")
 			So(err3, ShouldBeNil)
-			So(t3.Tags, ShouldContain, "app=emptyuri")
+			So(t3, ShouldContain, "app=emptyuri")
 		})
 		Convey("When I search rules that do not match, I should get an error", func() {
 			_, err0 := db.Find("GET", "/users/1234/name/")

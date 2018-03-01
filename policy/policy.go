@@ -366,3 +366,77 @@ func (p *PUPolicy) Scopes() []string {
 
 	return p.scopes
 }
+
+// ToPublicPolicy converts the object to a marshallable object.
+func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
+	p.Lock()
+	defer p.Unlock()
+
+	return &PUPolicyPublic{
+		ManagementID:        p.managementID,
+		TriremeAction:       p.triremeAction,
+		ApplicationACLs:     p.applicationACLs.Copy(),
+		NetworkACLs:         p.networkACLs.Copy(),
+		TransmitterRules:    p.transmitterRules.Copy(),
+		ReceiverRules:       p.receiverRules.Copy(),
+		Annotations:         p.annotations.Copy(),
+		Identity:            p.identity.Copy(),
+		IPs:                 p.ips.Copy(),
+		TriremeNetworks:     p.triremeNetworks,
+		ExcludedNetworks:    p.excludedNetworks,
+		ProxiedServices:     p.proxiedServices,
+		ExposedServices:     p.exposedServices,
+		DependentServices:   p.dependentServices,
+		Scopes:              p.scopes,
+		ServicesCA:          p.servicesCA,
+		ServicesCertificate: p.servicesCertificate,
+		ServicesPrivateKey:  p.servicesPrivateKey,
+	}
+}
+
+// PUPolicyPublic captures all policy information related ot the processing
+// unit in an object that can be marshalled and transmitted over the RPC interface.
+type PUPolicyPublic struct {
+	ManagementID        string                  `json:"managementID,omitempty"`
+	TriremeAction       PUAction                `json:"triremeAction,omitempty"`
+	ApplicationACLs     IPRuleList              `json:"applicationACLs,omitempty"`
+	NetworkACLs         IPRuleList              `json:"networkACLs,omitempty"`
+	Identity            *TagStore               `json:"identity,omitempty"`
+	Annotations         *TagStore               `json:"annotations,omitempty"`
+	TransmitterRules    TagSelectorList         `json:"transmitterRules,omitempty"`
+	ReceiverRules       TagSelectorList         `json:"receiverRules,omitempty"`
+	IPs                 ExtendedMap             `json:"IPs,omitempty"`
+	TriremeNetworks     []string                `json:"triremeNetworks,omitempty"`
+	ExcludedNetworks    []string                `json:"excludedNetworks,omitempty"`
+	ProxiedServices     *ProxiedServicesInfo    `json:"proxiedServices,omitempty"`
+	ExposedServices     ApplicationServicesList `json:"exposedServices,omitempty"`
+	DependentServices   ApplicationServicesList `json:"dependentServices,omitempty"`
+	ServicesCertificate string                  `json:"servicesCertificate,omitempty"`
+	ServicesPrivateKey  string                  `json:"servicesPrivateKey,omitempty"`
+	ServicesCA          string                  `json:"servicesCA,omitempty"`
+	Scopes              []string                `json:"scopes,omitempty"`
+}
+
+// ToPrivatePolicy converts the object to a private object.
+func (p *PUPolicyPublic) ToPrivatePolicy() *PUPolicy {
+	return &PUPolicy{
+		managementID:        p.ManagementID,
+		triremeAction:       p.TriremeAction,
+		applicationACLs:     p.ApplicationACLs,
+		networkACLs:         p.NetworkACLs.Copy(),
+		transmitterRules:    p.TransmitterRules.Copy(),
+		receiverRules:       p.ReceiverRules.Copy(),
+		annotations:         p.Annotations.Copy(),
+		identity:            p.Identity.Copy(),
+		ips:                 p.IPs.Copy(),
+		triremeNetworks:     p.TriremeNetworks,
+		excludedNetworks:    p.ExcludedNetworks,
+		proxiedServices:     p.ProxiedServices,
+		exposedServices:     p.ExposedServices,
+		dependentServices:   p.DependentServices,
+		scopes:              p.Scopes,
+		servicesCA:          p.ServicesCA,
+		servicesCertificate: p.ServicesCertificate,
+		servicesPrivateKey:  p.ServicesPrivateKey,
+	}
+}

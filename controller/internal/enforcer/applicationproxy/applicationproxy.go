@@ -80,7 +80,7 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		return nil, err
 	}
 
-	if ok := systemPool.AppendCertsFromPEM(s.AuthPEM()); !ok {
+	if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
 		return nil, fmt.Errorf("Cannot append ca chain")
 	}
 

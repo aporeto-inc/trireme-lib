@@ -139,3 +139,36 @@ func (p *CompactPKI) TransmittedPEM() []byte {
 func (p *CompactPKI) EncodingPEM() []byte {
 	return p.PrivateKeyPEM
 }
+
+// PublicSecrets returns the secrets that are marshallable over the RPC interface.
+func (p *CompactPKI) PublicSecrets() PublicSecrets {
+	return &CompactPKIPublicSecrets{
+		Type:        PKICompactType,
+		Key:         p.PrivateKeyPEM,
+		Certificate: p.PublicKeyPEM,
+		CA:          p.AuthorityPEM,
+		Token:       p.txKey,
+		TokenCAs:    p.TokenKeyPEMs,
+	}
+}
+
+// CompactPKIPublicSecrets includes all the secrets that can be transmitted over
+// the RPC interface.
+type CompactPKIPublicSecrets struct {
+	Type        PrivateSecretsType
+	Key         []byte
+	Certificate []byte
+	CA          []byte
+	TokenCAs    [][]byte
+	Token       []byte
+}
+
+// SecretsType returns the type of secrets.
+func (p *CompactPKIPublicSecrets) SecretsType() PrivateSecretsType {
+	return p.Type
+}
+
+// CertAuthority returns the cert authority
+func (p *CompactPKIPublicSecrets) CertAuthority() []byte {
+	return p.CA
+}
