@@ -2,7 +2,6 @@ package applicationproxy
 
 import (
 	"context"
-	"crypto"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -37,12 +36,6 @@ type ServerInterface interface {
 	ShutDown() error
 }
 
-type secretsPEM interface {
-	AuthPEM() []byte
-	TransmittedPEM() []byte
-	EncodingPEM() []byte
-}
-
 type clientData struct {
 	protomux  *protomux.MultiplexedListener
 	netserver map[protomux.ListenerType]ServerInterface
@@ -50,23 +43,16 @@ type clientData struct {
 
 // AppProxy maintains state for proxies connections from listen to backend.
 type AppProxy struct {
-	serverPort string
-
 	cert *tls.Certificate
 
-	tokenaccessor       tokenaccessor.TokenAccessor
-	collector           collector.EventCollector
-	puFromID            cache.DataStore
-	exposedAPICache     cache.DataStore
-	dependentAPICache   cache.DataStore
-	jwtcache            cache.DataStore
-	servicesCertificate *x509.Certificate
-	servicesKey         crypto.PrivateKey
-	systemCAPool        *x509.CertPool
-	secrets             secrets.Secrets
-
-	protoMux  *protomux.MultiplexedListener
-	netserver map[protomux.ListenerType]ServerInterface
+	tokenaccessor     tokenaccessor.TokenAccessor
+	collector         collector.EventCollector
+	puFromID          cache.DataStore
+	exposedAPICache   cache.DataStore
+	dependentAPICache cache.DataStore
+	jwtcache          cache.DataStore
+	systemCAPool      *x509.CertPool
+	secrets           secrets.Secrets
 
 	clients cache.DataStore
 	sync.RWMutex
@@ -181,19 +167,23 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 
 	// Register the ExposedServices with the multiplexer.
 	for _, service := range puInfo.Policy.ExposedServices() {
-		client.protomux.RegisterService(service.NetworkInfo, serviceTypeToNetworkListenerType(service.Type))
+		if err := client.protomux.RegisterService(service.NetworkInfo, serviceTypeToNetworkListenerType(service.Type)); err != nil {
+			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
+		}
 	}
 
 	// Register the DependentServices with the multiplexer.
 	for _, service := range puInfo.Policy.DependentServices() {
-		client.protomux.RegisterService(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type))
+		if err := client.protomux.RegisterService(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type)); err != nil {
+			return fmt.Errorf("Duplicate dependent service: %s", err)
+		}
 	}
 
 	// Add the client to the cache
 	p.clients.AddOrUpdate(puID, client)
 
 	// Start the connection multiplexer
-	go client.protomux.Serve(ctx)
+	go client.protomux.Serve(ctx) // nolint
 
 	return nil
 }

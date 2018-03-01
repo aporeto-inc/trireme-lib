@@ -27,12 +27,6 @@ import (
 	"github.com/vulcand/oxy/forward"
 )
 
-const (
-	sockOptOriginalDst = 80
-	proxyMarkInt       = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
-
-)
-
 // JWTClaims is the structure of the claims we are sending on the wire.
 type JWTClaims struct {
 	jwt.StandardClaims
@@ -42,13 +36,9 @@ type JWTClaims struct {
 
 // Config maintains state for proxies connections from listen to backend.
 type Config struct {
-	clientPort string
-	serverPort string
-
-	cert    *tls.Certificate
-	ca      *x509.CertPool
-	secrets secrets.Secrets
-
+	cert              *tls.Certificate
+	ca                *x509.CertPool
+	secrets           secrets.Secrets
 	tokenaccessor     tokenaccessor.TokenAccessor
 	collector         collector.EventCollector
 	puContext         string
@@ -56,14 +46,11 @@ type Config struct {
 	exposedAPICache   cache.DataStore
 	dependentAPICache cache.DataStore
 	jwtCache          cache.DataStore
-
-	applicationProxy bool
-
-	mark int
-
-	server *http.Server
-	fwd    *forward.Forwarder
-	fwdTLS *forward.Forwarder
+	applicationProxy  bool
+	mark              int
+	server            *http.Server
+	fwd               *forward.Forwarder
+	fwdTLS            *forward.Forwarder
 	sync.RWMutex
 }
 
@@ -177,10 +164,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 
 	go func() {
 		<-ctx.Done()
-		p.server.Close()
+		p.server.Close() // nolint
 	}()
 
-	go p.server.Serve(l)
+	go p.server.Serve(l) // nolint
 
 	return nil
 }
@@ -302,7 +289,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	userAttributes := parseUserAttributes(r, jwtCert)
 
-	if err := p.parseClientToken(pctx.(*pucontext.PUContext), token, key, t.([]string), userAttributes); err != nil {
+	if err = p.parseClientToken(pctx.(*pucontext.PUContext), token, key, t.([]string), userAttributes); err != nil {
 		zap.L().Error("Unauthorized request", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 		return
@@ -354,6 +341,9 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		}
 		return ekey, nil
 	})
+	if err != nil {
+		return fmt.Errorf("Not found")
+	}
 
 	for _, c := range claims.Profile {
 		for _, a := range apitags {

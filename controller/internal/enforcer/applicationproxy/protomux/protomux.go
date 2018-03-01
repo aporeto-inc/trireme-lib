@@ -184,7 +184,7 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 			close(l.connection)
 			// Drain the connections enqueued for the listener.
 			for c := range l.connection {
-				c.Close()
+				c.Close() // nolint
 			}
 		}
 	}()
@@ -211,7 +211,7 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 	defer m.wg.Done()
 	ip, port, err := connproc.GetOriginalDestination(c)
 	if err != nil {
-		c.Close()
+		c.Close() // nolint
 		return
 	}
 
@@ -219,7 +219,7 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 	entry := m.servicecache.Find(ip, port)
 	m.RUnlock()
 	if entry == nil {
-		c.Close()
+		c.Close() // nolint
 		return
 	}
 
@@ -229,13 +229,13 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 	target, ok := m.protomap[ltype]
 	m.RUnlock()
 	if !ok {
-		c.Close()
+		c.Close() // nolint
 		return
 	}
 
 	select {
 	case target.connection <- c:
 	case <-m.done:
-		c.Close()
+		c.Close() // nolint
 	}
 }

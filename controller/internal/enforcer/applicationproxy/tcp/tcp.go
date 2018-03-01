@@ -7,12 +7,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
-	"unsafe"
 
 	"go.uber.org/zap"
 
@@ -29,16 +28,8 @@ import (
 )
 
 const (
-	sockOptOriginalDst = 80
-	proxyMarkInt       = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
-
+	proxyMarkInt = 0x40 //Duplicated from supervisor/iptablesctrl refer to it
 )
-
-type secretsPEM interface {
-	AuthPEM() []byte
-	TransmittedPEM() []byte
-	EncodingPEM() []byte
-}
 
 // Proxy maintains state for proxies connections from listen to backend.
 type Proxy struct {
@@ -136,7 +127,7 @@ func (p *Proxy) ShutDown() error {
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
-	defer upConn.Close()
+	defer upConn.Close() // nolint
 
 	ip, port, err := connproc.GetOriginalDestination(upConn)
 	if err != nil {
@@ -147,15 +138,15 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	if err != nil {
 		return
 	}
-	defer downConn.Close()
+	defer downConn.Close() // nolint
 
 	// Before we start the process, listen to context signals and cancel
 	// everything
 	go func() {
 		select {
 		case <-ctx.Done():
-			upConn.Close()
-			downConn.Close()
+			upConn.Close()   // nolint
+			downConn.Close() // nolint
 		}
 	}()
 
@@ -178,7 +169,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	}
 }
 
-func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
+func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn io.ReadWriter) error {
 
 	tlsConn := tls.Client(downConn, &tls.Config{
 		ClientCAs: p.ca,
@@ -196,7 +187,7 @@ func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.C
 	return nil
 }
 
-func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
+func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn io.ReadWriter, serverConn net.Conn) error {
 
 	p.Lock()
 	certs := []tls.Certificate{*p.certificate}
@@ -205,7 +196,7 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.C
 	tlsConn := tls.Server(serverConn, &tls.Config{
 		Certificates: certs,
 	})
-	defer tlsConn.Close()
+	defer tlsConn.Close() // nolint
 
 	if err := tlsConn.Handshake(); err != nil {
 		return err
@@ -216,7 +207,7 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.C
 	return nil
 }
 
-func (p *Proxy) copyData(ctx context.Context, netConn net.Conn, tlsConn *tls.Conn) {
+func (p *Proxy) copyData(ctx context.Context, netConn io.ReadWriter, tlsConn io.ReadWriter) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -267,14 +258,6 @@ func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downCo
 	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
 }
 
-func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
-	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
-	if e1 != 0 {
-		err = e1
-	}
-	return
-}
-
 func (p *Proxy) puContextFromContextID(puID string) (*pucontext.PUContext, error) {
 
 	ctx, err := p.puFromID.Get(puID)
@@ -304,7 +287,7 @@ func (p *Proxy) downConnection(ip net.IP, port int) (net.Conn, error) {
 
 // CompleteEndPointAuthorization -- Aporeto Handshake on top of a completed connection
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
-func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
+func (p *Proxy) CompleteEndPointAuthorization(downIP fmt.Stringer, downPort int, upConn, downConn net.Conn) (bool, error) {
 
 	backendip := downIP.String()
 
@@ -327,7 +310,7 @@ func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upCon
 }
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
-func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downConn net.Conn) (bool, error) {
+func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, downConn net.Conn) (bool, error) {
 
 	// We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
 	puContext, err := p.puContextFromContextID(p.puContext)
@@ -345,7 +328,10 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	reader := bufio.NewReader(downConn)
 
 	for {
-		downConn.SetDeadline(time.Now().Add(2 * time.Second))
+		if err := downConn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+			return false, err
+		}
+
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
 
@@ -401,7 +387,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 }
 
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
-func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn net.Conn) (bool, *bufio.Reader, error) {
+func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, upConn net.Conn) (bool, *bufio.Reader, error) {
 
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
@@ -420,7 +406,10 @@ func (p *Proxy) StartServerAuthStateMachine(ip net.IP, backendport int, upConn n
 	reader := bufio.NewReader(upConn)
 
 	for {
-		upConn.SetDeadline(time.Now().Add(2 * time.Second))
+		if err := upConn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+			return false, nil, err
+		}
+
 		switch conn.GetState() {
 		case connection.ServerReceivePeerToken:
 
@@ -543,14 +532,14 @@ func readMsg(reader *bufio.Reader) ([]byte, error) {
 	return msg[:len(msg)-1], nil
 }
 
-func writeMsg(conn net.Conn, data []byte) (n int, err error) {
+func writeMsg(conn io.Writer, data []byte) (n int, err error) {
 
 	data = append(data, '\n')
 	n, err = conn.Write(data)
 	return n - 1, err
 }
 
-func flushBuffer(reader *bufio.Reader, downConn net.Conn, length int) error {
+func flushBuffer(reader io.Reader, downConn io.Writer, length int) error {
 	data := make([]byte, length)
 	for n := 0; n < length; {
 		l, err := reader.Read(data)

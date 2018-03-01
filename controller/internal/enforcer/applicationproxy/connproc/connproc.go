@@ -178,11 +178,4 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *syn
 			}
 		}
 	}
-
-	if err = syscall.Shutdown(srcFd, syscall.SHUT_RD); err != nil {
-		zap.L().Error("Could Not Close Source Pipe")
-	}
-	if err = syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
-		zap.L().Error("Could Not Close Dest Pipe")
-	}
 }
