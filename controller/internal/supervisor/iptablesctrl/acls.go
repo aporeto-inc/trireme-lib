@@ -223,12 +223,6 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		},
-		{
-			i.appPacketIPTableContext,
-			proxyOutputChain,
-			"-m", "state", "--state", "ESTABLISHED",
-			"-j", "ACCEPT",
-		},
 	}
 }
 
