@@ -9,7 +9,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/aporeto-inc/enforcerd/certmanager"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/http"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
@@ -126,11 +125,6 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 			return nil
 		}
 
-		certificate, err := certmanager.ReadCertificatePEMFromData([]byte(certPEM))
-		if err != nil {
-			return fmt.Errorf("Unable to decode certificate: %s", err)
-		}
-
 		var caPool *x509.CertPool
 		if caPEM != "" {
 			caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
@@ -138,12 +132,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 			caPool = p.systemCAPool
 		}
 
-		key, err := cryptohelpers.LoadEllipticCurveKey([]byte(keyPEM))
-		if err != nil {
-			return err
-		}
-
-		tlsCert, err := certmanager.ToTLSCertificate(certificate, key)
+		tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 		if err != nil {
 			return fmt.Errorf("Failed to update certificates during enforcement: %s", err)
 		}
