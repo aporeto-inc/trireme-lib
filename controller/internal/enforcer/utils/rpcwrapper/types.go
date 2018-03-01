@@ -95,6 +95,7 @@ type EnforcePayload struct {
 	PublicPEM          []byte                         `json:",omitempty"`
 	PrivatePEM         []byte                         `json:",omitempty"`
 	Token              []byte                         `json:",omitempty"`
+	Scopes             []string                       `json:",omitempty"`
 }
 
 //SuperviseRequestPayload for Supervise request
@@ -114,6 +115,7 @@ type SuperviseRequestPayload struct {
 	ProxiedServices   *policy.ProxiedServicesInfo    `json:",omitempty"`
 	ExposedServices   policy.ApplicationServicesList `json:",omitempty"`
 	DependentServices policy.ApplicationServicesList `json:",omitempty"`
+	Scopes            []string                       `json:",omitempty"`
 }
 
 //UnEnforcePayload payload for unenforce request

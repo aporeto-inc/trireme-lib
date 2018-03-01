@@ -6,20 +6,19 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/binary"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -34,10 +33,11 @@ const (
 
 )
 
-type secretsPEM interface {
-	AuthPEM() []byte
-	TransmittedPEM() []byte
-	EncodingPEM() []byte
+// JWTClaims is the structure of the claims we are sending on the wire.
+type JWTClaims struct {
+	jwt.StandardClaims
+	Scopes  []string
+	Profile []string
 }
 
 // Config maintains state for proxies connections from listen to backend.
@@ -45,8 +45,9 @@ type Config struct {
 	clientPort string
 	serverPort string
 
-	cert *tls.Certificate
-	ca   *x509.CertPool
+	cert    *tls.Certificate
+	ca      *x509.CertPool
+	secrets secrets.Secrets
 
 	tokenaccessor     tokenaccessor.TokenAccessor
 	collector         collector.EventCollector
@@ -72,7 +73,6 @@ func NewHTTPProxy(
 	c collector.EventCollector,
 	puContext string,
 	puFromIDCache cache.DataStore,
-	certificate *tls.Certificate,
 	caPool *x509.CertPool,
 	exposedAPICache cache.DataStore,
 	dependentAPICache cache.DataStore,
@@ -86,7 +86,6 @@ func NewHTTPProxy(
 		tokenaccessor:     tp,
 		puFromIDCache:     puFromIDCache,
 		puContext:         puContext,
-		cert:              certificate,
 		ca:                caPool,
 		exposedAPICache:   exposedAPICache,
 		dependentAPICache: dependentAPICache,
@@ -192,12 +191,13 @@ func (p *Config) ShutDown() error {
 }
 
 // UpdateSecrets updates the secrets
-func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool) {
+func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s secrets.Secrets) {
 	p.Lock()
 	defer p.Unlock()
 
 	p.cert = cert
 	p.ca = caPool
+	p.secrets = s
 }
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
@@ -234,9 +234,8 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	len := binary.BigEndian.Uint16(token[:2])
-	r.Header.Add("X-APORETO-LEN", strconv.Itoa(int(len)))
-	r.Header.Add("X-APORETO-AUTH", string(token[2:]))
+	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
+	r.Header.Add("X-APORETO-AUTH", token)
 
 	p.fwdTLS.ServeHTTP(w, r)
 }
@@ -254,15 +253,10 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del("X-APORETO-AUTH")
 	}
 
-	length := r.Header.Get("X-APORETO-LEN")
-	if length != "" {
+	key := r.Header.Get("X-APORETO-KEY")
+	if key != "" {
 		r.Header.Del("X-APORETO-LEN")
 	}
-
-	strlen, _ := strconv.Atoi(length)
-	btoken := make([]byte, 2)
-	binary.BigEndian.PutUint16(btoken, uint16(strlen))
-	btoken = append(btoken, []byte(token)...)
 
 	port := "80"
 	if strings.Contains(r.Host, ":") {
@@ -308,7 +302,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	userAttributes := parseUserAttributes(r, jwtCert)
 
-	if err := p.parseClientToken(pctx.(*pucontext.PUContext), string(btoken), t.([]string), userAttributes); err != nil {
+	if err := p.parseClientToken(pctx.(*pucontext.PUContext), token, key, t.([]string), userAttributes); err != nil {
 		zap.L().Error("Unauthorized request", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 		return
@@ -324,13 +318,21 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	p.fwd.ServeHTTP(w, r)
 }
 
-func (p *Config) createClientToken(puContext *pucontext.PUContext) ([]byte, error) {
-	conn := connection.NewProxyConnection()
-	return p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
+func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, error) {
+
+	claims := &JWTClaims{
+		StandardClaims: jwt.StandardClaims{
+			Issuer:    p.server.Addr,
+			ExpiresAt: time.Now().Add(10 * time.Second).Unix(),
+		},
+		Profile: puContext.Identity().Tags,
+		Scopes:  puContext.Scopes(),
+	}
+
+	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(p.secrets.EncodingKey())
 }
 
-func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, apitags []string, userAttributes []string) error {
-	conn := connection.NewProxyConnection()
+func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, txtKey string, apitags []string, userAttributes []string) error {
 	for _, user := range userAttributes {
 		for _, a := range apitags {
 			if user == a {
@@ -339,12 +341,29 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		}
 	}
 
-	claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, []byte(token))
-	if err != nil || claims == nil {
-		return fmt.Errorf("Failed to parse claims: %s", err)
+	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
+	if err != nil {
+		return fmt.Errorf("Invalid public key")
 	}
 
-	for _, c := range claims.T.Tags {
+	claims := &JWTClaims{}
+	_, err = jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+		ekey, ok := key.(*ecdsa.PublicKey)
+		if !ok {
+			return nil, fmt.Errorf("Invalid key")
+		}
+		return ekey, nil
+	})
+
+	for _, c := range claims.Profile {
+		for _, a := range apitags {
+			if a == c {
+				return nil
+			}
+		}
+	}
+
+	for _, c := range claims.Scopes {
 		for _, a := range apitags {
 			if a == c {
 				return nil
@@ -425,7 +444,7 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 		if kv, ok := v.(map[string]interface{}); ok {
 			for key, value := range kv {
 				if attr, ok := value.(string); ok {
-					attributes = append(attributes, key+"="+attr)
+					attributes = append(attributes, k+":"+key+"="+attr)
 				}
 			}
 		}

@@ -23,6 +23,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
@@ -100,7 +101,7 @@ func (p *Proxy) RunNetworkServer(ctx context.Context, listener net.Listener, enc
 }
 
 // UpdateSecrets updates the secrets of the connections.
-func (p *Proxy) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool) {
+func (p *Proxy) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s secrets.Secrets) {
 	p.Lock()
 	defer p.Unlock()
 

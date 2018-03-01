@@ -288,7 +288,8 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 		payload.ExcludedNetworks,
 		payload.ProxiedServices,
 		payload.ExposedServices,
-		payload.DependentServices)
+		payload.DependentServices,
+		payload.Scopes)
 
 	runtime := policy.NewPURuntimeWithDefaults()
 
@@ -369,7 +370,8 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		payload.ExcludedNetworks,
 		payload.ProxiedServices,
 		payload.ExposedServices,
-		payload.DependentServices)
+		payload.DependentServices,
+		payload.Scopes)
 
 	pupolicy.UpdateServiceCertificates(payload.ServiceCertificate, payload.ServicePrivateKey, payload.ServiceCA)
 

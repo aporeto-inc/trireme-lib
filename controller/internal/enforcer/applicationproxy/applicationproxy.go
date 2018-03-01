@@ -9,8 +9,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
-
 	"github.com/aporeto-inc/enforcerd/certmanager"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/http"
@@ -20,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	cryptohelpers "github.com/aporeto-inc/trireme-lib/utils/crypto"
@@ -35,7 +34,7 @@ const (
 // ServerInterface describes the methods required by an application processor.
 type ServerInterface interface {
 	RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error
-	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool)
+	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool, secrets secrets.Secrets)
 	ShutDown() error
 }
 
@@ -65,6 +64,7 @@ type AppProxy struct {
 	servicesCertificate *x509.Certificate
 	servicesKey         crypto.PrivateKey
 	systemCAPool        *x509.CertPool
+	secrets             secrets.Secrets
 
 	protoMux  *protomux.MultiplexedListener
 	netserver map[protomux.ListenerType]ServerInterface
@@ -88,6 +88,7 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 	return &AppProxy{
 		collector:         c,
 		tokenaccessor:     tp,
+		secrets:           s,
 		puFromID:          puFromID,
 		cert:              certificate,
 		clients:           cache.NewCache("clients"),
@@ -120,35 +121,35 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	if c, err := p.clients.Get(puID); err == nil {
 		// Update all the certificates from the new policy.
 		client := c.(*clientData)
+		certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
+		if certPEM == "" || keyPEM == "" {
+			return nil
+		}
+
+		certificate, err := certmanager.ReadCertificatePEMFromData([]byte(certPEM))
+		if err != nil {
+			return fmt.Errorf("Unable to decode certificate: %s", err)
+		}
+
+		var caPool *x509.CertPool
+		if caPEM != "" {
+			caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
+		} else {
+			caPool = p.systemCAPool
+		}
+
+		key, err := cryptohelpers.LoadEllipticCurveKey([]byte(keyPEM))
+		if err != nil {
+			return err
+		}
+
+		tlsCert, err := certmanager.ToTLSCertificate(certificate, key)
+		if err != nil {
+			return fmt.Errorf("Failed to update certificates during enforcement: %s", err)
+		}
+
 		for _, server := range client.netserver {
-
-			certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
-			if certPEM == "" || keyPEM == "" {
-				return nil
-			}
-
-			certificate, err := certmanager.ReadCertificatePEMFromData([]byte(certPEM))
-			if err != nil {
-				return fmt.Errorf("Unable to decode certificate: %s", err)
-			}
-
-			var caPool *x509.CertPool
-			if caPEM != "" {
-				caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
-			} else {
-				caPool = p.systemCAPool
-			}
-
-			key, err := cryptohelpers.LoadEllipticCurveKey([]byte(keyPEM))
-			if err != nil {
-				return err
-			}
-
-			tlsCert, err := certmanager.ToTLSCertificate(certificate, key)
-			if err != nil {
-				return fmt.Errorf("Failed to update certificates during enforcement: %s", err)
-			}
-			server.UpdateSecrets(&tlsCert, caPool)
+			server.UpdateSecrets(&tlsCert, caPool, p.secrets)
 		}
 		return nil
 	}
@@ -259,27 +260,10 @@ func (p *AppProxy) GetPortSetInstance() portset.PortSet {
 // UpdateSecrets updates the secrets of running enforcers managed by trireme. Remote enforcers will
 // get the secret updates with the next policy push.
 func (p *AppProxy) UpdateSecrets(secret secrets.Secrets) error {
-	pkier := secret.(secretsPEM)
-	var certificate tls.Certificate
-	var err error
-	if secret.Type() != secrets.PSKType {
-		if certificate, err = tls.X509KeyPair(pkier.TransmittedPEM(), pkier.EncodingPEM()); err != nil {
-			return fmt.Errorf("Cannot extract cert and key from secrets %s", err)
-		}
-		p.Lock()
-		p.cert = &certificate
-		p.Unlock()
-	}
+	p.Lock()
+	defer p.Unlock()
+	p.secrets = secret
 	return nil
-}
-
-// GetCertificateFunc implements the TLS interface for getting the certificate.
-func (p *AppProxy) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		p.RLock()
-		defer p.RUnlock()
-		return p.cert, nil
-	}
 }
 
 // registerAndRun registers a new listener of the given type and runs the corresponding server
@@ -302,7 +286,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.cert, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.jwtcache, appproxy, proxyMarkInt)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.jwtcache, appproxy, proxyMarkInt)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)

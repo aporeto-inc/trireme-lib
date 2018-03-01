@@ -166,6 +166,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		ServiceCertificate: serviceCert,
 		ServicePrivateKey:  serviceKey,
 		ServiceCA:          ca,
+		Scopes:             puInfo.Policy.Scopes(),
 	}
 
 	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets

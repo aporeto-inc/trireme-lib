@@ -44,6 +44,8 @@ type PUPolicy struct {
 	servicesPrivateKey string
 	// servicesCA is the CA to be used for the outgoing services
 	servicesCA string
+	// scopes are the processing unit granted scopes
+	scopes []string
 
 	sync.Mutex
 }
@@ -76,6 +78,7 @@ func NewPUPolicy(
 	proxiedServices *ProxiedServicesInfo,
 	exposedServices ApplicationServicesList,
 	dependentServices ApplicationServicesList,
+	scopes []string,
 ) *PUPolicy {
 
 	if appACLs == nil {
@@ -130,12 +133,13 @@ func NewPUPolicy(
 		proxiedServices:   proxiedServices,
 		exposedServices:   exposedServices,
 		dependentServices: dependentServices,
+		scopes:            scopes,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{}, nil, nil)
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{}, nil, nil, []string{})
 }
 
 // Clone returns a copy of the policy
@@ -158,6 +162,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.proxiedServices,
 		p.exposedServices,
 		p.dependentServices,
+		p.scopes,
 	)
 
 	return np
@@ -352,4 +357,12 @@ func (p *PUPolicy) ServiceCertificates() (string, string, string) {
 	defer p.Unlock()
 
 	return p.servicesCertificate, p.servicesPrivateKey, p.servicesCA
+}
+
+// Scopes returns the scopes of the policy.
+func (p *PUPolicy) Scopes() []string {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.scopes
 }
