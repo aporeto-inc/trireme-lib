@@ -57,6 +57,7 @@ func GetOriginalDestination(conn net.Conn) (net.IP, int, error) {
 	return ip, port, nil
 }
 
+// GetInterfaces retrieves all the local interfaces.
 func GetInterfaces() map[string]struct{} {
 	ipmap := map[string]struct{}{}
 
@@ -112,13 +113,13 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 	if err != nil {
 		return err
 	}
-	defer inFile.Close()
+	defer inFile.Close() // nolint
 
 	outFile, outFd, err := Fd(outConn)
 	if err != nil {
 		return err
 	}
-	defer outFile.Close()
+	defer outFile.Close() // nolint
 
 	var wg sync.WaitGroup
 	wg.Add(2)

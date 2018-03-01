@@ -27,16 +27,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 )
 
-type pkiCertifier interface {
-	AuthPEM() []byte
-	TransmittedPEM() []byte
-	EncodingPEM() []byte
-}
-
-type tokenPKICertifier interface {
-	TokenPEMs() [][]byte
-}
-
 // ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
 	MutualAuth             bool

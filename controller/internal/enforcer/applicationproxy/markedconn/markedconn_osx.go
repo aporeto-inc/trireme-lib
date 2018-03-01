@@ -6,21 +6,6 @@ import (
 	"net"
 )
 
-// // MarkedTCPConn is a marked TCP connection. The mark is provided
-// // during connection setup.
-// type MarkedTCPConn struct {
-// 	net.TCPConn
-// 	mark int
-// }
-
-// // NewTCPConn returns a new TCPConnection
-// func NewTCPConn(mark int) *MarkedTCPConn {
-// 	return &MarkedTCPConn{
-// 		TCPConn: net.TCPConn{},
-// 		mark:    mark,
-// 	}
-// }
-
 // DialMarkedTCP creates a new TCP connection and marks it with the provided mark.
 func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Conn, error) {
 

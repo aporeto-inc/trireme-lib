@@ -22,7 +22,7 @@ func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Con
 	}
 
 	f := os.NewFile(uintptr(fd), raddr.String())
-	defer f.Close()
+	defer f.Close() // nolint
 
 	conn, err := net.FileConn(f)
 	if err != nil {
@@ -35,12 +35,12 @@ func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Con
 	copy(address.Addr[:], raddr.IP.To4())
 
 	if err := syscall.SetNonblock(fd, false); err != nil {
-		conn.Close()
+		conn.Close() // nolint
 		return nil, fmt.Errorf("unable to set socket options: %s", err)
 	}
 
 	if err := syscall.Connect(fd, address); err != nil {
-		conn.Close()
+		conn.Close() // nolint
 		return nil, fmt.Errorf("Unable to connect: %s", err)
 	}
 
