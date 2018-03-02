@@ -120,10 +120,9 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	}
 
 	// For updates we need to update the policy and certificates.
-	if c, err := p.clients.Get(puID); err == nil {
+	if c, cerr := p.clients.Get(puID); cerr == nil {
 		// Update all the certificates from the new policy.
 		client := c.(*clientData)
-
 		for _, server := range client.netserver {
 			server.UpdateSecrets(&tlsCert, caPool, p.secrets)
 		}
