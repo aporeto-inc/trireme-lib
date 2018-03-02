@@ -6,14 +6,13 @@ import (
 	"fmt"
 	"os/exec"
 	"time"
-
-	"go.uber.org/zap"
-
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/nfq"
 	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
@@ -27,6 +26,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.uber.org/zap"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -36,10 +36,11 @@ const DefaultExternalIPTimeout = "500ms"
 type Datapath struct {
 
 	// Configuration parameters
-	filterQueue    *fqconfig.FilterQueue
-	collector      collector.EventCollector
-	tokenAccessor  tokenaccessor.TokenAccessor
-	service        packetprocessor.PacketProcessor
+	filterQueue   *fqconfig.FilterQueue
+	collector     collector.EventCollector
+	tokenAccessor tokenaccessor.TokenAccessor
+	service       packetprocessor.PacketProcessor
+
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
 	procMountPoint string
@@ -83,6 +84,9 @@ type Datapath struct {
 	packetLogs          bool
 
 	portSetInstance portset.PortSet
+
+	//datapathImpl
+	datapathhdl datapathimpl.DatapathImpl
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -168,7 +172,7 @@ func New(
 	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
-
+	d.datapathhdl = nfq.NewNfq(d, filterQueue)
 	return d
 }
 
@@ -312,8 +316,8 @@ func (d *Datapath) Run(ctx context.Context) error {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}
 
-	d.startApplicationInterceptor(ctx)
-	d.startNetworkInterceptor(ctx)
+	d.datapathhdl.StartApplicationInterceptor(ctx)
+	d.datapathhdl.StartNetworkInterceptor(ctx)
 
 	go d.nflogger.Run(ctx)
 

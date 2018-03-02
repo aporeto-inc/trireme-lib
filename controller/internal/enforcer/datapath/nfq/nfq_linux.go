@@ -1,6 +1,6 @@
 // +build linux
 
-package nfqdatapath
+package nfq
 
 // Go libraries
 import (
@@ -10,24 +10,37 @@ import (
 	"time"
 
 	nfqueue "github.com/aporeto-inc/netlink-go/nfqueue"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
 
+type nfq struct {
+	processor   datapathimpl.DataPathPacketHandler
+	filterQueue *fqconfig.FilterQueue
+}
+
+func NewNfq(processor datapathimpl.DataPathPacketHandler, filterQueue *fqconfig.FilterQueue) datapathimpl.DatapathImpl {
+	return &nfq{
+		processor:   processor,
+		filterQueue: filterQueue,
+	}
+}
 func errorCallback(err error, data interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
 func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
-	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
+	d.(*nfq).processNetworkPacketsFromNFQ(packet)
 }
 
 func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
-	d.(*Datapath).processApplicationPacketsFromNFQ(packet)
+	d.(*nfq).processApplicationPacketsFromNFQ(packet)
 }
 
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
-func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
+func (d *nfq) StartNetworkInterceptor(ctx context.Context) {
 	var err error
 
 	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumNetworkQueues())
@@ -49,7 +62,7 @@ func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
-func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
+func (d *nfq) StartApplicationInterceptor(ctx context.Context) {
 	var err error
 
 	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumApplicationQueues())
@@ -71,7 +84,7 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue
-func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
+func (d *nfq) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(int(p.Mark)))
@@ -79,7 +92,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if err != nil {
 		netPacket.Print(packet.PacketFailureCreate)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
-		err = d.processNetworkTCPPackets(netPacket)
+		err = d.processor.ProcessNetworkPacket(netPacket)
 	} else {
 		err = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto)
 	}
@@ -103,7 +116,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
+func (d *nfq) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	// Being liberal on what we transmit - malformed TCP packets are let go
 	// We are strict on what we accept on the other side, but we don't block
@@ -113,7 +126,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if err != nil {
 		appPacket.Print(packet.PacketFailureCreate)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
-		err = d.processApplicationTCPPackets(appPacket)
+		err = d.processor.ProcessApplicationPacket(appPacket)
 	} else {
 		err = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto)
 	}

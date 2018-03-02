@@ -22,7 +22,7 @@ import (
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
-func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
+func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
@@ -138,7 +138,7 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 }
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
+func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
