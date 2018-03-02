@@ -173,10 +173,14 @@ func (i *Instance) createPUPortSet(setname string) error {
 	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
 	if err != nil {
 		if strings.Contains(string(out), "set with the same name already exists") {
-			zap.L().Warn("Set already exists", zap.String("set name", setname))
+			zap.L().Warn("Set already exists - cleaning up", zap.String("set name", setname))
+			// Clean up the existing set
+			if _, cerr := exec.Command(path, "-F", setname).CombinedOutput(); cerr != nil {
+				return fmt.Errorf("Failed to clean up existing ipset: %s", err)
+			}
 			return nil
 		}
-		zap.L().Error("Unable to creating set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
+		zap.L().Error("Unable to create set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
 	}
 	return err
 
