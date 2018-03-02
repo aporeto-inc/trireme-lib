@@ -102,26 +102,27 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	p.exposedAPICache.AddOrUpdate(puID, apicache)
 	p.jwtcache.AddOrUpdate(puID, jwtcache)
 
+	certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
+	if certPEM == "" || keyPEM == "" {
+		return nil
+	}
+
+	var caPool *x509.CertPool
+	if caPEM != "" {
+		caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
+	} else {
+		caPool = p.systemCAPool
+	}
+
+	tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		return fmt.Errorf("Failed to update certificates during enforcement: %s", err)
+	}
+
 	// For updates we need to update the policy and certificates.
 	if c, err := p.clients.Get(puID); err == nil {
 		// Update all the certificates from the new policy.
 		client := c.(*clientData)
-		certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
-		if certPEM == "" || keyPEM == "" {
-			return nil
-		}
-
-		var caPool *x509.CertPool
-		if caPEM != "" {
-			caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
-		} else {
-			caPool = p.systemCAPool
-		}
-
-		tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
-		if err != nil {
-			return fmt.Errorf("Failed to update certificates during enforcement: %s", err)
-		}
 
 		for _, server := range client.netserver {
 			server.UpdateSecrets(&tlsCert, caPool, p.secrets)
@@ -177,6 +178,10 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		if err := client.protomux.RegisterService(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type)); err != nil {
 			return fmt.Errorf("Duplicate dependent service: %s", err)
 		}
+	}
+
+	for _, server := range client.netserver {
+		server.UpdateSecrets(&tlsCert, caPool, p.secrets)
 	}
 
 	// Add the client to the cache
@@ -265,7 +270,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.jwtcache, appproxy, proxyMarkInt)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.jwtcache, appproxy, proxyMarkInt, p.secrets)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)

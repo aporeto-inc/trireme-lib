@@ -342,13 +342,12 @@ func (p *PUPolicy) UpdateExcludedNetworks(networks []string) {
 }
 
 // UpdateServiceCertificates updates the certificate and private key of the policy
-func (p *PUPolicy) UpdateServiceCertificates(cert, key, caPool string) {
+func (p *PUPolicy) UpdateServiceCertificates(cert, key string) {
 	p.Lock()
 	defer p.Unlock()
 
 	p.servicesCertificate = cert
 	p.servicesPrivateKey = key
-	p.servicesCA = caPool
 }
 
 // ServiceCertificates returns the service certificate.

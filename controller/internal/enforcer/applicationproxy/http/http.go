@@ -66,6 +66,7 @@ func NewHTTPProxy(
 	jwtCache cache.DataStore,
 	applicationProxy bool,
 	mark int,
+	secrets secrets.Secrets,
 ) *Config {
 
 	return &Config{
@@ -79,6 +80,7 @@ func NewHTTPProxy(
 		applicationProxy:  applicationProxy,
 		jwtCache:          jwtCache,
 		mark:              mark,
+		secrets:           secrets,
 	}
 }
 
