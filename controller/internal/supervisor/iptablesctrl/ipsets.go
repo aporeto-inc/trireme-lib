@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
@@ -171,7 +172,11 @@ func (i *Instance) createPUPortSet(setname string) error {
 	path, _ := exec.LookPath("ipset")
 	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
 	if err != nil {
-		zap.L().Error("Unable to creating set", zap.String("ipset-output", string(out)))
+		if strings.Contains(string(out), "set with the same name already exists") {
+			zap.L().Warn("Set already exists", zap.String("set name", setname))
+			return nil
+		}
+		zap.L().Error("Unable to creating set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
 	}
 	return err
 
