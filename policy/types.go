@@ -314,6 +314,9 @@ type OptionsType struct {
 
 	// PolicyExtensions is policy resolution extensions
 	PolicyExtensions interface{}
+
+	// PortMap maps container port -> host ports.
+	PortMap map[string][]string
 }
 
 // ProxiedServicesInfo holds the info for a proxied service.

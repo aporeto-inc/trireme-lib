@@ -242,3 +242,15 @@ func (r *PURuntime) SetServices(services []common.Service) {
 		r.options.Services = services
 	}
 }
+
+// PortMap returns the mapping from host port->container port
+func (r *PURuntime) PortMap() map[string][]string {
+	r.Lock()
+	defer r.Unlock()
+
+	if r.options != nil {
+		return r.options.PortMap
+	}
+
+	return nil
+}

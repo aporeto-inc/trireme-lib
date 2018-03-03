@@ -40,6 +40,9 @@ type RuntimeReader interface {
 
 	// SetServices sets the services of the runtime.
 	SetServices(services []common.Service)
+
+	// PortMap returns portmap (host port->container ports)
+	PortMap() map[string][]string
 }
 
 // A Resolver must be implemnted by a policy engine that receives monitor events.
