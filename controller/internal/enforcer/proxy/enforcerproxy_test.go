@@ -9,14 +9,16 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	mockrpcwrapper "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/processmon"
-	mockprocessmon "github.com/aporeto-inc/trireme-lib/controller/internal/processmon/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
+
+	mockrpcwrapper "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mock"
+	mockprocessmon "github.com/aporeto-inc/trireme-lib/controller/internal/processmon/mock"
 	gomock "github.com/golang/mock/gomock"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -113,7 +115,7 @@ func createPUInfo() *policy.PUInfo {
 
 	runtime := policy.NewPURuntimeWithDefaults()
 	runtime.SetIPAddresses(ips)
-	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
+	plc := policy.NewPUPolicy("testServerID", policy.Police, rules, rules, nil, nil, nil, nil, ips, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{}, nil, nil, []string{})
 
 	return policy.PUInfoFromPolicyAndRuntime("testServerID", plc, runtime)
 

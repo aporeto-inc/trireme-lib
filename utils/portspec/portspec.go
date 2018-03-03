@@ -93,3 +93,26 @@ func (s *PortSpec) String() string {
 func (s *PortSpec) Value() interface{} {
 	return s.value
 }
+
+// Overlaps returns true if the provided port spect overlaps with the given one.
+func (s *PortSpec) Overlaps(p *PortSpec) bool {
+	a := p
+	b := s
+	if s.Min > p.Min {
+		a = s
+		b = p
+	}
+	if a.Max > b.Min {
+		return true
+	}
+	return false
+}
+
+// IsIncluded returns trues if a port is within the range of the portspec
+func (s *PortSpec) IsIncluded(port int) bool {
+	p := uint16(port)
+	if s.Min <= p && p <= s.Max {
+		return true
+	}
+	return false
+}

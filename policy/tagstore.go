@@ -14,6 +14,11 @@ func NewTagStore() *TagStore {
 	return &TagStore{[]string{}}
 }
 
+// NewTagStoreFromSlice creates a new tag store from a slice.
+func NewTagStoreFromSlice(tags []string) *TagStore {
+	return &TagStore{tags}
+}
+
 // NewTagStoreFromMap creates a tag store from an input map
 func NewTagStoreFromMap(tags map[string]string) *TagStore {
 	t := &TagStore{make([]string, len(tags))}
