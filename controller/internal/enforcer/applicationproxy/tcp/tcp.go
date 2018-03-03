@@ -309,7 +309,7 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 
 	var isEncrypted bool
 	// Now let us handle the state machine for the down connection
-	if isEncrypted, err = p.CompleteEndPointAuthorization(string(ip), port, upConn, downConn, contextID); err != nil {
+	if isEncrypted, err = p.CompleteEndPointAuthorization(fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]), port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
@@ -589,6 +589,7 @@ func (p *Proxy) CompleteEndPointAuthorization(backendip string, backendport uint
 	//Assumption within a container two applications talking to each other won't be proxied.
 	//If backend ip is non local we are client else we are server
 	islocalIP := func() bool {
+		fmt.Println("Backend IP:", backendip, "IPList:", p.IPList)
 		for _, ip := range p.IPList {
 			if ip == backendip {
 				return true
