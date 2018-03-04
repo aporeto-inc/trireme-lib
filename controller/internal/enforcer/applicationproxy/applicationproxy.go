@@ -161,7 +161,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		}
 	}
 
-	if updated, err := p.processCertificateUpdates(puInfo, client); err != nil || !updated {
+	if _, err := p.processCertificateUpdates(puInfo, client); err != nil {
 		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
 
