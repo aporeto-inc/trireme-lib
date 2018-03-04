@@ -405,9 +405,13 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 
 	switch r.RequestURI {
 	case "/certificate":
-		w.Write([]byte(p.certPEM))
+		if _, err := w.Write([]byte(p.certPEM)); err != nil {
+			zap.L().Error("Unable to write response")
+		}
 	case "/key":
-		w.Write([]byte(p.keyPEM))
+		if _, err := w.Write([]byte(p.keyPEM)); err != nil {
+			zap.L().Error("Unable to write response")
+		}
 	default:
 		http.Error(w, fmt.Sprintf("Uknown"), http.StatusBadRequest)
 	}
