@@ -32,7 +32,7 @@ const (
 // ServerInterface describes the methods required by an application processor.
 type ServerInterface interface {
 	RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error
-	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool, secrets secrets.Secrets)
+	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool, secrets secrets.Secrets, certPEM, keyPEM string)
 	ShutDown() error
 }
 
@@ -98,35 +98,17 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	p.Lock()
 	defer p.Unlock()
 
-	apicache, jwtcache := buildCaches(puInfo.Policy.ExposedServices())
+	// First update the caches with the new policy information.
+	apicache, dependentCache, jwtcache := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
 	p.exposedAPICache.AddOrUpdate(puID, apicache)
 	p.jwtcache.AddOrUpdate(puID, jwtcache)
+	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
 
-	certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
-	if certPEM == "" || keyPEM == "" {
-		return nil
-	}
-
-	var caPool *x509.CertPool
-	if caPEM != "" {
-		caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
-	} else {
-		caPool = p.systemCAPool
-	}
-
-	tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
-	if err != nil {
-		return fmt.Errorf("Failed to update certificates during enforcement: %s", err)
-	}
-
-	// For updates we need to update the policy and certificates.
+	// For updates we need to update the certificates if we have new ones. Otherwise
+	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
-		// Update all the certificates from the new policy.
-		client := c.(*clientData)
-		for _, server := range client.netserver {
-			server.UpdateSecrets(&tlsCert, caPool, p.secrets)
-		}
-		return nil
+		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData))
+		return perr
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
@@ -179,8 +161,8 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		}
 	}
 
-	for _, server := range client.netserver {
-		server.UpdateSecrets(&tlsCert, caPool, p.secrets)
+	if _, err := p.processCertificateUpdates(puInfo, client); err != nil {
+		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
 
 	// Add the client to the cache
@@ -200,6 +182,10 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 
 	if err := p.exposedAPICache.Remove(puID); err != nil {
 		zap.L().Warn("Cannot find PU in the API cache")
+	}
+
+	if err := p.dependentAPICache.Remove(puID); err != nil {
+		zap.L().Warn("Cannot find PU in the Dependent API cache")
 	}
 
 	if err := p.jwtcache.Remove(puID); err != nil {
@@ -288,6 +274,37 @@ func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
 	return net.ListenTCP("tcp", addr)
 }
 
+// processCertificateUpdates processes the certificate information and updates
+// the servers.
+func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData) (bool, error) {
+
+	// If there are certificates provided, we will need to update them for the
+	// services. If the certificates are nil, we ignore them.
+	certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
+	if certPEM == "" || keyPEM == "" {
+		return false, nil
+	}
+
+	// Process any updates on the cert pool
+	var caPool *x509.CertPool
+	if caPEM != "" {
+		caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
+	} else {
+		caPool = p.systemCAPool
+	}
+
+	// Create the TLS certificate
+	tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
+	if err != nil {
+		return false, fmt.Errorf("Invalid certificates: %s", err)
+	}
+
+	for _, server := range client.netserver {
+		server.UpdateSecrets(&tlsCert, caPool, p.secrets, certPEM, keyPEM)
+	}
+	return true, nil
+}
+
 func serviceTypeToNetworkListenerType(serviceType policy.ServiceType) protomux.ListenerType {
 	switch serviceType {
 	case policy.ServiceHTTP:
@@ -306,9 +323,10 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 	}
 }
 
-func buildCaches(services policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*x509.Certificate) {
+func buildCaches(services, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]*x509.Certificate) {
 	apicache := map[string]*urisearch.APICache{}
 	jwtcache := map[string]*x509.Certificate{}
+	dependentCache := map[string]*urisearch.APICache{}
 
 	for _, service := range services {
 		if service.Type != policy.ServiceHTTP {
@@ -324,5 +342,15 @@ func buildCaches(services policy.ApplicationServicesList) (map[string]*urisearch
 		jwtcache[service.NetworkInfo.Ports.String()] = cert
 	}
 
-	return apicache, jwtcache
+	for _, service := range dependentServices {
+		uricache := urisearch.NewAPICache(service.HTTPRules)
+		for _, fqdn := range service.NetworkInfo.FQDNs {
+			if _, ok := dependentCache[fqdn]; ok {
+				continue
+			}
+			dependentCache[fqdn] = uricache
+		}
+	}
+
+	return apicache, dependentCache, jwtcache
 }

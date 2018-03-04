@@ -38,6 +38,8 @@ type JWTClaims struct {
 type Config struct {
 	cert              *tls.Certificate
 	ca                *x509.CertPool
+	keyPEM            string
+	certPEM           string
 	secrets           secrets.Secrets
 	tokenaccessor     tokenaccessor.TokenAccessor
 	collector         collector.EventCollector
@@ -180,13 +182,15 @@ func (p *Config) ShutDown() error {
 }
 
 // UpdateSecrets updates the secrets
-func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s secrets.Secrets) {
+func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s secrets.Secrets, certPEM, keyPEM string) {
 	p.Lock()
 	defer p.Unlock()
 
 	p.cert = cert
 	p.ca = caPool
 	p.secrets = s
+	p.certPEM = certPEM
+	p.keyPEM = keyPEM
 }
 
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
@@ -214,6 +218,10 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	token, err := p.createClientToken(puContext)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
+		return
+	}
+
+	if p.isSecretsRequest(w, r) {
 		return
 	}
 
@@ -364,6 +372,51 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 	}
 
 	return fmt.Errorf("Not found")
+}
+
+func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
+
+	data, err := p.dependentAPICache.Get(p.puContext)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown dependencies: %s", err), http.StatusForbidden)
+		return false
+	}
+
+	port := "80"
+	host := r.Host
+	if strings.Contains(r.Host, ":") {
+		host, port, err = net.SplitHostPort(r.Host)
+		if err != nil {
+			zap.L().Error("Invalid HTTP port parameter", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Invalid HTTP port parameter: %s", err), http.StatusUnprocessableEntity)
+			return false
+		}
+	}
+
+	apiCache, ok := data.(map[string]*urisearch.APICache)[host+":"+port]
+	if !ok {
+		return false
+	}
+
+	// Look for a local request for certificates
+	if found, _ := apiCache.Find(r.Method, r.RequestURI); !found {
+		return false
+	}
+
+	switch r.RequestURI {
+	case "/certificate":
+		if _, err := w.Write([]byte(p.certPEM)); err != nil {
+			zap.L().Error("Unable to write response")
+		}
+	case "/key":
+		if _, err := w.Write([]byte(p.keyPEM)); err != nil {
+			zap.L().Error("Unable to write response")
+		}
+	default:
+		http.Error(w, fmt.Sprintf("Uknown"), http.StatusBadRequest)
+	}
+
+	return true
 }
 
 func getServerName(addr string) string {
