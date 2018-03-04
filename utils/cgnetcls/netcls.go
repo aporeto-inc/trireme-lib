@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/aporeto-inc/trireme-lib/utils/allocator"
 	"go.uber.org/zap"
 )
 
@@ -16,6 +17,7 @@ type netCls struct {
 
 var basePath = "/sys/fs/cgroup/net_cls"
 var markval uint64 = Initialmarkval
+var markallocator allocator.Allocator
 
 // GetCgroupList geta list of all cgroup names
 func GetCgroupList() []string {

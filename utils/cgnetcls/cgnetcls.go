@@ -12,9 +12,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"syscall"
 
+	"github.com/aporeto-inc/trireme-lib/utils/allocator"
 	"github.com/kardianos/osext"
 
 	"go.uber.org/zap"
@@ -22,6 +22,7 @@ import (
 
 //Initialize only ince
 func init() {
+	markallocator = allocator.New(Initialmarkval, 255)
 	mountCgroupController()
 }
 
@@ -299,5 +300,9 @@ func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls
 
 // MarkVal returns a new Mark Value
 func MarkVal() uint64 {
-	return atomic.AddUint64(&markval, 1)
+	val, _ := strconv.Atoi(markallocator.Allocate())
+	return uint64(val)
+}
+func ReleaseMarkVal(mark string) {
+	markallocator.Release(mark)
 }

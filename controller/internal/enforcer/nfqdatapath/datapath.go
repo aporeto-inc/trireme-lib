@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"os/exec"
 	"time"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/nfq"
+
 	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -24,6 +25,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
@@ -172,7 +174,8 @@ func New(
 	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
-	d.datapathhdl = nfq.NewNfq(d, filterQueue)
+	//d.datapathhdl = nfq.NewNfq(d, filterQueue)
+	d.datapathhdl = tundatapath.NewTunDataPath(d, 0x100)
 	return d
 }
 
@@ -225,8 +228,6 @@ func NewWithDefaults(
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
-	zap.L().Debug("Called Proxy Enforce")
 
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
@@ -292,7 +293,8 @@ func (d *Datapath) Unenforce(contextID string) error {
 			zap.Error(err),
 		)
 	}
-
+	//Return the mark to be used somewhere else
+	cgnetcls.ReleaseMarkVal(pu.Mark())
 	return nil
 }
 
