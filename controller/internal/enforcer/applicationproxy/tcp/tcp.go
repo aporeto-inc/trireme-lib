@@ -92,7 +92,7 @@ func (p *Proxy) RunNetworkServer(ctx context.Context, listener net.Listener, enc
 }
 
 // UpdateSecrets updates the secrets of the connections.
-func (p *Proxy) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s secrets.Secrets) {
+func (p *Proxy) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s secrets.Secrets, certPEM, keyPEM string) {
 	p.Lock()
 	defer p.Unlock()
 

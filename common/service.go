@@ -19,6 +19,9 @@ type Service struct {
 
 	// Addresses are the IP addresses. An empty list means 0.0.0.0
 	Addresses []*net.IPNet `json:"addresses,omitempty"`
+
+	// FQDNs is the list of FQDNs for the service.
+	FQDNs []string
 }
 
 // ConvertServicesToPortList converts an array of services to a port list
