@@ -21,7 +21,7 @@ type Service struct {
 	Addresses []*net.IPNet `json:"addresses,omitempty"`
 
 	// FQDNs is the list of FQDNs for the service.
-	FQDNs []string
+	FQDNs []string `json:"fqdns,omitempty"`
 }
 
 // ConvertServicesToPortList converts an array of services to a port list
