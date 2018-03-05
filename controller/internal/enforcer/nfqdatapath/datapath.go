@@ -12,7 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/nfq"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -174,8 +174,8 @@ func New(
 	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
-	//d.datapathhdl = nfq.NewNfq(d, filterQueue)
-	d.datapathhdl = tundatapath.NewTunDataPath(d, 0x100)
+	d.datapathhdl = nfq.NewNfq(d, filterQueue)
+	//d.datapathhdl = tundatapath.NewTunDataPath(d, 0x100)
 	return d
 }
 

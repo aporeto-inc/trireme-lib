@@ -1,6 +1,6 @@
 // +build !linux
 
-package nfqdatapath
+package nfq
 
 import "context"
 
