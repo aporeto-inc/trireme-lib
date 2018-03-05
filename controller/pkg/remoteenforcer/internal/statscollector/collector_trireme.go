@@ -1,6 +1,8 @@
 package statscollector
 
 import (
+	"fmt"
+
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"go.uber.org/zap"
 )
@@ -31,4 +33,22 @@ func (c *collectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 // CollectContainerEvent is called when container events are received
 func (c *collectorImpl) CollectContainerEvent(record *collector.ContainerRecord) {
 	zap.L().Error("Unexpected call for collecting container event")
+}
+
+// CollectUserEvent collects a new user event and adds it to a local cache.
+func (c *collectorImpl) CollectUserEvent(record *collector.UserRecord) {
+	if err := collector.StatsUserHash(record); err != nil {
+		zap.L().Error("Cannot store user record")
+		return
+	}
+
+	fmt.Println("User record is ", record)
+
+	c.Lock()
+	defer c.Unlock()
+
+	if _, ok := c.ProcessedUsers[record.ID]; !ok {
+		c.Users[record.ID] = record
+		c.ProcessedUsers[record.ID] = true
+	}
 }

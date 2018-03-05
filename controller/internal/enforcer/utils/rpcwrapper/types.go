@@ -105,6 +105,7 @@ type UnEnforceResponsePayload struct {
 //StatsPayload is the payload carries by the stats reporting form the remote enforcer
 type StatsPayload struct {
 	Flows map[string]*collector.FlowRecord `json:",omitempty"`
+	Users map[string]*collector.UserRecord `json:",omitempty"`
 }
 
 //ExcludeIPRequestPayload carries the list of excluded ips
