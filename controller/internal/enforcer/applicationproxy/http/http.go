@@ -340,7 +340,7 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 
 	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
 	if err != nil {
-		return fmt.Errorf("Invalid public key")
+		return fmt.Errorf("Invalid Service Token")
 	}
 
 	claims := &JWTClaims{}
@@ -352,7 +352,7 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		return ekey, nil
 	})
 	if err != nil {
-		return fmt.Errorf("Not found")
+		return fmt.Errorf("Error parsing token: %s", err)
 	}
 
 	for _, c := range claims.Profile {
@@ -371,6 +371,12 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		}
 	}
 
+	zap.L().Warn("No match found in API token",
+		zap.Strings("User Attributes", userAttributes),
+		zap.Strings("API Policy", apitags),
+		zap.Strings("PU Claims", claims.Profile),
+		zap.Strings("PU Scopes", claims.Scopes),
+	)
 	return fmt.Errorf("Not found")
 }
 
@@ -470,6 +476,7 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 
 	// We can't decode it. Just ignore the user attributes at this point.
 	if err != nil || token == nil {
+		zap.L().Warn("Identified toke, but it is invalid", zap.Error(err))
 		return attributes
 	}
 
@@ -494,5 +501,6 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 			}
 		}
 	}
+
 	return attributes
 }
