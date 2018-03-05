@@ -58,7 +58,9 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 		return nil, err
 	}
 
-	return b, nil
+	s := base64.StdEncoding.EncodeToString(b)
+
+	return []byte(s[:n]), nil
 }
 
 // GenerateRandomString returns a URL-safe, base64 encoded
@@ -107,7 +109,7 @@ func LoadEllipticCurveKey(keyPEM []byte) (*ecdsa.PrivateKey, error) {
 
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
-		return nil, fmt.Errorf("unable to parse pem block: %s", string(keyPEM))
+		return nil, fmt.Errorf("LoadElliticCurveKey bad pem block: %s", string(keyPEM))
 	}
 
 	// Parse the key
