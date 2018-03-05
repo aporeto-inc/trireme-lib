@@ -108,11 +108,15 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
 		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData))
+<<<<<<< HEAD
 		if perr != nil {
 			return perr
 		}
 
 		return p.registerServices(c.(*clientData), puInfo)
+=======
+		return perr
+>>>>>>> a5e41a247cf8a7dff039db75ac9c29e6c882b2d2
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
@@ -155,6 +159,16 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Unable to register services: %s ", err)
 	}
 
+<<<<<<< HEAD
+=======
+	// Register the DependentServices with the multiplexer.
+	for _, service := range puInfo.Policy.DependentServices() {
+		if err := client.protomux.RegisterService(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type)); err != nil {
+			return fmt.Errorf("Duplicate dependent service: %s", err)
+		}
+	}
+
+>>>>>>> a5e41a247cf8a7dff039db75ac9c29e6c882b2d2
 	if _, err := p.processCertificateUpdates(puInfo, client); err != nil {
 		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
