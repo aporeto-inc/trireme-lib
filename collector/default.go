@@ -3,6 +3,8 @@ package collector
 import (
 	"encoding/binary"
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/cespare/xxhash"
 )
@@ -41,9 +43,14 @@ func StatsFlowHash(r *FlowRecord) string {
 
 // StatsUserHash is a hash function to hash user records
 func StatsUserHash(r *UserRecord) error {
+	// Order matters for the hash function loop
+	sort.Strings(r.Claims)
 	hash := xxhash.New()
-	for _, claim := range r.Claims {
-		if _, err := hash.Write([]byte(claim)); err != nil {
+	for i := 0; i < len(r.Claims); i++ {
+		if strings.HasPrefix(r.Claims[i], "sub") {
+			continue
+		}
+		if _, err := hash.Write([]byte(r.Claims[i])); err != nil {
 			return fmt.Errorf("Cannot create hash")
 		}
 	}

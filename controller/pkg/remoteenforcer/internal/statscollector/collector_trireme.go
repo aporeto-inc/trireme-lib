@@ -1,8 +1,6 @@
 package statscollector
 
 import (
-	"fmt"
-
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"go.uber.org/zap"
 )
@@ -41,8 +39,6 @@ func (c *collectorImpl) CollectUserEvent(record *collector.UserRecord) {
 		zap.L().Error("Cannot store user record")
 		return
 	}
-
-	fmt.Println("User record is ", record)
 
 	c.Lock()
 	defer c.Unlock()

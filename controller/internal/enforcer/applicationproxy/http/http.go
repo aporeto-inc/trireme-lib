@@ -349,7 +349,6 @@ func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, erro
 		Scopes:   puContext.Scopes(),
 		SourceID: puContext.ManagementID(),
 	}
-
 	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(p.secrets.EncodingKey())
 }
 
