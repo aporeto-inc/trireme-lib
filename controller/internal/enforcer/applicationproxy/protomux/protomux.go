@@ -6,7 +6,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
@@ -149,23 +148,18 @@ func (m *MultiplexedListener) UnregisterDefaultListener() error {
 	return nil
 }
 
-// RegisterService associates a service (ip, port) with a listener.
-func (m *MultiplexedListener) RegisterService(spec *common.Service, ltype ListenerType) error {
+// NewServiceRegistry creates a new service registry for updates. The caller must
+// call SetServiceRegistry to do an atomic update of the service registry.
+func (m *MultiplexedListener) NewServiceRegistry() *servicecache.ServiceCache {
+	return servicecache.NewTable()
+}
+
+// SetServiceRegistry updates the service registry for the caller.
+func (m *MultiplexedListener) SetServiceRegistry(s *servicecache.ServiceCache) {
 	m.Lock()
 	defer m.Unlock()
 
-	return m.servicecache.Add(spec, ltype)
-}
-
-// UnregisterService unregisters a service. Returns error if the service doesn't exist.
-func (m *MultiplexedListener) UnregisterService(spec *common.Service) error {
-	// if _, ok := m.servicemap[addr]; !ok {
-	// 	return fmt.Errorf("Service does not exist")
-	// }
-
-	// delete(m.servicemap, addr)
-
-	return nil
+	m.servicecache = s
 }
 
 // Close terminates the server without the context.

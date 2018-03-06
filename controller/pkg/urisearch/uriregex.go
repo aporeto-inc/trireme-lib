@@ -64,7 +64,7 @@ func (a *APIStore) Find(verb, api string) ([]string, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("Not found")
+	return nil, fmt.Errorf("URI Not found")
 }
 
 // ruleString converts the HTTP rule to a regular expressions string.

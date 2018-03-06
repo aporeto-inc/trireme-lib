@@ -32,3 +32,19 @@ func (c *collectorImpl) CollectFlowEvent(record *collector.FlowRecord) {
 func (c *collectorImpl) CollectContainerEvent(record *collector.ContainerRecord) {
 	zap.L().Error("Unexpected call for collecting container event")
 }
+
+// CollectUserEvent collects a new user event and adds it to a local cache.
+func (c *collectorImpl) CollectUserEvent(record *collector.UserRecord) {
+	if err := collector.StatsUserHash(record); err != nil {
+		zap.L().Error("Cannot store user record")
+		return
+	}
+
+	c.Lock()
+	defer c.Unlock()
+
+	if _, ok := c.ProcessedUsers[record.ID]; !ok {
+		c.Users[record.ID] = record
+		c.ProcessedUsers[record.ID] = true
+	}
+}

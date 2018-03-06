@@ -108,7 +108,11 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
 		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData))
-		return perr
+		if perr != nil {
+			return perr
+		}
+
+		return p.registerServices(c.(*clientData), puInfo)
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
@@ -147,18 +151,8 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
 
-	// Register the ExposedServices with the multiplexer.
-	for _, service := range puInfo.Policy.ExposedServices() {
-		if err := client.protomux.RegisterService(service.NetworkInfo, serviceTypeToNetworkListenerType(service.Type)); err != nil {
-			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
-		}
-	}
-
-	// Register the DependentServices with the multiplexer.
-	for _, service := range puInfo.Policy.DependentServices() {
-		if err := client.protomux.RegisterService(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type)); err != nil {
-			return fmt.Errorf("Duplicate dependent service: %s", err)
-		}
+	if err := p.registerServices(client, puInfo); err != nil {
+		return fmt.Errorf("Unable to register services: %s ", err)
 	}
 
 	if _, err := p.processCertificateUpdates(puInfo, client); err != nil {
@@ -232,6 +226,29 @@ func (p *AppProxy) UpdateSecrets(secret secrets.Secrets) error {
 	p.Lock()
 	defer p.Unlock()
 	p.secrets = secret
+	return nil
+}
+
+// registerServices register the services with the multiplexer
+func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) error {
+
+	register := client.protomux.NewServiceRegistry()
+
+	// Register the ExposedServices with the multiplexer.
+	for _, service := range puInfo.Policy.ExposedServices() {
+		if err := register.Add(service.NetworkInfo, serviceTypeToNetworkListenerType(service.Type)); err != nil {
+			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
+		}
+	}
+
+	// Register the DependentServices with the multiplexer.
+	for _, service := range puInfo.Policy.DependentServices() {
+		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type)); err != nil {
+			return fmt.Errorf("Duplicate dependent service: %s", err)
+		}
+	}
+
+	client.protomux.SetServiceRegistry(register)
 	return nil
 }
 
