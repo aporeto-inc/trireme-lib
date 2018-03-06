@@ -245,9 +245,12 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI: r.RequestURI,
+			URI:  r.RequestURI,
+			Type: collector.PU,
 		},
-		Source: &collector.EndPoint{},
+		Source: &collector.EndPoint{
+			Type: collector.PU,
+		},
 		Action: policy.Reject,
 	}
 	defer p.collector.CollectFlowEvent(record)
@@ -259,6 +262,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record.Tags = pctx.(*pucontext.PUContext).Annotations()
+	record.Destination.ID = pctx.(*pucontext.PUContext).ManagementID()
 
 	token := r.Header.Get("X-APORETO-AUTH")
 	if token != "" {
