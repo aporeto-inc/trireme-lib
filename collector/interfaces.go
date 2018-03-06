@@ -91,10 +91,10 @@ func (e *EndPointType) String() string {
 type EndPoint struct {
 	ID     string
 	IP     string
-	Port   uint16
 	URI    string
 	UserID string
 	Type   EndPointType
+	Port   uint16
 }
 
 // FlowRecord describes a flow record for statistis
