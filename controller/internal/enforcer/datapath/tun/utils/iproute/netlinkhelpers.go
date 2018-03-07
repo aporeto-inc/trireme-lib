@@ -38,6 +38,14 @@ func markAttrToWire(mark uint32) []byte {
 	return buf
 }
 
+func markMaskAttrToWire(mask uint32) []byte {
+	buf := make([]byte, syscall.SizeofRtAttr+unsafe.Sizeof(mask))
+
+	nativeEndian().PutUint16(buf, syscall.SizeofRtAttr+uint16(unsafe.Sizeof(mask)))
+	nativeEndian().PutUint16(buf[2:], RTA_MARK_MASK)
+	nativeEndian().PutUint32(buf[4:], mask)
+	return buf
+}
 func rtmsgToWire(family uint8, Table uint8, Protocol uint8, Type uint8) []byte {
 	/*type RtMsg struct {
 		Family   uint8

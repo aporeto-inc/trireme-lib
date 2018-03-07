@@ -36,10 +36,12 @@ func (i *Iproute) AddRule(rule *netlink.Rule) error {
 	rtmsgbuf := rtmsgToWire(syscall.AF_INET, uint8(rule.Table), syscall.RTPROT_BOOT, syscall.RTN_UNICAST)
 	priobuf := priorityAttrToWire(uint32(rule.Priority))
 	markbuf := markAttrToWire(uint32(rule.Mark))
-	nlmsghdr.Len = syscall.SizeofNlMsghdr + uint32(len(rtmsgbuf)+len(priobuf)+len(markbuf))
+	maskbuf := markMaskAttrToWire(uint32(rule.Mask))
+	nlmsghdr.Len = syscall.SizeofNlMsghdr + uint32(len(rtmsgbuf)+len(priobuf)+len(markbuf)+len(maskbuf))
 	buf := common.SerializeNlMsgHdr(nlmsghdr)
 	buf = append(buf, rtmsgbuf...)
 	buf = append(buf, markbuf...)
+	buf = append(buf, maskbuf...)
 	buf = append(buf, priobuf...)
 	return send(buf)
 }
