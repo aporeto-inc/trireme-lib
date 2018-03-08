@@ -418,8 +418,9 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// and if yes, allow the packet to go and release the flow.
 		_, policy, perr := context.ApplicationACLPolicy(tcpPacket)
 		if perr != nil {
-			tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
-			return nil, nil
+			// TODO: Send resets. Don't just drop
+			// tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
+			return nil, perr
 		}
 
 		if policy.Action.Rejected() {
@@ -694,8 +695,9 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		// and if yes, allow the packet to go and release the flow.
 		_, policy, perr := context.NetworkACLPolicy(tcpPacket)
 		if perr != nil {
-			tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
-			return nil, nil, nil
+			// TODO: Send resets .. don't just drop
+			// tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
+			return nil, nil, perr
 		}
 
 		if policy.Action.Rejected() {
