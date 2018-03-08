@@ -342,7 +342,6 @@ func islocalIP(backendip string) bool {
 		}
 	}
 	for _, ip := range iplist {
-		fmt.Println("IPS", ip, net.IPv4(backendip[0], backendip[1], backendip[2], backendip[3]).String())
 		if ip == net.IPv4(backendip[0], backendip[1], backendip[2], backendip[3]).String() {
 			return true
 		}
