@@ -12,4 +12,11 @@ const (
 	maxNumQueues = 255
 
 	numTunDevicesPerDirection = 1
+	NetworkRuleTable          = 10
+	ApplicationRuleTable      = 11
+	RulePriority              = 0
+	//
+	RuleMarkBit = 16
+	// Only look for the low  16 bits of the mark
+	RuleMask = 0xffff
 )

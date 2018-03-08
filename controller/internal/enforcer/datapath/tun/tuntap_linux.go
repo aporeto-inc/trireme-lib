@@ -4,13 +4,16 @@ package tundatapath
 
 import (
 	"context"
+	"net"
 	"os/user"
 	"strconv"
 
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/iproute"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/tuntap"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/netlink"
 	"go.uber.org/zap"
 )
 
@@ -18,26 +21,23 @@ type tundev struct {
 	processor                 datapathimpl.DataPathPacketHandler
 	numTunDevicesPerDirection uint8
 	tundeviceHdls             []*tuntap.TunTap
+	iprouteHdl                *iproute.Iproute
 }
 
 func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int) datapathimpl.DatapathImpl {
+
+	ipr, err := iproute.NewIpRouteHandle()
+	if err != nil {
+		zap.L().Error("Unable to create an iproute handle")
+		return nil
+	}
 	return &tundev{
 		processor:                 processor,
 		numTunDevicesPerDirection: numTunDevicesPerDirection,
 		tundeviceHdls:             make([]*tuntap.TunTap, numTunDevicesPerDirection),
+		iprouteHdl:                ipr,
 	}
 }
-
-// func errorCallback(err error, data *tundev) {
-// 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
-// }
-// func networkCallback(packet *nfqueue.NFPacket, d *tundev) {
-// 	d.processor.ProcessNetworkPacket(packet)
-// }
-
-// func appCallBack(packet *nfqueue.NFPacket, d *tundev) {
-// 	d.processor.ProcessApplicationPacket(packet)
-// }
 
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
@@ -45,6 +45,26 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
+
+	//Program ip route and ip rules
+	rule := &netlink.Rule{
+		Table:    NetworkRuleTable,
+		Priority: RulePriority,
+		Mark:     cgnetcls.Initialmarkval - 1,
+		Mask:     RuleMask,
+	}
+	if err := t.iprouteHdl.AddRule(rule); err != nil {
+		// We are initing here refuse to start if this fails
+		zap.L().Fatal("Unable to add ip rule", zap.Error(err))
+
+	}
+	//Startup a cleanup routine here.
+	go func() {
+		//Cleanup on exit
+		<-ctx.Done()
+		t.iprouteHdl.DeleteRule(rule) // nolint
+
+	}()
 	for i := 0; i < numTunDevicesPerDirection; i++ {
 		deviceName := baseTunDeviceName + baseTunDeviceInput + strconv.Itoa(i+1)
 		ipaddress := tunIPAddressSubnetIn + strconv.Itoa(i+1)
@@ -81,11 +101,29 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 				}
 				select {
 				case <-ctx.Done():
+
 					return
 				}
 
 			}
 		}(ctx, t)
+
+		// Program Route in the tables
+		intf, err := net.InterfaceByName(deviceName)
+		if err != nil {
+			zap.L().Fatal("Failed to retrieve device ", zap.String("DeviceName", deviceName))
+		}
+
+		route := &netlink.Route{
+			Table:     NetworkRuleTable,
+			Gw:        net.ParseIP(ipaddress),
+			LinkIndex: intf.Index,
+		}
+		if err := t.iprouteHdl.AddRoute(route); err != nil {
+			// We are initing here refuse to start if this fails
+			zap.L().Fatal("Unable to add ip route", zap.Error(err))
+
+		}
 
 	}
 }
@@ -96,6 +134,24 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
+	rule := &netlink.Rule{
+		Table:    NetworkRuleTable,
+		Priority: RulePriority,
+		Mark:     cgnetcls.Initialmarkval - 2,
+		Mask:     RuleMask,
+	}
+	if err := t.iprouteHdl.AddRule(rule); err != nil {
+		// We are initing here refuse to start if this fails
+		zap.L().Fatal("Unable to add ip rule", zap.Error(err))
+
+	}
+	go func() {
+		//Cleanup on exit
+		<-ctx.Done()
+		t.iprouteHdl.DeleteRule(rule) // nolint
+
+	}()
+
 	for i := 0; i < numTunDevicesPerDirection; i++ {
 		deviceName := baseTunDeviceName + baseTunDeviceOutput + strconv.Itoa(i+1)
 		ipaddress := tunIPAddressSubnetOut + strconv.Itoa(i+1)
@@ -138,6 +194,22 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 			}
 		}(ctx, t)
 
+		// Program Route in the tables
+		intf, err := net.InterfaceByName(deviceName)
+		if err != nil {
+			zap.L().Fatal("Failed to retrieve device ", zap.String("DeviceName", deviceName))
+		}
+
+		route := &netlink.Route{
+			Table:     NetworkRuleTable,
+			Gw:        net.ParseIP(ipaddress),
+			LinkIndex: intf.Index,
+		}
+		if err := t.iprouteHdl.AddRoute(route); err != nil {
+			// We are initing here refuse to start if this fails
+			zap.L().Fatal("Unable to add ip route", zap.Error(err))
+
+		}
 	}
 
 }
