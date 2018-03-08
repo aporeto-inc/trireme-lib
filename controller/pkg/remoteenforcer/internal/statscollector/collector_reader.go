@@ -23,3 +23,25 @@ func (c *collectorImpl) GetAllRecords() map[string]*collector.FlowRecord {
 	c.Flows = make(map[string]*collector.FlowRecord)
 	return retval
 }
+
+// GetUserRecords retrieves all the user records.
+func (c *collectorImpl) GetUserRecords() map[string]*collector.UserRecord {
+	c.Lock()
+	defer c.Unlock()
+
+	if len(c.Users) == 0 {
+		return nil
+	}
+
+	retval := c.Users
+	c.Users = map[string]*collector.UserRecord{}
+	return retval
+}
+
+// FlushUserCache flushes the user cache.
+func (c *collectorImpl) FlushUserCache() {
+	c.Lock()
+	defer c.Unlock()
+
+	c.ProcessedUsers = map[string]bool{}
+}

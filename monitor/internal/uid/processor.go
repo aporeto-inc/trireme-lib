@@ -3,7 +3,6 @@ package uidmonitor
 import (
 	"context"
 	"errors"
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -240,7 +239,6 @@ func (u *uidProcessor) createAndStart(ctx context.Context, eventInfo *common.Eve
 		publishedContextID := puID
 		// Setup the run time
 		if !startOnly {
-			fmt.Println("RESTARTINT NOT ... ")
 			if perr := u.config.Policy.HandlePUEvent(ctx, publishedContextID, common.EventCreate, runtimeInfo); perr != nil {
 				zap.L().Error("Failed to create process", zap.Error(perr))
 				return perr
