@@ -18,7 +18,6 @@ type CompactPKI struct {
 	TokenKeyPEMs  [][]byte
 	privateKey    *ecdsa.PrivateKey
 	publicKey     *x509.Certificate
-	certPool      *x509.CertPool
 	txKey         []byte
 	verifier      pkiverifier.PKITokenVerifier
 }
@@ -35,19 +34,17 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 
 	zap.L().Debug("Initializing with Compact PKI")
 
-	key, cert, caCertPool, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
+	key, cert, _, err := crypto.LoadAndVerifyECSecrets(keyPEM, certPEM, caPEM)
 	if err != nil {
 		return nil, err
 	}
 
 	var tokenKeys []*ecdsa.PublicKey
 	for _, ca := range tokenKeyPEMs {
-
 		caCert, err := crypto.LoadCertificate(ca)
 		if err != nil {
 			return nil, err
 		}
-
 		tokenKeys = append(tokenKeys, caCert.PublicKey.(*ecdsa.PublicKey))
 	}
 
@@ -62,7 +59,6 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 		TokenKeyPEMs:  tokenKeyPEMs,
 		privateKey:    key,
 		publicKey:     cert,
-		certPool:      caCertPool,
 		txKey:         txKey,
 		verifier:      pkiverifier.NewPKIVerifier(tokenKeys, -1),
 	}
@@ -142,4 +138,37 @@ func (p *CompactPKI) TransmittedPEM() []byte {
 // EncodingPEM returns the certificate PEM that is used for encoding
 func (p *CompactPKI) EncodingPEM() []byte {
 	return p.PrivateKeyPEM
+}
+
+// PublicSecrets returns the secrets that are marshallable over the RPC interface.
+func (p *CompactPKI) PublicSecrets() PublicSecrets {
+	return &CompactPKIPublicSecrets{
+		Type:        PKICompactType,
+		Key:         p.PrivateKeyPEM,
+		Certificate: p.PublicKeyPEM,
+		CA:          p.AuthorityPEM,
+		Token:       p.txKey,
+		TokenCAs:    p.TokenKeyPEMs,
+	}
+}
+
+// CompactPKIPublicSecrets includes all the secrets that can be transmitted over
+// the RPC interface.
+type CompactPKIPublicSecrets struct {
+	Type        PrivateSecretsType
+	Key         []byte
+	Certificate []byte
+	CA          []byte
+	TokenCAs    [][]byte
+	Token       []byte
+}
+
+// SecretsType returns the type of secrets.
+func (p *CompactPKIPublicSecrets) SecretsType() PrivateSecretsType {
+	return p.Type
+}
+
+// CertAuthority returns the cert authority
+func (p *CompactPKIPublicSecrets) CertAuthority() []byte {
+	return p.CA
 }

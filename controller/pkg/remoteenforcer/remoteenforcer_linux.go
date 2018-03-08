@@ -10,7 +10,6 @@ import "C"
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"os"
@@ -21,13 +20,10 @@ import (
 	"sync"
 	"syscall"
 
-	"golang.org/x/sys/unix"
-
-	"go.uber.org/zap"
+	_ "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	_ "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packetprocessor"
@@ -35,6 +31,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
+
+	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 var cmdLock sync.Mutex
@@ -97,37 +96,12 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 
 	payload := req.Payload.(rpcwrapper.InitRequestPayload)
 
-	switch payload.SecretType {
-	case secrets.PKIType:
-		// PKI params
-		s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
-		if err != nil {
-			return fmt.Errorf("unable to initialize secrets: %s", err)
-		}
-
-	case secrets.PSKType:
-		// PSK params
-		s.secrets = secrets.NewPSKSecrets(payload.PrivatePEM)
-
-	case secrets.PKICompactType:
-		// Compact PKI Parameters
-		s.secrets, err = secrets.NewCompactPKIWithTokenCA(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.TokenKeyPEMs, payload.Token)
-		if err != nil {
-			return fmt.Errorf("unable to initialize secrets: %s", err)
-		}
-
-	case secrets.PKINull:
-		// Null Encryption
-		zap.L().Info("Using Null Secrets")
-		s.secrets, err = secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
-		if err != nil {
-			return fmt.Errorf("unable to initialize secrets: %s", err)
-		}
+	s.secrets, err = secrets.NewSecrets(payload.Secrets)
+	if err != nil {
+		return err
 	}
 
-	// New returns a new policy enforcer
-	// TODO: return an err to tell why!
-	if s.enforcer = enforcer.New(
+	if s.enforcer, err = enforcer.New(
 		payload.MutualAuth,
 		payload.FqConfig,
 		s.collector,
@@ -139,7 +113,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
-	); s.enforcer == nil {
+	); err != nil || s.enforcer == nil {
 		return errors.New("unable to setup enforcer: we don't know as this function does not return an error")
 	}
 
@@ -277,27 +251,15 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	defer cmdLock.Unlock()
 
 	payload := req.Payload.(rpcwrapper.SuperviseRequestPayload)
-	pupolicy := policy.NewPUPolicy(payload.ManagementID,
-		payload.TriremeAction,
-		payload.ApplicationACLs,
-		payload.NetworkACLs,
-		payload.TransmitterRules,
-		payload.ReceiverRules,
-		payload.Identity,
-		payload.Annotations,
-		payload.PolicyIPs,
-		payload.TriremeNetworks,
-		payload.ExcludedNetworks,
-		payload.ProxiedServices)
 
-	runtime := policy.NewPURuntimeWithDefaults()
-
-	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
+	puInfo := &policy.PUInfo{
+		ContextID: payload.ContextID,
+		Policy:    payload.Policy.ToPrivatePolicy(),
+		Runtime:   policy.NewPURuntimeWithDefaults(),
+	}
 
 	// TODO - Set PID to 1 - needed only for statistics
 	puInfo.Runtime.SetPid(1)
-
-	zap.L().Debug("Called Supervise Start in remote_enforcer")
 
 	err := s.supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
@@ -310,7 +272,6 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 	}
 
 	return nil
-
 }
 
 // Unenforce this method calls the unenforce method on the enforcer created from initenforcer
@@ -356,33 +317,22 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 
 	payload := req.Payload.(rpcwrapper.EnforcePayload)
 
-	pupolicy := policy.NewPUPolicy(payload.ManagementID,
-		payload.TriremeAction,
-		payload.ApplicationACLs,
-		payload.NetworkACLs,
-		payload.TransmitterRules,
-		payload.ReceiverRules,
-		payload.Identity,
-		payload.Annotations,
-		payload.PolicyIPs,
-		payload.TriremeNetworks,
-		payload.ExcludedNetworks,
-		payload.ProxiedServices)
+	puInfo := &policy.PUInfo{
+		ContextID: payload.ContextID,
+		Policy:    payload.Policy.ToPrivatePolicy(),
+		Runtime:   policy.NewPURuntimeWithDefaults(),
+	}
 
-	runtime := policy.NewPURuntimeWithDefaults()
-	puInfo := policy.PUInfoFromPolicyAndRuntime(payload.ContextID, pupolicy, runtime)
-	if puInfo == nil {
-		return errors.New("unable to instantiate pu info")
-	}
 	if s.enforcer == nil {
-		zap.L().Fatal("Enforcer not initialized")
+		resp.Status = "Enforcer not initialied - cannot enforce"
+		zap.L().Error(resp.Status)
+		return fmt.Errorf(resp.Status)
 	}
+
 	if err := s.enforcer.Enforce(payload.ContextID, puInfo); err != nil {
 		resp.Status = err.Error()
 		return err
 	}
-
-	zap.L().Debug("Enforcer enabled", zap.String("contextID", payload.ContextID))
 
 	resp.Status = ""
 
@@ -416,37 +366,12 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	}
 
 	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
-
-	switch payload.SecretType {
-	case secrets.PKIType:
-		// PKI params
-		s.secrets, err = secrets.NewPKISecrets(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, map[string]*ecdsa.PublicKey{})
-		if err != nil {
-			return fmt.Errorf("unable to initialize secrets: %s", err)
-		}
-
-	case secrets.PSKType:
-		// PSK params
-		s.secrets = secrets.NewPSKSecrets(payload.PrivatePEM)
-
-	case secrets.PKICompactType:
-		// Compact PKI Parameters
-		s.secrets, err = secrets.NewCompactPKIWithTokenCA(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM, payload.TokenKeyPEMs, payload.Token)
-		if err != nil {
-			return fmt.Errorf("unable to initialize secrets: %s", err)
-		}
-
-	case secrets.PKINull:
-		// Null Encryption
-		zap.L().Info("Using Null Secrets")
-		s.secrets, err = secrets.NewNullPKI(payload.PrivatePEM, payload.PublicPEM, payload.CAPEM)
-		if err != nil {
-			return fmt.Errorf("unable to initialize secrets: %s", err)
-		}
+	s.secrets, err = secrets.NewSecrets(payload.Secrets)
+	if err != nil {
+		return err
 	}
 
 	return nil
-
 }
 
 // LaunchRemoteEnforcer launches a remote enforcer

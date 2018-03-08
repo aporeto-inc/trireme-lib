@@ -18,6 +18,7 @@ import (
 
 	"net/rpc"
 
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/cnf/structhash"
 )
@@ -225,6 +226,9 @@ func (r *RPCWrapper) ProcessMessage(req *Request, secret string) bool {
 // RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
 func RegisterTypes() {
 
+	gob.Register(&secrets.CompactPKIPublicSecrets{})
+	gob.Register(&secrets.PKIPublicSecrets{})
+	gob.Register(&secrets.PSKPublicSecrets{})
 	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
 	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Init_Response_Payload", *(&InitResponsePayload{}))
 	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Init_Supervisor_Payload", *(&InitSupervisorPayload{}))

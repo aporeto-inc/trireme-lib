@@ -78,7 +78,14 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				&policy.ProxiedServicesInfo{},
+				nil,
+				nil,
+				[]string{})
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -94,7 +101,7 @@ func TestConfigureRules(t *testing.T) {
 			//This will fail for ipset since we need to run this as root for ipsets
 			Convey("It should succeed", func() {
 				//This is erroring since ipset creation is not available to a unpriveleged user
-				So(err.Error(), ShouldContainSubstring, "ProxySet")
+				So(err.Error(), ShouldContainSubstring, "Proxy")
 				//So(err, ShouldBeNil)
 			})
 
@@ -109,7 +116,15 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				&policy.ProxiedServicesInfo{},
+				nil,
+				nil,
+				[]string{},
+			)
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -132,7 +147,15 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				&policy.ProxiedServicesInfo{},
+				nil,
+				nil,
+				[]string{},
+			)
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -163,7 +186,15 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				&policy.ProxiedServicesInfo{},
+				nil,
+				nil,
+				[]string{},
+			)
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -200,7 +231,7 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", "0", "0", "", "5000", "proxyPortSetName")
+			err := i.DeleteRules(1, "context", "0", "0", "", "5000")
 			So(err, ShouldBeNil)
 		})
 
@@ -228,13 +259,6 @@ func TestUpdateRules(t *testing.T) {
 				Policy:   &policy.FlowPolicy{Action: policy.Accept},
 			},
 		}
-
-		Convey("If I try to update with nil IP addreses", func() {
-			err := i.UpdateRules(1, "context", nil, nil)
-			Convey("I should get an error", func() {
-				So(err, ShouldNotBeNil)
-			})
-		})
 
 		Convey("I try to update with a valid default IP address ", func() {
 			app0, net0, err0 := i.chainName("Context", 0)
@@ -296,7 +320,15 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
+				nil,
+				ipl,
+				[]string{"172.17.0.0/24"},
+				[]string{},
+				&policy.ProxiedServicesInfo{},
+				nil,
+				nil,
+				[]string{},
+			)
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules

@@ -221,12 +221,10 @@ func validateEvent(event *common.EventInfo) error {
 	if event.EventType == common.EventCreate || event.EventType == common.EventStart {
 		if event.HostService {
 			if event.NetworkOnlyTraffic {
-				if event.Name == "" || event.Name == "default" {
+				if event.Name == "" {
 					return fmt.Errorf("Service name must be provided and must not be default")
 				}
 				event.PUID = event.Name
-			} else {
-				event.PUID = "host"
 			}
 		} else {
 			if event.PUID == "" {
