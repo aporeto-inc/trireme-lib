@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"text/template"
+
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/tuntap"
 )
 
 const (
@@ -80,14 +82,28 @@ func (m FilterSkbAction) ConvertMeta() string {
 }
 
 // NewTCBatch creates a new tcbatch struct
-func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, CgroupStartMark uint16) *tcBatch {
+func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, CgroupStartMark uint16) (*tcBatch, error) {
+	if numQueues > 255 {
+		return nil, fmt.Errorf("Invalid Queue Num. Queue num has to be less than 255")
+	}
+
+	if CgroupHighBit > 15 {
+		return nil, fmt.Errorf("cgroup high bit has to between 0-15")
+	}
+	if CgroupStartMark+numQueues+1 > 2^16 {
+		return nil, fmt.Errorf("Cgroupstartmark has to high value")
+	}
+
+	if len(DeviceName) == 0 || len(DeviceName) > tuntap.IFNAMSIZE {
+		return nil, fmt.Errorf("Invalid DeviceName")
+	}
 	return &tcBatch{
 		buf:             bytes.NewBuffer([]byte{}),
-		numQueues:       numQueues,
+		numQueues:       numQueues + 1,
 		DeviceName:      DeviceName,
 		CgroupHighBit:   CgroupHighBit,
 		CgroupStartMark: CgroupStartMark,
-	}
+	}, nil
 }
 
 // Qdiscs converts qdisc struct to tc command strings
@@ -204,7 +220,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 	}
 
 	classes := make([]Class, numQueues)
-	for i := 0; i < int(numQueues); i++ {
+	for i := 1; i < int(numQueues); i++ {
 		classes[i] = Class{
 			DeviceName:       t.DeviceName,
 			Parent:           "1",
@@ -241,7 +257,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 			DeviceName: t.DeviceName,
 			Parent:     strconv.Itoa(qdiscID),
 			FilterID:   strconv.Itoa(qdiscID),
-			QueueID:    strconv.Itoa(i),
+			QueueID:    strconv.Itoa(i + 1),
 			Prio:       1,
 			Cgroup:     false,
 			U32match: &U32match{
