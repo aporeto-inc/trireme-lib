@@ -1,13 +1,6 @@
 package collector
 
-import (
-	"encoding/binary"
-	"fmt"
-	"sort"
-	"strings"
-
-	"github.com/cespare/xxhash"
-)
+import "strconv"
 
 // DefaultCollector implements a default collector infrastructure to syslog
 type DefaultCollector struct{}
@@ -23,37 +16,7 @@ func (d *DefaultCollector) CollectFlowEvent(record *FlowRecord) {}
 // CollectContainerEvent is part of the EventCollector interface.
 func (d *DefaultCollector) CollectContainerEvent(record *ContainerRecord) {}
 
-// CollectUserEvent is part of the EventCollector interface.
-func (d *DefaultCollector) CollectUserEvent(record *UserRecord) {}
-
-// StatsFlowHash is a hash function to hash flows
+// StatsFlowHash is a has function to hash flows
 func StatsFlowHash(r *FlowRecord) string {
-	hash := xxhash.New()
-	hash.Write([]byte(r.Source.ID))      // nolint errcheck
-	hash.Write([]byte(r.Destination.ID)) // nolint errcheck
-	port := make([]byte, 2)
-	binary.BigEndian.PutUint16(port, r.Destination.Port)
-	hash.Write(port)                      // nolint errcheck
-	hash.Write([]byte(r.Action.String())) // nolint errcheck
-	hash.Write([]byte(r.DropReason))      // nolint errcheck
-	hash.Write([]byte(r.Destination.URI)) // nolint errcheck
-
-	return fmt.Sprintf("%d", hash.Sum64())
-}
-
-// StatsUserHash is a hash function to hash user records
-func StatsUserHash(r *UserRecord) error {
-	// Order matters for the hash function loop
-	sort.Strings(r.Claims)
-	hash := xxhash.New()
-	for i := 0; i < len(r.Claims); i++ {
-		if strings.HasPrefix(r.Claims[i], "sub") {
-			continue
-		}
-		if _, err := hash.Write([]byte(r.Claims[i])); err != nil {
-			return fmt.Errorf("Cannot create hash")
-		}
-	}
-	r.ID = fmt.Sprintf("%d", hash.Sum64())
-	return nil
+	return r.Source.ID + ":" + r.Destination.ID + ":" + strconv.Itoa(int(r.Destination.Port)) + ":" + r.Action.String() + ":" + r.DropReason
 }

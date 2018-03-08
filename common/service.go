@@ -1,27 +1,17 @@
 package common
 
-import (
-	"net"
-
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
-)
+import "github.com/aporeto-inc/trireme-lib/utils/portspec"
 
 // Service is a protocol/port service of interest - used to pass user requests
 type Service struct {
 	// Ports are the corresponding ports
-	Ports *portspec.PortSpec `json:"ports,omitempty"`
+	Ports *portspec.PortSpec `json:"Ports,omitempty"`
 
 	// Port is the service port. This has been deprecated and will be removed in later releases 01/13/2018
 	Port uint16
 
 	// Protocol is the protocol number
-	Protocol uint8 `json:"protocol,omitempty"`
-
-	// Addresses are the IP addresses. An empty list means 0.0.0.0
-	Addresses []*net.IPNet `json:"addresses,omitempty"`
-
-	// FQDNs is the list of FQDNs for the service.
-	FQDNs []string `json:"fqdns,omitempty"`
+	Protocol uint8
 }
 
 // ConvertServicesToPortList converts an array of services to a port list

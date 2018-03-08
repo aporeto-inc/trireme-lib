@@ -110,9 +110,8 @@ func OptionPacketLogs() Option {
 
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
-	var err error
 	if t.config.linuxProcess {
-		t.enforcers[constants.LocalServer], err = enforcer.New(
+		t.enforcers[constants.LocalServer] = enforcer.New(
 			t.config.mutualAuth,
 			t.config.fq,
 			t.config.collector,
@@ -125,9 +124,6 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 		)
-		if err != nil {
-			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
-		}
 	}
 
 	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))

@@ -59,28 +59,3 @@ func (p *PSKSecrets) TransmittedPEM() []byte {
 func (p *PSKSecrets) EncodingPEM() []byte {
 	return p.SharedKey
 }
-
-// PublicSecrets returns the secrets that are marshallable over the RPC interface.
-func (p *PSKSecrets) PublicSecrets() PublicSecrets {
-	return &PSKPublicSecrets{
-		Type:      PKIType,
-		SharedKey: p.SharedKey,
-	}
-}
-
-// PSKPublicSecrets includes all the secrets that can be transmitted over
-// the RPC interface.
-type PSKPublicSecrets struct {
-	Type      PrivateSecretsType
-	SharedKey []byte
-}
-
-// SecretsType returns the type of secrets.
-func (p *PSKPublicSecrets) SecretsType() PrivateSecretsType {
-	return p.Type
-}
-
-// CertAuthority returns the cert authority - N/A to PSK
-func (p *PSKPublicSecrets) CertAuthority() []byte {
-	return []byte{}
-}

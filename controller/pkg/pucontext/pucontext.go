@@ -41,9 +41,6 @@ type PUContext struct {
 	synToken          []byte
 	synServiceContext []byte
 	synExpiration     time.Time
-	jwt               string
-	jwtExpiration     time.Time
-	scopes            []string
 	Extension         interface{}
 	sync.RWMutex
 }
@@ -61,7 +58,6 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		applicationACLs: acls.NewACLCache(),
 		networkACLs:     acls.NewACLCache(),
 		mark:            puInfo.Runtime.Options().CgroupMark,
-		scopes:          puInfo.Policy.Scopes(),
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
@@ -182,35 +178,6 @@ func (p *PUContext) UpdateCachedTokenAndServiceContext(token []byte, serviceCont
 
 	p.Unlock()
 
-}
-
-// Scopes returns the scopes.
-func (p *PUContext) Scopes() []string {
-	p.RLock()
-	defer p.RUnlock()
-
-	return p.scopes
-}
-
-// GetJWT retrieves the JWT if it exists in the cache. Returns error otherwise.
-func (p *PUContext) GetJWT() (string, error) {
-	p.RLock()
-	defer p.RUnlock()
-
-	if p.jwtExpiration.After(time.Now()) && len(p.jwt) > 0 {
-		return p.jwt, nil
-	}
-
-	return "", fmt.Errorf("expired token")
-}
-
-// UpdateJWT updates the JWT and provides a new expiration date.
-func (p *PUContext) UpdateJWT(jwt string, expiration time.Time) {
-	p.Lock()
-	defer p.Unlock()
-
-	p.jwt = jwt
-	p.jwtExpiration = expiration
 }
 
 // createRuleDBs creates the database of rules from the policy

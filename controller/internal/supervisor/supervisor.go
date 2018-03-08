@@ -142,9 +142,6 @@ func (s *Config) Run(ctx context.Context) error {
 
 // CleanUp implements the cleanup interface
 func (s *Config) CleanUp() error {
-	s.Lock()
-	defer s.Unlock()
-
 	return s.impl.CleanUp()
 }
 
@@ -164,9 +161,6 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 }
 
 func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
-
-	s.Lock()
-	defer s.Unlock()
 
 	c := &cacheData{
 		version:       0,
@@ -193,9 +187,6 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 // UpdatePU creates a mapping between an IP address and the corresponding labels
 //and the invokes the various handlers that process all policies.
 func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
-
-	s.Lock()
-	defer s.Unlock()
 
 	data, err := s.versionTracker.LockedModify(contextID, revert, 1)
 	if err != nil {

@@ -78,14 +78,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
-				ipl,
-				[]string{"172.17.0.0/24"},
-				[]string{},
-				&policy.ProxiedServicesInfo{},
-				nil,
-				nil,
-				[]string{})
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -116,15 +109,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
-				ipl,
-				[]string{"172.17.0.0/24"},
-				[]string{},
-				&policy.ProxiedServicesInfo{},
-				nil,
-				nil,
-				[]string{},
-			)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -147,15 +132,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
-				ipl,
-				[]string{"172.17.0.0/24"},
-				[]string{},
-				&policy.ProxiedServicesInfo{},
-				nil,
-				nil,
-				[]string{},
-			)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -186,15 +163,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
-				ipl,
-				[]string{"172.17.0.0/24"},
-				[]string{},
-				&policy.ProxiedServicesInfo{},
-				nil,
-				nil,
-				[]string{},
-			)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules
@@ -232,7 +201,8 @@ func TestDeleteRules(t *testing.T) {
 				return nil
 			})
 			err := i.DeleteRules(1, "context", "0", "0", "", "5000")
-			So(err, ShouldBeNil)
+			So(err, ShouldNotBeNil)
+			So(err.Error(), ShouldContainSubstring, "Proxy")
 		})
 
 	})
@@ -320,15 +290,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
-				ipl,
-				[]string{"172.17.0.0/24"},
-				[]string{},
-				&policy.ProxiedServicesInfo{},
-				nil,
-				nil,
-				[]string{},
-			)
+				nil, ipl, []string{"172.17.0.0/24"}, []string{}, &policy.ProxiedServicesInfo{})
 
 			containerinfo := policy.NewPUInfo("Context", common.ContainerPU)
 			containerinfo.Policy = policyrules

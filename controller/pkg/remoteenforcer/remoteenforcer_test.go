@@ -51,11 +51,14 @@ func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
 	dur, _ := time.ParseDuration("8760h0m0s")
 	initEnfPayload.Validity = dur
 	initEnfPayload.MutualAuth = true
+	initEnfPayload.SecretType = 2
 	initEnfPayload.ServerID = "598236b81c252c000102665d"
 	initEnfPayload.FqConfig = filterQ()
+	initEnfPayload.PrivatePEM = PrivatePEM
+	initEnfPayload.PublicPEM = PublicPEM
+	initEnfPayload.CAPEM = CAPem
+	initEnfPayload.Token = Token
 
-	s, _ := secrets.NewCompactPKI(PrivatePEM, PublicPEM, CAPem, Token)
-	initEnfPayload.Secrets = s.PublicSecrets()
 	return initEnfPayload
 }
 
@@ -134,15 +137,13 @@ func initTestSupPayload() rpcwrapper.SuperviseRequestPayload {
 	anoString := "@sys:name=/nervous_hermann @usr:role=client @usr:vendor=CentOS $id=59812ccc27b430000135fbf3 $namespace=/sibicentos @usr:build-date=20170705 @usr:license=GPLv2 @usr:name=CentOS Base Image $nativecontextid=ac0d3577e808 $operationalstatus=Running role=client $id=59812ccc27b430000135fbf3 $identity=processingunit $namespace=/sibicentos $protected=false $type=Docker @sys:image=centos @usr:role=client $description=centos $enforcerid=598236b81c252c000102665d $name=centos $id=59812ccc27b430000135fbf3 $namespace=/sibicentos"
 
 	initPayload.ContextID = "ac0d3577e808"
-	initPayload.Policy = &policy.PUPolicyPublic{
-		ManagementID:     "59812ccc27b430000135fbf3",
-		TriremeAction:    2,
-		IPs:              policy.ExtendedMap{"bridge": "172.17.0.2"},
-		Identity:         initIdentity(idString),
-		TransmitterRules: initTrans(),
-		Annotations:      initAnnotations(anoString),
-		TriremeNetworks:  []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"},
-	}
+	initPayload.ManagementID = "59812ccc27b430000135fbf3"
+	initPayload.TriremeAction = 2
+	initPayload.PolicyIPs = policy.ExtendedMap{"bridge": "172.17.0.2"}
+	initPayload.Identity = initIdentity(idString)
+	initPayload.Annotations = initAnnotations(anoString)
+	initPayload.TransmitterRules = initTrans()
+	initPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
 
 	return initPayload
 }
@@ -154,15 +155,13 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 	anoString := "@sys:name=/inspiring_roentgen $namespace=/sibicentos @usr:build-date=20170801 @usr:license=GPLv2 @usr:name=CentOS Base Image @usr:role=client @usr:vendor=CentOS $id=5983bc8c923caa0001337b11 $namespace=/sibicentos $operationalstatus=Running $protected=false $type=Docker $description=centos $enforcerid=5983bba4923caa0001337a19 $name=centos $nativecontextid=b06f47830f64 @sys:image=centos @usr:role=client role=client $id=5983bc8c923caa0001337b11 $identity=processingunit $id=5983bc8c923caa0001337b11 $namespace=/sibicentos"
 
 	initPayload.ContextID = "b06f47830f64"
-	initPayload.Policy = &policy.PUPolicyPublic{
-		ManagementID:     "5983bc8c923caa0001337b11",
-		TriremeAction:    2,
-		IPs:              policy.ExtendedMap{"bridge": "172.17.0.2"},
-		Identity:         initIdentity(idString),
-		Annotations:      initAnnotations(anoString),
-		TransmitterRules: initTrans(),
-		TriremeNetworks:  []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"},
-	}
+	initPayload.ManagementID = "5983bc8c923caa0001337b11"
+	initPayload.TriremeAction = 2
+	initPayload.PolicyIPs = policy.ExtendedMap{"bridge": "172.17.0.2"}
+	initPayload.Identity = initIdentity(idString)
+	initPayload.Annotations = initAnnotations(anoString)
+	initPayload.TransmitterRules = initTrans()
+	initPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
 
 	return initPayload
 }

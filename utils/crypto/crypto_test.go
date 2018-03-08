@@ -360,7 +360,7 @@ IG7Nv+YlTVp5qA==
 						So(key, ShouldBeNil)
 						So(cert, ShouldBeNil)
 						So(certPool, ShouldBeNil)
-						So(err, ShouldResemble, errors.New("LoadElliticCurveKey bad pem block: -----BEGIN EC PRIVATE KEY-----\n\t\t\t-----END EC PRIVATE KEY-----"))
+						So(err, ShouldResemble, errors.New("unable to parse pem block: -----BEGIN EC PRIVATE KEY-----\n\t\t\t-----END EC PRIVATE KEY-----"))
 					})
 				})
 

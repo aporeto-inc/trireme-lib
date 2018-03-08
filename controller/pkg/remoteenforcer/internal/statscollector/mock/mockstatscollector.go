@@ -66,32 +66,6 @@ func (mr *MockCollectorReaderMockRecorder) GetAllRecords() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRecords", reflect.TypeOf((*MockCollectorReader)(nil).GetAllRecords))
 }
 
-// GetUserRecords mocks base method
-// nolint
-func (m *MockCollectorReader) GetUserRecords() map[string]*collector.UserRecord {
-	ret := m.ctrl.Call(m, "GetUserRecords")
-	ret0, _ := ret[0].(map[string]*collector.UserRecord)
-	return ret0
-}
-
-// GetUserRecords indicates an expected call of GetUserRecords
-// nolint
-func (mr *MockCollectorReaderMockRecorder) GetUserRecords() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserRecords", reflect.TypeOf((*MockCollectorReader)(nil).GetUserRecords))
-}
-
-// FlushUserCache mocks base method
-// nolint
-func (m *MockCollectorReader) FlushUserCache() {
-	m.ctrl.Call(m, "FlushUserCache")
-}
-
-// FlushUserCache indicates an expected call of FlushUserCache
-// nolint
-func (mr *MockCollectorReaderMockRecorder) FlushUserCache() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FlushUserCache", reflect.TypeOf((*MockCollectorReader)(nil).FlushUserCache))
-}
-
 // MockCollector is a mock of Collector interface
 // nolint
 type MockCollector struct {
@@ -147,32 +121,6 @@ func (mr *MockCollectorMockRecorder) GetAllRecords() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllRecords", reflect.TypeOf((*MockCollector)(nil).GetAllRecords))
 }
 
-// GetUserRecords mocks base method
-// nolint
-func (m *MockCollector) GetUserRecords() map[string]*collector.UserRecord {
-	ret := m.ctrl.Call(m, "GetUserRecords")
-	ret0, _ := ret[0].(map[string]*collector.UserRecord)
-	return ret0
-}
-
-// GetUserRecords indicates an expected call of GetUserRecords
-// nolint
-func (mr *MockCollectorMockRecorder) GetUserRecords() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserRecords", reflect.TypeOf((*MockCollector)(nil).GetUserRecords))
-}
-
-// FlushUserCache mocks base method
-// nolint
-func (m *MockCollector) FlushUserCache() {
-	m.ctrl.Call(m, "FlushUserCache")
-}
-
-// FlushUserCache indicates an expected call of FlushUserCache
-// nolint
-func (mr *MockCollectorMockRecorder) FlushUserCache() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FlushUserCache", reflect.TypeOf((*MockCollector)(nil).FlushUserCache))
-}
-
 // CollectFlowEvent mocks base method
 // nolint
 func (m *MockCollector) CollectFlowEvent(record *collector.FlowRecord) {
@@ -195,16 +143,4 @@ func (m *MockCollector) CollectContainerEvent(record *collector.ContainerRecord)
 // nolint
 func (mr *MockCollectorMockRecorder) CollectContainerEvent(record interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectContainerEvent", reflect.TypeOf((*MockCollector)(nil).CollectContainerEvent), record)
-}
-
-// CollectUserEvent mocks base method
-// nolint
-func (m *MockCollector) CollectUserEvent(record *collector.UserRecord) {
-	m.ctrl.Call(m, "CollectUserEvent", record)
-}
-
-// CollectUserEvent indicates an expected call of CollectUserEvent
-// nolint
-func (mr *MockCollectorMockRecorder) CollectUserEvent(record interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectUserEvent", reflect.TypeOf((*MockCollector)(nil).CollectUserEvent), record)
 }

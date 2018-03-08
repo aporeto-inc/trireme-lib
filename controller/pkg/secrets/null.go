@@ -73,26 +73,3 @@ func (p *NullPKI) TransmittedPEM() []byte {
 func (p *NullPKI) EncodingPEM() []byte {
 	return p.PrivateKeyPEM
 }
-
-// PublicSecrets returns the secrets that are marshallable over the RPC interface.
-func (p *NullPKI) PublicSecrets() PublicSecrets {
-	return &NullPublicSecrets{
-		Type: PKIType,
-	}
-}
-
-// NullPublicSecrets includes all the secrets that can be transmitted over
-// the RPC interface.
-type NullPublicSecrets struct {
-	Type PrivateSecretsType
-}
-
-// SecretsType returns the type of secrets.
-func (p *NullPublicSecrets) SecretsType() PrivateSecretsType {
-	return p.Type
-}
-
-// CertAuthority returns the cert authority - N/A to PSK
-func (p *NullPublicSecrets) CertAuthority() []byte {
-	return []byte{}
-}

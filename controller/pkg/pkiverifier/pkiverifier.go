@@ -71,11 +71,13 @@ func NewPKIVerifier(publicKeys []*ecdsa.PublicKey, cacheValidity time.Duration) 
 func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 
 	tokenString := string(token)
+
+	claims := &verifierClaims{}
+
 	if pk, err := p.keycache.Get(tokenString); err == nil {
 		return pk.(*ecdsa.PublicKey), nil
 	}
 
-	claims := &verifierClaims{}
 	var JWTToken *jwt.Token
 	var err error
 	for _, pk := range p.publicKeys {
@@ -83,6 +85,7 @@ func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 		JWTToken, err = jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 			return pk, nil
 		})
+
 		if err != nil || !JWTToken.Valid {
 			continue
 		}

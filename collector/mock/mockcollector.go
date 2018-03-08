@@ -61,15 +61,3 @@ func (m *MockEventCollector) CollectContainerEvent(record *collector.ContainerRe
 func (mr *MockEventCollectorMockRecorder) CollectContainerEvent(record interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectContainerEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectContainerEvent), record)
 }
-
-// CollectUserEvent mocks base method
-// nolint
-func (m *MockEventCollector) CollectUserEvent(record *collector.UserRecord) {
-	m.ctrl.Call(m, "CollectUserEvent", record)
-}
-
-// CollectUserEvent indicates an expected call of CollectUserEvent
-// nolint
-func (mr *MockEventCollectorMockRecorder) CollectUserEvent(record interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CollectUserEvent", reflect.TypeOf((*MockEventCollector)(nil).CollectUserEvent), record)
-}

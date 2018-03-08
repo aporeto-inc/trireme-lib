@@ -18,7 +18,8 @@ const observeMark = "39"
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 
-	rules := [][]string{
+	destSetName, srcSetName := i.getSetNamePair(proxyPortSetName)
+	str := [][]string{
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
@@ -33,6 +34,59 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
+
+		{
+			i.appProxyIPTableContext,
+			natProxyInputChain,
+			"-p", "tcp",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-m", "set",
+			"--match-set", srcSetName, "src,dst",
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		},
+		{
+			i.appProxyIPTableContext,
+			natProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", destSetName, "dst,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		},
+		{
+			i.netPacketIPTableContext,
+			proxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", destSetName, "src,src",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
+		{
+			i.netPacketIPTableContext,
+			proxyInputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", srcSetName, "src,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
+		{
+			i.appPacketIPTableContext,
+			proxyOutputChain,
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", destSetName, "dst,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
+			"-j", "ACCEPT",
+		},
 		{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
@@ -44,7 +98,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 		},
 	}
 
-	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName)...)
+	return str
 }
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string, proyPortSetName string) [][]string {
@@ -55,6 +109,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			uidchain,
 			"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", mark,
 		},
+
 		{
 			i.appPacketIPTableContext,
 			uidchain,
@@ -85,28 +140,24 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 // chainRules provides the list of rules that are used to send traffic to
 // a particular chain
 func (i *Instance) chainRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string) [][]string {
-	rules := [][]string{
-		{
-			i.appPacketIPTableContext,
-			i.appPacketIPTableSection,
-			"-m", "comment", "--comment", "Container-specific-chain",
-			"-j", appChain,
-		},
-		{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-m", "comment", "--comment", "Container-specific-chain",
-			"-j", netChain,
-		},
-	}
 
-	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName)...)
-}
+	rules := [][]string{}
+	destSetName, srcSetName := i.getSetNamePair(proxyPortSetName)
 
-// proxyRules creates all the proxy specific rules.
-func (i *Instance) proxyRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string) [][]string {
-	destSetName, srcSetName, srvSetName := i.getSetNames(proxyPortSetName)
-	return [][]string{
+	rules = append(rules, []string{
+		i.appPacketIPTableContext,
+		i.appPacketIPTableSection,
+		"-m", "comment", "--comment", "Container-specific-chain",
+		"-j", appChain,
+	})
+
+	rules = append(rules, []string{
+		i.netPacketIPTableContext,
+		i.netPacketIPTableSection,
+		"-m", "comment", "--comment", "Container-specific-chain",
+		"-j", netChain,
+	})
+	proxyRules := [][]string{
 		{
 			i.appProxyIPTableContext,
 			natProxyInputChain,
@@ -115,28 +166,6 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"--mark", proxyMark,
 			"-m", "set",
 			"--match-set", srcSetName, "src,dst",
-			"-j", "REDIRECT",
-			"--to-port", proxyPort,
-		},
-		{
-			i.appProxyIPTableContext,
-			natProxyInputChain,
-			"-p", "tcp",
-			"-m", "mark", "!",
-			"--mark", proxyMark,
-			"-m", "set",
-			"--match-set", destSetName, "dst,dst",
-			"-j", "REDIRECT",
-			"--to-port", proxyPort,
-		},
-		{
-			i.appProxyIPTableContext,
-			natProxyInputChain,
-			"-p", "tcp",
-			"-m", "set",
-			"--match-set", srvSetName, "dst",
-			"-m", "mark", "!",
-			"--mark", proxyMark,
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},
@@ -157,6 +186,8 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-p", "tcp",
 			"-m", "set",
 			"--match-set", destSetName, "src,src",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		},
 		{
@@ -165,52 +196,15 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-p", "tcp",
 			"-m", "set",
 			"--match-set", srcSetName, "src,dst",
+			"-m", "mark", "!",
+			"--mark", proxyMark,
 			"-j", "ACCEPT",
 		},
-		{ // APIServices
+		{
 			i.netPacketIPTableContext,
 			proxyInputChain,
 			"-p", "tcp",
-			"-m", "set",
-			"--match-set", srvSetName, "dst",
-			"-j", "ACCEPT",
-		},
-		{ // APIServices
-			i.netPacketIPTableContext,
-			proxyInputChain,
-			"-p", "tcp",
-			"-m", "set",
-			"--match-set", srvSetName, "src",
-			"-j", "ACCEPT",
-		},
-		{ // APIServices
-			i.appPacketIPTableContext,
-			proxyInputChain,
-			"-p", "tcp",
-			"--destination-port", proxyPort,
-			"-j", "ACCEPT",
-		},
-		{ // APIServices
-			i.appPacketIPTableContext,
-			proxyOutputChain,
-			"-p", "tcp",
-			"--source-port", proxyPort,
-			"-j", "ACCEPT",
-		},
-		{ // APIServices
-			i.appPacketIPTableContext,
-			proxyOutputChain,
-			"-p", "tcp",
-			"-m", "set",
-			"--match-set", srvSetName, "src",
-			"-j", "ACCEPT",
-		},
-		{ // APIServices
-			i.appPacketIPTableContext,
-			proxyOutputChain,
-			"-p", "tcp",
-			"-m", "set",
-			"--match-set", srvSetName, "dst",
+			"--dport", proxyPort,
 			"-j", "ACCEPT",
 		},
 		{
@@ -224,6 +218,9 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-j", "ACCEPT",
 		},
 	}
+	rules = append(rules, proxyRules...)
+	return rules
+
 }
 
 //trapRules provides the packet trap rules to add/delete

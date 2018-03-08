@@ -11,7 +11,7 @@ func TestNewPolicy(t *testing.T) {
 	Convey("Given that I instantiate a new policy", t, func() {
 
 		Convey("When I provide only the mandatory fields", func() {
-			p := NewPUPolicy("id1", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{"172.17.0.0/16"}, []string{}, &ProxiedServicesInfo{}, nil, nil, []string{})
+			p := NewPUPolicy("id1", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{"172.17.0.0/16"}, []string{}, &ProxiedServicesInfo{})
 			Convey("I shpuld get an empty policy", func() {
 				So(p, ShouldNotBeNil)
 				So(p.triremeNetworks, ShouldResemble, []string{"172.17.0.0/16"})
@@ -90,9 +90,6 @@ func TestNewPolicy(t *testing.T) {
 				triremeNetworks,
 				excludedNetworks,
 				&ProxiedServicesInfo{},
-				nil,
-				nil,
-				[]string{},
 			)
 
 			Convey("Then I should get the right policy", func() {
@@ -195,12 +192,10 @@ func TestFuncClone(t *testing.T) {
 			triremeNetworks,
 			excludedNetworks,
 			&ProxiedServicesInfo{},
-			nil,
-			nil,
-			[]string{},
 		)
 		Convey("If I clone the policy", func() {
 			p := d.Clone()
+
 			Convey("I should get the same policy", func() {
 				So(p, ShouldNotBeNil)
 				So(p.triremeAction, ShouldEqual, AllowAll)
@@ -283,9 +278,6 @@ func TestAllLockedSetGet(t *testing.T) {
 			triremeNetworks,
 			excludedNetworks,
 			&ProxiedServicesInfo{},
-			nil,
-			nil,
-			[]string{},
 		)
 
 		Convey("I should be able to retrieve the management ID ", func() {
@@ -394,8 +386,9 @@ func TestAllLockedSetGet(t *testing.T) {
 func TestPUInfo(t *testing.T) {
 	Convey("Given I try to initiate a new container policy", t, func() {
 		puInfor := NewPUInfo("123", common.ContainerPU)
-		policy := NewPUPolicy("123", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{}, nil, nil, []string{})
+		policy := NewPUPolicy("123", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{})
 		runtime := NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
+
 		Convey("Then I expect the struct to be populated", func() {
 			So(puInfor.ContextID, ShouldEqual, "123")
 			So(puInfor.Policy, ShouldResemble, policy)

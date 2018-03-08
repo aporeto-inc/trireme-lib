@@ -65,9 +65,6 @@ type EventCollector interface {
 
 	// CollectContainerEvent collects a container events
 	CollectContainerEvent(record *ContainerRecord)
-
-	// CollectUserEvent  collects a user event
-	CollectUserEvent(record *UserRecord)
 }
 
 // EndPointType is the type of an endpoint (PU or an external IP address )
@@ -89,12 +86,10 @@ func (e *EndPointType) String() string {
 
 // EndPoint is a structure that holds all the endpoint information
 type EndPoint struct {
-	ID     string
-	IP     string
-	URI    string
-	UserID string
-	Type   EndPointType
-	Port   uint16
+	ID   string
+	IP   string
+	Port uint16
+	Type EndPointType
 }
 
 // FlowRecord describes a flow record for statistis
@@ -131,11 +126,4 @@ type ContainerRecord struct {
 	IPAddress policy.ExtendedMap
 	Tags      *policy.TagStore
 	Event     string
-}
-
-// UserRecord reports a new user access. These will be reported
-// periodically.
-type UserRecord struct {
-	ID     string
-	Claims []string
 }
