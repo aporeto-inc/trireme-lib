@@ -304,5 +304,9 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 		r.collector.CollectFlowEvent(record)
 	}
 
+	for _, record := range payload.Users {
+		r.collector.CollectUserEvent(record)
+	}
+
 	return nil
 }

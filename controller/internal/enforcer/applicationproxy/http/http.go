@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
+	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 
@@ -30,8 +32,9 @@ import (
 // JWTClaims is the structure of the claims we are sending on the wire.
 type JWTClaims struct {
 	jwt.StandardClaims
-	Scopes  []string
-	Profile []string
+	SourceID string
+	Scopes   []string
+	Profile  []string
 }
 
 // Config maintains state for proxies connections from listen to backend.
@@ -238,12 +241,28 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
+
+	record := &collector.FlowRecord{
+		ContextID: p.puContext,
+		Destination: &collector.EndPoint{
+			URI:  r.RequestURI,
+			Type: collector.PU,
+		},
+		Source: &collector.EndPoint{
+			Type: collector.PU,
+		},
+		Action: policy.Reject,
+	}
+	defer p.collector.CollectFlowEvent(record)
+
 	pctx, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
 		return
 	}
+	record.Tags = pctx.(*pucontext.PUContext).Annotations()
+	record.Destination.ID = pctx.(*pucontext.PUContext).ManagementID()
 
 	token := r.Header.Get("X-APORETO-AUTH")
 	if token != "" {
@@ -264,6 +283,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	_port, _ := strconv.Atoi(port)
+	record.Destination.Port = uint16(_port)
 
 	data, err := p.exposedAPICache.Get(p.puContext)
 	if err != nil {
@@ -298,8 +319,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userAttributes := parseUserAttributes(r, jwtCert)
+	if len(userAttributes) > 0 {
+		userRecord := &collector.UserRecord{Claims: userAttributes}
+		p.collector.CollectUserEvent(userRecord)
+		record.Source.UserID = userRecord.ID
+	}
 
-	if err = p.parseClientToken(pctx.(*pucontext.PUContext), token, key, t.([]string), userAttributes); err != nil {
+	if err = p.parseClientToken(pctx.(*pucontext.PUContext), token, key, t.([]string), userAttributes, record); err != nil {
 		zap.L().Error("Unauthorized request", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 		return
@@ -312,6 +338,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	record.Action = policy.Accept
 	p.fwd.ServeHTTP(w, r)
 }
 
@@ -322,14 +349,14 @@ func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, erro
 			Issuer:    p.server.Addr,
 			ExpiresAt: time.Now().Add(10 * time.Second).Unix(),
 		},
-		Profile: puContext.Identity().Tags,
-		Scopes:  puContext.Scopes(),
+		Profile:  puContext.Identity().Tags,
+		Scopes:   puContext.Scopes(),
+		SourceID: puContext.ManagementID(),
 	}
-
 	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(p.secrets.EncodingKey())
 }
 
-func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, txtKey string, apitags []string, userAttributes []string) error {
+func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, txtKey string, apitags []string, userAttributes []string, record *collector.FlowRecord) error {
 	for _, user := range userAttributes {
 		for _, a := range apitags {
 			if user == a {
@@ -340,7 +367,7 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 
 	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
 	if err != nil {
-		return fmt.Errorf("Invalid public key")
+		return fmt.Errorf("Invalid Service Token")
 	}
 
 	claims := &JWTClaims{}
@@ -352,8 +379,9 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		return ekey, nil
 	})
 	if err != nil {
-		return fmt.Errorf("Not found")
+		return fmt.Errorf("Error parsing token: %s", err)
 	}
+	record.Source.ID = claims.SourceID
 
 	for _, c := range claims.Profile {
 		for _, a := range apitags {
@@ -371,6 +399,12 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		}
 	}
 
+	zap.L().Warn("No match found in API token",
+		zap.Strings("User Attributes", userAttributes),
+		zap.Strings("API Policy", apitags),
+		zap.Strings("PU Claims", claims.Profile),
+		zap.Strings("PU Scopes", claims.Scopes),
+	)
 	return fmt.Errorf("Not found")
 }
 
@@ -470,6 +504,7 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 
 	// We can't decode it. Just ignore the user attributes at this point.
 	if err != nil || token == nil {
+		zap.L().Warn("Identified toke, but it is invalid", zap.Error(err))
 		return attributes
 	}
 
@@ -494,5 +529,6 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 			}
 		}
 	}
+
 	return attributes
 }
