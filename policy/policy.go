@@ -34,18 +34,6 @@ type PUPolicy struct {
 	excludedNetworks []string
 	// ProxiedServices string format ip:port
 	proxiedServices *ProxiedServicesInfo
-	// exposedServices is the list of services that this PU is exposing.
-	exposedServices ApplicationServicesList
-	// dependentServices is the list of services that this PU depends on.
-	dependentServices ApplicationServicesList
-	// servicesCertificate is the services certificate
-	servicesCertificate string
-	// servicePrivateKey is the service private key
-	servicesPrivateKey string
-	// servicesCA is the CA to be used for the outgoing services
-	servicesCA string
-	// scopes are the processing unit granted scopes
-	scopes []string
 
 	sync.Mutex
 }
@@ -76,9 +64,6 @@ func NewPUPolicy(
 	triremeNetworks []string,
 	excludedNetworks []string,
 	proxiedServices *ProxiedServicesInfo,
-	exposedServices ApplicationServicesList,
-	dependentServices ApplicationServicesList,
-	scopes []string,
 ) *PUPolicy {
 
 	if appACLs == nil {
@@ -105,41 +90,28 @@ func NewPUPolicy(
 	if ips == nil {
 		ips = ExtendedMap{}
 	}
-
 	if proxiedServices == nil {
 		proxiedServices = &ProxiedServicesInfo{}
 	}
-
-	if exposedServices == nil {
-		exposedServices = ApplicationServicesList{}
-	}
-
-	if dependentServices == nil {
-		dependentServices = ApplicationServicesList{}
-	}
-
 	return &PUPolicy{
-		managementID:      id,
-		triremeAction:     action,
-		applicationACLs:   appACLs,
-		networkACLs:       netACLs,
-		transmitterRules:  txtags,
-		receiverRules:     rxtags,
-		identity:          identity,
-		annotations:       annotations,
-		ips:               ips,
-		triremeNetworks:   triremeNetworks,
-		excludedNetworks:  excludedNetworks,
-		proxiedServices:   proxiedServices,
-		exposedServices:   exposedServices,
-		dependentServices: dependentServices,
-		scopes:            scopes,
+		managementID:     id,
+		triremeAction:    action,
+		applicationACLs:  appACLs,
+		networkACLs:      netACLs,
+		transmitterRules: txtags,
+		receiverRules:    rxtags,
+		identity:         identity,
+		annotations:      annotations,
+		ips:              ips,
+		triremeNetworks:  triremeNetworks,
+		excludedNetworks: excludedNetworks,
+		proxiedServices:  proxiedServices,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{}, nil, nil, []string{})
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{})
 }
 
 // Clone returns a copy of the policy
@@ -160,9 +132,6 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.triremeNetworks,
 		p.excludedNetworks,
 		p.proxiedServices,
-		p.exposedServices,
-		p.dependentServices,
-		p.scopes,
 	)
 
 	return np
@@ -296,22 +265,6 @@ func (p *PUPolicy) ProxiedServices() *ProxiedServicesInfo {
 	return p.proxiedServices
 }
 
-// ExposedServices returns the exposed services
-func (p *PUPolicy) ExposedServices() ApplicationServicesList {
-	p.Lock()
-	defer p.Unlock()
-
-	return p.exposedServices
-}
-
-// DependentServices returns the external services.
-func (p *PUPolicy) DependentServices() ApplicationServicesList {
-	p.Lock()
-	defer p.Unlock()
-
-	return p.dependentServices
-}
-
 // UpdateTriremeNetworks updates the set of networks for trireme
 func (p *PUPolicy) UpdateTriremeNetworks(networks []string) {
 	p.Lock()
@@ -339,103 +292,4 @@ func (p *PUPolicy) UpdateExcludedNetworks(networks []string) {
 	p.excludedNetworks = make([]string, len(networks))
 
 	copy(p.excludedNetworks, networks)
-}
-
-// UpdateServiceCertificates updates the certificate and private key of the policy
-func (p *PUPolicy) UpdateServiceCertificates(cert, key string) {
-	p.Lock()
-	defer p.Unlock()
-
-	p.servicesCertificate = cert
-	p.servicesPrivateKey = key
-}
-
-// ServiceCertificates returns the service certificate.
-func (p *PUPolicy) ServiceCertificates() (string, string, string) {
-	p.Lock()
-	defer p.Unlock()
-
-	return p.servicesCertificate, p.servicesPrivateKey, p.servicesCA
-}
-
-// Scopes returns the scopes of the policy.
-func (p *PUPolicy) Scopes() []string {
-	p.Lock()
-	defer p.Unlock()
-
-	return p.scopes
-}
-
-// ToPublicPolicy converts the object to a marshallable object.
-func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
-	p.Lock()
-	defer p.Unlock()
-
-	return &PUPolicyPublic{
-		ManagementID:        p.managementID,
-		TriremeAction:       p.triremeAction,
-		ApplicationACLs:     p.applicationACLs.Copy(),
-		NetworkACLs:         p.networkACLs.Copy(),
-		TransmitterRules:    p.transmitterRules.Copy(),
-		ReceiverRules:       p.receiverRules.Copy(),
-		Annotations:         p.annotations.Copy(),
-		Identity:            p.identity.Copy(),
-		IPs:                 p.ips.Copy(),
-		TriremeNetworks:     p.triremeNetworks,
-		ExcludedNetworks:    p.excludedNetworks,
-		ProxiedServices:     p.proxiedServices,
-		ExposedServices:     p.exposedServices,
-		DependentServices:   p.dependentServices,
-		Scopes:              p.scopes,
-		ServicesCA:          p.servicesCA,
-		ServicesCertificate: p.servicesCertificate,
-		ServicesPrivateKey:  p.servicesPrivateKey,
-	}
-}
-
-// PUPolicyPublic captures all policy information related ot the processing
-// unit in an object that can be marshalled and transmitted over the RPC interface.
-type PUPolicyPublic struct {
-	ManagementID        string                  `json:"managementID,omitempty"`
-	TriremeAction       PUAction                `json:"triremeAction,omitempty"`
-	ApplicationACLs     IPRuleList              `json:"applicationACLs,omitempty"`
-	NetworkACLs         IPRuleList              `json:"networkACLs,omitempty"`
-	Identity            *TagStore               `json:"identity,omitempty"`
-	Annotations         *TagStore               `json:"annotations,omitempty"`
-	TransmitterRules    TagSelectorList         `json:"transmitterRules,omitempty"`
-	ReceiverRules       TagSelectorList         `json:"receiverRules,omitempty"`
-	IPs                 ExtendedMap             `json:"IPs,omitempty"`
-	TriremeNetworks     []string                `json:"triremeNetworks,omitempty"`
-	ExcludedNetworks    []string                `json:"excludedNetworks,omitempty"`
-	ProxiedServices     *ProxiedServicesInfo    `json:"proxiedServices,omitempty"`
-	ExposedServices     ApplicationServicesList `json:"exposedServices,omitempty"`
-	DependentServices   ApplicationServicesList `json:"dependentServices,omitempty"`
-	ServicesCertificate string                  `json:"servicesCertificate,omitempty"`
-	ServicesPrivateKey  string                  `json:"servicesPrivateKey,omitempty"`
-	ServicesCA          string                  `json:"servicesCA,omitempty"`
-	Scopes              []string                `json:"scopes,omitempty"`
-}
-
-// ToPrivatePolicy converts the object to a private object.
-func (p *PUPolicyPublic) ToPrivatePolicy() *PUPolicy {
-	return &PUPolicy{
-		managementID:        p.ManagementID,
-		triremeAction:       p.TriremeAction,
-		applicationACLs:     p.ApplicationACLs,
-		networkACLs:         p.NetworkACLs.Copy(),
-		transmitterRules:    p.TransmitterRules.Copy(),
-		receiverRules:       p.ReceiverRules.Copy(),
-		annotations:         p.Annotations.Copy(),
-		identity:            p.Identity.Copy(),
-		ips:                 p.IPs.Copy(),
-		triremeNetworks:     p.TriremeNetworks,
-		excludedNetworks:    p.ExcludedNetworks,
-		proxiedServices:     p.ProxiedServices,
-		exposedServices:     p.ExposedServices,
-		dependentServices:   p.DependentServices,
-		scopes:              p.Scopes,
-		servicesCA:          p.ServicesCA,
-		servicesCertificate: p.ServicesCertificate,
-		servicesPrivateKey:  p.ServicesPrivateKey,
-	}
 }

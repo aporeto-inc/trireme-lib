@@ -8,8 +8,6 @@ import (
 type CollectorReader interface {
 	Count() int
 	GetAllRecords() map[string]*collector.FlowRecord
-	GetUserRecords() map[string]*collector.UserRecord
-	FlushUserCache()
 }
 
 // Collector interface implements

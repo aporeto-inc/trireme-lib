@@ -118,7 +118,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) (token [
 		// Copy the JWT tokenn
 		copy(token[tokenPosition:], []byte(strtoken))
 
-		token[tokenPosition+len(strtoken)] = '%'
+		token[tokenPosition+len(strtoken)] = []byte("%")[0]
 		// Copy the public key
 		if len(txKey) > 0 {
 			copy(token[tokenPosition+len(strtoken)+1:], txKey)
@@ -152,7 +152,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 		// We must have at least enough data to get the length
 		if len(data) < tokenPosition {
-			return nil, nil, nil, errors.New("not enough data")
+			return nil, nil, nil, errors.New("invalid token length")
 		}
 
 		tokenLength := int(binary.BigEndian.Uint16(data[0:noncePosition]))

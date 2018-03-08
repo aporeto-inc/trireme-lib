@@ -15,7 +15,6 @@ import (
 
 const (
 	defaultStatsIntervalMiliseconds = 1000
-	defaultUserRetention            = 10
 	statsContextID                  = "UNUSED"
 	statsRPCCommand                 = "StatsServer.GetStats"
 )
@@ -28,7 +27,6 @@ type statsClient struct {
 	secret        string
 	statsChannel  string
 	statsInterval time.Duration
-	userRetention time.Duration
 	stop          chan bool
 }
 
@@ -41,7 +39,6 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 		secret:        os.Getenv(constants.EnvStatsSecret),
 		statsChannel:  os.Getenv(constants.EnvStatsChannel),
 		statsInterval: defaultStatsIntervalMiliseconds * time.Millisecond,
-		userRetention: defaultUserRetention * time.Minute,
 		stop:          make(chan bool),
 	}
 
@@ -60,35 +57,38 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 func (s *statsClient) sendStats(ctx context.Context) {
 
 	ticker := time.NewTicker(s.statsInterval)
-	userTicker := time.NewTicker(s.userRetention)
 	// nolint : gosimple
 	for {
 		select {
 		case <-ticker.C:
 
-			flows := s.collector.GetAllRecords()
-			users := s.collector.GetUserRecords()
-			if flows == nil && users == nil {
+			if s.collector.Count() == 0 {
+				break
+			}
+			collected := s.collector.GetAllRecords()
+			if len(collected) == 0 {
 				continue
 			}
 
-			request := rpcwrapper.Request{
-				Payload: &rpcwrapper.StatsPayload{
-					Flows: flows,
-					Users: users,
-				},
+			rpcPayload := &rpcwrapper.StatsPayload{
+				Flows: collected,
 			}
 
-			if err := s.rpchdl.RemoteCall(
+			request := rpcwrapper.Request{
+				Payload: rpcPayload,
+			}
+
+			err := s.rpchdl.RemoteCall(
 				statsContextID,
 				statsRPCCommand,
 				&request,
 				&rpcwrapper.Response{},
-			); err != nil {
+			)
+
+			if err != nil {
 				zap.L().Error("RPC failure in sending statistics: Unable to send flows")
 			}
-		case <-userTicker.C:
-			s.collector.FlushUserCache()
+
 		case <-ctx.Done():
 			return
 		}
