@@ -309,7 +309,8 @@ func (p *Proxy) handle(upConn net.Conn, contextID string) {
 
 	var isEncrypted bool
 	// Now let us handle the state machine for the down connection
-	if isEncrypted, err = p.CompleteEndPointAuthorization(fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]), port, upConn, downConn, contextID); err != nil {
+	backend_ip := fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+	if isEncrypted, err = p.CompleteEndPointAuthorization(backend_ip, port, upConn, downConn, contextID); err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
