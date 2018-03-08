@@ -1,4 +1,4 @@
-[[override]]
+[[constraint]]
   name = "github.com/bvandewalle/go-ipset"
   revision = "0ee897a6d8bc6095299e9c03293ece091ef871de"
 
