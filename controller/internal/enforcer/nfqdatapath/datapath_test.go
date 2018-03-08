@@ -3490,7 +3490,6 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
 								So(err, ShouldNotBeNil)
-
 							}
 
 							if debug {
