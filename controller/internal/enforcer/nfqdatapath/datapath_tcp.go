@@ -954,15 +954,14 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 	hash := p.L4FlowHash()
-
 	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
 		conn, err = d.netOrigConnectionTracker.GetReset(hash, 0)
 		if err != nil {
 			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 				// Let's try if its an existing connection
-				context, err := d.contextFromIP(true, p.DestinationAddress.String(), p.Mark, p.SourcePort)
-				if err != nil {
+				context, cerr := d.contextFromIP(true, p.DestinationAddress.String(), p.Mark, p.SourcePort)
+				if cerr != nil {
 					return nil, errors.New("No context in app processing")
 				}
 				conn = connection.NewTCPConnection(context)
