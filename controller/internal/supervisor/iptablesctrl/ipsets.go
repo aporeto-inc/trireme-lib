@@ -3,6 +3,8 @@ package iptablesctrl
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
+	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
@@ -51,7 +53,7 @@ func (i *Instance) createTargetSet(networks []string) error {
 
 	for _, net := range networks {
 		if err := i.targetSet.Add(net, 0); err != nil {
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
+			return fmt.Errorf("createTargetSet: unable to add ip %s to target networks ipset: %s", net, err)
 		}
 	}
 
@@ -60,7 +62,7 @@ func (i *Instance) createTargetSet(networks []string) error {
 
 // createProxySet creates a new target set -- ipportset is a list of {ip,port}
 func (i *Instance) createProxySets(portSetName string) error {
-	destSetName, srcSetName := i.getSetNamePair(portSetName)
+	destSetName, srcSetName, srvSetName := i.getSetNames(portSetName)
 
 	_, err := i.ipset.NewIpset(destSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
@@ -70,6 +72,12 @@ func (i *Instance) createProxySets(portSetName string) error {
 	_, err = i.ipset.NewIpset(srcSetName, "hash:ip,port", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", srcSetName, err)
+	}
+
+	err = i.createPUPortSet(srvSetName)
+	// _, err = i.ipset.NewIpset(srvSetName, "bitmap:port", &ipset.Params{})
+	if err != nil {
+		return fmt.Errorf("unable to create ipset for %s: %s", srvSetName, err)
 	}
 
 	return nil
@@ -87,9 +95,10 @@ func (i *Instance) createUIDSets(contextID string, puInfo *policy.PUInfo) error 
 	return nil
 }
 
-func (i *Instance) updateProxySet(services *policy.ProxiedServicesInfo, portSetName string) error {
+func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) error {
 
-	dstSetName, srcSetName := i.getSetNamePair(portSetName)
+	services := policy.ProxiedServices()
+	dstSetName, srcSetName, srvSetName := i.getSetNames(portSetName)
 	vipTargetSet := ipset.IPSet{
 		Name: dstSetName,
 	}
@@ -100,7 +109,20 @@ func (i *Instance) updateProxySet(services *policy.ProxiedServicesInfo, portSetN
 	for _, net := range services.PublicIPPortPair {
 		if err := vipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
+			return fmt.Errorf("unable to add public ip %s to target networks ipset: %s", net, err)
+		}
+	}
+
+	for _, dependentService := range policy.DependentServices() {
+		addresses := dependentService.NetworkInfo.Addresses
+		min, max := dependentService.NetworkInfo.Ports.Range()
+		for _, addr := range addresses {
+			for i := int(min); i <= int(max); i++ {
+				pair := addr.IP.To4().String() + "," + strconv.Itoa(i)
+				if err := vipTargetSet.Add(pair, 0); err != nil {
+					return fmt.Errorf("unable to add dependent ip %s to target networks ipset: %s", pair, err)
+				}
+			}
 		}
 	}
 
@@ -114,15 +136,32 @@ func (i *Instance) updateProxySet(services *policy.ProxiedServicesInfo, portSetN
 	for _, net := range services.PrivateIPPortPair {
 		if err := pipTargetSet.Add(net, 0); err != nil {
 			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("unable to add ip %s to target networks ipset: %s", net, err)
+			return fmt.Errorf("unable to add private ip %s to target networks ipset: %s", net, err)
+		}
+	}
+
+	srvTargetSet := ipset.IPSet{
+		Name: srvSetName,
+	}
+	if ferr := srvTargetSet.Flush(); ferr != nil {
+		zap.L().Warn("Unable to flush the pip proxy set")
+	}
+
+	for _, exposedService := range policy.ExposedServices() {
+		min, max := exposedService.NetworkInfo.Ports.Range()
+		for i := int(min); i <= int(max); i++ {
+			if err := srvTargetSet.Add(strconv.Itoa(i), 0); err != nil {
+				zap.L().Error("Failed to add vip", zap.Error(err))
+				return fmt.Errorf("unable to add ip %d to target ports ipset: %s", i, err)
+			}
 		}
 	}
 	return nil
 }
 
 //getSetNamePair returns a pair of strings represent proxySetNames
-func (i *Instance) getSetNamePair(portSetName string) (string, string) {
-	return "dst-" + portSetName, "src-" + portSetName
+func (i *Instance) getSetNames(portSetName string) (string, string, string) {
+	return "dst-" + portSetName, "src-" + portSetName, "srv-" + portSetName
 
 }
 
@@ -133,7 +172,15 @@ func (i *Instance) createPUPortSet(setname string) error {
 	path, _ := exec.LookPath("ipset")
 	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
 	if err != nil {
-		zap.L().Error("Unable to creating set", zap.String("ipset-output", string(out)))
+		if strings.Contains(string(out), "set with the same name already exists") {
+			zap.L().Warn("Set already exists - cleaning up", zap.String("set name", setname))
+			// Clean up the existing set
+			if _, cerr := exec.Command(path, "-F", setname).CombinedOutput(); cerr != nil {
+				return fmt.Errorf("Failed to clean up existing ipset: %s", err)
+			}
+			return nil
+		}
+		zap.L().Error("Unable to create set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
 	}
 	return err
 

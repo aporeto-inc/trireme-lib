@@ -382,24 +382,33 @@ func (i *Instance) deleteUIDSets(contextID, uid, mark string) error {
 }
 
 func (i *Instance) deleteProxySets(proxyPortSetName string) error {
-	dstPortSetName, srcPortSetName := i.getSetNamePair(proxyPortSetName)
+	dstPortSetName, srcPortSetName, srvPortSetName := i.getSetNames(proxyPortSetName)
 	ips := ipset.IPSet{
 		Name: dstPortSetName,
 	}
 	if err := ips.Destroy(); err != nil {
-		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", proxyPortSetName), zap.Error(err))
+		zap.L().Warn("Failed to destroy proxyPortSet", zap.String("SetName", dstPortSetName), zap.Error(err))
 	}
 	ips = ipset.IPSet{
 		Name: srcPortSetName,
 	}
-	return ips.Destroy()
+	if err := ips.Destroy(); err != nil {
+		zap.L().Warn("Failed to clear proxy port set", zap.String("set name", srcPortSetName), zap.Error(err))
+	}
+	ips = ipset.IPSet{
+		Name: srvPortSetName,
+	}
+	if err := ips.Destroy(); err != nil {
+		zap.L().Warn("Failed to clear proxy port set", zap.String("set name", srvPortSetName), zap.Error(err))
+	}
+	return nil
 }
 
 // Install rules will install all the rules and update the port sets.
 func (i *Instance) installRules(contextID, appChain, netChain, proxySetName string, containerInfo *policy.PUInfo) error {
 	policyrules := containerInfo.Policy
 
-	if err := i.updateProxySet(containerInfo.Policy.ProxiedServices(), proxySetName); err != nil {
+	if err := i.updateProxySet(containerInfo.Policy, proxySetName); err != nil {
 		return err
 	}
 

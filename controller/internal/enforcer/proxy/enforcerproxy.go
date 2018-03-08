@@ -27,16 +27,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 )
 
-type pkiCertifier interface {
-	AuthPEM() []byte
-	TransmittedPEM() []byte
-	EncodingPEM() []byte
-}
-
-type tokenPKICertifier interface {
-	TokenPEMs() [][]byte
-}
-
 // ProxyInfo is the struct used to hold state about active enforcers in the system
 type ProxyInfo struct {
 	MutualAuth             bool
@@ -61,27 +51,17 @@ type ProxyInfo struct {
 func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 
 	resp := &rpcwrapper.Response{}
-	pkier := s.Secrets.(pkiCertifier)
 
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.InitRequestPayload{
 			FqConfig:               s.filterQueue,
 			MutualAuth:             s.MutualAuth,
 			Validity:               s.validity,
-			SecretType:             s.Secrets.Type(),
 			ServerID:               s.serverID,
-			CAPEM:                  pkier.AuthPEM(),
-			PublicPEM:              pkier.TransmittedPEM(),
-			PrivatePEM:             pkier.EncodingPEM(),
 			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
 			PacketLogs:             s.PacketLogs,
+			Secrets:                s.Secrets.PublicSecrets(),
 		},
-	}
-
-	if s.Secrets.Type() == secrets.PKICompactType {
-		payload := request.Payload.(*rpcwrapper.InitRequestPayload)
-		payload.Token = s.Secrets.TransmittedKey()
-		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
 	}
 
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.InitEnforcer, request, resp); err != nil {
@@ -98,22 +78,14 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 // UpdateSecrets updates the secrets used for signing communication between trireme instances
 func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	s.Lock()
-	defer s.Unlock()
+	s.Secrets = token
+	s.Unlock()
+
 	resp := &rpcwrapper.Response{}
-	pkier := s.Secrets.(pkiCertifier)
 	request := &rpcwrapper.Request{
 		Payload: &rpcwrapper.UpdateSecretsPayload{
-			CAPEM:      pkier.AuthPEM(),
-			PublicPEM:  pkier.TransmittedPEM(),
-			PrivatePEM: pkier.EncodingPEM(),
-			SecretType: s.Secrets.Type(),
+			Secrets: s.Secrets.PublicSecrets(),
 		},
-	}
-	if s.Secrets.Type() == secrets.PKICompactType {
-		payload := request.Payload.(*rpcwrapper.UpdateSecretsPayload)
-		payload.Token = s.Secrets.TransmittedKey()
-		payload.TokenKeyPEMs = s.Secrets.(tokenPKICertifier).TokenPEMs()
-		payload.SecretType = secrets.PKICompactType
 	}
 
 	for _, contextID := range s.rpchdl.ContextList() {
@@ -122,7 +94,6 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 		}
 	}
 
-	s.Secrets = token
 	return nil
 }
 
@@ -144,28 +115,15 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			return err
 		}
 	}
-	pkier := s.Secrets.(pkiCertifier)
+
 	enforcerPayload := &rpcwrapper.EnforcePayload{
-		ContextID:        contextID,
-		ManagementID:     puInfo.Policy.ManagementID(),
-		TriremeAction:    puInfo.Policy.TriremeAction(),
-		ApplicationACLs:  puInfo.Policy.ApplicationACLs(),
-		NetworkACLs:      puInfo.Policy.NetworkACLs(),
-		PolicyIPs:        puInfo.Policy.IPAddresses(),
-		Annotations:      puInfo.Policy.Annotations(),
-		Identity:         puInfo.Policy.Identity(),
-		ReceiverRules:    puInfo.Policy.ReceiverRules(),
-		TransmitterRules: puInfo.Policy.TransmitterRules(),
-		TriremeNetworks:  puInfo.Policy.TriremeNetworks(),
-		ExcludedNetworks: puInfo.Policy.ExcludedNetworks(),
-		ProxiedServices:  puInfo.Policy.ProxiedServices(),
+		ContextID: contextID,
+		Policy:    puInfo.Policy.ToPublicPolicy(),
 	}
+
 	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
 	s.RLock()
-	enforcerPayload.CAPEM = pkier.AuthPEM()
-	enforcerPayload.PublicPEM = pkier.TransmittedPEM()
-	enforcerPayload.PrivatePEM = pkier.EncodingPEM()
-	enforcerPayload.SecretType = s.Secrets.Type()
+	enforcerPayload.Secrets = s.Secrets.PublicSecrets()
 	s.RUnlock()
 	request := &rpcwrapper.Request{
 		Payload: enforcerPayload,
@@ -178,7 +136,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		delete(s.initDone, contextID)
 		s.Unlock()
 		s.prochdl.KillProcess(contextID)
-		return fmt.Errorf("failed to enforce rules: %s", err)
+		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
 
 	return nil
@@ -291,8 +249,6 @@ func newProxyEnforcer(mutualAuth bool,
 		collector:              collector,
 	}
 
-	zap.L().Debug("Called NewDataPathEnforcer")
-
 	return proxydata
 }
 
@@ -346,6 +302,10 @@ func (r *StatsServer) GetStats(req rpcwrapper.Request, resp *rpcwrapper.Response
 
 	for _, record := range payload.Flows {
 		r.collector.CollectFlowEvent(record)
+	}
+
+	for _, record := range payload.Users {
+		r.collector.CollectUserEvent(record)
 	}
 
 	return nil
