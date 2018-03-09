@@ -239,12 +239,14 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 	register := client.protomux.NewServiceRegistry()
 
 	// Support for deprecated model. TODO : Remove
+	zap.L().Info("Adding proxied services")
 	proxiedServices := puInfo.Policy.ProxiedServices()
 	for _, pair := range proxiedServices.PublicIPPortPair {
 		service, err := serviceFromProxySet(pair)
 		if err != nil {
 			return err
 		}
+		fmt.Println("Debug: Adding Application Service:", service)
 		if err := register.Add(service, protomux.TCPApplication); err != nil {
 			return fmt.Errorf("Cannot add service: %s", err)
 		}
@@ -255,6 +257,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		if err != nil {
 			return err
 		}
+		fmt.Println("Debug: Adding network Service:", service)
 		if err := register.Add(service, protomux.TCPNetwork); err != nil {
 			return fmt.Errorf("Cannot add service: %s", err)
 		}
