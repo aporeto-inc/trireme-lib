@@ -211,10 +211,18 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 
 	m.RLock()
 	entry := m.servicecache.Find(ip, port)
-	m.RUnlock()
 	if entry == nil {
-		c.Close() // nolint
-		return
+		// Let's see if we can match the source address.
+		// Compatibility with deprecated model. TODO: Remove
+		ip = c.RemoteAddr().(*net.TCPAddr).IP
+		entry = m.servicecache.Find(ip, port)
+		if entry == nil {
+			// Failed with source as well.
+			c.Close()
+			m.RUnlock()
+			return
+		}
+		m.RUnlock()
 	}
 
 	ltype := entry.(ListenerType)
