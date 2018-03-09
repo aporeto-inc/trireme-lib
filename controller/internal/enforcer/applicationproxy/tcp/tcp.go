@@ -162,7 +162,6 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		if err := p.handleEncryptedData(ctx, upConn, downConn, ip); err != nil {
 			zap.L().Error("Failed to process connection - aborting", zap.Error(err))
 		}
-		fmt.Println("Done with the connection")
 		return
 	}
 
@@ -191,7 +190,6 @@ func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.C
 	}
 
 	p.copyData(ctx, serverConn, tlsConn, true)
-	fmt.Println("Done client")
 	return nil
 }
 
@@ -211,7 +209,6 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.C
 	}
 
 	p.copyData(ctx, tlsConn, downConn, false)
-	fmt.Println("Done server")
 	return nil
 }
 
