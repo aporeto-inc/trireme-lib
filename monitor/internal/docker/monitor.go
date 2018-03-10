@@ -129,7 +129,8 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 
 		// Starting the eventListener and wait to hear on channel for it to be ready.
 		// Need to start before the resync process so that we don't loose any events.
-		// They will be buffered.
+		// They will be buffered. We don't want to start the listener before
+		// getting the list from docker though, to avoid duplicates.
 		listenerReady := make(chan struct{})
 		go d.eventListener(ctx, listenerReady)
 		<-listenerReady
