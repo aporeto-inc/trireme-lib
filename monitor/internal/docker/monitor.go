@@ -117,7 +117,8 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 
 	err := d.waitForDockerDaemon(ctx)
 	if err != nil {
-		return fmt.Errorf("Unable to connect to docker-abourt: %s", err)
+		zap.L().Error("Docker daemon is not running - skipping container processing", zap.Error(err))
+		return nil
 	}
 
 	if d.syncAtStart && d.config.Policy != nil {
