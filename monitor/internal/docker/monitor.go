@@ -120,15 +120,32 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("Unable to connect to docker-abourt: %s", err)
 	}
 
-	// Syncing all Existing containers depending on MonitorSetting
-	if err := d.ReSync(ctx); err != nil {
-		zap.L().Error("Unable to sync existing containers", zap.Error(err))
-	}
+	if d.syncAtStart && d.config.Policy != nil {
+		options := types.ContainerListOptions{All: true}
+		containers, err := d.dockerClient.ContainerList(ctx, options)
+		if err != nil {
+			return fmt.Errorf("unable to get container list: %s", err)
+		}
 
-	// Starting the eventListener and wait to hear on channel for it to be ready.
-	listenerReady := make(chan struct{})
-	go d.eventListener(ctx, listenerReady)
-	<-listenerReady
+		// Starting the eventListener and wait to hear on channel for it to be ready.
+		// Need to start before the resync process so that we don't loose any events.
+		// They will be buffered.
+		listenerReady := make(chan struct{})
+		go d.eventListener(ctx, listenerReady)
+		<-listenerReady
+
+		zap.L().Debug("Syncing all existing containers")
+		// Syncing all Existing containers depending on MonitorSetting
+		if err := d.resyncContainers(ctx, containers); err != nil {
+			zap.L().Error("Unable to sync existing containers", zap.Error(err))
+		}
+	} else {
+		// Starting the eventListener and wait to hear on channel for it to be ready.
+		// We are not doing resync. We just start the listener.
+		listenerReady := make(chan struct{})
+		go d.eventListener(ctx, listenerReady)
+		<-listenerReady
+	}
 
 	// Start processing the events
 	go d.eventProcessors(ctx)
@@ -236,6 +253,11 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 		return fmt.Errorf("unable to get container list: %s", err)
 	}
 
+	return d.resyncContainers(ctx, containers)
+}
+
+func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types.Container) error {
+	// now resync the old containers
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 		if err != nil {
@@ -272,7 +294,6 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 			)
 		}
 	}
-
 	return nil
 }
 
