@@ -251,7 +251,19 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 	}
 
 	for _, pair := range proxiedServices.PrivateIPPortPair {
-		service, err := serviceFromProxySet(pair)
+		parts := strings.Split(pair, ",")
+		if len(parts) != 2 {
+			return fmt.Errorf("Invalid service: %s", pair)
+		}
+		ports, err := portspec.NewPortSpecFromString(parts[1], nil)
+		if err != nil {
+			return fmt.Errorf("Invalid service port: %s", err)
+		}
+		service := &common.Service{
+			Ports:     ports,
+			Protocol:  6,
+			Addresses: []*net.IPNet{},
+		}
 		if err != nil {
 			return err
 		}
