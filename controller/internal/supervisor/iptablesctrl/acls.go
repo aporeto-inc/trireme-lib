@@ -23,25 +23,33 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
 			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server-specific-chain",
-			"-j", "MARK", "--set-mark", mark,
+			"-m", "comment", "--comment", "Mark All Packets from a cgroup",
+			"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
 		},
-		{
-			i.appPacketIPTableContext,
-			i.appCgroupIPTableSection,
-			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Server-specific-chain",
-			"-j", appChain,
-		},
-		{
-			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
-			"-p", "tcp",
-			"-m", "multiport",
-			"--destination-ports", port,
-			"-m", "comment", "--comment", "Container-specific-chain",
-			"-j", netChain,
-		},
+
+		// {
+		// 	i.appPacketIPTableContext,
+		// 	i.appCgroupIPTableSection,
+		// 	"-m", "cgroup", "--cgroup", mark,
+		// 	"-m", "comment", "--comment", "Server-specific-chain",
+		// 	"-j", "MARK", "--set-mark", mark,
+		// },
+		// {
+		// 	i.appPacketIPTableContext,
+		// 	i.appCgroupIPTableSection,
+		// 	"-m", "cgroup", "--cgroup", mark,
+		// 	"-m", "comment", "--comment", "Server-specific-chain",
+		// 	"-j", appChain,
+		// },
+		// {
+		// 	i.netPacketIPTableContext,
+		// 	i.netPacketIPTableSection,
+		// 	"-p", "tcp",
+		// 	"-m", "multiport",
+		// 	"--destination-ports", port,
+		// 	"-m", "comment", "--comment", "Container-specific-chain",
+		// 	"-j", netChain,
+		// },
 	}
 
 	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName)...)
@@ -232,20 +240,20 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	rules := [][]string{}
 
 	// Application Packets - SYN
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
-	})
+	// rules = append(rules, []string{
+	// 	i.appPacketIPTableContext, appChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
+	// })
 
 	// Application Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	})
+	// rules = append(rules, []string{
+	// 	i.appPacketIPTableContext, appChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+	// })
 
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,

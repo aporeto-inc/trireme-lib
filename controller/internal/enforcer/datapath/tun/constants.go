@@ -15,7 +15,7 @@ const (
 	NetworkRuleTable          = 10
 	ApplicationRuleTable      = 11
 	RulePriority              = 0
-	//
+	// RuleMarkBit is the bit which is set in 32 bit mark
 	RuleMarkBit = 16
 	// Only look for the low  16 bits of the mark
 	RuleMask = 0xffff

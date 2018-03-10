@@ -7,9 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"text/template"
-
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/tuntap"
+	"github.com/alecthomas/template"
 )
 
 const (
@@ -21,10 +19,11 @@ const (
 
 // Qdisc strcut represents a qdisc(htb only) in the tcbatch (batched tc)
 type Qdisc struct {
-	DeviceName string
-	Parent     string
-	QdiscID    string
-	QdiscType  string
+	DeviceName     string
+	Parent         string
+	QdiscID        string
+	QdiscType      string
+	DefaultClassID string
 }
 
 // Class represents a cgroup/prio class in tcbatch
@@ -90,11 +89,11 @@ func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, Cgrou
 	if CgroupHighBit > 15 {
 		return nil, fmt.Errorf("cgroup high bit has to between 0-15")
 	}
-	if CgroupStartMark+numQueues+1 > 2^16 {
+	if CgroupStartMark+numQueues+1 > ((1 << 16) - 1) {
 		return nil, fmt.Errorf("Cgroupstartmark has to high value")
 	}
 
-	if len(DeviceName) == 0 || len(DeviceName) > tuntap.IFNAMSIZE {
+	if len(DeviceName) == 0 || len(DeviceName) > 16 {
 		return nil, fmt.Errorf("Invalid DeviceName")
 	}
 	return &tcBatch{
@@ -198,11 +197,13 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 	numQueues := t.numQueues
 	//qdiscs := make([]Qdisc, numQueues+1)
 	qdisc := Qdisc{
-		DeviceName: t.DeviceName,
-		QdiscID:    "1",
-		QdiscType:  "htb",
-		Parent:     "root",
+		DeviceName:     t.DeviceName,
+		QdiscID:        "1",
+		QdiscType:      "htb",
+		Parent:         "root",
+		DefaultClassID: strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(t.numQueues-1), 16),
 	}
+
 	if err := t.Qdiscs([]Qdisc{qdisc}); err != nil {
 		return fmt.Errorf("Received error %s while parsing qdisc", err)
 	}
@@ -220,7 +221,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 	}
 
 	classes := make([]Class, numQueues)
-	for i := 1; i < int(numQueues); i++ {
+	for i := 0; i < int(numQueues); i++ {
 		classes[i] = Class{
 			DeviceName:       t.DeviceName,
 			Parent:           "1",
@@ -250,14 +251,14 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 	if err := t.Qdiscs(qdiscs); err != nil {
 		return fmt.Errorf("Received error %s while parsing qdisc", err)
 	}
-	filters := make([]FilterSkbAction, numQueues)
+	filters := make([]FilterSkbAction, numQueues-1)
 	qdiscID := 10
-	for i := 0; i < int(numQueues); i++ {
-		filters[i] = FilterSkbAction{
+	for i := 1; i < int(numQueues); i++ {
+		filters[i-1] = FilterSkbAction{
 			DeviceName: t.DeviceName,
 			Parent:     strconv.Itoa(qdiscID),
 			FilterID:   strconv.Itoa(qdiscID),
-			QueueID:    strconv.Itoa(i + 1),
+			QueueID:    strconv.Itoa(i),
 			Prio:       1,
 			Cgroup:     false,
 			U32match: &U32match{
@@ -270,6 +271,24 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 		qdiscID = qdiscID + 10
 	}
 	if err := t.Filters(filters, filtertemplate); err != nil {
+		return fmt.Errorf("Received error %s while parsing filters", err)
+	}
+	//Default filter and action set to queue 0
+	filter = FilterSkbAction{
+		DeviceName: t.DeviceName,
+		Parent:     strconv.Itoa(qdiscID),
+		FilterID:   strconv.Itoa(qdiscID),
+		QueueID:    "0",
+		Prio:       1,
+		Cgroup:     false,
+		U32match: &U32match{
+			matchsize: "u8",
+			val:       0x40,
+			mask:      0xf0,
+			offset:    0,
+		},
+	}
+	if err := t.Filters([]FilterSkbAction{filter}, filtertemplate); err != nil {
 		return fmt.Errorf("Received error %s while parsing filters", err)
 	}
 	return nil
@@ -289,7 +308,6 @@ func (t *tcBatch) Execute() error {
 
 			params := strings.Fields(line)
 			cmd := exec.Command(path, params...)
-			fmt.Println(line)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("Error %s Executing Command %s", err, output)
 			}
@@ -299,3 +317,14 @@ func (t *tcBatch) Execute() error {
 
 	return nil
 }
+
+// func main() {
+// 	if t, err := NewTCBatch(255, "tunout", 1, 256); err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	} else {
+// 		t.BuildOutputTCBatchCommand()
+// 		fmt.Println(t)
+// 	}
+// 	//t.Execute()
+// }

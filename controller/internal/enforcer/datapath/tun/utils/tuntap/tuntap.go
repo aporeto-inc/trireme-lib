@@ -30,7 +30,7 @@ type TunTap struct {
 	queueHandles  []int
 	fdtoQueueNum  map[int]int
 	numFramesRead uint64
-	numQueues     uint8
+	numQueues     uint16
 	ipAddress     string
 	hwMacAddress  []byte
 	deviceName    string
@@ -41,7 +41,7 @@ type TunTap struct {
 }
 
 // NewTun -- creates a new tun interface and returns a handle to it. This will also implicitly bring up the interface
-func NewTun(numQueues uint8, ipAddress string, macAddress []byte, deviceName string, uid uint, group uint, persist bool) (*TunTap, error) {
+func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName string, uid uint, group uint, persist bool) (*TunTap, error) {
 
 	// NumQueues is 0 indexed gives us 256 queues
 	if numQueues > 255 {
