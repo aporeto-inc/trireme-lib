@@ -40,6 +40,9 @@ const (
 
 	// TCPData indicates that the packets are now data packets
 	TCPData
+
+	// UnknownState indicates that this an existing connection in the uknown state.
+	UnknownState
 )
 
 const (
