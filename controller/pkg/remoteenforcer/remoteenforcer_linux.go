@@ -115,7 +115,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
 	); err != nil || s.enforcer == nil {
-		return errors.New("unable to setup enforcer: we don't know as this function does not return an error")
+		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
 
 	return nil
