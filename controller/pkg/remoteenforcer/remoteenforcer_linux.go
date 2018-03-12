@@ -263,7 +263,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 	err := s.supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
-		zap.L().Error("Unable to initialize supervisor",
+		zap.L().Error("unable to initialize supervisor",
 			zap.String("ContextID", payload.ContextID),
 			zap.Error(err),
 		)
@@ -324,7 +324,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	}
 
 	if s.enforcer == nil {
-		resp.Status = "Enforcer not initialied - cannot enforce"
+		resp.Status = "enforcer not initialized - cannot enforce"
 		zap.L().Error(resp.Status)
 		return fmt.Errorf(resp.Status)
 	}
