@@ -68,6 +68,10 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 		return fmt.Errorf("failed to initialize remote enforcer: status: %s: %s", resp.Status, err)
 	}
 
+	if resp.Status != "" {
+		return fmt.Errorf("failed to initialize remote enforcer: status: %s", resp.Status)
+	}
+
 	s.Lock()
 	s.initDone[contextID] = true
 	s.Unlock()
