@@ -89,6 +89,7 @@ func getCEnvVariable(name string) string {
 
 // setup an enforcer
 func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
+	var err error
 
 	if s.enforcer != nil {
 		return nil
