@@ -69,7 +69,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	}
 
 	if resp.Status != "" {
-		return fmt.Errorf("failed to initialize remote enforcer: status: %s", resp.Status)
+		zap.L().Warn("received status while initializing the remote enforcer", zap.String("contextID", resp.Status))
 	}
 
 	s.Lock()
