@@ -219,12 +219,12 @@ func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn, tlsDest boo
 		defer func() {
 			if tlsDest {
 				if err := dest.(*tls.Conn).CloseWrite(); err != nil {
-					zap.Error("Unable to close write connection, returning from goroutine", zap.Error(err))
+					zap.L().Error("Unable to close write connection, returning from goroutine", zap.Error(err))
 					return
 				}
 			} else {
 				if err := dest.(*net.TCPConn).CloseWrite(); err != nil {
-					zap.Error("Unable to close write connection, returning from goroutine", zap.Error(err))
+					zap.L().Error("Unable to close write connection, returning from goroutine", zap.Error(err))
 					return
 				}
 			}
