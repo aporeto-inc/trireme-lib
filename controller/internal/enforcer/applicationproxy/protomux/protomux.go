@@ -174,6 +174,9 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		close(m.done)
 		m.wg.Wait()
 
+		m.RLock()
+		defer m.RUnlock()
+
 		for _, l := range m.protomap {
 			close(l.connection)
 			// Drain the connections enqueued for the listener.
