@@ -66,7 +66,8 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		return nil, err
 	}
 
-	if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
+	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
+	if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok && (s.PublicSecrets().SecretsType() != secrets.PSKType) {
 		return nil, fmt.Errorf("Cannot append ca chain")
 	}
 
