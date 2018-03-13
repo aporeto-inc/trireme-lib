@@ -178,12 +178,12 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	if err := s.enforcer.Run(s.ctx); err != nil {
 		resp.Status = err.Error()
-		return nil
+		return fmt.Errorf(resp.Status)
 	}
 
 	if err := s.statsClient.Run(s.ctx); err != nil {
 		resp.Status = err.Error()
-		return nil
+		return fmt.Errorf(resp.Status)
 	}
 
 	resp.Status = ""
