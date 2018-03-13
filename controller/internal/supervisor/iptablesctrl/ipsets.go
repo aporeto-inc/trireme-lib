@@ -153,6 +153,7 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 			zap.L().Error("Failed to add port to srv target set", zap.Error(err))
 			return fmt.Errorf("Unable to add port mapping: %s ", err)
 		}
+		// DEBUG: REMOVE
 		zap.L().Info("Added port to service target", zap.String("target", srvSetName), zap.String("port", parts[1]))
 	}
 
