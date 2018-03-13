@@ -4,12 +4,13 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/cnf/structhash"
+	"github.com/mitchellh/hashstructure"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
@@ -24,6 +25,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mock"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -125,6 +127,17 @@ func initTrans() policy.TagSelectorList {
 	tags = []policy.TagSelector{tag}
 
 	return tags
+}
+
+func getHash(payload interface{}) []byte {
+	hash, err := hashstructure.Hash(payload, nil)
+	if err != nil {
+		return []byte{}
+	}
+
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, hash)
+	return buf
 }
 
 func initTestSupPayload() rpcwrapper.SuperviseRequestPayload {
@@ -272,7 +285,7 @@ func TestInitEnforcer(t *testing.T) {
 				var rpcwrperres rpcwrapper.Response
 
 				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -297,7 +310,7 @@ func TestInitEnforcer(t *testing.T) {
 				var rpcwrperres rpcwrapper.Response
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -359,7 +372,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -380,7 +393,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -405,7 +418,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -426,7 +439,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -451,7 +464,7 @@ func TestInitSupervisor(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -616,7 +629,7 @@ func TestSupervise(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -640,7 +653,7 @@ func TestSupervise(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -713,7 +726,7 @@ func TestEnforce(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -736,7 +749,7 @@ func TestEnforce(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -763,7 +776,7 @@ func TestEnforce(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -835,7 +848,7 @@ func TestUnEnforce(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -861,7 +874,7 @@ func TestUnEnforce(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -933,7 +946,7 @@ func TestUnSupervise(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte("InvalidSecret"))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
@@ -961,7 +974,7 @@ func TestUnSupervise(t *testing.T) {
 				rpcwrperres.Status = ""
 
 				digest := hmac.New(sha256.New, []byte(os.Getenv(constants.EnvStatsSecret)))
-				if _, err := digest.Write(structhash.Dump(rpcwrperreq.Payload, 1)); err != nil {
+				if _, err := digest.Write(getHash(rpcwrperreq.Payload)); err != nil {
 					So(err, ShouldBeNil)
 				}
 				rpcwrperreq.HashAuth = digest.Sum(nil)
