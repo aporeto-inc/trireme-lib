@@ -115,19 +115,42 @@ func (d *DockerMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("docker: %s", err)
 	}
 
-	// Processing the events received during the time of Sync.
-	go d.eventProcessors(ctx)
-
 	err := d.waitForDockerDaemon(ctx)
-	if err == nil {
-		zap.L().Debug("Docker daemon setup")
+	if err != nil {
+		zap.L().Error("Docker daemon is not running - skipping container processing", zap.Error(err))
+		return nil
+	}
+
+	if d.syncAtStart && d.config.Policy != nil {
+		options := types.ContainerListOptions{All: true}
+		containers, err := d.dockerClient.ContainerList(ctx, options)
+		if err != nil {
+			return fmt.Errorf("unable to get container list: %s", err)
+		}
+
+		// Starting the eventListener and wait to hear on channel for it to be ready.
+		// Need to start before the resync process so that we don't loose any events.
+		// They will be buffered. We don't want to start the listener before
+		// getting the list from docker though, to avoid duplicates.
+		listenerReady := make(chan struct{})
+		go d.eventListener(ctx, listenerReady)
+		<-listenerReady
+
+		zap.L().Debug("Syncing all existing containers")
 		// Syncing all Existing containers depending on MonitorSetting
-		if err := d.ReSync(ctx); err != nil {
+		if err := d.resyncContainers(ctx, containers); err != nil {
 			zap.L().Error("Unable to sync existing containers", zap.Error(err))
 		}
 	} else {
-		zap.L().Info("Docker resync skipped")
+		// Starting the eventListener and wait to hear on channel for it to be ready.
+		// We are not doing resync. We just start the listener.
+		listenerReady := make(chan struct{})
+		go d.eventListener(ctx, listenerReady)
+		<-listenerReady
 	}
+
+	// Start processing the events
+	go d.eventProcessors(ctx)
 
 	return nil
 }
@@ -232,6 +255,11 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 		return fmt.Errorf("unable to get container list: %s", err)
 	}
 
+	return d.resyncContainers(ctx, containers)
+}
+
+func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types.Container) error {
+	// now resync the old containers
 	for _, c := range containers {
 		container, err := d.dockerClient.ContainerInspect(ctx, c.ID)
 		if err != nil {
@@ -268,7 +296,6 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 			)
 		}
 	}
-
 	return nil
 }
 
@@ -576,16 +603,11 @@ func (d *DockerMonitor) waitForDockerDaemon(ctx context.Context) (err error) {
 	case <-ctx.Done():
 		return nil
 	case <-time.After(dockerInitializationWait):
-		return fmt.Errorf("Unable to connecto to docker daemon")
+		return fmt.Errorf("Unable to connect to docker daemon")
 	case <-done:
 	}
 
-	// Starting the eventListener and wait to hear on channel for it to be ready.
-	listenerReady := make(chan struct{})
-	go d.eventListener(ctx, listenerReady)
-	<-listenerReady
-
-	return err
+	return nil
 }
 
 // hostModeOptions creates the default options for a host-mode container. The
