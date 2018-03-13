@@ -104,15 +104,12 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	}
 
 	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
-	hash, err := hashstructure.Hash(req.Payload, nil)
+	hash, err := payloadHash(req.Payload)
 	if err != nil {
 		return err
 	}
 
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, hash)
-
-	if _, err := digest.Write(buf); err != nil {
+	if _, err := digest.Write(hash); err != nil {
 		return err
 	}
 
@@ -126,15 +123,12 @@ func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 
 	digest := hmac.New(sha256.New, []byte(secret))
 
-	hash, err := hashstructure.Hash(req.Payload, nil)
+	hash, err := payloadHash(req.Payload)
 	if err != nil {
 		return false
 	}
 
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, hash)
-
-	if _, err := digest.Write(buf); err != nil {
+	if _, err := digest.Write(hash); err != nil {
 		return false
 	}
 
@@ -238,6 +232,18 @@ func (r *RPCWrapper) ContextList() []string {
 func (r *RPCWrapper) ProcessMessage(req *Request, secret string) bool {
 
 	return r.CheckValidity(req, secret)
+}
+
+// payloadHash returns the has of the payload
+func payloadHash(payload interface{}) ([]byte, error) {
+	hash, err := hashstructure.Hash(payload, nil)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, hash)
+	return buf, nil
 }
 
 // RegisterTypes  registers types that are exchanged between the controller and remoteenforcer
