@@ -162,7 +162,7 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *syn
 		default:
 			nread, serr := syscall.Splice(srcFd, nil, pipe[1], nil, 8192, 0)
 			if serr != nil {
-				zap.L().Error("error splicing: %s - %v\n", zap.Error(serr))
+				zap.L().Error("error splicing:", zap.Error(serr))
 				return
 			}
 			if nread == 0 {
