@@ -220,7 +220,7 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 		entry = servicecache.Find(ip, port)
 		if entry == nil {
 			// Failed with source as well.
-			c.Close()
+			c.Close() // nolint
 			return
 		}
 	}

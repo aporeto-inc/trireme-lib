@@ -212,15 +212,21 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.C
 	return nil
 }
 
-func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn, tlsDest bool) {
+func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn, tlsDest bool) { // nolint
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer func() {
 			if tlsDest {
-				dest.(*tls.Conn).CloseWrite()
+				if err := dest.(*tls.Conn).CloseWrite(); err != nil {
+					zap.Error("Unable to close write connection, returning from goroutine", zap.Error(err))
+					return
+				}
 			} else {
-				dest.(*net.TCPConn).CloseWrite()
+				if err := dest.(*net.TCPConn).CloseWrite(); err != nil {
+					zap.Error("Unable to close write connection, returning from goroutine", zap.Error(err))
+					return
+				}
 			}
 			wg.Done()
 		}()
