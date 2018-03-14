@@ -19,13 +19,13 @@ const observeMark = "39"
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 
 	rules := [][]string{
-		{
-			i.appPacketIPTableContext,
-			i.appCgroupIPTableSection,
-			"-m", "cgroup", "--cgroup", mark,
-			"-m", "comment", "--comment", "Mark All Packets from a cgroup",
-			"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
-		},
+		// {
+		// 	i.appPacketIPTableContext,
+		// 	i.appCgroupIPTableSection,
+		// 	"-m", "cgroup", "--cgroup", mark,
+		// 	"-m", "comment", "--comment", "Mark All Packets from a cgroup",
+		// 	"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
+		// },
 
 		// {
 		// 	i.appPacketIPTableContext,
@@ -34,13 +34,13 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 		// 	"-m", "comment", "--comment", "Server-specific-chain",
 		// 	"-j", "MARK", "--set-mark", mark,
 		// },
-		// {
-		// 	i.appPacketIPTableContext,
-		// 	i.appCgroupIPTableSection,
-		// 	"-m", "cgroup", "--cgroup", mark,
-		// 	"-m", "comment", "--comment", "Server-specific-chain",
-		// 	"-j", appChain,
-		// },
+		{
+			i.appPacketIPTableContext,
+			i.appCgroupIPTableSection,
+			"-m", "cgroup", "--cgroup", mark,
+			"-m", "comment", "--comment", "Server-specific-chain",
+			"-j", appChain,
+		},
 		// {
 		// 	i.netPacketIPTableContext,
 		// 	i.netPacketIPTableSection,
@@ -238,7 +238,19 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 
 	rules := [][]string{}
-
+	// Application Packets
+	rules = append(rules, []string{
+		i.appPacketIPTableContext, appChain,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp",
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
+	})
+	rules = append(rules, []string{
+		i.appPacketIPTableContext, appChain,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp",
+		"-j", "ACCEPT",
+	})
 	// Application Packets - SYN
 	// rules = append(rules, []string{
 	// 	i.appPacketIPTableContext, appChain,
@@ -255,12 +267,12 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	// })
 
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	})
+	// rules = append(rules, []string{
+	// 	i.appPacketIPTableContext, appChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+	// })
 
 	// Network Packets - SYN
 	rules = append(rules, []string{

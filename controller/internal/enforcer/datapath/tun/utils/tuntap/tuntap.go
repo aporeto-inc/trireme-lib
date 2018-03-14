@@ -1,35 +1,24 @@
+// +build linux
+
 package tuntap
 
 import (
 	"fmt"
 	"net"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
-)
 
-type DeviceType int
-
-const (
-	// TUNCHARDEVICEPATH -- is the standard path of tun char device
-	TUNCHARDEVICEPATH = "/dev/net/tun"
-)
-const (
-	// unsupported --  just a delimiter for invalid device type
-	unsupported DeviceType = iota
-
-	// TUNDEVICE -- tun device ( this will give ip frames)
-	TUNDEVICE DeviceType = 1
-
-	// TAPDEVICE -- tap device ( this will give ethernet frames). Currently not implemented here
-	TAPDEVICE DeviceType = 2
+	"go.uber.org/zap"
 )
 
 // TunTap -- struct to hold properties of tuntap devices.
 type TunTap struct {
+	numFramesRead []uint64
+	DroppedFrames []uint64
 	tuntap        DeviceType
 	queueHandles  []int
 	fdtoQueueNum  map[int]int
-	numFramesRead uint64
 	numQueues     uint16
 	ipAddress     string
 	hwMacAddress  []byte
@@ -38,10 +27,11 @@ type TunTap struct {
 	group         uint
 	persist       bool
 	epollfd       int
+	queueCallBack func([]byte, interface{}) error
 }
 
 // NewTun -- creates a new tun interface and returns a handle to it. This will also implicitly bring up the interface
-func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName string, uid uint, group uint, persist bool) (*TunTap, error) {
+func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName string, uid uint, group uint, persist bool, callback func([]byte, interface{}) error) (*TunTap, error) {
 
 	// NumQueues is 0 indexed gives us 256 queues
 	if numQueues > 255 {
@@ -51,30 +41,47 @@ func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName st
 		return nil, fmt.Errorf("Invalid device name. Max length is 16")
 	}
 	device := &TunTap{
-		tuntap:       TUNDEVICE,
-		numQueues:    numQueues,
-		ipAddress:    ipAddress,
-		hwMacAddress: macAddress,
-		queueHandles: make([]int, numQueues+1),
-		fdtoQueueNum: make(map[int]int, numQueues+1),
-		deviceName:   deviceName,
-		uid:          uid,
-		group:        group,
-		persist:      persist,
+		tuntap:        TUNDEVICE,
+		numQueues:     numQueues,
+		ipAddress:     ipAddress,
+		hwMacAddress:  macAddress,
+		queueHandles:  make([]int, numQueues+1),
+		numFramesRead: make([]uint64, numQueues+1),
+		DroppedFrames: make([]uint64, numQueues+1),
+		fdtoQueueNum:  make(map[int]int, numQueues+1),
+		deviceName:    deviceName,
+		uid:           uid,
+		group:         group,
+		persist:       persist,
+		queueCallBack: callback,
 	}
 
-	if err := device.createTun(); err != nil {
+	if err := device.setupTun(); err != nil {
 		return nil, fmt.Errorf("Received error %s while creating device %s", err, deviceName)
 	}
 
 	if net.ParseIP(ipAddress) == nil && len(ipAddress) > 0 {
 		device.ipAddress = "0.0.0.0"
 	}
-	//Create Epoll Sets here
-	if err := device.createReadEpollSet(); err != nil {
-		return nil, fmt.Errorf("Received error %s while initing epoll set ", err)
-	}
+
 	return device, nil
+}
+
+// StartQueue starts the data loop for a tun queue.
+// Wait for all goroutine to start sucessfully before continuing
+func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
+	// TODO define constant or retrieve MTU of tun interface
+	var data [75 * 1024]byte
+	for {
+		if n, err := t.ReadQueue(queueIndex, data[:]); err == nil {
+			atomic.AddUint64(&t.numFramesRead[queueIndex], 1)
+			if err = t.queueCallBack(data[:n], privateData); err != nil {
+				atomic.AddUint64(&t.DroppedFrames[queueIndex], 1)
+			}
+			zap.L().Error("Received Error while reading from queue to raw socket", zap.Error(err))
+		}
+	}
+
 }
 
 // ReadQueue -- Reads packets from a queue. This is a blocking read call. Returns num bytes read
@@ -106,35 +113,12 @@ func (t *TunTap) Write(queueNum int, data []byte) (int, error) {
 	return 0, nil
 }
 
-// createEpollSet -- creates an epoll set which we will use in the PollRead function
-func (t *TunTap) createReadEpollSet() error {
-	if epfd, err := syscall.EpollCreate1(0); err == nil {
-		for _, fd := range t.queueHandles {
-			event := syscall.EpollEvent{
-				Events: syscall.EPOLLIN,
-				Fd:     int32(fd),
-			}
-			if err = syscall.EpollCtl(epfd, syscall.EPOLL_CTL_ADD, fd, &event); err != nil {
-				return fmt.Errorf("Received error %s while create epoll set", err)
-			}
-
-		}
-		t.epollfd = epfd
-		return nil
-	} else {
-		return fmt.Errorf("Received error %s while creating epollset", err)
-	}
-
-}
-
-// createTun -- create the Tun Interface.
-func (t *TunTap) createTun() error {
+// setupTun -- create the Tun Interface.
+func (t *TunTap) setupTun() error {
 	ifname := &ifreqDevType{
 		ifrFlags: IFF_TUN | IFF_NO_PI | IFF_MULTI_QUEUE,
 	}
-
 	var err error
-	var fd int
 	//on Error anywhere close all queues and exit
 	defer func() {
 		if err != nil {
@@ -149,34 +133,9 @@ func (t *TunTap) createTun() error {
 	copy(ifname.ifrName[:], []byte(t.deviceName))
 
 	for i := 0; i < int(t.numQueues); i++ {
-
-		if fd, err = syscall.Open(TUNCHARDEVICEPATH, syscall.O_RDWR|syscall.O_NONBLOCK, 0644); err == nil {
-
-			if err = ioctl(uintptr(uintptr(fd)), syscall.TUNSETIFF, uintptr(unsafe.Pointer(ifname))); err != nil {
-				return fmt.Errorf("Device Create Error %s", err)
-			}
-
-			// set owner
-			if err = t.setOwner(fd); err != nil {
-				return err
-			}
-
-			// set group
-			if err = t.setGroup(fd); err != nil {
-				return err
-			}
-
-			// set persistence state
-			if err = t.setPersist(fd); err != nil {
-				return err
-			}
-
-			t.queueHandles[i] = fd
-			t.fdtoQueueNum[fd] = i
-		} else {
+		if err = t.createTun(i, ifname); err != nil {
 			return err
 		}
-
 	}
 	//set ip address for the interface
 	if err = t.setipaddress(); err != nil {
@@ -189,6 +148,37 @@ func (t *TunTap) createTun() error {
 
 }
 
+// createTun creates a queue on the tun device.
+func (t *TunTap) createTun(queueIndex int, ifname *ifreqDevType) error {
+	if fd, err := syscall.Open(TUNCHARDEVICEPATH, syscall.O_RDWR, 0644); err == nil {
+
+		if err = ioctl(uintptr(uintptr(fd)), syscall.TUNSETIFF, uintptr(unsafe.Pointer(ifname))); err != nil {
+			return fmt.Errorf("Device Create Error %s", err)
+		}
+
+		// set owner
+		if err = t.setOwner(fd); err != nil {
+			return err
+		}
+
+		// set group
+		if err = t.setGroup(fd); err != nil {
+			return err
+		}
+
+		// set persistence state
+		if err = t.setPersist(fd); err != nil {
+			return err
+		}
+
+		t.queueHandles[queueIndex] = fd
+		t.fdtoQueueNum[fd] = queueIndex
+	} else {
+		return err
+	}
+	return nil
+}
+
 //setipaddress -- sets the ip address of the tun interface. netmask is assumed to be 255.255.255.0
 func (t *TunTap) setipaddress() error {
 
@@ -199,7 +189,7 @@ func (t *TunTap) setipaddress() error {
 		}
 
 		copy(address.Addr[:], net.ParseIP(t.ipAddress).To4())
-		ifreq := &ifReqIpAddress{
+		ifreq := &ifReqIPAddress{
 			ipAddress: address,
 		}
 		copy(ifreq.ifrName[:], []byte(t.deviceName))
@@ -211,7 +201,7 @@ func (t *TunTap) setipaddress() error {
 			Family: syscall.AF_INET,
 		}
 		copy(address.Addr[:], net.ParseIP("255.255.255.0").To4())
-		ifreq = &ifReqIpAddress{
+		ifreq = &ifReqIPAddress{
 			ipAddress: address,
 		}
 		copy(ifreq.ifrName[:], []byte(t.deviceName))
