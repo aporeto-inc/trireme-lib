@@ -64,6 +64,8 @@ func MarkConnection(conn net.Conn, mark int) error {
 	return rawconn.Control(setMark)
 }
 
+// SocketListenerer creates a TCP listener through system calls giving us more
+// control over the specific parameters that we need.
 func SocketListener(port string) (net.Listener, error) {
 
 	addr, err := net.ResolveTCPAddr("tcp4", port)
