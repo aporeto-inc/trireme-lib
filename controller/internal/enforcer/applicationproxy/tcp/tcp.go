@@ -142,6 +142,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
 	// Before we start the process, listen to context signals and cancel
 	// everything
+	// TODO: Fix this ...
 	go func() {
 		select {
 		case <-ctx.Done():
@@ -169,25 +170,30 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	}
 }
 
-func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn io.ReadWriter) error {
+func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn, ip net.IP) error {
+
+	p.Lock()
+	ca := p.ca
+	p.Unlock()
 
 	tlsConn := tls.Client(downConn, &tls.Config{
-		ClientCAs: p.ca,
+		InsecureSkipVerify: true,
+		ClientCAs:          ca,
 	})
 
-	if tlsConn == nil {
-		return fmt.Errorf("Cannot convert to tls Connection")
-	}
+	// VERY BAD HACK ... Handshake locks because the write is not complete
+	/// for testing purposes only
+	time.Sleep(10 * time.Microsecond)
 
 	if err := tlsConn.Handshake(); err != nil {
 		return err
 	}
 
-	p.copyData(ctx, serverConn, tlsConn)
+	p.copyData(ctx, serverConn, tlsConn, true)
 	return nil
 }
 
-func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn io.ReadWriter, serverConn net.Conn) error {
+func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
 
 	p.Lock()
 	certs := []tls.Certificate{*p.certificate}
@@ -202,46 +208,61 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn io.Re
 		return err
 	}
 
-	p.copyData(ctx, downConn, tlsConn)
-
+	p.copyData(ctx, tlsConn, downConn, false)
 	return nil
 }
 
-func (p *Proxy) copyData(ctx context.Context, netConn io.ReadWriter, tlsConn io.ReadWriter) {
+func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn, tlsDest bool) { // nolint
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		defer wg.Done()
+		defer func() {
+			if tlsDest {
+				if err := dest.(*tls.Conn).CloseWrite(); err != nil {
+					zap.L().Error("Unable to close write connection, returning from goroutine", zap.Error(err))
+					return
+				}
+			} else {
+				if err := dest.(*net.TCPConn).CloseWrite(); err != nil {
+					zap.L().Error("Unable to close write connection, returning from goroutine", zap.Error(err))
+					return
+				}
+			}
+			wg.Done()
+		}()
 		b := make([]byte, 1024)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				if n, err := tlsConn.Read(b); err == nil {
-					if _, err = netConn.Write(b[:n]); err != nil {
-						return
-					}
-					continue
+				n, err := source.Read(b)
+				if err != nil {
+					return
 				}
-				return
+				if _, err = dest.Write(b[:n]); err != nil {
+					return
+				}
 			}
 		}
 	}()
 
 	go func() {
-		defer wg.Done()
+		defer func() {
+			wg.Done()
+		}()
 		b := make([]byte, 1024)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				if n, err := netConn.Read(b); err == nil {
-					if _, err = tlsConn.Write(b[:n]); err != nil {
-						return
-					}
-					continue
+				n, err := dest.Read(b)
+				if err != nil {
+					return
+				}
+				if _, err = source.Write(b[:n]); err != nil {
+					return
 				}
 				return
 			}
@@ -253,7 +274,7 @@ func (p *Proxy) copyData(ctx context.Context, netConn io.ReadWriter, tlsConn io.
 func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
 	if _, ok := p.localIPs[ip.String()]; !ok {
-		return p.startEncryptedClientDataPath(ctx, downConn, upConn)
+		return p.startEncryptedClientDataPath(ctx, downConn, upConn, ip)
 	}
 	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
 }
@@ -301,7 +322,7 @@ func (p *Proxy) CompleteEndPointAuthorization(downIP fmt.Stringer, downPort int,
 		return false, err
 	}
 
-	if length := reader.Buffered(); length > 0 {
+	if length := reader.Buffered(); !isEncrypted && length > 0 {
 		if err := flushBuffer(reader, downConn, length); err != nil {
 			return false, err
 		}
@@ -379,8 +400,6 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 			if n, err := writeMsg(downConn, token); err != nil || n < len(token) {
 				return isEncrypted, fmt.Errorf("unable to send ack: %s", err)
 			}
-
-			// time.Sleep(1000 * time.Microsecond)
 			return isEncrypted, nil
 		}
 	}
