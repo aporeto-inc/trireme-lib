@@ -86,12 +86,12 @@ func SocketListener(port string) (net.Listener, error) {
 	socketAddress := &syscall.SockaddrInet4{Port: addr.Port}
 	copy(socketAddress.Addr[:], addr.IP.To4())
 
-	if err := syscall.Bind(fd, socketAddress); err != nil {
+	if err = syscall.Bind(fd, socketAddress); err != nil {
 		syscall.Close(fd)
 		return nil, err
 	}
 
-	if err := syscall.Listen(fd, 256); err != nil {
+	if err = syscall.Listen(fd, 256); err != nil {
 		syscall.Close(fd)
 		return nil, err
 	}

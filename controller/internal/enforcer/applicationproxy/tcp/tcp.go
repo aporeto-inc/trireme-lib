@@ -224,7 +224,7 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 					continue
 				}
 			}
-			if n, err = dest.Write(b[:n]); err != nil {
+			if _, err = dest.Write(b[:n]); err != nil {
 				if checkErr(err) {
 					continue
 				}
