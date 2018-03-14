@@ -16,11 +16,6 @@ func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Con
 		return nil, fmt.Errorf("Failed to create socket: %s", err)
 	}
 
-	err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to assing mark to socket: %s", err)
-	}
-
 	f := os.NewFile(uintptr(fd), raddr.String())
 	defer f.Close() // nolint
 
@@ -34,12 +29,18 @@ func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Con
 	}
 	copy(address.Addr[:], raddr.IP.To4())
 
-	if err := syscall.SetNonblock(fd, false); err != nil {
+	if err = syscall.SetNonblock(fd, false); err != nil {
 		conn.Close() // nolint
 		return nil, fmt.Errorf("unable to set socket options: %s", err)
 	}
 
-	if err := syscall.Connect(fd, address); err != nil {
+	err = syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+	if err != nil {
+		conn.Close() // nolint
+		return nil, fmt.Errorf("Failed to assing mark to socket: %s", err)
+	}
+
+	if err = syscall.Connect(fd, address); err != nil {
 		conn.Close() // nolint
 		return nil, fmt.Errorf("Unable to connect: %s", err)
 	}
