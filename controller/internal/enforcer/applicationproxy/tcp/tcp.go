@@ -213,7 +213,10 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 	}()
 	b := make([]byte, 16384)
 	for {
-		source.SetReadDeadline(time.Now().Add(5 * time.Second))
+		// Setting a read deadline here. TODO: We need to account for keep-alives.
+		if err := source.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return
+		}
 		select {
 		case <-ctx.Done():
 			return

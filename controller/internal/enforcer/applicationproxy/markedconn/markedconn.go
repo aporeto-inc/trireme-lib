@@ -87,17 +87,17 @@ func SocketListener(port string) (net.Listener, error) {
 	copy(socketAddress.Addr[:], addr.IP.To4())
 
 	if err = syscall.Bind(fd, socketAddress); err != nil {
-		syscall.Close(fd)
+		syscall.Close(fd) // nolint errcheck
 		return nil, err
 	}
 
 	if err = syscall.Listen(fd, 256); err != nil {
-		syscall.Close(fd)
+		syscall.Close(fd) // nolint errcheck
 		return nil, err
 	}
 
 	f := os.NewFile(uintptr(fd), addr.String())
-	defer f.Close()
+	defer f.Close() // nolint errcheck
 
 	listener, err := net.FileListener(f)
 	if err != nil {
