@@ -124,13 +124,23 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go copyBytes(ctx, "from backend", inFd, outFd, &wg)
-	go copyBytes(ctx, "to backend", outFd, inFd, &wg)
+	go copyBytes(ctx, "incoming", inFd, outFd, &wg)
+	go copyBytes(ctx, "outgoing", outFd, inFd, &wg)
 	wg.Wait()
+	if err := outConn.Close(); err != nil {
+		fmt.Println("inconn close", err)
+	}
+	if err := inConn.Close(); err != nil {
+		fmt.Println("inconn close", err)
+	}
+
 	return nil
 }
 
 func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *sync.WaitGroup) {
+	var total int64
+	var nwrote int64
+
 	defer wg.Done()
 
 	pipe := []int{0, 0}
@@ -140,13 +150,13 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *syn
 		return
 	}
 	defer func() {
-		// This is closed already. That's how we came here.
-		syscall.Shutdown(srcFd, syscall.SHUT_RD) // nolint
-
 		if err = syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
-			zap.L().Error("Could Not Close Dest Pipe")
+			if er, ok := err.(syscall.Errno); ok {
+				if er != syscall.ENOTCONN {
+					zap.L().Warn("closing connection failed:", zap.String("Direction", direction), zap.Error(err))
+				}
+			}
 		}
-
 		if err = syscall.Close(pipe[0]); err != nil {
 			zap.L().Warn("Failed to close pipe ", zap.Error(err))
 		}
@@ -160,20 +170,29 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *syn
 		case <-ctx.Done():
 			break
 		default:
-			nread, serr := syscall.Splice(srcFd, nil, pipe[1], nil, 8192, 0)
+			nread, serr := syscall.Splice(srcFd, nil, pipe[1], nil, 16384, 0)
 			if serr != nil {
-				zap.L().Error("error splicing:", zap.Error(serr))
+				if er, ok := serr.(syscall.Errno); ok {
+					if er == syscall.ECONNRESET || er == syscall.ECONNABORTED || er == syscall.ENOTCONN {
+						return
+					}
+					zap.L().Error("error splicing:", zap.String("Direction", direction), zap.Error(serr))
+					return
+				}
 				return
 			}
 			if nread == 0 {
 				return
 			}
-			var total int64
 			for total = 0; total < nread; {
-				var nwrote int64
 				if nwrote, err = syscall.Splice(pipe[0], nil, destFd, nil, int(nread-total), 0); err != nil {
-					zap.L().Error("error splicing:", zap.String("Direction", direction), zap.Error(err))
-					return
+					if er, ok := serr.(syscall.Errno); ok {
+						if er == syscall.ECONNRESET || er == syscall.ECONNABORTED || er == syscall.ENOTCONN {
+							return
+						}
+						zap.L().Error("error splicing:", zap.String("Direction", direction), zap.Error(serr))
+						return
+					}
 				}
 				total += nwrote
 			}
