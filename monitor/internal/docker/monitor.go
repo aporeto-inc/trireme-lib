@@ -504,7 +504,7 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 	}
 
 	zap.L().Info("handleDestroyEvent 1")
-	zap.L().Info(container.ID)
+	zap.L().Info(puID)
 
 	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, policy.NewPURuntimeWithDefaults())
 	if err != nil {
