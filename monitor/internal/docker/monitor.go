@@ -423,6 +423,7 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 	}
 
 	zap.L().Info("handleStartEvent 1")
+	zap.L().Info(container.ID)
 
 	if !container.State.Running {
 		return nil
@@ -495,10 +496,15 @@ func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Messag
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
 func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Message) error {
 
+	zap.L().Info("handleDestroyEvent")
+
 	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
+
+	zap.L().Info("handleDestroyEvent 1")
+	zap.L().Info(container.ID)
 
 	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, policy.NewPURuntimeWithDefaults())
 	if err != nil {
@@ -507,12 +513,16 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 		)
 	}
 
+	zap.L().Info("handleDestroyEvent 2")
+
 	if err := d.netcls.DeleteCgroup(puID); err != nil {
 		zap.L().Warn("Failed to clean netcls group",
 			zap.String("puID", puID),
 			zap.Error(err),
 		)
 	}
+
+	zap.L().Info("handleDestroyEvent 3")
 
 	return nil
 }
