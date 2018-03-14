@@ -1,16 +1,17 @@
 package tcp
 
 import (
-	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -47,7 +48,7 @@ type Proxy struct {
 	// List of local IP's
 	localIPs map[string]struct{}
 
-	sync.Mutex
+	sync.RWMutex
 }
 
 // proxyFlowProperties is a struct used to pass flow information up
@@ -106,15 +107,11 @@ func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
 		case <-ctx.Done():
 			return
 		default:
-			if conn, err := listener.Accept(); err == nil {
-				if err := markedconn.MarkConnection(conn, proxyMarkInt); err != nil {
-					zap.L().Error("Failed to mark connection", zap.Error(err))
-				}
-
-				go p.handle(ctx, conn)
-			} else {
+			conn, err := listener.Accept()
+			if err != nil {
 				return
 			}
+			go p.handle(ctx, conn)
 		}
 	}
 }
@@ -140,20 +137,9 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 	}
 	defer downConn.Close() // nolint
 
-	// Before we start the process, listen to context signals and cancel
-	// everything
-	// TODO: Fix this ...
-	go func() {
-		select {
-		case <-ctx.Done():
-			upConn.Close()   // nolint
-			downConn.Close() // nolint
-		}
-	}()
-
-	var isEncrypted bool
 	// Now let us handle the state machine for the down connection
-	if isEncrypted, err = p.CompleteEndPointAuthorization(ip, port, upConn, downConn); err != nil {
+	isEncrypted, err := p.CompleteEndPointAuthorization(ip, port, upConn, downConn)
+	if err != nil {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
@@ -172,103 +158,80 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
 func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn, ip net.IP) error {
 
-	p.Lock()
+	p.RLock()
 	ca := p.ca
-	p.Unlock()
+	p.RUnlock()
 
 	tlsConn := tls.Client(downConn, &tls.Config{
 		InsecureSkipVerify: true,
 		ClientCAs:          ca,
 	})
+	defer tlsConn.Close() // nolint errcheck
 
-	// VERY BAD HACK ... Handshake locks because the write is not complete
-	/// for testing purposes only
-	time.Sleep(10 * time.Microsecond)
-
-	if err := tlsConn.Handshake(); err != nil {
-		return err
-	}
-
-	p.copyData(ctx, serverConn, tlsConn, true)
+	// TLS will automatically start negotiation on write. Nothing to do for us.
+	p.copyData(ctx, serverConn, tlsConn)
 	return nil
 }
 
 func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
 
-	p.Lock()
+	p.RLock()
 	certs := []tls.Certificate{*p.certificate}
-	p.Unlock()
+	p.RUnlock()
 
 	tlsConn := tls.Server(serverConn, &tls.Config{
 		Certificates: certs,
 	})
-	defer tlsConn.Close() // nolint
+	defer tlsConn.Close() // nolint errcheck
 
-	if err := tlsConn.Handshake(); err != nil {
-		return err
-	}
-
-	p.copyData(ctx, tlsConn, downConn, false)
+	// TLS will automatically start negotiation on write. Nothing to for us.
+	p.copyData(ctx, tlsConn, downConn)
 	return nil
 }
 
-func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn, tlsDest bool) { // nolint
+func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
-		defer func() {
-			if tlsDest {
-				if err := dest.(*tls.Conn).CloseWrite(); err != nil {
-					zap.L().Error("Unable to close write connection, returning from goroutine", zap.Error(err))
-					return
-				}
-			} else {
-				if err := dest.(*net.TCPConn).CloseWrite(); err != nil {
-					zap.L().Error("Unable to close write connection, returning from goroutine", zap.Error(err))
-					return
-				}
-			}
-			wg.Done()
-		}()
-		b := make([]byte, 1024)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				n, err := source.Read(b)
-				if err != nil {
-					return
-				}
-				if _, err = dest.Write(b[:n]); err != nil {
-					return
-				}
-			}
-		}
+		dataprocessor(ctx, source, dest)
+		wg.Done()
 	}()
-
 	go func() {
-		defer func() {
-			wg.Done()
-		}()
-		b := make([]byte, 1024)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				n, err := dest.Read(b)
-				if err != nil {
-					return
+		dataprocessor(ctx, dest, source)
+		wg.Done()
+	}()
+}
+
+func dataprocessor(ctx context.Context, source, dest net.Conn) {
+	defer func() {
+		switch dest.(type) {
+		case *tls.Conn:
+			dest.(*tls.Conn).CloseWrite() // nolint errcheck
+		case *net.TCPConn:
+			dest.(*net.TCPConn).CloseWrite() // nolint errcheck
+		}
+	}()
+	b := make([]byte, 16384)
+	for {
+		source.SetReadDeadline(time.Now().Add(5 * time.Second))
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			n, err := source.Read(b)
+			if err != nil {
+				if checkErr(err) {
+					continue
 				}
-				if _, err = source.Write(b[:n]); err != nil {
-					return
+			}
+			if n, err = dest.Write(b[:n]); err != nil {
+				if checkErr(err) {
+					continue
 				}
 				return
 			}
 		}
-	}()
-	wg.Wait()
+	}
 }
 
 func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
@@ -317,16 +280,11 @@ func (p *Proxy) CompleteEndPointAuthorization(downIP fmt.Stringer, downPort int,
 		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
 	}
 
-	isEncrypted, reader, err := p.StartServerAuthStateMachine(downIP, downPort, upConn)
+	isEncrypted, err := p.StartServerAuthStateMachine(downIP, downPort, upConn)
 	if err != nil {
 		return false, err
 	}
 
-	if length := reader.Buffered(); !isEncrypted && length > 0 {
-		if err := flushBuffer(reader, downConn, length); err != nil {
-			return false, err
-		}
-	}
 	return isEncrypted, nil
 }
 
@@ -346,13 +304,12 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 		// SourceIP: downConn.LocalAddr().Network(),
 	}
 
-	reader := bufio.NewReader(downConn)
+	// reader := bufio.NewReader(downConn)
 
 	for {
-		if err := downConn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		if err := downConn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			return false, err
 		}
-
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
 
@@ -368,7 +325,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 			conn.SetState(connection.ClientPeerTokenReceive)
 
 		case connection.ClientPeerTokenReceive:
-			msg, err := readMsg(reader)
+			msg, err := readMsg(downConn)
 			if err != nil {
 				return false, fmt.Errorf("Failed to read peer token: %s", err)
 			}
@@ -406,11 +363,11 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 }
 
 // StartServerAuthStateMachine -- Start the aporeto handshake for a server application
-func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, upConn net.Conn) (bool, *bufio.Reader, error) {
+func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, upConn net.Conn) (bool, error) {
 
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
-		return false, nil, err
+		return false, err
 	}
 	isEncrypted := false
 
@@ -422,32 +379,30 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	conn := connection.NewProxyConnection()
 	conn.SetState(connection.ServerReceivePeerToken)
 
-	reader := bufio.NewReader(upConn)
-
 	for {
-		if err := upConn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
-			return false, nil, err
+		if err := upConn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+			return false, err
 		}
 
 		switch conn.GetState() {
 		case connection.ServerReceivePeerToken:
 
-			msg, err := readMsg(reader)
+			msg, err := readMsg(upConn)
 			if err != nil {
-				return false, nil, fmt.Errorf("unable to receive syn token: %s", err)
+				return false, fmt.Errorf("unable to receive syn token: %s", err)
 			}
 
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
-				return isEncrypted, nil, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
+				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 
 			claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
 			report, packet := puContext.SearchRcvRules(claims.T)
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
-				return isEncrypted, nil, fmt.Errorf("connection dropped by policy %s: %s", packet.PolicyID, err)
+				return isEncrypted, fmt.Errorf("connection dropped by policy %s: ", packet.PolicyID)
 			}
 
 			if packet.Action.Encrypted() {
@@ -463,28 +418,28 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 
 			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
 			if err != nil {
-				return isEncrypted, nil, fmt.Errorf("unable to create synack token: %s", err)
+				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
 			}
 
 			if n, err := writeMsg(upConn, claims); err != nil || n < len(claims) {
 				zap.L().Error("Failed to write", zap.Error(err))
-				return false, nil, fmt.Errorf("Failed to write ack: %s", err)
+				return false, fmt.Errorf("Failed to write ack: %s", err)
 			}
 
 			conn.SetState(connection.ServerAuthenticatePair)
 
 		case connection.ServerAuthenticatePair:
-			msg, err := readMsg(reader)
+			msg, err := readMsg(upConn)
 			if err != nil {
-				return false, nil, fmt.Errorf("unable to receive ack token: %s", err)
+				return false, fmt.Errorf("unable to receive ack token: %s", err)
 			}
 
 			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
-				return isEncrypted, nil, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
+				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 			}
 			p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
-			return isEncrypted, reader, nil
+			return isEncrypted, nil
 		}
 	}
 }
@@ -537,38 +492,48 @@ func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *co
 	p.reportFlow(flowproperties, conn, sourceID, destID, context, mode, report, packet)
 }
 
-func readMsg(reader *bufio.Reader) ([]byte, error) {
-	msg := []byte{}
-	for i := 0; i < 20; {
-		data, err := reader.ReadBytes('\n')
-		if err != nil {
-			return []byte{}, fmt.Errorf("unable to recv reply token: %s", err)
-		}
-		msg = append(msg, data...)
-		i = i + len(data)
+func readMsg(reader io.Reader) ([]byte, error) {
+
+	lread := io.LimitReader(reader, 2)
+	lbuf := make([]byte, 2)
+	if _, err := lread.Read(lbuf); err != nil && err != io.EOF {
+		return nil, fmt.Errorf("Invalid length: %s", err)
 	}
 
-	return msg[:len(msg)-1], nil
+	dataLength := binary.BigEndian.Uint16(lbuf)
+
+	dread := io.LimitReader(reader, int64(dataLength))
+	data := make([]byte, dataLength)
+	if _, err := dread.Read(data); err != nil && err != io.EOF {
+		return nil, fmt.Errorf("Not enough data to read: %s", err)
+	}
+
+	return data, nil
 }
 
 func writeMsg(conn io.Writer, data []byte) (n int, err error) {
-
-	data = append(data, '\n')
-	n, err = conn.Write(data)
-	return n - 1, err
+	lbuf := make([]byte, 2)
+	binary.BigEndian.PutUint16(lbuf, uint16(len(data)))
+	data = append(lbuf, data...)
+	return conn.Write(data)
 }
 
-func flushBuffer(reader io.Reader, downConn io.Writer, length int) error {
-	data := make([]byte, length)
-	for n := 0; n < length; {
-		l, err := reader.Read(data)
-		if err != nil {
-			return err
-		}
-		n = n + l
-		if _, err := downConn.Write(data); err != nil {
-			return err
-		}
+func checkErr(err error) bool {
+	if err == io.EOF {
+		return false
 	}
-	return nil
+	switch t := err.(type) {
+	case net.Error:
+		if t.Timeout() {
+			return true
+		}
+	case syscall.Errno:
+		if t == syscall.ECONNRESET || t == syscall.ECONNABORTED || t == syscall.ENOTCONN || t == syscall.EPIPE {
+			return false
+		}
+		zap.L().Error("Connection error to destination", zap.Error(err))
+	default:
+		zap.L().Error("Connection terminated", zap.Error(err))
+	}
+	return false
 }

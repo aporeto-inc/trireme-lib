@@ -45,12 +45,10 @@ func (p *ProtoListener) Accept() (net.Conn, error) {
 	if !ok {
 		return nil, fmt.Errorf("mux: listener closed")
 	}
-
 	// Mark the connection
 	if err := markedconn.MarkConnection(c, p.mark); err != nil {
 		return nil, err
 	}
-
 	return c, nil
 }
 
@@ -109,12 +107,6 @@ func (m *MultiplexedListener) RegisterListener(ltype ListenerType) (*ProtoListen
 func (m *MultiplexedListener) UnregisterListener(ltype ListenerType) error {
 	m.Lock()
 	defer m.Unlock()
-
-	// for _, l := range m.servicemap {
-	// 	if l == ltype {
-	// 		return fmt.Errorf("Services using the listener")
-	// 	}
-	// }
 
 	delete(m.protomap, ltype)
 

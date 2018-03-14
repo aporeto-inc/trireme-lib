@@ -16,3 +16,8 @@ func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Con
 func MarkConnection(conn net.Conn, mark int) error {
 	return nil
 }
+
+// SocketListener creates a socket listener with SO_REUSEADDR.
+func SocketListener(port string) (net.Listener, error) {
+	return nil, nil
+}
