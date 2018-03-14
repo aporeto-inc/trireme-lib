@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/docker/go-connections/nat"
 )
 
 const (
@@ -314,6 +315,9 @@ type OptionsType struct {
 
 	// PolicyExtensions is policy resolution extensions
 	PolicyExtensions interface{}
+
+	// PortMap maps container port -> host ports.
+	PortMap map[nat.Port][]string
 }
 
 // ProxiedServicesInfo holds the info for a proxied service.
