@@ -63,7 +63,7 @@ func (p *PSKSecrets) EncodingPEM() []byte {
 // PublicSecrets returns the secrets that are marshallable over the RPC interface.
 func (p *PSKSecrets) PublicSecrets() PublicSecrets {
 	return &PSKPublicSecrets{
-		Type:      PKIType,
+		Type:      PSKType,
 		SharedKey: p.SharedKey,
 	}
 }
