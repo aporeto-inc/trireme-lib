@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/docker/go-connections/nat"
 )
 
 // PURuntime holds all data related to the status of the container run time
@@ -241,4 +242,16 @@ func (r *PURuntime) SetServices(services []common.Service) {
 	if r.options != nil {
 		r.options.Services = services
 	}
+}
+
+// PortMap returns the mapping from host port->container port
+func (r *PURuntime) PortMap() map[nat.Port][]string {
+	r.Lock()
+	defer r.Unlock()
+
+	if r.options != nil {
+		return r.options.PortMap
+	}
+
+	return nil
 }

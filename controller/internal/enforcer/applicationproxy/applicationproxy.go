@@ -14,6 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/http"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -321,12 +322,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 // createNetworkListener starts a network listener (traffic from network to PUs)
 func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
 
-	addr, err := net.ResolveTCPAddr("tcp", port)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot resolve address: %s", err)
-	}
-
-	return net.ListenTCP("tcp", addr)
+	return markedconn.SocketListener(port)
 }
 
 // processCertificateUpdates processes the certificate information and updates
