@@ -82,7 +82,7 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 		portSetInstance:         portset,
 		appPacketIPTableSection: ipTableSectionOutput,
 		appCgroupIPTableSection: ipTableSectionOutput,
-		netPacketIPTableSection: ipTableSectionInput,
+		netPacketIPTableSection: ipTableSectionPreRouting,
 		appSynAckIPTableSection: ipTableSectionOutput,
 	}
 

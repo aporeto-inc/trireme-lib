@@ -4,6 +4,7 @@ package tundatapath
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os/user"
@@ -40,6 +41,7 @@ func networkQueueCallBack(data []byte, cbData interface{}) error {
 }
 
 func appQueueCallBack(data []byte, cbData interface{}) error {
+	zap.L().Error("Received Packet", zap.Int("queueNum", cbData.(*privateData).queueNum), zap.String("\nHEX\n", string(hex.Dump(data))))
 	return cbData.(*privateData).t.processAppPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer)
 }
 

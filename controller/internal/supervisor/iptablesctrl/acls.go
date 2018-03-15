@@ -904,22 +904,22 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
 
-	err = i.ipt.Insert(
-		i.appPacketIPTableContext,
-		appChain, 1,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
-	if err != nil {
-		return fmt.Errorf("unable to add capture synack rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
-	}
+	// err = i.ipt.Insert(
+	// 	i.appPacketIPTableContext,
+	// 	appChain, 1,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
+	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+	// 	"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
+	// if err != nil {
+	// 	return fmt.Errorf("unable to add capture synack rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
+	// }
 
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-2))
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	qdisctemplate      = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}} {{"\n"}}`
+	qdisctemplate      = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{ if .DefaultClassID}} default {{.DefaultClassID}} {{end}} {{"\n"}}`
 	classtemplate      = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassId}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
 	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
 	metafiltertemplate = `filter add dev {{.DeviceName}} parent {{.Parent}}: handle {{.FilterID}} basic match {{if .MetaMatch}} {{.ConvertMeta}} {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
