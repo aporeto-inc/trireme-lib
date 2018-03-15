@@ -242,21 +242,13 @@ func (r *RequestProcessor) DeleteService(c *CLIRequest) error {
 	request := &common.EventInfo{
 		PUType:      common.LinuxProcessPU,
 		PUID:        c.ServiceName,
-		EventType:   common.EventStop,
+		EventType:   common.EventDestroy,
 		HostService: c.HostPolicy,
 	}
 
 	if c.UIDPolicy {
 		request.PUType = common.UIDLoginPU
 	}
-
-	// Send Stop request
-	if err := sendRequest(r.address, request); err != nil {
-		return err
-	}
-
-	// Send destroy request
-	request.EventType = common.EventDestroy
 
 	return sendRequest(r.address, request)
 }
@@ -288,16 +280,8 @@ func (r *RequestProcessor) DeleteCgroup(c *CLIRequest) error {
 	request := &common.EventInfo{
 		PUType:    eventType,
 		PUID:      eventPUID,
-		EventType: common.EventStop,
+		EventType: common.EventDestroy,
 	}
-
-	// Send Stop request
-	if err := sendRequest(r.address, request); err != nil {
-		return err
-	}
-
-	// Send destroy request
-	request.EventType = common.EventDestroy
 
 	return sendRequest(r.address, request)
 }

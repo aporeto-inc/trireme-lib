@@ -184,6 +184,7 @@ func (d *DockerMonitor) eventProcessors(ctx context.Context) {
 			for {
 				select {
 				case event := <-d.eventnotifications[i]:
+					zap.L().Info("got docker event", zap.String("action", event.Action))
 					if f, ok := d.handlers[Event(event.Action)]; ok {
 						if err := f(ctx, event); err != nil {
 							zap.L().Error("Unable to handle docker event",
@@ -414,24 +415,35 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 // that is needed for the remote enforcers.
 func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Message) error {
 
+	zap.L().Info("handleStartEvent")
+
 	container, err := d.retrieveDockerInfo(ctx, event)
 	if err != nil {
 		return err
 	}
 
+	zap.L().Info("handleStartEvent 1")
+	zap.L().Info(container.ID)
+
 	if !container.State.Running {
 		return nil
 	}
+
+	zap.L().Info("handleStartEvent 2")
 
 	puID, err := puIDFromDockerID(container.ID)
 	if err != nil {
 		return err
 	}
 
+	zap.L().Info("handleStartEvent 3")
+
 	runtime, err := d.extractMetadata(container)
 	if err != nil {
 		return err
 	}
+
+	zap.L().Info("handleStartEvent 4")
 
 	// If it is a host container, we need to activate it as a Linux process. We will
 	// override the options that the metadata extractor provided.
@@ -484,10 +496,15 @@ func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Messag
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
 func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Message) error {
 
+	zap.L().Info("handleDestroyEvent")
+
 	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
+
+	zap.L().Info("handleDestroyEvent 1")
+	zap.L().Info(puID)
 
 	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, policy.NewPURuntimeWithDefaults())
 	if err != nil {
@@ -496,12 +513,16 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 		)
 	}
 
+	zap.L().Info("handleDestroyEvent 2")
+
 	if err := d.netcls.DeleteCgroup(puID); err != nil {
 		zap.L().Warn("Failed to clean netcls group",
 			zap.String("puID", puID),
 			zap.Error(err),
 		)
 	}
+
+	zap.L().Info("handleDestroyEvent 3")
 
 	return nil
 }
