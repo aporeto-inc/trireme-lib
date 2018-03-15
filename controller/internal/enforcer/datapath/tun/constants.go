@@ -12,11 +12,17 @@ const (
 	maxNumQueues = 255
 
 	numTunDevicesPerDirection = 1
-	NetworkRuleTable          = 10
-	ApplicationRuleTable      = 11
-	RulePriority              = 0
-	// RuleMarkBit is the bit which is set in 32 bit mark
+
+	// NetworkRuleTable route table pointed to by Rule trapping incoming marked packets
+	NetworkRuleTable = 10
+	// ApplicationRuleTable route table pointed to by Rule trapping outgoing marked packets
+	ApplicationRuleTable = 11
+	// RulePriority is the priority of the rule in the rule table.(Lower number means higher prio)
+	RulePriority = 0
+	// RuleMarkBit is the bit which is set in 32 bit mark TODO: needs to move to a higher package
 	RuleMarkBit = 16
-	// Only look for the low  16 bits of the mark
+	// RuleMask mask for low  16 bits of the mark
 	RuleMask = 0xffff
+	//Dummy Ip address
+	dummyIPAddress = "169.1.4.1"
 )

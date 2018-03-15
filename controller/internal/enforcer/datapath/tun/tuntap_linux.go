@@ -228,7 +228,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 			// StartQueue here afteer we have create device and setup tc queueing.
 			// Once we setup routes we can get traffic
 			for qIndex := 0; qIndex < maxNumQueues; qIndex++ {
-				if writer, err := afinetrawsocket.CreateSocket(ipaddress); err == nil {
+				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress); err == nil {
 					go tun.StartQueue(i, &privateData{
 						t:        t,
 						queueNum: qIndex,
