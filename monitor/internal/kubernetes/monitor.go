@@ -7,12 +7,18 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 
+	kubernetesclient "github.com/aporeto-inc/trireme-kubernetes/kubernetes"
 	dockermonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
 )
 
 // KubernetesMonitor implements a monitor that sends pod events upstream
+// It is implemented as a filter on the standard DockerMonitor.
+// It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
+// It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type KubernetesMonitor struct {
-	dockerMonitor *dockermonitor.DockerMonitor
+	dockerMonitor    *dockermonitor.DockerMonitor
+	kubernetesClient *kubernetesclient.Client
+	handlers         *config.ProcessorConfig
 }
 
 // New returns a new kubernetes monitor.
@@ -58,7 +64,7 @@ func (m *KubernetesMonitor) UpdateConfiguration(ctx context.Context, config *con
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
 func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
-	// TODO: implement this
+	m.handlers = c
 }
 
 // Resync requests to the monitor to do a resync.
