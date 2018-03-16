@@ -53,7 +53,7 @@ func New() *DockerMonitor {
 	return &DockerMonitor{}
 }
 
-// SetupConfig provides a configuration to implmentations. Every implmentation
+// SetupConfig provides a configuration to implmentations. Every implementation
 // can have its own config type.
 func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) (err error) {
 
