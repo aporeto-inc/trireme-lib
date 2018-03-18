@@ -17,23 +17,17 @@ import (
 const observeMark = "39"
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
-
+	markint, _ := strconv.Atoi(mark)
+	mark = strconv.Itoa((1 << 16) | markint)
 	rules := [][]string{
-		// {
-		// 	i.appPacketIPTableContext,
-		// 	i.appCgroupIPTableSection,
-		// 	"-m", "cgroup", "--cgroup", mark,
-		// 	"-m", "comment", "--comment", "Mark All Packets from a cgroup",
-		// 	"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
-		// },
+		{
+			i.appPacketIPTableContext,
+			i.appCgroupIPTableSection,
+			"-m", "cgroup", "--cgroup", mark,
+			"-m", "comment", "--comment", "Mark All Packets from a cgroup",
+			"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
+		},
 
-		// {
-		// 	i.appPacketIPTableContext,
-		// 	i.appCgroupIPTableSection,
-		// 	"-m", "cgroup", "--cgroup", mark,
-		// 	"-m", "comment", "--comment", "Server-specific-chain",
-		// 	"-j", "MARK", "--set-mark", mark,
-		// },
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
@@ -41,15 +35,15 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
-		// {
-		// 	i.netPacketIPTableContext,
-		// 	i.netPacketIPTableSection,
-		// 	"-p", "tcp",
-		// 	"-m", "multiport",
-		// 	"--destination-ports", port,
-		// 	"-m", "comment", "--comment", "Container-specific-chain",
-		// 	"-j", netChain,
-		// },
+		{
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-p", "tcp",
+			"-m", "multiport",
+			"--destination-ports", port,
+			"-m", "comment", "--comment", "Container-specific-chain",
+			"-j", netChain,
+		},
 	}
 
 	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName)...)
@@ -235,59 +229,32 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(appChain string, netChain string) [][]string {
-
+func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]string {
+	markInt, _ := strconv.Atoi(mark)
+	mark = strconv.Itoa(((cgnetcls.Initialmarkval - 1) << 16) | markInt)
 	rules := [][]string{}
 	// Application Packets
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp",
-		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
-	})
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "dst",
-		"-p", "tcp",
 		"-j", "ACCEPT",
 	})
-	// Application Packets - SYN
-	// rules = append(rules, []string{
-	// 	i.appPacketIPTableContext, appChain,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
-	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueSynStr(),
-	// })
-
-	// Application Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
-	// rules = append(rules, []string{
-	// 	i.appPacketIPTableContext, appChain,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
-	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	// })
-
-	// rules = append(rules, []string{
-	// 	i.appPacketIPTableContext, appChain,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
-	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	// })
-
-	// Network Packets - SYN
-	rules = append(rules, []string{
-		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
-	})
-	// Network Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
-	rules = append(rules, []string{
-		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
-	})
+	if mark != "" {
+		// Network Packets - SYN
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "tcp",
+			"-j", "MARK", "--set-mark", mark,
+		})
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "tcp",
+			"-j", "ACCEPT",
+		})
+	}
 
 	return rules
 }
@@ -348,7 +315,13 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
 func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string) error {
 
-	return i.processRulesFromList(i.trapRules(appChain, netChain), "Append")
+	return i.processRulesFromList(i.trapRules(appChain, netChain, ""), "Append")
+
+}
+
+// addPacketTrap adds the necessary iptables rules to capture control packets to user space
+func (i *Instance) addPacketTrapLinux(appChain string, netChain string, networks []string, mark string) error {
+	return i.processRulesFromList(i.trapRules(appChain, netChain, mark), "Append")
 
 }
 
@@ -894,7 +867,8 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
-
+	//mark := (
+	mark := strconv.Itoa((1 << 16))
 	err := i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
@@ -903,16 +877,6 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
-
-	// err = i.ipt.Insert(
-	// 	i.appPacketIPTableContext,
-	// 	appChain, 1,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "dst",
-	// 	"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-	// 	"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetApplicationQueueSynAckStr())
-	// if err != nil {
-	// 	return fmt.Errorf("unable to add capture synack rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
-	// }
 
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
@@ -924,32 +888,13 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
-	if i.mode == constants.LocalServer {
-		err = i.ipt.Insert(
-			i.appPacketIPTableContext,
-			i.appPacketIPTableSection, 1,
-			"-j", uidchain)
-		if err != nil {
-			return fmt.Errorf("unable to add uid chain %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
-		}
-	}
-
-	err = i.ipt.Insert(
-		i.appPacketIPTableContext,
-		appChain, 1,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT")
-
-	if err != nil {
-		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
-	}
-
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option",
-		"34", "-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynStr())
+		"34", "-j", "MARK", "--set-mark", mark,
+	)
 
 	if err != nil {
 		return fmt.Errorf("unable to add capture syn rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
@@ -960,7 +905,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
-		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
+		"-j", "MARK", "--set-mark", mark)
 
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)

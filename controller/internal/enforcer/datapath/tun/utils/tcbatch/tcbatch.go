@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/alecthomas/template"
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 )
 
 const (
-	qdisctemplate      = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{ if .DefaultClassID}} default {{.DefaultClassID}} {{end}} {{"\n"}}`
+	qdisctemplate      = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{"\n"}}`
 	classtemplate      = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassId}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
 	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
 	metafiltertemplate = `filter add dev {{.DeviceName}} parent {{.Parent}}: handle {{.FilterID}} basic match {{if .MetaMatch}} {{.ConvertMeta}} {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
@@ -179,8 +180,8 @@ func (t *tcBatch) BuildInputTCBatchCommand() error {
 			Cgroup:     false,
 			MetaMatch: &Meta{
 				markType:  "nf_mark",
-				mask:      0xff,
-				val:       0x64,
+				mask:      0xffff,
+				val:       cgnetcls.Initialmarkval,
 				condition: "eq",
 			},
 		}
@@ -197,11 +198,11 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 	numQueues := t.numQueues
 	//qdiscs := make([]Qdisc, numQueues+1)
 	qdisc := Qdisc{
-		DeviceName:     t.DeviceName,
-		QdiscID:        "1",
-		QdiscType:      "htb",
-		Parent:         "root",
-		DefaultClassID: strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(t.numQueues-1), 16),
+		DeviceName: t.DeviceName,
+		QdiscID:    "1",
+		QdiscType:  "htb",
+		Parent:     "root",
+		// DefaultClassID: strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(t.numQueues-1), 16),
 	}
 
 	if err := t.Qdiscs([]Qdisc{qdisc}); err != nil {
@@ -227,7 +228,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 			Parent:           "1",
 			ClassId:          strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(i), 16),
 			QdiscType:        "htb",
-			AdditionalParams: []string{"rate", "100000mbit"},
+			AdditionalParams: []string{"rate", "100000mbit", "burst", "1200mbit"},
 		}
 	}
 	if err := t.Classes(classes); err != nil {
@@ -307,6 +308,7 @@ func (t *tcBatch) Execute() error {
 		} else {
 
 			params := strings.Fields(line)
+			//zap.L().Error("EXECUTING", zap.String("\nTCOMMAND\n", line))
 			cmd := exec.Command(path, params...)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("Error %s Executing Command %s", err, output)

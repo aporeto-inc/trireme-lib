@@ -110,8 +110,8 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	rule := &netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
-		Mark:     cgnetcls.Initialmarkval - 1,
-		Mask:     RuleMask,
+		Mark:     (cgnetcls.Initialmarkval - 1) << 16,
+		Mask:     RuleMask << 16,
 	}
 	if err := t.iprouteHdl.AddRule(rule); err != nil {
 		// We are initing here refuse to start if this fails
@@ -153,7 +153,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 			}
 
 			//Build Input TC batch command
-			tcBatch, err := tcbatch.NewTCBatch(255, deviceName, 1, cgnetcls.Initialmarkval)
+			tcBatch, err := tcbatch.NewTCBatch(maxNumQueues, deviceName, 1, cgnetcls.Initialmarkval)
 			if err != nil {
 				zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
 			}

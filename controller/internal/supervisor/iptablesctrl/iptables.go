@@ -22,6 +22,7 @@ import (
 
 const (
 	uidchain         = "UIDCHAIN"
+	appChainPerm     = "TRIREME-APP"
 	chainPrefix      = "TRIREME-"
 	appChainPrefix   = chainPrefix + "App-"
 	netChainPrefix   = chainPrefix + "Net-"
@@ -429,10 +430,15 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		if err := i.configureLinuxRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
 			return err
 		}
-	}
 
-	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
-		return err
+		if err := i.addPacketTrapLinux(appChain, netChain, containerInfo.Policy.TriremeNetworks(), containerInfo.Runtime.Options().CgroupMark); err != nil {
+			return err
+		}
+	} else {
+
+		if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
+			return err
+		}
 	}
 
 	if err := i.addAppACLs(contextID, appChain, policyrules.ApplicationACLs()); err != nil {

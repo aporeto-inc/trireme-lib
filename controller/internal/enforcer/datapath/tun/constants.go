@@ -9,7 +9,7 @@ const (
 	baseTunDeviceInput    = "-in"
 	baseTunDeviceOutput   = "-out"
 	// maxNumQueues
-	maxNumQueues = 255
+	maxNumQueues = 4
 
 	numTunDevicesPerDirection = 1
 
