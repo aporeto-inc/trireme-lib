@@ -21,7 +21,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		return nil
 	}
 
-	kubernetesRuntime, err := consolidateKubernetesTags(runtime)
+	kubernetesRuntime, err := m.consolidateKubernetesTags(runtime)
 	if err != nil {
 		return fmt.Errorf("Error while processing Kubernetes pod %s", err)
 	}
