@@ -21,6 +21,7 @@ type policies struct {
 	observeAcceptRules *lookup.PolicyDB // Packet: Continue       Report: Forward
 	acceptRules        *lookup.PolicyDB // Packet:  Forward       Report: Forward
 	observeApplyRules  *lookup.PolicyDB // Packet:  Forward       Report: Forward
+	encryptRules       *lookup.PolicyDB // Packet: Encrypt       Report: Encrypt
 }
 
 // PUContext holds data indexed by the PU ID
@@ -222,9 +223,15 @@ func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) *policies 
 		acceptRules:        lookup.NewPolicyDB(),
 		observeAcceptRules: lookup.NewPolicyDB(),
 		observeApplyRules:  lookup.NewPolicyDB(),
+		encryptRules:       lookup.NewPolicyDB(),
 	}
 
 	for _, rule := range policyRules {
+		// Add encrypt rule to encrypt table.
+		if rule.Policy.Action.Encrypted() {
+			policyDB.encryptRules.AddPolicy(rule)
+		}
+
 		if rule.Policy.ObserveAction.ObserveContinue() {
 			if rule.Policy.Action.Accepted() {
 				policyDB.observeAcceptRules.AddPolicy(rule)
@@ -241,7 +248,6 @@ func (p *PUContext) createRuleDBs(policyRules policy.TagSelectorList) *policies 
 			continue
 		}
 	}
-
 	return policyDB
 }
 
@@ -292,10 +298,24 @@ func (p *PUContext) searchRules(
 		}
 	}
 
+	// Look for encrypt rules
 	if packetAction == nil {
+		index, action := policies.encryptRules.Search(tags)
+		if index >= 0 {
+			packetAction = action.(*policy.FlowPolicy)
+			if reportingAction == nil {
+				reportingAction = packetAction
+			}
+		}
+	}
+
+	if packetAction == nil || packetAction.Action.Encrypted() {
 		index, action := policies.acceptRules.Search(tags)
 		if index >= 0 {
 			packetAction = action.(*policy.FlowPolicy)
+			if packetAction.Action.Encrypted() {
+				packetAction.Action |= policy.Encrypt
+			}
 			if reportingAction == nil {
 				reportingAction = packetAction
 			}
