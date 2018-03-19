@@ -312,14 +312,14 @@ func (p *PUContext) searchRules(
 	if packetAction == nil || packetAction.Action.Encrypted() {
 		index, action := policies.acceptRules.Search(tags)
 		if index >= 0 {
-			packetAction = action.(*policy.FlowPolicy)
-			if packetAction.Action.Encrypted() {
-				packetAction.Action |= policy.Encrypt
+			DesiredPacketAction := action.(*policy.FlowPolicy)
+			if packetAction != nil && packetAction.Action.Encrypted() {
+				DesiredPacketAction.Action |= policy.Encrypt
 			}
 			if reportingAction == nil {
-				reportingAction = packetAction
+				reportingAction = DesiredPacketAction
 			}
-			return reportingAction, packetAction
+			return reportingAction, DesiredPacketAction
 		}
 	}
 
