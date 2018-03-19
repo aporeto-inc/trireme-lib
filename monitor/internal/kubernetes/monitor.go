@@ -72,3 +72,9 @@ func (m *KubernetesMonitor) Resync(ctx context.Context) error {
 	// TODO: implement this
 	return nil
 }
+
+// ReSync ???
+func (m *KubernetesMonitor) ReSync(ctx context.Context) error {
+	// TODO: implement this
+	return nil
+}

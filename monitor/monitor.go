@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/kubernetes"
+
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/cni"
@@ -70,6 +72,14 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 				return nil, fmt.Errorf("Docker: %s", err.Error())
 			}
 			m.monitors[config.Docker] = mon
+
+		case config.Kubernetes:
+			mon := kubernetesmonitor.New()
+			mon.SetupHandlers(c.Common)
+			if err := mon.SetupConfig(nil, v); err != nil {
+				return nil, fmt.Errorf("kubernetes: %s", err.Error())
+			}
+			m.monitors[config.Kubernetes] = mon
 
 		case config.LinuxProcess:
 			mon := linuxmonitor.New()
