@@ -1,4 +1,4 @@
-package kubernetes
+package kubernetesmonitor
 
 import dockerMonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
 

@@ -6,6 +6,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/cni"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+	"github.com/aporeto-inc/trireme-lib/monitor/internal/kubernetes"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/linux"
 	"github.com/aporeto-inc/trireme-lib/monitor/internal/uid"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -22,6 +23,9 @@ type UIDMonitorOption func(*uidmonitor.Config)
 
 // DockerMonitorOption is provided using functional arguments.
 type DockerMonitorOption func(*dockermonitor.Config)
+
+// KubernetesMonitorOption is provided using functional arguments.
+type KubernetesMonitorOption func(*kubernetesmonitor.Config)
 
 // LinuxMonitorOption is provided using functional arguments.
 type LinuxMonitorOption func(*linuxmonitor.Config)
@@ -128,6 +132,14 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	return func(cfg *dockermonitor.Config) {
 		cfg.KillContainerOnPolicyError = killContainerOnPolicyError
 		cfg.SyncAtStart = syncAtStart
+	}
+}
+
+// SubOptionMonitorKubernetesKubeconfig provides a way to specify configuration flags info for docker.
+func SubOptionMonitorKubernetesKubeconfig(kubeconfig string) KubernetesMonitorOption {
+	return func(cfg *kubernetesmonitor.Config) {
+		//TODO: implement this
+		return
 	}
 }
 
