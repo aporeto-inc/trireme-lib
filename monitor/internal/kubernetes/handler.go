@@ -12,7 +12,7 @@ import (
 // is responsible to update all components by explicitly adding a new PU.
 // Specifically for Kubernetes, The monitor handles the downstream events from Docker.
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
-	process, err := isPodContainer(runtime)
+	process, err := isPodInfraContainer(runtime)
 	if err != nil {
 		return fmt.Errorf("Error while processing Kubernetes pod %s", err)
 	}
