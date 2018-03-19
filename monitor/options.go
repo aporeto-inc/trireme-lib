@@ -135,14 +135,6 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	}
 }
 
-// SubOptionMonitorKubernetesKubeconfig provides a way to specify configuration flags info for docker.
-func SubOptionMonitorKubernetesKubeconfig(kubeconfig string) KubernetesMonitorOption {
-	return func(cfg *kubernetesmonitor.Config) {
-		//TODO: implement this
-		return
-	}
-}
-
 // OptionMonitorDocker provides a way to add a docker monitor and related configuration to be used with New().
 func OptionMonitorDocker(opts ...DockerMonitorOption) Options {
 
@@ -154,6 +146,27 @@ func OptionMonitorDocker(opts ...DockerMonitorOption) Options {
 
 	return func(cfg *config.MonitorConfig) {
 		cfg.Monitors[config.Docker] = dc
+	}
+}
+
+// OptionMonitorDocker provides a way to add a docker monitor and related configuration to be used with New().
+func OptionMonitorKubernetes(opts ...KubernetesMonitorOption) Options {
+	kc := kubernetesmonitor.DefaultConfig()
+	// Collect all docker options
+	for _, opt := range opts {
+		opt(kc)
+	}
+
+	return func(cfg *config.MonitorConfig) {
+		cfg.Monitors[config.Kubernetes] = kc
+	}
+}
+
+// SubOptionMonitorKubernetesKubeconfig provides a way to specify configuration flags info for docker.
+func SubOptionMonitorKubernetesKubeconfig(kubeconfig string) KubernetesMonitorOption {
+	return func(cfg *kubernetesmonitor.Config) {
+		//TODO: implement this
+		return
 	}
 }
 
