@@ -20,5 +20,5 @@ func DefaultConfig() *Config {
 
 // SetupDefaultConfig adds defaults to a partial configuration
 func SetupDefaultConfig(kubernetesConfig *Config) *Config {
-	return DefaultConfig()
+	return kubernetesConfig
 }
