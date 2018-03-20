@@ -149,7 +149,7 @@ func OptionMonitorDocker(opts ...DockerMonitorOption) Options {
 	}
 }
 
-// OptionMonitorDocker provides a way to add a docker monitor and related configuration to be used with New().
+// OptionMonitorKubernetes provides a way to add a docker monitor and related configuration to be used with New().
 func OptionMonitorKubernetes(opts ...KubernetesMonitorOption) Options {
 	kc := kubernetesmonitor.DefaultConfig()
 	// Collect all docker options
@@ -162,11 +162,19 @@ func OptionMonitorKubernetes(opts ...KubernetesMonitorOption) Options {
 	}
 }
 
-// SubOptionMonitorKubernetesKubeconfig provides a way to specify configuration flags info for docker.
+// SubOptionMonitorKubernetesKubeconfig provides a way to specify a kubeconfig to use to connect to Kubernetes.
+// In case of an in-cluter config, leave the kubeconfig field blank
 func SubOptionMonitorKubernetesKubeconfig(kubeconfig string) KubernetesMonitorOption {
 	return func(cfg *kubernetesmonitor.Config) {
-		//TODO: implement this
-		return
+		cfg.Kubeconfig = kubeconfig
+	}
+}
+
+// SubOptionMonitorKubernetesNodename provides a way to specify the kubernetes node name.
+// This is useful for filtering
+func SubOptionMonitorKubernetesNodename(nodename string) KubernetesMonitorOption {
+	return func(cfg *kubernetesmonitor.Config) {
+		cfg.Nodename = nodename
 	}
 }
 

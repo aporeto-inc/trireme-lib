@@ -31,6 +31,20 @@ func New() *KubernetesMonitor {
 // SetupConfig provides a configuration to implmentations. Every implmentation
 // can have its own config type.
 func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) error {
+
+	defaultConfig := DefaultConfig()
+
+	if cfg == nil {
+		cfg = defaultConfig
+	}
+
+	kubernetesconfig, ok := cfg.(*Config)
+	if !ok {
+		return fmt.Errorf("Invalid configuration specified")
+	}
+
+	kubernetesconfig = SetupDefaultConfig(kubernetesconfig)
+
 	processorConfig := &config.ProcessorConfig{
 		Policy: m,
 	}
@@ -41,10 +55,16 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 
 	// we use the defaultconfig for now
 	if err := dockerMon.SetupConfig(nil, nil); err != nil {
-		return fmt.Errorf("DockerMonitor instantiation error: %s", err.Error())
+		return fmt.Errorf("docker monitor instantiation error: %s", err.Error())
 	}
 
 	m.dockerMonitor = dockerMon
+
+	kubernetesClient, err := kubernetesclient.NewClient(kubernetesconfig.Kubeconfig, kubernetesconfig.Nodename)
+	if err != nil {
+		return fmt.Errorf("kubernetes client instantiation error: %s", err.Error())
+	}
+	m.kubernetesClient = kubernetesClient
 
 	return nil
 }

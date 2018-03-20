@@ -5,14 +5,20 @@ import dockerMonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker
 // Config is the config for the Kubernetes monitor
 type Config struct {
 	DockerConfig dockerMonitor.Config
+
+	Kubeconfig string
+	Nodename   string
 }
 
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
-	return &Config{}
+	return &Config{
+		Kubeconfig: "",
+		Nodename:   "",
+	}
 }
 
 // SetupDefaultConfig adds defaults to a partial configuration
-func SetupDefaultConfig(dockerConfig *Config) *Config {
+func SetupDefaultConfig(kubernetesConfig *Config) *Config {
 	return DefaultConfig()
 }
