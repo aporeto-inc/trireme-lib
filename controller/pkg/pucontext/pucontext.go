@@ -303,9 +303,6 @@ func (p *PUContext) searchRules(
 		index, action := policies.encryptRules.Search(tags)
 		if index >= 0 {
 			packetAction = action.(*policy.FlowPolicy)
-			if reportingAction == nil {
-				reportingAction = packetAction
-			}
 		}
 	}
 
@@ -321,6 +318,9 @@ func (p *PUContext) searchRules(
 			}
 			return reportingAction, DesiredPacketAction
 		}
+		// set packetAction to nil, as rule did not match any rule
+		// in accept table.
+		packetAction = nil
 	}
 
 	// Look for observe apply rules
