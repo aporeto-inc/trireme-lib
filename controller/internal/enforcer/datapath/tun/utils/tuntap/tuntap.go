@@ -77,6 +77,7 @@ func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
 			atomic.AddUint64(&t.numFramesRead[queueIndex], 1)
 			if err = t.queueCallBack(data[:n], privateData); err != nil {
 				atomic.AddUint64(&t.DroppedFrames[queueIndex], 1)
+				continue
 			}
 			zap.L().Error("Received Error while reading from queue to raw socket", zap.Error(err))
 		}

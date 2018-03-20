@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"os/exec"
 	"os/user"
 	"strconv"
 
@@ -37,12 +38,19 @@ type privateData struct {
 }
 
 func networkQueueCallBack(data []byte, cbData interface{}) error {
-	return cbData.(*privateData).t.processNetworkPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer)
+	zap.L().Error("Received Network Packet", zap.Int("queueNum", cbData.(*privateData).queueNum), zap.String("\nHEX\n", string(hex.Dump(data))))
+	if err := cbData.(*privateData).t.processNetworkPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer); err != nil {
+		zap.L().Error("Received Netowrk Error", zap.Error(err))
+	}
+	return nil
 }
 
 func appQueueCallBack(data []byte, cbData interface{}) error {
-	zap.L().Error("Received Packet", zap.Int("queueNum", cbData.(*privateData).queueNum), zap.String("\nHEX\n", string(hex.Dump(data))))
-	return cbData.(*privateData).t.processAppPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer)
+	zap.L().Error("Received Application Packet", zap.Int("queueNum", cbData.(*privateData).queueNum), zap.String("\nHEX\n", string(hex.Dump(data))))
+	if err := cbData.(*privateData).t.processAppPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer); err != nil {
+		zap.L().Error("Received Application Error", zap.Error(err))
+	}
+	return nil
 }
 
 // NewTunDataPath instantiates a new tundatapath
@@ -52,6 +60,28 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 	if err != nil {
 		zap.L().Error("Unable to create an iproute handle")
 		return nil
+	}
+	//sysctl
+	sysctlCmd, err := exec.LookPath("sysctl")
+	if err != nil {
+		zap.L().Fatal("sysctl command must be installed", zap.Error(err))
+	}
+
+	cmd := exec.Command(sysctlCmd, "-w", "net.ipv4.ip_forward=1")
+
+	if err := cmd.Run(); err != nil {
+		zap.L().Fatal("Failed to set ip forward", zap.Error(err))
+	}
+	cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.rp_filter=0")
+
+	if err := cmd.Run(); err != nil {
+		zap.L().Fatal("Failed to set ip forward", zap.Error(err))
+	}
+
+	cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
+
+	if err := cmd.Run(); err != nil {
+		zap.L().Fatal("Failed to set ip forward", zap.Error(err))
 	}
 	return &tundev{
 		processor:                 processor,
@@ -70,7 +100,7 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 		err = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto)
 	}
 	if err != nil {
-
+		return err
 	}
 	//Copy the buffer
 	buffer := make([]byte, len(netPacket.Buffer)+netPacket.TCPOptionLength()+netPacket.TCPDataLength())
@@ -89,6 +119,7 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 	} else {
 		err = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto)
 	}
+
 	if err == nil {
 		//Copy the buffer
 		buffer := make([]byte, len(appPacket.Buffer)+appPacket.TCPOptionLength()+appPacket.TCPDataLength())
@@ -110,8 +141,8 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	rule := &netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
-		Mark:     (cgnetcls.Initialmarkval - 1) << 16,
-		Mask:     RuleMask << 16,
+		Mark:     (cgnetcls.Initialmarkval - 1),
+		Mask:     RuleMask,
 	}
 	if err := t.iprouteHdl.AddRule(rule); err != nil {
 		// We are initing here refuse to start if this fails
@@ -146,20 +177,25 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 
 			//Start Queues here
 			for qIndex := 0; qIndex < maxNumQueues; qIndex++ {
-				go tun.StartQueue(i, &privateData{
-					t:        t,
-					queueNum: qIndex,
-				})
+				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress); err == nil {
+					go tun.StartQueue(i, &privateData{
+						t:        t,
+						queueNum: qIndex,
+						writer:   writer,
+					})
+					continue
+				}
+
 			}
 
 			//Build Input TC batch command
-			tcBatch, err := tcbatch.NewTCBatch(maxNumQueues, deviceName, 1, cgnetcls.Initialmarkval)
-			if err != nil {
-				zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
-			}
-			if err := tcBatch.BuildInputTCBatchCommand(); err != nil {
-				zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
-			}
+			// tcBatch, err := tcbatch.NewTCBatch(maxNumQueues, deviceName, 1, cgnetcls.Initialmarkval)
+			// if err != nil {
+			// 	zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
+			// }
+			// if err := tcBatch.BuildInputTCBatchCommand(); err != nil {
+			// 	zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
+			// }
 			route := &netlink.Route{
 				Table:     NetworkRuleTable,
 				Gw:        net.ParseIP(ipaddress),
@@ -216,7 +252,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 		if tun, err := tuntap.NewTun(maxNumQueues, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, appQueueCallBack); err == nil {
 			t.tundeviceHdls[i] = tun
 			//Program TC Rules
-			tcBatch, err := tcbatch.NewTCBatch(255, deviceName, 1, cgnetcls.Initialmarkval)
+			tcBatch, err := tcbatch.NewTCBatch(maxNumQueues-1, deviceName, 1, cgnetcls.Initialmarkval)
 			if err != nil {
 				zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
 			}

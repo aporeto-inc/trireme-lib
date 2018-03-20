@@ -11,6 +11,11 @@ type rawsocket struct {
 	insock *syscall.SockaddrInet4
 }
 
+const (
+	// RawSocketMark is the mark asserted on all packet sent out of this socket
+	RawSocketMark = 0x63
+)
+
 // SocketWriter interface exposes an interface to write and close sockets
 type SocketWriter interface {
 	WriteSocket(buf []byte) error
@@ -20,7 +25,7 @@ type SocketWriter interface {
 // CreateSocket returns a handle to SocketWriter interface
 func CreateSocket(ipaddress string) (SocketWriter, error) {
 	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
-	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, 0x63)
+	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, RawSocketMark)
 
 	err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
 	if err != nil {

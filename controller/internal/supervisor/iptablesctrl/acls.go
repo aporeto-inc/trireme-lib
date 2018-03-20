@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
@@ -230,8 +231,8 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 
 //trapRules provides the packet trap rules to add/delete
 func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]string {
-	markInt, _ := strconv.Atoi(mark)
-	mark = strconv.Itoa(((cgnetcls.Initialmarkval - 1) << 16) | markInt)
+
+	mark = strconv.Itoa((cgnetcls.Initialmarkval - 1))
 	rules := [][]string{}
 	// Application Packets
 	rules = append(rules, []string{
@@ -868,7 +869,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	//mark := (
-	mark := strconv.Itoa((1 << 16))
+	mark := strconv.Itoa(cgnetcls.Initialmarkval - 1)
 	err := i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
@@ -887,7 +888,14 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
-
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.RawSocketMark),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
+	}
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,

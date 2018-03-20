@@ -17,7 +17,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
@@ -43,6 +42,7 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 	// skip processing for SynAck packets that we don't have state
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
+		zap.L().Error("AMIT :::: Received Network SYN Packet")
 		conn, err = d.netSynRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -157,6 +157,7 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
+		zap.L().Error("AMIT :::: Received Application SYN Packet")
 		conn, err = d.appSynRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -177,14 +178,14 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
-
-			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
-				//SYN ACK came through the global rule.
-				//This not from a process we are monitoring
-				//let his packet through
-				return nil
-			}
-			return err
+			zap.L().Error("AMIT :: Mark:::" + p.Mark)
+			// if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-2) {
+			// 	//SYN ACK came through the global rule.
+			// 	//This not from a process we are monitoring
+			// 	//let his packet through
+			// 	return nil
+			// }
+			return nil
 		}
 	default:
 		conn, err = d.appRetrieveState(p)
