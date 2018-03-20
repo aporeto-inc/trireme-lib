@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aporeto-inc/trireme-lib/collector"
+
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 
@@ -46,7 +48,8 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 	kubernetesconfig = SetupDefaultConfig(kubernetesconfig)
 
 	processorConfig := &config.ProcessorConfig{
-		Policy: m,
+		Policy:    m,
+		Collector: collector.NewDefaultCollector(),
 	}
 
 	// As the Kubernetes monitor depends on the DockerMonitor, we setup the Docker monitor first
