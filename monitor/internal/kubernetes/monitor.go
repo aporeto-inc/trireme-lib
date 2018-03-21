@@ -74,6 +74,10 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 
 // Run starts the monitor.
 func (m *KubernetesMonitor) Run(ctx context.Context) error {
+	if m.kubernetesClient == nil {
+		return fmt.Errorf("kubernetes client is not initialized correctly")
+	}
+
 	return m.dockerMonitor.Run(ctx)
 }
 
@@ -92,12 +96,11 @@ func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *KubernetesMonitor) Resync(ctx context.Context) error {
-	// TODO: implement this
+	// TODO: Redifine this interface ?
 	return nil
 }
 
 // ReSync ???
 func (m *KubernetesMonitor) ReSync(ctx context.Context) error {
-	// TODO: implement this
-	return nil
+	m.dockerMonitor.ReSync(ctx)
 }
