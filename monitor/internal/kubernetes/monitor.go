@@ -102,5 +102,5 @@ func (m *KubernetesMonitor) Resync(ctx context.Context) error {
 
 // ReSync ???
 func (m *KubernetesMonitor) ReSync(ctx context.Context) error {
-	m.dockerMonitor.ReSync(ctx)
+	return m.dockerMonitor.ReSync(ctx)
 }
