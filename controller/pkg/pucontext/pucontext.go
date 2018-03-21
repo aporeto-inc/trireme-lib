@@ -301,7 +301,7 @@ func (p *PUContext) searchRules(
 	if packetAction == nil {
 		index, action := policies.acceptRules.Search(tags)
 		if index >= 0 {
-			packetAction := action.(*policy.FlowPolicy)
+			packetAction = action.(*policy.FlowPolicy)
 			// Look for encrypt rules
 			encryptIndex, _ := policies.encryptRules.Search(tags)
 			if encryptIndex >= 0 {
