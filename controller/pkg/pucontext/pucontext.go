@@ -298,29 +298,20 @@ func (p *PUContext) searchRules(
 		}
 	}
 
-	// Look for encrypt rules
 	if packetAction == nil {
-		index, action := policies.encryptRules.Search(tags)
-		if index >= 0 {
-			packetAction = action.(*policy.FlowPolicy)
-		}
-	}
-
-	if packetAction == nil || packetAction.Action.Encrypted() {
 		index, action := policies.acceptRules.Search(tags)
 		if index >= 0 {
-			DesiredPacketAction := action.(*policy.FlowPolicy)
-			if packetAction != nil && packetAction.Action.Encrypted() {
-				DesiredPacketAction.Action |= policy.Encrypt
+			packetAction := action.(*policy.FlowPolicy)
+			// Look for encrypt rules
+			encryptIndex, _ := policies.encryptRules.Search(tags)
+			if encryptIndex >= 0 {
+				packetAction.Action |= policy.Encrypt
 			}
 			if reportingAction == nil {
-				reportingAction = DesiredPacketAction
+				reportingAction = packetAction
 			}
-			return reportingAction, DesiredPacketAction
+			return reportingAction, packetAction
 		}
-		// set packetAction to nil, as rule did not match any rule
-		// in accept table.
-		packetAction = nil
 	}
 
 	// Look for observe apply rules
