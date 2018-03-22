@@ -46,7 +46,9 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 	}
 	// If Pod is running in the hostNS, no activation (not supported).
 	if pod.Status.PodIP == pod.Status.HostIP {
-		return nil, nil
+		if !m.EnableHostPods {
+			return nil, nil
+		}
 	}
 
 	podLabels := pod.GetLabels()

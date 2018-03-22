@@ -6,15 +6,17 @@ import dockerMonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker
 type Config struct {
 	DockerConfig dockerMonitor.Config
 
-	Kubeconfig string
-	Nodename   string
+	EnableHostPods bool
+	Kubeconfig     string
+	Nodename       string
 }
 
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		Kubeconfig: "",
-		Nodename:   "",
+		EnableHostPods: false,
+		Kubeconfig:     "",
+		Nodename:       "",
 	}
 }
 

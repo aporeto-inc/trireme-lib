@@ -21,6 +21,8 @@ type KubernetesMonitor struct {
 	dockerMonitor    *dockermonitor.DockerMonitor
 	kubernetesClient *kubernetesclient.Client
 	handlers         *config.ProcessorConfig
+
+	EnableHostPods bool
 }
 
 // New returns a new kubernetes monitor.
@@ -68,6 +70,7 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 		return fmt.Errorf("kubernetes client instantiation error: %s", err.Error())
 	}
 	m.kubernetesClient = kubernetesClient
+	m.EnableHostPods = kubernetesconfig.EnableHostPods
 
 	return nil
 }
