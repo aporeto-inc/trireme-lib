@@ -32,3 +32,10 @@ func newCache() *cache {
 func kubePodIdentifier(podName string, podNamespace string) string {
 	return podNamespace + "/" + podName
 }
+
+func (c *cache) getPodFromCache(podNamespace string, podName string) *podCacheEntry {
+	c.Lock()
+	defer c.Unlock()
+	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
+	return c.podCache[kubeIdentifier]
+}

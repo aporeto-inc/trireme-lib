@@ -4,6 +4,9 @@ import (
 	"fmt"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.uber.org/zap"
+	api "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // KubernetesPodNameIdentifier is the label used by Docker for the K8S pod name.
@@ -72,6 +75,39 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 	fmt.Printf("\n\n Tags after: %v \n\n", newRuntime.Tags())
 
 	return newRuntime, nil
+}
+
+func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
+	zap.L().Debug("Pod Added", zap.String("name", addedPod.GetName()), zap.String("namespace", addedPod.GetNamespace()))
+
+	return nil
+}
+
+func (m *KubernetesMonitor) deletePod(deletedPod *api.Pod) error {
+	zap.L().Debug("Pod Deleted", zap.String("name", deletedPod.GetName()), zap.String("namespace", deletedPod.GetNamespace()))
+
+	return nil
+}
+
+func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
+	zap.L().Debug("Pod Modified detected", zap.String("name", updatedPod.GetName()), zap.String("namespace", updatedPod.GetNamespace()))
+
+	if !isPolicyUpdateNeeded(oldPod, updatedPod) {
+		zap.L().Debug("No modified labels for Pod", zap.String("name", updatedPod.GetName()), zap.String("namespace", updatedPod.GetNamespace()))
+		return nil
+	}
+
+	return nil
+}
+
+func isPolicyUpdateNeeded(oldPod, newPod *api.Pod) bool {
+	if !(oldPod.Status.PodIP == newPod.Status.PodIP) {
+		return true
+	}
+	if !labels.Equals(oldPod.GetLabels(), newPod.GetLabels()) {
+		return true
+	}
+	return false
 }
 
 // isPodInfraContainer returns true if the runtime represents the infra container for the POD
