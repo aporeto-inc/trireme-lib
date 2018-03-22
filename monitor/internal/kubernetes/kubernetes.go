@@ -2,11 +2,13 @@ package kubernetesmonitor
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	kubecache "k8s.io/client-go/tools/cache"
 )
 
 // KubernetesPodNameIdentifier is the label used by Docker for the K8S pod name.
@@ -119,4 +121,15 @@ func isPodInfraContainer(runtime policy.RuntimeReader) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// hasSynced sends an event on the Sync chan when the attachedController finished syncing.
+func hasSynced(sync chan struct{}, controller kubecache.Controller) {
+	for true {
+		if controller.HasSynced() {
+			sync <- struct{}{}
+			return
+		}
+		<-time.After(100 * time.Millisecond)
+	}
 }

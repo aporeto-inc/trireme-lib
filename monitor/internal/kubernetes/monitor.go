@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"go.uber.org/zap"
+	kubecache "k8s.io/client-go/tools/cache"
+
 	"github.com/aporeto-inc/trireme-lib/collector"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
@@ -22,6 +25,10 @@ type KubernetesMonitor struct {
 	kubernetesClient *kubernetesclient.Client
 	handlers         *config.ProcessorConfig
 	cache            *cache
+
+	podStore          kubecache.Store
+	podController     kubecache.Controller
+	podControllerStop chan struct{}
 
 	EnableHostPods bool
 }
@@ -76,6 +83,15 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 	m.kubernetesClient = kubernetesClient
 	m.EnableHostPods = kubernetesconfig.EnableHostPods
 
+	m.podStore, m.podController = m.kubernetesClient.CreateLocalPodController("",
+		m.addPod,
+		m.deletePod,
+		m.updatePod)
+
+	m.podControllerStop = make(chan struct{})
+
+	zap.L().Debug("Pod Controller created")
+
 	return nil
 }
 
@@ -84,6 +100,11 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 	if m.kubernetesClient == nil {
 		return fmt.Errorf("kubernetes client is not initialized correctly")
 	}
+
+	go m.podController.Run(m.podControllerStop)
+	initialPodSync := make(chan struct{})
+	go hasSynced(initialPodSync, m.podController)
+	<-initialPodSync
 
 	return m.dockerMonitor.Run(ctx)
 }
