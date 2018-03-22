@@ -160,7 +160,7 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	// removing old path in case it exists already - error if we can't remove it
 	if _, err := os.Stat(path); err == nil {
 
-		zap.L().Warn("Socket path already exists: removing", zap.String("path", path))
+		zap.L().Debug("Socket path already exists: removing", zap.String("path", path))
 
 		if rerr := os.Remove(path); rerr != nil {
 			return fmt.Errorf("unable to delete existing socket path %s: %s", path, rerr)
