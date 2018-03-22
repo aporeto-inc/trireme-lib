@@ -18,14 +18,14 @@ type podCacheEntry struct {
 // Cache keeps all the state needed for the integration.
 type cache struct {
 	// contextIDCache keeps a mapping between a POD/Namespace name and the corresponding contextID from Trireme.
-	podCache map[string]podCacheEntry
+	podCache map[string]*podCacheEntry
 	sync.RWMutex
 }
 
 // NewCache initialize a cache
 func newCache() *cache {
 	return &cache{
-		podCache: map[string]podCacheEntry{},
+		podCache: map[string]*podCacheEntry{},
 	}
 }
 

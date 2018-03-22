@@ -21,6 +21,7 @@ type KubernetesMonitor struct {
 	dockerMonitor    *dockermonitor.DockerMonitor
 	kubernetesClient *kubernetesclient.Client
 	handlers         *config.ProcessorConfig
+	cache            *cache
 
 	EnableHostPods bool
 }
@@ -28,6 +29,9 @@ type KubernetesMonitor struct {
 // New returns a new kubernetes monitor.
 func New() *KubernetesMonitor {
 	kubeMonitor := &KubernetesMonitor{}
+	kubeMonitor.cache = &cache{
+		podCache: map[string]*podCacheEntry{},
+	}
 
 	return kubeMonitor
 }
