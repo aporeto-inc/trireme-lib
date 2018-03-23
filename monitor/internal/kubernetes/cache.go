@@ -13,12 +13,17 @@ type podCacheEntry struct {
 	runtime policy.RuntimeReader
 	// The latest known reference to the pod received from Kubernetes API
 	pod *api.Pod
+
+	// Lock for the specific entry
+	sync.RWMutex
 }
 
 // Cache keeps all the state needed for the integration.
 type cache struct {
 	// contextIDCache keeps a mapping between a POD/Namespace name and the corresponding contextID from Trireme.
 	podCache map[string]*podCacheEntry
+
+	// Lock for the whole cache
 	sync.RWMutex
 }
 
