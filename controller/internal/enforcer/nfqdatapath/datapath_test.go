@@ -3542,7 +3542,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
-								So(err, ShouldNotBeNil)
+								So(err, ShouldBeNil)
 							}
 
 							if debug {
@@ -3571,24 +3571,13 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
-								So(err, ShouldNotBeNil)
+								So(err, ShouldBeNil)
 
 							}
 
 							if debug {
 								fmt.Println("Output packet", i)
 								outPacket.Print(0)
-							}
-
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
-								packetDiffers = true
-								fmt.Println("Error: packets dont match")
-								fmt.Println("Input Packet")
-								oldPacket.Print(0)
-								fmt.Println("Output Packet")
-								outPacket.Print(0)
-								t.Errorf("Packet %d Input and output packet do not match", i)
-								t.FailNow()
 							}
 						}
 					}
