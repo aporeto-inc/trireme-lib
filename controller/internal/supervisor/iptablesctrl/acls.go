@@ -896,6 +896,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
+
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
@@ -927,7 +928,14 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
-
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		netChain, 1,
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.RawSocketMark),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add default accept raw socket packets on network : %s", err)
+	}
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-j", natProxyInputChain)

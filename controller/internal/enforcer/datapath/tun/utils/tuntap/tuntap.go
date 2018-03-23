@@ -77,8 +77,9 @@ func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
 			atomic.AddUint64(&t.numFramesRead[queueIndex], 1)
 			if err = t.queueCallBack(data[:n], privateData); err != nil {
 				atomic.AddUint64(&t.DroppedFrames[queueIndex], 1)
-				continue
 			}
+			continue
+		} else {
 			zap.L().Error("Received Error while reading from queue to raw socket", zap.Error(err))
 		}
 	}
@@ -87,7 +88,10 @@ func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
 
 // ReadQueue -- Reads packets from a queue. This is a blocking read call. Returns num bytes read
 func (t *TunTap) ReadQueue(queueNum int, data []byte) (int, error) {
-	return t.Read(t.queueHandles[queueNum], data)
+
+	n, err := t.Read(t.queueHandles[queueNum], data)
+	zap.L().Error("Reading queuenum ", zap.String("deviceName", t.deviceName), zap.Int("queueIndex", queueNum), zap.Int("FD", t.queueHandles[queueNum]))
+	return n, err
 }
 
 func (t *TunTap) Read(fd int, data []byte) (int, error) {
@@ -173,6 +177,7 @@ func (t *TunTap) createTun(queueIndex int, ifname *ifreqDevType) error {
 		}
 
 		t.queueHandles[queueIndex] = fd
+		zap.L().Error("Created fd for queue ", zap.String("DeviceName", string(ifname.ifrName[:])), zap.Int("queueIndex", queueIndex), zap.Int("FD", fd))
 		t.fdtoQueueNum[fd] = queueIndex
 	} else {
 		return err

@@ -38,7 +38,9 @@ type privateData struct {
 }
 
 func networkQueueCallBack(data []byte, cbData interface{}) error {
-	zap.L().Error("Received Network Packet", zap.Int("queueNum", cbData.(*privateData).queueNum), zap.String("\nHEX\n", string(hex.Dump(data))))
+
+	zap.L().Error("Received Network Packet", zap.Reflect("queueNum", cbData), zap.String("Address", fmt.Sprintf("%p", (cbData))), zap.String("\nHEX\n", string(hex.Dump(data))))
+
 	if err := cbData.(*privateData).t.processNetworkPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer); err != nil {
 		zap.L().Error("Received Netowrk Error", zap.Error(err))
 	}
@@ -46,7 +48,7 @@ func networkQueueCallBack(data []byte, cbData interface{}) error {
 }
 
 func appQueueCallBack(data []byte, cbData interface{}) error {
-	zap.L().Error("Received Application Packet", zap.Int("queueNum", cbData.(*privateData).queueNum), zap.String("\nHEX\n", string(hex.Dump(data))))
+	zap.L().Error("Received Application Packet", zap.Reflect("queueNum", cbData), zap.String("Address", fmt.Sprintf("%p", (cbData))), zap.String("\nHEX\n", string(hex.Dump(data))))
 	if err := cbData.(*privateData).t.processAppPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer); err != nil {
 		zap.L().Error("Received Application Error", zap.Error(err))
 	}
@@ -92,7 +94,7 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 }
 
 func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
-	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum))
+	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 	if err != nil {
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		err = t.processor.ProcessNetworkPacket(netPacket)
@@ -112,7 +114,7 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 }
 
 func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
-	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum))
+	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 	if err != nil {
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		err = t.processor.ProcessApplicationPacket(appPacket)
@@ -126,9 +128,11 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 		copyIndex := copy(buffer, appPacket.Buffer)
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
+		zap.L().Error("OUTPUT Packet ", zap.String("TUN", string(hex.Dump(buffer))))
 		writer.WriteSocket(buffer[:copyIndex])
 	}
 	return err
+
 }
 
 // startNetworkInterceptor will the process that processes  packets from the network
@@ -167,7 +171,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 			gid, _ = strconv.Atoi(user.Gid)
 		}
 		//mac address not required for tun as of now
-		if tun, err := tuntap.NewTun(maxNumQueues, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, networkQueueCallBack); err == nil {
+		if tun, err := tuntap.NewTun(255, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, networkQueueCallBack); err == nil {
 			t.tundeviceHdls[i] = tun
 			// Program Route in the tables
 			intf, err := net.InterfaceByName(deviceName)
@@ -176,26 +180,20 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 			}
 
 			//Start Queues here
-			for qIndex := 0; qIndex < maxNumQueues; qIndex++ {
+			for qIndex := 0; qIndex < 255; qIndex++ {
+				pData := &privateData{
+					t:        t,
+					queueNum: qIndex,
+				}
 				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress); err == nil {
-					go tun.StartQueue(i, &privateData{
-						t:        t,
-						queueNum: qIndex,
-						writer:   writer,
-					})
+					pData.writer = writer
+					go tun.StartQueue(qIndex, pData)
 					continue
 				}
+				//go rawloop(qIndex, tun, "network")
 
 			}
 
-			//Build Input TC batch command
-			// tcBatch, err := tcbatch.NewTCBatch(maxNumQueues, deviceName, 1, cgnetcls.Initialmarkval)
-			// if err != nil {
-			// 	zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
-			// }
-			// if err := tcBatch.BuildInputTCBatchCommand(); err != nil {
-			// 	zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
-			// }
 			route := &netlink.Route{
 				Table:     NetworkRuleTable,
 				Gw:        net.ParseIP(ipaddress),
@@ -259,6 +257,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 			if err = tcBatch.BuildOutputTCBatchCommand(); err != nil {
 				zap.L().Fatal("Unable to create queuing policy", zap.Error(err))
 			}
+			zap.L().Error("TC Command::" + tcBatch.String())
 			if err = tcBatch.Execute(); err != nil {
 				zap.L().Fatal("Unable to install queuing policy", zap.Error(err))
 			}
@@ -266,12 +265,15 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 			// StartQueue here afteer we have create device and setup tc queueing.
 			// Once we setup routes we can get traffic
 			for qIndex := 0; qIndex < maxNumQueues; qIndex++ {
+				//go rawloop(qIndex, tun, "application")
+				pData := &privateData{
+					t:        t,
+					queueNum: qIndex,
+				}
 				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress); err == nil {
-					go tun.StartQueue(i, &privateData{
-						t:        t,
-						queueNum: qIndex,
-						writer:   writer,
-					})
+					pData.writer = writer
+					zap.L().Error("Passing Private", zap.Int("QueueNum", qIndex), zap.String("Address", fmt.Sprintf("%p", pData)))
+					go tun.StartQueue(qIndex, pData)
 					continue
 				}
 				zap.L().Fatal("Cannot bring up write path for tun interface", zap.Error(err))

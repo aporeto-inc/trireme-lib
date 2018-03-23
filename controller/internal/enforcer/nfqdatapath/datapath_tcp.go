@@ -157,7 +157,7 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
-		zap.L().Error("AMIT :::: Received Application SYN Packet")
+		zap.L().Error("AMIT :::: Received Application SYN Packet", zap.String("MARK", p.Mark))
 		conn, err = d.appSynRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {

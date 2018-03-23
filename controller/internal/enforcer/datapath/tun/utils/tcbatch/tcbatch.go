@@ -12,9 +12,10 @@ import (
 )
 
 const (
-	qdisctemplate      = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{"\n"}}`
-	classtemplate      = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassId}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
-	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
+	qdisctemplate = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{"\n"}}`
+	classtemplate = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassId}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
+
+	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if gt .Fw 0}} handle {{.Fw}} fw {{else}} {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{end}}{{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
 	metafiltertemplate = `filter add dev {{.DeviceName}} parent {{.Parent}}: handle {{.FilterID}} basic match {{if .MetaMatch}} {{.ConvertMeta}} {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
 )
 
@@ -60,6 +61,7 @@ type FilterSkbAction struct {
 	MetaMatch  *Meta
 	Cgroup     bool
 	Prio       int
+	Fw         int
 	QueueID    string
 }
 
@@ -209,15 +211,26 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 		return fmt.Errorf("Received error %s while parsing qdisc", err)
 	}
 
-	filter := FilterSkbAction{
-		DeviceName: t.DeviceName,
-		Parent:     "1",
-		FilterID:   "1",
-		QueueID:    "0",
-		Prio:       -1,
-		Cgroup:     true,
+	filterlist := []FilterSkbAction{
+		{
+			DeviceName: t.DeviceName,
+			Parent:     "1",
+			FilterID:   "1",
+			QueueID:    "0",
+			Prio:       -1,
+			Cgroup:     true,
+		},
+		// {
+		// 	DeviceName: t.DeviceName,
+		// 	Parent:     "1",
+		// 	FilterID:   "1",
+		// 	QueueID:    "0",
+		// 	Prio:       -1,
+		// 	Cgroup:     false,
+		// 	Fw:         cgnetcls.Initialmarkval - 2,
+		// },
 	}
-	if err := t.Filters([]FilterSkbAction{filter}, filtertemplate); err != nil {
+	if err := t.Filters(filterlist, filtertemplate); err != nil {
 		return fmt.Errorf("Received error %s while parsing filters", err)
 	}
 
@@ -275,7 +288,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 		return fmt.Errorf("Received error %s while parsing filters", err)
 	}
 	//Default filter and action set to queue 0
-	filter = FilterSkbAction{
+	filter := FilterSkbAction{
 		DeviceName: t.DeviceName,
 		Parent:     strconv.Itoa(qdiscID),
 		FilterID:   strconv.Itoa(qdiscID),
@@ -302,18 +315,16 @@ func (t *tcBatch) Execute() error {
 			break
 		}
 
-		if path, err := exec.LookPath("tc"); err != nil {
-			return fmt.Errorf("Received error %s while trying to locate tc binary", err)
-
-		} else {
-
+		if path, err := exec.LookPath("tc"); err == nil {
 			params := strings.Fields(line)
 			//zap.L().Error("EXECUTING", zap.String("\nTCOMMAND\n", line))
 			cmd := exec.Command(path, params...)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("Error %s Executing Command %s", err, output)
 			}
+			continue
 		}
+		return fmt.Errorf("Received error %s while trying to locate tc binary", err)
 
 	}
 
