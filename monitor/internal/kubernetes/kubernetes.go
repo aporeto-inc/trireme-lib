@@ -82,6 +82,15 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 	zap.L().Debug("Pod Added", zap.String("name", addedPod.GetName()), zap.String("namespace", addedPod.GetNamespace()))
 
+	podEntry := m.cache.getOrCreatePodFromCache(addedPod.GetNamespace(), addedPod.GetName())
+	podEntry.Lock()
+	defer podEntry.Unlock()
+
+	podEntry.pod = addedPod
+	if podEntry.runtime != nil {
+		// Both runtime and Pods are here, activate
+	}
+
 	return nil
 }
 
