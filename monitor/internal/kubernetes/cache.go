@@ -38,9 +38,16 @@ func kubePodIdentifier(podName string, podNamespace string) string {
 	return podNamespace + "/" + podName
 }
 
-func (c *cache) getPodFromCache(podNamespace string, podName string) *podCacheEntry {
+// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) getOrCreatePodFromCache(podNamespace string, podName string) *podCacheEntry {
 	c.Lock()
 	defer c.Unlock()
+
 	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
-	return c.podCache[kubeIdentifier]
+	cacheEntry, ok := c.podCache[kubeIdentifier]
+	if !ok {
+		cacheEntry = &podCacheEntry{}
+		c.podCache[kubeIdentifier] = cacheEntry
+	}
+	return cacheEntry
 }
