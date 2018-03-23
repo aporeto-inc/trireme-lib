@@ -88,7 +88,8 @@ func getCEnvVariable(name string) string {
 }
 
 // setup an enforcer
-func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
+func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
+	var err error
 
 	if s.enforcer != nil {
 		return nil
@@ -114,7 +115,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) (err error) {
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
 	); err != nil || s.enforcer == nil {
-		return errors.New("unable to setup enforcer: we don't know as this function does not return an error")
+		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
 
 	return nil
@@ -145,6 +146,9 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			zap.Error(err),
 		)
 		resp.Status = fmt.Sprintf("Remote enforcer failed: unable to identify namespace: %s", err)
+		// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
+		// Could we get rid of status and just always return an error ?
+		//
 		// Dont return error to close RPC channel
 	}
 
@@ -155,6 +159,9 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 			zap.String("nsLogs", nsEnterLogMsg),
 		)
 		resp.Status = "not running in a namespace"
+		// TODO: resp.Status get overwritten at the end of this func. This is the only place where we don't return the status as error
+		// Could we get rid of status and just always return an error ?
+		//
 		// Dont return error to close RPC channel
 	}
 
@@ -172,17 +179,17 @@ func (s *RemoteEnforcer) InitEnforcer(req rpcwrapper.Request, resp *rpcwrapper.R
 
 	if err := s.setupEnforcer(req); err != nil {
 		resp.Status = err.Error()
-		return nil
+		return fmt.Errorf(resp.Status)
 	}
 
 	if err := s.enforcer.Run(s.ctx); err != nil {
 		resp.Status = err.Error()
-		return nil
+		return fmt.Errorf(resp.Status)
 	}
 
 	if err := s.statsClient.Run(s.ctx); err != nil {
 		resp.Status = err.Error()
-		return nil
+		return fmt.Errorf(resp.Status)
 	}
 
 	resp.Status = ""
@@ -263,7 +270,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 	err := s.supervisor.Supervise(payload.ContextID, puInfo)
 	if err != nil {
-		zap.L().Error("Unable to initialize supervisor",
+		zap.L().Error("unable to initialize supervisor",
 			zap.String("ContextID", payload.ContextID),
 			zap.Error(err),
 		)
@@ -324,7 +331,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 	}
 
 	if s.enforcer == nil {
-		resp.Status = "Enforcer not initialied - cannot enforce"
+		resp.Status = "enforcer not initialized - cannot enforce"
 		zap.L().Error(resp.Status)
 		return fmt.Errorf(resp.Status)
 	}

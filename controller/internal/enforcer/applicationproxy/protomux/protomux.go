@@ -45,12 +45,10 @@ func (p *ProtoListener) Accept() (net.Conn, error) {
 	if !ok {
 		return nil, fmt.Errorf("mux: listener closed")
 	}
-
 	// Mark the connection
 	if err := markedconn.MarkConnection(c, p.mark); err != nil {
 		return nil, err
 	}
-
 	return c, nil
 }
 
@@ -110,12 +108,6 @@ func (m *MultiplexedListener) UnregisterListener(ltype ListenerType) error {
 	m.Lock()
 	defer m.Unlock()
 
-	// for _, l := range m.servicemap {
-	// 	if l == ltype {
-	// 		return fmt.Errorf("Services using the listener")
-	// 	}
-	// }
-
 	delete(m.protomap, ltype)
 
 	return nil
@@ -174,6 +166,9 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 		close(m.done)
 		m.wg.Wait()
 
+		m.RLock()
+		defer m.RUnlock()
+
 		for _, l := range m.protomap {
 			close(l.connection)
 			// Drain the connections enqueued for the listener.
@@ -210,11 +205,19 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 	}
 
 	m.RLock()
-	entry := m.servicecache.Find(ip, port)
+	servicecache := m.servicecache
 	m.RUnlock()
+	entry := servicecache.Find(ip, port)
 	if entry == nil {
-		c.Close() // nolint
-		return
+		// Let's see if we can match the source address.
+		// Compatibility with deprecated model. TODO: Remove
+		ip = c.RemoteAddr().(*net.TCPAddr).IP
+		entry = servicecache.Find(ip, port)
+		if entry == nil {
+			// Failed with source as well.
+			c.Close() // nolint
+			return
+		}
 	}
 
 	ltype := entry.(ListenerType)

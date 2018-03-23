@@ -277,24 +277,37 @@ func (i *Instance) addContainerChain(appChain string, netChain string) error {
 }
 
 func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) error {
+	var err error
 	for _, cr := range rulelist {
-		switch methodType {
-		case "Append":
-			if err := i.ipt.Append(cr[0], cr[1], cr[2:]...); err != nil {
-				return fmt.Errorf("unable to %s rule for table %s and chain %s with error %s", methodType, cr[0], cr[1], err)
-			}
-		case "Insert":
-			if err := i.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err != nil {
-				return fmt.Errorf("unable to %s rule for table %s and chain %s with error %s", methodType, cr[0], cr[1], err)
-			}
-		case "Delete":
-			if err := i.ipt.Delete(cr[0], cr[1], cr[2:]...); err != nil {
+		// HACK: Adding a retry loop to avoid iptables error of "invalid argument"
+		// Once in a while iptables
+	L:
+		for retry := 0; retry < 3; retry++ {
+			switch methodType {
+			case "Append":
+				if err = i.ipt.Append(cr[0], cr[1], cr[2:]...); err == nil {
+					break L
+				}
+			case "Insert":
+				if err = i.ipt.Insert(cr[0], cr[1], 1, cr[2:]...); err == nil {
+					break L
+				}
+
+			case "Delete":
+				if err = i.ipt.Delete(cr[0], cr[1], cr[2:]...); err == nil {
+					break L
+				}
 				zap.L().Warn("Unable to delete rule from chain", zap.Error(err))
+
+			default:
+				return errors.New("invalid method type")
 			}
-		default:
-			return errors.New("invalid method type")
+		}
+		if err != nil && methodType != "Delete" {
+			return fmt.Errorf("unable to %s rule for table %s and chain %s with error %s", methodType, cr[0], cr[1], err)
 		}
 	}
+
 	return nil
 }
 

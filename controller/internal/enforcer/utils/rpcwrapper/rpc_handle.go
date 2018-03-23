@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 
@@ -20,7 +21,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/cnf/structhash"
+	"github.com/mitchellh/hashstructure"
 )
 
 // RPCHdl is a per client handle
@@ -103,7 +104,12 @@ func (r *RPCWrapper) RemoteCall(contextID string, methodName string, req *Reques
 	}
 
 	digest := hmac.New(sha256.New, []byte(rpcClient.Secret))
-	if _, err := digest.Write(structhash.Dump(req.Payload, 1)); err != nil {
+	hash, err := payloadHash(req.Payload)
+	if err != nil {
+		return err
+	}
+
+	if _, err := digest.Write(hash); err != nil {
 		return err
 	}
 
@@ -117,7 +123,12 @@ func (r *RPCWrapper) CheckValidity(req *Request, secret string) bool {
 
 	digest := hmac.New(sha256.New, []byte(secret))
 
-	if _, err := digest.Write(structhash.Dump(req.Payload, 1)); err != nil {
+	hash, err := payloadHash(req.Payload)
+	if err != nil {
+		return false
+	}
+
+	if _, err := digest.Write(hash); err != nil {
 		return false
 	}
 
@@ -149,7 +160,7 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 	// removing old path in case it exists already - error if we can't remove it
 	if _, err := os.Stat(path); err == nil {
 
-		zap.L().Warn("Socket path already exists: removing", zap.String("path", path))
+		zap.L().Debug("Socket path already exists: removing", zap.String("path", path))
 
 		if rerr := os.Remove(path); rerr != nil {
 			return fmt.Errorf("unable to delete existing socket path %s: %s", path, rerr)
@@ -221,6 +232,18 @@ func (r *RPCWrapper) ContextList() []string {
 func (r *RPCWrapper) ProcessMessage(req *Request, secret string) bool {
 
 	return r.CheckValidity(req, secret)
+}
+
+// payloadHash returns the has of the payload
+func payloadHash(payload interface{}) ([]byte, error) {
+	hash, err := hashstructure.Hash(payload, nil)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, hash)
+	return buf, nil
 }
 
 // RegisterTypes  registers types that are exchanged between the controller and remoteenforcer

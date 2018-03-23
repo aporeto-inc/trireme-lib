@@ -12,6 +12,7 @@ import (
 	"context"
 
 	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/docker/go-connections/nat"
 )
 
 // A RuntimeReader allows to get the specific parameters stored in the Runtime
@@ -40,6 +41,9 @@ type RuntimeReader interface {
 
 	// SetServices sets the services of the runtime.
 	SetServices(services []common.Service)
+
+	// PortMap returns portmap (container port -> host port)
+	PortMap() map[nat.Port][]string
 }
 
 // A Resolver must be implemnted by a policy engine that receives monitor events.

@@ -3,9 +3,9 @@ package policy
 import (
 	"testing"
 
-	. "github.com/smartystreets/goconvey/convey"
-
 	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/docker/go-connections/nat"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewPURunTime(t *testing.T) {
@@ -59,6 +59,8 @@ func TestBasicFunctions(t *testing.T) {
 
 		ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
 
+		portMap := map[nat.Port][]string{nat.Port("80"): []string{"8001", "8002"}}
+
 		runtime := NewPURuntime(
 			"container1",
 			123,
@@ -88,9 +90,14 @@ func TestBasicFunctions(t *testing.T) {
 			So(runtime.PUType(), ShouldEqual, common.LinuxProcessPU)
 		})
 
-		Convey("I should be able to set and ge the right options", func() {
+		Convey("I should be able to set and get the right options", func() {
 			runtime.SetOptions(OptionsType{CgroupName: "test"})
 			So(runtime.Options(), ShouldResemble, OptionsType{CgroupName: "test"})
+		})
+
+		Convey("I should be able to set portmap in options and get the right portmap", func() {
+			runtime.SetOptions(OptionsType{PortMap: portMap})
+			So(runtime.PortMap(), ShouldResemble, portMap)
 		})
 
 		Convey("I should ge the right name", func() {

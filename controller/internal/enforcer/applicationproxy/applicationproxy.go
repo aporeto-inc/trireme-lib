@@ -6,10 +6,15 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
+	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/http"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -66,8 +71,11 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		return nil, err
 	}
 
-	if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
-		return nil, fmt.Errorf("Cannot append ca chain")
+	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
+	if s.PublicSecrets().SecretsType() != secrets.PSKType {
+		if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
+			return nil, fmt.Errorf("error while adding provided CA")
+		}
 	}
 
 	return &AppProxy{
@@ -234,6 +242,40 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 
 	register := client.protomux.NewServiceRegistry()
 
+	// Support for deprecated model. TODO : Remove
+	proxiedServices := puInfo.Policy.ProxiedServices()
+	for _, pair := range proxiedServices.PublicIPPortPair {
+		service, err := serviceFromProxySet(pair)
+		if err != nil {
+			return err
+		}
+		if err := register.Add(service, protomux.TCPApplication); err != nil {
+			return fmt.Errorf("Cannot add service: %s", err)
+		}
+	}
+
+	for _, pair := range proxiedServices.PrivateIPPortPair {
+		parts := strings.Split(pair, ",")
+		if len(parts) != 2 {
+			return fmt.Errorf("Invalid service: %s", pair)
+		}
+		ports, err := portspec.NewPortSpecFromString(parts[1], nil)
+		if err != nil {
+			return fmt.Errorf("Invalid service port: %s", err)
+		}
+		service := &common.Service{
+			Ports:     ports,
+			Protocol:  6,
+			Addresses: []*net.IPNet{},
+		}
+		if err != nil {
+			return err
+		}
+		if err := register.Add(service, protomux.TCPNetwork); err != nil {
+			return fmt.Errorf("Cannot add service: %s", err)
+		}
+	}
+
 	// Register the ExposedServices with the multiplexer.
 	for _, service := range puInfo.Policy.ExposedServices() {
 		if err := register.Add(service.NetworkInfo, serviceTypeToNetworkListenerType(service.Type)); err != nil {
@@ -283,12 +325,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 // createNetworkListener starts a network listener (traffic from network to PUs)
 func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
 
-	addr, err := net.ResolveTCPAddr("tcp", port)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot resolve address: %s", err)
-	}
-
-	return net.ListenTCP("tcp", addr)
+	return markedconn.SocketListener(port)
 }
 
 // processCertificateUpdates processes the certificate information and updates
@@ -370,4 +407,26 @@ func buildCaches(services, dependentServices policy.ApplicationServicesList) (ma
 	}
 
 	return apicache, dependentCache, jwtcache
+}
+
+func serviceFromProxySet(pair string) (*common.Service, error) {
+	parts := strings.Split(pair, ",")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("Invalid service: %s", pair)
+	}
+
+	_, ip, err := net.ParseCIDR(parts[0] + "/32")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid service IP: %s", err)
+	}
+	ports, err := portspec.NewPortSpecFromString(parts[1], nil)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid service port: %s", err)
+	}
+
+	return &common.Service{
+		Ports:     ports,
+		Protocol:  6,
+		Addresses: []*net.IPNet{ip},
+	}, nil
 }
