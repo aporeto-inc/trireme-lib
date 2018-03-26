@@ -21,42 +21,43 @@ import (
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
 	zap.L().Debug("dockermonitor event", zap.String("puID", puID))
 
-	// Other events are irrelevant for the Kubernetes workflow
-	if event != common.EventStart && event != common.EventStop {
+	switch event {
+	case common.EventStart:
+		process, err := isPodInfraContainer(runtime)
+		if err != nil {
+			return fmt.Errorf("Error while processing Kubernetes pod %s", err)
+		}
+
+		if !process {
+			return nil
+		}
+
+		kubernetesRuntime, err := m.consolidateKubernetesTags(runtime)
+		if err != nil {
+			return fmt.Errorf("Error while processing Kubernetes pod %s", err)
+		}
+
+		podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
+		if !ok {
+			return fmt.Errorf("Error getting Kubernetes Pod name")
+		}
+		podNamespace, ok := runtime.Tag(KubernetesPodNamespaceIdentifier)
+		if !ok {
+			return fmt.Errorf("Error getting Kubernetes Pod namespace")
+		}
+
+		podEntry := m.cache.getOrCreatePodFromCache(podNamespace, podName)
+		podEntry.Lock()
+		defer podEntry.Unlock()
+
+		podEntry.runtime = kubernetesRuntime
+		if podEntry.pod != nil {
+			return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
+		}
+
+	case common.EventDestroy:
+	default:
+		// Other events are irrelevant for the Kubernetes workflow
 		return nil
 	}
-
-	process, err := isPodInfraContainer(runtime)
-	if err != nil {
-		return fmt.Errorf("Error while processing Kubernetes pod %s", err)
-	}
-
-	if !process {
-		return nil
-	}
-
-	kubernetesRuntime, err := m.consolidateKubernetesTags(runtime)
-	if err != nil {
-		return fmt.Errorf("Error while processing Kubernetes pod %s", err)
-	}
-
-	podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
-	if !ok {
-		return fmt.Errorf("Error getting Kubernetes Pod name")
-	}
-	podNamespace, ok := runtime.Tag(KubernetesPodNamespaceIdentifier)
-	if !ok {
-		return fmt.Errorf("Error getting Kubernetes Pod namespace")
-	}
-
-	podEntry := m.cache.getOrCreatePodFromCache(podNamespace, podName)
-	podEntry.Lock()
-	defer podEntry.Unlock()
-
-	podEntry.runtime = kubernetesRuntime
-	if podEntry.pod != nil {
-		// Both runtime and Pods are here, activate
-	}
-
-	return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
 }
