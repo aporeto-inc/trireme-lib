@@ -27,5 +27,23 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		return fmt.Errorf("Error while processing Kubernetes pod %s", err)
 	}
 
+	podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
+	if !ok {
+		return fmt.Errorf("Error getting Kubernetes Pod name")
+	}
+	podNamespace, ok := runtime.Tag(KubernetesPodNamespaceIdentifier)
+	if !ok {
+		return fmt.Errorf("Error getting Kubernetes Pod namespace")
+	}
+
+	podEntry := m.cache.getOrCreatePodFromCache(podNamespace, podName)
+	podEntry.Lock()
+	defer podEntry.Unlock()
+
+	podEntry.runtime = kubernetesRuntime
+	if podEntry.pod != nil {
+		// Both runtime and Pods are here, activate
+	}
+
 	return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
 }
