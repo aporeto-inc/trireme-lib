@@ -80,7 +80,7 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 }
 
 func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
-	zap.L().Debug("Pod Added", zap.String("name", addedPod.GetName()), zap.String("namespace", addedPod.GetNamespace()))
+	zap.L().Debug("pod added event", zap.String("name", addedPod.GetName()), zap.String("namespace", addedPod.GetNamespace()))
 
 	podEntry := m.cache.getOrCreatePodFromCache(addedPod.GetNamespace(), addedPod.GetName())
 	podEntry.Lock()
@@ -95,16 +95,16 @@ func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 }
 
 func (m *KubernetesMonitor) deletePod(deletedPod *api.Pod) error {
-	zap.L().Debug("Pod Deleted", zap.String("name", deletedPod.GetName()), zap.String("namespace", deletedPod.GetNamespace()))
+	zap.L().Debug("pod deleted event", zap.String("name", deletedPod.GetName()), zap.String("namespace", deletedPod.GetNamespace()))
 
 	return nil
 }
 
 func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
-	zap.L().Debug("Pod Modified detected", zap.String("name", updatedPod.GetName()), zap.String("namespace", updatedPod.GetNamespace()))
+	zap.L().Debug("pod modified event", zap.String("name", updatedPod.GetName()), zap.String("namespace", updatedPod.GetNamespace()))
 
 	if !isPolicyUpdateNeeded(oldPod, updatedPod) {
-		zap.L().Debug("No modified labels for Pod", zap.String("name", updatedPod.GetName()), zap.String("namespace", updatedPod.GetNamespace()))
+		zap.L().Debug("no modified labels for Pod", zap.String("name", updatedPod.GetName()), zap.String("namespace", updatedPod.GetNamespace()))
 		return nil
 	}
 

@@ -6,12 +6,25 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.uber.org/zap"
 )
+
+// General logic for handling logic fron the DockerMonitor ss the following:
+// The only interesting event is the Start and Die event. All the other events are ignored
+
+// Those events are then put together with the Pod events received from the Kubernetes API.
+// Once both are received and are consistent, the Pod get activated.
 
 // HandlePUEvent is called by all monitors when a PU event is generated. The implementer
 // is responsible to update all components by explicitly adding a new PU.
 // Specifically for Kubernetes, The monitor handles the downstream events from Docker.
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
+	zap.L().Debug("dockermonitor event", zap.String("puID", puID))
+
+	// Other events are irrelevant for the Kubernetes workflow
+	if event != common.EventStart && event != common.EventStop {
+		return nil
+	}
 
 	process, err := isPodInfraContainer(runtime)
 	if err != nil {
