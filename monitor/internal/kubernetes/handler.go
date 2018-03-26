@@ -32,11 +32,6 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 			return nil
 		}
 
-		kubernetesRuntime, err := m.consolidateKubernetesTags(runtime)
-		if err != nil {
-			return fmt.Errorf("Error while processing Kubernetes pod %s", err)
-		}
-
 		podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
 		if !ok {
 			return fmt.Errorf("Error getting Kubernetes Pod name")
@@ -50,14 +45,32 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		podEntry.Lock()
 		defer podEntry.Unlock()
 
-		podEntry.runtime = kubernetesRuntime
-		if podEntry.pod != nil {
-			return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
-		}
+		podEntry.runtime = runtime
+
+		return m.sendPodEvent(ctx, podEntry, puID, event)
 
 	case common.EventDestroy:
+		return nil
 	default:
 		// Other events are irrelevant for the Kubernetes workflow
 		return nil
 	}
+}
+
+// sendPodEvent sends the eveng to the policy resolver based on the podEntry cached.
+func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCacheEntry, puID string, event common.Event) error {
+	if podEntry.pod == nil {
+		return nil
+	}
+
+	if podEntry.runtime == nil {
+		return nil
+	}
+
+	kubernetesRuntime, err := m.consolidateKubernetesTags(podEntry.runtime)
+	if err != nil {
+		return fmt.Errorf("Error while processing Kubernetes pod %s", err)
+	}
+
+	return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
 }
