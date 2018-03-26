@@ -59,15 +59,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 
 // sendPodEvent sends the eveng to the policy resolver based on the podEntry cached.
 func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCacheEntry, puID string, event common.Event) error {
-	if podEntry.pod == nil {
-		return nil
-	}
-
-	if podEntry.runtime == nil {
-		return nil
-	}
-
-	kubernetesRuntime, err := m.consolidateKubernetesTags(podEntry.runtime)
+	kubernetesRuntime, err := m.consolidateKubernetesTags(podEntry.runtime, podEntry.pod)
 	if err != nil {
 		return fmt.Errorf("Error while processing Kubernetes pod %s", err)
 	}

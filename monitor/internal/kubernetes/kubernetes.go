@@ -29,20 +29,30 @@ const UpstreamNameIdentifier = "k8s:name"
 // UpstreamNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
 const UpstreamNamespaceIdentifier = "k8s:namespace"
 
-func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeReader) (*policy.PURuntime, error) {
+// consolidateKubernetesTags uses the Dockewr runtime and pod information in order to build a Kubernetes specific runtime
+func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, error) {
+	var err error
 
-	podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
-	if !ok {
-		return nil, fmt.Errorf("Error getting Kubernetes Pod name")
-	}
-	podNamespace, ok := runtime.Tag(KubernetesPodNamespaceIdentifier)
-	if !ok {
-		return nil, fmt.Errorf("Error getting Kubernetes Pod namespace")
+	if runtime == nil {
+		return nil, fmt.Errorf("empty runtime")
 	}
 
-	pod, err := m.kubernetesClient.Pod(podName, podNamespace)
-	if err != nil {
-		return nil, fmt.Errorf("Couldn't get labels for pod %s : %v", podName, err)
+	if pod == nil {
+		zap.L().Debug("no pod cached, querying Kubernetes API")
+
+		podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
+		if !ok {
+			return nil, fmt.Errorf("Error getting Kubernetes Pod name")
+		}
+		podNamespace, ok := runtime.Tag(KubernetesPodNamespaceIdentifier)
+		if !ok {
+			return nil, fmt.Errorf("Error getting Kubernetes Pod namespace")
+		}
+
+		pod, err = m.kubernetesClient.Pod(podName, podNamespace)
+		if err != nil {
+			return nil, fmt.Errorf("Couldn't get labels for pod %s : %v", podName, err)
+		}
 	}
 
 	// If IP is empty, wait for an UpdatePodEvent with the Actual PodIP. Not ready to be activated now.
@@ -60,11 +70,13 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 	if podLabels == nil {
 		return nil, nil
 	}
+
+	// TODO: Remove this before merging
 	fmt.Printf("\n\n Tags before: %v \n\n", runtime.Tags())
 
 	tags := policy.NewTagStoreFromMap(podLabels)
-	tags.AppendKeyValue(UpstreamNameIdentifier, podName)
-	tags.AppendKeyValue(UpstreamNamespaceIdentifier, podNamespace)
+	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
+	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
 
 	originalRuntime, ok := runtime.(*policy.PURuntime)
 	if !ok {
@@ -74,6 +86,7 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 	newRuntime := originalRuntime.Clone()
 	newRuntime.SetTags(tags)
 
+	// TODO: Remove this before merging
 	fmt.Printf("\n\n Tags after: %v \n\n", newRuntime.Tags())
 
 	return newRuntime, nil
@@ -82,14 +95,14 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 	zap.L().Debug("pod added event", zap.String("name", addedPod.GetName()), zap.String("namespace", addedPod.GetNamespace()))
 
+	// This event is not needed as the trigger is the  DockerMonitor event
+	// The pod obejct is cached in order to reuse it and avoid an API request possibly laster on
+
 	podEntry := m.cache.getOrCreatePodFromCache(addedPod.GetNamespace(), addedPod.GetName())
 	podEntry.Lock()
 	defer podEntry.Unlock()
 
 	podEntry.pod = addedPod
-	if podEntry.runtime != nil {
-		// Both runtime and Pods are here, activate
-	}
 
 	return nil
 }
