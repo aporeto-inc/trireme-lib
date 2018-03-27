@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -38,8 +39,9 @@ func TestCollectFlowEvent(t *testing.T) {
 					Type: collector.PU,
 					Port: 80,
 				},
-				Count: 0,
-				Tags:  policy.NewTagStore(),
+				Count:   0,
+				Tags:    policy.NewTagStore(),
+				L4Proto: packet.IPProtocolTCP,
 			}
 			c.CollectFlowEvent(r)
 
@@ -63,8 +65,9 @@ func TestCollectFlowEvent(t *testing.T) {
 						Type: collector.PU,
 						Port: 80,
 					},
-					Count: 10,
-					Tags:  policy.NewTagStore(),
+					Count:   10,
+					Tags:    policy.NewTagStore(),
+					L4Proto: packet.IPProtocolTCP,
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
@@ -88,8 +91,9 @@ func TestCollectFlowEvent(t *testing.T) {
 						Type: collector.PU,
 						Port: 80,
 					},
-					Count: 33,
-					Tags:  policy.NewTagStore(),
+					Count:   33,
+					Tags:    policy.NewTagStore(),
+					L4Proto: packet.IPProtocolTCP,
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
