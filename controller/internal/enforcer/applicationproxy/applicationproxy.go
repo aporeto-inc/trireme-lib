@@ -253,8 +253,10 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 			return fmt.Errorf("Cannot add Application service: %s", err)
 		}
 	}
-
+	fmt.Println("PrivateIP port pair", proxiedServices.PrivateIPPortPair)
 	for _, pair := range proxiedServices.PrivateIPPortPair {
+		zap.L().Info("Registering as Network service")
+		fmt.Println("PrivateIpPort pair: ", pair)
 		parts := strings.Split(pair, ",")
 		if len(parts) != 2 {
 			return fmt.Errorf("Invalid service: %s", pair)
@@ -271,7 +273,9 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		if err != nil {
 			return err
 		}
+		fmt.Println("Adding network service", service)
 		if err := register.Add(service, protomux.TCPNetwork); err != nil {
+			fmt.Println("Fail adding network service", service)
 			return fmt.Errorf("Cannot add Network service: %s", err)
 		}
 	}
