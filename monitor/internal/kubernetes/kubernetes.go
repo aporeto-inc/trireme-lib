@@ -1,8 +1,11 @@
 package kubernetesmonitor
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"github.com/aporeto-inc/trireme-lib/common"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -55,12 +58,9 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 		}
 	}
 
-	// If IP is empty, wait for an UpdatePodEvent with the Actual PodIP. Not ready to be activated now.
-	if pod.Status.PodIP == "" {
-		return nil, nil
-	}
 	// If Pod is running in the hostNS, no activation (not supported).
 	if pod.Status.PodIP == pod.Status.HostIP {
+		zap.L().Debug("pod running in host mode.")
 		if !m.EnableHostPods {
 			return nil, nil
 		}
@@ -68,6 +68,7 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 
 	podLabels := pod.GetLabels()
 	if podLabels == nil {
+		zap.L().Debug("couldn't get labels.")
 		return nil, nil
 	}
 
@@ -121,7 +122,13 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 		return nil
 	}
 
-	return nil
+	// This event requires sending the Runtime upstream again.
+	podEntry := m.cache.getOrCreatePodFromCache(updatedPod.GetNamespace(), updatedPod.GetName())
+	podEntry.Lock()
+	defer podEntry.Unlock()
+
+	podEntry.pod = updatedPod
+	return m.sendPodEvent(context.TODO(), podEntry, common.EventUpdate)
 }
 
 func isPolicyUpdateNeeded(oldPod, newPod *api.Pod) bool {

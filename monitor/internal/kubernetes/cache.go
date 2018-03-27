@@ -8,7 +8,7 @@ import (
 )
 
 type podCacheEntry struct {
-	contextID string
+	puID string
 	// The latest reference to the runtime as received from DockerMonitor
 	runtime policy.RuntimeReader
 	// The latest known reference to the pod received from Kubernetes API
