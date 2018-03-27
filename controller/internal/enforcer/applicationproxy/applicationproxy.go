@@ -250,7 +250,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 			return err
 		}
 		if err := register.Add(service, protomux.TCPApplication); err != nil {
-			return fmt.Errorf("Cannot add service: %s", err)
+			return fmt.Errorf("Cannot add Application service: %s", err)
 		}
 	}
 
@@ -272,7 +272,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 			return err
 		}
 		if err := register.Add(service, protomux.TCPNetwork); err != nil {
-			return fmt.Errorf("Cannot add service: %s", err)
+			return fmt.Errorf("Cannot add Network service: %s", err)
 		}
 	}
 

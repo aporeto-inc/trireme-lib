@@ -32,7 +32,7 @@ func NewTable() *ServiceCache {
 func (s *ServiceCache) Add(e *common.Service, data interface{}) error {
 	s.Lock()
 	defer s.Unlock()
-
+	fmt.Printf("Adding Service %#v to service cache", e)
 	// If addresses are nil, I only care about ports.
 	if len(e.Addresses) == 0 {
 		_, ip, _ := net.ParseCIDR("0.0.0.0/0")
@@ -48,7 +48,12 @@ func (s *ServiceCache) Add(e *common.Service, data interface{}) error {
 		if _, ok := s.prefixes[len][binPrefix]; !ok {
 			s.prefixes[len][binPrefix] = []*entry{}
 		}
+		fmt.Printf("service cache so far %#v", s.prefixes[len][binPrefix])
+		fmt.Println("")
 		for _, spec := range s.prefixes[len][binPrefix] {
+			fmt.Println()
+			fmt.Printf("Spec (current) ports %#v eports (next) %#v", spec.ports, e.Ports)
+			fmt.Println()
 			if spec.ports.Overlaps(e.Ports) {
 				return fmt.Errorf("Service port overlap for a given IP not allowed")
 			}
