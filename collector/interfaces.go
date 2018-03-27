@@ -106,10 +106,10 @@ type FlowRecord struct {
 	Tags             *policy.TagStore
 	Action           policy.ActionType
 	ObservedAction   policy.ActionType
+	L4Proto          uint8
 	DropReason       string
 	PolicyID         string
 	ObservedPolicyID string
-	L4Proto          uint8
 }
 
 func (f *FlowRecord) String() string {
