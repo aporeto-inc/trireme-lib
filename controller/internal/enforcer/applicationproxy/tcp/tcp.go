@@ -22,6 +22,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
+	Packet "github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -466,6 +467,7 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 		Action:     report.Action,
 		DropReason: mode,
 		PolicyID:   report.PolicyID,
+		L4Proto:    Packet.IPProtocolTCP,
 	}
 
 	if report.ObserveAction.Observed() {
