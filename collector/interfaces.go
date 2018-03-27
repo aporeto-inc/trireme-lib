@@ -103,13 +103,13 @@ type FlowRecord struct {
 	Count            int
 	Source           *EndPoint
 	Destination      *EndPoint
-	L4Proto          uint8
 	Tags             *policy.TagStore
 	Action           policy.ActionType
 	ObservedAction   policy.ActionType
 	DropReason       string
 	PolicyID         string
 	ObservedPolicyID string
+	L4Proto          uint8
 }
 
 func (f *FlowRecord) String() string {
