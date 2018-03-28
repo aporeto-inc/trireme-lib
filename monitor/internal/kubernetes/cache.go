@@ -34,7 +34,8 @@ type cache struct {
 // NewCache initialize a cache
 func newCache() *cache {
 	return &cache{
-		podCache: map[string]*podCacheEntry{},
+		podCache:  map[string]*podCacheEntry{},
+		puidCache: map[string]string{},
 	}
 }
 
@@ -42,8 +43,8 @@ func kubePodIdentifier(podName string, podNamespace string) string {
 	return podNamespace + "/" + podName
 }
 
-// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
-func (c *cache) getOrCreatePodByKube(podNamespace string, podName string) *podCacheEntry {
+// createPodEntry locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) createPodEntry(podNamespace string, podName string, puID string, runtime policy.RuntimeReader) *podCacheEntry {
 	c.Lock()
 	defer c.Unlock()
 
@@ -53,7 +54,31 @@ func (c *cache) getOrCreatePodByKube(podNamespace string, podName string) *podCa
 		cacheEntry = &podCacheEntry{}
 		c.podCache[kubeIdentifier] = cacheEntry
 	}
+	cacheEntry.puID = puID
+	cacheEntry.runtime = runtime
+
+	c.puidCache[puID] = kubeIdentifier
+
 	return cacheEntry
+}
+
+func (c *cache) updatePodEntry(podNamespace string, podName string, pod *api.Pod) (*podCacheEntry, error) {
+	c.Lock()
+	defer c.Unlock()
+
+	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
+	cacheEntry, ok := c.podCache[kubeIdentifier]
+	if !ok {
+		cacheEntry = &podCacheEntry{}
+		c.podCache[kubeIdentifier] = cacheEntry
+	}
+
+	cacheEntry.Lock()
+	defer cacheEntry.Unlock()
+
+	cacheEntry.pod = pod
+
+	return cacheEntry, nil
 }
 
 // getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found

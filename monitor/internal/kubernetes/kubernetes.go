@@ -99,11 +99,10 @@ func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 	// This event is not needed as the trigger is the  DockerMonitor event
 	// The pod obejct is cached in order to reuse it and avoid an API request possibly laster on
 
-	podEntry := m.cache.getOrCreatePodByKube(addedPod.GetNamespace(), addedPod.GetName())
-	podEntry.Lock()
-	defer podEntry.Unlock()
-
-	podEntry.pod = addedPod
+	_, err := m.cache.updatePodEntry(addedPod.GetNamespace(), addedPod.GetName(), addedPod)
+	if err != nil {
+		return fmt.Errorf("error updating cache entry %s", err)
+	}
 
 	return nil
 }
@@ -123,11 +122,10 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 	}
 
 	// This event requires sending the Runtime upstream again.
-	podEntry := m.cache.getOrCreatePodByKube(updatedPod.GetNamespace(), updatedPod.GetName())
-	podEntry.Lock()
-	defer podEntry.Unlock()
-
-	podEntry.pod = updatedPod
+	podEntry, err := m.cache.updatePodEntry(updatedPod.GetNamespace(), updatedPod.GetName(), updatedPod)
+	if err != nil {
+		return fmt.Errorf("error updating cache entry %s", err)
+	}
 
 	return m.sendPodEvent(context.TODO(), podEntry, common.EventUpdate)
 }

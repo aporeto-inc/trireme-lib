@@ -41,12 +41,9 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 			return fmt.Errorf("Error getting Kubernetes Pod namespace")
 		}
 
-		podEntry := m.cache.getOrCreatePodByKube(podNamespace, podName)
+		podEntry := m.cache.createPodEntry(podNamespace, podName, puID, runtime)
 		podEntry.Lock()
 		defer podEntry.Unlock()
-
-		podEntry.puID = puID
-		podEntry.runtime = runtime
 
 		return m.sendPodEvent(ctx, podEntry, event)
 
