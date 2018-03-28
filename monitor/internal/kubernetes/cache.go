@@ -1,6 +1,7 @@
 package kubernetesmonitor
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -20,8 +21,11 @@ type podCacheEntry struct {
 
 // Cache keeps all the state needed for the integration.
 type cache struct {
-	// contextIDCache keeps a mapping between a POD/Namespace name and the corresponding contextID from Trireme.
+	// podCache keeps a mapping between a POD/Namespace name and the corresponding podCacheEntry.
 	podCache map[string]*podCacheEntry
+
+	// popuidCache keeps a mapping between a PUID and the Kubernetes key
+	puidCache map[string]string
 
 	// Lock for the whole cache
 	sync.RWMutex
@@ -39,7 +43,7 @@ func kubePodIdentifier(podName string, podNamespace string) string {
 }
 
 // getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
-func (c *cache) getOrCreatePodFromCache(podNamespace string, podName string) *podCacheEntry {
+func (c *cache) getOrCreatePodByKube(podNamespace string, podName string) *podCacheEntry {
 	c.Lock()
 	defer c.Unlock()
 
@@ -50,4 +54,54 @@ func (c *cache) getOrCreatePodFromCache(podNamespace string, podName string) *po
 		c.podCache[kubeIdentifier] = cacheEntry
 	}
 	return cacheEntry
+}
+
+// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) getPodByPUID(puid string) (*podCacheEntry, error) {
+	c.Lock()
+	defer c.Unlock()
+
+	kubeIdentifier, ok := c.puidCache[puid]
+	if !ok {
+		return nil, fmt.Errorf("puid not found in cache")
+	}
+	cacheEntry, ok := c.podCache[kubeIdentifier]
+	if !ok {
+		return nil, fmt.Errorf("inconsistent cache, pod not found")
+	}
+	return cacheEntry, nil
+}
+
+// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) deletePodByKube(podNamespace string, podName string) error {
+	c.Lock()
+	defer c.Unlock()
+
+	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
+
+	cacheEntry, ok := c.podCache[kubeIdentifier]
+	if !ok {
+		return fmt.Errorf("pod not found in cache")
+	}
+
+	delete(c.puidCache, cacheEntry.puID)
+	delete(c.podCache, kubeIdentifier)
+
+	return nil
+}
+
+// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) deletePodByPUID(puid string) error {
+	c.Lock()
+	defer c.Unlock()
+
+	kubeIdentifier, ok := c.puidCache[puid]
+	if !ok {
+		return fmt.Errorf("puid not found in cache")
+	}
+
+	delete(c.podCache, kubeIdentifier)
+	delete(c.puidCache, puid)
+
+	return nil
 }

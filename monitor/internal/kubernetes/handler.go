@@ -19,7 +19,7 @@ import (
 // is responsible to update all components by explicitly adding a new PU.
 // Specifically for Kubernetes, The monitor handles the downstream events from Docker.
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
-	zap.L().Debug("dockermonitor event", zap.String("puID", puID))
+	zap.L().Debug("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
 
 	switch event {
 	case common.EventStart:
@@ -41,7 +41,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 			return fmt.Errorf("Error getting Kubernetes Pod namespace")
 		}
 
-		podEntry := m.cache.getOrCreatePodFromCache(podNamespace, podName)
+		podEntry := m.cache.getOrCreatePodByKube(podNamespace, podName)
 		podEntry.Lock()
 		defer podEntry.Unlock()
 
@@ -51,7 +51,18 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		return m.sendPodEvent(ctx, podEntry, event)
 
 	case common.EventDestroy:
-		return nil
+		podEntry, err := m.cache.getPodByPUID(puID)
+		if err != nil {
+			// If the pod is not found in the cache, we issue a warning.
+			zap.L().Warn("error managing delete event. Not found in cache", zap.String("puID", puID), zap.String("eventType", string(event)), zap.Error(err))
+			return nil
+		}
+
+		podEntry.Lock()
+		defer podEntry.Unlock()
+
+		return m.sendPodEvent(ctx, podEntry, event)
+
 	default:
 		// Other events are irrelevant for the Kubernetes workflow
 		return nil
@@ -61,7 +72,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 // sendPodEvent sends the eveng to the policy resolver based on the podEntry cached.
 func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCacheEntry, event common.Event) error {
 	if podEntry.puID == "" {
-		return fmt.Errorf("puID not set yet, container not seen yet")
+		return fmt.Errorf("puID not set yet, container not seen from docker yet")
 	}
 
 	kubernetesRuntime, err := m.consolidateKubernetesTags(podEntry.runtime, podEntry.pod)

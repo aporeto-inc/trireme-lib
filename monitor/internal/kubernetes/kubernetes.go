@@ -59,12 +59,12 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 	}
 
 	// If Pod is running in the hostNS, no activation (not supported).
-	if pod.Status.PodIP == pod.Status.HostIP {
-		zap.L().Debug("pod running in host mode.")
-		if !m.EnableHostPods {
-			return nil, nil
-		}
-	}
+	// if pod.Status.PodIP == pod.Status.HostIP {
+	// 	zap.L().Debug("pod running in host mode.")
+	// 	if !m.EnableHostPods {
+	// 		return nil, nil
+	// 	}
+	// }
 
 	podLabels := pod.GetLabels()
 	if podLabels == nil {
@@ -99,7 +99,7 @@ func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 	// This event is not needed as the trigger is the  DockerMonitor event
 	// The pod obejct is cached in order to reuse it and avoid an API request possibly laster on
 
-	podEntry := m.cache.getOrCreatePodFromCache(addedPod.GetNamespace(), addedPod.GetName())
+	podEntry := m.cache.getOrCreatePodByKube(addedPod.GetNamespace(), addedPod.GetName())
 	podEntry.Lock()
 	defer podEntry.Unlock()
 
@@ -123,11 +123,12 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 	}
 
 	// This event requires sending the Runtime upstream again.
-	podEntry := m.cache.getOrCreatePodFromCache(updatedPod.GetNamespace(), updatedPod.GetName())
+	podEntry := m.cache.getOrCreatePodByKube(updatedPod.GetNamespace(), updatedPod.GetName())
 	podEntry.Lock()
 	defer podEntry.Unlock()
 
 	podEntry.pod = updatedPod
+
 	return m.sendPodEvent(context.TODO(), podEntry, common.EventUpdate)
 }
 
