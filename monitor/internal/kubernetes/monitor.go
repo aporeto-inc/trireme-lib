@@ -36,9 +36,7 @@ type KubernetesMonitor struct {
 // New returns a new kubernetes monitor.
 func New() *KubernetesMonitor {
 	kubeMonitor := &KubernetesMonitor{}
-	kubeMonitor.cache = &cache{
-		podCache: map[string]*podCacheEntry{},
-	}
+	kubeMonitor.cache = newCache()
 
 	return kubeMonitor
 }
