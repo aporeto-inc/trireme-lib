@@ -252,8 +252,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		Source: &collector.EndPoint{
 			Type: collector.PU,
 		},
-		Action:  policy.Reject,
-		L4Proto: packet.IPProtocolTCP,
+		Action:     policy.Reject,
+		L4Protocol: packet.IPProtocolTCP,
 	}
 	defer p.collector.CollectFlowEvent(record)
 

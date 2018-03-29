@@ -467,7 +467,7 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 		Action:     report.Action,
 		DropReason: mode,
 		PolicyID:   report.PolicyID,
-		L4Proto:    Packet.IPProtocolTCP,
+		L4Protocol: Packet.IPProtocolTCP,
 	}
 
 	if report.ObserveAction.Observed() {

@@ -103,7 +103,7 @@ type FlowRecord struct {
 	Count            int
 	Source           *EndPoint
 	Destination      *EndPoint
-	L4Proto          uint8
+	L4Protocol       uint8
 	Tags             *policy.TagStore
 	Action           policy.ActionType
 	ObservedAction   policy.ActionType

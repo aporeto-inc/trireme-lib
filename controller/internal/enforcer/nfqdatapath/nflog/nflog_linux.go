@@ -111,10 +111,10 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 			IP:   buf.DstIP.String(),
 			Port: uint16(buf.DstPort),
 		},
-		PolicyID: policyID,
-		Tags:     tags,
-		Action:   action,
-		L4Proto:  packet.IPProtocolUDP,
+		PolicyID:   policyID,
+		Tags:       tags,
+		Action:     action,
+		L4Protocol: packet.IPProtocolUDP,
 	}
 
 	if action.Observed() {

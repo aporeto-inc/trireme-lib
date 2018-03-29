@@ -360,7 +360,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnec
 		Action:     report.Action,
 		DropReason: mode,
 		PolicyID:   report.PolicyID,
-		L4Proto:    p.IPProto,
+		L4Protocol: p.IPProto,
 	}
 
 	if report.ObserveAction.Observed() {
