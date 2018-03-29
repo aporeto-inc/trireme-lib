@@ -135,7 +135,7 @@ func (mr *MockCollectorMockRecorder) Count() *gomock.Call {
 
 // GetAllRecords mocks base method
 // nolint
-func (m *MockCollector) GetAllRecords() map[string]*collector.}}} {
+func (m *MockCollector) GetAllRecords() map[string]*collector.FlowRecord {
 	ret := m.ctrl.Call(m, "GetAllRecords")
 	ret0, _ := ret[0].(map[string]*collector.FlowRecord)
 	return ret0
