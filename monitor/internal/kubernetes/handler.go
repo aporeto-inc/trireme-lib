@@ -72,6 +72,7 @@ func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCache
 		return fmt.Errorf("puID not set yet, container not seen from docker yet")
 	}
 
+	// TODO: Also keep the KubernetesRuntime in cache ? Probably not needed to calculate the consolidatedTags every single time.
 	kubernetesRuntime, err := m.consolidateKubernetesTags(podEntry.runtime, podEntry.pod)
 	if err != nil {
 		return fmt.Errorf("error while processing Kubernetes pod for container %s %s", podEntry.puID, err)

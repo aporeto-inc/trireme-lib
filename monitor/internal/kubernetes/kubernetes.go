@@ -72,9 +72,6 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 		return nil, nil
 	}
 
-	// TODO: Remove this before merging
-	fmt.Printf("\n\n Tags before: %v \n\n", runtime.Tags())
-
 	tags := policy.NewTagStoreFromMap(podLabels)
 	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
 	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
@@ -87,8 +84,7 @@ func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeRead
 	newRuntime := originalRuntime.Clone()
 	newRuntime.SetTags(tags)
 
-	// TODO: Remove this before merging
-	fmt.Printf("\n\n Tags after: %v \n\n", newRuntime.Tags())
+	zap.L().Debug("kubernetes runtime tags", zap.String("name", pod.GetName()), zap.String("namespace", pod.GetNamespace()), zap.Strings("tags", newRuntime.Tags().GetSlice()))
 
 	return newRuntime, nil
 }
