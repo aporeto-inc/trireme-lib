@@ -39,10 +39,9 @@ func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFo
 
 	if console := os.Getenv(constants.EnvLogToConsole); console == constants.EnvLogToConsoleEnable {
 		logToConsole = true
-	} else if logID = os.Getenv(constants.EnvLogID); logID == "" {
-		logToConsole = true
 	}
 
+	logID = os.Getenv(constants.EnvLogID)
 	return
 }
 
