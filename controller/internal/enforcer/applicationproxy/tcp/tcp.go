@@ -22,7 +22,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
-	Packet "github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
@@ -448,7 +448,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	}
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, reportAction *policy.FlowPolicy, packetAction *policy.FlowPolicy) {
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
 		Source: &collector.EndPoint{
@@ -464,15 +464,15 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 			Type: collector.PU,
 		},
 		Tags:       context.Annotations(),
-		Action:     report.Action,
+		Action:     reportAction.Action,
 		DropReason: mode,
-		PolicyID:   report.PolicyID,
-		L4Protocol: Packet.IPProtocolTCP,
+		PolicyID:   reportAction.PolicyID,
+		L4Protocol: packet.IPProtocolTCP,
 	}
 
-	if report.ObserveAction.Observed() {
-		c.ObservedAction = packet.Action
-		c.ObservedPolicyID = packet.PolicyID
+	if reportAction.ObserveAction.Observed() {
+		c.ObservedAction = packetAction.Action
+		c.ObservedPolicyID = packetAction.PolicyID
 	}
 
 	p.collector.CollectFlowEvent(c)
