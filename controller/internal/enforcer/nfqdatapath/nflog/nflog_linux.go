@@ -10,6 +10,7 @@ import (
 
 	"github.com/aporeto-inc/netlink-go/nflog"
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 
 	"go.uber.org/zap"
@@ -110,9 +111,10 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 			IP:   buf.DstIP.String(),
 			Port: uint16(buf.DstPort),
 		},
-		PolicyID: policyID,
-		Tags:     tags,
-		Action:   action,
+		PolicyID:   policyID,
+		Tags:       tags,
+		Action:     action,
+		L4Protocol: packet.IPProtocolUDP,
 	}
 
 	if action.Observed() {

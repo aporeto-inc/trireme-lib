@@ -18,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
@@ -251,7 +252,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		Source: &collector.EndPoint{
 			Type: collector.PU,
 		},
-		Action: policy.Reject,
+		Action:     policy.Reject,
+		L4Protocol: packet.IPProtocolTCP,
 	}
 	defer p.collector.CollectFlowEvent(record)
 
