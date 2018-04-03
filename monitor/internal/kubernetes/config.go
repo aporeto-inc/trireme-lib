@@ -10,9 +10,9 @@ type Config struct {
 	DockerConfig dockerMonitor.Config
 
 	EventMetadataExtractor extractors.KubernetesMetadataExtractorType
-	EnableHostPods         bool
 	Kubeconfig             string
 	Nodename               string
+	EnableHostPods         bool
 }
 
 // DefaultConfig provides a default configuration
