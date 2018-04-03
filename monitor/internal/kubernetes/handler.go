@@ -23,14 +23,6 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 
 	switch event {
 	case common.EventStart:
-		process, err := isPodInfraContainer(runtime)
-		if err != nil {
-			return fmt.Errorf("Error while processing Kubernetes pod %s", err)
-		}
-
-		if !process {
-			return nil
-		}
 
 		podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
 		if !ok {
@@ -78,7 +70,23 @@ func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCache
 
 	// In case the pod is not there yet, we query Kubernetes API manually.
 	if podEntry.pod == nil {
+		zap.L().Debug("no pod cached, querying Kubernetes API")
 
+		podName, ok := podEntry.runtime.Tag(KubernetesPodNameIdentifier)
+		if !ok {
+			return fmt.Errorf("Error getting Kubernetes Pod name")
+		}
+		podNamespace, ok := podEntry.runtime.Tag(KubernetesPodNamespaceIdentifier)
+		if !ok {
+			return fmt.Errorf("Error getting Kubernetes Pod namespace")
+		}
+
+		pod, err := m.kubernetesClient.Pod(podName, podNamespace)
+		if err != nil {
+			return fmt.Errorf("Couldn't get labels for pod %s : %s", podName, err)
+		}
+
+		podEntry.pod = pod
 	}
 
 	// TODO: Also keep the KubernetesRuntime in cache ? Probably not needed to calculate the consolidatedTags every single time.
@@ -87,6 +95,7 @@ func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCache
 		return fmt.Errorf("error while processing Kubernetes pod for container %s %s", podEntry.puID, err)
 	}
 
+	// We only manage containers marked so from the metadata extractor
 	if !managedContainer {
 		return nil
 	}
