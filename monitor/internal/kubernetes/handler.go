@@ -72,10 +72,23 @@ func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCache
 		return fmt.Errorf("puID not set yet, container not seen from docker yet")
 	}
 
+	if podEntry.runtime == nil {
+		return fmt.Errorf("runtime not set for podEntry")
+	}
+
+	// In case the pod is not there yet, we query Kubernetes API manually.
+	if podEntry.pod == nil {
+
+	}
+
 	// TODO: Also keep the KubernetesRuntime in cache ? Probably not needed to calculate the consolidatedTags every single time.
-	kubernetesRuntime, err := m.consolidateKubernetesTags(podEntry.runtime, podEntry.pod)
+	kubernetesRuntime, managedContainer, err := m.metadataExtractor(podEntry.runtime, podEntry.pod)
 	if err != nil {
 		return fmt.Errorf("error while processing Kubernetes pod for container %s %s", podEntry.puID, err)
+	}
+
+	if !managedContainer {
+		return nil
 	}
 
 	return m.handlers.Policy.HandlePUEvent(ctx, podEntry.puID, event, kubernetesRuntime)

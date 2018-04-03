@@ -8,6 +8,7 @@ import (
 	kubecache "k8s.io/client-go/tools/cache"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
+	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
@@ -21,10 +22,11 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type KubernetesMonitor struct {
-	dockerMonitor    *dockermonitor.DockerMonitor
-	kubernetesClient *kubernetesclient.Client
-	handlers         *config.ProcessorConfig
-	cache            *cache
+	dockerMonitor     *dockermonitor.DockerMonitor
+	kubernetesClient  *kubernetesclient.Client
+	handlers          *config.ProcessorConfig
+	cache             *cache
+	metadataExtractor extractors.KubernetesMetadataExtractorType
 
 	podStore          kubecache.Store
 	podController     kubecache.Controller

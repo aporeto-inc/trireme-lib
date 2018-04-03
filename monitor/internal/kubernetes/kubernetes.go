@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-
 	"github.com/aporeto-inc/trireme-lib/policy"
+
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -134,17 +134,6 @@ func isPolicyUpdateNeeded(oldPod, newPod *api.Pod) bool {
 		return true
 	}
 	return false
-}
-
-// isPodInfraContainer returns true if the runtime represents the infra container for the POD
-func isPodInfraContainer(runtime policy.RuntimeReader) (bool, error) {
-	// The Infra container can be found by checking env. variable.
-	tagContent, ok := runtime.Tag(KubernetesContainerNameIdentifier)
-	if !ok || tagContent != KubernetesInfraContainerName {
-		return false, nil
-	}
-
-	return true, nil
 }
 
 // hasSynced sends an event on the Sync chan when the attachedController finished syncing.
