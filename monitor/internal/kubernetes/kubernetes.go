@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/policy"
 
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
@@ -31,63 +30,6 @@ const UpstreamNameIdentifier = "k8s:name"
 
 // UpstreamNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
 const UpstreamNamespaceIdentifier = "k8s:namespace"
-
-// consolidateKubernetesTags uses the Dockewr runtime and pod information in order to build a Kubernetes specific runtime
-func (m *KubernetesMonitor) consolidateKubernetesTags(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, error) {
-	var err error
-
-	if runtime == nil {
-		return nil, fmt.Errorf("empty runtime")
-	}
-
-	if pod == nil {
-		zap.L().Debug("no pod cached, querying Kubernetes API")
-
-		podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
-		if !ok {
-			return nil, fmt.Errorf("Error getting Kubernetes Pod name")
-		}
-		podNamespace, ok := runtime.Tag(KubernetesPodNamespaceIdentifier)
-		if !ok {
-			return nil, fmt.Errorf("Error getting Kubernetes Pod namespace")
-		}
-
-		pod, err = m.kubernetesClient.Pod(podName, podNamespace)
-		if err != nil {
-			return nil, fmt.Errorf("Couldn't get labels for pod %s : %v", podName, err)
-		}
-	}
-
-	// If Pod is running in the hostNS, no activation (not supported).
-	// if pod.Status.PodIP == pod.Status.HostIP {
-	// 	zap.L().Debug("pod running in host mode.")
-	// 	if !m.EnableHostPods {
-	// 		return nil, nil
-	// 	}
-	// }
-
-	podLabels := pod.GetLabels()
-	if podLabels == nil {
-		zap.L().Debug("couldn't get labels.")
-		return nil, nil
-	}
-
-	tags := policy.NewTagStoreFromMap(podLabels)
-	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
-	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
-
-	originalRuntime, ok := runtime.(*policy.PURuntime)
-	if !ok {
-		return nil, fmt.Errorf("Error casting puruntime")
-	}
-
-	newRuntime := originalRuntime.Clone()
-	newRuntime.SetTags(tags)
-
-	zap.L().Debug("kubernetes runtime tags", zap.String("name", pod.GetName()), zap.String("namespace", pod.GetNamespace()), zap.Strings("tags", newRuntime.Tags().GetSlice()))
-
-	return newRuntime, nil
-}
 
 func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 	zap.L().Debug("pod added event", zap.String("name", addedPod.GetName()), zap.String("namespace", addedPod.GetNamespace()))

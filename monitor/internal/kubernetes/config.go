@@ -1,22 +1,27 @@
 package kubernetesmonitor
 
-import dockerMonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+import (
+	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
+	dockerMonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+)
 
 // Config is the config for the Kubernetes monitor
 type Config struct {
 	DockerConfig dockerMonitor.Config
 
-	EnableHostPods bool
-	Kubeconfig     string
-	Nodename       string
+	EventMetadataExtraxtor extractors.KubernetesMetadataExtractorType
+	EnableHostPods         bool
+	Kubeconfig             string
+	Nodename               string
 }
 
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		EnableHostPods: false,
-		Kubeconfig:     "",
-		Nodename:       "",
+		EventMetadataExtraxtor: extractors.DefaultKubernetesMetadataExtractor,
+		EnableHostPods:         false,
+		Kubeconfig:             "",
+		Nodename:               "",
 	}
 }
 

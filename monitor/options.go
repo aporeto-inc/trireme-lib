@@ -178,10 +178,17 @@ func SubOptionMonitorKubernetesNodename(nodename string) KubernetesMonitorOption
 	}
 }
 
-// SubOptionMonitorKubernetesNodename provides a way to specify if we want to activate Pods launched in host mode.
+// SubOptionMonitorKubernetesHostPod provides a way to specify if we want to activate Pods launched in host mode.
 func SubOptionMonitorKubernetesHostPod(enableHostPods bool) KubernetesMonitorOption {
 	return func(cfg *kubernetesmonitor.Config) {
 		cfg.EnableHostPods = enableHostPods
+	}
+}
+
+// SubOptionMonitorKubernetesExtractor provides a way to specify metadata extractor for docker.
+func SubOptionMonitorKubernetesExtractor(extractor extractors.KubernetesMetadataExtractorType) KubernetesMonitorOption {
+	return func(cfg *kubernetesmonitor.Config) {
+		cfg.EventMetadataExtractor = extractor
 	}
 }
 
