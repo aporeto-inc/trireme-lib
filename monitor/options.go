@@ -185,10 +185,17 @@ func SubOptionMonitorKubernetesHostPod(enableHostPods bool) KubernetesMonitorOpt
 	}
 }
 
-// SubOptionMonitorKubernetesExtractor provides a way to specify metadata extractor for docker.
+// SubOptionMonitorKubernetesExtractor provides a way to specify metadata extractor for Kubernetes
 func SubOptionMonitorKubernetesExtractor(extractor extractors.KubernetesMetadataExtractorType) KubernetesMonitorOption {
 	return func(cfg *kubernetesmonitor.Config) {
-		cfg.EventMetadataExtractor = extractor
+		cfg.KubernetesExtractor = extractor
+	}
+}
+
+// SubOptionMonitorKubernetesExtractorForDocker provides a way to specify metadata extractor for docker.
+func SubOptionMonitorKubernetesExtractorForDocker(extractor extractors.DockerMetadataExtractor) KubernetesMonitorOption {
+	return func(cfg *kubernetesmonitor.Config) {
+		cfg.DockerExtractor = extractor
 	}
 }
 
