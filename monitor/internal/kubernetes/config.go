@@ -6,14 +6,14 @@ import (
 )
 
 // Config is the config for the Kubernetes monitor
-type Config struct { //nolint\
-	DockerConfig dockerMonitor.Config //nolint
+type Config struct {
+	DockerConfig dockerMonitor.Config
 
-	Kubeconfig             string                                     //nolint
-	Nodename               string                                     //nolint
-	EventMetadataExtractor extractors.KubernetesMetadataExtractorType //nolint
+	Kubeconfig             string
+	Nodename               string
+	EventMetadataExtractor extractors.KubernetesMetadataExtractorType
 
-	EnableHostPods bool //nolint
+	EnableHostPods bool
 }
 
 // DefaultConfig provides a default configuration
