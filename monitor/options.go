@@ -193,7 +193,7 @@ func SubOptionMonitorKubernetesExtractor(extractor extractors.KubernetesMetadata
 }
 
 // SubOptionMonitorKubernetesExtractorForDocker provides a way to specify metadata extractor for docker.
-func SubOptionMonitorKubernetesExtractorForDocker(extractor extractors.DockerMetadataExtractor) KubernetesMonitorOption {
+func SubOptionMonitorKubernetesDockerExtractor(extractor extractors.DockerMetadataExtractor) KubernetesMonitorOption {
 	return func(cfg *kubernetesmonitor.Config) {
 		cfg.DockerExtractor = extractor
 	}
