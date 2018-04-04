@@ -79,7 +79,37 @@ func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 // MergingKubernetesMetadataExtractor is a simple implementation of a Kubernetes Metadata extractor that merges all the tags coming
 // From both the docker and pods sources. It also activate all containers part of all Kubernetes pods (not only the infra)
 func MergingKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
-	return nil, false, nil
+
+	if runtime == nil {
+		return nil, false, fmt.Errorf("empty runtime")
+	}
+
+	if pod == nil {
+		return nil, false, fmt.Errorf("empty pod")
+	}
+
+	podLabels := pod.GetLabels()
+	if podLabels == nil {
+		zap.L().Debug("couldn't get labels.")
+		return nil, false, nil
+	}
+
+	originalRuntime, ok := runtime.(*policy.PURuntime)
+	if !ok {
+		return nil, false, fmt.Errorf("Error casting puruntime")
+	}
+
+	tags := originalRuntime.Tags()
+	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
+	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
+
+	for key, value := range podLabels {
+		tags.AppendKeyValue(key, value)
+	}
+
+	zap.L().Debug("Merging runtime tags", zap.String("name", pod.GetName()), zap.String("namespace", pod.GetNamespace()), zap.Strings("tags", tags.GetSlice()))
+
+	return originalRuntime, true, nil
 }
 
 // isPodInfraContainer returns true if the runtime represents the infra container for the POD
