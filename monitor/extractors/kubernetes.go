@@ -77,7 +77,8 @@ func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 }
 
 // MergingKubernetesMetadataExtractor is a simple implementation of a Kubernetes Metadata extractor that merges all the tags coming
-// From both the docker and pods sources. It also activate all containers part of all Kubernetes pods (not only the infra)
+// From both the docker and pods sources. It also activate all containers part of all Kubernetes pods (not only the infra), effectively returning
+// true for every container.
 func MergingKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
 
 	if runtime == nil {
