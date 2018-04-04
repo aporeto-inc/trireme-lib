@@ -9,9 +9,10 @@ import (
 type Config struct {
 	DockerConfig dockerMonitor.Config
 
-	Kubeconfig             string
-	Nodename               string
-	EventMetadataExtractor extractors.KubernetesMetadataExtractorType
+	Kubeconfig          string
+	Nodename            string
+	KubernetesExtractor extractors.KubernetesMetadataExtractorType
+	DockerExtractor     extractors.DockerMetadataExtractor
 
 	EnableHostPods bool
 }
@@ -19,10 +20,11 @@ type Config struct {
 // DefaultConfig provides a default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		EventMetadataExtractor: extractors.DefaultKubernetesMetadataExtractor,
-		EnableHostPods:         false,
-		Kubeconfig:             "",
-		Nodename:               "",
+		KubernetesExtractor: extractors.DefaultKubernetesMetadataExtractor,
+		DockerExtractor:     extractors.DefaultMetadataExtractor,
+		EnableHostPods:      false,
+		Kubeconfig:          "",
+		Nodename:            "",
 	}
 }
 

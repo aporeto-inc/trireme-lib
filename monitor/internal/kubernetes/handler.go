@@ -90,7 +90,7 @@ func (m *KubernetesMonitor) sendPodEvent(ctx context.Context, podEntry *podCache
 	}
 
 	// TODO: Also keep the KubernetesRuntime in cache ? Probably not needed to calculate the consolidatedTags every single time.
-	kubernetesRuntime, managedContainer, err := m.metadataExtractor(podEntry.runtime, podEntry.pod)
+	kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(podEntry.runtime, podEntry.pod)
 	if err != nil {
 		return fmt.Errorf("error while processing Kubernetes pod for container %s %s", podEntry.puID, err)
 	}

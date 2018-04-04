@@ -22,17 +22,17 @@ import (
 // It gets all the PU events from the DockerMonitor and if the container is the POD container from Kubernetes,
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type KubernetesMonitor struct {
-	dockerMonitor     *dockermonitor.DockerMonitor
-	kubernetesClient  *kubernetesclient.Client
-	handlers          *config.ProcessorConfig
-	cache             *cache
-	metadataExtractor extractors.KubernetesMetadataExtractorType
+	dockerMonitor       *dockermonitor.DockerMonitor
+	kubernetesClient    *kubernetesclient.Client
+	handlers            *config.ProcessorConfig
+	cache               *cache
+	kubernetesExtractor extractors.KubernetesMetadataExtractorType
 
 	podStore          kubecache.Store
 	podController     kubecache.Controller
 	podControllerStop chan struct{}
 
-	EnableHostPods bool
+	enableHostPods bool
 }
 
 // New returns a new kubernetes monitor.
@@ -69,8 +69,11 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 	dockerMon := dockermonitor.New()
 	dockerMon.SetupHandlers(processorConfig)
 
+	dockerConfig := dockermonitor.DefaultConfig()
+	dockerConfig.EventMetadataExtractor = kubernetesconfig.DockerExtractor
+
 	// we use the defaultconfig for now
-	if err := dockerMon.SetupConfig(nil, nil); err != nil {
+	if err := dockerMon.SetupConfig(nil, dockerConfig); err != nil {
 		return fmt.Errorf("docker monitor instantiation error: %s", err.Error())
 	}
 
@@ -81,8 +84,8 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 		return fmt.Errorf("kubernetes client instantiation error: %s", err.Error())
 	}
 	m.kubernetesClient = kubernetesClient
-	m.EnableHostPods = kubernetesconfig.EnableHostPods
-	m.metadataExtractor = kubernetesconfig.EventMetadataExtractor
+	m.enableHostPods = kubernetesconfig.EnableHostPods
+	m.kubernetesExtractor = kubernetesconfig.KubernetesExtractor
 
 	m.podStore, m.podController = m.kubernetesClient.CreateLocalPodController("",
 		m.addPod,
