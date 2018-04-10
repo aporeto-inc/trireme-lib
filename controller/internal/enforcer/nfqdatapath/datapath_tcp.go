@@ -18,6 +18,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"github.com/aporeto-inc/trireme-lib/utils/ebpf"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
@@ -127,7 +128,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 		if conn.ServiceConnection && conn.TimeOut > 0 {
 			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint
 		}
-
 	}
 
 	// Accept the packet
@@ -402,6 +402,8 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 				)
 			}
+
+			ebpf.UpdateBpfMap(tcpPacket)
 		}
 
 		return nil, nil
@@ -440,6 +442,8 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
+
+		ebpf.UpdateBpfMap(tcpPacket)
 		return nil, nil
 	}
 
@@ -716,6 +720,8 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
+
+		ebpf.UpdateBpfMap(tcpPacket)
 		return nil, nil, nil
 	}
 
@@ -766,8 +772,9 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			); err != nil {
 				zap.L().Error("Failed to update conntrack table after ack packet")
 			}
-		}
 
+			ebpf.UpdateBpfMap(tcpPacket)
+		}
 		// Accept the packet
 		return nil, nil, nil
 	}
