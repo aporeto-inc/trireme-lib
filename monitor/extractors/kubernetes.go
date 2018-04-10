@@ -108,6 +108,8 @@ func MergingKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 		tags.AppendKeyValue(key, value)
 	}
 
+	originalRuntime.SetTags(tags)
+
 	zap.L().Debug("Merging runtime tags", zap.String("name", pod.GetName()), zap.String("namespace", pod.GetNamespace()), zap.Strings("tags", tags.GetSlice()))
 
 	return originalRuntime, true, nil
