@@ -2,6 +2,7 @@ package extractors
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -21,10 +22,13 @@ const KubernetesContainerNameIdentifier = "@usr:io.kubernetes.container.name"
 const KubernetesInfraContainerName = "POD"
 
 // UpstreamNameIdentifier is the identifier used to identify the nane on the resulting PU
-const UpstreamNameIdentifier = "k8s:name"
+const UpstreamNameIdentifier = "@k8s:name"
 
 // UpstreamNamespaceIdentifier is the identifier used to identify the nanespace on the resulting PU
-const UpstreamNamespaceIdentifier = "k8s:namespace"
+const UpstreamNamespaceIdentifier = "@k8s:namespace"
+
+// UserLabelPrefix is the label prefix for all user defined labels
+const UserLabelPrefix = "@usr:"
 
 // KubernetesMetadataExtractorType is an extractor function for Kubernetes.
 // It takes as parameter a standard Docker runtime and a Pod Kubernetes definition and return a PolicyRuntime
@@ -104,8 +108,12 @@ func MergingKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
 	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
 
-	for key, value := range podLabels {
-		tags.AppendKeyValue(key, value)
+	for k, v := range podLabels {
+		if !strings.HasPrefix(k, UserLabelPrefix) {
+			tags.AppendKeyValue(UserLabelPrefix+k, v)
+		} else {
+			tags.AppendKeyValue(k, v)
+		}
 	}
 
 	originalRuntime.SetTags(tags)
