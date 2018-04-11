@@ -21,11 +21,13 @@ import (
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
 	zap.L().Debug("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
 
+	// We check first if this is a Kubernetes managed container
 	podName, podNamespace, err := getKubernetesInformation(runtime)
 	if err != nil {
 		return err
 	}
 
+	// We try to extract the Pod information from the cache
 	podEntry := m.cache.createPodEntry(podNamespace, podName, puID, runtime)
 	podEntry.Lock()
 	defer podEntry.Unlock()
