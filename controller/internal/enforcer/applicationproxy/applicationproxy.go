@@ -107,7 +107,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	defer p.Unlock()
 
 	// First update the caches with the new policy information.
-	apicache, dependentCache, jwtcache := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
+	apicache, dependentCache, jwtcache, caPool := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
 	p.exposedAPICache.AddOrUpdate(puID, apicache)
 	p.jwtcache.AddOrUpdate(puID, jwtcache)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
@@ -115,11 +115,10 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
-		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData))
+		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPool)
 		if perr != nil {
 			return perr
 		}
-
 		return p.registerServices(c.(*clientData), puInfo)
 	}
 
@@ -163,7 +162,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Unable to register services: %s ", err)
 	}
 
-	if _, err := p.processCertificateUpdates(puInfo, client); err != nil {
+	if _, err := p.processCertificateUpdates(puInfo, client, caPool); err != nil {
 		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
 
@@ -330,7 +329,7 @@ func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
 
 // processCertificateUpdates processes the certificate information and updates
 // the servers.
-func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData) (bool, error) {
+func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clientData, externalCAs [][]byte) (bool, error) {
 
 	// If there are certificates provided, we will need to update them for the
 	// services. If the certificates are nil, we ignore them.
@@ -345,6 +344,12 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 		caPool = cryptohelpers.LoadRootCertificates([]byte(caPEM))
 	} else {
 		caPool = p.systemCAPool
+	}
+
+	for _, caCert := range externalCAs {
+		if !caPool.AppendCertsFromPEM(caCert) {
+			zap.L().Warn("Failed to add CA certificate to chain")
+		}
 	}
 
 	// Create the TLS certificate
@@ -377,10 +382,11 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 	}
 }
 
-func buildCaches(services, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]*x509.Certificate) {
+func buildCaches(services, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]*x509.Certificate, [][]byte) {
 	apicache := map[string]*urisearch.APICache{}
 	jwtcache := map[string]*x509.Certificate{}
 	dependentCache := map[string]*urisearch.APICache{}
+	caPool := [][]byte{}
 
 	for _, service := range services {
 		if service.Type != policy.ServiceHTTP {
@@ -405,9 +411,12 @@ func buildCaches(services, dependentServices policy.ApplicationServicesList) (ma
 			}
 			dependentCache[address] = uricache
 		}
+		if len(service.CACert) > 0 {
+			caPool = append(caPool, service.CACert)
+		}
 	}
 
-	return apicache, dependentCache, jwtcache
+	return apicache, dependentCache, jwtcache, caPool
 }
 
 func serviceFromProxySet(pair string) (*common.Service, error) {

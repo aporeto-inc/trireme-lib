@@ -31,6 +31,8 @@ type ApplicationService struct {
 	JWTCertificate []byte
 	// External indicates if this is an external service
 	External bool
+	// CACert is the certificate of the CA of external services
+	CACert []byte
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule
