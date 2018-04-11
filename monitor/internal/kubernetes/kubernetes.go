@@ -61,6 +61,13 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 	return nil
 }
 
+func (m *KubernetesMonitor) getPod(podNamespace, podName string) (*api.Pod, error) {
+	zap.L().Debug("no pod cached, querying Kubernetes API")
+
+	// TODO: Use cached Kube Store ?
+	return m.kubernetesClient.Pod(podName, podNamespace)
+}
+
 func isPolicyUpdateNeeded(oldPod, newPod *api.Pod) bool {
 	if !(oldPod.Status.PodIP == newPod.Status.PodIP) {
 		return true

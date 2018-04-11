@@ -22,50 +22,48 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 	zap.L().Debug("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
 
 	// We check first if this is a Kubernetes managed container
-	podName, podNamespace, err := getKubernetesInformation(runtime)
+	podNamespace, podName, err := getKubernetesInformation(runtime)
 	if err != nil {
 		return err
 	}
 
-	// We try to extract the Pod information from the cache
-	podEntry := m.cache.createPodEntry(podNamespace, podName, puID, runtime)
-	podEntry.Lock()
-	defer podEntry.Unlock()
-
-	if podEntry.pod == nil {
-		zap.L().Debug("no pod cached, querying Kubernetes API")
-
-		pod, err := m.kubernetesClient.Pod(podName, podNamespace)
-		if err != nil {
-			return fmt.Errorf("Couldn't get labels for pod %s : %s", podName, err)
-		}
-
-		podEntry.pod = pod
-	}
-
-	kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(podEntry.runtime, podEntry.pod)
+	// We get the information for that specific POD from Kubernetes API
+	pod, err := m.getPod(podNamespace, podName)
 	if err != nil {
-		return fmt.Errorf("error while processing Kubernetes pod for container %s %s", puID, err)
+		return err
 	}
 
+	// The KubernetesMetadataExtractor combines the information coming from Docker (runtime)
+	// and from Kube (pod) in order to create a KubernetesRuntime.
+	// The managedContainer parameters define if this container should be ignored.
+	kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(runtime, pod)
+	if err != nil {
+		return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", podNamespace, podName, puID, err)
+	}
+
+	// UnmanagedContainers are simply ignored. No policy is associated.
 	if !managedContainer {
+		zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID), zap.String("podNamespace", podNamespace), zap.String("podName", podName))
 		return nil
 	}
 
-	return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
+	// We keep the cache uptoDate for future queries
+	m.cache.updatePUIDCache(podNamespace, podName, puID, runtime)
 
+	// The event is then sent to the upstream policyResolver
+	return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
 }
 
 // getKubernetesInformation returns the name and namespace from a standard Docker runtime, if the docker container is associated at all with Kubernetes
 func getKubernetesInformation(runtime policy.RuntimeReader) (string, string, error) {
-	podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
-	if !ok {
-		return "", "", fmt.Errorf("Error getting Kubernetes Pod name")
-	}
 	podNamespace, ok := runtime.Tag(KubernetesPodNamespaceIdentifier)
 	if !ok {
 		return "", "", fmt.Errorf("Error getting Kubernetes Pod namespace")
 	}
+	podName, ok := runtime.Tag(KubernetesPodNameIdentifier)
+	if !ok {
+		return "", "", fmt.Errorf("Error getting Kubernetes Pod name")
+	}
 
-	return podName, podNamespace, nil
+	return podNamespace, podName, nil
 }
