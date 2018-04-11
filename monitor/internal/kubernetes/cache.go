@@ -9,7 +9,7 @@ import (
 )
 
 type podCacheEntry struct {
-	puID string
+	puIDs map[string]bool
 	// The latest reference to the runtime as received from DockerMonitor
 	runtime policy.RuntimeReader
 	// The latest known reference to the pod received from Kubernetes API
@@ -54,7 +54,7 @@ func (c *cache) createPodEntry(podNamespace string, podName string, puID string,
 		cacheEntry = &podCacheEntry{}
 		c.podCache[kubeIdentifier] = cacheEntry
 	}
-	cacheEntry.puID = puID
+	cacheEntry.puIDs = map[string]bool{}
 	cacheEntry.runtime = runtime
 
 	c.puidCache[puID] = kubeIdentifier
@@ -104,12 +104,6 @@ func (c *cache) deletePodByKube(podNamespace string, podName string) error {
 
 	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
 
-	cacheEntry, ok := c.podCache[kubeIdentifier]
-	if !ok {
-		return fmt.Errorf("pod not found in cache")
-	}
-
-	delete(c.puidCache, cacheEntry.puID)
 	delete(c.podCache, kubeIdentifier)
 
 	return nil
@@ -120,12 +114,6 @@ func (c *cache) deletePodByPUID(puid string) error {
 	c.Lock()
 	defer c.Unlock()
 
-	kubeIdentifier, ok := c.puidCache[puid]
-	if !ok {
-		return fmt.Errorf("puid not found in cache")
-	}
-
-	delete(c.podCache, kubeIdentifier)
 	delete(c.puidCache, puid)
 
 	return nil

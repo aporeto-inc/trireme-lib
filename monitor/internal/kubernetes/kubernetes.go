@@ -1,11 +1,8 @@
 package kubernetesmonitor
 
 import (
-	"context"
 	"fmt"
 	"time"
-
-	"github.com/aporeto-inc/trireme-lib/common"
 
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
@@ -65,7 +62,8 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 		return fmt.Errorf("error updating cache entry %s", err)
 	}
 
-	return m.sendPodEvent(context.TODO(), podEntry, common.EventUpdate)
+	// TODO: Update all dependent Dockers
+	return nil
 }
 
 func isPolicyUpdateNeeded(oldPod, newPod *api.Pod) bool {
