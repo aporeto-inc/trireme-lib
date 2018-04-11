@@ -1,6 +1,7 @@
 package kubernetesmonitor
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/zap"
@@ -56,9 +57,8 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 	}
 
 	// This event requires sending the Runtime upstream again.
-
-	// TODO: Update all dependent Dockers
-	return nil
+	// TODO: Use propagated context
+	return m.RefreshPUs(context.TODO(), updatedPod)
 }
 
 func (m *KubernetesMonitor) getPod(podNamespace, podName string) (*api.Pod, error) {
