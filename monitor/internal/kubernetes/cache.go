@@ -12,17 +12,11 @@ type puidCacheEntry struct {
 
 	// The latest reference to the runtime as received from DockerMonitor
 	runtime policy.RuntimeReader
-
-	// Lock for the specific entry
-	sync.RWMutex
 }
 
 type podCacheEntry struct {
 	// puIDs us a map containing a link to all the containers currently known to be part of that pod.
 	puIDs map[string]bool
-
-	// Lock for the specific entry
-	sync.RWMutex
 }
 
 // Cache keeps all the state needed for the integration.
