@@ -386,7 +386,7 @@ func buildCaches(services, dependentServices policy.ApplicationServicesList) (ma
 		if service.Type != policy.ServiceHTTP {
 			continue
 		}
-		apicache[service.NetworkInfo.Ports.String()] = urisearch.NewAPICache(service.HTTPRules)
+		apicache[service.NetworkInfo.Ports.String()] = urisearch.NewAPICache(service.HTTPRules, false)
 		cert, err := cryptoutils.LoadCertificate(service.JWTCertificate)
 		if err != nil {
 			// We just ignore bad certificates and move on.
@@ -397,7 +397,7 @@ func buildCaches(services, dependentServices policy.ApplicationServicesList) (ma
 	}
 
 	for _, service := range dependentServices {
-		uricache := urisearch.NewAPICache(service.HTTPRules)
+		uricache := urisearch.NewAPICache(service.HTTPRules, service.External)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			address := fqdn + ":" + service.NetworkInfo.Ports.String()
 			if _, ok := dependentCache[address]; ok {

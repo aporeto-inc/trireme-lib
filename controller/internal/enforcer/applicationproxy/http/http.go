@@ -242,22 +242,51 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get the corresponding scopes
-	found, t := apiCache.Find(r.Method, r.RequestURI)
-	if !found {
-		zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
-		return
-	}
+	// For external services we validate policy at the ingress. Note that the
+	// certificate distribution service is considered as external and must
+	// be defined as external.
+	if apiCache.External {
+		_, _port, err := servicePort(w, r)
+		if err != nil {
+			return
+		}
+		record := &collector.FlowRecord{
+			ContextID: p.puContext,
+			Destination: &collector.EndPoint{
+				URI:  r.RequestURI,
+				Type: collector.Address,
+				Port: _port,
+				IP:   r.Host,
+				ID:   collector.DefaultEndPoint,
+			},
+			Source: &collector.EndPoint{
+				Type: collector.PU,
+				ID:   puContext.ManagementID(),
+			},
+			Action:     policy.Reject,
+			L4Protocol: packet.IPProtocolTCP,
+			Tags:       puContext.Annotations(),
+		}
+		defer p.collector.CollectFlowEvent(record)
 
-	if p.isSecretsRequest(w, r) {
-		return
-	}
+		// Get the corresponding scopes
+		found, t := apiCache.Find(r.Method, r.RequestURI)
+		if !found {
+			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
+			return
+		}
 
-	if err = p.verifyPolicy(t.([]string), puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
-		zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
-		return
+		if p.isSecretsRequest(w, r) {
+			return
+		}
+
+		if err = p.verifyPolicy(t.([]string), puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
+			zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
+			return
+		}
+		record.Action = policy.Accept
 	}
 
 	token, err := p.createClientToken(puContext)

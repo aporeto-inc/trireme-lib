@@ -29,6 +29,8 @@ type ApplicationService struct {
 	Tags *TagStore
 	// JWTCertificate is a certificate for validating JWT bearer tokens in http requests.
 	JWTCertificate []byte
+	// External indicates if this is an external service
+	External bool
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule
