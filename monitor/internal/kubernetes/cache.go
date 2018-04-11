@@ -1,19 +1,25 @@
 package kubernetesmonitor
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
-	api "k8s.io/api/core/v1"
 )
 
-type podCacheEntry struct {
-	puIDs map[string]bool
+type puidCacheEntry struct {
+	// podID is the reference to the Kubernetes pod that this container refers to
+	kubeIdentifier string
+
 	// The latest reference to the runtime as received from DockerMonitor
 	runtime policy.RuntimeReader
-	// The latest known reference to the pod received from Kubernetes API
-	pod *api.Pod
+
+	// Lock for the specific entry
+	sync.RWMutex
+}
+
+type podCacheEntry struct {
+	// puIDs us a map containing a link to all the containers currently known to be part of that pod.
+	puIDs map[string]bool
 
 	// Lock for the specific entry
 	sync.RWMutex
@@ -21,11 +27,11 @@ type podCacheEntry struct {
 
 // Cache keeps all the state needed for the integration.
 type cache struct {
+	// popuidCache keeps a mapping between a PUID and the corresponding puidCacheEntry.
+	puidCache map[string]*puidCacheEntry
+
 	// podCache keeps a mapping between a POD/Namespace name and the corresponding podCacheEntry.
 	podCache map[string]*podCacheEntry
-
-	// popuidCache keeps a mapping between a PUID and the Kubernetes key
-	puidCache map[string]string
 
 	// Lock for the whole cache
 	sync.RWMutex
@@ -34,8 +40,8 @@ type cache struct {
 // NewCache initialize a cache
 func newCache() *cache {
 	return &cache{
+		puidCache: map[string]*puidCacheEntry{},
 		podCache:  map[string]*podCacheEntry{},
-		puidCache: map[string]string{},
 	}
 }
 
@@ -43,78 +49,84 @@ func kubePodIdentifier(podName string, podNamespace string) string {
 	return podNamespace + "/" + podName
 }
 
-// createPodEntry locks the cache in order to return the pod cache entry if found, or create it if not found
-func (c *cache) createPodEntry(podNamespace string, podName string, puID string, runtime policy.RuntimeReader) *podCacheEntry {
+// updatePUIDCache updates the cache with an entry coming from a container perspective
+func (c *cache) updatePUIDCache(podNamespace string, podName string, puID string, runtime policy.RuntimeReader) {
 	c.Lock()
 	defer c.Unlock()
 
 	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
-	cacheEntry, ok := c.podCache[kubeIdentifier]
+
+	puidEntry, ok := c.puidCache[puID]
 	if !ok {
-		cacheEntry = &podCacheEntry{}
-		c.podCache[kubeIdentifier] = cacheEntry
+		puidEntry = &puidCacheEntry{}
+		c.puidCache[puID] = puidEntry
 	}
-	cacheEntry.puIDs = map[string]bool{}
-	cacheEntry.runtime = runtime
+	puidEntry.kubeIdentifier = kubeIdentifier
+	puidEntry.runtime = runtime
 
-	c.puidCache[puID] = kubeIdentifier
+	podEntry, ok := c.podCache[kubeIdentifier]
+	if !ok {
+		podEntry = &podCacheEntry{}
+		podEntry.puIDs = map[string]bool{}
+		c.podCache[kubeIdentifier] = podEntry
+	}
+	podEntry.puIDs[puID] = true
 
-	return cacheEntry
 }
 
-func (c *cache) updatePodEntry(podNamespace string, podName string, pod *api.Pod) (*podCacheEntry, error) {
+// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) getPUIDsbyPod(podNamespace string, podName string) []string {
 	c.Lock()
 	defer c.Unlock()
 
 	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
-	cacheEntry, ok := c.podCache[kubeIdentifier]
+	podEntry, ok := c.podCache[kubeIdentifier]
 	if !ok {
-		cacheEntry = &podCacheEntry{}
-		c.podCache[kubeIdentifier] = cacheEntry
+		return nil
 	}
 
-	cacheEntry.Lock()
-	defer cacheEntry.Unlock()
-
-	cacheEntry.pod = pod
-
-	return cacheEntry, nil
+	return keysFromMap(podEntry.puIDs)
 }
 
-// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
-func (c *cache) getPodByPUID(puid string) (*podCacheEntry, error) {
+// getRuntimeByPUID locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) getRuntimeByPUID(puid string) policy.RuntimeReader {
 	c.Lock()
 	defer c.Unlock()
 
-	kubeIdentifier, ok := c.puidCache[puid]
+	puidEntry, ok := c.puidCache[puid]
 	if !ok {
-		return nil, fmt.Errorf("puid not found in cache")
+		return nil
 	}
-	cacheEntry, ok := c.podCache[kubeIdentifier]
-	if !ok {
-		return nil, fmt.Errorf("inconsistent cache, pod not found")
-	}
-	return cacheEntry, nil
+
+	return puidEntry.runtime
 }
 
-// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
-func (c *cache) deletePodByKube(podNamespace string, podName string) error {
+// deletePod locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) deletePodEntry(podNamespace string, podName string) {
 	c.Lock()
 	defer c.Unlock()
 
 	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
 
 	delete(c.podCache, kubeIdentifier)
-
-	return nil
 }
 
-// getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
-func (c *cache) deletePodByPUID(puid string) error {
+// deletePUID locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) deletePUIDEntry(puid string) {
 	c.Lock()
 	defer c.Unlock()
 
 	delete(c.puidCache, puid)
+}
 
-	return nil
+func keysFromMap(m map[string]bool) []string {
+	keys := make([]string, len(m))
+
+	i := 0
+	for k := range m {
+		keys[i] = k
+		i++
+	}
+
+	return keys
 }
