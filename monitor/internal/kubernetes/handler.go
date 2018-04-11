@@ -7,6 +7,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
+	api "k8s.io/api/core/v1"
 )
 
 // General logic for handling logic fron the DockerMonitor ss the following:
@@ -52,6 +53,39 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 
 	// The event is then sent to the upstream policyResolver
 	return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)
+}
+
+// RefreshPUs is used to resend an update event to the Upstream Policy Resolver in case of an update is needed.
+func (m *KubernetesMonitor) RefreshPUs(ctx context.Context, pod *api.Pod) error {
+	if pod == nil {
+		return fmt.Errorf("pod is nil")
+	}
+
+	puIDs := m.cache.getPUIDsbyPod(pod.GetNamespace(), pod.GetNamespace())
+
+	for _, puid := range puIDs {
+		runtime := m.cache.getRuntimeByPUID(puid)
+		if runtime == nil {
+			continue
+		}
+
+		kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(runtime, pod)
+		if err != nil {
+			return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", pod.GetNamespace(), pod.GetName(), puid, err)
+		}
+
+		// UnmanagedContainers are simply ignored. It should not come this far if it is a non managed container anyways.
+		if !managedContainer {
+			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puid), zap.String("podNamespace", pod.GetNamespace()), zap.String("podName", pod.GetName()))
+			continue
+		}
+
+		if err := m.handlers.Policy.HandlePUEvent(ctx, puid, common.EventUpdate, kubernetesRuntime); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // getKubernetesInformation returns the name and namespace from a standard Docker runtime, if the docker container is associated at all with Kubernetes
