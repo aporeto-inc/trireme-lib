@@ -246,8 +246,8 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	// certificate distribution service is considered as external and must
 	// be defined as external.
 	if apiCache.External {
-		_, _port, err := servicePort(w, r)
-		if err != nil {
+		_, _port, perr := servicePort(w, r)
+		if perr != nil {
 			return
 		}
 		record := &collector.FlowRecord{
