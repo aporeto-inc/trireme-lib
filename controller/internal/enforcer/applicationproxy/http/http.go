@@ -211,17 +211,42 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
+func (p *Config) retrieveContextAndPolicy(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
 		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
+		return nil, nil, err
+	}
+	puContext := pu.(*pucontext.PUContext)
+
+	// Look for the URI in the caches
+	data, err := p.dependentAPICache.Get(p.puContext)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
+		return nil, nil, err
 	}
 
-	puContext := pu.(*pucontext.PUContext)
-	token, err := p.createClientToken(puContext)
+	apiCache, ok := data.(map[string]*urisearch.APICache)[appendDefaultPort(r.Host)]
+	if !ok {
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown destination %s", r.Host), http.StatusForbidden)
+		return nil, nil, fmt.Errorf("Cannot handle request - unknown destination")
+	}
+
+	return puContext, apiCache, nil
+}
+
+func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
+	puContext, apiCache, err := p.retrieveContextAndPolicy(w, r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
+		return
+	}
+
+	// Get the corresponding scopes
+	found, t := apiCache.Find(r.Method, r.RequestURI)
+	if !found {
+		zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
 		return
 	}
 
@@ -229,9 +254,21 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err = p.verifyPolicy(t.([]string), puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
+		zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
+		return
+	}
+
+	token, err := p.createClientToken(puContext)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cannot handle request - cannot create token"), http.StatusForbidden)
+		return
+	}
+
 	r.URL, err = url.ParseRequestURI("http://" + r.Host)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid host name: %s ", err), http.StatusUnprocessableEntity)
+		http.Error(w, fmt.Sprintf("Invalid destination host name"), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -257,14 +294,19 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	defer p.collector.CollectFlowEvent(record)
 
-	pctx, err := p.puFromIDCache.Get(p.puContext)
+	puContext, apiCache, err := p.retrieveContextAndPolicy(w, r)
 	if err != nil {
-		zap.L().Error("Cannot find policy, dropping request")
-		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusForbidden)
 		return
 	}
-	record.Tags = pctx.(*pucontext.PUContext).Annotations()
-	record.Destination.ID = pctx.(*pucontext.PUContext).ManagementID()
+
+	port, _port, err := servicePort(w, r)
+	if err != nil {
+		return
+	}
+
+	record.Destination.Port = uint16(_port)
+	record.Tags = puContext.Annotations()
+	record.Destination.ID = puContext.ManagementID()
 
 	token := r.Header.Get("X-APORETO-AUTH")
 	if token != "" {
@@ -274,33 +316,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	key := r.Header.Get("X-APORETO-KEY")
 	if key != "" {
 		r.Header.Del("X-APORETO-LEN")
-	}
-
-	port := "80"
-	if strings.Contains(r.Host, ":") {
-		_, port, err = net.SplitHostPort(r.Host)
-		if err != nil {
-			zap.L().Error("Invalid HTTP port parameter", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Invalid HTTP port parameter: %s", err), http.StatusUnprocessableEntity)
-			return
-		}
-	}
-	_port, _ := strconv.Atoi(port)
-	record.Destination.Port = uint16(_port)
-
-	data, err := p.exposedAPICache.Get(p.puContext)
-	if err != nil {
-		zap.L().Error("API service not recognized", zap.Error(err))
-		http.Error(w, fmt.Sprintf("API service not recognized: %s", err), http.StatusUnprocessableEntity)
-		return
-	}
-
-	apiCaches := data.(map[string]*urisearch.APICache)
-	apiCache, ok := apiCaches[port]
-	if !ok {
-		zap.L().Error("Uknown service", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unknown service: %s", err), http.StatusUnprocessableEntity)
-		return
 	}
 
 	jwtcache, err := p.jwtCache.Get(p.puContext)
@@ -327,7 +342,15 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		record.Source.UserID = userRecord.ID
 	}
 
-	if err = p.parseClientToken(pctx.(*pucontext.PUContext), token, key, t.([]string), userAttributes, record); err != nil {
+	claims, err := p.parseClientToken(key, token)
+	if err != nil {
+		zap.L().Error("Unauthorized request", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+		return
+	}
+	record.Source.ID = claims.SourceID
+
+	if err = p.verifyPolicy(t.([]string), claims.Profile, claims.Scopes, userAttributes); err != nil {
 		zap.L().Error("Unauthorized request", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 		return
@@ -358,7 +381,7 @@ func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, erro
 	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(p.secrets.EncodingKey())
 }
 
-func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, txtKey string, apitags []string, userAttributes []string, record *collector.FlowRecord) error {
+func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAttributes []string) error {
 	for _, user := range userAttributes {
 		for _, a := range apitags {
 			if user == a {
@@ -367,9 +390,35 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		}
 	}
 
+	for _, c := range profile {
+		for _, a := range apitags {
+			if a == c {
+				return nil
+			}
+		}
+	}
+
+	for _, c := range scopes {
+		for _, a := range apitags {
+			if a == c {
+				return nil
+			}
+		}
+	}
+
+	zap.L().Warn("No match found in API token",
+		zap.Strings("User Attributes", userAttributes),
+		zap.Strings("API Policy", apitags),
+		zap.Strings("PU Claims", profile),
+		zap.Strings("PU Scopes", scopes),
+	)
+	return fmt.Errorf("Not found")
+}
+
+func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, error) {
 	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
 	if err != nil {
-		return fmt.Errorf("Invalid Service Token")
+		return nil, fmt.Errorf("Invalid Service Token")
 	}
 
 	claims := &JWTClaims{}
@@ -381,61 +430,14 @@ func (p *Config) parseClientToken(puContext *pucontext.PUContext, token string, 
 		return ekey, nil
 	})
 	if err != nil {
-		return fmt.Errorf("Error parsing token: %s", err)
+		return nil, fmt.Errorf("Error parsing token: %s", err)
 	}
-	record.Source.ID = claims.SourceID
-
-	for _, c := range claims.Profile {
-		for _, a := range apitags {
-			if a == c {
-				return nil
-			}
-		}
-	}
-
-	for _, c := range claims.Scopes {
-		for _, a := range apitags {
-			if a == c {
-				return nil
-			}
-		}
-	}
-
-	zap.L().Warn("No match found in API token",
-		zap.Strings("User Attributes", userAttributes),
-		zap.Strings("API Policy", apitags),
-		zap.Strings("PU Claims", claims.Profile),
-		zap.Strings("PU Scopes", claims.Scopes),
-	)
-	return fmt.Errorf("Not found")
+	return claims, nil
 }
 
 func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 
-	data, err := p.dependentAPICache.Get(p.puContext)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown dependencies: %s", err), http.StatusForbidden)
-		return false
-	}
-
-	port := "80"
-	host := r.Host
-	if strings.Contains(r.Host, ":") {
-		host, port, err = net.SplitHostPort(r.Host)
-		if err != nil {
-			zap.L().Error("Invalid HTTP port parameter", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Invalid HTTP port parameter: %s", err), http.StatusUnprocessableEntity)
-			return false
-		}
-	}
-
-	apiCache, ok := data.(map[string]*urisearch.APICache)[host+":"+port]
-	if !ok {
-		return false
-	}
-
-	// Look for a local request for certificates
-	if found, _ := apiCache.Find(r.Method, r.RequestURI); !found {
+	if r.Host != "169.254.254.1" {
 		return false
 	}
 
@@ -453,6 +455,13 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	return true
+}
+
+func appendDefaultPort(address string) string {
+	if !strings.Contains(address, ":") {
+		return address + ":80"
+	}
+	return address
 }
 
 func getServerName(addr string) string {
@@ -533,4 +542,19 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 	}
 
 	return attributes
+}
+
+func servicePort(w http.ResponseWriter, r *http.Request) (string, uint16, error) {
+	var err error
+	port := "80"
+	if strings.Contains(r.Host, ":") {
+		_, port, err = net.SplitHostPort(r.Host)
+		if err != nil {
+			zap.L().Error("Invalid HTTP port parameter", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Invalid HTTP port parameter: %s", err), http.StatusUnprocessableEntity)
+			return "", 0, err
+		}
+	}
+	_port, _ := strconv.Atoi(port)
+	return port, uint16(_port), nil
 }

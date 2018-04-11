@@ -399,10 +399,11 @@ func buildCaches(services, dependentServices policy.ApplicationServicesList) (ma
 	for _, service := range dependentServices {
 		uricache := urisearch.NewAPICache(service.HTTPRules)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
-			if _, ok := dependentCache[fqdn]; ok {
+			address := fqdn + ":" + service.NetworkInfo.Ports.String()
+			if _, ok := dependentCache[address]; ok {
 				continue
 			}
-			dependentCache[fqdn] = uricache
+			dependentCache[address] = uricache
 		}
 	}
 
