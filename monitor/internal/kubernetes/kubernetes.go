@@ -1,7 +1,6 @@
 package kubernetesmonitor
 
 import (
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -34,10 +33,10 @@ func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 	// This event is not needed as the trigger is the  DockerMonitor event
 	// The pod obejct is cached in order to reuse it and avoid an API request possibly laster on
 
-	_, err := m.cache.updatePodEntry(addedPod.GetNamespace(), addedPod.GetName(), addedPod)
-	if err != nil {
-		return fmt.Errorf("error updating cache entry %s", err)
-	}
+	// _, err := m.cache.updatePodEntry(addedPod.GetNamespace(), addedPod.GetName(), addedPod)
+	// if err != nil {
+	//	return fmt.Errorf("error updating cache entry %s", err)
+	//}
 
 	return nil
 }
@@ -57,10 +56,6 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 	}
 
 	// This event requires sending the Runtime upstream again.
-	podEntry, err := m.cache.updatePodEntry(updatedPod.GetNamespace(), updatedPod.GetName(), updatedPod)
-	if err != nil {
-		return fmt.Errorf("error updating cache entry %s", err)
-	}
 
 	// TODO: Update all dependent Dockers
 	return nil
