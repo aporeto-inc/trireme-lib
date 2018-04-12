@@ -21,7 +21,7 @@ env:
 
 before_install:
   - go get -u gopkg.in/alecthomas/gometalinter.v2
-  - gometalinter.v1 --install
+  - gometalinter.v2 --install
 
 install:
   - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b v17.05.0-ce docker && cd -
@@ -30,7 +30,7 @@ install:
   - dep ensure
 
 script:
-  - gometalinter.v1 --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./... -- vendor
+  - gometalinter.v2 --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./... -- vendor
   - ./.test.sh
 
 after_success:
