@@ -44,6 +44,7 @@ type DockerMonitor struct {
 	stoplistener               chan bool
 	config                     *config.ProcessorConfig
 	netcls                     cgnetcls.Cgroupnetcls
+	runtimeCache               *cache
 	killContainerOnPolicyError bool
 	syncAtStart                bool
 }
@@ -86,6 +87,7 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 		d.eventnotifications[i] = make(chan *events.Message, 1000)
 		d.stopprocessor[i] = make(chan bool)
 	}
+	d.runtimeCache = newCache()
 
 	// Add handlers for the events that we know how to process
 	d.addHandler(EventCreate, d.handleCreateEvent)
@@ -416,6 +418,8 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 		return err
 	}
 
+	d.runtimeCache.addOrUpdateRuntime(puID, runtime)
+
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, runtime)
 }
 
@@ -437,6 +441,8 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 	if err != nil {
 		return err
 	}
+
+	d.runtimeCache.addOrUpdateRuntime(puID, runtime)
 
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
 		if d.killContainerOnPolicyError {
@@ -469,14 +475,16 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 //handleDie event is called when a container dies. It generates a "Stop" event.
 func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Message) error {
 
-	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	puID, err := puIDFromDockerID(event.ID)
-	if err != nil {
-		return err
+	// The runtime is inferred from the cache if possible.
+	// If impossible, the runtime is set to a default empty Runtime.
+	runtime := d.runtimeCache.getRuntime(puID)
+	if runtime == nil {
+		runtime = policy.NewPURuntimeWithDefaults()
 	}
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, runtime)
@@ -485,14 +493,16 @@ func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Messag
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
 func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Message) error {
 
-	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	puID, err := puIDFromDockerID(event.ID)
-	if err != nil {
-		return err
+	// The runtime is inferred from the cache if possible.
+	// If impossible, the runtime is set to a default empty Runtime.
+	runtime := d.runtimeCache.getRuntime(puID)
+	if runtime == nil {
+		runtime = policy.NewPURuntimeWithDefaults()
 	}
 
 	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, runtime)
@@ -501,6 +511,8 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 			zap.Error(err),
 		)
 	}
+
+	d.runtimeCache.deleteRuntime(puID)
 
 	if err := d.netcls.DeleteCgroup(puID); err != nil {
 		zap.L().Warn("Failed to clean netcls group",
@@ -516,14 +528,16 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 func (d *DockerMonitor) handlePauseEvent(ctx context.Context, event *events.Message) error {
 	zap.L().Info("Pause Event for nativeID", zap.String("ID", event.ID))
 
-	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	puID, err := puIDFromDockerID(event.ID)
-	if err != nil {
-		return err
+	// The runtime is inferred from the cache if possible.
+	// If impossible, the runtime is set to a default empty Runtime.
+	runtime := d.runtimeCache.getRuntime(puID)
+	if runtime == nil {
+		runtime = policy.NewPURuntimeWithDefaults()
 	}
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventPause, runtime)
@@ -532,14 +546,16 @@ func (d *DockerMonitor) handlePauseEvent(ctx context.Context, event *events.Mess
 // handleCreateEvent generates a create event type.
 func (d *DockerMonitor) handleUnpauseEvent(ctx context.Context, event *events.Message) error {
 
-	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	puID, err := puIDFromDockerID(event.ID)
-	if err != nil {
-		return err
+	// The runtime is inferred from the cache if possible.
+	// If impossible, the runtime is set to a default empty Runtime.
+	runtime := d.runtimeCache.getRuntime(puID)
+	if runtime == nil {
+		runtime = policy.NewPURuntimeWithDefaults()
 	}
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventUnpause, runtime)
