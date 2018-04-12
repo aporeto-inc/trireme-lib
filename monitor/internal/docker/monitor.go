@@ -376,34 +376,44 @@ func (d *DockerMonitor) extractMetadata(dockerInfo *types.ContainerJSON) (*polic
 	return extractors.DefaultMetadataExtractor(dockerInfo)
 }
 
-// handleCreateEvent generates a create event type. We extract the metadata
-// and start the policy resolution at the create event. No need to wait
-// for the start event.
-func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Message) error {
-
-	puID, err := puIDFromDockerID(event.ID)
-	if err != nil {
-		return err
-	}
+// containerAndRuntimeFromEvent is an helper function that returns the Runtime (from the metadata extractor) and Container(from Docker)
+func (d *DockerMonitor) containerAndRuntimeFromEvent(ctx context.Context, event *events.Message) (*types.ContainerJSON, *policy.PURuntime, error) {
 
 	container, err := d.retrieveDockerInfo(ctx, event)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	runtime, err := d.extractMetadata(container)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	// If it is a host container, we need to activate it as a Linux process. We will
-	// override the options that the metadata extractor provided. We will maintain
-	// any policy extensions in the object.
+	// override the options that the metadata extractor provided.
 	if container.HostConfig.NetworkMode == constants.DockerHostMode {
 		options := hostModeOptions(container)
 		options.PolicyExtensions = runtime.Options().PolicyExtensions
 		runtime.SetOptions(*options)
 		runtime.SetPUType(common.LinuxProcessPU)
+	}
+
+	return container, runtime, nil
+}
+
+// handleCreateEvent generates a create event type. We extract the metadata
+// and start the policy resolution at the create event. No need to wait
+// for the start event.
+func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Message) error {
+
+	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	if err != nil {
+		return err
+	}
+
+	puID, err := puIDFromDockerID(event.ID)
+	if err != nil {
+		return err
 	}
 
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, runtime)
@@ -414,7 +424,7 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 // that is needed for the remote enforcers.
 func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Message) error {
 
-	container, err := d.retrieveDockerInfo(ctx, event)
+	container, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
 	if err != nil {
 		return err
 	}
@@ -426,20 +436,6 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 	puID, err := puIDFromDockerID(container.ID)
 	if err != nil {
 		return err
-	}
-
-	runtime, err := d.extractMetadata(container)
-	if err != nil {
-		return err
-	}
-
-	// If it is a host container, we need to activate it as a Linux process. We will
-	// override the options that the metadata extractor provided.
-	if container.HostConfig.NetworkMode == constants.DockerHostMode {
-		options := hostModeOptions(container)
-		options.PolicyExtensions = runtime.Options().PolicyExtensions
-		runtime.SetOptions(*options)
-		runtime.SetPUType(common.LinuxProcessPU)
 	}
 
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
