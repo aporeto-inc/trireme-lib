@@ -52,6 +52,7 @@ type Config struct {
 	exposedAPICache   cache.DataStore
 	dependentAPICache cache.DataStore
 	jwtCache          cache.DataStore
+	portMappingCache  cache.DataStore
 	applicationProxy  bool
 	mark              int
 	server            *http.Server
@@ -69,6 +70,7 @@ func NewHTTPProxy(
 	caPool *x509.CertPool,
 	exposedAPICache cache.DataStore,
 	dependentAPICache cache.DataStore,
+	portMappingCache cache.DataStore,
 	jwtCache cache.DataStore,
 	applicationProxy bool,
 	mark int,
@@ -83,6 +85,7 @@ func NewHTTPProxy(
 		ca:                caPool,
 		exposedAPICache:   exposedAPICache,
 		dependentAPICache: dependentAPICache,
+		portMappingCache:  portMappingCache,
 		applicationProxy:  applicationProxy,
 		jwtCache:          jwtCache,
 		mark:              mark,
@@ -211,7 +214,7 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveContextAndPolicy(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
+func (p *Config) retrieveContextAndPolicy(c cache.DataStore, w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
@@ -220,8 +223,10 @@ func (p *Config) retrieveContextAndPolicy(w http.ResponseWriter, r *http.Request
 	}
 	puContext := pu.(*pucontext.PUContext)
 
-	// Look for the URI in the caches
-	data, err := p.dependentAPICache.Get(p.puContext)
+	// Find the right API cache for this context and service. This is done in two steps.
+	// First lookup is to find the PU context. Second lookup is to find the cache based on
+	// the service.
+	data, err := c.Get(p.puContext)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
 		return nil, nil, err
@@ -237,7 +242,7 @@ func (p *Config) retrieveContextAndPolicy(w http.ResponseWriter, r *http.Request
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
-	puContext, apiCache, err := p.retrieveContextAndPolicy(w, r)
+	puContext, apiCache, err := p.retrieveContextAndPolicy(p.dependentAPICache, w, r)
 	if err != nil {
 		return
 	}
@@ -246,7 +251,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	// certificate distribution service is considered as external and must
 	// be defined as external.
 	if apiCache.External {
-		_, _port, perr := servicePort(w, r)
+		_, _port, perr := originalServicePort(w, r)
 		if perr != nil {
 			return
 		}
@@ -277,33 +282,45 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// If it is a secrets request we process it and move on. No need to
+		// validate policy.
 		if p.isSecretsRequest(w, r) {
 			return
 		}
 
+		// Validate the policy based on the scopes of the PU.
+		// TODO: Add user scopes
 		if err = p.verifyPolicy(t.([]string), puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
 			zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
 			return
 		}
+
+		// All checks have passed. We can accept the request, log it, and create the
+		// right tokens. If it is not an external service, we do not log at the transmit side.
 		record.Action = policy.Accept
 	}
 
+	// Generate the client identity
 	token, err := p.createClientToken(puContext)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Cannot handle request - cannot create token"), http.StatusForbidden)
 		return
 	}
 
+	// Create the new target URL based on the Host parameter that we had.
 	r.URL, err = url.ParseRequestURI("http://" + r.Host)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid destination host name"), http.StatusUnprocessableEntity)
 		return
 	}
 
+	// Add the headers with the authorization parameters and public key. The other side
+	// must validate our public key.
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
 	r.Header.Add("X-APORETO-AUTH", token)
 
+	// Forward the request.
 	p.fwdTLS.ServeHTTP(w, r)
 }
 
@@ -323,12 +340,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	defer p.collector.CollectFlowEvent(record)
 
-	puContext, apiCache, err := p.retrieveContextAndPolicy(w, r)
+	// Retrieve the context and policy
+	puContext, apiCache, err := p.retrieveContextAndPolicy(p.exposedAPICache, w, r)
 	if err != nil {
 		return
 	}
 
-	port, _port, err := servicePort(w, r)
+	// Find the original port from the URL
+	port, _port, err := originalServicePort(w, r)
 	if err != nil {
 		return
 	}
@@ -337,6 +356,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Tags = puContext.Annotations()
 	record.Destination.ID = puContext.ManagementID()
 
+	// Retrieve the headers with the key and auth parameters.
 	token := r.Header.Get("X-APORETO-AUTH")
 	if token != "" {
 		r.Header.Del("X-APORETO-AUTH")
@@ -347,6 +367,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del("X-APORETO-LEN")
 	}
 
+	// Process the Auth header for any JWT context.
 	jwtcache, err := p.jwtCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Warn("No JWT cache found for this pu", zap.Error(err))
@@ -354,9 +375,11 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	jwtCert, ok := jwtcache.(map[string]*x509.Certificate)[port]
 	if !ok {
-		zap.L().Warn("No JWT found for this port")
+		zap.L().Warn("No JWT found for this port", zap.String("port", port))
 	}
 
+	// Look in the cache for the method and request URI for the associated scopes
+	// and policies.
 	found, t := apiCache.Find(r.Method, r.RequestURI)
 	if !found {
 		zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
@@ -364,6 +387,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate the user attributes and claims.
 	userAttributes := parseUserAttributes(r, jwtCert)
 	if len(userAttributes) > 0 {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
@@ -379,13 +403,15 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	record.Source.ID = claims.SourceID
 
+	// Validate the policy and drop the request if there is no authorization.
 	if err = p.verifyPolicy(t.([]string), claims.Profile, claims.Scopes, userAttributes); err != nil {
 		zap.L().Error("Unauthorized request", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 		return
 	}
 
-	r.URL, err = url.ParseRequestURI("http://localhost:" + port)
+	// Create the target URI and forward the request.
+	r.URL, err = p.createTargetURI(r)
 	if err != nil {
 		zap.L().Error("Invalid HTTP Host parameter", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusUnprocessableEntity)
@@ -411,24 +437,20 @@ func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, erro
 }
 
 func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAttributes []string) error {
-	for _, user := range userAttributes {
-		for _, a := range apitags {
+
+	// TODO: Silly implementation. We can do a better lookup here.
+	for _, a := range apitags {
+		for _, user := range userAttributes {
 			if user == a {
 				return nil
 			}
 		}
-	}
-
-	for _, c := range profile {
-		for _, a := range apitags {
+		for _, c := range profile {
 			if a == c {
 				return nil
 			}
 		}
-	}
-
-	for _, c := range scopes {
-		for _, a := range apitags {
+		for _, c := range scopes {
 			if a == c {
 				return nil
 			}
@@ -441,7 +463,7 @@ func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAt
 		zap.Strings("PU Claims", profile),
 		zap.Strings("PU Scopes", scopes),
 	)
-	return fmt.Errorf("Not found")
+	return fmt.Errorf("No matching authorization policy")
 }
 
 func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, error) {
@@ -486,6 +508,20 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+func (p *Config) createTargetURI(r *http.Request) (*url.URL, error) {
+	data, err := p.portMappingCache.Get(p.puContext)
+	if err != nil {
+		return nil, err
+	}
+
+	target, ok := data.(map[string]string)[appendDefaultPort(r.Host)]
+	if !ok {
+		return nil, fmt.Errorf("Port mapping not found")
+	}
+
+	return url.ParseRequestURI("http://localhost:" + target)
+}
+
 func appendDefaultPort(address string) string {
 	if !strings.Contains(address, ":") {
 		return address + ":80"
@@ -499,14 +535,6 @@ func getServerName(addr string) string {
 		return parts[0]
 	}
 	return addr
-}
-
-// InternalMidgardClaims HACK: Remove
-type InternalMidgardClaims struct {
-	Realm string            `json:"realm"`
-	Data  map[string]string `json:"data"`
-
-	jwt.StandardClaims
 }
 
 func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
@@ -573,7 +601,7 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 	return attributes
 }
 
-func servicePort(w http.ResponseWriter, r *http.Request) (string, uint16, error) {
+func originalServicePort(w http.ResponseWriter, r *http.Request) (string, uint16, error) {
 	var err error
 	port := "80"
 	if strings.Contains(r.Host, ":") {

@@ -17,7 +17,7 @@ type Service struct {
 	// Protocol is the protocol number
 	Protocol uint8 `json:"protocol,omitempty"`
 
-	// Addresses are the IP addresses. An empty list means 0.0.0.0
+	// Addresses are the IP addresses. An empty list means 0.0.0.0/0
 	Addresses []*net.IPNet `json:"addresses,omitempty"`
 
 	// FQDNs is the list of FQDNs for the service.
