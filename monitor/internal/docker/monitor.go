@@ -469,23 +469,33 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 //handleDie event is called when a container dies. It generates a "Stop" event.
 func (d *DockerMonitor) handleDieEvent(ctx context.Context, event *events.Message) error {
 
+	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	if err != nil {
+		return err
+	}
+
 	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, policy.NewPURuntimeWithDefaults())
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStop, runtime)
 }
 
 // handleDestroyEvent handles destroy events from Docker. It generated a "Destroy event"
 func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Message) error {
 
+	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	if err != nil {
+		return err
+	}
+
 	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, policy.NewPURuntimeWithDefaults())
+	err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventDestroy, runtime)
 	if err != nil {
 		zap.L().Error("Failed to handle delete event",
 			zap.Error(err),
@@ -504,25 +514,35 @@ func (d *DockerMonitor) handleDestroyEvent(ctx context.Context, event *events.Me
 
 // handlePauseEvent generates a create event type.
 func (d *DockerMonitor) handlePauseEvent(ctx context.Context, event *events.Message) error {
-	zap.L().Info("UnPause Event for nativeID", zap.String("ID", event.ID))
+	zap.L().Info("Pause Event for nativeID", zap.String("ID", event.ID))
+
+	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	if err != nil {
+		return err
+	}
 
 	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventPause, policy.NewPURuntimeWithDefaults())
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventPause, runtime)
 }
 
 // handleCreateEvent generates a create event type.
 func (d *DockerMonitor) handleUnpauseEvent(ctx context.Context, event *events.Message) error {
 
+	_, runtime, err := d.containerAndRuntimeFromEvent(ctx, event)
+	if err != nil {
+		return err
+	}
+
 	puID, err := puIDFromDockerID(event.ID)
 	if err != nil {
 		return err
 	}
 
-	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventUnpause, policy.NewPURuntimeWithDefaults())
+	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventUnpause, runtime)
 }
 
 func puIDFromDockerID(dockerID string) (string, error) {
