@@ -51,6 +51,29 @@ func (p *Packet) UpdateTCPChecksum() {
 	binary.BigEndian.PutUint16(p.Buffer[TCPChecksumPos:TCPChecksumPos+2], p.TCPChecksum)
 }
 
+// UpdateTCPFlags
+func (p *Packet) updateTCPFlags(tcpFlags uint8) {
+	p.Buffer[tcpFlagsOffsetPos] = tcpFlags
+}
+
+// ConvertAcktoFinAck function removes the data from the packet
+// It is called only if the packet is Ack or Psh/Ack
+// converts psh/ack to fin/ack packet.
+func (p *Packet) ConvertAcktoFinAck() error {
+	var tcpFlags uint8
+
+	tcpFlags = tcpFlags | TCPFinMask
+	tcpFlags = tcpFlags | TCPAckMask
+
+	p.updateTCPFlags(tcpFlags)
+	p.TCPFlags = tcpFlags
+	if err := p.TCPDataDetach(0); err != nil {
+		return fmt.Errorf("ack packet in wrong format")
+	}
+	p.DropDetachedBytes()
+	return nil
+}
+
 // String returns a string representation of fields contained in this packet.
 func (p *Packet) String() string {
 

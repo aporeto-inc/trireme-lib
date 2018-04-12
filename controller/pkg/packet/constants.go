@@ -91,6 +91,9 @@ const (
 
 	// TCPFinMask mask that identifies FIN packets
 	TCPFinMask = 0x1
+
+	// TCPPshMask = 0x8 mask that identifies PSH packets
+	TCPPshMask = 0x8
 )
 
 // TCP Options Related constants

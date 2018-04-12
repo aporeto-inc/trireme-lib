@@ -99,6 +99,59 @@ func TestInvalidIPContext(t *testing.T) {
 	})
 }
 
+// TestEnforcerConnUnknownState test ensures that enforcer closes the
+// connection by converting packets to fin/ack when it finds connection
+// to be in unknown state. This happens when enforcer has not seen the
+// 3way handshake for a connection.
+func TestEnforcerConnUnknownState(t *testing.T) {
+	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
+		var puInfo1, puInfo2 *policy.PUInfo
+		var enforcer *Datapath
+		var err1, err2 error
+		Convey("Given I create a two processing unit instances", func() {
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+			So(puInfo1, ShouldNotBeNil)
+			So(puInfo2, ShouldNotBeNil)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
+
+			Convey("If I send an ack packet from either PU to the other, it is converted into a Fin/Ack", func() {
+				PacketFlow := packetgen.NewTemplateFlow()
+				_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+				So(err, ShouldBeNil)
+
+				input, err := PacketFlow.GetFirstAckPacket().ToBytes()
+				So(err, ShouldBeNil)
+
+				tcpPacket, err := packet.New(0, input, "0")
+				// create a copy of the ack packet
+				tcpPacketCopy := *tcpPacket
+
+				if err == nil && tcpPacket != nil {
+					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateTCPChecksum()
+				}
+
+				err1 := enforcer.processApplicationTCPPackets(tcpPacket)
+
+				// Test whether the packet is modified with Fin/Ack
+				if tcpPacket.TCPFlags != 0x11 {
+					t.Fail()
+				}
+
+				err2 := enforcer.processNetworkTCPPackets(&tcpPacketCopy)
+
+				if tcpPacket.TCPFlags != 0x11 {
+					t.Fail()
+				}
+
+				So(err1, ShouldBeNil)
+				So(err2, ShouldBeNil)
+			})
+		})
+	})
+}
+
 func TestInvalidTokenContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
@@ -3489,7 +3542,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 
 								err = enforcer.processApplicationTCPPackets(tcpPacket)
-								So(err, ShouldNotBeNil)
+								So(err, ShouldBeNil)
 							}
 
 							if debug {
@@ -3518,24 +3571,13 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							if !PacketFlow.GetNthPacket(i).GetTCPSyn() && PacketFlow.GetNthPacket(i).GetTCPAck() && !PacketFlow.GetNthPacket(i).GetTCPFin() {
 
 								err = enforcer.processNetworkTCPPackets(outPacket)
-								So(err, ShouldNotBeNil)
+								So(err, ShouldBeNil)
 
 							}
 
 							if debug {
 								fmt.Println("Output packet", i)
 								outPacket.Print(0)
-							}
-
-							if !reflect.DeepEqual(oldPacket.GetBytes(), outPacket.GetBytes()) {
-								packetDiffers = true
-								fmt.Println("Error: packets dont match")
-								fmt.Println("Input Packet")
-								oldPacket.Print(0)
-								fmt.Println("Output Packet")
-								outPacket.Print(0)
-								t.Errorf("Packet %d Input and output packet do not match", i)
-								t.FailNow()
 							}
 						}
 					}
