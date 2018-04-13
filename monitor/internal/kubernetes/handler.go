@@ -24,10 +24,11 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 
 	var kubernetesRuntime policy.RuntimeReader
 
-	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime
+	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime from
+	// DockerMonitor. We can use it and combine it with the pod information on Kubernetes API.
 	if event == common.EventStart || event == common.EventCreate {
 		// We check first if this is a Kubernetes managed container
-		podNamespace, podName, err := getKubernetesInformation(runtime)
+		podNamespace, podName, err := getKubernetesInformation(dockerRuntime)
 		if err != nil {
 			return err
 		}
@@ -41,7 +42,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		// The KubernetesMetadataExtractor combines the information coming from Docker (runtime)
 		// and from Kube (pod) in order to create a KubernetesRuntime.
 		// The managedContainer parameters define if this container should be ignored.
-		kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(runtime, pod)
+		kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(dockerRuntime, pod)
 		if err != nil {
 			return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", podNamespace, podName, puID, err)
 		}
@@ -66,7 +67,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 
 	if event == common.EventDestroy {
 		// Time to kill the cache entry
-		m.cache.deletePUIDEntry(puid)
+		m.cache.deletePUIDEntry(puID)
 	}
 
 	// The event is then sent to the upstream policyResolver
@@ -82,8 +83,8 @@ func (m *KubernetesMonitor) RefreshPUs(ctx context.Context, pod *api.Pod) error 
 	puIDs := m.cache.getPUIDsbyPod(pod.GetNamespace(), pod.GetNamespace())
 
 	for _, puid := range puIDs {
-		runtime := m.cache.getRuntimeByPUID(puid)
-		if runtime == nil {
+		dockerRuntime := m.cache.getDockerRuntimeByPUID(puid)
+		if dockerRuntime == nil {
 			continue
 		}
 
@@ -97,6 +98,9 @@ func (m *KubernetesMonitor) RefreshPUs(ctx context.Context, pod *api.Pod) error 
 			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puid), zap.String("podNamespace", pod.GetNamespace()), zap.String("podName", pod.GetName()))
 			continue
 		}
+
+		// We keep the cache uptoDate for future queries
+		m.cache.updatePUIDCache(podNamespace, podName, puid, dockerRuntime, kubernetesRuntime)
 
 		if err := m.handlers.Policy.HandlePUEvent(ctx, puid, common.EventUpdate, kubernetesRuntime); err != nil {
 			return err
