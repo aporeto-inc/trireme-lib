@@ -80,7 +80,10 @@ func (m *KubernetesMonitor) RefreshPUs(ctx context.Context, pod *api.Pod) error 
 		return fmt.Errorf("pod is nil")
 	}
 
-	puIDs := m.cache.getPUIDsbyPod(pod.GetNamespace(), pod.GetNamespace())
+	podNamespace := pod.GetNamespace()
+	podName := pod.GetName()
+
+	puIDs := m.cache.getPUIDsbyPod(podNamespace, podName)
 
 	for _, puid := range puIDs {
 		dockerRuntime := m.cache.getDockerRuntimeByPUID(puid)
@@ -88,14 +91,14 @@ func (m *KubernetesMonitor) RefreshPUs(ctx context.Context, pod *api.Pod) error 
 			continue
 		}
 
-		kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(runtime, pod)
+		kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(dockerRuntime, pod)
 		if err != nil {
-			return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", pod.GetNamespace(), pod.GetName(), puid, err)
+			return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", podNamespace, podName, puid, err)
 		}
 
 		// UnmanagedContainers are simply ignored. It should not come this far if it is a non managed container anyways.
 		if !managedContainer {
-			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puid), zap.String("podNamespace", pod.GetNamespace()), zap.String("podName", pod.GetName()))
+			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puid), zap.String("podNamespace", podNamespace), zap.String("podName", podName))
 			continue
 		}
 
