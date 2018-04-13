@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 	dockermonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
 	"github.com/aporeto-inc/trireme-lib/policy"
+	api "k8s.io/api/core/v1"
 	kubecache "k8s.io/client-go/tools/cache"
 )
 
@@ -172,6 +173,57 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 			}
 			if err := m.HandlePUEvent(tt.args.ctx, tt.args.puID, tt.args.event, tt.args.dockerRuntime); (err != nil) != tt.wantErr {
 				t.Errorf("KubernetesMonitor.HandlePUEvent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestKubernetesMonitor_RefreshPUs(t *testing.T) {
+	type fields struct {
+		dockerMonitor       *dockermonitor.DockerMonitor
+		kubernetesClient    *kubernetesclient.Client
+		handlers            *config.ProcessorConfig
+		cache               *cache
+		kubernetesExtractor extractors.KubernetesMetadataExtractorType
+		podStore            kubecache.Store
+		podController       kubecache.Controller
+		podControllerStop   chan struct{}
+		enableHostPods      bool
+	}
+	type args struct {
+		ctx context.Context
+		pod *api.Pod
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name:   "empty pod",
+			fields: fields{},
+			args: args{
+				pod: nil,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &KubernetesMonitor{
+				dockerMonitor:       tt.fields.dockerMonitor,
+				kubernetesClient:    tt.fields.kubernetesClient,
+				handlers:            tt.fields.handlers,
+				cache:               tt.fields.cache,
+				kubernetesExtractor: tt.fields.kubernetesExtractor,
+				podStore:            tt.fields.podStore,
+				podController:       tt.fields.podController,
+				podControllerStop:   tt.fields.podControllerStop,
+				enableHostPods:      tt.fields.enableHostPods,
+			}
+			if err := m.RefreshPUs(tt.args.ctx, tt.args.pod); (err != nil) != tt.wantErr {
+				t.Errorf("KubernetesMonitor.RefreshPUs() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
