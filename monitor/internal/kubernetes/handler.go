@@ -19,8 +19,10 @@ import (
 // HandlePUEvent is called by all monitors when a PU event is generated. The implementer
 // is responsible to update all components by explicitly adding a new PU.
 // Specifically for Kubernetes, The monitor handles the downstream events from Docker.
-func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
+func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, dockerRuntime policy.RuntimeReader) error {
 	zap.L().Debug("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
+
+	var kubernetesRuntime policy.RuntimeReader
 
 	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime
 	if event == common.EventStart || event == common.EventCreate {
@@ -46,12 +48,25 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 
 		// UnmanagedContainers are simply ignored. No policy is associated.
 		if !managedContainer {
-			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID), zap.String("podNamespace", podNamespace), zap.String("podName", podName))
+			zap.L().Debug("unmanaged Kubernetes container on create or start", zap.String("puID", puID), zap.String("podNamespace", podNamespace), zap.String("podName", podName))
 			return nil
 		}
 
 		// We keep the cache uptoDate for future queries
-		m.cache.updatePUIDCache(podNamespace, podName, puID, runtime)
+		m.cache.updatePUIDCache(podNamespace, podName, puID, dockerRuntime, kubernetesRuntime)
+	} else {
+
+		// We check if this PUID was previously managed. We only sent the event upstream to the resolver if it was managed on create or start.
+		kubernetesRuntime := m.cache.getKubernetesRuntimeByPUID(puID)
+		if kubernetesRuntime == nil {
+			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID))
+			return nil
+		}
+	}
+
+	if event == common.EventDestroy {
+		// Time to kill the cache entry
+		m.cache.deletePUIDEntry(puid)
 	}
 
 	// The event is then sent to the upstream policyResolver
