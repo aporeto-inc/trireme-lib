@@ -22,34 +22,37 @@ import (
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
 	zap.L().Debug("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
 
-	// We check first if this is a Kubernetes managed container
-	podNamespace, podName, err := getKubernetesInformation(runtime)
-	if err != nil {
-		return err
-	}
+	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime
+	if event == common.EventStart || event == common.EventCreate {
+		// We check first if this is a Kubernetes managed container
+		podNamespace, podName, err := getKubernetesInformation(runtime)
+		if err != nil {
+			return err
+		}
 
-	// We get the information for that specific POD from Kubernetes API
-	pod, err := m.getPod(podNamespace, podName)
-	if err != nil {
-		return err
-	}
+		// We get the information for that specific POD from Kubernetes API
+		pod, err := m.getPod(podNamespace, podName)
+		if err != nil {
+			return err
+		}
 
-	// The KubernetesMetadataExtractor combines the information coming from Docker (runtime)
-	// and from Kube (pod) in order to create a KubernetesRuntime.
-	// The managedContainer parameters define if this container should be ignored.
-	kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(runtime, pod)
-	if err != nil {
-		return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", podNamespace, podName, puID, err)
-	}
+		// The KubernetesMetadataExtractor combines the information coming from Docker (runtime)
+		// and from Kube (pod) in order to create a KubernetesRuntime.
+		// The managedContainer parameters define if this container should be ignored.
+		kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(runtime, pod)
+		if err != nil {
+			return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", podNamespace, podName, puID, err)
+		}
 
-	// UnmanagedContainers are simply ignored. No policy is associated.
-	if !managedContainer {
-		zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID), zap.String("podNamespace", podNamespace), zap.String("podName", podName))
-		return nil
-	}
+		// UnmanagedContainers are simply ignored. No policy is associated.
+		if !managedContainer {
+			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID), zap.String("podNamespace", podNamespace), zap.String("podName", podName))
+			return nil
+		}
 
-	// We keep the cache uptoDate for future queries
-	m.cache.updatePUIDCache(podNamespace, podName, puID, runtime)
+		// We keep the cache uptoDate for future queries
+		m.cache.updatePUIDCache(podNamespace, podName, puID, runtime)
+	}
 
 	// The event is then sent to the upstream policyResolver
 	return m.handlers.Policy.HandlePUEvent(ctx, puID, event, kubernetesRuntime)

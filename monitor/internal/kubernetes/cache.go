@@ -11,7 +11,10 @@ type puidCacheEntry struct {
 	kubeIdentifier string
 
 	// The latest reference to the runtime as received from DockerMonitor
-	runtime policy.RuntimeReader
+	dockerRuntime policy.RuntimeReader
+
+	// The latest reference to the runtime as received from DockerMonitor
+	kubernetesRuntime policy.RuntimeReader
 }
 
 type podCacheEntry struct {
@@ -44,7 +47,7 @@ func kubePodIdentifier(podName string, podNamespace string) string {
 }
 
 // updatePUIDCache updates the cache with an entry coming from a container perspective
-func (c *cache) updatePUIDCache(podNamespace string, podName string, puID string, runtime policy.RuntimeReader) {
+func (c *cache) updatePUIDCache(podNamespace string, podName string, puID string, dockerRuntime policy.RuntimeReader, kubernetesRuntime policy.RuntimeReader) {
 	c.Lock()
 	defer c.Unlock()
 
@@ -56,7 +59,8 @@ func (c *cache) updatePUIDCache(podNamespace string, podName string, puID string
 		c.puidCache[puID] = puidEntry
 	}
 	puidEntry.kubeIdentifier = kubeIdentifier
-	puidEntry.runtime = runtime
+	puidEntry.dockerRuntime = dockerRuntime
+	puidEntry.kubernetesRuntime = kubernetesRuntime
 
 	podEntry, ok := c.podCache[kubeIdentifier]
 	if !ok {
@@ -83,7 +87,7 @@ func (c *cache) getPUIDsbyPod(podNamespace string, podName string) []string {
 }
 
 // getRuntimeByPUID locks the cache in order to return the pod cache entry if found, or create it if not found
-func (c *cache) getRuntimeByPUID(puid string) policy.RuntimeReader {
+func (c *cache) getDockerRuntimeByPUID(puid string) policy.RuntimeReader {
 	c.Lock()
 	defer c.Unlock()
 
@@ -92,7 +96,20 @@ func (c *cache) getRuntimeByPUID(puid string) policy.RuntimeReader {
 		return nil
 	}
 
-	return puidEntry.runtime
+	return puidEntry.dockerRuntime
+}
+
+// getRuntimeByPUID locks the cache in order to return the pod cache entry if found, or create it if not found
+func (c *cache) getKubernetesRuntimeByPUID(puid string) policy.RuntimeReader {
+	c.Lock()
+	defer c.Unlock()
+
+	puidEntry, ok := c.puidCache[puid]
+	if !ok {
+		return nil
+	}
+
+	return puidEntry.kubernetesRuntime
 }
 
 // deletePod locks the cache in order to return the pod cache entry if found, or create it if not found
