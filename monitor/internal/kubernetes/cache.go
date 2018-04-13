@@ -48,6 +48,10 @@ func kubePodIdentifier(podName string, podNamespace string) string {
 
 // updatePUIDCache updates the cache with an entry coming from a container perspective
 func (c *cache) updatePUIDCache(podNamespace string, podName string, puID string, dockerRuntime policy.RuntimeReader, kubernetesRuntime policy.RuntimeReader) {
+	if podNamespace == "" || podName == "" || puID == "" {
+		return
+	}
+
 	c.Lock()
 	defer c.Unlock()
 
