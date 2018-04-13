@@ -42,7 +42,8 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 		// The KubernetesMetadataExtractor combines the information coming from Docker (runtime)
 		// and from Kube (pod) in order to create a KubernetesRuntime.
 		// The managedContainer parameters define if this container should be ignored.
-		kubernetesRuntime, managedContainer, err := m.kubernetesExtractor(dockerRuntime, pod)
+		var managedContainer bool
+		kubernetesRuntime, managedContainer, err = m.kubernetesExtractor(dockerRuntime, pod)
 		if err != nil {
 			return fmt.Errorf("error while processing Kubernetes pod %s/%s for container %s %s", podNamespace, podName, puID, err)
 		}
@@ -58,7 +59,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 	} else {
 
 		// We check if this PUID was previously managed. We only sent the event upstream to the resolver if it was managed on create or start.
-		kubernetesRuntime := m.cache.getKubernetesRuntimeByPUID(puID)
+		kubernetesRuntime = m.cache.getKubernetesRuntimeByPUID(puID)
 		if kubernetesRuntime == nil {
 			zap.L().Debug("unmanaged Kubernetes container", zap.String("puID", puID))
 			return nil
