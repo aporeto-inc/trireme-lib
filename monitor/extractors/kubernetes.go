@@ -2,7 +2,6 @@ package extractors
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"go.uber.org/zap"
@@ -78,49 +77,6 @@ func DefaultKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.P
 	zap.L().Debug("kubernetes runtime tags", zap.String("name", pod.GetName()), zap.String("namespace", pod.GetNamespace()), zap.Strings("tags", newRuntime.Tags().GetSlice()))
 
 	return newRuntime, true, nil
-}
-
-// MergingKubernetesMetadataExtractor is a simple implementation of a Kubernetes Metadata extractor that merges all the tags coming
-// From both the docker and pods sources. It also activate all containers part of all Kubernetes pods (not only the infra), effectively returning
-// true for every container.
-func MergingKubernetesMetadataExtractor(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
-
-	if runtime == nil {
-		return nil, false, fmt.Errorf("empty runtime")
-	}
-
-	if pod == nil {
-		return nil, false, fmt.Errorf("empty pod")
-	}
-
-	podLabels := pod.GetLabels()
-	if podLabels == nil {
-		zap.L().Debug("couldn't get labels.")
-		return nil, false, nil
-	}
-
-	originalRuntime, ok := runtime.(*policy.PURuntime)
-	if !ok {
-		return nil, false, fmt.Errorf("Error casting puruntime")
-	}
-
-	tags := originalRuntime.Tags()
-	tags.AppendKeyValue(UpstreamNameIdentifier, pod.GetName())
-	tags.AppendKeyValue(UpstreamNamespaceIdentifier, pod.GetNamespace())
-
-	for k, v := range podLabels {
-		if !strings.HasPrefix(k, UserLabelPrefix) {
-			tags.AppendKeyValue(UserLabelPrefix+k, v)
-		} else {
-			tags.AppendKeyValue(k, v)
-		}
-	}
-
-	originalRuntime.SetTags(tags)
-
-	zap.L().Debug("Merging runtime tags", zap.String("name", pod.GetName()), zap.String("namespace", pod.GetNamespace()), zap.Strings("tags", tags.GetSlice()))
-
-	return originalRuntime, true, nil
 }
 
 // isPodInfraContainer returns true if the runtime represents the infra container for the POD
