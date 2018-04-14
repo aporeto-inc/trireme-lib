@@ -403,9 +403,16 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 			zap.L().Error("Multiport services are not supported")
 			continue
 		}
+		ruleCache := urisearch.NewAPICache(service.HTTPRules, false)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
-			portMapping[fqdn+":"+service.NetworkInfo.Ports.String()] = service.PrivateNetworkInfo.Ports.String()
-			apicache[fqdn+":"+service.NetworkInfo.Ports.String()] = urisearch.NewAPICache(service.HTTPRules, false)
+			rhost := fqdn + ":" + service.NetworkInfo.Ports.String()
+			portMapping[rhost] = service.PrivateNetworkInfo.Ports.String()
+			apicache[rhost] = ruleCache
+		}
+		for _, addr := range service.NetworkInfo.Addresses {
+			rhost := addr.IP.String() + ":" + service.NetworkInfo.Ports.String()
+			portMapping[rhost] = service.PrivateNetworkInfo.Ports.String()
+			apicache[rhost] = ruleCache
 		}
 		cert, err := cryptoutils.LoadCertificate(service.JWTCertificate)
 		if err != nil {
@@ -427,6 +434,9 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 		uricache := urisearch.NewAPICache(service.HTTPRules, service.External)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			dependentCache[fqdn+":"+service.NetworkInfo.Ports.String()] = uricache
+		}
+		for _, addr := range service.NetworkInfo.Addresses {
+			dependentCache[addr.IP.String()+":"+service.NetworkInfo.Ports.String()] = uricache
 		}
 		if len(service.CACert) > 0 {
 			caPool = append(caPool, service.CACert)
