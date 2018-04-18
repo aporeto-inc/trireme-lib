@@ -90,7 +90,6 @@ func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
 func (t *TunTap) ReadQueue(queueNum int, data []byte) (int, error) {
 
 	n, err := t.Read(t.queueHandles[queueNum], data)
-	zap.L().Error("Reading queuenum ", zap.String("deviceName", t.deviceName), zap.Int("queueIndex", queueNum), zap.Int("FD", t.queueHandles[queueNum]))
 	return n, err
 }
 
@@ -177,7 +176,6 @@ func (t *TunTap) createTun(queueIndex int, ifname *ifreqDevType) error {
 		}
 
 		t.queueHandles[queueIndex] = fd
-		zap.L().Error("Created fd for queue ", zap.String("DeviceName", string(ifname.ifrName[:])), zap.Int("queueIndex", queueIndex), zap.Int("FD", fd))
 		t.fdtoQueueNum[fd] = queueIndex
 	} else {
 		return err

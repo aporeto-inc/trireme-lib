@@ -234,6 +234,13 @@ func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]
 
 	mark = strconv.Itoa((cgnetcls.Initialmarkval - 1))
 	rules := [][]string{}
+	rules = append(rules, []string{
+		i.appPacketIPTableContext, appChain,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp",
+		"-j", "MARK",
+		"--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
+	})
 	// Application Packets
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
@@ -883,15 +890,28 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	//mark := (
 	mark := strconv.Itoa(cgnetcls.Initialmarkval - 1)
+
+	// Rules for allowing forwarded packets. When docker is installed. It switches the default policy
+	// of this filter/Forward chain to drop in case no rules are matched.
+	// These rules open the gate for packets forwarded by us
 	err := i.ipt.Insert(
-		i.appPacketIPTableContext,
-		appChain, 1,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"filter",
+		"FORWARD", 1,
+		"-p", "tcp",
+		"-m", "mark", "--mark", mark,
 		"-j", "ACCEPT")
 	if err != nil {
-		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
+		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
 	}
-
+	err = i.ipt.Insert(
+		"filter",
+		"FORWARD", 1,
+		"-p", "tcp",
+		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-2),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
+	}
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
@@ -904,18 +924,51 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.RawSocketMark),
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 		"-j", "ACCEPT")
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
 
+	// For local addresses our packet handling changes.
+	// We won't get this packet back at input since the linux stack will short circuit
+	// routing and directly do a local deliver when the both source and dst are local.
+	// We loop the packet twice here once through our output and once through our input stack
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-1),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add accept mark rule for recirculated packets app: %s", err)
+	}
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		"-m", "addrtype", "--src-type", "local", "--dst-type", "local",
+		"-m", "set", "--match-set", "ListenerPortSet", "dst",
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
+	if err != nil {
+		return fmt.Errorf("unable to add set mark rule for reinjecting packet app: %s", err)
+	}
+
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.NetworkRawSocketMark),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add accept mark rule for recirculated packets app: %s", err)
+	}
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option",
-		"34", "-j", "MARK", "--set-mark", mark,
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+		"--tcp-option", "34",
+		"-m", "socket",
+		"-j", "MARK", "--set-mark", mark,
 	)
 
 	if err != nil {
@@ -934,21 +987,42 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	}
 
 	err = i.ipt.Insert(
-		i.netPacketIPTableContext,
-		netChain, 1,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT")
-	if err != nil {
-		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
-	}
-	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		netChain, 1,
-		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.RawSocketMark),
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.NetworkRawSocketMark),
 		"-j", "ACCEPT")
 	if err != nil {
 		return fmt.Errorf("unable to add default accept raw socket packets on network : %s", err)
 	}
+
+	//Rules to skip the masqurade rule inserted by docker for packet recirculated by us
+	err = i.ipt.Insert(i.appProxyIPTableContext,
+		"POSTROUTING", 1,
+		"-o", "lo",
+		"-s", "172.17.0.1/16",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add accept rules for recirced packets: %s", err)
+	}
+
+	err = i.ipt.Insert(i.appProxyIPTableContext,
+		"POSTROUTING", 1,
+		"-o", "tun-in1",
+		"-s", "172.17.0.1/16",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add accept rules for recirced packets: %s", err)
+	}
+
+	err = i.ipt.Insert(i.appProxyIPTableContext,
+		"POSTROUTING", 1,
+		"-o", "tun-out1",
+		"-s", "172.17.0.1/16",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add accept rules for recirced packets: %s", err)
+	}
+
 	err = i.ipt.Insert(i.appProxyIPTableContext,
 		ipTableSectionPreRouting, 1,
 		"-j", natProxyInputChain)
@@ -1015,7 +1089,22 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add proxy output chain: %s", err)
 	}
-
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
+	}
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
+	}
 	return nil
 }
 
@@ -1056,7 +1145,33 @@ func (i *Instance) CleanGlobalRules() error {
 		"-j", "ACCEPT"); err != nil {
 		zap.L().Debug("Can not clear the global net mark rule", zap.Error(err))
 	}
+	//Rules to skip the masqurade rule inserted by docker for packet recirculated by us
+	err := i.ipt.Delete(i.appProxyIPTableContext,
+		"POSTROUTING",
+		"-o", "lo",
+		"-s", "172.17.0.1/16",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to delete accept rules for recirced packets: %s", err)
+	}
 
+	err = i.ipt.Delete(i.appProxyIPTableContext,
+		"POSTROUTING",
+		"-o", "tun-in1",
+		"-s", "172.17.0.1/16",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to delete accept rules for recirced packets: %s", err)
+	}
+
+	err = i.ipt.Delete(i.appProxyIPTableContext,
+		"POSTROUTING",
+		"-o", "tun-out1",
+		"-s", "172.17.0.1/16",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to delete accept rules for recirced packets: %s", err)
+	}
 	if err := i.ipset.DestroyAll(); err != nil {
 		zap.L().Debug("Failed to clear targetIPset", zap.Error(err))
 	}

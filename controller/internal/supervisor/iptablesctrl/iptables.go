@@ -285,6 +285,9 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 
+	if err := i.createListenerPortSet(); err != nil {
+		return err
+	}
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
@@ -360,6 +363,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 		}
 	}
 
+	i.addPortToListenerPortSet(port) //nolint
 	return i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName)
 }
 

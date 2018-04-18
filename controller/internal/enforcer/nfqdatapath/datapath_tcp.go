@@ -20,7 +20,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
-// processNetworkPackets processes packets arriving from network and are destined to the application
+// processNetworkPacket processes packets arriving from network and are destined to the application
 func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
@@ -42,7 +42,7 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 	// skip processing for SynAck packets that we don't have state
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
-		zap.L().Error("AMIT :::: Received Network SYN Packet")
+		zap.L().Error("AMIT :::: Received Network SYN Packet", zap.String("Source Address", p.SourceAddress.To4().String()), zap.String("Dest Address", p.DestinationAddress.To4().String()))
 		conn, err = d.netSynRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -62,6 +62,7 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 		}
 
 	case packet.TCPSynAckMask:
+		zap.L().Error("AMIT :::: Received Network SYNACK Packet", zap.String("Source Address", p.SourceAddress.To4().String()), zap.String("Dest Address", p.DestinationAddress.To4().String()))
 		conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -75,6 +76,7 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	default:
 		conn, err = d.netRetrieveState(p)
+		zap.L().Error("Received Network ACK", zap.String("Source Address", p.SourceAddress.To4().String()), zap.String("Dest Address", p.DestinationAddress.To4().String()), zap.Any("Connection", conn))
 		if err != nil {
 			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
@@ -157,7 +159,6 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
-		zap.L().Error("AMIT :::: Received Application SYN Packet", zap.String("MARK", p.Mark))
 		conn, err = d.appSynRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -178,7 +179,7 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
-			zap.L().Error("AMIT :: Mark:::" + p.Mark)
+			//TODO :: Reintroduce this check
 			// if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-2) {
 			// 	//SYN ACK came through the global rule.
 			// 	//This not from a process we are monitoring
@@ -688,9 +689,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
 	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend {
+		zap.L().Error("Received Data Packet")
 		return nil, nil, nil
 	}
-
+	zap.L().Error("AMIT:: connection State", zap.Int("State", int(conn.GetState())))
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
@@ -727,20 +729,23 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 	// Validate that the source/destination nonse matches. The signature has validated both directions
 	if conn.GetState() == connection.TCPSynAckSend || conn.GetState() == connection.TCPSynReceived {
-
+		zap.L().Error("AMIT:: connection State", zap.Int("State", int(conn.GetState())))
 		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
+			zap.L().Error("AMIT ::: TCP AUthentication option not found")
 			return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 		}
 
 		if _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
+			zap.L().Error("AMIT::: TCP SIG Validate Failed")
 			return nil, nil, fmt.Errorf("Ack packet dropped because signature validation failed: %s", err)
 		}
 
 		// Remove any of our data - adjust the sequence numbers
 		if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
+			zap.L().Error("AMIT::: Invalid format")
 			return nil, nil, fmt.Errorf("Ack packet dropped because of invalid format: %s", err)
 		}
 
@@ -756,7 +761,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			// We accept the packet as a new flow
 			d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 		}
-
+		zap.L().Error("AMIT :: SETTING TCP DAta")
 		conn.SetState(connection.TCPData)
 
 		if !conn.ServiceConnection {
@@ -787,7 +792,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		zap.String("context", context.ManagementID()),
 		zap.String("net-conn", hash),
 	)
-
+	zap.L().Error("Here")
 	return nil, nil, fmt.Errorf("Ack packet dropped, invalid duplicate state: %d", conn.GetState())
 }
 

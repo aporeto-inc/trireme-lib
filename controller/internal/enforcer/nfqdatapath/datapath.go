@@ -130,7 +130,33 @@ func New(
 		if err := cmd.Run(); err != nil {
 			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_forward=1")
 
+		if err := cmd.Run(); err != nil {
+			//TODO Fatal here
+			zap.L().Error("Failed to set ip forward", zap.Error(err))
+		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.rp_filter=0")
+
+		if err := cmd.Run(); err != nil {
+			zap.L().Error("Failed to set ip forward", zap.Error(err))
+		}
+
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
+
+		if err := cmd.Run(); err != nil {
+			zap.L().Error("Failed to set ip early demux", zap.Error(err))
+		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.route_localnet=1")
+
+		if err := cmd.Run(); err != nil {
+			zap.L().Error("Failed to setup route_localnet ", zap.Error(err))
+		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.accept_local=1")
+
+		if err := cmd.Run(); err != nil {
+			zap.L().Error("Failed to setup accept_local", zap.Error(err))
+		}
 	}
 
 	// This cache is shared with portSetInstance. The portSetInstance
@@ -176,6 +202,7 @@ func New(
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 	zap.L().Error("TUNDEBUG:: Called NewTunDataPath")
 	//d.datapathhdl = nfq.NewNfq(d, filterQueue)
+
 	d.datapathhdl = tundatapath.NewTunDataPath(d, 0x100)
 	return d
 }

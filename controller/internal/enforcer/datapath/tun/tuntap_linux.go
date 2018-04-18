@@ -4,12 +4,11 @@ package tundatapath
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"net"
-	"os/exec"
 	"os/user"
 	"strconv"
+	"syscall"
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/iproute"
@@ -39,7 +38,7 @@ type privateData struct {
 
 func networkQueueCallBack(data []byte, cbData interface{}) error {
 
-	zap.L().Error("Received Network Packet", zap.Reflect("queueNum", cbData), zap.String("Address", fmt.Sprintf("%p", (cbData))), zap.String("\nHEX\n", string(hex.Dump(data))))
+	//	zap.L().Error("Received Network Packet", zap.Reflect("queueNum", cbData), zap.String("Address", fmt.Sprintf("%p", (cbData))), zap.String("\nHEX\n", string(hex.Dump(data))))
 
 	if err := cbData.(*privateData).t.processNetworkPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer); err != nil {
 		zap.L().Error("Received Netowrk Error", zap.Error(err))
@@ -48,7 +47,7 @@ func networkQueueCallBack(data []byte, cbData interface{}) error {
 }
 
 func appQueueCallBack(data []byte, cbData interface{}) error {
-	zap.L().Error("Received Application Packet", zap.Reflect("queueNum", cbData), zap.String("Address", fmt.Sprintf("%p", (cbData))), zap.String("\nHEX\n", string(hex.Dump(data))))
+	//zap.L().Error("Received Application Packet", zap.Reflect("queueNum", cbData), zap.String("Address", fmt.Sprintf("%p", (cbData))), zap.String("\nHEX\n", string(hex.Dump(data))))
 	if err := cbData.(*privateData).t.processAppPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer); err != nil {
 		zap.L().Error("Received Application Error", zap.Error(err))
 	}
@@ -63,28 +62,17 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 		zap.L().Error("Unable to create an iproute handle")
 		return nil
 	}
-	//sysctl
-	sysctlCmd, err := exec.LookPath("sysctl")
-	if err != nil {
-		zap.L().Fatal("sysctl command must be installed", zap.Error(err))
+	//GetRkunut
+	var rlimit syscall.Rlimit
+	if err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rlimit); err != nil {
+		zap.L().Error("cannot Get Current limit  ", zap.Error(err))
 	}
 
-	cmd := exec.Command(sysctlCmd, "-w", "net.ipv4.ip_forward=1")
-
-	if err := cmd.Run(); err != nil {
-		zap.L().Fatal("Failed to set ip forward", zap.Error(err))
-	}
-	cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.rp_filter=0")
-
-	if err := cmd.Run(); err != nil {
-		zap.L().Fatal("Failed to set ip forward", zap.Error(err))
-	}
-
-	cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
-
-	if err := cmd.Run(); err != nil {
-		zap.L().Fatal("Failed to set ip forward", zap.Error(err))
-	}
+	//Set ulimit for open files here
+	syscall.Setrlimit(syscall.RLIMIT_NOFILE, &syscall.Rlimit{
+		Cur: rlimit.Cur,
+		Max: 8192,
+	}) //nolint
 	return &tundev{
 		processor:                 processor,
 		numTunDevicesPerDirection: numTunDevicesPerDirection,
@@ -95,6 +83,9 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 
 func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
 	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
+	if err != nil {
+		zap.L().Error("Error", zap.Error(err))
+	}
 	if err != nil {
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		err = t.processor.ProcessNetworkPacket(netPacket)
@@ -128,9 +119,10 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 		copyIndex := copy(buffer, appPacket.Buffer)
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
-		zap.L().Error("OUTPUT Packet ", zap.String("TUN", string(hex.Dump(buffer))))
 		writer.WriteSocket(buffer[:copyIndex])
 	}
+
+	//writer.WriteSocket(data)
 	return err
 
 }
@@ -141,24 +133,67 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
+
+	//Reduce prio of local table so our rules get hit before even for local traffic
+	if err := t.iprouteHdl.AddRule(&netlink.Rule{
+		Table:    0xff,
+		Priority: 0xa,
+		Mark:     0,
+		Mask:     0,
+	}); err != nil {
+		// We are initing here refuse to start if this fails
+		zap.L().Error("Unable to add ip rule", zap.Error(err))
+
+	}
+
+	//Delete local table at prio 0
+	if err := t.iprouteHdl.DeleteRule(&netlink.Rule{
+		Table:    0xff,
+		Priority: 0x0,
+		Mark:     0,
+		Mask:     0,
+	}); err != nil {
+		// We are initing here refuse to start if this fails
+		zap.L().Error("Unable to delete ip rule", zap.Error(err))
+
+	}
 	//Program ip route and ip rules
-	rule := &netlink.Rule{
+	if err := t.iprouteHdl.AddRule(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
 		Mark:     (cgnetcls.Initialmarkval - 1),
 		Mask:     RuleMask,
-	}
-	if err := t.iprouteHdl.AddRule(rule); err != nil {
+	}); err != nil {
 		// We are initing here refuse to start if this fails
 		zap.L().Fatal("Unable to add ip rule", zap.Error(err))
 
 	}
+
 	//Startup a cleanup routine here.
 	go func() {
 		//Cleanup on exit
 		<-ctx.Done()
-		t.iprouteHdl.DeleteRule(rule) // nolint
+		t.iprouteHdl.DeleteRule(&netlink.Rule{
+			Table:    NetworkRuleTable,
+			Priority: RulePriority,
+			Mark:     (cgnetcls.Initialmarkval - 1),
+			Mask:     RuleMask,
+		}) // nolint
+		//restore local rule again
+		t.iprouteHdl.AddRule(&netlink.Rule{
+			Table:    0xff,
+			Priority: 0x0,
+			Mark:     0,
+			Mask:     0,
+		}) //nolint
 
+		//Delete prio 10 local rule
+		t.iprouteHdl.DeleteRule(&netlink.Rule{
+			Table:    0xff,
+			Priority: 0xa,
+			Mark:     0,
+			Mask:     0,
+		}) //nolint
 	}()
 	for i := 0; i < numTunDevicesPerDirection; i++ {
 		deviceName := baseTunDeviceName + baseTunDeviceInput + strconv.Itoa(i+1)
@@ -185,10 +220,12 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 					t:        t,
 					queueNum: qIndex,
 				}
-				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress); err == nil {
+				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress, afinetrawsocket.NetworkRawSocketMark, deviceName); err == nil {
 					pData.writer = writer
 					go tun.StartQueue(qIndex, pData)
 					continue
+				} else {
+					zap.L().Error("CreateSocket Error %s", zap.Error(err))
 				}
 				//go rawloop(qIndex, tun, "network")
 
@@ -218,13 +255,13 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
-	rule := &netlink.Rule{
+
+	if err := t.iprouteHdl.AddRule(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
 		Mark:     cgnetcls.Initialmarkval - 2,
 		Mask:     RuleMask,
-	}
-	if err := t.iprouteHdl.AddRule(rule); err != nil {
+	}); err != nil {
 		// We are initing here refuse to start if this fails
 		zap.L().Fatal("Unable to add ip rule", zap.Error(err))
 
@@ -232,7 +269,12 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 	go func() {
 		//Cleanup on exit
 		<-ctx.Done()
-		t.iprouteHdl.DeleteRule(rule) // nolint
+		t.iprouteHdl.DeleteRule(&netlink.Rule{
+			Table:    ApplicationRuleTable,
+			Priority: RulePriority,
+			Mark:     cgnetcls.Initialmarkval - 2,
+			Mask:     RuleMask,
+		}) // nolint
 
 	}()
 
@@ -257,7 +299,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 			if err = tcBatch.BuildOutputTCBatchCommand(); err != nil {
 				zap.L().Fatal("Unable to create queuing policy", zap.Error(err))
 			}
-			zap.L().Error("TC Command::" + tcBatch.String())
+			//zap.L().Error("TC Command::" + tcBatch.String())
 			if err = tcBatch.Execute(); err != nil {
 				zap.L().Fatal("Unable to install queuing policy", zap.Error(err))
 			}
@@ -270,9 +312,8 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 					t:        t,
 					queueNum: qIndex,
 				}
-				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress); err == nil {
+				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress, afinetrawsocket.ApplicationRawSocketMark, deviceName); err == nil {
 					pData.writer = writer
-					zap.L().Error("Passing Private", zap.Int("QueueNum", qIndex), zap.String("Address", fmt.Sprintf("%p", pData)))
 					go tun.StartQueue(qIndex, pData)
 					continue
 				}

@@ -11,19 +11,21 @@ import (
 	"github.com/netlink"
 )
 
+// Iproute is the wrapper around netlinkHandle
 type Iproute struct {
 	netlinkHandle *netlink.Handle
 }
 
 // NewIpRouteHandle returns a reference IpRoute structure
 func NewIpRouteHandle() (*Iproute, error) {
+	var err error
 	if hdl, err := netlink.NewHandle(); err == nil {
 		return &Iproute{
 			netlinkHandle: hdl,
 		}, nil
-	} else {
-		return nil, fmt.Errorf("Received Error %s while initing library", err)
 	}
+	return nil, fmt.Errorf("Received Error %s while initing library", err)
+
 }
 
 // AddRule add rule to the rule table
@@ -41,6 +43,7 @@ func (i *Iproute) AddRule(rule *netlink.Rule) error {
 	maskbuf := markMaskAttrToWire(uint32(rule.Mask))
 	nlmsghdr.Len = syscall.SizeofNlMsghdr + uint32(len(rtmsgbuf)+len(priobuf)+len(markbuf)+len(maskbuf))
 	buf := common.SerializeNlMsgHdr(nlmsghdr)
+
 	buf = append(buf, rtmsgbuf...)
 	buf = append(buf, markbuf...)
 	buf = append(buf, maskbuf...)
