@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
 	kubecache "k8s.io/client-go/tools/cache"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -13,7 +14,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
 
-	kubernetesclient "github.com/aporeto-inc/trireme-kubernetes/kubernetes"
 	dockermonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
 )
 
@@ -23,7 +23,8 @@ import (
 // It connects to the Kubernetes API and adds the tags that are coming from Kuberntes that cannot be found
 type KubernetesMonitor struct {
 	dockerMonitor       *dockermonitor.DockerMonitor
-	kubernetesClient    *kubernetesclient.Client
+	kubeClient          kubernetes.Interface
+	localNode           string
 	handlers            *config.ProcessorConfig
 	cache               *cache
 	kubernetesExtractor extractors.KubernetesMetadataExtractorType
@@ -79,11 +80,14 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 
 	m.dockerMonitor = dockerMon
 
-	kubernetesClient, err := kubernetesclient.NewClient(kubernetesconfig.Kubeconfig, kubernetesconfig.Nodename)
+	// Setting up Kubernetes
+	m.localNode = kubernetesconfig.Nodename
+	kubeClient, err := NewKubeClient(kubernetesconfig.Kubeconfig)
 	if err != nil {
 		return fmt.Errorf("kubernetes client instantiation error: %s", err.Error())
 	}
-	m.kubernetesClient = kubernetesClient
+	m.kubeClient = kubeClient
+
 	m.enableHostPods = kubernetesconfig.EnableHostPods
 	m.kubernetesExtractor = kubernetesconfig.KubernetesExtractor
 
@@ -101,7 +105,7 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 
 // Run starts the monitor.
 func (m *KubernetesMonitor) Run(ctx context.Context) error {
-	if m.kubernetesClient == nil {
+	if m.kubeClient == nil {
 		return fmt.Errorf("kubernetes client is not initialized correctly")
 	}
 
