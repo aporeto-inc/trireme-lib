@@ -93,6 +93,8 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 	}
 
 	for _, contextID := range s.rpchdl.ContextList() {
+
+		zap.L().Debug("Send secrets to RE over RPC", zap.Reflect("secrets", s.Secrets))
 		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.UpdateSecrets, request, resp); err != nil {
 			return fmt.Errorf("Failed to update secrets. status %s: %s", resp.Status, err)
 		}

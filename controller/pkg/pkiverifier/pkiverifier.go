@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
@@ -71,6 +72,7 @@ func NewPKIVerifier(publicKeys []*ecdsa.PublicKey, cacheValidity time.Duration) 
 func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 
 	tokenString := string(token)
+	zap.L().Debug("Varks: verifying token string", zap.String("tokenstring", tokenString))
 	if pk, err := p.keycache.Get(tokenString); err == nil {
 		return pk.(*ecdsa.PublicKey), nil
 	}
@@ -92,9 +94,10 @@ func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 		if time.Now().Add(p.validity).Unix() <= claims.ExpiresAt {
 			p.keycache.AddOrUpdate(tokenString, pk)
 		}
-
+		zap.L().Debug("Varks: matched against a valid public key ?")
 		return pk, nil
 	}
+	zap.L().Debug("Varks : Cannot verify against any public key")
 
 	return nil, errors.New("unable to verify token against any available public key")
 }

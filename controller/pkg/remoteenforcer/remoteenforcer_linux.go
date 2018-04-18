@@ -373,12 +373,21 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 		return fmt.Errorf(resp.Status)
 	}
 
+	zap.L().Debug("Secrets are being update here in line - remote enforcer")
 	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
 	s.secrets, err = secrets.NewSecrets(payload.Secrets)
 	if err != nil {
+		zap.L().Debug("Varks: error creating new secrets in RE")
+		return err
+	}
+	err = s.enforcer.UpdateSecrets(s.secrets)
+
+	if err != nil {
+		zap.L().Debug("Varks : error updating secretrs in RE")
 		return err
 	}
 
+	zap.L().Debug("Secrets sucessfully updated - remote enforcer", zap.Reflect("secrets", s.secrets))
 	return nil
 }
 
