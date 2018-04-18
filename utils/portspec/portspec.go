@@ -98,11 +98,11 @@ func (s *PortSpec) Value() interface{} {
 func (s *PortSpec) Overlaps(p *PortSpec) bool {
 	a := p
 	b := s
-	if s.Min > p.Min {
+	if a.Min > b.Min {
 		a = s
 		b = p
 	}
-	if a.Max > b.Min {
+	if a.Max >= b.Min {
 		return true
 	}
 	return false
