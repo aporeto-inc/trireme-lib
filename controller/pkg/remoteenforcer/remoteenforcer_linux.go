@@ -387,7 +387,7 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 		return err
 	}
 
-	zap.L().Debug("Secrets sucessfully updated - remote enforcer", zap.Reflect("secrets", s.secrets))
+	zap.L().Debug("Secrets successfully updated - remote enforcer", zap.Reflect("secrets", s.secrets))
 	return nil
 }
 
