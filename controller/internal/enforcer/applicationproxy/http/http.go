@@ -562,12 +562,17 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 	token, err := jwt.ParseWithClaims(authorization, claims, func(token *jwt.Token) (interface{}, error) {
 		switch token.Method {
 		case token.Method.(*jwt.SigningMethodECDSA):
-			return cert.PublicKey.(*ecdsa.PublicKey), nil
+			if rcert, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
+				return rcert, nil
+			}
 		case token.Method.(*jwt.SigningMethodRSA):
-			return cert.PublicKey.(*rsa.PublicKey), nil
+			if rcert, ok := cert.PublicKey.(*rsa.PublicKey); ok {
+				return rcert, nil
+			}
 		default:
 			return nil, fmt.Errorf("Unknown signing method")
 		}
+		return nil, fmt.Errorf("Signing method does not match certificate")
 	})
 
 	// We can't decode it. Just ignore the user attributes at this point.
