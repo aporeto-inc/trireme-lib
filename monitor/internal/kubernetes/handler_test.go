@@ -4,13 +4,13 @@ import (
 	"context"
 	"testing"
 
-	kubernetesclient "github.com/aporeto-inc/trireme-kubernetes/kubernetes"
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/monitor/config"
 	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
 	dockermonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	api "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes"
 	kubecache "k8s.io/client-go/tools/cache"
 )
 
@@ -118,7 +118,8 @@ func Test_getKubernetesInformation(t *testing.T) {
 func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 	type fields struct {
 		dockerMonitor       *dockermonitor.DockerMonitor
-		kubernetesClient    *kubernetesclient.Client
+		kubeClient          kubernetes.Interface
+		localNode           string
 		handlers            *config.ProcessorConfig
 		cache               *cache
 		kubernetesExtractor extractors.KubernetesMetadataExtractorType
@@ -162,7 +163,8 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &KubernetesMonitor{
 				dockerMonitor:       tt.fields.dockerMonitor,
-				kubernetesClient:    tt.fields.kubernetesClient,
+				kubeClient:          tt.fields.kubeClient,
+				localNode:           tt.fields.localNode,
 				handlers:            tt.fields.handlers,
 				cache:               tt.fields.cache,
 				kubernetesExtractor: tt.fields.kubernetesExtractor,
@@ -181,7 +183,8 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 func TestKubernetesMonitor_RefreshPUs(t *testing.T) {
 	type fields struct {
 		dockerMonitor       *dockermonitor.DockerMonitor
-		kubernetesClient    *kubernetesclient.Client
+		kubeClient          kubernetes.Interface
+		localNode           string
 		handlers            *config.ProcessorConfig
 		cache               *cache
 		kubernetesExtractor extractors.KubernetesMetadataExtractorType
@@ -213,7 +216,8 @@ func TestKubernetesMonitor_RefreshPUs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &KubernetesMonitor{
 				dockerMonitor:       tt.fields.dockerMonitor,
-				kubernetesClient:    tt.fields.kubernetesClient,
+				kubeClient:          tt.fields.kubeClient,
+				localNode:           tt.fields.localNode,
 				handlers:            tt.fields.handlers,
 				cache:               tt.fields.cache,
 				kubernetesExtractor: tt.fields.kubernetesExtractor,
