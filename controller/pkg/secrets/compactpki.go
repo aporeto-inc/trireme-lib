@@ -100,7 +100,6 @@ func (p *CompactPKI) DecodingKey(server string, ackKey interface{}, prevKey inte
 // VerifyPublicKey verifies if the inband public key is correct.
 func (p *CompactPKI) VerifyPublicKey(pkey []byte) (interface{}, error) {
 
-	zap.L().Debug("Varks: Verifying public key")
 	return p.verifier.Verify(pkey)
 
 }
