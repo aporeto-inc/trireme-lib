@@ -17,7 +17,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/netlink"
+	"github.com/vishvananda/netlink"
 	"go.uber.org/zap"
 )
 
