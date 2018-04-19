@@ -156,7 +156,7 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 	}
 
 	for _, exposedService := range policy.ExposedServices() {
-		min, max := exposedService.NetworkInfo.Ports.Range()
+		min, max := exposedService.PrivateNetworkInfo.Ports.Range()
 		for i := int(min); i <= int(max); i++ {
 			if err := srvTargetSet.Add(strconv.Itoa(i), 0); err != nil {
 				zap.L().Error("Failed to add vip", zap.Error(err))

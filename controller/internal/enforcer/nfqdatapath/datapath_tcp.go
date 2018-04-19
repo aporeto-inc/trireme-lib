@@ -363,7 +363,6 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	// Only process the first Ack of a connection. This means that we have received
 	// as SynAck packet and we can now process the ACK.
 	if conn.GetState() == connection.TCPSynAckReceived && tcpPacket.IsEmptyTCPPayload() {
-
 		// Create a new token that includes the source and destinatio nonse
 		// These are both challenges signed by the secret key and random for every
 		// connection minimizing the chances of a replay attack
@@ -419,14 +418,13 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
 		_, policy, perr := context.ApplicationACLPolicy(tcpPacket)
+
 		if perr != nil {
-			// TODO: Send resets. Don't just drop
-			// tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
-			return nil, perr
+			err := tcpPacket.ConvertAcktoFinAck()
+			return nil, err
 		}
 
 		if policy.Action.Rejected() {
-			// send a reset to the connection
 			return nil, errors.New("Reject the packet")
 		}
 
@@ -697,14 +695,13 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
 		_, policy, perr := context.NetworkACLPolicy(tcpPacket)
+
 		if perr != nil {
-			// TODO: Send resets .. don't just drop
-			// tcpPacket.TCPFlags = tcpPacket.TCPFlags | packet.TCPRstMask
-			return nil, nil, perr
+			err := tcpPacket.ConvertAcktoFinAck()
+			return nil, nil, err
 		}
 
 		if policy.Action.Rejected() {
-			// send a reset to the connection
 			return nil, nil, errors.New("Reject the packet")
 		}
 
@@ -968,7 +965,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		if err != nil {
 			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 				// Let's try if its an existing connection
-				context, cerr := d.contextFromIP(true, p.DestinationAddress.String(), p.Mark, p.SourcePort)
+				context, cerr := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort)
 				if cerr != nil {
 					return nil, errors.New("No context in app processing")
 				}
