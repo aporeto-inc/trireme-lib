@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// NewClient Generate and initialize a Kubernetes client
+// NewKubeClient Generate and initialize a Kubernetes client based on the parameter kubeconfig
 func NewKubeClient(kubeconfig string) (*kubernetes.Clientset, error) {
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
