@@ -91,7 +91,7 @@ func (m *KubernetesMonitor) SetupConfig(registerer registerer.Registerer, cfg in
 	m.enableHostPods = kubernetesconfig.EnableHostPods
 	m.kubernetesExtractor = kubernetesconfig.KubernetesExtractor
 
-	m.podStore, m.podController = m.kubernetesClient.CreateLocalPodController("",
+	m.podStore, m.podController = m.CreateLocalPodController("",
 		m.addPod,
 		m.deletePod,
 		m.updatePod)
