@@ -150,7 +150,7 @@ func TestAllSettersGetters(t *testing.T) {
 		})
 
 		Convey("If the store is corrupted", func() {
-			ts.tags = append(ts.tags, "badtag")
+			ts.Tags = append(ts.Tags, "badtag")
 			value, ok := ts.GetValues("randomeky")
 			So(ok, ShouldBeFalse)
 			So(len(value), ShouldEqual, 0)
