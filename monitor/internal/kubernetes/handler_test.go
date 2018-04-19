@@ -2,6 +2,7 @@ package kubernetesmonitor
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/common"
@@ -11,6 +12,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 	api "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 	kubecache "k8s.io/client-go/tools/cache"
 )
 
@@ -115,7 +117,57 @@ func Test_getKubernetesInformation(t *testing.T) {
 	}
 }
 
+type mockHandler struct{}
+
+func (m *mockHandler) HandlePUEvent(ctx context.Context, puID string, event common.Event, runtime policy.RuntimeReader) error {
+	return nil
+}
+
 func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
+
+	pod1 := &api.Pod{}
+	pod1.SetName("pod1")
+	pod1.SetNamespace("beer")
+
+	pod1Runtime := policy.NewPURuntimeWithDefaults()
+	pod1Runtime.SetTags(policy.NewTagStoreFromMap(map[string]string{
+		KubernetesPodNamespaceIdentifier: "beer",
+		KubernetesPodNameIdentifier:      "pod1",
+	}))
+
+	kubernetesExtractorUnmanaged := func(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
+		originalRuntime, ok := runtime.(*policy.PURuntime)
+		if !ok {
+			return nil, false, fmt.Errorf("Error casting puruntime")
+		}
+
+		newRuntime := originalRuntime.Clone()
+
+		return newRuntime, false, nil
+	}
+
+	kubernetesExtractorErrored := func(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
+		originalRuntime, ok := runtime.(*policy.PURuntime)
+		if !ok {
+			return nil, false, fmt.Errorf("Error casting puruntime")
+		}
+
+		newRuntime := originalRuntime.Clone()
+
+		return newRuntime, false, fmt.Errorf("Previsible error")
+	}
+
+	kubernetesExtractorManaged := func(runtime policy.RuntimeReader, pod *api.Pod) (*policy.PURuntime, bool, error) {
+		originalRuntime, ok := runtime.(*policy.PURuntime)
+		if !ok {
+			return nil, false, fmt.Errorf("Error casting puruntime")
+		}
+
+		newRuntime := originalRuntime.Clone()
+
+		return newRuntime, true, nil
+	}
+
 	type fields struct {
 		dockerMonitor       *dockermonitor.DockerMonitor
 		kubeClient          kubernetes.Interface
@@ -157,6 +209,46 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 				dockerRuntime: policy.NewPURuntimeWithDefaults(),
 			},
 			wantErr: true,
+		},
+		{
+			name: "Extractor with Unmanaged PU",
+			fields: fields{
+				kubeClient:          kubefake.NewSimpleClientset(pod1),
+				kubernetesExtractor: kubernetesExtractorUnmanaged,
+			},
+			args: args{
+				event:         common.EventCreate,
+				dockerRuntime: pod1Runtime,
+			},
+			wantErr: false,
+		},
+		{
+			name: "Extractor with Errored output",
+			fields: fields{
+				kubeClient:          kubefake.NewSimpleClientset(pod1),
+				kubernetesExtractor: kubernetesExtractorErrored,
+			},
+			args: args{
+				event:         common.EventCreate,
+				dockerRuntime: pod1Runtime,
+			},
+			wantErr: true,
+		},
+		{
+			name: "Extractor with managed PU",
+			fields: fields{
+				kubeClient:          kubefake.NewSimpleClientset(pod1),
+				kubernetesExtractor: kubernetesExtractorManaged,
+				cache:               newCache(),
+				handlers: &config.ProcessorConfig{
+					Policy: &mockHandler{},
+				},
+			},
+			args: args{
+				event:         common.EventCreate,
+				dockerRuntime: pod1Runtime,
+			},
+			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
