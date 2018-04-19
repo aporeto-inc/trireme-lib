@@ -120,7 +120,7 @@ func (t *trireme) UpdatePolicy(ctx context.Context, puID string, plc *policy.PUP
 
 // UpdateSecrets updates the secrets of the controllers.
 func (t *trireme) UpdateSecrets(secrets secrets.Secrets) error {
-	for id, enforcer := range t.enforcers {
+	for _, enforcer := range t.enforcers {
 		if err := enforcer.UpdateSecrets(secrets); err != nil {
 			zap.L().Error("unable to update secrets", zap.Error(err))
 		}
