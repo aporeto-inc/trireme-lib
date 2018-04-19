@@ -244,13 +244,13 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 			},
 		},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &cache{
-				puidCache: tt.fields.puidCache,
-				podCache:  tt.fields.podCache,
-				RWMutex:   tt.fields.RWMutex,
-			}
+	for _, tt := range tests { // nolint
+		t.Run(tt.name, func(t *testing.T) { // nolint
+			c := &cache{ // nolint
+				puidCache: tt.fields.puidCache, // nolint
+				podCache:  tt.fields.podCache,  // nolint
+				RWMutex:   tt.fields.RWMutex,   // nolint
+			} // nolint
 			c.updatePUIDCache(tt.args.podNamespace, tt.args.podName, tt.args.puID, tt.args.dockerRuntime, tt.args.kubernetesRuntime)
 			if !reflect.DeepEqual(c.puidCache, tt.fieldsResult.puidCache) {
 				t.Errorf("updatePUIDCache() field. got %v, want %v", c.puidCache, tt.fieldsResult.puidCache)
