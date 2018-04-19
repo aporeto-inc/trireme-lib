@@ -340,9 +340,9 @@ func TestAllLockedSetGet(t *testing.T) {
 
 		Convey("If I add an identity key/value pair, it should succeed", func() {
 			p.AddIdentityTag("key", "value")
-			t, ok := p.Identity().Get("key")
+			t, ok := p.Identity().GetValues("key")
 			So(ok, ShouldBeTrue)
-			So(t, ShouldResemble, "value")
+			So(t, ShouldResemble, []string{"value"})
 		})
 
 		Convey("If I update the IPS, it should succeed", func() {

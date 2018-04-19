@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/policy"
+	"github.com/aporeto-inc/trireme-lib/utils/tagging"
 )
 
 // ForwardingPolicy is an instance of the forwarding policy
@@ -139,25 +140,6 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 
 }
 
-// Custom implementation for splitting strings. Gives significant performance
-// improvement. Do not allocate new strings
-func (m *PolicyDB) tagSplit(str string, k *string, v *string) error {
-	n := len(str)
-	if n == 0 {
-		return fmt.Errorf("Null string")
-	}
-
-	for i := 0; i < n; i++ {
-		if str[i] == '=' {
-			*k = str[:i]
-			*v = str[i+1:]
-			return nil
-		}
-	}
-
-	return fmt.Errorf("no key/value pair found for tag: %s", str)
-}
-
 //Search searches for a set of tags in the database to find a policy match
 func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
@@ -168,7 +150,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	// Disable all policies that fail the not key exists
 	var k, v string
 	for _, t := range tags.GetSlice() {
-		if err := m.tagSplit(t, &k, &v); err != nil {
+		if err := tagging.Split(t, &k, &v); err != nil {
 			continue
 		}
 		for _, policy := range m.notStarTable[k] {
@@ -178,7 +160,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	// Go through the list of tags
 	for _, t := range tags.GetSlice() {
-		if err := m.tagSplit(t, &k, &v); err != nil {
+		if err := tagging.Split(t, &k, &v); err != nil {
 			continue
 		}
 		// Search for matches of k=v

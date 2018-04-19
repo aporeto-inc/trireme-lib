@@ -197,12 +197,12 @@ func (r *PURuntime) SetIPAddresses(ipa ExtendedMap) {
 	r.ips = ipa.Copy()
 }
 
-// Tag returns a specific tag for the processing unit
+// Tag returns all the value of a key of the PURuntime.
 func (r *PURuntime) Tag(key string) (string, bool) {
 	r.Lock()
 	defer r.Unlock()
 
-	tag, ok := r.tags.Get(key)
+	tag, ok := r.tags.GetUnique(key)
 	return tag, ok
 }
 
@@ -219,7 +219,7 @@ func (r *PURuntime) SetTags(t *TagStore) {
 	r.Lock()
 	defer r.Unlock()
 
-	r.tags.Tags = t.Tags
+	r.tags = t
 }
 
 // Options returns tags for the processing unit

@@ -78,10 +78,7 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 
 	// If not an ACK packet copy the tags
 	if !isAck {
-		for _, kv := range claims.T.GetSlice() {
-			tag := []byte(kv + " ")
-			buffer = append(buffer, tag...)
-		}
+		buffer = append(buffer, []byte(claims.T.String())...)
 	}
 
 	// Sign the buffer

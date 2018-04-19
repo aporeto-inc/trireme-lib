@@ -518,7 +518,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
-	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
+	txLabel, ok := claims.T.GetUnique(enforcerconstants.TransmitterLabel)
 	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)

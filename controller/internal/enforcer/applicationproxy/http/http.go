@@ -290,7 +290,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 		// Validate the policy based on the scopes of the PU.
 		// TODO: Add user scopes
-		if err = p.verifyPolicy(t.([]string), puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
+		if err = p.verifyPolicy(t.([]string), puContext.Identity().GetSlice(), puContext.Scopes(), []string{}); err != nil {
 			zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
 			return
@@ -429,7 +429,7 @@ func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, erro
 			Issuer:    p.server.Addr,
 			ExpiresAt: time.Now().Add(10 * time.Second).Unix(),
 		},
-		Profile:  puContext.Identity().Tags,
+		Profile:  puContext.Identity().GetSlice(),
 		Scopes:   puContext.Scopes(),
 		SourceID: puContext.ManagementID(),
 	}

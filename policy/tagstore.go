@@ -2,62 +2,114 @@ package policy
 
 import (
 	"strings"
+
+	"github.com/aporeto-inc/trireme-lib/utils/tagging"
 )
 
-// TagStore stores the tags - it allows duplicate key values
+// TagStore stores the tags - it allows duplicate key values and
+// fast indexing of the tags. A map would not be enough for this
+// since does not support duplicate keys.
 type TagStore struct {
-	Tags []string
+	tags []string
+	kv   map[string]map[string]bool
 }
 
 // NewTagStore creates a new TagStore
 func NewTagStore() *TagStore {
-	return &TagStore{[]string{}}
+	return &TagStore{
+		[]string{},
+		map[string]map[string]bool{},
+	}
 }
 
 // NewTagStoreFromSlice creates a new tag store from a slice.
 func NewTagStoreFromSlice(tags []string) *TagStore {
-	return &TagStore{tags}
+	kvMap := map[string]map[string]bool{}
+	var k, v string
+	for _, kv := range tags {
+		err := tagging.Split(kv, &k, &v)
+		if err != nil {
+			continue
+		}
+		if _, ok := kvMap[k]; !ok {
+			kvMap[k] = map[string]bool{}
+		}
+		kvMap[k][v] = true
+	}
+	return &TagStore{
+		tags: tags,
+		kv:   kvMap,
+	}
 }
 
 // NewTagStoreFromMap creates a tag store from an input map
 func NewTagStoreFromMap(tags map[string]string) *TagStore {
-	t := &TagStore{make([]string, len(tags))}
+	taglist := make([]string, len(tags))
+	kvMap := map[string]map[string]bool{}
+
 	i := 0
 	for k, v := range tags {
-		t.Tags[i] = k + "=" + v
+		taglist[i] = k + "=" + v
 		i++
+
+		if _, ok := kvMap[k]; !ok {
+			kvMap[k] = map[string]bool{}
+		}
+		kvMap[k][v] = true
 	}
-	return t
+	return &TagStore{
+		tags: taglist,
+		kv:   kvMap,
+	}
 }
 
 // GetSlice returns the tagstore as a slice
 func (t *TagStore) GetSlice() []string {
-	return t.Tags
+	return t.tags
 }
 
 // Copy copies a TagStore
 func (t *TagStore) Copy() *TagStore {
 
-	c := make([]string, len(t.Tags))
+	c := make([]string, len(t.tags))
+	copy(c, t.tags)
 
-	copy(c, t.Tags)
-
-	return &TagStore{c}
+	return NewTagStoreFromSlice(c)
 }
 
-// Get does a lookup in the list of tags
-func (t *TagStore) Get(key string) (string, bool) {
+// GetValues retrieves all the values of the key/value set
+func (t *TagStore) GetValues(key string) ([]string, bool) {
 
-	for _, kv := range t.Tags {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		if key == parts[0] {
-			return parts[1], true
-		}
+	valueMap, ok := t.kv[key]
+	if !ok {
+		return []string{}, false
 	}
 
+	slice := make([]string, len(valueMap))
+	i := 0
+	for v := range valueMap {
+		slice[i] = v
+		i++
+	}
+	return slice, true
+}
+
+// GetUnique retrieves the value of a string only if it is unique. It
+// returns false if it is not found or if there are overlaps.
+func (t *TagStore) GetUnique(key string) (string, bool) {
+
+	valueMap, ok := t.kv[key]
+	if !ok {
+		return "", false
+	}
+
+	if len(valueMap) != 1 {
+		return "", false
+	}
+
+	for v := range valueMap {
+		return v, true
+	}
 	return "", false
 }
 
@@ -65,30 +117,48 @@ func (t *TagStore) Get(key string) (string, bool) {
 // tag from m is ignored.
 func (t *TagStore) Merge(m *TagStore) (merged int) {
 
-	for _, kv := range m.Tags {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) != 2 {
+	var k, v string
+	for _, kv := range m.GetSlice() {
+		err := tagging.Split(kv, &k, &v)
+		if err != nil {
 			continue
 		}
-		if _, ok := t.Get(parts[0]); !ok {
-			t.AppendKeyValue(parts[0], parts[1])
+
+		if t.AppendKeyValue(k, v) {
 			merged++
 		}
 	}
 	return merged
 }
 
-// AppendKeyValue appends a key and value to the tag store
-func (t *TagStore) AppendKeyValue(key, value string) {
-	t.Tags = append(t.Tags, key+"="+value)
+// AppendKeyValue appends a key and value to the tag store if
+// they don't exist.
+func (t *TagStore) AppendKeyValue(key, value string) bool {
+	addToSlice := false
+
+	if _, ok := t.kv[key]; !ok {
+		addToSlice = true
+		t.kv[key] = map[string]bool{}
+	}
+
+	if _, valueok := t.kv[key][value]; !valueok {
+		t.kv[key][value] = true
+		addToSlice = true
+	}
+
+	if addToSlice {
+		t.tags = append(t.tags, key+"="+value)
+	}
+
+	return addToSlice
 }
 
 // String provides a string representation of tag store.
 func (t *TagStore) String() string {
-	return strings.Join(t.Tags, " ")
+	return strings.Join(t.tags, " ")
 }
 
 // IsEmpty if no key value pairs exist.
 func (t *TagStore) IsEmpty() bool {
-	return len(t.Tags) == 0
+	return len(t.tags) == 0
 }

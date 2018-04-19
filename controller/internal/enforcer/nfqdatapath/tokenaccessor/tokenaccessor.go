@@ -139,7 +139,7 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	}
 
 	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
+	remoteContextID, ok := claims.T.GetUnique(enforcerconstants.TransmitterLabel)
 	if !ok {
 		return nil, errors.New("no transmitter label")
 	}
