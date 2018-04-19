@@ -2,6 +2,7 @@ package policy
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/utils/tagging"
 )
@@ -12,6 +13,7 @@ import (
 type TagStore struct {
 	tags []string
 	kv   map[string]map[string]bool
+	sync.RWMutex
 }
 
 // NewTagStore creates a new TagStore
@@ -70,6 +72,8 @@ func (t *TagStore) GetSlice() []string {
 
 // Copy copies a TagStore
 func (t *TagStore) Copy() *TagStore {
+	t.Lock()
+	defer t.Unlock()
 
 	c := make([]string, len(t.tags))
 	copy(c, t.tags)
@@ -79,6 +83,9 @@ func (t *TagStore) Copy() *TagStore {
 
 // GetValues retrieves all the values of the key/value set
 func (t *TagStore) GetValues(key string) ([]string, bool) {
+
+	t.RLock()
+	defer t.RUnlock()
 
 	valueMap, ok := t.kv[key]
 	if !ok {
@@ -97,6 +104,9 @@ func (t *TagStore) GetValues(key string) ([]string, bool) {
 // GetUnique retrieves the value of a string only if it is unique. It
 // returns false if it is not found or if there are overlaps.
 func (t *TagStore) GetUnique(key string) (string, bool) {
+
+	t.RLock()
+	defer t.RUnlock()
 
 	valueMap, ok := t.kv[key]
 	if !ok {
@@ -117,6 +127,9 @@ func (t *TagStore) GetUnique(key string) (string, bool) {
 // tag from m is ignored.
 func (t *TagStore) Merge(m *TagStore) (merged int) {
 
+	t.Lock()
+	defer t.Unlock()
+
 	var k, v string
 	for _, kv := range m.GetSlice() {
 		err := tagging.Split(kv, &k, &v)
@@ -134,6 +147,10 @@ func (t *TagStore) Merge(m *TagStore) (merged int) {
 // AppendKeyValue appends a key and value to the tag store if
 // they don't exist.
 func (t *TagStore) AppendKeyValue(key, value string) bool {
+
+	t.Lock()
+	defer t.Unlock()
+
 	addToSlice := false
 
 	if _, ok := t.kv[key]; !ok {
@@ -155,10 +172,16 @@ func (t *TagStore) AppendKeyValue(key, value string) bool {
 
 // String provides a string representation of tag store.
 func (t *TagStore) String() string {
+	t.RLock()
+	defer t.RUnlock()
+
 	return strings.Join(t.tags, " ")
 }
 
 // IsEmpty if no key value pairs exist.
 func (t *TagStore) IsEmpty() bool {
+	t.RLock()
+	defer t.RUnlock()
+
 	return len(t.tags) == 0
 }
