@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/netlink-go/common"
-	"github.com/netlink"
+	"github.com/vishvananda/netlink"
 )
 
 // Iproute is the wrapper around netlinkHandle
