@@ -903,6 +903,39 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
 	}
+
+	err = i.ipt.Insert(
+		"raw",
+		"PREROUTING", 1,
+		"-i", "docker0",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-m", "addrtype", "--dst-type", "LOCAL",
+		"-j", "NOTRACK",
+	)
+	if err != nil {
+		return fmt.Errorf("Unable to add NOTRACK rule to raw PREROUTING table %s", err)
+	}
+
+	err = i.ipt.Insert(
+		"raw",
+		"OUTPUT", 1,
+		"-m", "mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		"-j", "NOTRACK",
+	)
+	if err != nil {
+		return fmt.Errorf("Unable to add NOTRACK rule to raw OUTPUT table %s", err)
+	}
+	err = i.ipt.Insert(
+		"nat",
+		"POSTROUTING", 1,
+		"-m", "addrtype", "--src-type", "LOCAL",
+		"-d", "172.17.0.2/16",
+		"-o", "tun-out1",
+		"-j", "MASQUERADE",
+	)
+	if err != nil {
+		return fmt.Errorf("Unable to add MASQUERADE rule to raw OUTPUT table %s", err)
+	}
 	err = i.ipt.Insert(
 		"filter",
 		"FORWARD", 1,

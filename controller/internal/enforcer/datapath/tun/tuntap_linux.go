@@ -220,7 +220,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 					t:        t,
 					queueNum: qIndex,
 				}
-				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress, afinetrawsocket.NetworkRawSocketMark, deviceName); err == nil {
+				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress, afinetrawsocket.NetworkRawSocketMark, "tun-out1"); err == nil {
 					pData.writer = writer
 					go tun.StartQueue(qIndex, pData)
 					continue
@@ -312,7 +312,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 					t:        t,
 					queueNum: qIndex,
 				}
-				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress, afinetrawsocket.ApplicationRawSocketMark, deviceName); err == nil {
+				if writer, err := afinetrawsocket.CreateSocket(dummyIPAddress, afinetrawsocket.ApplicationRawSocketMark, "tun-in1"); err == nil {
 					pData.writer = writer
 					go tun.StartQueue(qIndex, pData)
 					continue
