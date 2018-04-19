@@ -402,7 +402,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 
-			claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
+			claims.T = append(claims.T, enforcerconstants.PortNumberLabelString+"="+strconv.Itoa(int(backendport)))
 			report, packet := puContext.SearchRcvRules(claims.T)
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)

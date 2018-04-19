@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -518,16 +519,15 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
-	txLabel, ok := claims.T.GetUnique(enforcerconstants.TransmitterLabel)
-	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
+	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+		d.reportRejectedFlow(tcpPacket, conn, claims.ID, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 	}
 
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
 	if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
+		d.reportRejectedFlow(tcpPacket, conn, claims.ID, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format: %s", err)
 	}
 
@@ -535,12 +535,12 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	claims.T = append(claims.T, enforcerconstants.PortNumberLabelString+"="+strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	report, packet := context.SearchRcvRules(claims.T)
 	if packet.Action.Rejected() {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
-		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
+		d.reportRejectedFlow(tcpPacket, conn, claims.ID, context.ManagementID(), context, collector.PolicyDrop, report, packet)
+		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", strings.Join(claims.T, " "))
 	}
 
 	hash := tcpPacket.L4FlowHash()
@@ -671,7 +671,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 	if packet.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
-		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
+		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", strings.Join(claims.T, " "))
 	}
 
 	conn.SetState(connection.TCPSynAckReceived)

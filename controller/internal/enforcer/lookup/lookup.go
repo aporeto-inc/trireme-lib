@@ -141,7 +141,7 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 }
 
 //Search searches for a set of tags in the database to find a policy match
-func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
+func (m *PolicyDB) Search(tags []string) (int, interface{}) {
 
 	count := make([]int, m.numberOfPolicies+1)
 
@@ -149,7 +149,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	// Disable all policies that fail the not key exists
 	var k, v string
-	for _, t := range tags.GetSlice() {
+	for _, t := range tags {
 		if err := tagging.Split(t, &k, &v); err != nil {
 			continue
 		}
@@ -159,7 +159,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	}
 
 	// Go through the list of tags
-	for _, t := range tags.GetSlice() {
+	for _, t := range tags {
 		if err := tagging.Split(t, &k, &v); err != nil {
 			continue
 		}

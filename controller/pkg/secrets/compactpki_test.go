@@ -3,6 +3,7 @@ package secrets
 import (
 	"crypto/ecdsa"
 	"crypto/x509"
+	"fmt"
 	"testing"
 
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pkiverifier"
@@ -58,7 +59,7 @@ func createTxtToken() []byte {
 
 	clientCert, err := crypto.LoadCertificate([]byte(publicPEM))
 	if err != nil {
-		panic("bad client cert ")
+		panic(fmt.Sprintf("Error %+v\n ", err))
 	}
 
 	p := pkiverifier.NewPKIIssuer(caKey)
@@ -129,7 +130,7 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("I should ge the right ack size", func() {
-			So(p.AckSize(), ShouldEqual, 322)
+			So(p.AckSize(), ShouldEqual, 332)
 		})
 
 		Convey("I should get the right public key, ", func() {

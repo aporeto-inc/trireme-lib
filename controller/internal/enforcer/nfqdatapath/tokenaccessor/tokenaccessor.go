@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
@@ -98,7 +97,8 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T:  context.Identity(),
+		ID: getID(context),
+		T:  context.Identity().GetSlice(),
 		EK: auth.LocalServiceContext,
 	}
 
@@ -116,7 +116,8 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
-		T:   context.Identity(),
+		ID:  getID(context),
+		T:   context.Identity().GetSlice(),
 		RMT: auth.RemoteContext,
 		EK:  auth.LocalServiceContext,
 	}
@@ -138,15 +139,9 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 		return nil, err
 	}
 
-	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T.GetUnique(enforcerconstants.TransmitterLabel)
-	if !ok {
-		return nil, errors.New("no transmitter label")
-	}
-
 	auth.RemotePublicKey = cert
 	auth.RemoteContext = nonce
-	auth.RemoteContextID = remoteContextID
+	auth.RemoteContextID = claims.ID
 	auth.RemoteServiceContext = claims.EK
 
 	return claims, nil
@@ -170,4 +165,11 @@ func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*
 	}
 
 	return claims, nil
+}
+
+func getID(context *pucontext.PUContext) string {
+	if id := context.ManagementID(); id != "" {
+		return id
+	}
+	return context.ID()
 }

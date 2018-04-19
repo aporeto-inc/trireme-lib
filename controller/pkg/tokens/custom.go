@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 )
 
@@ -78,7 +77,10 @@ func (c *CustomTokenConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) 
 
 	// If not an ACK packet copy the tags
 	if !isAck {
-		buffer = append(buffer, []byte(claims.T.String())...)
+		for _, kv := range claims.T {
+			tag := []byte(kv + " ")
+			buffer = append(buffer, tag...)
+		}
 	}
 
 	// Sign the buffer
@@ -117,7 +119,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interfa
 	claims.RMT = data[rmtIndex : rmtIndex+sizeOfRandom]
 
 	if !isAck {
-		claims.T = policy.NewTagStore()
+		claims.T = []string{}
 		buffer := bytes.NewBuffer(data[minBufferLength:])
 		for {
 			tag, err := buffer.ReadBytes([]byte(" ")[0])
@@ -127,8 +129,7 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interfa
 				if len(values) != 2 {
 					continue
 				}
-
-				claims.T.AppendKeyValue(values[0], values[1])
+				claims.T = append(claims.T, values[0]+"="+values[1])
 				continue
 			}
 
