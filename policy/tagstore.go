@@ -19,8 +19,8 @@ type TagStore struct {
 // NewTagStore creates a new TagStore
 func NewTagStore() *TagStore {
 	return &TagStore{
-		[]string{},
-		map[string]map[string]bool{},
+		tags: []string{},
+		kv:   map[string]map[string]bool{},
 	}
 }
 
