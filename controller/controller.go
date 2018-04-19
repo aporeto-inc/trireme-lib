@@ -168,6 +168,7 @@ func (t *trireme) doHandleCreate(contextID string, policyInfo *policy.PUPolicy, 
 		t.config.collector.CollectContainerEvent(logEvent)
 	}()
 
+	addTransmitterLabel(contextID, containerInfo)
 	if !mustEnforce(contextID, containerInfo) {
 		logEvent.Event = collector.ContainerIgnored
 		return nil
@@ -220,6 +221,8 @@ func (t *trireme) doHandleDelete(contextID string, policy *policy.PUPolicy, runt
 func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, runtime *policy.PURuntime) error {
 
 	containerInfo := policy.PUInfoFromPolicyAndRuntime(contextID, newPolicy, runtime)
+
+	addTransmitterLabel(contextID, containerInfo)
 
 	if !mustEnforce(contextID, containerInfo) {
 		return nil

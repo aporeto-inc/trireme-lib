@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
@@ -57,6 +58,19 @@ func CleanOldState() {
 
 	if err := ipt.CleanAllSynAckPacketCaptures(); err != nil {
 		zap.L().Fatal("Unable to clean all syn/ack captures", zap.Error(err))
+	}
+}
+
+// addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.
+// The ManagementID part of the policy is used as the enforcerconstants.TransmitterLabel.
+// If the Policy didn't set the ManagementID, we use the Local contextID as the
+// default enforcerconstants.TransmitterLabel.
+func addTransmitterLabel(contextID string, containerInfo *policy.PUInfo) {
+
+	if containerInfo.Policy.ManagementID() == "" {
+		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, contextID)
+	} else {
+		containerInfo.Policy.AddIdentityTag(enforcerconstants.TransmitterLabel, containerInfo.Policy.ManagementID())
 	}
 }
 
