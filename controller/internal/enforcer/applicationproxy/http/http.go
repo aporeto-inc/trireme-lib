@@ -258,7 +258,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		record := &collector.FlowRecord{
 			ContextID: p.puContext,
 			Destination: &collector.EndPoint{
-				URI:  r.RequestURI,
+				URI:  r.Method + " " + r.RequestURI,
 				Type: collector.Address,
 				Port: _port,
 				IP:   r.Host,
@@ -268,9 +268,11 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 				Type: collector.PU,
 				ID:   puContext.ManagementID(),
 			},
-			Action:     policy.Reject,
-			L4Protocol: packet.IPProtocolTCP,
-			Tags:       puContext.Annotations(),
+			Action:      policy.Reject,
+			L4Protocol:  packet.IPProtocolTCP,
+			ServiceType: policy.ServiceHTTP,
+			ServiceID:   apiCache.ID,
+			Tags:        puContext.Annotations(),
 		}
 		defer p.collector.CollectFlowEvent(record)
 
@@ -298,7 +300,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 		// All checks have passed. We can accept the request, log it, and create the
 		// right tokens. If it is not an external service, we do not log at the transmit side.
-		record.Action = policy.Accept
+		record.Action = policy.Accept | policy.Encrypt
 	}
 
 	// Generate the client identity
@@ -329,14 +331,15 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI:  r.RequestURI,
+			URI:  r.Method + " " + r.RequestURI,
 			Type: collector.PU,
 		},
 		Source: &collector.EndPoint{
 			Type: collector.PU,
 		},
-		Action:     policy.Reject,
-		L4Protocol: packet.IPProtocolTCP,
+		Action:      policy.Reject,
+		L4Protocol:  packet.IPProtocolTCP,
+		ServiceType: policy.ServiceHTTP,
 	}
 	defer p.collector.CollectFlowEvent(record)
 
@@ -345,6 +348,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	record.ServiceID = apiCache.ID
 
 	// Find the original port from the URL
 	port, _port, err := originalServicePort(w, r)
@@ -418,7 +422,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	record.Action = policy.Accept
+	record.Action = policy.Accept | policy.Encrypt
 	p.fwd.ServeHTTP(w, r)
 }
 

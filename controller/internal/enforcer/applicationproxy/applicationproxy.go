@@ -403,7 +403,7 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 			zap.L().Error("Multiport services are not supported")
 			continue
 		}
-		ruleCache := urisearch.NewAPICache(service.HTTPRules, false)
+		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			rhost := fqdn + ":" + service.NetworkInfo.Ports.String()
 			portMapping[rhost] = service.PrivateNetworkInfo.Ports.String()
@@ -431,7 +431,7 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 			zap.L().Error("Multiport services are not supported")
 			continue
 		}
-		uricache := urisearch.NewAPICache(service.HTTPRules, service.External)
+		uricache := urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			dependentCache[fqdn+":"+service.NetworkInfo.Ports.String()] = uricache
 		}

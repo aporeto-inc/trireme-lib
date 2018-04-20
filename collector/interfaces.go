@@ -109,6 +109,8 @@ type FlowRecord struct {
 	Count            int
 	Action           policy.ActionType
 	ObservedAction   policy.ActionType
+	ServiceType      policy.ServiceType
+	ServiceID        string
 	L4Protocol       uint8
 }
 

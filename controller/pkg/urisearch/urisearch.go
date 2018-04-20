@@ -13,14 +13,16 @@ type node struct {
 
 // APICache represents an API cache.
 type APICache struct {
-	External bool
 	root     *node
+	ID       string
+	External bool
 }
 
 // NewAPICache creates a new API cache
-func NewAPICache(rules []*policy.HTTPRule, external bool) *APICache {
+func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 	a := &APICache{
 		root:     &node{},
+		ID:       id,
 		External: external,
 	}
 

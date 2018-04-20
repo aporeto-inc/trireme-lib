@@ -9,9 +9,9 @@ type ServiceType int
 
 // Values of ServiceType
 const (
-	ServiceTCP ServiceType = iota
+	ServiceL3 ServiceType = iota
 	ServiceHTTP
-	ServiceL3
+	ServiceTCP
 )
 
 // ApplicationServicesList is a list of ApplicationServices.
@@ -19,6 +19,9 @@ type ApplicationServicesList []*ApplicationService
 
 // ApplicationService is the type of service that this PU exposes.
 type ApplicationService struct {
+	// ID is the id of the service
+	ID string
+
 	// NetworkInfo provides the network information (addresses/ports) of the service.
 	// This is the public facing network information, or how the service can be
 	// accessed. In the case of Load Balancers for example, this would be the

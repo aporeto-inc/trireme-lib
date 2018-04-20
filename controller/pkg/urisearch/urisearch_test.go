@@ -44,7 +44,7 @@ func TestNewAPICache(t *testing.T) {
 		rules := initTrieRules()
 
 		Convey("When I insert them in the cache, I should get a valid cache", func() {
-			c := NewAPICache(rules, false)
+			c := NewAPICache(rules, "id", false)
 			So(c, ShouldNotBeNil)
 			So(c.root.leaf, ShouldBeTrue)
 			So(c.root.data.([]string), ShouldNotBeNil)
@@ -161,7 +161,7 @@ func TestParse(t *testing.T) {
 
 func TestAPICacheFind(t *testing.T) {
 	Convey("Given valid API cache", t, func() {
-		c := NewAPICache(initTrieRules(), false)
+		c := NewAPICache(initTrieRules(), "id", false)
 		Convey("When I search for correct URIs, I should get the right data", func() {
 			found, data := c.Find("GET", "/users/123/name")
 			So(found, ShouldBeTrue)
