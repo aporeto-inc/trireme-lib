@@ -14,20 +14,20 @@ import (
 
 // TunTap -- struct to hold properties of tuntap devices.
 type TunTap struct {
-	numFramesRead []uint64
-	DroppedFrames []uint64
+	ipAddress     string
+	deviceName    string
+	queueCallBack func([]byte, interface{}) error
 	tuntap        DeviceType
 	uid           uint
 	group         uint
 	epollfd       int
+	numFramesRead []uint64
+	DroppedFrames []uint64
 	queueHandles  []int
 	fdtoQueueNum  map[int]int
-	numQueues     uint16
-	ipAddress     string
 	hwMacAddress  []byte
-	deviceName    string
+	numQueues     uint16
 	persist       bool
-	queueCallBack func([]byte, interface{}) error
 }
 
 // NewTun -- creates a new tun interface and returns a handle to it. This will also implicitly bring up the interface
@@ -106,7 +106,7 @@ func (t *TunTap) PollRead(timeout int) ([]int, error) {
 		return []int{}, fmt.Errorf("Poll Wait Error %s", err)
 	}
 	for i, event := range events {
-		syscall.SetNonblock(int(event.Fd), true)
+		syscall.SetNonblock(int(event.Fd), true) // nolint
 		fds[i] = t.fdtoQueueNum[int(event.Fd)]
 	}
 	return fds[:], nil
