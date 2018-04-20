@@ -46,8 +46,8 @@ func TestInvalidContext(t *testing.T) {
 
 		Convey("When I run a TCP Syn packet through a non existing context", func() {
 
-			err1 := enforcer.processApplicationTCPPackets(tcpPacket)
-			err2 := enforcer.processNetworkTCPPackets(tcpPacket)
+			err1 := enforcer.datapathhdl.processApplicationPacket(tcpPacket)
+			err2 := enforcer.datapathhdl.processNetworkPacket(tcpPacket)
 
 			Convey("Then I should see an error for non existing context", func() {
 
