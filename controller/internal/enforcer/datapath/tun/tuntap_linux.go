@@ -172,7 +172,7 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 			zap.L().Fatal("Failed to start network socket for queue %d: %s", zap.Int("queueNum", qIndex), zap.Error(err))
 		}
 	}
-
+	var intf *net.Interface
 	// Program Route in the tables
 	intf, err = net.InterfaceByName(deviceName)
 	if err != nil {
