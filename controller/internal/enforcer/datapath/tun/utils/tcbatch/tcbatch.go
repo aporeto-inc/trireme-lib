@@ -313,6 +313,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 	return nil
 }
 
+// Execute executes the commands built in the batch
 func (t *tcBatch) Execute() error {
 	for {
 		if line, err := t.buf.ReadString('\n'); err != nil {
