@@ -23,6 +23,4 @@ const (
 	RuleMarkBit = 16
 	// RuleMask mask for low  16 bits of the mark
 	RuleMask = 0xffff
-	//Dummy Ip address
-	dummyIPAddress = "172.17.0.1"
 )

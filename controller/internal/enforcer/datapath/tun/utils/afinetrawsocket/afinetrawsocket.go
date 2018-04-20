@@ -28,7 +28,7 @@ type SocketWriter interface {
 }
 
 // CreateSocket returns a handle to SocketWriter interface
-func CreateSocket(ipaddress string, mark int, deviceName string) (SocketWriter, error) {
+func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
 	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
 
