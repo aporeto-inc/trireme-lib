@@ -987,7 +987,16 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add set mark rule for reinjecting packet app: %s", err)
 	}
-
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		"-m", "addrtype", "--src-type", "local", "--dst-type", "local",
+		"-m", "set", "--match-set", "ListenerPortSet", "src",
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
+	if err != nil {
+		return fmt.Errorf("unable to add set mark rule for reinjecting packet app: %s", err)
+	}
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
