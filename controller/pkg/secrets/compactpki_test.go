@@ -130,7 +130,7 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("I should ge the right ack size", func() {
-			So(p.AckSize(), ShouldEqual, 332)
+			So(p.AckSize(), ShouldEqual, 322)
 		})
 
 		Convey("I should get the right public key, ", func() {

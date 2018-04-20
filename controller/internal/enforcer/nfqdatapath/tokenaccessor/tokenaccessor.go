@@ -6,10 +6,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
+
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
+	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // tokenAccessor is a wrapper around tokenEngine to provide locks for accessing
@@ -97,7 +100,6 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	}
 
 	claims := &tokens.ConnectionClaims{
-		ID: getID(context),
 		T:  context.Identity().GetSlice(),
 		EK: auth.LocalServiceContext,
 	}
@@ -116,7 +118,6 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
-		ID:  getID(context),
 		T:   context.Identity().GetSlice(),
 		RMT: auth.RemoteContext,
 		EK:  auth.LocalServiceContext,
@@ -131,20 +132,26 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 // parsePacketToken parses the packet token and populates the right state.
 // Returns an error if the token cannot be parsed or the signature fails
-func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
+func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, string, error) {
 
 	// Validate the certificate and parse the token
 	claims, nonce, cert, err := t.getToken().Decode(false, data, auth.RemotePublicKey)
 	if err != nil {
-		return nil, err
+		return nil, "", err
+	}
+
+	tags := policy.NewTagStoreFromSlice(claims.T)
+	id, found := tags.GetUnique(enforcerconstants.TransmitterLabel)
+	if !found {
+		return nil, "", err
 	}
 
 	auth.RemotePublicKey = cert
 	auth.RemoteContext = nonce
-	auth.RemoteContextID = claims.ID
+	auth.RemoteContextID = id
 	auth.RemoteServiceContext = claims.EK
 
-	return claims, nil
+	return claims, id, nil
 }
 
 // parseAckToken parses the tokens in Ack packets. They don't carry all the state context

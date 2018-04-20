@@ -68,7 +68,7 @@ func TestPKIBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("I should ge the righ ack size", func() {
-			So(p.AckSize(), ShouldEqual, 346)
+			So(p.AckSize(), ShouldEqual, 336)
 		})
 
 		Convey("I should get the right public key, ", func() {

@@ -56,7 +56,7 @@ func (p *NullPKI) TransmittedKey() []byte {
 
 // AckSize returns the default size of an ACK packet
 func (p *NullPKI) AckSize() uint32 {
-	return uint32(245)
+	return uint32(235)
 }
 
 // AuthPEM returns the Certificate Authority PEM
