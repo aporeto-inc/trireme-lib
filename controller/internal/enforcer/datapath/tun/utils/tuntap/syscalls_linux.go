@@ -17,6 +17,8 @@ func ioctl(fd uintptr, request int, argp uintptr) error {
 func read(fd int, data []byte) (int, error) {
 	return syscall.Read(fd, data)
 }
+
+// Write wrapper around the Write syscall
 func Write(fd int, data []byte) (int, error) {
 	return syscall.Write(fd, data)
 }

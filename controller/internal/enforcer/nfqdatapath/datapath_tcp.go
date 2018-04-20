@@ -20,7 +20,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
-// processNetworkPacket processes packets arriving from network and are destined to the application
+// ProcessNetworkPacket processes packets arriving from network and are destined to the application
 func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
@@ -136,7 +136,7 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 	return nil
 }
 
-// processApplicationPackets processes packets arriving from an application and are destined to the network
+// ProcessApplicationPacket processes packets arriving from an application and are destined to the network
 func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {

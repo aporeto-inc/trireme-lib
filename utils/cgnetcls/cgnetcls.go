@@ -303,6 +303,8 @@ func MarkVal() uint64 {
 	val, _ := strconv.Atoi(markallocator.Allocate())
 	return uint64(val)
 }
+
+// ReleaseMarkVal release the allocated mark
 func ReleaseMarkVal(mark string) {
 	markallocator.Release(mark)
 }

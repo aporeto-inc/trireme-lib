@@ -113,27 +113,30 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 }
 
 func (t *tundev) cleanupNetworkIPRule() {
+	// nolint
 	t.iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
 		Mark:     (cgnetcls.Initialmarkval - 1),
 		Mask:     RuleMask,
-	}) // nolint
+	})
 	//restore local rule again
+	// nolint
 	t.iprouteHdl.AddRule(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0x0,
 		Mark:     0,
 		Mask:     0,
-	}) //nolint
+	})
 
 	//Delete prio 10 local rule
+	// nolint
 	t.iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0xa,
 		Mark:     0,
 		Mask:     0,
-	}) //nolint
+	})
 }
 func (t *tundev) startNetworkSocket(qIndex int, tun *tuntap.TunTap) error {
 
@@ -244,13 +247,13 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 
 func (t *tundev) cleanupApplicationIPRule() {
 	//Cleanup on exit
-
+	// nolint
 	t.iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
 		Mark:     cgnetcls.Initialmarkval - 2,
 		Mask:     RuleMask,
-	}) // nolint
+	})
 
 }
 

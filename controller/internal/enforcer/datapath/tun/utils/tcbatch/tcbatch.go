@@ -66,8 +66,8 @@ type FilterSkbAction struct {
 	QueueID    string
 }
 
-// tcBatch holds data required to serialize a tcbatch constrcuted using Qdisc, Class and FilterSkbAction structures
-type tcBatch struct {
+// TcBatch holds data required to serialize a tcbatch constrcuted using Qdisc, Class and FilterSkbAction structures
+type TcBatch struct {
 	buf             *bytes.Buffer
 	DeviceName      string
 	numQueues       uint16
@@ -86,7 +86,7 @@ func (f FilterSkbAction) ConvertMeta() string {
 }
 
 // NewTCBatch creates a new tcbatch struct
-func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, CgroupStartMark uint16) (*tcBatch, error) {
+func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, CgroupStartMark uint16) (*TcBatch, error) {
 	if numQueues > 255 {
 		return nil, fmt.Errorf("Invalid Queue Num. Queue num has to be less than 255")
 	}
@@ -101,7 +101,7 @@ func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, Cgrou
 	if len(DeviceName) == 0 || len(DeviceName) > 16 {
 		return nil, fmt.Errorf("Invalid DeviceName")
 	}
-	return &tcBatch{
+	return &TcBatch{
 		buf:             bytes.NewBuffer([]byte{}),
 		numQueues:       numQueues + 1,
 		DeviceName:      DeviceName,
@@ -111,7 +111,7 @@ func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, Cgrou
 }
 
 // Qdiscs converts qdisc struct to tc command strings
-func (t *tcBatch) Qdiscs(qdiscs []Qdisc) (err error) {
+func (t *TcBatch) Qdiscs(qdiscs []Qdisc) (err error) {
 	tmpl := template.New("Qdisc")
 
 	tmpl, err = tmpl.Parse(qdisctemplate)
@@ -128,7 +128,7 @@ func (t *tcBatch) Qdiscs(qdiscs []Qdisc) (err error) {
 }
 
 // Classes converts class struct to tc class command strings
-func (t *tcBatch) Classes(classes []Class) (err error) {
+func (t *TcBatch) Classes(classes []Class) (err error) {
 	tmpl := template.New("class")
 
 	tmpl, err = tmpl.Parse(classtemplate)
@@ -144,7 +144,7 @@ func (t *tcBatch) Classes(classes []Class) (err error) {
 }
 
 // Filters converts FilterSkbAction struct to tc filter commands
-func (t *tcBatch) Filters(filters []FilterSkbAction, filterTemplate string) (err error) {
+func (t *TcBatch) Filters(filters []FilterSkbAction, filterTemplate string) (err error) {
 	tmpl := template.New("filters")
 	tmpl, err = tmpl.Parse(filterTemplate)
 	if err != nil {
@@ -161,12 +161,12 @@ func (t *tcBatch) Filters(filters []FilterSkbAction, filterTemplate string) (err
 }
 
 // String provides string function for tcbatch
-func (t *tcBatch) String() string {
+func (t *TcBatch) String() string {
 	return t.buf.String()
 }
 
 // BuildInputTCBatchCommand builds a list of tc commands for input processes
-func (t *tcBatch) BuildInputTCBatchCommand() error {
+func (t *TcBatch) BuildInputTCBatchCommand() error {
 	qdisc := Qdisc{
 		DeviceName: t.DeviceName,
 		QdiscID:    "1",
@@ -203,7 +203,7 @@ func (t *tcBatch) BuildInputTCBatchCommand() error {
 }
 
 // BuildOutputTCBatchCommand builds the list of tc commands required by the trireme-lib to setup a tc datapath
-func (t *tcBatch) BuildOutputTCBatchCommand() error {
+func (t *TcBatch) BuildOutputTCBatchCommand() error {
 	numQueues := t.numQueues
 	//qdiscs := make([]Qdisc, numQueues+1)
 	qdisc := Qdisc{
@@ -316,7 +316,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 }
 
 // Execute executes the commands built in the batch
-func (t *tcBatch) Execute() error {
+func (t *TcBatch) Execute() error {
 	for {
 		if line, err := t.buf.ReadString('\n'); err != nil {
 			break

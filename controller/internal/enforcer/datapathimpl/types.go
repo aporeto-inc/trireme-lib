@@ -1,10 +1,14 @@
 package datapathimpl
 
-type DatapathImplType int
+type ImplType int
 
 const (
-	DATAPATHIMPLTYPEINVALID DatapathImplType = iota
-	NFQUEUE                                  = 1
-	TUNDATAPATH                              = 2
-	DATAPATHIMPLTYPEMAX
+	// DatapathTypeInvalid Invalid type
+	DatapathTypeInvalid ImplType = iota
+	// DatapathTypeNfqueue the datapath implementation is nfqueue based
+	DatapathTypeNfqueue = 1
+	// DatapathTypeTun the datapath implementation is tun interface based
+	DatapathTypeTun = 2
+	// DatapathTypeMax delimiter for max datapath type
+	DatapathTypeMax
 )
