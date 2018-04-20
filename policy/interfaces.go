@@ -24,6 +24,9 @@ type RuntimeReader interface {
 	// Name returns the process name of the Runtime.
 	Name() string
 
+	// NSPath returns the process name of the Runtime.
+	NSPath() string
+
 	// Tag returns  the value of the given tag.
 	Tag(string) (string, bool)
 
