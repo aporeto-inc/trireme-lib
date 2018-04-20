@@ -1,5 +1,6 @@
 package datapathimpl
 
+// ImplType type for the enum of implemented datapath
 type ImplType int
 
 const (

@@ -241,6 +241,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}()
 
 	for i := 0; i < numTunDevicesPerDirection; i++ {
+		// nolint
 		t.startNetworkInterceptorInstance(i)
 	}
 }

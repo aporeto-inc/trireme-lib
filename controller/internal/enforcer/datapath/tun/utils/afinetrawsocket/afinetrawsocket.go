@@ -30,10 +30,13 @@ type SocketWriter interface {
 // CreateSocket returns a handle to SocketWriter interface
 func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	fd, _ := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
-	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark)
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_MARK, mark); err != nil {
+		syscall.Close(fd) // nolint
+		return nil, fmt.Errorf("Received error %s while setting socket Option SO_MARK", err)
+	}
 
-	err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
-	if err != nil {
+	if err := syscall.SetsockoptInt(fd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1); err != nil {
+		syscall.Close(fd) // nolint
 		return nil, fmt.Errorf("Received error %s while setting socket Option IP_HDRINCL", err)
 	}
 	insock := &syscall.SockaddrInet4{
@@ -43,13 +46,22 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	// TODO: Make this a const
 	NfnlBuffSize := (75 * 1024)
 	sockrcvbuf := 500 * int(NfnlBuffSize)
-	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, sockrcvbuf)
-	syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, sockrcvbuf)
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, sockrcvbuf); err != nil {
+		syscall.Close(fd) // nolint
+		return nil, fmt.Errorf("Received error %s while setting socket Option SO_RCVBUF", err)
+	}
+	if err := syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, sockrcvbuf); err != nil {
+		syscall.Close(fd) // nolint
+		return nil, fmt.Errorf("Received error %s while setting socket Option SO_SNDBUF", err)
+	}
 	lingerconf := &syscall.Linger{
 		Onoff:  1,
 		Linger: 0,
 	}
-	syscall.SetsockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, lingerconf)
+	if err := syscall.SetsockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, lingerconf); err != nil {
+		syscall.Close(fd) // nolint
+		return nil, fmt.Errorf("Received error %s while setting socket Option SO_SNDBUF", err)
+	}
 
 	return &rawsocket{
 		fd:     fd,

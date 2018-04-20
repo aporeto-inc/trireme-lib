@@ -17,15 +17,15 @@ type TunTap struct {
 	numFramesRead []uint64
 	DroppedFrames []uint64
 	tuntap        DeviceType
+	uid           uint
+	group         uint
+	epollfd       int
 	queueHandles  []int
 	fdtoQueueNum  map[int]int
 	numQueues     uint16
 	ipAddress     string
 	hwMacAddress  []byte
 	deviceName    string
-	uid           uint
-	group         uint
-	epollfd       int
 	persist       bool
 	queueCallBack func([]byte, interface{}) error
 }
@@ -130,6 +130,8 @@ func (t *TunTap) setupTun() error {
 		if err != nil {
 			for i := 0; i < int(t.numQueues); i++ {
 				if t.queueHandles[i] != 0 {
+					// nolint
+					//exiting here no need to report any error
 					syscall.Close(t.queueHandles[i])
 				}
 			}
@@ -195,7 +197,7 @@ func (t *TunTap) setipaddress() error {
 		return err
 	}
 
-	defer syscall.Close(fd)
+	defer syscall.Close(fd) //nolint
 	address := syscall.RawSockaddrInet4{
 		Family: syscall.AF_INET,
 	}
