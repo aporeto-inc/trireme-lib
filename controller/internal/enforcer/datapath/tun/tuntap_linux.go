@@ -155,10 +155,10 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 
 	uid := 0
 	gid := 0
-	var user *user.User
-	if user, err = user.Current(); err == nil {
-		uid, _ = strconv.Atoi(user.Uid)
-		gid, _ = strconv.Atoi(user.Gid)
+	var currentUser *user.User
+	if currentUser, err = user.Current(); err == nil {
+		uid, _ = strconv.Atoi(currentUser.Uid)
+		gid, _ = strconv.Atoi(currentUser.Gid)
 	}
 
 	//mac address not required for tun as of now
@@ -287,10 +287,10 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 	var err error
 	uid := 0
 	gid := 0
-	var user *user.User
-	if user, err = user.Current(); err == nil {
-		uid, _ = strconv.Atoi(user.Uid)
-		gid, _ = strconv.Atoi(user.Gid)
+	var currentUser *user.User
+	if currentUser, err = user.Current(); err == nil {
+		uid, _ = strconv.Atoi(currentUser.Uid)
+		gid, _ = strconv.Atoi(currentUser.Gid)
 	}
 
 	//mac address not required for tun as of now
