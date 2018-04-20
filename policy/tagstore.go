@@ -12,7 +12,7 @@ import (
 // since does not support duplicate keys.
 type TagStore struct {
 	Tags    []string
-	TagsMap map[string]map[string]bool
+	tagsMap map[string]map[string]bool
 	lock    sync.RWMutex
 }
 
@@ -20,7 +20,7 @@ type TagStore struct {
 func NewTagStore() *TagStore {
 	return &TagStore{
 		Tags:    []string{},
-		TagsMap: map[string]map[string]bool{},
+		tagsMap: map[string]map[string]bool{},
 		lock:    sync.RWMutex{},
 	}
 }
@@ -41,7 +41,7 @@ func NewTagStoreFromSlice(tags []string) *TagStore {
 	}
 	return &TagStore{
 		Tags:    tags,
-		TagsMap: kvMap,
+		tagsMap: kvMap,
 		lock:    sync.RWMutex{},
 	}
 }
@@ -63,7 +63,7 @@ func NewTagStoreFromMap(tags map[string]string) *TagStore {
 	}
 	return &TagStore{
 		Tags:    taglist,
-		TagsMap: kvMap,
+		tagsMap: kvMap,
 		lock:    sync.RWMutex{},
 	}
 }
@@ -90,7 +90,7 @@ func (t *TagStore) GetValues(key string) ([]string, bool) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
-	valueMap, ok := t.TagsMap[key]
+	valueMap, ok := t.tagsMap[key]
 	if !ok {
 		return []string{}, false
 	}
@@ -111,7 +111,7 @@ func (t *TagStore) GetUnique(key string) (string, bool) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
-	valueMap, ok := t.TagsMap[key]
+	valueMap, ok := t.tagsMap[key]
 	if !ok {
 		return "", false
 	}
@@ -122,6 +122,19 @@ func (t *TagStore) GetUnique(key string) (string, bool) {
 
 	for v := range valueMap {
 		return v, true
+	}
+	return "", false
+}
+
+// GetFirstFromSlice retrieves the first matching key/value
+func (t *TagStore) GetFirstFromSlice(key string) (string, bool) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	for _, kv := range t.Tags {
+		if strings.HasPrefix(kv, key) {
+			return kv[len(key)+1:], true
+		}
 	}
 	return "", false
 }
@@ -163,13 +176,17 @@ func (t *TagStore) appendKeyValue(key, value string) bool {
 
 	addToSlice := false
 
-	if _, ok := t.TagsMap[key]; !ok {
-		addToSlice = true
-		t.TagsMap[key] = map[string]bool{}
+	if t.tagsMap == nil {
+		t.tagsMap = map[string]map[string]bool{}
 	}
 
-	if _, valueok := t.TagsMap[key][value]; !valueok {
-		t.TagsMap[key][value] = true
+	if _, ok := t.tagsMap[key]; !ok {
+		addToSlice = true
+		t.tagsMap[key] = map[string]bool{}
+	}
+
+	if _, valueok := t.tagsMap[key][value]; !valueok {
+		t.tagsMap[key][value] = true
 		addToSlice = true
 	}
 

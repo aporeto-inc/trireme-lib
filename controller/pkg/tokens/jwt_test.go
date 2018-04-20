@@ -21,7 +21,7 @@ var (
 	rmt           = "1234567890123456"
 	lcl           = "098765432109876"
 	defaultClaims = ConnectionClaims{
-		T:   tags.GetSlice(),
+		T:   tags,
 		RMT: []byte(rmt),
 		EK:  []byte{},
 	}

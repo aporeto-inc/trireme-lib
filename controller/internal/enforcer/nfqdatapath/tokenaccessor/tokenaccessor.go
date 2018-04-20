@@ -12,7 +12,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
-	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
 // tokenAccessor is a wrapper around tokenEngine to provide locks for accessing
@@ -100,7 +99,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 	}
 
 	claims := &tokens.ConnectionClaims{
-		T:  context.Identity().GetSlice(),
+		T:  context.Identity(),
 		EK: auth.LocalServiceContext,
 	}
 
@@ -118,7 +117,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
 	claims := &tokens.ConnectionClaims{
-		T:   context.Identity().GetSlice(),
+		T:   context.Identity(),
 		RMT: auth.RemoteContext,
 		EK:  auth.LocalServiceContext,
 	}
@@ -140,8 +139,7 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 		return nil, "", err
 	}
 
-	tags := policy.NewTagStoreFromSlice(claims.T)
-	id, found := tags.GetUnique(enforcerconstants.TransmitterLabel)
+	id, found := claims.T.GetFirstFromSlice(enforcerconstants.TransmitterLabel)
 	if !found {
 		return nil, "", err
 	}

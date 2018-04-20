@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -536,12 +535,12 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T = append(claims.T, enforcerconstants.PortNumberLabelString+"="+strconv.Itoa(int(tcpPacket.DestinationPort)))
+	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
-	report, packet := context.SearchRcvRules(claims.T)
+	report, packet := context.SearchRcvRules(claims.T.GetSlice())
 	if packet.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, id, context.ManagementID(), context, collector.PolicyDrop, report, packet)
-		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", strings.Join(claims.T, " "))
+		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
 	}
 
 	hash := tcpPacket.L4FlowHash()
@@ -669,10 +668,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, claims, nil
 	}
 
-	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	report, packet := context.SearchTxtRules(claims.T.GetSlice(), !d.mutualAuthorization)
 	if packet.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
-		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", strings.Join(claims.T, " "))
+		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
 	}
 
 	conn.SetState(connection.TCPSynAckReceived)
