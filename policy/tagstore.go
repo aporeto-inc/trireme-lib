@@ -12,7 +12,7 @@ import (
 // since does not support duplicate keys.
 type TagStore struct {
 	Tags    []string
-	tagsMap map[string]map[string]bool
+	TagsMap map[string]map[string]bool
 	lock    sync.RWMutex
 }
 
@@ -20,7 +20,7 @@ type TagStore struct {
 func NewTagStore() *TagStore {
 	return &TagStore{
 		Tags:    []string{},
-		tagsMap: map[string]map[string]bool{},
+		TagsMap: map[string]map[string]bool{},
 		lock:    sync.RWMutex{},
 	}
 }
@@ -41,7 +41,7 @@ func NewTagStoreFromSlice(tags []string) *TagStore {
 	}
 	return &TagStore{
 		Tags:    tags,
-		tagsMap: kvMap,
+		TagsMap: kvMap,
 		lock:    sync.RWMutex{},
 	}
 }
@@ -63,7 +63,7 @@ func NewTagStoreFromMap(tags map[string]string) *TagStore {
 	}
 	return &TagStore{
 		Tags:    taglist,
-		tagsMap: kvMap,
+		TagsMap: kvMap,
 		lock:    sync.RWMutex{},
 	}
 }
@@ -90,7 +90,7 @@ func (t *TagStore) GetValues(key string) ([]string, bool) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
-	valueMap, ok := t.tagsMap[key]
+	valueMap, ok := t.TagsMap[key]
 	if !ok {
 		return []string{}, false
 	}
@@ -111,7 +111,7 @@ func (t *TagStore) GetUnique(key string) (string, bool) {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
-	valueMap, ok := t.tagsMap[key]
+	valueMap, ok := t.TagsMap[key]
 	if !ok {
 		return "", false
 	}
@@ -163,13 +163,13 @@ func (t *TagStore) appendKeyValue(key, value string) bool {
 
 	addToSlice := false
 
-	if _, ok := t.tagsMap[key]; !ok {
+	if _, ok := t.TagsMap[key]; !ok {
 		addToSlice = true
-		t.tagsMap[key] = map[string]bool{}
+		t.TagsMap[key] = map[string]bool{}
 	}
 
-	if _, valueok := t.tagsMap[key][value]; !valueok {
-		t.tagsMap[key][value] = true
+	if _, valueok := t.TagsMap[key][value]; !valueok {
+		t.TagsMap[key][value] = true
 		addToSlice = true
 	}
 
