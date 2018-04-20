@@ -14,6 +14,8 @@ const (
 	// TUNCHARDEVICEPATH -- is the standard path of tun char device
 	TUNCHARDEVICEPATH = "/dev/net/tun"
 )
+
+// nolint
 const (
 	// unsupported --  just a delimiter for invalid device type
 	unsupported DeviceType = iota

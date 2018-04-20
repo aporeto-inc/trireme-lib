@@ -13,7 +13,7 @@ import (
 
 const (
 	qdisctemplate = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{"\n"}}`
-	classtemplate = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassId}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
+	classtemplate = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassID}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
 
 	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if gt .Fw 0}} handle {{.Fw}} fw {{else}} {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{end}}{{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
 	metafiltertemplate = `filter add dev {{.DeviceName}} parent {{.Parent}}: handle {{.FilterID}} basic match {{if .MetaMatch}} {{.ConvertMeta}} {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
@@ -32,7 +32,7 @@ type Qdisc struct {
 type Class struct {
 	DeviceName       string
 	Parent           string
-	ClassId          string
+	ClassID          string
 	QdiscType        string
 	AdditionalParams []string
 }
@@ -45,6 +45,7 @@ type U32match struct {
 	offset    uint32
 }
 
+// Meta match struct used to represent meta matches supported by tc
 type Meta struct {
 	markType  string
 	mask      uint32
@@ -68,19 +69,20 @@ type FilterSkbAction struct {
 // tcBatch holds data required to serialize a tcbatch constrcuted using Qdisc, Class and FilterSkbAction structures
 type tcBatch struct {
 	buf             *bytes.Buffer
-	numQueues       uint16
 	DeviceName      string
+	numQueues       uint16
 	CgroupHighBit   uint16
 	CgroupStartMark uint16
 }
 
-// ConvertU32 is a helper fucntion to convert a U32 struct to a tc command format for u32 matches
+// ConvertU32 is a helper function to convert a U32 struct to a tc command format for u32 matches
 func (f FilterSkbAction) ConvertU32() string {
 	return "u32 match " + f.U32match.matchsize + " 0x" + strconv.FormatUint(uint64(f.U32match.val), 16) + " 0x" + strconv.FormatUint(uint64(f.U32match.mask), 16) + " at " + strconv.FormatUint(uint64(f.U32match.offset), 10)
 }
 
-func (m FilterSkbAction) ConvertMeta() string {
-	return "'meta(" + m.MetaMatch.markType + " mask" + strconv.Itoa(int(m.MetaMatch.mask)) + " " + m.MetaMatch.condition + " " + strconv.Itoa(int(m.MetaMatch.val)) + ")'"
+// ConvertMeta converts the metastruct into a tc command fragment
+func (f FilterSkbAction) ConvertMeta() string {
+	return "'meta(" + f.MetaMatch.markType + " mask" + strconv.Itoa(int(f.MetaMatch.mask)) + " " + f.MetaMatch.condition + " " + strconv.Itoa(int(f.MetaMatch.val)) + ")'"
 }
 
 // NewTCBatch creates a new tcbatch struct
@@ -244,7 +246,7 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 		classes[i] = Class{
 			DeviceName:       t.DeviceName,
 			Parent:           "1",
-			ClassId:          strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(i), 16),
+			ClassID:          strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(i), 16),
 			QdiscType:        "htb",
 			AdditionalParams: []string{"rate", "100000mbit", "burst", "1200mbit"},
 		}

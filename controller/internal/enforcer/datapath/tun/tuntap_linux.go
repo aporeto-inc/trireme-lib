@@ -155,7 +155,8 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 
 	uid := 0
 	gid := 0
-	if user, err := user.Current(); err == nil {
+	var user *user.User
+	if user, err = user.Current(); err == nil {
 		uid, _ = strconv.Atoi(user.Uid)
 		gid, _ = strconv.Atoi(user.Gid)
 	}
@@ -286,7 +287,8 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 	var err error
 	uid := 0
 	gid := 0
-	if user, err := user.Current(); err == nil {
+	var user *user.User
+	if user, err = user.Current(); err == nil {
 		uid, _ = strconv.Atoi(user.Uid)
 		gid, _ = strconv.Atoi(user.Gid)
 	}
