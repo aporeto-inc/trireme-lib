@@ -21,17 +21,17 @@ import (
 )
 
 const (
-	uidchain         = "UIDCHAIN"
-	appChainPerm     = "TRIREME-APP"
+	uidchain = "UIDCHAIN"
+	//appChainPerm     = "TRIREME-APP"
 	chainPrefix      = "TRIREME-"
 	appChainPrefix   = chainPrefix + "App-"
 	netChainPrefix   = chainPrefix + "Net-"
 	targetNetworkSet = "TargetNetSet"
 	// PuPortSet The prefix for portset names
-	PuPortSet                = "PUPort-"
-	proxyPortSetPrefix       = "Proxy-"
-	ipTableSectionOutput     = "OUTPUT"
-	ipTableSectionInput      = "INPUT"
+	PuPortSet            = "PUPort-"
+	proxyPortSetPrefix   = "Proxy-"
+	ipTableSectionOutput = "OUTPUT"
+	//ipTableSectionInput      = "INPUT"
 	ipTableSectionPreRouting = "PREROUTING"
 	natProxyOutputChain      = "RedirProxy-App"
 	natProxyInputChain       = "RedirProxy-Net"
