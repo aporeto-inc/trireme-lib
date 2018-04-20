@@ -84,31 +84,30 @@ func ipifindexToWire(index uint32) []byte {
 }
 
 func send(buf []byte) error {
-	if fd, err := syscallwrappers.NewSyscalls().Socket(syscall.AF_NETLINK, syscall.SOCK_DGRAM, syscall.NETLINK_ROUTE); err == nil {
-		lsa := &syscall.SockaddrNetlink{
-			Family: syscall.AF_NETLINK,
-		}
-		var n int
-		if err = syscallwrappers.NewSyscalls().Bind(fd, lsa); err != nil {
-			return fmt.Errorf("Error %s while binding netlink socket", err)
-		}
-		if err = syscallwrappers.NewSyscalls().Sendto(fd, buf, 0, lsa); err != nil {
-			return fmt.Errorf("Error %s while sending on netlink socket", err)
-		}
-		if n, _, err = syscallwrappers.NewSyscalls().Recvfrom(fd, buf, 0); err == nil {
-			hdr, next, _ := common.NetlinkMessageToStruct(buf[:n+1])
-			if hdr.Type == common.NlMsgError {
-				_, nerr := common.NetlinkErrMessagetoStruct(next)
-				if nerr.Error != 0 {
-					return fmt.Errorf("Netlink Returned errror %d", nerr.Error)
-				}
-			}
-			return nil
-		}
-		return fmt.Errorf("Error %s while receiving on netlink socket", err)
-
-	} else {
+	fd, err := syscallwrappers.NewSyscalls().Socket(syscall.AF_NETLINK, syscall.SOCK_DGRAM, syscall.NETLINK_ROUTE)
+	if err != nil {
 		return err
 	}
+	lsa := &syscall.SockaddrNetlink{
+		Family: syscall.AF_NETLINK,
+	}
+	var n int
+	if err = syscallwrappers.NewSyscalls().Bind(fd, lsa); err != nil {
+		return fmt.Errorf("Error %s while binding netlink socket", err)
+	}
+	if err = syscallwrappers.NewSyscalls().Sendto(fd, buf, 0, lsa); err != nil {
+		return fmt.Errorf("Error %s while sending on netlink socket", err)
+	}
+	if n, _, err = syscallwrappers.NewSyscalls().Recvfrom(fd, buf, 0); err == nil {
+		hdr, next, _ := common.NetlinkMessageToStruct(buf[:n+1])
+		if hdr.Type == common.NlMsgError {
+			_, nerr := common.NetlinkErrMessagetoStruct(next)
+			if nerr.Error != 0 {
+				return fmt.Errorf("Netlink Returned errror %d", nerr.Error)
+			}
+		}
+		return nil
+	}
+	return fmt.Errorf("Error %s while receiving on netlink socket", err)
 
 }

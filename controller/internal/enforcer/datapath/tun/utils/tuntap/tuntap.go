@@ -117,12 +117,14 @@ func (t *TunTap) Write(queueNum int, data []byte) (int, error) {
 	return 0, nil
 }
 
-// setupTun -- create the Tun Interface.
+// setupTun  create the Tun Interface.
 func (t *TunTap) setupTun() error {
+
 	ifname := &ifreqDevType{
 		ifrFlags: IFF_TUN | IFF_NO_PI | IFF_MULTI_QUEUE,
 	}
 	var err error
+
 	//on Error anywhere close all queues and exit
 	defer func() {
 		if err != nil {
@@ -135,114 +137,118 @@ func (t *TunTap) setupTun() error {
 	}()
 
 	copy(ifname.ifrName[:], []byte(t.deviceName))
-
 	for i := 0; i < int(t.numQueues); i++ {
 		if err = t.createTun(i, ifname); err != nil {
 			return err
 		}
 	}
+
 	//set ip address for the interface
 	if err = t.setipaddress(); err != nil {
 		return err
 	}
+
 	if err = t.setInterfaceState(IFF_UP | IFF_RUNNING); err != nil {
 		return err
 	}
-	return nil
 
+	return nil
 }
 
 // createTun creates a queue on the tun device.
 func (t *TunTap) createTun(queueIndex int, ifname *ifreqDevType) error {
-	if fd, err := syscall.Open(TUNCHARDEVICEPATH, syscall.O_RDWR, 0644); err == nil {
-
-		if err = ioctl(uintptr(uintptr(fd)), syscall.TUNSETIFF, uintptr(unsafe.Pointer(ifname))); err != nil {
-			return fmt.Errorf("Device Create Error %s", err)
-		}
-
-		// set owner
-		if err = t.setOwner(fd); err != nil {
-			return err
-		}
-
-		// set group
-		if err = t.setGroup(fd); err != nil {
-			return err
-		}
-
-		// set persistence state
-		if err = t.setPersist(fd); err != nil {
-			return err
-		}
-
-		t.queueHandles[queueIndex] = fd
-		t.fdtoQueueNum[fd] = queueIndex
-	} else {
+	fd, err := syscall.Open(TUNCHARDEVICEPATH, syscall.O_RDWR, 0644)
+	if err != nil {
 		return err
 	}
+
+	if err = ioctl(uintptr(uintptr(fd)), syscall.TUNSETIFF, uintptr(unsafe.Pointer(ifname))); err != nil {
+		return fmt.Errorf("Device Create Error %s", err)
+	}
+
+	// set owner
+	if err = t.setOwner(fd); err != nil {
+		return err
+	}
+
+	// set group
+	if err = t.setGroup(fd); err != nil {
+		return err
+	}
+
+	// set persistence state
+	if err = t.setPersist(fd); err != nil {
+		return err
+	}
+
+	t.queueHandles[queueIndex] = fd
+	t.fdtoQueueNum[fd] = queueIndex
+
 	return nil
 }
 
-//setipaddress -- sets the ip address of the tun interface. netmask is assumed to be 255.255.255.0
+//setipaddress sets the ip address of the tun interface. netmask is assumed to be 255.255.255.0
 func (t *TunTap) setipaddress() error {
 
-	if fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_IP); err == nil {
-		defer syscall.Close(fd)
-		address := syscall.RawSockaddrInet4{
-			Family: syscall.AF_INET,
-		}
-
-		copy(address.Addr[:], net.ParseIP(t.ipAddress).To4())
-		ifreq := &ifReqIPAddress{
-			ipAddress: address,
-		}
-		copy(ifreq.ifrName[:], []byte(t.deviceName))
-		if err = ioctl(uintptr(fd), syscall.SIOCSIFADDR, uintptr(unsafe.Pointer(ifreq))); err != nil {
-			return fmt.Errorf("Received Error %s while setting ip address for device %s", err, t.ipAddress)
-		}
-
-		address = syscall.RawSockaddrInet4{
-			Family: syscall.AF_INET,
-		}
-		copy(address.Addr[:], net.ParseIP("255.255.255.0").To4())
-		ifreq = &ifReqIPAddress{
-			ipAddress: address,
-		}
-		copy(ifreq.ifrName[:], []byte(t.deviceName))
-		if err = ioctl(uintptr(fd), syscall.SIOCSIFNETMASK, uintptr(unsafe.Pointer(ifreq))); err != nil {
-			return fmt.Errorf("Received Error %s while setting ip mask for device %s", err, t.ipAddress)
-		}
-
-	} else {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_IP)
+	if err != nil {
 		return err
 	}
+
+	defer syscall.Close(fd)
+	address := syscall.RawSockaddrInet4{
+		Family: syscall.AF_INET,
+	}
+
+	copy(address.Addr[:], net.ParseIP(t.ipAddress).To4())
+	ifreq := &ifReqIPAddress{
+		ipAddress: address,
+	}
+	copy(ifreq.ifrName[:], []byte(t.deviceName))
+	if err = ioctl(uintptr(fd), syscall.SIOCSIFADDR, uintptr(unsafe.Pointer(ifreq))); err != nil {
+		return fmt.Errorf("Received Error %s while setting ip address for device %s", err, t.ipAddress)
+	}
+
+	address = syscall.RawSockaddrInet4{
+		Family: syscall.AF_INET,
+	}
+	copy(address.Addr[:], net.ParseIP("255.255.255.0").To4())
+	ifreq = &ifReqIPAddress{
+		ipAddress: address,
+	}
+
+	copy(ifreq.ifrName[:], []byte(t.deviceName))
+	if err = ioctl(uintptr(fd), syscall.SIOCSIFNETMASK, uintptr(unsafe.Pointer(ifreq))); err != nil {
+		return fmt.Errorf("Received Error %s while setting ip mask for device %s", err, t.ipAddress)
+	}
+
 	return nil
 }
 
-// setInterfaceState -- sets the interface state to up
+// setInterfaceState  sets the interface state to up
 func (t *TunTap) setInterfaceState(flags DeviceFlags) error {
-	if fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_IP); err == nil {
-		ifinname := &ifreqDevType{}
-		copy(ifinname.ifrName[:], []byte(t.deviceName))
-		if err = ioctl(uintptr(fd), syscall.SIOCGIFFLAGS, uintptr(unsafe.Pointer(ifinname))); err != nil {
-			return fmt.Errorf("Received error %s while retrieving %s devce configs", err, t.deviceName)
-		}
-		ifname := &ifreqDevType{
-			ifrFlags: ifinname.ifrFlags | flags,
-		}
-		copy(ifname.ifrName[:], []byte(t.deviceName))
-		if err = ioctl(uintptr(fd), syscall.SIOCSIFFLAGS, uintptr(unsafe.Pointer(ifname))); err != nil {
-			return fmt.Errorf("Received error %s while setting %s devce configs", err, t.deviceName)
-		}
-
-	} else {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_IP)
+	if err != nil {
 		return err
 	}
+	ifinname := &ifreqDevType{}
+	copy(ifinname.ifrName[:], []byte(t.deviceName))
+	if err = ioctl(uintptr(fd), syscall.SIOCGIFFLAGS, uintptr(unsafe.Pointer(ifinname))); err != nil {
+		return fmt.Errorf("Received error %s while retrieving %s devce configs", err, t.deviceName)
+	}
+	ifname := &ifreqDevType{
+		ifrFlags: ifinname.ifrFlags | flags,
+	}
+	copy(ifname.ifrName[:], []byte(t.deviceName))
+	if err = ioctl(uintptr(fd), syscall.SIOCSIFFLAGS, uintptr(unsafe.Pointer(ifname))); err != nil {
+		return fmt.Errorf("Received error %s while setting %s devce configs", err, t.deviceName)
+	}
+
 	return nil
 
 }
 
-// setOwner -- sets the uid owner of the tun device
+// setOwner  sets the uid owner of the tun device
 func (t *TunTap) setOwner(fd int) error {
 	if err := ioctl(uintptr(uintptr(fd)), syscall.TUNSETOWNER, uintptr(t.uid)); err != nil {
 		return fmt.Errorf("Device SetOwner Error %s", err)
@@ -251,7 +257,7 @@ func (t *TunTap) setOwner(fd int) error {
 	return nil
 }
 
-// setGroup -- sets the gid owner of the tun device
+// setGroup  sets the gid owner of the tun device
 func (t *TunTap) setGroup(fd int) error {
 
 	if err := ioctl(uintptr(uintptr(fd)), syscall.TUNSETGROUP, uintptr(t.group)); err != nil {
@@ -260,7 +266,7 @@ func (t *TunTap) setGroup(fd int) error {
 	return nil
 }
 
-// setPersist -- makes the tun device persistent/non-persistent
+// setPersist  makes the tun device persistent/non-persistent
 func (t *TunTap) setPersist(fd int) error {
 	if t.persist {
 		if err := ioctl(uintptr(uintptr(fd)), syscall.TUNSETPERSIST, uintptr(1)); err != nil {

@@ -3,7 +3,6 @@
 package iproute
 
 import (
-	"fmt"
 	"syscall"
 	"time"
 
@@ -13,18 +12,11 @@ import (
 
 // Iproute is the wrapper around netlinkHandle
 type Iproute struct {
-	netlinkHandle *netlink.Handle
 }
 
-// NewIpRouteHandle returns a reference IpRoute structure
-func NewIpRouteHandle() (*Iproute, error) {
-	var err error
-	if hdl, err := netlink.NewHandle(); err == nil {
-		return &Iproute{
-			netlinkHandle: hdl,
-		}, nil
-	}
-	return nil, fmt.Errorf("Received Error %s while initing library", err)
+// NewIPRouteHandle returns a reference IpRoute structure
+func NewIPRouteHandle() (*Iproute, error) {
+	return &Iproute{}, nil
 
 }
 

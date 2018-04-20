@@ -109,9 +109,9 @@ func New(
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
 ) *Datapath {
-
+	var err error
 	if ExternalIPCacheTimeout <= 0 {
-		var err error
+
 		ExternalIPCacheTimeout, err = time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 		if err != nil {
 			ExternalIPCacheTimeout = time.Second
@@ -120,41 +120,41 @@ func New(
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
-
-		sysctlCmd, err := exec.LookPath("sysctl")
+		var sysctlCmd string
+		sysctlCmd, err = exec.LookPath("sysctl")
 		if err != nil {
 			zap.L().Fatal("sysctl command must be installed", zap.Error(err))
 		}
 
 		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-		if err := cmd.Run(); err != nil {
+		if err = cmd.Run(); err != nil {
 			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
 		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_forward=1")
 
-		if err := cmd.Run(); err != nil {
+		if err = cmd.Run(); err != nil {
 			//TODO Fatal here
 			zap.L().Error("Failed to set ip forward", zap.Error(err))
 		}
 		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.rp_filter=0")
 
-		if err := cmd.Run(); err != nil {
+		if err = cmd.Run(); err != nil {
 			zap.L().Error("Failed to set ip forward", zap.Error(err))
 		}
 
 		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
 
-		if err := cmd.Run(); err != nil {
+		if err = cmd.Run(); err != nil {
 			zap.L().Error("Failed to set ip early demux", zap.Error(err))
 		}
 		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.route_localnet=1")
 
-		if err := cmd.Run(); err != nil {
+		if err = cmd.Run(); err != nil {
 			zap.L().Error("Failed to setup route_localnet ", zap.Error(err))
 		}
 		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.accept_local=1")
 
-		if err := cmd.Run(); err != nil {
+		if err = cmd.Run(); err != nil {
 			zap.L().Error("Failed to setup accept_local", zap.Error(err))
 		}
 	}
@@ -200,10 +200,13 @@ func New(
 	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
-	zap.L().Error("TUNDEBUG:: Called NewTunDataPath")
+	//TODO :: Remove Call to NFQ once we pass tun tests
 	//d.datapathhdl = nfq.NewNfq(d, filterQueue)
 
-	d.datapathhdl = tundatapath.NewTunDataPath(d, 0x100)
+	d.datapathhdl, err = tundatapath.NewTunDataPath(d, 0x100)
+	if err != nil {
+		zap.L().Fatal("Unable to instantiate datapath", zap.Error(err))
+	}
 	return d
 }
 

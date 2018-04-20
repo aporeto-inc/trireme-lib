@@ -39,18 +39,7 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	insock := &syscall.SockaddrInet4{
 		Port: 0,
 	}
-	// ip := net.ParseIP("172.17.0.1")
-	// copy(insock.Addr[:], ip.To4())
 
-	// if err := syscall.Bind(fd, insock); err != nil {
-	// 	//return nil, fmt.Errorf("Received error %s while binding socket", err)
-	// 	zap.L().Error("Error while binding")
-	// }
-
-	// if err = syscall.SetsockoptString(fd, syscall.SOL_SOCKET, syscall.SO_BINDTODEVICE, deviceName); err != nil {
-	// 	//zap.L().Error("Unable to Bind to device ", zap.Error(err))
-	// 	//return nil, fmt.Errorf("Unable to bind device %s", err)
-	// }
 	// TODO: Make this a const
 	NfnlBuffSize := (75 * 1024)
 	sockrcvbuf := 500 * int(NfnlBuffSize)
@@ -62,9 +51,6 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 	}
 	syscall.SetsockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, lingerconf)
 
-	// insock = &syscall.SockaddrInet4{
-	// 	Port: 0,
-	// }
 	return &rawsocket{
 		fd:     fd,
 		insock: insock,
@@ -75,7 +61,6 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 func (sock *rawsocket) WriteSocket(buf []byte) error {
 	//This is an IP frame dest address at byte[16]
 	copy(sock.insock.Addr[:], buf[16:])
-	//zap.L().Error("PACKET" + string(hex.Dump(buf)))
 	if err := syscall.Sendto(sock.fd, buf[:], 0, sock.insock); err != nil {
 		return fmt.Errorf("received error %s while sending to socket", err)
 	}
