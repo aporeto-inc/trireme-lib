@@ -58,7 +58,7 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 
 	//Set ulimit for open files here
 	if err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &syscall.Rlimit{
-		Cur: rlimit.Cur,
+		Cur: 8192,
 		Max: 8192,
 	}); err != nil {
 		return nil, fmt.Errorf("Unable to set ulimit for open files %s", err)
