@@ -174,7 +174,7 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 	}
 
 	// Program Route in the tables
-	intf, err := net.InterfaceByName(deviceName)
+	intf, err = net.InterfaceByName(deviceName)
 	if err != nil {
 		zap.L().Fatal("Failed to retrieve device ", zap.String("DeviceName", deviceName))
 	}
@@ -184,7 +184,7 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 		LinkIndex: intf.Index,
 	}
 
-	if err := t.iprouteHdl.AddRoute(route); err != nil {
+	if err = t.iprouteHdl.AddRoute(route); err != nil {
 		// We are initing here refuse to start if this fails
 		zap.L().Fatal("Unable to add ip route", zap.Error(err), zap.String("IP Address", net.ParseIP(ipaddress).String()), zap.Int("Table", NetworkRuleTable), zap.Int("Interface Index", intf.Index))
 

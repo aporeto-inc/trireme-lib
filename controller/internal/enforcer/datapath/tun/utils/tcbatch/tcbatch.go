@@ -109,47 +109,52 @@ func NewTCBatch(numQueues uint16, DeviceName string, CgroupHighBit uint16, Cgrou
 }
 
 // Qdiscs converts qdisc struct to tc command strings
-func (t *tcBatch) Qdiscs(qdiscs []Qdisc) error {
+func (t *tcBatch) Qdiscs(qdiscs []Qdisc) (err error) {
 	tmpl := template.New("Qdisc")
-	if tmpl, err := tmpl.Parse(qdisctemplate); err == nil {
-		for _, qdisc := range qdiscs {
-			if err := tmpl.Execute(t.buf, qdisc); err != nil {
-				return err
-			}
-		}
-	} else {
+
+	tmpl, err = tmpl.Parse(qdisctemplate)
+	if err != nil {
 		return err
 	}
+	for _, qdisc := range qdiscs {
+		if err = tmpl.Execute(t.buf, qdisc); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 // Classes converts class struct to tc class command strings
-func (t *tcBatch) Classes(classes []Class) error {
+func (t *tcBatch) Classes(classes []Class) (err error) {
 	tmpl := template.New("class")
-	if tmpl, err := tmpl.Parse(classtemplate); err == nil {
-		for _, class := range classes {
-			if err := tmpl.Execute(t.buf, class); err != nil {
-				return err
-			}
-		}
-	} else {
+
+	tmpl, err = tmpl.Parse(classtemplate)
+	if err != nil {
 		return err
+	}
+	for _, class := range classes {
+		if err = tmpl.Execute(t.buf, class); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 // Filters converts FilterSkbAction struct to tc filter commands
-func (t *tcBatch) Filters(filters []FilterSkbAction, filterTemplate string) error {
+func (t *tcBatch) Filters(filters []FilterSkbAction, filterTemplate string) (err error) {
 	tmpl := template.New("filters")
-	if tmpl, err := tmpl.Parse(filterTemplate); err == nil {
-		for _, filter := range filters {
-			if err := tmpl.Execute(t.buf, filter); err != nil {
-				return err
-			}
-		}
-	} else {
+	tmpl, err = tmpl.Parse(filterTemplate)
+	if err != nil {
 		return err
 	}
+
+	for _, filter := range filters {
+		if err = tmpl.Execute(t.buf, filter); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -310,21 +315,23 @@ func (t *tcBatch) BuildOutputTCBatchCommand() error {
 
 func (t *tcBatch) Execute() error {
 	for {
-		line, err := t.buf.ReadString('\n')
-		if err != nil {
+		if line, err := t.buf.ReadString('\n'); err != nil {
 			break
-		}
+		} else {
+			path, err := exec.LookPath("tc")
+			if err != nil {
+				return fmt.Errorf("Received error %s while trying to locate tc binary", err)
+			}
 
-		if path, err := exec.LookPath("tc"); err == nil {
 			params := strings.Fields(line)
-			//zap.L().Error("EXECUTING", zap.String("\nTCOMMAND\n", line))
 			cmd := exec.Command(path, params...)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				return fmt.Errorf("Error %s Executing Command %s", err, output)
 			}
+
 			continue
+
 		}
-		return fmt.Errorf("Received error %s while trying to locate tc binary", err)
 
 	}
 
