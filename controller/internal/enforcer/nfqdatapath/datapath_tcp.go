@@ -42,7 +42,6 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 	// skip processing for SynAck packets that we don't have state
 	switch p.TCPFlags & packet.TCPSynAckMask {
 	case packet.TCPSynMask:
-		zap.L().Error("AMIT :::: Received Network SYN Packet", zap.String("Source Address", p.SourceAddress.To4().String()), zap.String("Dest Address", p.DestinationAddress.To4().String()))
 		conn, err = d.netSynRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -62,7 +61,6 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 		}
 
 	case packet.TCPSynAckMask:
-		zap.L().Error("AMIT :::: Received Network SYNACK Packet", zap.String("Source Address", p.SourceAddress.To4().String()), zap.String("Dest Address", p.DestinationAddress.To4().String()))
 		conn, err = d.netSynAckRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -76,7 +74,6 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	default:
 		conn, err = d.netRetrieveState(p)
-		zap.L().Error("Received Network ACK", zap.String("Source Address", p.SourceAddress.To4().String()), zap.String("Dest Address", p.DestinationAddress.To4().String()), zap.Any("Connection", conn))
 		if err != nil {
 			if d.packetLogs {
 				zap.L().Debug("Packet rejected",
