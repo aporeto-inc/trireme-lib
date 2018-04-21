@@ -1257,6 +1257,7 @@ func TestCacheState(t *testing.T) {
 		if err != nil {
 			t.Errorf("Expected failure, no IP but passed %s", err)
 		}
+		fmt.Println("HERE")
 	})
 }
 

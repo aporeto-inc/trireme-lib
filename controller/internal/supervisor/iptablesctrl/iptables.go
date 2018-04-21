@@ -174,7 +174,9 @@ func (i *Instance) DeleteRules(version int, contextID string, port string, mark 
 	if err = i.deleteAllContainerChains(appChain, netChain); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
-
+	if mark != "" {
+		cgnetcls.ReleaseMarkVal(mark)
+	}
 	if uid != "" {
 		if err := i.deleteUIDSets(contextID, uid, mark); err != nil {
 			return err

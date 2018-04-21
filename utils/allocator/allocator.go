@@ -28,5 +28,7 @@ func (p *allocator) Allocate() string {
 
 // Release releases an item
 func (p *allocator) Release(item string) {
+	//	fmt.Println("HERE", len(p.allocate), cap(p.allocate))
 	p.allocate <- item
+
 }

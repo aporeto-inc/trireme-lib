@@ -25,7 +25,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
@@ -324,8 +323,9 @@ func (d *Datapath) Unenforce(contextID string) error {
 			zap.Error(err),
 		)
 	}
+
 	//Return the mark to be used somewhere else
-	cgnetcls.ReleaseMarkVal(pu.Mark())
+	//cgnetcls.ReleaseMarkVal(pu.Mark())
 	return nil
 }
 
