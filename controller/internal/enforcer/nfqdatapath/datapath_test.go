@@ -77,6 +77,7 @@ func TestInvalidIPContext(t *testing.T) {
 				fmt.Println("Error", err.Error())
 			}
 		}()
+
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
 		So(err, ShouldBeNil)
@@ -85,7 +86,7 @@ func TestInvalidIPContext(t *testing.T) {
 		tcpPacket, err := packet.New(0, synPacket, "0")
 
 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
-
+			fmt.Println("HERE")
 			err1 := enforcer.ProcessApplicationPacket(tcpPacket)
 			err2 := enforcer.ProcessNetworkPacket(tcpPacket)
 
