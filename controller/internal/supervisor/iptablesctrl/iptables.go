@@ -15,7 +15,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/provider"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
-
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )

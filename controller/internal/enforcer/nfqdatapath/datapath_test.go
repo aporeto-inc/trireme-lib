@@ -59,46 +59,46 @@ func TestInvalidContext(t *testing.T) {
 	})
 }
 
-// func TestInvalidIPContext(t *testing.T) {
+func TestInvalidIPContext(t *testing.T) {
 
-// 	Convey("Given I create a new enforcer instance", t, func() {
+	Convey("Given I create a new enforcer instance", t, func() {
 
-// 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
-// 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
-// 		collector := &collector.DefaultCollector{}
-// 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
-// 		Convey("Then enforcer instance must be initialized", func() {
-// 			So(enforcer, ShouldNotBeNil)
-// 		})
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
+		collector := &collector.DefaultCollector{}
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		Convey("Then enforcer instance must be initialized", func() {
+			So(enforcer, ShouldNotBeNil)
+		})
 
-// 		enforcer.Enforce("SomeServerId", puInfo) // nolint
-// 		defer func() {
-// 			if err := enforcer.Unenforce("SomeServerId"); err != nil {
-// 				fmt.Println("Error", err.Error())
-// 			}
-// 		}()
+		enforcer.Enforce("SomeServerId", puInfo) // nolint
+		defer func() {
+			if err := enforcer.Unenforce("SomeServerId"); err != nil {
+				fmt.Println("Error", err.Error())
+			}
+		}()
 
-// 		PacketFlow := packetgen.NewTemplateFlow()
-// 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
-// 		So(err, ShouldBeNil)
-// 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
-// 		So(err, ShouldBeNil)
-// 		tcpPacket, err := packet.New(0, synPacket, "0")
+		PacketFlow := packetgen.NewTemplateFlow()
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeMultipleGoodFlow)
+		So(err, ShouldBeNil)
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+		tcpPacket, err := packet.New(0, synPacket, "0")
 
-// 		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
-// 			fmt.Println("HERE")
-// 			err1 := enforcer.ProcessApplicationPacket(tcpPacket)
-// 			err2 := enforcer.ProcessNetworkPacket(tcpPacket)
+		Convey("When I run a TCP Syn packet through an invalid existing context (missing IP)", func() {
+			fmt.Println("HERE")
+			err1 := enforcer.ProcessApplicationPacket(tcpPacket)
+			err2 := enforcer.ProcessNetworkPacket(tcpPacket)
 
-// 			Convey("Then I should see an error for missing IP", func() {
+			Convey("Then I should see an error for missing IP", func() {
 
-// 				So(err, ShouldBeNil)
-// 				So(err1, ShouldNotBeNil)
-// 				So(err2, ShouldBeNil)
-// 			})
-// 		})
-// 	})
-// }
+				So(err, ShouldBeNil)
+				So(err1, ShouldNotBeNil)
+				So(err2, ShouldBeNil)
+			})
+		})
+	})
+}
 
 // TestEnforcerConnUnknownState test ensures that enforcer closes the
 // connection by converting packets to fin/ack when it finds connection
