@@ -473,7 +473,7 @@ func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAt
 func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, error) {
 	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
 	if err != nil {
-		return JWTClaims{}, fmt.Errorf("Invalid Service Token")
+		return &JWTClaims{}, fmt.Errorf("Invalid Service Token")
 	}
 
 	claims := &JWTClaims{}
