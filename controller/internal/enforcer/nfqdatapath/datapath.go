@@ -322,6 +322,8 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 // UpdateSecrets updates the secrets used for signing communication between trireme instances
 func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
+
+	d.secrets = token
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
