@@ -176,7 +176,7 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
-			//TODO :: we should steer packets with a specfic mark to a queue
+			//TODO :: we should steer packets with a specific mark to a queue
 			// part of uidpam.everything else lands on queue 0
 			//This handling is a part of the uidpam port auto discovery
 			// if p.Mark != "0" {
