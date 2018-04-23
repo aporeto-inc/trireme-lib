@@ -176,13 +176,16 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
-			//TODO :: Reintroduce this check
-			// if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-2) {
+			//TODO :: we should steer packets with a specfic mark to a queue
+			// part of uidpam.everything else lands on queue 0
+			//This handling is a part of the uidpam port auto discovery
+			// if p.Mark != "0" {
 			// 	//SYN ACK came through the global rule.
 			// 	//This not from a process we are monitoring
 			// 	//let his packet through
 			// 	return nil
 			// }
+			// return err
 			return nil
 		}
 	default:
