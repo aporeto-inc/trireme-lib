@@ -369,7 +369,6 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
 	if s.enforcer == nil {
-		zap.L().Error(resp.Status)
 		return fmt.Errorf(resp.Status)
 	}
 
