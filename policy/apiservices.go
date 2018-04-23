@@ -73,4 +73,8 @@ type HTTPRule struct {
 	// API. The scopes are presented either in the Trireme identity or the
 	// JWT of HTTP Authorization header.
 	Scopes []string
+
+	// Public indicates that this is a public API and anyone can access it.
+	// No authorization will be performed on public APIs.
+	Public bool
 }

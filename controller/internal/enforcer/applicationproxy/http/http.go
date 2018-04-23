@@ -284,23 +284,32 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// If it is a secrets request we process it and move on. No need to
-		// validate policy.
-		if p.isSecretsRequest(w, r) {
+		rule, ok := t.(*policy.HTTPRule)
+		if !ok {
+			zap.L().Error("Internal error - wrong rule", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Internal server error"), http.StatusInternalServerError)
 			return
 		}
+		if !rule.Public {
+			// If it is a secrets request we process it and move on. No need to
+			// validate policy.
+			if p.isSecretsRequest(w, r) {
+				return
+			}
 
-		// Validate the policy based on the scopes of the PU.
-		// TODO: Add user scopes
-		if err = p.verifyPolicy(t.([]string), puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
-			zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
-			return
+			// Validate the policy based on the scopes of the PU.
+			// TODO: Add user scopes
+			if err = p.verifyPolicy(rule.Scopes, puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
+				zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
+				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
+				return
+			}
+
+			// All checks have passed. We can accept the request, log it, and create the
+			// right tokens. If it is not an external service, we do not log at the transmit side.
+			record.Action = policy.Encrypt
 		}
-
-		// All checks have passed. We can accept the request, log it, and create the
-		// right tokens. If it is not an external service, we do not log at the transmit side.
-		record.Action = policy.Accept | policy.Encrypt
+		record.Action = record.Action | policy.Accept
 	}
 
 	// Generate the client identity
@@ -391,27 +400,36 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate the user attributes and claims.
-	userAttributes := parseUserAttributes(r, jwtCert)
-	if len(userAttributes) > 0 {
-		userRecord := &collector.UserRecord{Claims: userAttributes}
-		p.collector.CollectUserEvent(userRecord)
-		record.Source.UserID = userRecord.ID
-	}
-
-	claims, err := p.parseClientToken(key, token)
-	if err != nil && len(userAttributes) == 0 {
-		zap.L().Error("Unauthorized request", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+	rule, ok := t.(*policy.HTTPRule)
+	if !ok {
+		zap.L().Error("Internal error - wrong rule", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Internal server error"), http.StatusInternalServerError)
 		return
 	}
-	record.Source.ID = claims.SourceID
 
-	// Validate the policy and drop the request if there is no authorization.
-	if err = p.verifyPolicy(t.([]string), claims.Profile, claims.Scopes, userAttributes); err != nil {
-		zap.L().Error("Unauthorized request", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
-		return
+	if !rule.Public {
+		// Calculate the user attributes and claims.
+		userAttributes := parseUserAttributes(r, jwtCert)
+		if len(userAttributes) > 0 {
+			userRecord := &collector.UserRecord{Claims: userAttributes}
+			p.collector.CollectUserEvent(userRecord)
+			record.Source.UserID = userRecord.ID
+		}
+
+		claims, err := p.parseClientToken(key, token)
+		if err != nil && len(userAttributes) == 0 {
+			zap.L().Error("Unauthorized request", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+			return
+		}
+		record.Source.ID = claims.SourceID
+
+		// Validate the policy and drop the request if there is no authorization.
+		if err = p.verifyPolicy(t.([]string), claims.Profile, claims.Scopes, userAttributes); err != nil {
+			zap.L().Error("Unauthorized request", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+			return
+		}
 	}
 
 	// Create the target URI and forward the request.

@@ -34,7 +34,7 @@ func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 		}
 
 		for _, uri := range rule.URIs {
-			insert(a.root, uri, verbs, rule.Scopes)
+			insert(a.root, uri, verbs, rule)
 		}
 	}
 
