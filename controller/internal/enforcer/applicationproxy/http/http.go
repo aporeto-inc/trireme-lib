@@ -400,7 +400,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	claims, err := p.parseClientToken(key, token)
-	if err != nil {
+	if err != nil && len(userAttributes) == 0 {
 		zap.L().Error("Unauthorized request", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 		return
@@ -473,7 +473,7 @@ func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAt
 func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, error) {
 	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
 	if err != nil {
-		return nil, fmt.Errorf("Invalid Service Token")
+		return JWTClaims{}, fmt.Errorf("Invalid Service Token")
 	}
 
 	claims := &JWTClaims{}
@@ -485,7 +485,7 @@ func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, erro
 		return ekey, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing token: %s", err)
+		return claims, fmt.Errorf("Error parsing token: %s", err)
 	}
 	return claims, nil
 }
