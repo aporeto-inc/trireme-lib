@@ -425,7 +425,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		record.Source.ID = claims.SourceID
 
 		// Validate the policy and drop the request if there is no authorization.
-		if err = p.verifyPolicy(t.([]string), claims.Profile, claims.Scopes, userAttributes); err != nil {
+		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
 			zap.L().Error("Unauthorized request", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
 			return
