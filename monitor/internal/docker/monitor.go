@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/utils/panicrecovery"
+
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -179,6 +181,7 @@ func (d *DockerMonitor) sendRequestToQueue(r *events.Message) {
 // as possible.
 func (d *DockerMonitor) eventProcessors(ctx context.Context) {
 
+	defer panicrecovery.HandleEventualPanic("dockerEventProcessors")
 	for i := 0; i < d.numberOfQueues; i++ {
 		go func(i int) {
 			for {
@@ -206,6 +209,7 @@ func (d *DockerMonitor) eventProcessors(ctx context.Context) {
 // that we will miss events because the processor is delayed
 func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan struct{}) {
 
+	defer panicrecovery.HandleEventualPanic("dockerEventListener")
 	f := filters.NewArgs()
 	f.Add("type", "container")
 	options := types.EventsOptions{
