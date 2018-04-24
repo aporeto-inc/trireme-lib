@@ -254,7 +254,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		if err != nil {
 			return err
 		}
-		if err := register.Add(service, protomux.TCPApplication); err != nil {
+		if err := register.Add(service, protomux.TCPApplication, false); err != nil {
 			return fmt.Errorf("Cannot add service: %s", err)
 		}
 	}
@@ -276,21 +276,21 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		if err != nil {
 			return err
 		}
-		if err := register.Add(service, protomux.TCPNetwork); err != nil {
+		if err := register.Add(service, protomux.TCPNetwork, true); err != nil {
 			return fmt.Errorf("Cannot add service: %s", err)
 		}
 	}
 
 	// Register the ExposedServices with the multiplexer.
 	for _, service := range puInfo.Policy.ExposedServices() {
-		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type)); err != nil {
+		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type), true); err != nil {
 			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
 		}
 	}
 
 	// Register the DependentServices with the multiplexer.
 	for _, service := range puInfo.Policy.DependentServices() {
-		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type)); err != nil {
+		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type), false); err != nil {
 			return fmt.Errorf("Duplicate dependent service: %s", err)
 		}
 	}

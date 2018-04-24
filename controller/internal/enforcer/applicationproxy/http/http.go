@@ -242,6 +242,9 @@ func (p *Config) retrieveContextAndPolicy(c cache.DataStore, w http.ResponseWrit
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
+
+	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+
 	puContext, apiCache, err := p.retrieveContextAndPolicy(p.dependentAPICache, w, r)
 	if err != nil {
 		return
@@ -294,6 +297,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			// If it is a secrets request we process it and move on. No need to
 			// validate policy.
 			if p.isSecretsRequest(w, r) {
+				zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
 				return
 			}
 
@@ -336,6 +340,8 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
+
+	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,

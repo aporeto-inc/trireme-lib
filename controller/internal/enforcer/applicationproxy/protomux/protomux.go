@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
@@ -62,6 +63,7 @@ type MultiplexedListener struct {
 	protomap        map[ListenerType]*ProtoListener
 	servicecache    *servicecache.ServiceCache
 	defaultListener *ProtoListener
+	localIPs        map[string]struct{}
 	mark            int
 	sync.RWMutex
 }
@@ -69,6 +71,7 @@ type MultiplexedListener struct {
 // NewMultiplexedListener returns a new multiplexed listener. Caller
 // must register protocols outside of the new object creation.
 func NewMultiplexedListener(l net.Listener, mark int) *MultiplexedListener {
+
 	return &MultiplexedListener{
 		root:         l,
 		done:         make(chan struct{}),
@@ -76,6 +79,7 @@ func NewMultiplexedListener(l net.Listener, mark int) *MultiplexedListener {
 		wg:           sync.WaitGroup{},
 		protomap:     map[ListenerType]*ProtoListener{},
 		servicecache: servicecache.NewTable(),
+		localIPs:     connproc.GetInterfaces(),
 		mark:         mark,
 	}
 }
@@ -204,15 +208,20 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 		return
 	}
 
+	local := false
+	if _, ok := m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {
+		local = true
+	}
+
 	m.RLock()
 	servicecache := m.servicecache
 	m.RUnlock()
-	entry := servicecache.Find(ip, port)
+	entry := servicecache.Find(ip, port, !local)
 	if entry == nil {
 		// Let's see if we can match the source address.
 		// Compatibility with deprecated model. TODO: Remove
 		ip = c.RemoteAddr().(*net.TCPAddr).IP
-		entry = servicecache.Find(ip, port)
+		entry = servicecache.Find(ip, port, !local)
 		if entry == nil {
 			// Failed with source as well.
 			c.Close() // nolint
@@ -235,4 +244,12 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 	case <-m.done:
 		c.Close() // nolint
 	}
+}
+
+func networkOfAddress(addr string) string {
+	parts := strings.Split(addr, ":")
+	if len(parts) == 2 {
+		return parts[0]
+	}
+	return addr
 }
