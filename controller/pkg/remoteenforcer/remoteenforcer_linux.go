@@ -368,8 +368,8 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 
 	cmdLock.Lock()
 	defer cmdLock.Unlock()
-	if s.enforcer != nil {
-		return nil
+	if s.enforcer == nil {
+		return fmt.Errorf(resp.Status)
 	}
 
 	payload := req.Payload.(rpcwrapper.UpdateSecretsPayload)
@@ -378,6 +378,10 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 		return err
 	}
 
+	err = s.enforcer.UpdateSecrets(s.secrets)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
