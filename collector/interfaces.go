@@ -118,11 +118,11 @@ type FlowRecord struct {
 	DropReason       string
 	PolicyID         string
 	ObservedPolicyID string
-	Action           policy.ActionType
-	ObservedAction   policy.ActionType
 	ServiceType      policy.ServiceType
 	ServiceID        string
 	Count            int
+	Action           policy.ActionType
+	ObservedAction   policy.ActionType
 	L4Protocol       uint8
 }
 
