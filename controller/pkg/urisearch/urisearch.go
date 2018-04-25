@@ -28,13 +28,13 @@ func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 
 	empty := struct{}{}
 	for _, rule := range rules {
-		verbs := map[string]struct{}{}
-		for _, verb := range rule.Verbs {
-			verbs[verb] = empty
+		methods := map[string]struct{}{}
+		for _, m := range rule.Methods {
+			methods[m] = empty
 		}
 
 		for _, uri := range rule.URIs {
-			insert(a.root, uri, verbs, rule)
+			insert(a.root, uri, methods, rule)
 		}
 	}
 
