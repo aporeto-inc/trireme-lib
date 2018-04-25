@@ -129,7 +129,7 @@ func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 	return p.originalIP, p.originalPort
 }
 
-// TCPConnection returns the TCP connection object.
+// GetTCPConnection returns the TCP connection object.
 func (p *ProxiedConnection) GetTCPConnection() *net.TCPConn {
 	return p.originalTCPConnection
 }
