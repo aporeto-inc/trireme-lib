@@ -260,14 +260,15 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		record := &collector.FlowRecord{
 			ContextID: p.puContext,
 			Destination: &collector.EndPoint{
-				URI:  r.Method + " " + r.RequestURI,
-				Type: collector.Address,
-				Port: _port,
-				IP:   r.Host,
-				ID:   collector.DefaultEndPoint,
+				URI:        r.RequestURI,
+				HTTPMethod: r.Method,
+				Type:       collector.EndPointTypeExteranlIPAddress,
+				Port:       _port,
+				IP:         r.Host,
+				ID:         collector.DefaultEndPoint,
 			},
 			Source: &collector.EndPoint{
-				Type: collector.PU,
+				Type: collector.EnpointTypePU,
 				ID:   puContext.ManagementID(),
 			},
 			Action:      policy.Reject,
@@ -345,11 +346,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI:  r.Method + " " + r.RequestURI,
-			Type: collector.PU,
+			URI:        r.RequestURI,
+			HTTPMethod: r.Method,
+			Type:       collector.EnpointTypePU,
 		},
 		Source: &collector.EndPoint{
-			Type: collector.PU,
+			Type: collector.EndpointTypeClaim,
+			ID:   collector.AnyClaimSource,
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
