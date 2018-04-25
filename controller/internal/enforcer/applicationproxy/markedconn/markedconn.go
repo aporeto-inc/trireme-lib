@@ -8,9 +8,13 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"unsafe"
 
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"github.com/rs/xid"
+)
+
+const (
+	sockOptOriginalDst = 80
 )
 
 // DialMarkedTCP creates a new TCP connection and marks it with the provided mark.
@@ -126,7 +130,7 @@ func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 }
 
 // TCPConnection returns the TCP connection object.
-func (p *ProxiedConnection) GetTCPConnection() *net.TCP {
+func (p *ProxiedConnection) GetTCPConnection() *net.TCPConn {
 	return p.originalTCPConnection
 }
 
@@ -156,7 +160,7 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, err
 	}
 
-	ip, port, err := connproc.GetOriginalDestination(nc)
+	ip, port, err := GetOriginalDestination(nc)
 	if err != nil {
 		return nil, err
 	}
@@ -176,4 +180,43 @@ func (l ProxiedListener) Addr() net.Addr {
 // Close implements the Close method of the net.Listener.
 func (l ProxiedListener) Close() error {
 	return l.netListener.Close()
+}
+
+type sockaddr struct {
+	family uint16
+	data   [14]byte
+}
+
+// GetOriginalDestination -- Func to get original destination a connection
+func GetOriginalDestination(conn net.Conn) (net.IP, int, error) {
+	var addr sockaddr
+	size := uint32(unsafe.Sizeof(addr))
+
+	inFile, err := conn.(*net.TCPConn).File()
+	if err != nil {
+		return []byte{}, 0, err
+	}
+
+	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size)
+	if err != nil {
+		return []byte{}, 0, err
+	}
+
+	if addr.family != syscall.AF_INET {
+		return []byte{}, 0, fmt.Errorf("invalid address family")
+	}
+
+	var ip net.IP
+	ip = addr.data[2:6]
+	port := int(addr.data[0])<<8 + int(addr.data[1])
+
+	return ip, port, nil
+}
+
+func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
+	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
+	if e1 != 0 {
+		err = e1
+	}
+	return
 }

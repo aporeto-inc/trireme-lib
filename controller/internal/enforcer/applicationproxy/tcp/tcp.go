@@ -127,12 +127,8 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
 	defer upConn.Close() // nolint
 
-	ip, port, err := connproc.GetOriginalDestination(upConn)
-	if err != nil {
-		return
-	}
+	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
 
-	fmt.Println("Starting downconnection to ", ip, port)
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
 		return
@@ -145,6 +141,8 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		zap.L().Error("Error on Authorization", zap.Error(err))
 		return
 	}
+
+	fmt.Println("Completed authorization", isEncrypted)
 
 	if isEncrypted {
 		if err := p.handleEncryptedData(ctx, upConn, downConn, ip); err != nil {
@@ -170,6 +168,7 @@ func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.C
 	})
 	defer tlsConn.Close() // nolint errcheck
 
+	fmt.Println("Starting hte TLS process at the client ")
 	// TLS will automatically start negotiation on write. Nothing to do for us.
 	p.copyData(ctx, serverConn, tlsConn)
 	return nil
@@ -181,11 +180,12 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.C
 	certs := []tls.Certificate{*p.certificate}
 	p.RUnlock()
 
-	tlsConn := tls.Server(serverConn, &tls.Config{
+	tlsConn := tls.Server(serverConn.(*markedconn.ProxiedConnection).GetTCPConnection(), &tls.Config{
 		Certificates: certs,
 	})
 	defer tlsConn.Close() // nolint errcheck
 
+	fmt.Println("Starting the TLS at the server ")
 	// TLS will automatically start negotiation on write. Nothing to for us.
 	p.copyData(ctx, tlsConn, downConn)
 	return nil
@@ -208,9 +208,14 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 	defer func() {
 		switch dest.(type) {
 		case *tls.Conn:
+			fmt.Println("Closing TLS connection downstream ")
 			dest.(*tls.Conn).CloseWrite() // nolint errcheck
 		case *net.TCPConn:
+			fmt.Println("Closing TCP connection downstream")
 			dest.(*net.TCPConn).CloseWrite() // nolint errcheck
+		case *markedconn.ProxiedConnection:
+			fmt.Println("Cloising marked connection downstream ")
+			dest.(*markedconn.ProxiedConnection).GetTCPConnection().CloseWrite() // nolint errcheck
 		}
 	}()
 	b := make([]byte, 16384)
@@ -223,7 +228,9 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 		case <-ctx.Done():
 			return
 		default:
+			fmt.Println("READING DATA HERE ........ ")
 			n, err := source.Read(b)
+			fmt.Println("Sending data", string(b))
 			if err != nil {
 				if checkErr(err) {
 					continue
@@ -242,8 +249,10 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
 	if _, ok := p.localIPs[ip.String()]; !ok {
+		fmt.Println("Starting client encryption")
 		return p.startEncryptedClientDataPath(ctx, downConn, upConn, ip)
 	}
+	fmt.Println("Starting service encryption ")
 	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
 }
 
@@ -309,15 +318,13 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 		// SourceIP: downConn.LocalAddr().Network(),
 	}
 
-	// reader := bufio.NewReader(downConn)
-
 	for {
 		if err := downConn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			return false, err
 		}
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
-
+			fmt.Println("Send client token")
 			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
@@ -330,6 +337,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 			conn.SetState(connection.ClientPeerTokenReceive)
 
 		case connection.ClientPeerTokenReceive:
+
 			msg, err := readMsg(downConn)
 			if err != nil {
 				return false, fmt.Errorf("Failed to read peer token: %s", err)
@@ -352,8 +360,10 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 			}
 
 			conn.SetState(connection.ClientSendSignedPair)
+			fmt.Println("Received peer token")
 
 		case connection.ClientSendSignedPair:
+			fmt.Println("Send client acc ")
 			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create ack token: %s", err)
@@ -418,6 +428,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 			conn.PacketFlowPolicy = packet
 
 			conn.SetState(connection.ServerSendToken)
+			fmt.Println("received server syn")
 
 		case connection.ServerSendToken:
 
@@ -432,6 +443,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 			}
 
 			conn.SetState(connection.ServerAuthenticatePair)
+			fmt.Println("send synack to client")
 
 		case connection.ServerAuthenticatePair:
 			msg, err := readMsg(upConn)
@@ -444,6 +456,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 			}
 			p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+			fmt.Println("received ack encrypted ")
 			return isEncrypted, nil
 		}
 	}
@@ -525,6 +538,7 @@ func writeMsg(conn io.Writer, data []byte) (n int, err error) {
 }
 
 func checkErr(err error) bool {
+	fmt.Println("Got an error ", err)
 	if err == io.EOF {
 		return false
 	}

@@ -30,6 +30,11 @@ type ProxiedConnection struct {
 	originalPort int
 }
 
+// GetTCPConnection returns the TCP connection object.
+func (p *ProxiedConnection) GetTCPConnection() *net.TCPConn {
+	return nil
+}
+
 // GetOriginalDestination sets the original destination of the connection.
 func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 	return p.originalIP, p.originalPort
