@@ -586,6 +586,9 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 	// by providing the right scopes in the API policy.
 	claims := &jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(authorization, claims, func(token *jwt.Token) (interface{}, error) {
+		if cert == nil {
+			return nil, fmt.Errorf("Nil certificate - ignore")
+		}
 		switch token.Method {
 		case token.Method.(*jwt.SigningMethodECDSA):
 			if rcert, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
