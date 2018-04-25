@@ -51,7 +51,6 @@ type Config struct {
 	exposedAPICache   cache.DataStore
 	dependentAPICache cache.DataStore
 	jwtCache          cache.DataStore
-	portMappingCache  cache.DataStore
 	applicationProxy  bool
 	mark              int
 	server            *http.Server
@@ -69,7 +68,6 @@ func NewHTTPProxy(
 	caPool *x509.CertPool,
 	exposedAPICache cache.DataStore,
 	dependentAPICache cache.DataStore,
-	portMappingCache cache.DataStore,
 	jwtCache cache.DataStore,
 	applicationProxy bool,
 	mark int,
@@ -84,7 +82,6 @@ func NewHTTPProxy(
 		ca:                caPool,
 		exposedAPICache:   exposedAPICache,
 		dependentAPICache: dependentAPICache,
-		portMappingCache:  portMappingCache,
 		applicationProxy:  applicationProxy,
 		jwtCache:          jwtCache,
 		mark:              mark,
@@ -117,9 +114,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, addr)
+			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
 				return nil, err
 			}
@@ -127,7 +123,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			if err != nil {
 				return nil, err
 			}
-
 			tlsConn := tls.Client(conn, &tls.Config{
 				ServerName:         getServerName(addr),
 				RootCAs:            p.ca,
@@ -140,7 +135,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, addr)
+			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
 				return nil, err
 			}
@@ -438,7 +433,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the target URI and forward the request.
-	r.URL, err = p.createTargetURI(r)
+
+	r.URL, err = url.ParseRequestURI("http://" + r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
@@ -532,20 +528,6 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	return true
-}
-
-func (p *Config) createTargetURI(r *http.Request) (*url.URL, error) {
-	data, err := p.portMappingCache.Get(p.puContext)
-	if err != nil {
-		return nil, err
-	}
-
-	target, ok := data.(map[string]string)[appendDefaultPort(r.Host)]
-	if !ok {
-		return nil, fmt.Errorf("Port mapping not found")
-	}
-
-	return url.ParseRequestURI("http://localhost:" + target)
 }
 
 func appendDefaultPort(address string) string {
