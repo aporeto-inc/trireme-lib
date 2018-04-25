@@ -132,7 +132,7 @@ func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *KubernetesMonitor) Resync(ctx context.Context) error {
-	// TODO: Redifine this interface ?
+	// TODO: Redefine this interface ?
 	return nil
 }
 

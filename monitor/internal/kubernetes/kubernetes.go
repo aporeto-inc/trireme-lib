@@ -34,11 +34,6 @@ func (m *KubernetesMonitor) addPod(addedPod *api.Pod) error {
 	// This event is not needed as the trigger is the  DockerMonitor event
 	// The pod obejct is cached in order to reuse it and avoid an API request possibly laster on
 
-	// _, err := m.cache.updatePodEntry(addedPod.GetNamespace(), addedPod.GetName(), addedPod)
-	// if err != nil {
-	//	return fmt.Errorf("error updating cache entry %s", err)
-	//}
-
 	return nil
 }
 
@@ -64,7 +59,7 @@ func (m *KubernetesMonitor) updatePod(oldPod, updatedPod *api.Pod) error {
 func (m *KubernetesMonitor) getPod(podNamespace, podName string) (*api.Pod, error) {
 	zap.L().Debug("no pod cached, querying Kubernetes API")
 
-	// TODO: Use cached Kube Store ?
+	// TODO: Use cached Kube Store (from a shared informer)
 	return m.Pod(podName, podNamespace)
 }
 
