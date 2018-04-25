@@ -55,8 +55,8 @@ const (
 	PolicyValid = "V"
 	// DefaultEndPoint  provides a string for unknown container sources
 	DefaultEndPoint = "default"
-	// AnyClaimSource provides a string for any claim flow source.
-	AnyClaimSource = "any-claim"
+	// SomeClaimsSource provides a string for some claims flow source.
+	SomeClaimsSource = "some-claims"
 )
 
 // EventCollector is the interface for collecting events.
@@ -80,8 +80,8 @@ const (
 	EndPointTypeExteranlIPAddress EndPointType = iota
 	// EnpointTypePU indicates that the endpoint is a PU.
 	EnpointTypePU
-	// EndpointTypeClaim indicates that the endpoint is of type claim.
-	EndpointTypeClaim
+	// EndpointTypeClaims indicates that the endpoint is of type claims.
+	EndpointTypeClaims
 )
 
 func (e *EndPointType) String() string {
@@ -91,8 +91,8 @@ func (e *EndPointType) String() string {
 		return "ext"
 	case EnpointTypePU:
 		return "pu"
-	case EndpointTypeClaim:
-		return "claim"
+	case EndpointTypeClaims:
+		return "claims"
 	}
 
 	return "pu" // backward compatibility (CS: 04/24/2018)

@@ -351,8 +351,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			Type:       collector.EnpointTypePU,
 		},
 		Source: &collector.EndPoint{
-			Type: collector.EndpointTypeClaim,
-			ID:   collector.AnyClaimSource,
+			Type: collector.EnpointTypePU,
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
@@ -428,6 +427,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
+
 		record.Source.ID = claims.SourceID
 
 		// Validate the policy and drop the request if there is no authorization.
@@ -442,6 +442,11 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
+	}
+
+	if record.Source.ID == "" {
+		record.Source.Type = collector.EndpointTypeClaims
+		record.Source.ID = collector.SomeClaimsSource
 	}
 
 	record.Action = policy.Accept | policy.Encrypt
