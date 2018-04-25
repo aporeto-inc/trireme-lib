@@ -115,13 +115,19 @@ func SocketListener(port string, mark int) (net.Listener, error) {
 // original destination.
 type ProxiedConnection struct {
 	net.Conn
-	originalIP   net.IP
-	originalPort int
+	originalIP            net.IP
+	originalPort          int
+	originalTCPConnection *net.TCPConn
 }
 
 // GetOriginalDestination sets the original destination of the connection.
 func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
 	return p.originalIP, p.originalPort
+}
+
+// TCPConnection returns the TCP connection object.
+func (p *ProxiedConnection) GetTCPConnection() *net.TCP {
+	return p.originalTCPConnection
 }
 
 // LocalAddr implements the corresponding method of net.Conn, but returns the original
@@ -159,7 +165,7 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, err
 	}
 
-	return &ProxiedConnection{nc, ip, port}, nil
+	return &ProxiedConnection{nc, ip, port, nc.(*net.TCPConn)}, nil
 }
 
 // Addr implements the Addr method of net.Listener.

@@ -132,6 +132,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 		return
 	}
 
+	fmt.Println("Starting downconnection to ", ip, port)
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
 		return

@@ -114,9 +114,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, addr)
+			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
 				return nil, err
 			}
@@ -124,7 +123,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			if err != nil {
 				return nil, err
 			}
-
 			tlsConn := tls.Client(conn, &tls.Config{
 				ServerName:         getServerName(addr),
 				RootCAs:            p.ca,
@@ -137,7 +135,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, addr)
+			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
 				return nil, err
 			}
