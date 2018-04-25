@@ -24,10 +24,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"go.uber.org/zap"
-
 	"github.com/dgrijalva/jwt-go"
 	"github.com/vulcand/oxy/forward"
+	"go.uber.org/zap"
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -258,14 +257,15 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		record := &collector.FlowRecord{
 			ContextID: p.puContext,
 			Destination: &collector.EndPoint{
-				URI:  r.Method + " " + r.RequestURI,
-				Type: collector.Address,
-				Port: _port,
-				IP:   r.Host,
-				ID:   collector.DefaultEndPoint,
+				URI:        r.RequestURI,
+				HTTPMethod: r.Method,
+				Type:       collector.EndPointTypeExteranlIPAddress,
+				Port:       _port,
+				IP:         r.Host,
+				ID:         collector.DefaultEndPoint,
 			},
 			Source: &collector.EndPoint{
-				Type: collector.PU,
+				Type: collector.EnpointTypePU,
 				ID:   puContext.ManagementID(),
 			},
 			Action:      policy.Reject,
@@ -343,11 +343,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI:  r.Method + " " + r.RequestURI,
-			Type: collector.PU,
+			URI:        r.RequestURI,
+			HTTPMethod: r.Method,
+			Type:       collector.EnpointTypePU,
 		},
 		Source: &collector.EndPoint{
-			Type: collector.PU,
+			Type: collector.EndpointTypeClaim,
+			ID:   collector.AnyClaimSource,
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
@@ -398,15 +400,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// and policies.
 	found, t := apiCache.Find(r.Method, r.RequestURI)
 	if !found {
-		zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unknown or unauthorized service"), http.StatusForbidden)
 		return
 	}
 
 	rule, ok := t.(*policy.HTTPRule)
 	if !ok {
-		zap.L().Error("Internal error - wrong rule", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Internal server error"), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -419,18 +419,17 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			record.Source.UserID = userRecord.ID
 		}
 
-		claims, err := p.parseClientToken(key, token)
+		var claims *JWTClaims
+		claims, err = p.parseClientToken(key, token)
 		if err != nil && len(userAttributes) == 0 {
-			zap.L().Error("Unauthorized request", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
 		record.Source.ID = claims.SourceID
 
 		// Validate the policy and drop the request if there is no authorization.
 		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
-			zap.L().Error("Unauthorized request", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
 	}
@@ -439,8 +438,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	r.URL, err = url.ParseRequestURI("http://" + r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 	if err != nil {
-		zap.L().Error("Invalid HTTP Host parameter", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusUnprocessableEntity)
+		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
 	}
 
@@ -572,6 +570,9 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 	// by providing the right scopes in the API policy.
 	claims := &jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(authorization, claims, func(token *jwt.Token) (interface{}, error) {
+		if cert == nil {
+			return nil, fmt.Errorf("Nil certificate - ignore")
+		}
 		switch token.Method {
 		case token.Method.(*jwt.SigningMethodECDSA):
 			if rcert, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {

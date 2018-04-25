@@ -65,8 +65,8 @@ type HTTPRule struct {
 	// a service is exposing.
 	URIs []string
 
-	// Verbs is a list of the allowed verbs for the given list of URIs.
-	Verbs []string
+	// Methods is a list of the allowed verbs for the given list of URIs.
+	Methods []string
 
 	// Scopes is a list of scopes associated with this rule. Clients
 	// must present one of these scopes in order to get access to this

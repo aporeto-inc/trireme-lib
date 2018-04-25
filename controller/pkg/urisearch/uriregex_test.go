@@ -11,7 +11,7 @@ func initRules() []*policy.HTTPRule {
 
 	return []*policy.HTTPRule{
 		&policy.HTTPRule{
-			Verbs: []string{"GET", "PUT"},
+			Methods: []string{"GET", "PUT"},
 			URIs: []string{
 				"/users/.+/name",
 				"/things/.+/",
@@ -19,7 +19,7 @@ func initRules() []*policy.HTTPRule {
 			Scopes: []string{"app=old"},
 		},
 		&policy.HTTPRule{
-			Verbs: []string{"POST"},
+			Methods: []string{"POST"},
 			URIs: []string{
 				"/v1/users/.+/name",
 				"/v1/things/.+/",
@@ -27,14 +27,14 @@ func initRules() []*policy.HTTPRule {
 			Scopes: []string{"app=v1"},
 		},
 		&policy.HTTPRule{
-			Verbs:  []string{},
-			URIs:   []string{"/empty"},
-			Scopes: []string{"app=empty"},
+			Methods: []string{},
+			URIs:    []string{"/empty"},
+			Scopes:  []string{"app=empty"},
 		},
 		&policy.HTTPRule{
-			Verbs:  []string{},
-			URIs:   []string{},
-			Scopes: []string{"app=emptyuri"},
+			Methods: []string{},
+			URIs:    []string{},
+			Scopes:  []string{"app=emptyuri"},
 		},
 	}
 }

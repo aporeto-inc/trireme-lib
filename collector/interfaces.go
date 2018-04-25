@@ -55,6 +55,8 @@ const (
 	PolicyValid = "V"
 	// DefaultEndPoint  provides a string for unknown container sources
 	DefaultEndPoint = "default"
+	// AnyClaimSource provides a string for any claim flow source.
+	AnyClaimSource = "any-claim"
 )
 
 // EventCollector is the interface for collecting events.
@@ -74,27 +76,37 @@ type EventCollector interface {
 type EndPointType byte
 
 const (
-	// Address indicates that the endpoint is an external IP address
-	Address EndPointType = iota
-	// PU indicates that the endpoint is a PU
-	PU
+	// EndPointTypeExteranlIPAddress indicates that the endpoint is an external IP address
+	EndPointTypeExteranlIPAddress EndPointType = iota
+	// EnpointTypePU indicates that the endpoint is a PU.
+	EnpointTypePU
+	// EndpointTypeClaim indicates that the endpoint is of type claim.
+	EndpointTypeClaim
 )
 
 func (e *EndPointType) String() string {
-	if *e == Address {
+
+	switch *e {
+	case EndPointTypeExteranlIPAddress:
 		return "ext"
+	case EnpointTypePU:
+		return "pu"
+	case EndpointTypeClaim:
+		return "claim"
 	}
-	return "pu"
+
+	return "pu" // backward compatibility (CS: 04/24/2018)
 }
 
 // EndPoint is a structure that holds all the endpoint information
 type EndPoint struct {
-	ID     string
-	IP     string
-	URI    string
-	UserID string
-	Type   EndPointType
-	Port   uint16
+	ID         string
+	IP         string
+	URI        string
+	HTTPMethod string
+	UserID     string
+	Type       EndPointType
+	Port       uint16
 }
 
 // FlowRecord describes a flow record for statistis
