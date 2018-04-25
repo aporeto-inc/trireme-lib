@@ -1,9 +1,12 @@
 package tokens
 
-import "github.com/aporeto-inc/trireme-lib/policy"
+import (
+	"github.com/aporeto-inc/trireme-lib/policy"
+)
 
 // ConnectionClaims captures all the claim information
 type ConnectionClaims struct {
+	// T are the tags of the transmitter
 	T *policy.TagStore
 	// RMT is the nonce of the remote that has to be signed in the JWT
 	RMT []byte

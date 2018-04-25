@@ -264,7 +264,7 @@ func (p *PUContext) CreateTxtRules(policyRules policy.TagSelectorList) {
 // searchRules searches all reject, accpet and observed rules and returns reporting and packet forwarding action
 func (p *PUContext) searchRules(
 	policies *policies,
-	tags *policy.TagStore,
+	tags []string,
 	skipRejectPolicies bool,
 ) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
@@ -341,15 +341,13 @@ func (p *PUContext) searchRules(
 
 // SearchTxtRules searches both receive and observed transmit rules and returns the index and action
 func (p *PUContext) SearchTxtRules(
-	tags *policy.TagStore,
+	tags []string,
 	skipRejectPolicies bool,
 ) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 	return p.searchRules(p.txt, tags, skipRejectPolicies)
 }
 
 // SearchRcvRules searches both receive and observed receive rules and returns the index and action
-func (p *PUContext) SearchRcvRules(
-	tags *policy.TagStore,
-) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *PUContext) SearchRcvRules(tags []string) (report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 	return p.searchRules(p.rcv, tags, false)
 }

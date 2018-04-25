@@ -94,19 +94,11 @@ func initTestSupReqPayload(ctype rpcwrapper.CaptureType) rpcwrapper.InitSupervis
 }
 
 func initIdentity(id string) *policy.TagStore {
-	var initID policy.TagStore
-
-	initID.Tags = []string{id}
-
-	return &initID
+	return policy.NewTagStoreFromSlice([]string{id})
 }
 
 func initAnnotations(an string) *policy.TagStore {
-	var initAnno policy.TagStore
-
-	initAnno.Tags = []string{an}
-
-	return &initAnno
+	return policy.NewTagStoreFromSlice([]string{an})
 }
 
 func initTrans() policy.TagSelectorList {

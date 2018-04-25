@@ -248,7 +248,6 @@ func (d *DockerMonitor) ReSync(ctx context.Context) error {
 	}
 
 	zap.L().Debug("Syncing all existing containers")
-
 	options := types.ContainerListOptions{All: true}
 	containers, err := d.dockerClient.ContainerList(ctx, options)
 	if err != nil {

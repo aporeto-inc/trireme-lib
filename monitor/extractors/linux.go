@@ -89,7 +89,7 @@ func SystemdEventMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, 
 		}
 	}
 	options.Services = event.Services
-	options.UserID, _ = runtimeTags.Get("@usr:originaluser")
+	options.UserID, _ = runtimeTags.GetUnique("@usr:originaluser")
 	options.CgroupMark = strconv.FormatUint(cgnetcls.MarkVal(), 10)
 
 	runtimeIps := policy.ExtendedMap{"bridge": "0.0.0.0/0"}

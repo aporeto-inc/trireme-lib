@@ -33,19 +33,36 @@ func TestNewTagStoreFromMap(t *testing.T) {
 	})
 }
 
+func TestNewTagStoreFromSlice(t *testing.T) {
+	Convey("When I create a new tagstore from a map", t, func() {
+		t := NewTagStoreFromSlice([]string{"app=web", "app=db", "image=nginx"})
+
+		Convey("I should have the right store", func() {
+			So(t, ShouldNotBeNil)
+			tags := t.GetSlice()
+
+			So(len(tags), ShouldEqual, 3)
+			So(tags, ShouldContain, "app=web")
+			So(tags, ShouldContain, "app=db")
+			So(tags, ShouldContain, "image=nginx")
+		})
+	})
+}
+
 func TestMerge(t *testing.T) {
 	Convey("When I create a new tagstore from a map", t, func() {
 		t := NewTagStoreFromMap(map[string]string{
 			"app":   "web",
 			"image": "nginx",
 		})
+		So(t, ShouldNotBeNil)
 
 		Convey("When I merge another store", func() {
-			So(t, ShouldNotBeNil)
 			m := NewTagStoreFromMap(map[string]string{
 				"location": "somewhere",
 			})
 			So(m, ShouldNotBeNil)
+
 			merged := t.Merge(m)
 			So(merged, ShouldEqual, 1)
 
@@ -68,7 +85,7 @@ func TestMergeCollision(t *testing.T) {
 		Convey("When I merge another store with collisions", func() {
 			So(t, ShouldNotBeNil)
 			m := NewTagStoreFromMap(map[string]string{
-				"app": "app",
+				"app": "web",
 			})
 			So(m, ShouldNotBeNil)
 			merged := t.Merge(m)
@@ -96,29 +113,47 @@ func TestAllSettersGetters(t *testing.T) {
 		})
 
 		Convey("When I get a valid key, it should return the value", func() {
-			value, ok := ts.Get("app")
+			value, ok := ts.GetValues("app")
 			So(ok, ShouldBeTrue)
-			So(value, ShouldResemble, "web")
+			So(value, ShouldResemble, []string{"web"})
+			unique, uok := ts.GetUnique("app")
+			So(uok, ShouldBeTrue)
+			So(unique, ShouldResemble, "web")
 		})
 
 		Convey("When I get a non valid key, it should return false", func() {
-			value, ok := ts.Get("randomkey")
+			value, ok := ts.GetValues("randomkey")
 			So(ok, ShouldBeFalse)
-			So(value, ShouldEqual, "")
+			So(len(value), ShouldEqual, 0)
 		})
 
 		Convey("If I append a key/value pair, it should be in the store", func() {
 			ts.AppendKeyValue("NewKey", "NewValue")
-			value, ok := ts.Get("NewKey")
+			value, ok := ts.GetValues("NewKey")
 			So(ok, ShouldBeTrue)
-			So(value, ShouldEqual, "NewValue")
+			So(value, ShouldContain, "NewValue")
+		})
+
+		Convey("If I append key/values with the same key and different values, they should be in the map", func() {
+			ts.AppendKeyValue("key1", "value1")
+			ts.AppendKeyValue("key1", "value2")
+			value, ok := ts.GetValues("key1")
+			So(ok, ShouldBeTrue)
+			So(len(value), ShouldEqual, 2)
+			So(value, ShouldContain, "value1")
+			So(value, ShouldContain, "value2")
+
+			Convey("And the Unique get should fail", func() {
+				_, ok := ts.GetUnique("key1")
+				So(ok, ShouldBeFalse)
+			})
 		})
 
 		Convey("If the store is corrupted", func() {
 			ts.Tags = append(ts.Tags, "badtag")
-			value, ok := ts.Get("randomeky")
+			value, ok := ts.GetValues("randomeky")
 			So(ok, ShouldBeFalse)
-			So(value, ShouldEqual, "")
+			So(len(value), ShouldEqual, 0)
 		})
 	})
 }

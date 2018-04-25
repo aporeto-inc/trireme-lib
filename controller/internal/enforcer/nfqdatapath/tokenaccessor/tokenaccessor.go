@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
+
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
@@ -130,26 +131,25 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 
 // parsePacketToken parses the packet token and populates the right state.
 // Returns an error if the token cannot be parsed or the signature fails
-func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
+func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, string, error) {
 
 	// Validate the certificate and parse the token
 	claims, nonce, cert, err := t.getToken().Decode(false, data, auth.RemotePublicKey)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	// We always a need a valid remote context ID
-	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
-	if !ok {
-		return nil, errors.New("no transmitter label")
+	id, found := claims.T.GetFirstFromSlice(enforcerconstants.TransmitterLabel)
+	if !found {
+		return nil, "", err
 	}
 
 	auth.RemotePublicKey = cert
 	auth.RemoteContext = nonce
-	auth.RemoteContextID = remoteContextID
+	auth.RemoteContextID = id
 	auth.RemoteServiceContext = claims.EK
 
-	return claims, nil
+	return claims, id, nil
 }
 
 // parseAckToken parses the tokens in Ack packets. They don't carry all the state context
@@ -170,4 +170,11 @@ func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*
 	}
 
 	return claims, nil
+}
+
+func getID(context *pucontext.PUContext) string {
+	if id := context.ManagementID(); id != "" {
+		return id
+	}
+	return context.ID()
 }

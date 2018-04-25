@@ -254,7 +254,7 @@ func TestFuncSearch(t *testing.T) {
 				tags := policy.NewTagStore()
 				tags.AppendKeyValue("vulnerability", "high")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index10)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -264,7 +264,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("namespace", "/a/b/c/d")
 				tags.AppendKeyValue("env", "privatedemo")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(action, ShouldBeNil)
 				So(index, ShouldEqual, -1)
 			})
@@ -275,7 +275,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("vulnerability", "low")
 				tags.AppendKeyValue("env", "privatedemo")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(action, ShouldNotBeNil)
 				So(index, ShouldEqual, index11)
 			})
@@ -285,7 +285,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("app", "web")
 				tags.AppendKeyValue("env", "demo")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index1)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -295,7 +295,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("lang", "go")
 				tags.AppendKeyValue("env", "demo")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index2)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -305,7 +305,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("dc", "EAST")
 				tags.AppendKeyValue("env", "demo")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index3)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -316,7 +316,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("app", "web")
 				tags.AppendKeyValue("env", "qa")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index4)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -326,7 +326,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("app", "web")
 				tags.AppendKeyValue("env", "prod")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index5)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -337,7 +337,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("env", "demo")
 				tags.AppendKeyValue("app", "db")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, -1)
 				So(action, ShouldBeNil)
 			})
@@ -347,7 +347,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("tag", "node")
 				tags.AppendKeyValue("env", "node")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, -1)
 				So(action, ShouldBeNil)
 			})
@@ -356,7 +356,7 @@ func TestFuncSearch(t *testing.T) {
 				tags := policy.NewTagStore()
 				tags.AppendKeyValue("app", "web")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index6)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -364,7 +364,7 @@ func TestFuncSearch(t *testing.T) {
 			Convey("Given that I search for a value that matches a prefix", func() {
 				tags := policy.NewTagStore()
 				tags.AppendKeyValue("domain", "com.example.db")
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index7)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -373,7 +373,7 @@ func TestFuncSearch(t *testing.T) {
 				tags := policy.NewTagStore()
 				tags.AppendKeyValue("domain", "com.example.web")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index8)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})
@@ -383,7 +383,7 @@ func TestFuncSearch(t *testing.T) {
 				tags.AppendKeyValue("domain", "co")
 				tags.AppendKeyValue("env", "node")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, -1)
 				So(action, ShouldBeNil)
 			})
@@ -392,7 +392,7 @@ func TestFuncSearch(t *testing.T) {
 				tags := policy.NewTagStore()
 				tags.AppendKeyValue("sometag", "nomatch")
 
-				index, action := policyDB.Search(tags)
+				index, action := policyDB.Search(tags.GetSlice())
 				So(index, ShouldEqual, index9)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
 			})

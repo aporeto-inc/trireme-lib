@@ -501,7 +501,8 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
+	var id string
+	claims, id, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 
 	// If the token signature is not valid,
 	// we must drop the connection and we drop the Syn packet. The source will
@@ -518,16 +519,15 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		return nil, nil, errors.New("Syn packet dropped because of no claims")
 	}
 
-	txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
-	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); !ok || err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
+	if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
+		d.reportRejectedFlow(tcpPacket, conn, id, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 	}
 
 	// Remove any of our data from the packet. No matter what we don't need the
 	// metadata any more.
 	if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
+		d.reportRejectedFlow(tcpPacket, conn, id, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid format: %s", err)
 	}
 
@@ -537,9 +537,9 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
-	report, packet := context.SearchRcvRules(claims.T)
+	report, packet := context.SearchRcvRules(claims.T.GetSlice())
 	if packet.Action.Rejected() {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
+		d.reportRejectedFlow(tcpPacket, conn, id, context.ManagementID(), context, collector.PolicyDrop, report, packet)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
 	}
 
@@ -633,7 +633,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, nil, errors.New("SynAck packet dropped because of missing token")
 	}
 
-	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
+	claims, _, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
 	if err != nil {
 		d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
@@ -668,7 +668,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, claims, nil
 	}
 
-	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	report, packet := context.SearchTxtRules(claims.T.GetSlice(), !d.mutualAuthorization)
 	if packet.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())

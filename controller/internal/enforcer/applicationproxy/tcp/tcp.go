@@ -334,13 +334,13 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 				return false, fmt.Errorf("Failed to read peer token: %s", err)
 			}
 
-			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
+			claims, _, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
 				p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
 				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
 			}
 
-			report, packet := puContext.SearchTxtRules(claims.T, false)
+			report, packet := puContext.SearchTxtRules(claims.T.GetSlice(), false)
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowproperties, conn, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, errors.New("dropping because of reject rule on transmitter")
@@ -396,14 +396,14 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 				return false, fmt.Errorf("unable to receive syn token: %s", err)
 			}
 
-			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
+			claims, _, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 
 			claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
-			report, packet := puContext.SearchRcvRules(claims.T)
+			report, packet := puContext.SearchRcvRules(claims.T.GetSlice())
 			if packet.Action.Rejected() {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, fmt.Errorf("connection dropped by policy %s: ", packet.PolicyID)

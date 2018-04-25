@@ -130,7 +130,6 @@ func (c *CustomTokenConfig) Decode(isAck bool, data []byte, previousCert interfa
 				if len(values) != 2 {
 					continue
 				}
-
 				claims.T.AppendKeyValue(values[0], values[1])
 				continue
 			}

@@ -18,6 +18,6 @@ type TokenAccessor interface {
 	CreateAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) ([]byte, error)
 	CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error)
 	CreateSynAckPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error)
-	ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error)
+	ParsePacketToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, string, error)
 	ParseAckToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error)
 }
