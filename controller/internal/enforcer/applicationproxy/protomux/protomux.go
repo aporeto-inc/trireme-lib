@@ -10,6 +10,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
+	"go.uber.org/zap"
 )
 
 // ListenerType are the types of listeners that can be used.
@@ -45,10 +46,6 @@ func (p *ProtoListener) Accept() (net.Conn, error) {
 	c, ok := <-p.connection
 	if !ok {
 		return nil, fmt.Errorf("mux: listener closed")
-	}
-	// Mark the connection
-	if err := markedconn.MarkConnection(c, p.mark); err != nil {
-		return nil, err
 	}
 	return c, nil
 }
@@ -199,14 +196,15 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 	}
 }
 
-func (m *MultiplexedListener) serve(c net.Conn) {
+func (m *MultiplexedListener) serve(conn net.Conn) {
+
+	c, ok := conn.(*markedconn.ProxiedConnection)
+	if !ok {
+		zap.L().Error("Wrong connection type")
+	}
 
 	defer m.wg.Done()
-	ip, port, err := connproc.GetOriginalDestination(c)
-	if err != nil {
-		c.Close() // nolint
-		return
-	}
+	ip, port := c.GetOriginalDestination()
 
 	local := false
 	if _, ok := m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {

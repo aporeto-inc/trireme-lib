@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"syscall"
 
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"github.com/rs/xid"
 )
 
@@ -66,7 +68,7 @@ func MarkConnection(conn net.Conn, mark int) error {
 
 // SocketListener creates a TCP listener through system calls giving us more
 // control over the specific parameters that we need.
-func SocketListener(port string) (net.Listener, error) {
+func SocketListener(port string, mark int) (net.Listener, error) {
 
 	addr, err := net.ResolveTCPAddr("tcp4", port)
 	if err != nil {
@@ -106,5 +108,66 @@ func SocketListener(port string) (net.Listener, error) {
 		return nil, fmt.Errorf("Cannot bind listener: %s", err)
 	}
 
-	return listener, nil
+	return ProxiedListener{netListener: listener, mark: mark}, nil
+}
+
+// ProxiedConnection is a proxied connection where we can recover the
+// original destination.
+type ProxiedConnection struct {
+	net.Conn
+	originalIP   net.IP
+	originalPort int
+}
+
+// GetOriginalDestination sets the original destination of the connection.
+func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
+	return p.originalIP, p.originalPort
+}
+
+// LocalAddr implements the corresponding method of net.Conn, but returns the original
+// address.
+func (p *ProxiedConnection) LocalAddr() net.Addr {
+
+	addr, err := net.ResolveTCPAddr("tcp", p.originalIP.String()+":"+strconv.Itoa(p.originalPort))
+	if err != nil {
+		return nil
+	}
+
+	return addr
+}
+
+// ProxiedListener is a proxied listener that uses proxied connections.
+type ProxiedListener struct {
+	netListener net.Listener
+	mark        int
+}
+
+// Accept implements the accept method of the interface.
+func (l ProxiedListener) Accept() (c net.Conn, err error) {
+	nc, err := l.netListener.Accept()
+	if err != nil {
+		fmt.Println("I got an error", err)
+		return nil, err
+	}
+
+	ip, port, err := connproc.GetOriginalDestination(nc)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := MarkConnection(nc, l.mark); err != nil {
+		return nil, err
+	}
+
+	return &ProxiedConnection{nc, ip, port}, nil
+}
+
+// Addr implements the Addr method of net.Listener.
+func (l ProxiedListener) Addr() net.Addr {
+	return l.netListener.Addr()
+}
+
+// Close implements the Close method of the net.Listener.
+func (l ProxiedListener) Close() error {
+	return l.netListener.Close()
 }
