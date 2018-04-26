@@ -207,7 +207,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 	ip, port := c.GetOriginalDestination()
 
 	local := false
-	if _, ok := m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {
+	if _, ok = m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {
 		local = true
 	}
 

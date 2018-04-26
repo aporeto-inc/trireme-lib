@@ -49,7 +49,7 @@ func TestRuleString(t *testing.T) {
 
 			So(c0, ShouldResemble, "(?P<10>(GET|PUT)(/users/.+/name|/things/.+/)$)")
 			So(c1, ShouldResemble, "(?P<20>(POST)(/v1/users/.+/name|/v1/things/.+/)$)")
-			So(c2, ShouldResemble, "(?P<30>(PUT|GET|POST|PATCH|DELETE)(/empty)$)")
+			So(c2, ShouldResemble, "(?P<30>(PUT|GET|POST|PATCH|DELETE|HEAD)(/empty)$)")
 		})
 	})
 }
