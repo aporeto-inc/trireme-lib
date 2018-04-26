@@ -198,6 +198,7 @@ func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn) {
 		dataprocessor(ctx, dest, source)
 		wg.Done()
 	}()
+	wg.Wait()
 }
 
 func dataprocessor(ctx context.Context, source, dest net.Conn) {
@@ -226,6 +227,7 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 				if checkErr(err) {
 					continue
 				}
+				return
 			}
 			if _, err = dest.Write(b[:n]); err != nil {
 				if checkErr(err) {
