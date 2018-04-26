@@ -149,16 +149,16 @@ func (mr *MockImplementationMockRecorder) SetupHandlers(c interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupHandlers", reflect.TypeOf((*MockImplementation)(nil).SetupHandlers), c)
 }
 
-// ReSync mocks base method
+// Resync mocks base method
 // nolint
-func (m *MockImplementation) ReSync(ctx context.Context) error {
-	ret := m.ctrl.Call(m, "ReSync", ctx)
+func (m *MockImplementation) Resync(ctx context.Context) error {
+	ret := m.ctrl.Call(m, "Resync", ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ReSync indicates an expected call of ReSync
+// Reync indicates an expected call of Resync
 // nolint
-func (mr *MockImplementationMockRecorder) ReSync(ctx interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReSync", reflect.TypeOf((*MockImplementation)(nil).ReSync), ctx)
+func (mr *MockImplementationMockRecorder) Resync(ctx interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockImplementation)(nil).Resync), ctx)
 }

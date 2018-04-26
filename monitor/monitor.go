@@ -144,7 +144,7 @@ func (m *monitors) Resync(ctx context.Context) error {
 	var errs string
 
 	for _, i := range m.monitors {
-		if err := i.ReSync(ctx); err != nil {
+		if err := i.Resync(ctx); err != nil {
 			errs = errs + err.Error()
 			failure = true
 		}

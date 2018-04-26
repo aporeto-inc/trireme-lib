@@ -238,7 +238,7 @@ func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 	}
 }
 
-// ReSync resyncs all the existing containers on the Host, using the
+// Resync resyncs all the existing containers on the Host, using the
 // same process as when a container is initially spawn up
 func (d *DockerMonitor) Resync(ctx context.Context) error {
 
