@@ -89,7 +89,7 @@ func (c *cache) getPUIDsbyPod(podNamespace string, podName string) []string {
 	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
 	podEntry, ok := c.podCache[kubeIdentifier]
 	if !ok {
-		return nil
+		return []string{}
 	}
 
 	return keysFromMap(podEntry.puIDs)
