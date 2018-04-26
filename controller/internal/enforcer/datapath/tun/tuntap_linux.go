@@ -34,6 +34,12 @@ type privateData struct {
 	writer   afinetrawsocket.SocketWriter
 }
 
+var numQueues uint16
+
+func init() {
+	numQueues = maxNumQueues
+}
+
 func networkQueueCallBack(data []byte, cbData interface{}) error {
 	return cbData.(*privateData).t.processNetworkPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer)
 }
@@ -73,7 +79,7 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 }
 
 func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
-	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
+	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum - 1 + cgnetcls.Initialmarkval))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
@@ -93,7 +99,7 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 }
 
 func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
-	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
+	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum - 1 + cgnetcls.Initialmarkval))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
@@ -165,13 +171,13 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 	}
 
 	//mac address not required for tun as of now
-	t.tundeviceHdls[i], err = tuntap.NewTun(255, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, networkQueueCallBack)
+	t.tundeviceHdls[i], err = tuntap.NewTun(numQueues, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, networkQueueCallBack)
 	if err != nil {
 		zap.L().Fatal("Received error while creating device ", zap.Error(err), zap.String("DeviceName", deviceName))
 	}
 
 	//Start Queues here
-	for qIndex := 0; qIndex < maxNumQueues; qIndex++ {
+	for qIndex := 0; qIndex < int(numQueues); qIndex++ {
 		if err = t.startNetworkSocket(qIndex, t.tundeviceHdls[i]); err != nil {
 			zap.L().Fatal("Failed to start network socket for queue %d: %s", zap.Int("queueNum", qIndex), zap.Error(err))
 		}
@@ -259,8 +265,10 @@ func (t *tundev) cleanupApplicationIPRule() {
 }
 
 func (t *tundev) applyApplicationInterceptorTCConfig(deviceName string) {
-	//Program TC Rules
-	tcBatch, err := tcbatch.NewTCBatch(maxNumQueues-1, deviceName, 1, cgnetcls.Initialmarkval)
+
+	// We map cgroups from queue 1 to (numQueues - 1), queue 0
+	// is the default queue where packets without cgroup lands in
+	tcBatch, err := tcbatch.NewTCBatch(deviceName, 1, numQueues - 1, 1, cgnetcls.Initialmarkval)
 	if err != nil {
 		zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
 	}
@@ -298,16 +306,16 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 	}
 
 	//mac address not required for tun as of now
-	t.tundeviceHdls[i], err = tuntap.NewTun(maxNumQueues, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, appQueueCallBack)
+	t.tundeviceHdls[i], err = tuntap.NewTun(numQueues, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, appQueueCallBack)
 	if err != nil {
 		zap.L().Fatal("Received error while creating device ", zap.Error(err), zap.String("DeviceName", deviceName))
 	}
 
 	t.applyApplicationInterceptorTCConfig(deviceName)
 
-	// StartQueue here afteer we have create device and setup tc queueing.
+	// StartQueue here after we have create device and setup tc queueing.
 	// Once we setup routes we can get traffic
-	for qIndex := 0; qIndex < maxNumQueues; qIndex++ {
+	for qIndex := 0; qIndex < int(numQueues); qIndex++ {
 		t.startApplicationSocket(qIndex, t.tundeviceHdls[i])
 	}
 
@@ -326,7 +334,6 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 	if err := t.iprouteHdl.AddRoute(route); err != nil {
 		// We are initing here refuse to start if this fails
 		zap.L().Fatal("Unable to add ip route", zap.Error(err), zap.String("IP Address", net.ParseIP(ipaddress).String()), zap.Int("Table", NetworkRuleTable), zap.Int("Interface Index", intf.Index))
-
 	}
 }
 

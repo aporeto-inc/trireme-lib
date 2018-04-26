@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"go.uber.org/zap"
+	"github.com/Workiva/go-datastructures/queue"
 )
 
 // TunTap -- struct to hold properties of tuntap devices.
@@ -33,8 +34,7 @@ type TunTap struct {
 // NewTun -- creates a new tun interface and returns a handle to it. This will also implicitly bring up the interface
 func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName string, uid uint, group uint, persist bool, callback func([]byte, interface{}) error) (*TunTap, error) {
 
-	// NumQueues is 0 indexed gives us 256 queues
-	if numQueues > 255 {
+	if numQueues > 256 {
 		return nil, fmt.Errorf("Max number of queues supported is 256")
 	}
 	if len(deviceName) > IFNAMSIZE {
@@ -45,10 +45,10 @@ func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName st
 		numQueues:     numQueues,
 		ipAddress:     ipAddress,
 		hwMacAddress:  macAddress,
-		queueHandles:  make([]int, numQueues+1),
-		numFramesRead: make([]uint64, numQueues+1),
-		DroppedFrames: make([]uint64, numQueues+1),
-		fdtoQueueNum:  make(map[int]int, numQueues+1),
+		queueHandles:  make([]int, numQueues),
+		numFramesRead: make([]uint64, numQueues),
+		DroppedFrames: make([]uint64, numQueues),
+		fdtoQueueNum:  make(map[int]int, numQueues),
 		deviceName:    deviceName,
 		uid:           uid,
 		group:         group,
@@ -67,23 +67,51 @@ func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName st
 	return device, nil
 }
 
+func (t *TunTap)processData() {
+	
+}
+
+type queueIndexPair struct {
+        start int
+	last int
+}
+
 // StartQueue starts the data loop for a tun queue.
 // Wait for all goroutine to start successfully before continuing
 func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
 	// TODO define constant or retrieve MTU of tun interface
-	var data [75 * 1024]byte
-	for {
-		if n, err := t.ReadQueue(queueIndex, data[:]); err == nil {
-			atomic.AddUint64(&t.numFramesRead[queueIndex], 1)
-			if err = t.queueCallBack(data[:n], privateData); err != nil {
+	rb := queue.NewRingBuffer(128)
+	var data [64 * 1024]byte
+
+	go func() {
+		for {
+			var dataSlice queueIndexPair
+			_dataSlice, _ := rb.Get()
+			dataSlice = _dataSlice.(queueIndexPair)
+			if err := t.queueCallBack(data[dataSlice.start:dataSlice.last], privateData); err != nil {
 				atomic.AddUint64(&t.DroppedFrames[queueIndex], 1)
 			}
 			continue
+		}
+	}()
+
+	start := 0
+	n := 0
+	
+	for {
+		if n, err := t.ReadQueue(queueIndex, data[start:]); err == nil {
+			atomic.AddUint64(&t.numFramesRead[queueIndex], 1)
+			rb.Put(queueIndexPair {start, start + n})
 		} else {
 			zap.L().Error("Received Error while reading from queue to raw socket", zap.Error(err))
 		}
-	}
 
+		if (start + n == 64 * 1024) {
+			start = 0
+		} else {
+			start = start + n
+		}
+	}
 }
 
 // ReadQueue -- Reads packets from a queue. This is a blocking read call. Returns num bytes read
