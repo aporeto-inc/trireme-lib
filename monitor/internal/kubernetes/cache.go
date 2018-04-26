@@ -6,6 +6,8 @@ import (
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
+// puidCacheEntry is a Kubernetes entry based on Docker as a key.
+// This entry keeps track of the DockerMonitor properties that cannot be queried later on (such as the runtime)
 type puidCacheEntry struct {
 	// podID is the reference to the Kubernetes pod that this container refers to
 	kubeIdentifier string
@@ -17,12 +19,15 @@ type puidCacheEntry struct {
 	kubernetesRuntime policy.RuntimeReader
 }
 
+// podCacheEntry is a Kubernetes entry based on a Pod as Key. The main goal here is to keep a mapping to all
+// existing Dockers PUIDs implementing this pod (as there might be multiple)
 type podCacheEntry struct {
 	// puIDs us a map containing a link to all the containers currently known to be part of that pod.
 	puIDs map[string]bool
 }
 
-// Cache keeps all the state needed for the integration.
+// Cache is a cache implementation specific to KubernetesMonitor.
+// puidCache is centered on Docker and podCache is centered on Kubernetes
 type cache struct {
 	// popuidCache keeps a mapping between a PUID and the corresponding puidCacheEntry.
 	puidCache map[string]*puidCacheEntry
@@ -78,8 +83,8 @@ func (c *cache) updatePUIDCache(podNamespace string, podName string, puID string
 
 // getOrCreatePodFromCache locks the cache in order to return the pod cache entry if found, or create it if not found
 func (c *cache) getPUIDsbyPod(podNamespace string, podName string) []string {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	kubeIdentifier := kubePodIdentifier(podName, podNamespace)
 	podEntry, ok := c.podCache[kubeIdentifier]
@@ -92,8 +97,8 @@ func (c *cache) getPUIDsbyPod(podNamespace string, podName string) []string {
 
 // getRuntimeByPUID locks the cache in order to return the pod cache entry if found, or create it if not found
 func (c *cache) getDockerRuntimeByPUID(puid string) policy.RuntimeReader {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	puidEntry, ok := c.puidCache[puid]
 	if !ok {
@@ -105,8 +110,8 @@ func (c *cache) getDockerRuntimeByPUID(puid string) policy.RuntimeReader {
 
 // getRuntimeByPUID locks the cache in order to return the pod cache entry if found, or create it if not found
 func (c *cache) getKubernetesRuntimeByPUID(puid string) policy.RuntimeReader {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 
 	puidEntry, ok := c.puidCache[puid]
 	if !ok {
