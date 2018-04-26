@@ -109,7 +109,8 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("kubernetes client is not initialized correctly")
 	}
 
-	go m.podController.Run(m.podControllerStop)
+	// TODO. Give directly the channel to the Kubernetes library
+	go m.podController.Run(ctx.Done())
 	initialPodSync := make(chan struct{})
 	go hasSynced(initialPodSync, m.podController)
 	<-initialPodSync
