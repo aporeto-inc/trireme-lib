@@ -440,7 +440,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if record.Source.ID == "" {
+	if record.Source.ID == "" && record.Source.UserID != "" {
 		record.Source.Type = collector.EndpointTypeClaims
 		record.Source.ID = collector.SomeClaimsSource
 	}
