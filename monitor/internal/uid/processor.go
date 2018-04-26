@@ -149,8 +149,8 @@ func (u *uidProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) e
 	return u.config.Policy.HandlePUEvent(ctx, eventInfo.PUID, common.EventPause, nil)
 }
 
-// ReSync resyncs with all the existing services that were there before we start
-func (u *uidProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
+// Resync resyncs with all the existing services that were there before we start
+func (u *uidProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
 
 	uids := u.netcls.ListAllCgroups("")
 	for _, uid := range uids {

@@ -117,12 +117,6 @@ func (m *KubernetesMonitor) Run(ctx context.Context) error {
 	return m.dockerMonitor.Run(ctx)
 }
 
-// UpdateConfiguration updates the configuration of the monitor
-func (m *KubernetesMonitor) UpdateConfiguration(ctx context.Context, config *config.MonitorConfig) error {
-	// TODO: implement this
-	return nil
-}
-
 // SetupHandlers sets up handlers for monitors to invoke for various events such as
 // processing unit events and synchronization events. This will be called before Start()
 // by the consumer of the monitor
@@ -132,11 +126,5 @@ func (m *KubernetesMonitor) SetupHandlers(c *config.ProcessorConfig) {
 
 // Resync requests to the monitor to do a resync.
 func (m *KubernetesMonitor) Resync(ctx context.Context) error {
-	// TODO: Redefine this interface ?
-	return nil
-}
-
-// ReSync ???
-func (m *KubernetesMonitor) ReSync(ctx context.Context) error {
-	return m.dockerMonitor.ReSync(ctx)
+	return m.dockerMonitor.Resync(ctx)
 }
