@@ -328,10 +328,160 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 			c := &cache{
 				puidCache: tt.fields.puidCache,
 				podCache:  tt.fields.podCache,
-				RWMutex:   tt.fields.RWMutex,
+				RWMutex:   tt.fields.RWMutex, // nolint
 			}
 			if got := c.getPUIDsbyPod(tt.args.podNamespace, tt.args.podName); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("cache.getPUIDsbyPod() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
+
+	puid1 := "12345"
+	pod1 := "test/test"
+	containerRuntime := policy.NewPURuntimeWithDefaults()
+	containerRuntime.SetPid(123)
+	puidEntry1 := &puidCacheEntry{
+		kubeIdentifier: pod1,
+		dockerRuntime:  containerRuntime,
+	}
+	podEntry1 := &podCacheEntry{
+		puIDs: map[string]bool{
+			puid1: true,
+		},
+	}
+
+	type fields struct {
+		puidCache map[string]*puidCacheEntry
+		podCache  map[string]*podCacheEntry
+		RWMutex   sync.RWMutex
+	}
+	type args struct {
+		puid string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   policy.RuntimeReader
+	}{
+		{
+			name: "simple get",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				puid: puid1,
+			},
+			want: containerRuntime,
+		},
+		{
+			name: "empty get",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				puid: "123123",
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests { // nolint
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+				RWMutex:   tt.fields.RWMutex, // nolint
+			}
+			if got := c.getDockerRuntimeByPUID(tt.args.puid); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("cache.getDockerRuntimeByPUID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
+
+	puid1 := "12345"
+	pod1 := "test/test"
+	containerRuntime := policy.NewPURuntimeWithDefaults()
+	containerRuntime.SetPid(123)
+	puidEntry1 := &puidCacheEntry{
+		kubeIdentifier:    pod1,
+		kubernetesRuntime: containerRuntime,
+	}
+	podEntry1 := &podCacheEntry{
+		puIDs: map[string]bool{
+			puid1: true,
+		},
+	}
+
+	type fields struct {
+		puidCache map[string]*puidCacheEntry
+		podCache  map[string]*podCacheEntry
+		RWMutex   sync.RWMutex
+	}
+	type args struct {
+		puid string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   policy.RuntimeReader
+	}{
+		{
+			name: "simple get",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				puid: puid1,
+			},
+			want: containerRuntime,
+		},
+		{
+			name: "empty get",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				puid: "123123",
+			},
+			want: nil,
+		},
+	}
+	for _, tt := range tests { // nolint
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+				RWMutex:   tt.fields.RWMutex, // nolint
+			}
+			if got := c.getKubernetesRuntimeByPUID(tt.args.puid); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("cache.getKubernetesRuntimeByPUID() = %v, want %v", got, tt.want)
 			}
 		})
 	}
