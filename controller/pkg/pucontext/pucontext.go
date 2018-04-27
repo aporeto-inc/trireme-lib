@@ -166,7 +166,11 @@ func (p *PUContext) GetCachedTokenAndServiceContext() ([]byte, []byte, error) {
 	defer p.RUnlock()
 
 	if p.synExpiration.After(time.Now()) && len(p.synToken) > 0 {
-		return p.synToken, p.synServiceContext, nil
+		synToken := make([]byte, len(p.synToken))
+		copy(synToken, p.synToken)
+		synServiceContext := make([]byte, len(p.synServiceContext))
+		copy(synServiceContext, p.synServiceContext)
+		return synToken, synServiceContext, nil
 	}
 
 	return nil, nil, fmt.Errorf("expired Token")
