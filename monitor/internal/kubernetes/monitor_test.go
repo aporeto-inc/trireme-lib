@@ -12,11 +12,6 @@ import (
 )
 
 func TestKubernetesMonitor_SetupConfig(t *testing.T) {
-	configkube := &Config{ //nolint
-		Kubeconfig:     "123", //nolint
-		Nodename:       "123", //nolint
-		EnableHostPods: true,  //nolint
-	} //nolint
 
 	type fields struct {
 		dockerMonitor       *dockermonitor.DockerMonitor
