@@ -81,6 +81,7 @@ type Event string
 const (
 	EventStart   Event = "start"
 	EventStop    Event = "stop"
+	EventUpdate  Event = "update"
 	EventCreate  Event = "create"
 	EventDestroy Event = "destroy"
 	EventPause   Event = "pause"
@@ -93,6 +94,7 @@ var (
 	EventMap = map[Event]*struct{}{
 		"start":   nil,
 		"stop":    nil,
+		"update":  nil,
 		"create":  nil,
 		"destroy": nil,
 		"pause":   nil,
