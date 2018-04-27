@@ -324,12 +324,12 @@ func Test_cache_getPUIDsbyPod(t *testing.T) {
 	}
 
 	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) {
-			c := &cache{
-				puidCache: tt.fields.puidCache,
-				podCache:  tt.fields.podCache,
-				RWMutex:   tt.fields.RWMutex, // nolint
-			}
+		t.Run(tt.name, func(t *testing.T) { // nolint
+			c := &cache{ // nolint
+				puidCache: tt.fields.puidCache, // nolint
+				podCache:  tt.fields.podCache,  // nolint
+				RWMutex:   tt.fields.RWMutex,   // nolint
+			} // nolint
 			if got := c.getPUIDsbyPod(tt.args.podNamespace, tt.args.podName); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("cache.getPUIDsbyPod() = %v, want %v", got, tt.want)
 			}
@@ -399,12 +399,12 @@ func Test_cache_getDockerRuntimeByPUID(t *testing.T) {
 		},
 	}
 	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) {
-			c := &cache{
-				puidCache: tt.fields.puidCache,
-				podCache:  tt.fields.podCache,
-				RWMutex:   tt.fields.RWMutex, // nolint
-			}
+		t.Run(tt.name, func(t *testing.T) { // nolint
+			c := &cache{ // nolint
+				puidCache: tt.fields.puidCache, // nolint
+				podCache:  tt.fields.podCache,  // nolint
+				RWMutex:   tt.fields.RWMutex,   // nolint
+			} // nolint
 			if got := c.getDockerRuntimeByPUID(tt.args.puid); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("cache.getDockerRuntimeByPUID() = %v, want %v", got, tt.want)
 			}
@@ -474,12 +474,12 @@ func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 		},
 	}
 	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) {
-			c := &cache{
-				puidCache: tt.fields.puidCache,
-				podCache:  tt.fields.podCache,
-				RWMutex:   tt.fields.RWMutex, // nolint
-			}
+		t.Run(tt.name, func(t *testing.T) { // nolint
+			c := &cache{ // nolint
+				puidCache: tt.fields.puidCache, // nolint
+				podCache:  tt.fields.podCache,  // nolint
+				RWMutex:   tt.fields.RWMutex,   // nolint
+			} // nolint
 			if got := c.getKubernetesRuntimeByPUID(tt.args.puid); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("cache.getKubernetesRuntimeByPUID() = %v, want %v", got, tt.want)
 			}
@@ -561,12 +561,12 @@ func Test_cache_deletePodEntry(t *testing.T) {
 		},
 	}
 	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) {
-			c := &cache{
-				puidCache: tt.fields.puidCache,
-				podCache:  tt.fields.podCache,
-				RWMutex:   tt.fields.RWMutex, // nolint
-			}
+		t.Run(tt.name, func(t *testing.T) { // nolint
+			c := &cache{ // nolint
+				puidCache: tt.fields.puidCache, // nolint
+				podCache:  tt.fields.podCache,  // nolint
+				RWMutex:   tt.fields.RWMutex,   // nolint
+			} // nolint
 			c.deletePodEntry(tt.args.podNamespace, tt.args.podName)
 
 			if got := tt.fields.puidCache; !reflect.DeepEqual(got, tt.want1) {
@@ -650,12 +650,12 @@ func Test_cache_deletePUIDEntry(t *testing.T) {
 		},
 	}
 	for _, tt := range tests { // nolint
-		t.Run(tt.name, func(t *testing.T) {
-			c := &cache{
-				puidCache: tt.fields.puidCache,
-				podCache:  tt.fields.podCache,
-				RWMutex:   tt.fields.RWMutex, // nolint
-			}
+		t.Run(tt.name, func(t *testing.T) { // nolint
+			c := &cache{ // nolint
+				puidCache: tt.fields.puidCache, // nolint
+				podCache:  tt.fields.podCache,  // nolint
+				RWMutex:   tt.fields.RWMutex,   // nolint
+			} // nolint
 			c.deletePUIDEntry(tt.args.puid)
 
 			if got := tt.fields.puidCache; !reflect.DeepEqual(got, tt.want1) {
