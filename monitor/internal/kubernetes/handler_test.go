@@ -250,6 +250,22 @@ func TestKubernetesMonitor_HandlePUEvent(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Destroy not in cache",
+			fields: fields{
+				kubeClient:          kubefake.NewSimpleClientset(pod1),
+				kubernetesExtractor: kubernetesExtractorManaged,
+				cache:               newCache(),
+				handlers: &config.ProcessorConfig{
+					Policy: &mockHandler{},
+				},
+			},
+			args: args{
+				event:         common.EventDestroy,
+				dockerRuntime: pod1Runtime,
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
