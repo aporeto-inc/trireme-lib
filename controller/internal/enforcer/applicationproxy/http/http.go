@@ -24,10 +24,9 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"go.uber.org/zap"
-
 	"github.com/dgrijalva/jwt-go"
 	"github.com/vulcand/oxy/forward"
+	"go.uber.org/zap"
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -52,7 +51,6 @@ type Config struct {
 	exposedAPICache   cache.DataStore
 	dependentAPICache cache.DataStore
 	jwtCache          cache.DataStore
-	portMappingCache  cache.DataStore
 	applicationProxy  bool
 	mark              int
 	server            *http.Server
@@ -70,7 +68,6 @@ func NewHTTPProxy(
 	caPool *x509.CertPool,
 	exposedAPICache cache.DataStore,
 	dependentAPICache cache.DataStore,
-	portMappingCache cache.DataStore,
 	jwtCache cache.DataStore,
 	applicationProxy bool,
 	mark int,
@@ -85,7 +82,6 @@ func NewHTTPProxy(
 		ca:                caPool,
 		exposedAPICache:   exposedAPICache,
 		dependentAPICache: dependentAPICache,
-		portMappingCache:  portMappingCache,
 		applicationProxy:  applicationProxy,
 		jwtCache:          jwtCache,
 		mark:              mark,
@@ -118,9 +114,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, addr)
+			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
 				return nil, err
 			}
@@ -128,7 +123,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			if err != nil {
 				return nil, err
 			}
-
 			tlsConn := tls.Client(conn, &tls.Config{
 				ServerName:         getServerName(addr),
 				RootCAs:            p.ca,
@@ -141,7 +135,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, addr)
+			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
 				return nil, err
 			}
@@ -242,6 +236,9 @@ func (p *Config) retrieveContextAndPolicy(c cache.DataStore, w http.ResponseWrit
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
+
+	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+
 	puContext, apiCache, err := p.retrieveContextAndPolicy(p.dependentAPICache, w, r)
 	if err != nil {
 		return
@@ -258,19 +255,22 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		record := &collector.FlowRecord{
 			ContextID: p.puContext,
 			Destination: &collector.EndPoint{
-				URI:  r.RequestURI,
-				Type: collector.Address,
-				Port: _port,
-				IP:   r.Host,
-				ID:   collector.DefaultEndPoint,
+				URI:        r.RequestURI,
+				HTTPMethod: r.Method,
+				Type:       collector.EndPointTypeExteranlIPAddress,
+				Port:       _port,
+				IP:         r.Host,
+				ID:         collector.DefaultEndPoint,
 			},
 			Source: &collector.EndPoint{
-				Type: collector.PU,
+				Type: collector.EnpointTypePU,
 				ID:   puContext.ManagementID(),
 			},
-			Action:     policy.Reject,
-			L4Protocol: packet.IPProtocolTCP,
-			Tags:       puContext.Annotations(),
+			Action:      policy.Reject,
+			L4Protocol:  packet.IPProtocolTCP,
+			ServiceType: policy.ServiceHTTP,
+			ServiceID:   apiCache.ID,
+			Tags:        puContext.Annotations(),
 		}
 		defer p.collector.CollectFlowEvent(record)
 
@@ -282,23 +282,33 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// If it is a secrets request we process it and move on. No need to
-		// validate policy.
-		if p.isSecretsRequest(w, r) {
+		rule, ok := t.(*policy.HTTPRule)
+		if !ok {
+			zap.L().Error("Internal error - wrong rule", zap.Error(err))
+			http.Error(w, fmt.Sprintf("Internal server error"), http.StatusInternalServerError)
 			return
 		}
+		if !rule.Public {
+			// If it is a secrets request we process it and move on. No need to
+			// validate policy.
+			if p.isSecretsRequest(w, r) {
+				zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
+				return
+			}
 
-		// Validate the policy based on the scopes of the PU.
-		// TODO: Add user scopes
-		if err = p.verifyPolicy(t.([]string), puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
-			zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
-			return
+			// Validate the policy based on the scopes of the PU.
+			// TODO: Add user scopes
+			if err = p.verifyPolicy(rule.Scopes, puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
+				zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
+				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
+				return
+			}
+
+			// All checks have passed. We can accept the request, log it, and create the
+			// right tokens. If it is not an external service, we do not log at the transmit side.
+			record.Action = policy.Encrypt
 		}
-
-		// All checks have passed. We can accept the request, log it, and create the
-		// right tokens. If it is not an external service, we do not log at the transmit side.
-		record.Action = policy.Accept
+		record.Action = record.Action | policy.Accept
 	}
 
 	// Generate the client identity
@@ -326,17 +336,21 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
+	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI:  r.RequestURI,
-			Type: collector.PU,
+			URI:        r.RequestURI,
+			HTTPMethod: r.Method,
+			Type:       collector.EnpointTypePU,
 		},
 		Source: &collector.EndPoint{
-			Type: collector.PU,
+			Type: collector.EnpointTypePU,
 		},
-		Action:     policy.Reject,
-		L4Protocol: packet.IPProtocolTCP,
+		Action:      policy.Reject,
+		L4Protocol:  packet.IPProtocolTCP,
+		ServiceType: policy.ServiceHTTP,
 	}
 	defer p.collector.CollectFlowEvent(record)
 
@@ -345,6 +359,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	record.ServiceID = apiCache.ID
 
 	// Find the original port from the URL
 	port, _port, err := originalServicePort(w, r)
@@ -382,43 +397,55 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// and policies.
 	found, t := apiCache.Find(r.Method, r.RequestURI)
 	if !found {
-		zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Unknown or unauthorized service"), http.StatusForbidden)
 		return
 	}
 
-	// Calculate the user attributes and claims.
-	userAttributes := parseUserAttributes(r, jwtCert)
-	if len(userAttributes) > 0 {
-		userRecord := &collector.UserRecord{Claims: userAttributes}
-		p.collector.CollectUserEvent(userRecord)
-		record.Source.UserID = userRecord.ID
-	}
-
-	claims, err := p.parseClientToken(key, token)
-	if err != nil {
-		zap.L().Error("Unauthorized request", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
+	rule, ok := t.(*policy.HTTPRule)
+	if !ok {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	record.Source.ID = claims.SourceID
 
-	// Validate the policy and drop the request if there is no authorization.
-	if err = p.verifyPolicy(t.([]string), claims.Profile, claims.Scopes, userAttributes); err != nil {
-		zap.L().Error("Unauthorized request", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Unauthorized access: %s", err), http.StatusUnauthorized)
-		return
+	if !rule.Public {
+		// Calculate the user attributes and claims.
+		userAttributes := parseUserAttributes(r, jwtCert)
+		if len(userAttributes) > 0 {
+			userRecord := &collector.UserRecord{Claims: userAttributes}
+			p.collector.CollectUserEvent(userRecord)
+			record.Source.UserID = userRecord.ID
+		}
+
+		var claims *JWTClaims
+		claims, err = p.parseClientToken(key, token)
+		if err != nil && len(userAttributes) == 0 {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		record.Source.ID = claims.SourceID
+
+		// Validate the policy and drop the request if there is no authorization.
+		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
 	}
 
 	// Create the target URI and forward the request.
-	r.URL, err = p.createTargetURI(r)
+
+	r.URL, err = url.ParseRequestURI("http://" + r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 	if err != nil {
-		zap.L().Error("Invalid HTTP Host parameter", zap.Error(err))
-		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusUnprocessableEntity)
+		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
 	}
 
-	record.Action = policy.Accept
+	if record.Source.ID == "" && record.Source.UserID != "" {
+		record.Source.Type = collector.EndpointTypeClaims
+		record.Source.ID = collector.SomeClaimsSource
+	}
+
+	record.Action = policy.Accept | policy.Encrypt
 	p.fwd.ServeHTTP(w, r)
 }
 
@@ -469,7 +496,7 @@ func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAt
 func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, error) {
 	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
 	if err != nil {
-		return nil, fmt.Errorf("Invalid Service Token")
+		return &JWTClaims{}, fmt.Errorf("Invalid Service Token")
 	}
 
 	claims := &JWTClaims{}
@@ -481,7 +508,7 @@ func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, erro
 		return ekey, nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Error parsing token: %s", err)
+		return claims, fmt.Errorf("Error parsing token: %s", err)
 	}
 	return claims, nil
 }
@@ -506,20 +533,6 @@ func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
 	}
 
 	return true
-}
-
-func (p *Config) createTargetURI(r *http.Request) (*url.URL, error) {
-	data, err := p.portMappingCache.Get(p.puContext)
-	if err != nil {
-		return nil, err
-	}
-
-	target, ok := data.(map[string]string)[appendDefaultPort(r.Host)]
-	if !ok {
-		return nil, fmt.Errorf("Port mapping not found")
-	}
-
-	return url.ParseRequestURI("http://localhost:" + target)
 }
 
 func appendDefaultPort(address string) string {
@@ -560,6 +573,9 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 	// by providing the right scopes in the API policy.
 	claims := &jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(authorization, claims, func(token *jwt.Token) (interface{}, error) {
+		if cert == nil {
+			return nil, fmt.Errorf("Nil certificate - ignore")
+		}
 		switch token.Method {
 		case token.Method.(*jwt.SigningMethodECDSA):
 			if rcert, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {

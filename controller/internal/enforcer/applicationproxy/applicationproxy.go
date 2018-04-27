@@ -55,7 +55,6 @@ type AppProxy struct {
 	puFromID          cache.DataStore
 	exposedAPICache   cache.DataStore
 	dependentAPICache cache.DataStore
-	portMappingCache  cache.DataStore
 	jwtcache          cache.DataStore
 	systemCAPool      *x509.CertPool
 	secrets           secrets.Secrets
@@ -88,7 +87,6 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 		clients:           cache.NewCache("clients"),
 		exposedAPICache:   cache.NewCache("exposed services"),
 		dependentAPICache: cache.NewCache("dependencies"),
-		portMappingCache:  cache.NewCache("portmappings"),
 		jwtcache:          cache.NewCache("jwtcache"),
 		systemCAPool:      systemPool,
 	}, nil
@@ -109,11 +107,10 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	defer p.Unlock()
 
 	// First update the caches with the new policy information.
-	apicache, dependentCache, portMapping, jwtcache, caPool := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
+	apicache, dependentCache, jwtcache, caPool := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
 	p.exposedAPICache.AddOrUpdate(puID, apicache)
 	p.jwtcache.AddOrUpdate(puID, jwtcache)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
-	p.portMappingCache.AddOrUpdate(puID, portMapping)
 
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
@@ -195,9 +192,6 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	if err := p.jwtcache.Remove(puID); err != nil {
 		zap.L().Warn("Cannot find PU in the JWT cache")
 	}
-	if err := p.portMappingCache.Remove(puID); err != nil {
-		zap.L().Warn("Cannot find PU in the PortMapping cache")
-	}
 
 	// Find the correct client.
 	c, err := p.clients.Get(puID)
@@ -254,7 +248,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		if err != nil {
 			return err
 		}
-		if err := register.Add(service, protomux.TCPApplication); err != nil {
+		if err := register.Add(service, protomux.TCPApplication, false); err != nil {
 			return fmt.Errorf("Cannot add service: %s", err)
 		}
 	}
@@ -276,21 +270,21 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		if err != nil {
 			return err
 		}
-		if err := register.Add(service, protomux.TCPNetwork); err != nil {
+		if err := register.Add(service, protomux.TCPNetwork, true); err != nil {
 			return fmt.Errorf("Cannot add service: %s", err)
 		}
 	}
 
 	// Register the ExposedServices with the multiplexer.
 	for _, service := range puInfo.Policy.ExposedServices() {
-		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type)); err != nil {
+		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type), true); err != nil {
 			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
 		}
 	}
 
 	// Register the DependentServices with the multiplexer.
 	for _, service := range puInfo.Policy.DependentServices() {
-		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type)); err != nil {
+		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type), false); err != nil {
 			return fmt.Errorf("Duplicate dependent service: %s", err)
 		}
 	}
@@ -319,7 +313,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.portMappingCache, p.jwtcache, appproxy, proxyMarkInt, p.secrets)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.jwtcache, appproxy, proxyMarkInt, p.secrets)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)
@@ -330,7 +324,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 // createNetworkListener starts a network listener (traffic from network to PUs)
 func (p *AppProxy) createNetworkListener(port string) (net.Listener, error) {
 
-	return markedconn.SocketListener(port)
+	return markedconn.SocketListener(port, proxyMarkInt)
 }
 
 // processCertificateUpdates processes the certificate information and updates
@@ -388,30 +382,27 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 	}
 }
 
-func buildCaches(exposedServices, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]string, map[string]*x509.Certificate, [][]byte) {
+func buildCaches(exposedServices, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]*x509.Certificate, [][]byte) {
 	apicache := map[string]*urisearch.APICache{}
 	jwtcache := map[string]*x509.Certificate{}
 	dependentCache := map[string]*urisearch.APICache{}
 	caPool := [][]byte{}
-	portMapping := map[string]string{}
 
 	for _, service := range exposedServices {
 		if service.Type != policy.ServiceHTTP {
 			continue
 		}
-		if service.NetworkInfo.Ports.IsMultiPort() || service.PrivateNetworkInfo.Ports.IsMultiPort() {
+		if service.NetworkInfo.Ports.IsMultiPort() {
 			zap.L().Error("Multiport services are not supported")
 			continue
 		}
-		ruleCache := urisearch.NewAPICache(service.HTTPRules, false)
+		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			rhost := fqdn + ":" + service.NetworkInfo.Ports.String()
-			portMapping[rhost] = service.PrivateNetworkInfo.Ports.String()
 			apicache[rhost] = ruleCache
 		}
 		for _, addr := range service.NetworkInfo.Addresses {
 			rhost := addr.IP.String() + ":" + service.NetworkInfo.Ports.String()
-			portMapping[rhost] = service.PrivateNetworkInfo.Ports.String()
 			apicache[rhost] = ruleCache
 		}
 		cert, err := cryptoutils.LoadCertificate(service.JWTCertificate)
@@ -427,11 +418,11 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 		if service.Type != policy.ServiceHTTP {
 			continue
 		}
-		if service.NetworkInfo.Ports.IsMultiPort() || service.PrivateNetworkInfo.Ports.IsMultiPort() {
+		if service.NetworkInfo.Ports.IsMultiPort() {
 			zap.L().Error("Multiport services are not supported")
 			continue
 		}
-		uricache := urisearch.NewAPICache(service.HTTPRules, service.External)
+		uricache := urisearch.NewAPICache(service.HTTPRules, service.ID, service.External)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			dependentCache[fqdn+":"+service.NetworkInfo.Ports.String()] = uricache
 		}
@@ -442,7 +433,7 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 			caPool = append(caPool, service.CACert)
 		}
 	}
-	return apicache, dependentCache, portMapping, jwtcache, caPool
+	return apicache, dependentCache, jwtcache, caPool
 }
 
 func serviceFromProxySet(pair string) (*common.Service, error) {

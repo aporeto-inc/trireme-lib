@@ -53,7 +53,7 @@ func New() *DockerMonitor {
 	return &DockerMonitor{}
 }
 
-// SetupConfig provides a configuration to implmentations. Every implmentation
+// SetupConfig provides a configuration to implmentations. Every implementation
 // can have its own config type.
 func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interface{}) (err error) {
 
@@ -238,9 +238,9 @@ func (d *DockerMonitor) eventListener(ctx context.Context, listenerReady chan st
 	}
 }
 
-// ReSync resyncs all the existing containers on the Host, using the
+// Resync resyncs all the existing containers on the Host, using the
 // same process as when a container is initially spawn up
-func (d *DockerMonitor) ReSync(ctx context.Context) error {
+func (d *DockerMonitor) Resync(ctx context.Context) error {
 
 	if !d.syncAtStart || d.config.Policy == nil {
 		zap.L().Debug("No synchronization of containers performed")

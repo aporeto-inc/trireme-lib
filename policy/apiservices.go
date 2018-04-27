@@ -9,9 +9,9 @@ type ServiceType int
 
 // Values of ServiceType
 const (
-	ServiceTCP ServiceType = iota
+	ServiceL3 ServiceType = iota
 	ServiceHTTP
-	ServiceL3
+	ServiceTCP
 )
 
 // ApplicationServicesList is a list of ApplicationServices.
@@ -19,6 +19,9 @@ type ApplicationServicesList []*ApplicationService
 
 // ApplicationService is the type of service that this PU exposes.
 type ApplicationService struct {
+	// ID is the id of the service
+	ID string
+
 	// NetworkInfo provides the network information (addresses/ports) of the service.
 	// This is the public facing network information, or how the service can be
 	// accessed. In the case of Load Balancers for example, this would be the
@@ -62,12 +65,16 @@ type HTTPRule struct {
 	// a service is exposing.
 	URIs []string
 
-	// Verbs is a list of the allowed verbs for the given list of URIs.
-	Verbs []string
+	// Methods is a list of the allowed verbs for the given list of URIs.
+	Methods []string
 
 	// Scopes is a list of scopes associated with this rule. Clients
 	// must present one of these scopes in order to get access to this
 	// API. The scopes are presented either in the Trireme identity or the
 	// JWT of HTTP Authorization header.
 	Scopes []string
+
+	// Public indicates that this is a public API and anyone can access it.
+	// No authorization will be performed on public APIs.
+	Public bool
 }

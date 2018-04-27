@@ -9,53 +9,10 @@ import (
 	"os"
 	"sync"
 	"syscall"
-	"unsafe"
 
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.uber.org/zap"
 )
-
-const (
-	sockOptOriginalDst = 80
-)
-
-type sockaddr struct {
-	family uint16
-	data   [14]byte
-}
-
-func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
-	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
-	if e1 != 0 {
-		err = e1
-	}
-	return
-}
-
-// GetOriginalDestination -- Func to get original destination a connection
-func GetOriginalDestination(conn net.Conn) (net.IP, int, error) {
-	var addr sockaddr
-	size := uint32(unsafe.Sizeof(addr))
-
-	inFile, err := conn.(*net.TCPConn).File()
-	if err != nil {
-		return []byte{}, 0, err
-	}
-
-	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size)
-	if err != nil {
-		return []byte{}, 0, err
-	}
-
-	if addr.family != syscall.AF_INET {
-		return []byte{}, 0, fmt.Errorf("invalid address family")
-	}
-
-	var ip net.IP
-	ip = addr.data[2:6]
-	port := int(addr.data[0])<<8 + int(addr.data[1])
-
-	return ip, port, nil
-}
 
 // GetInterfaces retrieves all the local interfaces.
 func GetInterfaces() map[string]struct{} {
@@ -76,9 +33,15 @@ func GetInterfaces() map[string]struct{} {
 
 // Fd returns the Fd of a connection
 func Fd(c net.Conn) (*os.File, int, error) {
-	inTCP, ok := c.(*net.TCPConn)
-	if !ok {
-		return nil, 0, fmt.Errorf("No support for non TCP")
+	var inTCP *net.TCPConn
+
+	switch c.(type) {
+	case *net.TCPConn:
+		inTCP = c.(*net.TCPConn)
+	case *markedconn.ProxiedConnection:
+		inTCP = c.(*markedconn.ProxiedConnection).GetTCPConnection()
+	default:
+		return nil, 0, fmt.Errorf("Unprocessable connection")
 	}
 
 	inFile, err := inTCP.File()

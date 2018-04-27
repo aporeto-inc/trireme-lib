@@ -31,12 +31,12 @@ func TestCollectFlowEvent(t *testing.T) {
 				Source: &collector.EndPoint{
 					ID:   "A",
 					IP:   "1.1.1.1",
-					Type: collector.PU,
+					Type: collector.EnpointTypePU,
 				},
 				Destination: &collector.EndPoint{
 					ID:   "B",
 					IP:   "2.2.2.2",
-					Type: collector.PU,
+					Type: collector.EnpointTypePU,
 					Port: 80,
 				},
 				Count:      0,
@@ -57,12 +57,12 @@ func TestCollectFlowEvent(t *testing.T) {
 					Source: &collector.EndPoint{
 						ID:   "A",
 						IP:   "1.1.1.1",
-						Type: collector.PU,
+						Type: collector.EnpointTypePU,
 					},
 					Destination: &collector.EndPoint{
 						ID:   "B",
 						IP:   "2.2.2.2",
-						Type: collector.PU,
+						Type: collector.EnpointTypePU,
 						Port: 80,
 					},
 					Count:      10,
@@ -83,12 +83,12 @@ func TestCollectFlowEvent(t *testing.T) {
 					Source: &collector.EndPoint{
 						ID:   "C",
 						IP:   "3.3.3.3",
-						Type: collector.PU,
+						Type: collector.EnpointTypePU,
 					},
 					Destination: &collector.EndPoint{
 						ID:   "D",
 						IP:   "4.4.4.4",
-						Type: collector.PU,
+						Type: collector.EnpointTypePU,
 						Port: 80,
 					},
 					Count:      33,

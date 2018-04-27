@@ -33,7 +33,7 @@ func (u *UIDMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("uid: %s", err)
 	}
 
-	if err := u.ReSync(ctx); err != nil {
+	if err := u.Resync(ctx); err != nil {
 		return err
 	}
 
@@ -85,8 +85,7 @@ func (u *UIDMonitor) SetupHandlers(m *config.ProcessorConfig) {
 	u.proc.config = m
 }
 
-// ReSync asks the monitor to do a resync
-func (u *UIDMonitor) ReSync(ctx context.Context) error {
-
-	return u.proc.ReSync(ctx, nil)
+// Resync asks the monitor to do a resync
+func (u *UIDMonitor) Resync(ctx context.Context) error {
+	return u.proc.Resync(ctx, nil)
 }
