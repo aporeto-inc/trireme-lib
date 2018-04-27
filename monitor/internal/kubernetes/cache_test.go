@@ -486,3 +486,185 @@ func Test_cache_getKubernetesRuntimeByPUID(t *testing.T) {
 		})
 	}
 }
+
+func Test_cache_deletePodEntry(t *testing.T) {
+
+	puid1 := "12345"
+	pod1 := "test/test"
+	containerRuntime := policy.NewPURuntimeWithDefaults()
+	containerRuntime.SetPid(123)
+	puidEntry1 := &puidCacheEntry{
+		kubeIdentifier:    pod1,
+		kubernetesRuntime: containerRuntime,
+	}
+	podEntry1 := &podCacheEntry{
+		puIDs: map[string]bool{
+			puid1: true,
+		},
+	}
+
+	type fields struct {
+		puidCache map[string]*puidCacheEntry
+		podCache  map[string]*podCacheEntry
+		RWMutex   sync.RWMutex
+	}
+	type args struct {
+		podNamespace string
+		podName      string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want1  map[string]*puidCacheEntry
+		want2  map[string]*podCacheEntry
+	}{
+		{
+			name: "simple delete",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				podName:      "test",
+				podNamespace: "test",
+			},
+			want1: map[string]*puidCacheEntry{
+				puid1: puidEntry1,
+			},
+			want2: map[string]*podCacheEntry{},
+		},
+		{
+			name: "non mexisting delete",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				podName:      "test2",
+				podNamespace: "test",
+			},
+			want1: map[string]*puidCacheEntry{
+				puid1: puidEntry1,
+			},
+			want2: map[string]*podCacheEntry{
+				pod1: podEntry1,
+			},
+		},
+	}
+	for _, tt := range tests { // nolint
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+				RWMutex:   tt.fields.RWMutex, // nolint
+			}
+			c.deletePodEntry(tt.args.podNamespace, tt.args.podName)
+
+			if got := tt.fields.puidCache; !reflect.DeepEqual(got, tt.want1) {
+				t.Errorf("after cache.deleteByPod = %v, want %v", got, tt.want1)
+			}
+			if got := tt.fields.podCache; !reflect.DeepEqual(got, tt.want2) {
+				t.Errorf("after cache.deleteByPod = %v, want %v", got, tt.want2)
+			}
+		})
+	}
+}
+
+func Test_cache_deletePUIDEntry(t *testing.T) {
+
+	puid1 := "12345"
+	pod1 := "test/test"
+	containerRuntime := policy.NewPURuntimeWithDefaults()
+	containerRuntime.SetPid(123)
+	puidEntry1 := &puidCacheEntry{
+		kubeIdentifier:    pod1,
+		kubernetesRuntime: containerRuntime,
+	}
+	podEntry1 := &podCacheEntry{
+		puIDs: map[string]bool{
+			puid1: true,
+		},
+	}
+
+	type fields struct {
+		puidCache map[string]*puidCacheEntry
+		podCache  map[string]*podCacheEntry
+		RWMutex   sync.RWMutex
+	}
+	type args struct {
+		puid string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want1  map[string]*puidCacheEntry
+		want2  map[string]*podCacheEntry
+	}{
+		{
+			name: "simple delete",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				puid: puid1,
+			},
+			want1: map[string]*puidCacheEntry{},
+			want2: map[string]*podCacheEntry{
+				pod1: podEntry1,
+			},
+		},
+		{
+			name: "non mexisting delete",
+			fields: fields{
+				puidCache: map[string]*puidCacheEntry{
+					puid1: puidEntry1,
+				},
+				podCache: map[string]*podCacheEntry{
+					pod1: podEntry1,
+				},
+			},
+			args: args{
+				puid: "123123",
+			},
+			want1: map[string]*puidCacheEntry{
+				puid1: puidEntry1,
+			},
+			want2: map[string]*podCacheEntry{
+				pod1: podEntry1,
+			},
+		},
+	}
+	for _, tt := range tests { // nolint
+		t.Run(tt.name, func(t *testing.T) {
+			c := &cache{
+				puidCache: tt.fields.puidCache,
+				podCache:  tt.fields.podCache,
+				RWMutex:   tt.fields.RWMutex, // nolint
+			}
+			c.deletePUIDEntry(tt.args.puid)
+
+			if got := tt.fields.puidCache; !reflect.DeepEqual(got, tt.want1) {
+				t.Errorf("after cache.deleteByPod = %v, want %v", got, tt.want1)
+			}
+			if got := tt.fields.podCache; !reflect.DeepEqual(got, tt.want2) {
+				t.Errorf("after cache.deleteByPod = %v, want %v", got, tt.want2)
+			}
+
+		})
+	}
+}
