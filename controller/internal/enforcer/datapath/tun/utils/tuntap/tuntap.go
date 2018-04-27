@@ -33,8 +33,7 @@ type TunTap struct {
 // NewTun -- creates a new tun interface and returns a handle to it. This will also implicitly bring up the interface
 func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName string, uid uint, group uint, persist bool, callback func([]byte, interface{}) error) (*TunTap, error) {
 
-	// NumQueues is 0 indexed gives us 256 queues
-	if numQueues > 255 {
+	if numQueues > 256 {
 		return nil, fmt.Errorf("Max number of queues supported is 256")
 	}
 	if len(deviceName) > IFNAMSIZE {
@@ -45,10 +44,10 @@ func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName st
 		numQueues:     numQueues,
 		ipAddress:     ipAddress,
 		hwMacAddress:  macAddress,
-		queueHandles:  make([]int, numQueues+1),
-		numFramesRead: make([]uint64, numQueues+1),
-		DroppedFrames: make([]uint64, numQueues+1),
-		fdtoQueueNum:  make(map[int]int, numQueues+1),
+		queueHandles:  make([]int, numQueues),
+		numFramesRead: make([]uint64, numQueues),
+		DroppedFrames: make([]uint64, numQueues),
+		fdtoQueueNum:  make(map[int]int, numQueues),
 		deviceName:    deviceName,
 		uid:           uid,
 		group:         group,

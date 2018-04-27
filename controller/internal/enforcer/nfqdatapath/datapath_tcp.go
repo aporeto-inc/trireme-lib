@@ -687,7 +687,6 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
 	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend {
-		zap.L().Error("Received Data Packet")
 		return nil, nil, nil
 	}
 
@@ -807,7 +806,6 @@ func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
 	if err != nil {
-		zap.L().Error("MARKVAL", zap.String("mark", p.Mark))
 		return nil, errors.New("No context in app processing")
 	}
 
