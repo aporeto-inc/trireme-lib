@@ -21,7 +21,7 @@ import (
 )
 
 // ProcessNetworkPacket processes packets arriving from network and are destined to the application
-func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
+func (d *Datapath) ProcessNetworkTCPPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
@@ -1054,4 +1054,13 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 	}
 
 	d.reportReverseExternalServiceFlow(context, report, action, true, tcpPacket)
+}
+
+// ProcessNetworkUDPPacket is a dummy function.
+func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) error {
+    return nil
+}
+// ProcessApplicationUDPPacket is a dummy function.
+func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) error {
+    return nil
 }

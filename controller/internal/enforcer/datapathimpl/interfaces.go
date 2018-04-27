@@ -10,6 +10,8 @@ import (
 type DataPathPacketHandler interface {
 	ProcessNetworkPacket(p *packet.Packet) error
 	ProcessApplicationPacket(p *packet.Packet) error
+	ProcessNetworkUDPPacket(p *packet.Packet) error
+	ProcessApplicationUDPPacket(p *packet.Packet) error
 }
 
 // DatapathImpl is the interface called from the the enforcer to start the infra to receive packets

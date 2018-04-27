@@ -122,9 +122,21 @@ func (p *Packet) GetTCPData() []byte {
 	return p.tcpData
 }
 
+// GetUDPData return additonal data in packet
+func (p *Packet) GetUDPData() []byte {
+
+	// data starts from 28. create a constant.
+	return p.Buffer[28:]
+}
+
 // SetTCPData returns any additional data in the packet
 func (p *Packet) SetTCPData(b []byte) {
 	p.tcpData = b
+}
+
+// SetUDPData sets additional data in the packet
+func (p *Packet) SetUDPData(b []byte) {
+	p.udpData = b
 }
 
 // GetTCPOptions returns any additional options in the packet
@@ -237,6 +249,17 @@ func (p *Packet) ReadTCPDataString() string {
 // ReadTCPData returns ths payload in a string variable
 // It does not remove the payload from the packet
 func (p *Packet) ReadTCPData() []byte {
+
+	if uint16(len(p.Buffer)) >= p.IPTotalLength {
+		return p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
+	}
+
+	return []byte{}
+}
+
+// ReadUDPData returns ths payload in a string variable
+// It does not remove the payload from the packet
+func (p *Packet) ReadUDPData() []byte {
 
 	if uint16(len(p.Buffer)) >= p.IPTotalLength {
 		return p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]

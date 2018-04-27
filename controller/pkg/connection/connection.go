@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"golang.org/x/crypto/openpgp/packet"
 
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
@@ -220,6 +222,7 @@ type UDPConnection struct {
 	PacketFlowPolicy *policy.FlowPolicy
 	reported         bool
 	packetQueue      [][]byte
+	writer           afinetrawsocket.SocketWriter
 }
 
 // NewProxyConnection returns a new Proxy Connection
@@ -231,13 +234,46 @@ func NewProxyConnection() *ProxyConnection {
 }
 
 // NewUDPConnection returns UDPConnection struct.
-func NewUDPConnection(context *pucontext.PUContext) *ProxyConnection {
+func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.SocketWriter) *UDPConnection {
 
 	return &UDPConnection{
 		state:       UDPSynSend,
 		context:     context,
 		packetQueue: [][]byte{},
+		writer:      writer,
 	}
+}
+
+// GetState is used to get state of UDP Connection.
+func (c *UDPConnection) GetState() UDPFlowState {
+	return c.state
+}
+
+// SetState is used to setup the state for the UDP Connection.
+func (c *UDPConnection) SetState(state UDPFlowState) {
+
+	c.state = state
+}
+
+// QueuePackets queues UDP packets till the flow is authenticated.
+func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) {
+
+	buffer := make([]byte, len(udpPacket.Buffer))
+	copyIndex := copy(buffer, udpPacket.Buffer)
+
+	c.packetQueue = append(c.packetQueue, buffer)
+}
+
+// TransmitQueuePackets transmits UDP packetes oncle flow is authenticated.
+func (c *UDPConnection) TransmitQueuePackets() error {
+
+	for _, packet := range c.packetQueue {
+		err := c.writer.WriteSocket(packet)
+		if err != nil {
+			zap.L().Error("Unable to transmit UDP packets", zap.Error("udp", err))
+		}
+	}
+	return nil
 }
 
 // GetState returns the state of a proxy connection

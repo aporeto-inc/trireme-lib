@@ -13,6 +13,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -99,7 +100,10 @@ type Datapath struct {
 	portSetInstance portset.PortSet
 
 	//datapathImpl
-	datapathhdl datapathimpl.DatapathImpl
+    datapathhdl datapathimpl.DatapathImpl
+
+    // udp socket fd
+    udpSocketWriter afinetrawsocket.SocketWriter
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -181,6 +185,11 @@ func New(
 		portSetInstance = portset.New(contextIDFromPort)
 	}
 
+	udpSocketWriter, err := afinetrawsocket.CreateSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
+	if err != nil {
+		zap.L.Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
+	}
+
 	d := &Datapath{
 		puFromMark:        cache.NewCache("puFromMark"),
 		contextIDFromPort: contextIDFromPort,
@@ -213,7 +222,8 @@ func New(
 		conntrackHdl:           conntrack.NewHandle(),
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
-	}
+        udpSocketWriter         udpSocketWriter,
+    }
 
 	packet.PacketLogLevel = packetLogs
 

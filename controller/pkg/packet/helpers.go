@@ -135,7 +135,7 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buf[9] = 6
 
 	// bytes 10,11: TCP buffer size (real header + payload)
-	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.tcpData)+len(p.tcpOptions)))
+	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.tcpData)+len(p.tcpOption)))
 
 	// bytes 12+: The TCP buffer (real header + payload)
 	copy(buf[12:], p.Buffer[p.l4BeginPos:])
@@ -187,4 +187,41 @@ func checksum(buf []byte) uint16 {
 	sum := checksumDelta(buf)
 	csum := ^sum
 	return csum
+}
+
+// UpdateUDPCheckSum updates the UDP checksum field of packet
+func (p *packet) UpdateUDPCheckSum() {
+
+	ignoreCheckSum := []byte{0, 0}
+	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
+
+}
+
+func (p *packet) ReadUDPToken() []byte {
+
+	// check for valid buffer size.
+	// 20 byte IP hdr, 8 byte udp header, 20 byte marker
+	return p.Buffer[48:]
+}
+
+// UDPDataAttach attached udp data and token.
+func (p *packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
+
+	udpData := []byte{}
+	udpData = append(udpdata, udpdata...)
+	udpData = append(udpdata, udptoken...)
+
+	p.udpData = udpdata
+
+	// We are increasing tcpOptions by 1 32-bit word. We are always adding
+	// our option last.
+	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
+
+	// IP Header Processing
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
+
+	// Attach Data @ the end of current buffer
+	p.Buffer = append(p.Buffer, p.udpData)
+
+	p.UpdateUDPCheckSum()
 }
