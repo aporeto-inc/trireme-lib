@@ -19,20 +19,20 @@ const observeMark = "39"
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 	markint, _ := strconv.Atoi(mark)
-	mark = strconv.Itoa((1 << 16) | markint)
+	cgroup := strconv.Itoa((1 << 16) | markint)
 	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
-			"-m", "cgroup", "--cgroup", mark,
+			"-m", "cgroup", "--cgroup", cgroup,
 			"-m", "comment", "--comment", "Mark All Packets from a cgroup",
-			"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
+			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
 		},
 
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
-			"-m", "cgroup", "--cgroup", mark,
+			"-m", "cgroup", "--cgroup", cgroup,
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
@@ -51,17 +51,17 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 }
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string, proyPortSetName string) [][]string {
-
+	markint, _ := strconv.Atoi(mark)
 	str := [][]string{
 		{
 			i.appPacketIPTableContext,
 			uidchain,
-			"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", mark,
+			"-m", "owner", "--uid-owner", uid, "-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
 		},
 		{
 			i.appPacketIPTableContext,
 			uidchain,
-			"-m", "mark", "--mark", mark,
+			"-m", "mark", "--mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
@@ -69,14 +69,14 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			i.appPacketIPTableContext,
 			ipTableSectionPreRouting,
 			"-m", "set", "--match-set", portSetName, "dst",
-			"-j", "MARK", "--set-mark", mark,
+			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 1)),
 		},
 		{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
 			"-p", "tcp",
 			"-m", "mark",
-			"--mark", mark,
+			"--mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 1)),
 			"-m", "comment", "--comment", "Container-specific-chain 1",
 			"-j", netChain,
 		},
@@ -231,15 +231,15 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 
 //trapRules provides the packet trap rules to add/delete
 func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]string {
-
-	mark = strconv.Itoa((cgnetcls.Initialmarkval - 1))
+	markint, _ := strconv.Atoi(mark)
+	//mark = strconv.Itoa((cgnetcls.Initialmarkval - 1))
 	rules := [][]string{}
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp",
 		"-j", "MARK",
-		"--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 2),
+		"--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
 	})
 	// Application Packets
 	rules = append(rules, []string{
@@ -248,13 +248,27 @@ func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]
 		"-p", "tcp",
 		"-j", "ACCEPT",
 	})
+
 	if mark != "" {
-		// Network Packets - SYN
+		// Network Packets
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-m", "set", "--match-set", targetNetworkSet, "src",
 			"-p", "tcp",
-			"-j", "MARK", "--set-mark", mark,
+			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 1)),
+		})
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "tcp",
+			"-j", "ACCEPT",
+		})
+	} else {
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "tcp",
+			"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 1),
 		})
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
@@ -898,7 +912,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"filter",
 		"FORWARD", 1,
 		"-p", "tcp",
-		"-m", "mark", "--mark", mark,
+		"-m", "mark", "--mark", mark+"/0xffff",
 		"-j", "ACCEPT")
 	if err != nil {
 		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
@@ -942,7 +956,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"filter",
 		"FORWARD", 1,
 		"-p", "tcp",
-		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-2),
+		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-2)+"/0xffff",
 		"-j", "ACCEPT")
 	if err != nil {
 		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
@@ -972,7 +986,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
-		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-1),
+		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-1)+"/0xffff",
 		"-j", "ACCEPT")
 	if err != nil {
 		return fmt.Errorf("unable to add accept mark rule for recirculated packets app: %s", err)

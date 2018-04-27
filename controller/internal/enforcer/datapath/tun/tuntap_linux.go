@@ -58,7 +58,7 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 
 	//Set ulimit for open files here
 	if err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &syscall.Rlimit{
-		Cur: rlimit.Cur,
+		Cur: 8192,
 		Max: 8192,
 	}); err != nil {
 		return nil, fmt.Errorf("Unable to set ulimit for open files %s", err)
@@ -73,6 +73,7 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 }
 
 func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
+
 	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
@@ -93,7 +94,9 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 }
 
 func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
+
 	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
+	zap.L().Error("AMIT ::Received on Queue", zap.Int("QeueuNum", queueNum))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {

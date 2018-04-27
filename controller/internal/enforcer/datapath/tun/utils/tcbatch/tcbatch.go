@@ -3,6 +3,7 @@ package tcbatch
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -15,8 +16,9 @@ const (
 	qdisctemplate = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{"\n"}}`
 	classtemplate = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassID}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
 
-	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if gt .Fw 0}} handle {{.Fw}} fw {{else}} {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{end}}{{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
-	metafiltertemplate = `filter add dev {{.DeviceName}} parent {{.Parent}}: handle {{.FilterID}} basic match {{if .MetaMatch}} {{.ConvertMeta}} {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
+	filtertemplate       = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if gt .Fw 0}} handle {{.Fw}} fw {{else}} {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{end}}{{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
+	metafiltertemplate   = `filter add dev {{.DeviceName}} parent {{.Parent}}: handle {{.FilterID}} basic match {{if .MetaMatch}} {{.ConvertMeta}} {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
+	filterMapKeyTemplate = "filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip handle {{.FilterID}} flow key mark rshift 16 baseclass {{.BaseClass}}\n"
 )
 
 // Qdisc strcut represents a qdisc(htb only) in the tcbatch (batched tc)
@@ -64,6 +66,7 @@ type FilterSkbAction struct {
 	Prio       int
 	Fw         int
 	QueueID    string
+	BaseClass  string
 }
 
 // TcBatch holds data required to serialize a tcbatch constrcuted using Qdisc, Class and FilterSkbAction structures
@@ -205,7 +208,6 @@ func (t *TcBatch) BuildInputTCBatchCommand() error {
 // BuildOutputTCBatchCommand builds the list of tc commands required by the trireme-lib to setup a tc datapath
 func (t *TcBatch) BuildOutputTCBatchCommand() error {
 	numQueues := t.numQueues
-	//qdiscs := make([]Qdisc, numQueues+1)
 	qdisc := Qdisc{
 		DeviceName: t.DeviceName,
 		QdiscID:    "1",
@@ -217,27 +219,25 @@ func (t *TcBatch) BuildOutputTCBatchCommand() error {
 	if err := t.Qdiscs([]Qdisc{qdisc}); err != nil {
 		return fmt.Errorf("Received error %s while parsing qdisc", err)
 	}
-
 	filterlist := []FilterSkbAction{
 		{
 			DeviceName: t.DeviceName,
 			Parent:     "1",
 			FilterID:   "1",
-			QueueID:    "0",
-			Prio:       -1,
-			Cgroup:     true,
+			BaseClass:  "1:100",
 		},
-		// {
-		// 	DeviceName: t.DeviceName,
-		// 	Parent:     "1",
-		// 	FilterID:   "1",
-		// 	QueueID:    "0",
-		// 	Prio:       -1,
-		// 	Cgroup:     false,
-		// 	Fw:         cgnetcls.Initialmarkval - 2,
-		// },
 	}
-	if err := t.Filters(filterlist, filtertemplate); err != nil {
+	// filterlist := []FilterSkbAction{
+	// 	{
+	// 		DeviceName: t.DeviceName,
+	// 		Parent:     "1",
+	// 		FilterID:   "1",
+	// 		QueueID:    "0",
+	// 		Prio:       -1,
+	// 		Cgroup:     true,
+	// 	},
+	// }
+	if err := t.Filters(filterlist, filterMapKeyTemplate); err != nil {
 		return fmt.Errorf("Received error %s while parsing filters", err)
 	}
 
@@ -317,15 +317,15 @@ func (t *TcBatch) BuildOutputTCBatchCommand() error {
 
 // Execute executes the commands built in the batch
 func (t *TcBatch) Execute() error {
+	ioutil.WriteFile("/tmp/tcout1", t.buf.Bytes(), 0644)
+	path, err := exec.LookPath("tc")
+	if err != nil {
+		return fmt.Errorf("Received error %s while trying to locate tc binary", err)
+	}
 	for {
 		if line, err := t.buf.ReadString('\n'); err != nil {
 			break
 		} else {
-			path, err := exec.LookPath("tc")
-			if err != nil {
-				return fmt.Errorf("Received error %s while trying to locate tc binary", err)
-			}
-
 			params := strings.Fields(line)
 			cmd := exec.Command(path, params...)
 			if output, err := cmd.CombinedOutput(); err != nil {
