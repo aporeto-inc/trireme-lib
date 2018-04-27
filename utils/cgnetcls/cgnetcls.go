@@ -20,6 +20,16 @@ import (
 	"go.uber.org/zap"
 )
 
+// receiver definition.
+type netCls struct {
+	markchan         chan uint64
+	ReleaseAgentPath string
+	TriremePath      string
+}
+
+var basePath = "/sys/fs/cgroup/net_cls"
+var markallocator allocator.Allocator
+
 //Initialize only ince
 func init() {
 	markallocator = allocator.New(Initialmarkval, 255)
