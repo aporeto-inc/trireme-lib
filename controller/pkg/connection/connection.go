@@ -12,8 +12,11 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 )
 
-// TCPFlowState identifies the constants of the state of a TCP connectioncon
+// TCPFlowState identifies the constants of the state of a TCP connection
 type TCPFlowState int
+
+// UDPFlowState identifies the constants of the state of a UDP connection.
+type UDPFlowState int
 
 // ProxyConnState identifies the constants of the state of a proxied connection
 type ProxyConnState int
@@ -64,6 +67,24 @@ const (
 	// ServerAuthenticatePair -- Authenticate pair of tokens
 	ServerAuthenticatePair
 )
+
+const (
+	// UDPSynSend is the state where a syn has been sent.
+	UDPSynSend UDPFlowState = iota
+
+	// UDPSynReceived is the state where a syn packet has been received.
+	UDPSynReceived
+
+	// UDPAckProcessed is the state that the negotiation has been completed.
+	UDPAckProcessed
+
+	// UDPSynAckReceived is the state where a syn ack packet has been received.
+	UDPSynAckReceived
+
+	// UDPSynAckSent is the state where syn ack packet has been sent.
+	UDPSynAckSent
+)
+
 const (
 
 	// RejectReported represents that flow was reported as rejected
@@ -189,11 +210,33 @@ type ProxyConnection struct {
 	reported         bool
 }
 
+// UDPConnection is information regarding UDP connection.
+type UDPConnection struct {
+	sync.Mutex
+
+	state            UDPFlowState
+	Auth             AuthInfo
+	ReportFlowPolicy *policy.FlowPolicy
+	PacketFlowPolicy *policy.FlowPolicy
+	reported         bool
+	packetQueue      [][]byte
+}
+
 // NewProxyConnection returns a new Proxy Connection
 func NewProxyConnection() *ProxyConnection {
 
 	return &ProxyConnection{
 		state: ClientTokenSend,
+	}
+}
+
+// NewUDPConnection returns UDPConnection struct.
+func NewUDPConnection(context *pucontext.PUContext) *ProxyConnection {
+
+	return &UDPConnection{
+		state:       UDPSynSend,
+		context:     context,
+		packetQueue: [][]byte{},
 	}
 }
 

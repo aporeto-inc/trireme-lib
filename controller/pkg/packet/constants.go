@@ -107,3 +107,12 @@ const (
 	// TCPMssOptionLen is the type for MSS option
 	TCPMssOptionLen = uint8(4)
 )
+
+const (
+	// UDPLengthPos is the location of UDP length
+	UDPLengthPos = 24
+	// UDPChecksumPos is the location of UDP checksum
+	UDPChecksumPos = 26
+	// UDPDataPos is the location of UDP data
+	UDPDataPos = 28
+)

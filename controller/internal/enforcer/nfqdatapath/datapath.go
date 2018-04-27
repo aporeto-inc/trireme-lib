@@ -69,6 +69,18 @@ type Datapath struct {
 	netReplyConnectionTracker   cache.DataStore
 	unknownSynConnectionTracker cache.DataStore
 
+	// When a new connection is created, we has the source IP/port. A return
+	// poacket might come with a different source IP NAT is done later.
+	// If we don't receife a return SynAck in 20 seconds, it expires
+	udpSourcePortConnectionCache cache.DataStore
+
+	// Hash on full five-tuple and return the connection
+	// These are auto-expired connections after 60 seconds of inactivity.
+	udpAppOrigConnectionTracker  cache.DataStore
+	udpAppReplyConnectionTracker cache.DataStore
+	udpNetOrigConnectionTracker  cache.DataStore
+	udpNetReplyConnectionTracker cache.DataStore
+
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
 
@@ -181,19 +193,26 @@ func New(
 		netOrigConnectionTracker:    cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
 		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
-		ExternalIPCacheTimeout:      ExternalIPCacheTimeout,
-		filterQueue:                 filterQueue,
-		mutualAuthorization:         mutualAuth,
-		service:                     service,
-		collector:                   collector,
-		tokenAccessor:               tokenaccessor,
-		secrets:                     secrets,
-		ackSize:                     secrets.AckSize(),
-		mode:                        mode,
-		procMountPoint:              procMountPoint,
-		conntrackHdl:                conntrack.NewHandle(),
-		portSetInstance:             portSetInstance,
-		packetLogs:                  packetLogs,
+
+		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*24),
+		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*24),
+		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*24),
+		udpOrigConnectionTracker:     cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*24),
+		udpReplyConnectionTracker:    cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*24),
+
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
+		filterQueue:            filterQueue,
+		mutualAuthorization:    mutualAuth,
+		service:                service,
+		collector:              collector,
+		tokenAccessor:          tokenaccessor,
+		secrets:                secrets,
+		ackSize:                secrets.AckSize(),
+		mode:                   mode,
+		procMountPoint:         procMountPoint,
+		conntrackHdl:           conntrack.NewHandle(),
+		portSetInstance:        portSetInstance,
+		packetLogs:             packetLogs,
 	}
 
 	packet.PacketLogLevel = packetLogs

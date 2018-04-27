@@ -52,17 +52,13 @@ func init() {
 // packet bytes.
 func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) {
 
-	var p Packet
+	p := &Packet{}
 
 	// Buffer Setup
 	p.Buffer = bytes
 
 	// Get the mark value
 	p.Mark = mark
-
-	// Options and Payload that maybe added
-	p.tcpOptions = []byte{}
-	p.tcpData = []byte{}
 
 	// IP Header Processing
 	p.ipHeaderLen = bytes[ipHdrLenPos] & ipHdrLenMask
@@ -90,19 +86,30 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		}
 	}
 
-	// TCP Header Processing
-	p.l4BeginPos = minIPHdrSize
-	p.TCPChecksum = binary.BigEndian.Uint16(bytes[TCPChecksumPos : TCPChecksumPos+2])
-	p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
-	p.DestinationPort = binary.BigEndian.Uint16(bytes[tcpDestPortPos : tcpDestPortPos+2])
-	p.TCPAck = binary.BigEndian.Uint32(bytes[tcpAckPos : tcpAckPos+4])
-	p.TCPSeq = binary.BigEndian.Uint32(bytes[tcpSeqPos : tcpSeqPos+4])
-	p.tcpDataOffset = (bytes[tcpDataOffsetPos] & tcpDataOffsetMask) >> 4
-	p.TCPFlags = bytes[tcpFlagsOffsetPos]
+	if p.IPProto == packet.IPProtocolTCP {
+		// TCP Header Processing
+		p.l4BeginPos = minIPHdrSize
+		p.TCPChecksum = binary.BigEndian.Uint16(bytes[TCPChecksumPos : TCPChecksumPos+2])
+		p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
+		p.DestinationPort = binary.BigEndian.Uint16(bytes[tcpDestPortPos : tcpDestPortPos+2])
+		p.TCPAck = binary.BigEndian.Uint32(bytes[tcpAckPos : tcpAckPos+4])
+		p.TCPSeq = binary.BigEndian.Uint32(bytes[tcpSeqPos : tcpSeqPos+4])
+		p.tcpDataOffset = (bytes[tcpDataOffsetPos] & tcpDataOffsetMask) >> 4
+		p.TCPFlags = bytes[tcpFlagsOffsetPos]
 
+		// Options and Payload that maybe added
+		p.tcpOptions = []byte{}
+		p.tcpData = []byte{}
+	} else {
+		// UDP Header Processing
+		p.UDPChecksum = binary.BigEndian.Uint16(bytes[UDPChecksumPos : UDPChecksumPos+2])
+		p.udpData = []byte{}
+		p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
+		p.DestinationPort = binary.BigEndian.Uint16(bytes[tcpDestPortPos : tcpDestPortPos+2])
+	}
 	p.context = context
 
-	return &p, nil
+	return p, nil
 }
 
 // IsEmptyTCPPayload returns the TCP data offset
