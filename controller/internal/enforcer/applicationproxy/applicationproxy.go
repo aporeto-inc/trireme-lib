@@ -408,7 +408,7 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 		cert, err := cryptoutils.LoadCertificate(service.JWTCertificate)
 		if err != nil {
 			// We just ignore bad certificates and move on.
-			zap.L().Warn("Unable to decode provided JWT PEM", zap.Error(err))
+			zap.L().Debug("Unable to decode provided JWT PEM", zap.Error(err))
 			continue
 		}
 		jwtcache[service.NetworkInfo.Ports.String()] = cert

@@ -275,7 +275,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		defer p.collector.CollectFlowEvent(record)
 
 		// Get the corresponding scopes
-		found, t := apiCache.Find(r.Method, r.RequestURI)
+		found, t := apiCache.Find(r.Method, r.URL.Path)
 		if !found {
 			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
@@ -337,7 +337,6 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
@@ -385,17 +384,21 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Process the Auth header for any JWT context.
 	jwtcache, err := p.jwtCache.Get(p.puContext)
 	if err != nil {
-		zap.L().Warn("No JWT cache found for this pu", zap.Error(err))
+		zap.L().Debug("No JWT cache found for this pu", zap.Error(err))
 	}
 
-	jwtCert, ok := jwtcache.(map[string]*x509.Certificate)[port]
-	if !ok {
-		zap.L().Warn("No JWT found for this port", zap.String("port", port))
+	var jwtCert *x509.Certificate
+	if jwtcache != nil {
+		var ok bool
+		jwtCert, ok = jwtcache.(map[string]*x509.Certificate)[port]
+		if !ok {
+			zap.L().Debug("No JWT found for this port", zap.String("port", port))
+		}
 	}
 
 	// Look in the cache for the method and request URI for the associated scopes
 	// and policies.
-	found, t := apiCache.Find(r.Method, r.RequestURI)
+	found, t := apiCache.Find(r.Method, r.URL.Path)
 	if !found {
 		http.Error(w, fmt.Sprintf("Unknown or unauthorized service"), http.StatusForbidden)
 		return
@@ -433,7 +436,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the target URI and forward the request.
-
 	r.URL, err = url.ParseRequestURI("http://" + r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
