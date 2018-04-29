@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/iproute"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/tcbatch"
@@ -26,6 +27,7 @@ type tundev struct {
 	numTunDevicesPerDirection uint8
 	tundeviceHdls             []*tuntap.TunTap
 	iprouteHdl                *iproute.Iproute
+	needQueueingPolicy        bool
 }
 
 type privateData struct {
@@ -49,13 +51,16 @@ func appQueueCallBack(data []byte, cbData interface{}) error {
 }
 
 // NewTunDataPath instantiates a new tundatapath
-func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int) (datapathimpl.DatapathImpl, error) {
+func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int, mode constants.ModeType) (datapathimpl.DatapathImpl, error) {
 
 	ipr, err := iproute.NewIPRouteHandle()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to create an iproute handle %s", err)
 	}
-
+	needQueueingPolicy := false
+	if mode != constants.RemoteContainer {
+		needQueueingPolicy = true
+	}
 	//GetRlimit
 	var rlimit syscall.Rlimit
 	if err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rlimit); err != nil {
@@ -75,11 +80,12 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 		numTunDevicesPerDirection: numTunDevicesPerDirection,
 		tundeviceHdls:             make([]*tuntap.TunTap, numTunDevicesPerDirection),
 		iprouteHdl:                ipr,
+		needQueueingPolicy:        needQueueingPolicy,
 	}, nil
 }
 
 func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
-	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum - 1 + cgnetcls.Initialmarkval))
+	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
@@ -99,7 +105,8 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 }
 
 func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
-	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum - 1 + cgnetcls.Initialmarkval))
+	zap.L().Error("Received Packet on queue", zap.Int("QUE", queueNum), zap.Int("MARK", queueNum-1+cgnetcls.Initialmarkval))
+	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
@@ -158,6 +165,23 @@ func (t *tundev) startNetworkSocket(qIndex int, tun *tuntap.TunTap) error {
 	return nil
 
 }
+
+func (t *tundev) applyNetworkInterceptorTCConfig(deviceName string) {
+	// We map cgroups from queue 1 to (numQueues - 1), queue 0
+	// is the default queue where packets without cgroup lands in
+	tcBatch, err := tcbatch.NewTCBatch(deviceName, 1, numQueues-1, 1, cgnetcls.Initialmarkval)
+	if err != nil {
+		zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
+	}
+
+	if err = tcBatch.BuildOutputTCBatchCommand(); err != nil {
+		zap.L().Fatal("Unable to create queuing policy", zap.Error(err))
+	}
+
+	if err = tcBatch.Execute(); err != nil {
+		zap.L().Fatal("Unable to install queuing policy", zap.Error(err))
+	}
+}
 func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 	deviceName := baseTunDeviceName + baseTunDeviceInput + strconv.Itoa(i+1)
 	ipaddress := tunIPAddressSubnetIn + strconv.Itoa(i+1)
@@ -174,6 +198,9 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 	t.tundeviceHdls[i], err = tuntap.NewTun(numQueues, ipaddress, []byte{}, deviceName, uint(uid), uint(gid), false, networkQueueCallBack)
 	if err != nil {
 		zap.L().Fatal("Received error while creating device ", zap.Error(err), zap.String("DeviceName", deviceName))
+	}
+	if t.needQueueingPolicy {
+		t.applyNetworkInterceptorTCConfig(deviceName)
 	}
 
 	//Start Queues here
@@ -268,7 +295,7 @@ func (t *tundev) applyApplicationInterceptorTCConfig(deviceName string) {
 
 	// We map cgroups from queue 1 to (numQueues - 1), queue 0
 	// is the default queue where packets without cgroup lands in
-	tcBatch, err := tcbatch.NewTCBatch(deviceName, 1, numQueues - 1, 1, cgnetcls.Initialmarkval)
+	tcBatch, err := tcbatch.NewTCBatch(deviceName, 1, numQueues-1, 1, cgnetcls.Initialmarkval)
 	if err != nil {
 		zap.L().Fatal("Unable to setup queuing policy", zap.Error(err))
 	}
@@ -310,8 +337,9 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 	if err != nil {
 		zap.L().Fatal("Received error while creating device ", zap.Error(err), zap.String("DeviceName", deviceName))
 	}
-
-	t.applyApplicationInterceptorTCConfig(deviceName)
+	if t.needQueueingPolicy {
+		t.applyApplicationInterceptorTCConfig(deviceName)
+	}
 
 	// StartQueue here after we have create device and setup tc queueing.
 	// Once we setup routes we can get traffic

@@ -202,7 +202,7 @@ func New(
 	//TODO :: Remove Call to NFQ once we pass tun tests
 	//d.datapathhdl = nfq.NewNfq(d, filterQueue)
 
-	d.datapathhdl, err = tundatapath.NewTunDataPath(d, 0x100)
+	d.datapathhdl, err = tundatapath.NewTunDataPath(d, 0x100, mode)
 	if err != nil {
 		zap.L().Fatal("Unable to instantiate datapath", zap.Error(err))
 	}

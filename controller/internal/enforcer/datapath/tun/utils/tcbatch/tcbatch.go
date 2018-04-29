@@ -9,18 +9,19 @@ import (
 	"strings"
 
 	"github.com/alecthomas/template"
-//	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	//	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 )
 
 const (
 	qdisctemplate = `qdisc add dev {{.DeviceName}} {{if eq .Parent  "root" }} root {{else }} parent {{.Parent}} {{end}} handle {{.QdiscID}}: {{.QdiscType}}  {{"\n"}}`
 	classtemplate = `class add dev {{.DeviceName}}  parent {{.Parent}}: classid {{.Parent}}:{{.ClassID}} {{.QdiscType}} {{if .AdditionalParams}} {{range .AdditionalParams}} {{.}} {{end}} {{end}}{{"\n"}}`
 
-	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if gt .Fw 0}} handle {{.Fw}} fw {{else}} {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}}: {{end}} {{end}}{{if .U32match}} {{.ConvertU32}} {{end}}  {{if .Cgroup}} cgroup {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
+	//TODO: parametrize the flow key mark param
+	filtertemplate     = `filter add dev {{.DeviceName}} parent {{.Parent}}: protocol ip {{if gt .Fw 0}} handle {{.Fw}} fw {{else}} {{if ge .Prio  0}} prio {{.Prio}} {{else}} handle {{.FilterID}} {{end}} {{end}} {{if .MarkMap}} flow key mark rshift 16 addend -256 baseclass 1:1 {{else}} {{if .U32match}} {{.ConvertU32}} {{end}}  action skbedit queue_mapping {{.QueueID}}{{end}}{{"\n"}}`
 	metafiltertemplate = `filter add dev {{.DeviceName}} parent {{.Parent}}: handle {{.FilterID}} basic match {{if .MetaMatch}} {{.ConvertMeta}} {{end}} action skbedit queue_mapping {{.QueueID}}{{"\n"}}`
 )
 
-// Qdisc strcut represents a qdisc(htb only) in the tcbatch (batched tc)
+// Qdisc struct represents a qdisc(htb only) in the tcbatch (batched tc)
 type Qdisc struct {
 	DeviceName     string
 	Parent         string
@@ -60,8 +61,8 @@ type FilterSkbAction struct {
 	Parent     string
 	FilterID   string
 	U32match   *U32match
+	MarkMap    bool
 	MetaMatch  *Meta
-	Cgroup     bool
 	Prio       int
 	Fw         int
 	QueueID    string
@@ -214,11 +215,11 @@ func (t *TcBatch) BuildOutputTCBatchCommand() error {
 	numQueues := t.lastQueue - t.startQueue + 1
 
 	qdisc := Qdisc{
-		DeviceName: t.DeviceName,
-		QdiscID:    "1",
-		QdiscType:  "htb",
-		Parent:     "root",
-		// DefaultClassID: strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(t.numQueues-1), 16),
+		DeviceName:     t.DeviceName,
+		QdiscID:        "1",
+		QdiscType:      "htb",
+		Parent:         "root",
+		DefaultClassID: strconv.FormatUint(uint64(t.CgroupStartMark), 16),
 	}
 
 	if err := t.Qdiscs([]Qdisc{qdisc}); err != nil {
@@ -231,8 +232,8 @@ func (t *TcBatch) BuildOutputTCBatchCommand() error {
 			Parent:     "1",
 			FilterID:   "1",
 			QueueID:    "0",
+			MarkMap:    true,
 			Prio:       -1,
-			Cgroup:     true,
 		},
 	}
 
@@ -245,7 +246,7 @@ func (t *TcBatch) BuildOutputTCBatchCommand() error {
 		classes[i] = Class{
 			DeviceName:       t.DeviceName,
 			Parent:           "1",
-			ClassID:          strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(i), 16),
+			ClassID:          strconv.FormatUint(uint64(i+1), 16),
 			QdiscType:        "htb",
 			AdditionalParams: []string{"rate", "100000mbit", "burst", "1200mbit"},
 		}
@@ -259,11 +260,11 @@ func (t *TcBatch) BuildOutputTCBatchCommand() error {
 	initialqueueid := 10
 
 	for i := 0; i < int(numQueues); i++ {
-		qdiscs[i] = Qdisc {
+		qdiscs[i] = Qdisc{
 			DeviceName: t.DeviceName,
 			QdiscID:    strconv.Itoa(initialqueueid),
 			QdiscType:  "htb",
-			Parent:     "1:" + strconv.FormatUint(uint64(t.CgroupStartMark)+uint64(i), 16),
+			Parent:     "1:" + strconv.FormatUint(uint64(i+1), 16),
 		}
 		initialqueueid = initialqueueid + 10
 
@@ -282,7 +283,6 @@ func (t *TcBatch) BuildOutputTCBatchCommand() error {
 			FilterID:   strconv.Itoa(qdiscID),
 			QueueID:    strconv.Itoa(int(t.startQueue) + i),
 			Prio:       1,
-			Cgroup:     false,
 			U32match: &U32match{
 				matchsize: "u8",
 				val:       0x40,
