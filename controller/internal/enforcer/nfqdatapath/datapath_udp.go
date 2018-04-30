@@ -203,7 +203,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 	var conn *connection.UDPConnection
 	conn, err = d.appUDPRetrieveState(p)
 	if err != nil {
-		return err
+		return fmt.Errorf("Recieved packet from unenforced process: %s", err)
 	}
 
 	switch conn.GetState() {
