@@ -88,16 +88,16 @@ func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
 // ReadQueue -- Reads packets from a queue. This is a blocking read call. Returns num bytes read
 func (t *TunTap) ReadQueue(queueNum int, data []byte) (int, error) {
 
-	n, err := t.Read(t.queueHandles[queueNum], data)
+	n, err := t.read(t.queueHandles[queueNum], data)
 	return n, err
 }
 
-func (t *TunTap) Read(fd int, data []byte) (int, error) {
+func (t *TunTap) read(fd int, data []byte) (int, error) {
 	return read(fd, data)
 }
 
-// PollRead -- returns a list of queues on which data can be read
-func (t *TunTap) PollRead(timeout int) ([]int, error) {
+// pollRead -- returns a list of queues on which data can be read
+func (t *TunTap) pollRead(timeout int) ([]int, error) {
 	var events [MaxEpollEvents]syscall.EpollEvent
 	var fds [MaxEpollEvents]int
 	_, err := syscall.EpollWait(t.epollfd, events[:], timeout)
@@ -109,11 +109,6 @@ func (t *TunTap) PollRead(timeout int) ([]int, error) {
 		fds[i] = t.fdtoQueueNum[int(event.Fd)]
 	}
 	return fds[:], nil
-}
-
-// Write to write tun tap. Not Implemented as of now here
-func (t *TunTap) Write(queueNum int, data []byte) (int, error) {
-	return 0, nil
 }
 
 // setupTun  create the Tun Interface.
