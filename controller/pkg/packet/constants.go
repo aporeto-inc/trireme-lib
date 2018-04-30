@@ -108,6 +108,7 @@ const (
 	TCPMssOptionLen = uint8(4)
 )
 
+// UDP related constants.
 const (
 	// UDPLengthPos is the location of UDP length
 	UDPLengthPos = 24
@@ -115,4 +116,10 @@ const (
 	UDPChecksumPos = 26
 	// UDPDataPos is the location of UDP data
 	UDPDataPos = 28
+	// UDPSynMask is a mask for the UDP Syn flags
+	UDPSynMask = 0x2
+	// UDPSynAckMask  mask idenitifies a UDP SYN-ACK packet
+	UDPSynAckMask = 0x12
+	// UDPAckMask mask that identifies ACK packets
+	UDPAckMask = 0x10
 )

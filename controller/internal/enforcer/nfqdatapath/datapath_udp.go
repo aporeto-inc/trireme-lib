@@ -33,12 +33,13 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
-	// Idealy all packets from network should only be auth packets.
+	// Idealy all packets from network should only be auth packets, other packets will go to application
+	// once connmark is set.
 	var conn *connection.UDPConnection
 	udpPacketType := p.GetUDPType()
 
-	switch udpPacketType & packet.TCPSynAckMask {
-	case packet.TCPSynMask:
+	switch udpPacketType & packet.UDPSynAckMask {
+	case packet.UDPSynMask:
 		conn, err = d.netSynUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -56,7 +57,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 		conn.SetState(connection.UDPSynReceived)
 
-	case packet.TCPSynAckMask:
+	case packet.UDPSynAckMask:
 		conn, err = d.netSynAckUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -71,7 +72,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 			return err
 		}
 
-	case packet.TCPAckMask:
+	case packet.UDPAckMask:
 		conn, err = d.netUDPAckRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -83,7 +84,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 			return err
 		}
 	default:
-		// what to do here?: on server side maintain a queue, No.
+		// what to do here?
 		return fmt.Errorf("Dropping packet, since Auth in progress")
 
 	}
@@ -139,7 +140,7 @@ func (d *Datapath) netUDPAckRetrieveState(p *packet.Packet) (*connection.UDPConn
 	return conn.(*connection.UDPConnection), nil
 }
 
-// processNetUDPPacket processes a network TCP packet and dispatches it to different methods based on the flags
+// processNetUDPPacket processes a network UDP packet and dispatches it to different methods based on the flags
 func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	if conn == nil {
@@ -148,9 +149,9 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 
 	udpPacketType := udpPacket.GetUDPType()
 	// Update connection state in the internal state machine tracker
-	switch udpPacketType & packet.TCPSynAckMask {
+	switch udpPacketType & packet.UDPSynAckMask {
 
-	case packet.TCPSynMask:
+	case packet.UDPSynMask:
 		err = d.processNetworkUDPSynPacket(context, conn, udpPacket)
 		if err != nil {
 			return err
@@ -160,7 +161,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 			return err
 		}
 
-	case packet.TCPAckMask:
+	case packet.UDPAckMask:
 		err = d.processNetworkUDPAckPacket(udpPacket, context, conn)
 		if err != nil {
 			zap.L().Error("Error during authorization", zap.Error(err))
@@ -169,7 +170,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 		// ack is processed, mark connmark rule and let other packets go through.
 		return nil
 
-	case packet.TCPSynAckMask:
+	case packet.UDPSynAckMask:
 		err = d.processNetworkUDPSynAckPacket(udpPacket, context, conn)
 		if err != nil {
 			zap.L().Error("UDP Syn ack failed with", zap.Error(err))
@@ -206,6 +207,11 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		return fmt.Errorf("Recieved packet from unenforced process: %s", err)
 	}
 
+	// queue packets if connection is still authorized.
+	if conn.GetState() != connection.UDPAckProcessed {
+		conn.QueuePackets(p)
+	}
+
 	switch conn.GetState() {
 
 	case connection.UDPSynSend:
@@ -219,7 +225,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		return err
 	}
 
-	// Accept the packet
+	// if not in the above two states, packets are queued.
 	return nil
 }
 
@@ -240,7 +246,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	// Create a token
-	udpOptions := d.CreateUDPAuthMarker(packet.TCPSynMask)
+	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynMask)
 	udpData, err := d.tokenAccessor.CreateSynPacketToken(context, &conn.Auth)
 
 	if err != nil {
@@ -251,9 +257,6 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	if err != nil {
 		return fmt.Errorf("Unable to clone packet: %s", err)
 	}
-	// Queue the old packets.
-	conn.QueuePackets(udpPacket)
-
 	// Attach the UDP data and token
 	newPacket.UDPDataAttach(udpOptions, udpData)
 
@@ -297,7 +300,7 @@ func (d *Datapath) CreateUDPAuthMarker(packetType uint8) []byte {
 func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	// Create UDP Option
-	udpOptions := d.CreateUDPAuthMarker(packet.TCPSynAckMask)
+	udpOptions := d.CreateUDPAuthMarker(packet.UDPSynAckMask)
 
 	udpData, err := d.tokenAccessor.CreateSynAckPacketToken(context, &conn.Auth)
 
@@ -324,7 +327,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	// Create UDP Option
-	udpOptions := d.CreateUDPAuthMarker(packet.TCPAckMask)
+	udpOptions := d.CreateUDPAuthMarker(packet.UDPAckMask)
 
 	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
 

@@ -202,7 +202,7 @@ func (p *Packet) UpdateUDPChecksum() {
 // ReadUDPToken return the UDP token
 func (p *Packet) ReadUDPToken() []byte {
 
-	// check for valid buffer size.
+	// TODO check for valid buffer size/IP header size/ sanity checks required
 	// 20 byte IP hdr, 8 byte udp header, 20 byte udp marker
 	return p.Buffer[48:]
 }
@@ -243,9 +243,13 @@ func (p *Packet) CreateReverseFlowPacket() {
 
 	p.UpdateUDPChecksum()
 }
+
+// GetUDPType returns udp type of packet.
 func (p *Packet) GetUDPType() byte {
 
 	// last byte of marker as of now.
+	// TODO Sanity checks, Check for IP header length, and for valid bufffer sizes.
+	// TODO : check for udpauth marker, if absent , return zero.
 	return p.Buffer[47]
 
 }
