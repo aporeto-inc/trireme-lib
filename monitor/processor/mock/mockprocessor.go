@@ -109,16 +109,16 @@ func (mr *MockProcessorMockRecorder) Pause(ctx, eventInfo interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pause", reflect.TypeOf((*MockProcessor)(nil).Pause), ctx, eventInfo)
 }
 
-// ReSync mocks base method
+// Resync mocks base method
 // nolint
-func (m *MockProcessor) ReSync(ctx context.Context, EventInfo *common.EventInfo) error {
-	ret := m.ctrl.Call(m, "ReSync", ctx, EventInfo)
+func (m *MockProcessor) Resync(ctx context.Context, EventInfo *common.EventInfo) error {
+	ret := m.ctrl.Call(m, "Resync", ctx, EventInfo)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ReSync indicates an expected call of ReSync
+// Resync indicates an expected call of Resync
 // nolint
-func (mr *MockProcessorMockRecorder) ReSync(ctx, EventInfo interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReSync", reflect.TypeOf((*MockProcessor)(nil).ReSync), ctx, EventInfo)
+func (mr *MockProcessorMockRecorder) Resync(ctx, EventInfo interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockProcessor)(nil).Resync), ctx, EventInfo)
 }

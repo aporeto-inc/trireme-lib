@@ -570,7 +570,7 @@ func TestSyncContainers(t *testing.T) {
 
 		Convey("If I try to sync containers where when SyncAtStart is not set, I should get nil", func() {
 			dmi.syncAtStart = false
-			err := dmi.ReSync(context.Background())
+			err := dmi.Resync(context.Background())
 			So(err, ShouldBeNil)
 		})
 
@@ -579,7 +579,7 @@ func TestSyncContainers(t *testing.T) {
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
 				ContainerList(gomock.Any(), gomock.Any()).Return([]types.Container{types.Container{ID: ID}}, errors.New("error"))
 
-			err := dmi.ReSync(context.Background())
+			err := dmi.Resync(context.Background())
 			So(err, ShouldNotBeNil)
 		})
 
@@ -594,7 +594,7 @@ func TestSyncContainers(t *testing.T) {
 
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(errors.New("blah"))
 
-			err := dmi.ReSync(context.Background())
+			err := dmi.Resync(context.Background())
 
 			Convey("Then I should  get  error since we ignore bad containers", func() {
 				So(err, ShouldBeNil)
@@ -613,7 +613,7 @@ func TestSyncContainers(t *testing.T) {
 
 			mockPU.EXPECT().HandlePUEvent(gomock.Any(), ID[:12], tevents.EventStart, gomock.Any()).AnyTimes().Return(nil)
 
-			err := dmi.ReSync(context.Background())
+			err := dmi.Resync(context.Background())
 
 			Convey("Then I should not get no error ", func() {
 				So(err, ShouldBeNil)

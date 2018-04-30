@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
+	"go.uber.org/zap"
 )
 
 // ListenerType are the types of listeners that can be used.
@@ -45,10 +47,6 @@ func (p *ProtoListener) Accept() (net.Conn, error) {
 	if !ok {
 		return nil, fmt.Errorf("mux: listener closed")
 	}
-	// Mark the connection
-	if err := markedconn.MarkConnection(c, p.mark); err != nil {
-		return nil, err
-	}
 	return c, nil
 }
 
@@ -62,6 +60,7 @@ type MultiplexedListener struct {
 	protomap        map[ListenerType]*ProtoListener
 	servicecache    *servicecache.ServiceCache
 	defaultListener *ProtoListener
+	localIPs        map[string]struct{}
 	mark            int
 	sync.RWMutex
 }
@@ -69,6 +68,7 @@ type MultiplexedListener struct {
 // NewMultiplexedListener returns a new multiplexed listener. Caller
 // must register protocols outside of the new object creation.
 func NewMultiplexedListener(l net.Listener, mark int) *MultiplexedListener {
+
 	return &MultiplexedListener{
 		root:         l,
 		done:         make(chan struct{}),
@@ -76,6 +76,7 @@ func NewMultiplexedListener(l net.Listener, mark int) *MultiplexedListener {
 		wg:           sync.WaitGroup{},
 		protomap:     map[ListenerType]*ProtoListener{},
 		servicecache: servicecache.NewTable(),
+		localIPs:     connproc.GetInterfaces(),
 		mark:         mark,
 	}
 }
@@ -195,24 +196,30 @@ func (m *MultiplexedListener) Serve(ctx context.Context) error {
 	}
 }
 
-func (m *MultiplexedListener) serve(c net.Conn) {
+func (m *MultiplexedListener) serve(conn net.Conn) {
+
+	c, ok := conn.(*markedconn.ProxiedConnection)
+	if !ok {
+		zap.L().Error("Wrong connection type")
+	}
 
 	defer m.wg.Done()
-	ip, port, err := connproc.GetOriginalDestination(c)
-	if err != nil {
-		c.Close() // nolint
-		return
+	ip, port := c.GetOriginalDestination()
+
+	local := false
+	if _, ok = m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {
+		local = true
 	}
 
 	m.RLock()
 	servicecache := m.servicecache
 	m.RUnlock()
-	entry := servicecache.Find(ip, port)
+	entry := servicecache.Find(ip, port, !local)
 	if entry == nil {
 		// Let's see if we can match the source address.
 		// Compatibility with deprecated model. TODO: Remove
 		ip = c.RemoteAddr().(*net.TCPAddr).IP
-		entry = servicecache.Find(ip, port)
+		entry = servicecache.Find(ip, port, !local)
 		if entry == nil {
 			// Failed with source as well.
 			c.Close() // nolint
@@ -235,4 +242,12 @@ func (m *MultiplexedListener) serve(c net.Conn) {
 	case <-m.done:
 		c.Close() // nolint
 	}
+}
+
+func networkOfAddress(addr string) string {
+	parts := strings.Split(addr, ":")
+	if len(parts) == 2 {
+		return parts[0]
+	}
+	return addr
 }

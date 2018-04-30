@@ -6,9 +6,15 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"syscall"
+	"unsafe"
 
 	"github.com/rs/xid"
+)
+
+const (
+	sockOptOriginalDst = 80
 )
 
 // DialMarkedTCP creates a new TCP connection and marks it with the provided mark.
@@ -66,7 +72,7 @@ func MarkConnection(conn net.Conn, mark int) error {
 
 // SocketListener creates a TCP listener through system calls giving us more
 // control over the specific parameters that we need.
-func SocketListener(port string) (net.Listener, error) {
+func SocketListener(port string, mark int) (net.Listener, error) {
 
 	addr, err := net.ResolveTCPAddr("tcp4", port)
 	if err != nil {
@@ -106,5 +112,111 @@ func SocketListener(port string) (net.Listener, error) {
 		return nil, fmt.Errorf("Cannot bind listener: %s", err)
 	}
 
-	return listener, nil
+	return ProxiedListener{netListener: listener, mark: mark}, nil
+}
+
+// ProxiedConnection is a proxied connection where we can recover the
+// original destination.
+type ProxiedConnection struct {
+	net.Conn
+	originalIP            net.IP
+	originalPort          int
+	originalTCPConnection *net.TCPConn
+}
+
+// GetOriginalDestination sets the original destination of the connection.
+func (p *ProxiedConnection) GetOriginalDestination() (net.IP, int) {
+	return p.originalIP, p.originalPort
+}
+
+// GetTCPConnection returns the TCP connection object.
+func (p *ProxiedConnection) GetTCPConnection() *net.TCPConn {
+	return p.originalTCPConnection
+}
+
+// LocalAddr implements the corresponding method of net.Conn, but returns the original
+// address.
+func (p *ProxiedConnection) LocalAddr() net.Addr {
+
+	addr, err := net.ResolveTCPAddr("tcp", p.originalIP.String()+":"+strconv.Itoa(p.originalPort))
+	if err != nil {
+		return nil
+	}
+
+	return addr
+}
+
+// ProxiedListener is a proxied listener that uses proxied connections.
+type ProxiedListener struct {
+	netListener net.Listener
+	mark        int
+}
+
+// Accept implements the accept method of the interface.
+func (l ProxiedListener) Accept() (c net.Conn, err error) {
+	nc, err := l.netListener.Accept()
+	if err != nil {
+		fmt.Println("I got an error", err)
+		return nil, err
+	}
+
+	ip, port, err := GetOriginalDestination(nc)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := MarkConnection(nc, l.mark); err != nil {
+		return nil, err
+	}
+
+	return &ProxiedConnection{nc, ip, port, nc.(*net.TCPConn)}, nil
+}
+
+// Addr implements the Addr method of net.Listener.
+func (l ProxiedListener) Addr() net.Addr {
+	return l.netListener.Addr()
+}
+
+// Close implements the Close method of the net.Listener.
+func (l ProxiedListener) Close() error {
+	return l.netListener.Close()
+}
+
+type sockaddr struct {
+	family uint16
+	data   [14]byte
+}
+
+// GetOriginalDestination -- Func to get original destination a connection
+func GetOriginalDestination(conn net.Conn) (net.IP, int, error) {
+	var addr sockaddr
+	size := uint32(unsafe.Sizeof(addr))
+
+	inFile, err := conn.(*net.TCPConn).File()
+	if err != nil {
+		return []byte{}, 0, err
+	}
+
+	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size)
+	if err != nil {
+		return []byte{}, 0, err
+	}
+
+	if addr.family != syscall.AF_INET {
+		return []byte{}, 0, fmt.Errorf("invalid address family")
+	}
+
+	var ip net.IP
+	ip = addr.data[2:6]
+	port := int(addr.data[0])<<8 + int(addr.data[1])
+
+	return ip, port, nil
+}
+
+func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {
+	_, _, e1 := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(s), uintptr(level), uintptr(name), uintptr(val), uintptr(unsafe.Pointer(vallen)), 0)
+	if e1 != 0 {
+		err = e1
+	}
+	return
 }
