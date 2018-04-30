@@ -70,7 +70,6 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	if err != nil {
 		return err
 	}
-	zap.L().Error("AMIT::STARTING ")
 	// Extract the metadata and create the runtime
 	runtime, err := l.metadataExtractor(eventInfo)
 	if err != nil {
@@ -86,13 +85,11 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	if err = l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventStart, runtime); err != nil {
 		return fmt.Errorf("Unable to start PU: %s", err)
 	}
-	zap.L().Error("AMIT::Start Linux")
 	l.Lock()
 	// We can now program cgroups and everything else.
 	if eventInfo.HostService {
 		err = l.processHostServiceStart(eventInfo, runtime)
 	} else {
-		zap.L().Error("AMIT::Start Linux Service")
 		err = l.processLinuxServiceStart(nativeID, eventInfo, runtime)
 	}
 	l.Unlock()
@@ -186,8 +183,8 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventPause, nil)
 }
 
-// ReSync resyncs with all the existing services that were there before we start
-func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
+// Resync resyncs with all the existing services that were there before we start
+func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
 	cgroups := l.netcls.ListAllCgroups("")
 	for _, cgroup := range cgroups {
 		if _, ok := ignoreNames[cgroup]; ok {

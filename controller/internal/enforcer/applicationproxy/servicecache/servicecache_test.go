@@ -29,10 +29,10 @@ func TestServiceCache(t *testing.T) {
 				Addresses: []*net.IPNet{n1, n2, n3},
 			}
 
-			cerr := c.Add(s1, "first data")
+			cerr := c.Add(s1, "first data", true)
 			So(cerr, ShouldBeNil)
-			So(c.prefixes, ShouldNotBeNil)
-			So(len(c.prefixes), ShouldEqual, 3)
+			So(c.local, ShouldNotBeNil)
+			So(len(c.local), ShouldEqual, 3)
 
 			_, n4, err4 := net.ParseCIDR("10.1.1.0/28")
 			So(err4, ShouldBeNil)
@@ -44,10 +44,10 @@ func TestServiceCache(t *testing.T) {
 				Protocol:  6,
 				Addresses: []*net.IPNet{n4},
 			}
-			cerr = c.Add(s2, "second data")
+			cerr = c.Add(s2, "second data", true)
 			So(cerr, ShouldBeNil)
-			So(c.prefixes, ShouldNotBeNil)
-			So(len(c.prefixes), ShouldEqual, 4)
+			So(c.local, ShouldNotBeNil)
+			So(len(c.local), ShouldEqual, 4)
 
 			s3 := &common.Service{
 				Ports: &portspec.PortSpec{
@@ -57,9 +57,9 @@ func TestServiceCache(t *testing.T) {
 				Protocol:  6,
 				Addresses: []*net.IPNet{},
 			}
-			cerr = c.Add(s3, "third data")
+			cerr = c.Add(s3, "third data", true)
 			So(cerr, ShouldBeNil)
-			So(len(c.prefixes), ShouldEqual, 5)
+			So(len(c.local), ShouldEqual, 5)
 
 			Convey("If I try to add overlapping ports for a given prefix, I should get error", func() {
 				_, n5, err5 := net.ParseCIDR("10.1.1.0/28")
@@ -72,31 +72,31 @@ func TestServiceCache(t *testing.T) {
 					Protocol:  6,
 					Addresses: []*net.IPNet{n5},
 				}
-				cerr = c.Add(s3, "second data")
+				cerr = c.Add(s3, "second data", true)
 				So(cerr, ShouldNotBeNil)
 			})
 
 			Convey("When I search for valid entries, I should get the right responses", func() {
-				data := c.Find(net.ParseIP("10.1.1.1").To4(), 175)
+				data := c.Find(net.ParseIP("10.1.1.1").To4(), 175, true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "second data")
 
-				data = c.Find(net.ParseIP("192.168.1.1").To4(), 50)
+				data = c.Find(net.ParseIP("192.168.1.1").To4(), 50, true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "first data")
 
-				data = c.Find(net.ParseIP("50.50.50.50").To4(), 1001)
+				data = c.Find(net.ParseIP("50.50.50.50").To4(), 1001, true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "third data")
 			})
 
 			Convey("When I search for a good IP, but invalid port, I should get nil ", func() {
-				data := c.Find(net.ParseIP("10.1.1.1").To4(), 50)
+				data := c.Find(net.ParseIP("10.1.1.1").To4(), 50, true)
 				So(data, ShouldBeNil)
 			})
 
 			Convey("When I search for a good exact IP, and valid port, I should get the data ", func() {
-				data := c.Find(net.ParseIP("20.1.1.1").To4(), 50)
+				data := c.Find(net.ParseIP("20.1.1.1").To4(), 50, true)
 				So(data, ShouldNotBeNil)
 				So(data.(string), ShouldResemble, "first data")
 			})

@@ -33,8 +33,7 @@ type TunTap struct {
 // NewTun -- creates a new tun interface and returns a handle to it. This will also implicitly bring up the interface
 func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName string, uid uint, group uint, persist bool, callback func([]byte, interface{}) error) (*TunTap, error) {
 
-	// NumQueues is 0 indexed gives us 256 queues
-	if numQueues > 255 {
+	if numQueues > 256 {
 		return nil, fmt.Errorf("Max number of queues supported is 256")
 	}
 	if len(deviceName) > IFNAMSIZE {
@@ -45,10 +44,10 @@ func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName st
 		numQueues:     numQueues,
 		ipAddress:     ipAddress,
 		hwMacAddress:  macAddress,
-		queueHandles:  make([]int, numQueues+1),
-		numFramesRead: make([]uint64, numQueues+1),
-		DroppedFrames: make([]uint64, numQueues+1),
-		fdtoQueueNum:  make(map[int]int, numQueues+1),
+		queueHandles:  make([]int, numQueues),
+		numFramesRead: make([]uint64, numQueues),
+		DroppedFrames: make([]uint64, numQueues),
+		fdtoQueueNum:  make(map[int]int, numQueues),
 		deviceName:    deviceName,
 		uid:           uid,
 		group:         group,
@@ -89,16 +88,16 @@ func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
 // ReadQueue -- Reads packets from a queue. This is a blocking read call. Returns num bytes read
 func (t *TunTap) ReadQueue(queueNum int, data []byte) (int, error) {
 
-	n, err := t.Read(t.queueHandles[queueNum], data)
+	n, err := t.read(t.queueHandles[queueNum], data)
 	return n, err
 }
 
-func (t *TunTap) Read(fd int, data []byte) (int, error) {
+func (t *TunTap) read(fd int, data []byte) (int, error) {
 	return read(fd, data)
 }
 
-// PollRead -- returns a list of queues on which data can be read
-func (t *TunTap) PollRead(timeout int) ([]int, error) {
+// pollRead -- returns a list of queues on which data can be read
+func (t *TunTap) pollRead(timeout int) ([]int, error) {
 	var events [MaxEpollEvents]syscall.EpollEvent
 	var fds [MaxEpollEvents]int
 	_, err := syscall.EpollWait(t.epollfd, events[:], timeout)
@@ -110,11 +109,6 @@ func (t *TunTap) PollRead(timeout int) ([]int, error) {
 		fds[i] = t.fdtoQueueNum[int(event.Fd)]
 	}
 	return fds[:], nil
-}
-
-// Write to write tun tap. Not Implemented as of now here
-func (t *TunTap) Write(queueNum int, data []byte) (int, error) {
-	return 0, nil
 }
 
 // setupTun  create the Tun Interface.

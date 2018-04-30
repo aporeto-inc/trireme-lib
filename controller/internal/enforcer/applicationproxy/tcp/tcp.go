@@ -127,10 +127,7 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
 	defer upConn.Close() // nolint
 
-	ip, port, err := connproc.GetOriginalDestination(upConn)
-	if err != nil {
-		return
-	}
+	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
 
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
@@ -180,7 +177,7 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.C
 	certs := []tls.Certificate{*p.certificate}
 	p.RUnlock()
 
-	tlsConn := tls.Server(serverConn, &tls.Config{
+	tlsConn := tls.Server(serverConn.(*markedconn.ProxiedConnection).GetTCPConnection(), &tls.Config{
 		Certificates: certs,
 	})
 	defer tlsConn.Close() // nolint errcheck
@@ -201,6 +198,7 @@ func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn) {
 		dataprocessor(ctx, dest, source)
 		wg.Done()
 	}()
+	wg.Wait()
 }
 
 func dataprocessor(ctx context.Context, source, dest net.Conn) {
@@ -210,6 +208,8 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 			dest.(*tls.Conn).CloseWrite() // nolint errcheck
 		case *net.TCPConn:
 			dest.(*net.TCPConn).CloseWrite() // nolint errcheck
+		case *markedconn.ProxiedConnection:
+			dest.(*markedconn.ProxiedConnection).GetTCPConnection().CloseWrite() // nolint errcheck
 		}
 	}()
 	b := make([]byte, 16384)
@@ -227,6 +227,7 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 				if checkErr(err) {
 					continue
 				}
+				return
 			}
 			if _, err = dest.Write(b[:n]); err != nil {
 				if checkErr(err) {
@@ -308,15 +309,12 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 		// SourceIP: downConn.LocalAddr().Network(),
 	}
 
-	// reader := bufio.NewReader(downConn)
-
 	for {
 		if err := downConn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			return false, err
 		}
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
-
 			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
@@ -329,6 +327,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 			conn.SetState(connection.ClientPeerTokenReceive)
 
 		case connection.ClientPeerTokenReceive:
+
 			msg, err := readMsg(downConn)
 			if err != nil {
 				return false, fmt.Errorf("Failed to read peer token: %s", err)
@@ -455,13 +454,13 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 			ID:   sourceID,
 			IP:   flowproperties.SourceIP,
 			Port: flowproperties.SourcePort,
-			Type: collector.PU,
+			Type: collector.EnpointTypePU,
 		},
 		Destination: &collector.EndPoint{
 			ID:   destID,
 			IP:   flowproperties.DestIP,
 			Port: flowproperties.DestPort,
-			Type: collector.PU,
+			Type: collector.EnpointTypePU,
 		},
 		Tags:       context.Annotations(),
 		Action:     reportAction.Action,

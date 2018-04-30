@@ -25,6 +25,6 @@ type Processor interface {
 	// Event processes a pause event
 	Pause(ctx context.Context, eventInfo *common.EventInfo) error
 
-	// ReSync resyncs all PUs handled by this processor
-	ReSync(ctx context.Context, EventInfo *common.EventInfo) error
+	// Resync resyncs all PUs handled by this processor
+	Resync(ctx context.Context, EventInfo *common.EventInfo) error
 }

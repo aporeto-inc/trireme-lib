@@ -231,7 +231,7 @@ func New(
 	//TODO :: Remove Call to NFQ once we pass tun tests
 	//d.datapathhdl = nfq.NewNfq(d, filterQueue)
 
-	d.datapathhdl, err = tundatapath.NewTunDataPath(d, 0x100)
+	d.datapathhdl, err = tundatapath.NewTunDataPath(d, 0x100, mode)
 	if err != nil {
 		zap.L().Fatal("Unable to instantiate datapath", zap.Error(err))
 	}
@@ -388,6 +388,8 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 // UpdateSecrets updates the secrets used for signing communication between trireme instances
 func (d *Datapath) UpdateSecrets(token secrets.Secrets) error {
+
+	d.secrets = token
 	return d.tokenAccessor.SetToken(d.tokenAccessor.GetTokenServerID(), d.tokenAccessor.GetTokenValidity(), token)
 }
 
@@ -414,13 +416,13 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnec
 			ID:   sourceID,
 			IP:   p.SourceAddress.String(),
 			Port: p.SourcePort,
-			Type: collector.PU,
+			Type: collector.EnpointTypePU,
 		},
 		Destination: &collector.EndPoint{
 			ID:   destID,
 			IP:   p.DestinationAddress.String(),
 			Port: p.DestinationPort,
-			Type: collector.PU,
+			Type: collector.EnpointTypePU,
 		},
 		Tags:       context.Annotations(),
 		Action:     report.Action,

@@ -687,10 +687,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *connection.TCPConnection, tcpPacket *packet.Packet) (action interface{}, claims *tokens.ConnectionClaims, err error) {
 
 	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend {
-		zap.L().Error("Received Data Packet")
 		return nil, nil, nil
 	}
-	zap.L().Error("AMIT:: connection State", zap.Int("State", int(conn.GetState())))
+
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
@@ -726,23 +725,19 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 	// Validate that the source/destination nonse matches. The signature has validated both directions
 	if conn.GetState() == connection.TCPSynAckSend || conn.GetState() == connection.TCPSynReceived {
-		zap.L().Error("AMIT:: connection State", zap.Int("State", int(conn.GetState())))
 		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
-			zap.L().Error("AMIT ::: TCP AUthentication option not found")
 			return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
 		}
 
 		if _, err := d.tokenAccessor.ParseAckToken(&conn.Auth, tcpPacket.ReadTCPData()); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
-			zap.L().Error("AMIT::: TCP SIG Validate Failed")
 			return nil, nil, fmt.Errorf("Ack packet dropped because signature validation failed: %s", err)
 		}
 
 		// Remove any of our data - adjust the sequence numbers
 		if err := tcpPacket.TCPDataDetach(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
-			zap.L().Error("AMIT::: Invalid format")
 			return nil, nil, fmt.Errorf("Ack packet dropped because of invalid format: %s", err)
 		}
 
@@ -758,7 +753,6 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			// We accept the packet as a new flow
 			d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 		}
-		zap.L().Error("AMIT :: SETTING TCP DAta")
 		conn.SetState(connection.TCPData)
 
 		if !conn.ServiceConnection {
