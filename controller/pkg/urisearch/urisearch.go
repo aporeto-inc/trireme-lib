@@ -13,28 +13,29 @@ type node struct {
 
 // APICache represents an API cache.
 type APICache struct {
-	root     *node
-	ID       string
-	External bool
+	methodRoots map[string]*node
+	ID          string
+	External    bool
 }
 
 // NewAPICache creates a new API cache
 func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 	a := &APICache{
-		root:     &node{},
+		root:     map[string]*node{},
 		ID:       id,
 		External: external,
 	}
 
 	empty := struct{}{}
 	for _, rule := range rules {
-		methods := map[string]struct{}{}
-		for _, m := range rule.Methods {
-			methods[m] = empty
-		}
+		for _, method := range rule.Methods {
 
-		for _, uri := range rule.URIs {
-			insert(a.root, uri, methods, rule)
+			if _, ok := a.methodRoots[method]; !ok {
+				a.methodRoots[method] = &node{}
+			}
+			for _, uri := range rule.URIs {
+				insert(a.methodRoots[method], uri, methods, rule)
+			}
 		}
 	}
 
