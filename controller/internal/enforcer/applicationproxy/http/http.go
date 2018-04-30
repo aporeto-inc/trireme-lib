@@ -449,7 +449,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	record.Action = policy.Accept | policy.Encrypt
 
-	fmt.Printf("Sending stats record %+v\n", record)
+	zap.L().Info("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+
 	p.fwd.ServeHTTP(w, r)
 }
 
