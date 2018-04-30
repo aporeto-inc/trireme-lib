@@ -172,6 +172,7 @@ type Packet struct {
 
 	// UDP Specific fields
 	UDPChecksum uint16
+	udpData     []byte
 
 	// Service Metadata
 	SvcMetadata interface{}

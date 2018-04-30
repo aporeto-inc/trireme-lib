@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/openpgp/packet"
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
@@ -217,6 +217,7 @@ type UDPConnection struct {
 	sync.Mutex
 
 	state            UDPFlowState
+	Context          *pucontext.PUContext
 	Auth             AuthInfo
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
@@ -239,7 +240,7 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 
 	return &UDPConnection{
 		state:       UDPSynSend,
-		context:     context,
+		Context:     context,
 		packetQueue: [][]byte{},
 		writer:      writer,
 	}
@@ -260,7 +261,7 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) {
 
 	buffer := make([]byte, len(udpPacket.Buffer))
-	copyIndex := copy(buffer, udpPacket.Buffer)
+	_ = copy(buffer, udpPacket.Buffer)
 
 	c.packetQueue = append(c.packetQueue, buffer)
 }
@@ -271,7 +272,7 @@ func (c *UDPConnection) TransmitQueuePackets() error {
 	for _, packet := range c.packetQueue {
 		err := c.writer.WriteSocket(packet)
 		if err != nil {
-			zap.L().Error("Unable to transmit UDP packets", zap.Error("udp", err))
+			zap.L().Error("Unable to transmit UDP packets", zap.Error(err))
 		}
 	}
 	return nil

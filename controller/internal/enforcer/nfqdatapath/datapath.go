@@ -100,10 +100,10 @@ type Datapath struct {
 	portSetInstance portset.PortSet
 
 	//datapathImpl
-    datapathhdl datapathimpl.DatapathImpl
+	datapathhdl datapathimpl.DatapathImpl
 
-    // udp socket fd
-    udpSocketWriter afinetrawsocket.SocketWriter
+	// udp socket fd
+	udpSocketWriter afinetrawsocket.SocketWriter
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -187,7 +187,7 @@ func New(
 
 	udpSocketWriter, err := afinetrawsocket.CreateSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
 	if err != nil {
-		zap.L.Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
+		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
 
 	d := &Datapath{
@@ -206,8 +206,8 @@ func New(
 		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*24),
 		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*24),
 		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*24),
-		udpOrigConnectionTracker:     cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*24),
-		udpReplyConnectionTracker:    cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*24),
+		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*24),
+		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*24),
 
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		filterQueue:            filterQueue,
@@ -222,8 +222,8 @@ func New(
 		conntrackHdl:           conntrack.NewHandle(),
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
-        udpSocketWriter         udpSocketWriter,
-    }
+		udpSocketWriter:        udpSocketWriter,
+	}
 
 	packet.PacketLogLevel = packetLogs
 

@@ -1055,13 +1055,3 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 
 	d.reportReverseExternalServiceFlow(context, report, action, true, tcpPacket)
 }
-
-// ProcessNetworkUDPPacket is a dummy function.
-func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) error {
-	return nil
-}
-
-// ProcessApplicationUDPPacket is a dummy function.
-func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) error {
-	return nil
-}

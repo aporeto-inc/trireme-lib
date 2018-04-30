@@ -86,7 +86,7 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		}
 	}
 
-	if p.IPProto == packet.IPProtocolTCP {
+	if p.IPProto == IPProtocolTCP {
 		// TCP Header Processing
 		p.l4BeginPos = minIPHdrSize
 		p.TCPChecksum = binary.BigEndian.Uint16(bytes[TCPChecksumPos : TCPChecksumPos+2])

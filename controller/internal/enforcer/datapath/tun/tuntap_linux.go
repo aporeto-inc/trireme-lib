@@ -79,28 +79,20 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		if err = t.processor.ProcessNetworkPacket(netPacket); err != nil {
 			return fmt.Errorf("Network bad TCP packet %s", err)
-        }
-        //Copy the buffer
-	    buffer := make([]byte, len(netPacket.Buffer)+netPacket.TCPOptionLength()+netPacket.TCPDataLength())
-	    copyIndex := copy(buffer, netPacket.Buffer)
-	    copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
-	    copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
-	    return writer.WriteSocket(buffer[:copyIndex])
+		}
+		//Copy the buffer
+		buffer := make([]byte, len(netPacket.Buffer)+netPacket.TCPOptionLength()+netPacket.TCPDataLength())
+		copyIndex := copy(buffer, netPacket.Buffer)
+		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
+		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
+		return writer.WriteSocket(buffer[:copyIndex])
 
 	} else if netPacket.IPProto == packet.IPProtocolUDP {
-        if err = t.processor.ProcessNetworkUDPPacket(netPacket); err != nil {
-            return fmt.Errorf("Network bad UDP Packet %s", err)
-        }
-            //Copy the buffer
-	    buffer := make([]byte, len(netPacket.Buffer)+ netPacket.TCPOptionLength()+netPacket.TCPDataLength())
-	    copyIndex := copy(buffer, netPacket.Buffer)
-	    copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
-	    copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
-	    return writer.WriteSocket(buffer[:copyIndex])
-
-    else {
-		return fmt.Errorf("Invalid ip protocol: %d", netPacket.IPProto)
+		if err = t.processor.ProcessNetworkUDPPacket(netPacket); err != nil {
+			return fmt.Errorf("Network bad UDP Packet %s", err)
+		}
 	}
+	return fmt.Errorf("Invalid ip protocol: %d", netPacket.IPProto)
 }
 
 func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
@@ -110,23 +102,20 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		if err = t.processor.ProcessApplicationPacket(appPacket); err != nil {
 			return fmt.Errorf("Application bad TCP packet %s", err)
-        }
+		}
 
-        //Copy the buffer
-	    buffer := make([]byte, len(appPacket.Buffer)+appPacket.TCPOptionLength()+appPacket.TCPDataLength())
-	    copyIndex := copy(buffer, appPacket.Buffer)
-	    copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
-	    copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
-	    return writer.WriteSocket(buffer[:copyIndex])
+		//Copy the buffer
+		buffer := make([]byte, len(appPacket.Buffer)+appPacket.TCPOptionLength()+appPacket.TCPDataLength())
+		copyIndex := copy(buffer, appPacket.Buffer)
+		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
+		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
+		return writer.WriteSocket(buffer[:copyIndex])
 	} else if appPacket.IPProto == packet.IPProtocolUDP {
 		if err = t.processor.ProcessApplicationUDPPacket(appPacket); err != nil {
 			return fmt.Errorf("Application bad UDP packet %s", err)
 		}
-	} else {
-		return fmt.Errorf("Invalid ip protocol: %d", appPacket.IPProto)
 	}
-
-
+	return fmt.Errorf("Invalid ip protocol: %d", appPacket.IPProto)
 }
 
 func (t *tundev) cleanupNetworkIPRule() {

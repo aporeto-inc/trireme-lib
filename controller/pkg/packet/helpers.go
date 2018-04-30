@@ -189,39 +189,59 @@ func checksum(buf []byte) uint16 {
 	return csum
 }
 
-// UpdateUDPCheckSum updates the UDP checksum field of packet
-func (p *packet) UpdateUDPCheckSum() {
+// UpdateUDPChecksum updates the UDP checksum field of packet
+func (p *Packet) UpdateUDPChecksum() {
 
 	ignoreCheckSum := []byte{0, 0}
 	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
+	binary.BigEndian.PutUint16(p.Buffer[UDPChecksumPos:UDPChecksumPos+2], p.ipChecksum)
 
 }
 
-func (p *packet) ReadUDPToken() []byte {
+// ReadUDPToken return the UDP token
+func (p *Packet) ReadUDPToken() []byte {
 
 	// check for valid buffer size.
-	// 20 byte IP hdr, 8 byte udp header, 20 byte marker
+	// 20 byte IP hdr, 8 byte udp header, 20 byte udp marker
 	return p.Buffer[48:]
 }
 
 // UDPDataAttach attached udp data and token.
-func (p *packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
+func (p *Packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
 
 	udpData := []byte{}
-	udpData = append(udpdata, udpdata...)
-	udpData = append(udpdata, udptoken...)
+	udpData = append(udpData, udpdata...)
+	udpData = append(udpData, udptoken...)
 
-	p.udpData = udpdata
+	p.udpData = udpData
 
-	// We are increasing tcpOptions by 1 32-bit word. We are always adding
-	// our option last.
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
 
 	// IP Header Processing
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
-	p.Buffer = append(p.Buffer, p.udpData)
+	p.Buffer = append(p.Buffer, p.udpData...)
 
-	p.UpdateUDPCheckSum()
+	p.UpdateUDPChecksum()
+}
+
+// CreateReverseFlowPacket modifies the packet for reverse flow.
+func (p *Packet) CreateReverseFlowPacket() error {
+
+	// srcAddr := make([]byte, len(p.SourceAddress))
+	// destAddr := make([]byte, len(p.DestinationAddress))
+	// srcPort := make([]byte, len(p.SourcePort))
+	// dstPort := make([]byte, len(p.DestinationPort))
+
+	// // copy the fields
+	// binary.BigEndian.PutUint32(p.Buffer[packet.ipSourceAddrPos:packet.ipSourceAddrPos+4], destAddr)
+	// binary.BigEndian.PutUint32(p.Buffer[packet.ipDestAddrPos:packet.ipDestAddrPos+4], srcAddr)
+	// binary.BigEndian.PutUint16(p.Buffer[packet.tcpSourcePortPos:packet.tcpSourcePortPos+2], destPort)
+	// binary.BigEndian.PutUint16(p.Buffer[packet.tcpDestPortPos:packet.tcpDestPortPos+2], srcPort)
+
+	// p.UpdateIPChecksum()
+
+	// p.UpdateUDPChecksum()
+	return nil
 }
