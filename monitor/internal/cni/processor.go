@@ -79,8 +79,8 @@ func (c *cniProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo) e
 	return nil
 }
 
-// ReSync resyncs with all the existing services that were there before we start
-func (c *cniProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
+// Resync resyncs with all the existing services that were there before we start
+func (c *cniProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
 	return nil
 }
 

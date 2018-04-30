@@ -95,9 +95,9 @@ func (c *CniMonitor) SetupHandlers(m *config.ProcessorConfig) {
 	c.proc.config = m
 }
 
-// ReSync instructs the monitor to do a resync.
-func (c *CniMonitor) ReSync(ctx context.Context) error {
+// Resync instructs the monitor to do a resync.
+func (c *CniMonitor) Resync(ctx context.Context) error {
 
-	// TODO: Implement reSync
-	return fmt.Errorf("reSync not implemented")
+	// TODO: Implement resync
+	return fmt.Errorf("resync not implemented")
 }

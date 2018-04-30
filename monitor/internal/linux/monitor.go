@@ -32,7 +32,7 @@ func (l *LinuxMonitor) Run(ctx context.Context) error {
 		return fmt.Errorf("linux %t: %s", l.proc.host, err)
 	}
 
-	if err := l.ReSync(ctx); err != nil {
+	if err := l.Resync(ctx); err != nil {
 		return err
 	}
 
@@ -85,8 +85,7 @@ func (l *LinuxMonitor) SetupHandlers(m *config.ProcessorConfig) {
 	l.proc.config = m
 }
 
-// ReSync instructs the monitor to do a resync.
-func (l *LinuxMonitor) ReSync(ctx context.Context) error {
-
-	return l.proc.ReSync(ctx, nil)
+// Resync instructs the monitor to do a resync.
+func (l *LinuxMonitor) Resync(ctx context.Context) error {
+	return l.proc.Resync(ctx, nil)
 }
