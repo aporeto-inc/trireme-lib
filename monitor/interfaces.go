@@ -35,6 +35,6 @@ type Implementation interface {
 	// by the consumer of the monitor
 	SetupHandlers(c *config.ProcessorConfig)
 
-	// ReSync should resynchronize PUs. This should be done while starting up.
-	ReSync(ctx context.Context) error
+	// Resync should resynchronize PUs. This should be done while starting up.
+	Resync(ctx context.Context) error
 }

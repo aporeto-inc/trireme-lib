@@ -183,8 +183,8 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventPause, nil)
 }
 
-// ReSync resyncs with all the existing services that were there before we start
-func (l *linuxProcessor) ReSync(ctx context.Context, e *common.EventInfo) error {
+// Resync resyncs with all the existing services that were there before we start
+func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
 	cgroups := l.netcls.ListAllCgroups("")
 	for _, cgroup := range cgroups {
 		if _, ok := ignoreNames[cgroup]; ok {

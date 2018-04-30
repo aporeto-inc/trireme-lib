@@ -70,16 +70,16 @@ func (a *APIStore) Find(verb, api string) ([]string, error) {
 // ruleString converts the HTTP rule to a regular expressions string.
 // It assumes that the URI is a valid Go regular expression.
 func ruleString(index string, rule *policy.HTTPRule) string {
-	var verbs string
-	if len(rule.Verbs) == 0 {
-		verbs = "PUT|GET|POST|PATCH|DELETE"
+	var methods string
+	if len(rule.Methods) == 0 {
+		methods = "PUT|GET|POST|PATCH|DELETE|HEAD"
 	} else {
-		verbs = rule.Verbs[0]
+		methods = rule.Methods[0]
 	}
-	for i := 1; i < len(rule.Verbs); i++ {
-		verbs = verbs + "|" + rule.Verbs[i]
+	for i := 1; i < len(rule.Methods); i++ {
+		methods = methods + "|" + rule.Methods[i]
 	}
-	verbs = fmt.Sprintf("(%s)", verbs)
+	methods = fmt.Sprintf("(%s)", methods)
 
 	var uris string
 	if len(rule.URIs) == 0 {
@@ -92,5 +92,5 @@ func ruleString(index string, rule *policy.HTTPRule) string {
 	}
 	uris = fmt.Sprintf("(%s)", uris)
 
-	return fmt.Sprintf("(?P<%s>%s%s$)", index, verbs, uris)
+	return fmt.Sprintf("(?P<%s>%s%s$)", index, methods, uris)
 }

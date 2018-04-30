@@ -92,7 +92,6 @@ func (p *tokenManager) Verify(token []byte) (*ecdsa.PublicKey, error) {
 		if time.Now().Add(p.validity).Unix() <= claims.ExpiresAt {
 			p.keycache.AddOrUpdate(tokenString, pk)
 		}
-
 		return pk, nil
 	}
 

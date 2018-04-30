@@ -18,6 +18,7 @@ const (
 	LinuxProcess
 	LinuxHost
 	UID
+	Kubernetes
 )
 
 // MonitorConfig specifies the configs for monitors.

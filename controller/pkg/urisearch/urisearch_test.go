@@ -11,7 +11,7 @@ func initTrieRules() []*policy.HTTPRule {
 
 	return []*policy.HTTPRule{
 		&policy.HTTPRule{
-			Verbs: []string{"GET", "PUT"},
+			Methods: []string{"GET", "PUT"},
 			URIs: []string{
 				"/users/*/name",
 				"/things/*",
@@ -19,7 +19,7 @@ func initTrieRules() []*policy.HTTPRule {
 			Scopes: []string{"app=old"},
 		},
 		&policy.HTTPRule{
-			Verbs: []string{"POST"},
+			Methods: []string{"POST"},
 			URIs: []string{
 				"/v1/users/*/name",
 				"/v1/things/*",
@@ -27,14 +27,14 @@ func initTrieRules() []*policy.HTTPRule {
 			Scopes: []string{"app=v1"},
 		},
 		&policy.HTTPRule{
-			Verbs:  []string{"POST"},
-			URIs:   []string{"/"},
-			Scopes: []string{"app=root"},
+			Methods: []string{"POST"},
+			URIs:    []string{"/"},
+			Scopes:  []string{"app=root"},
 		},
 		&policy.HTTPRule{
-			Verbs:  []string{"PATCH"},
-			URIs:   []string{"/*"},
-			Scopes: []string{"app=rootstart"},
+			Methods: []string{"PATCH"},
+			URIs:    []string{"/*"},
+			Scopes:  []string{"app=rootstart"},
 		},
 	}
 }
@@ -44,12 +44,12 @@ func TestNewAPICache(t *testing.T) {
 		rules := initTrieRules()
 
 		Convey("When I insert them in the cache, I should get a valid cache", func() {
-			c := NewAPICache(rules, false)
+			c := NewAPICache(rules, "id", false)
 			So(c, ShouldNotBeNil)
 			So(c.root.leaf, ShouldBeTrue)
-			So(c.root.data.([]string), ShouldNotBeNil)
+			So(c.root.data.(*policy.HTTPRule), ShouldNotBeNil)
 			So(c.root.verbs, ShouldResemble, map[string]struct{}{"POST": struct{}{}})
-			So(len(c.root.data.([]string)), ShouldEqual, 1)
+			So(len(c.root.data.(*policy.HTTPRule).Scopes), ShouldEqual, 1)
 			So(len(c.root.children), ShouldEqual, 4)
 		})
 	})
@@ -161,7 +161,7 @@ func TestParse(t *testing.T) {
 
 func TestAPICacheFind(t *testing.T) {
 	Convey("Given valid API cache", t, func() {
-		c := NewAPICache(initTrieRules(), false)
+		c := NewAPICache(initTrieRules(), "id", false)
 		Convey("When I search for correct URIs, I should get the right data", func() {
 			found, data := c.Find("GET", "/users/123/name")
 			So(found, ShouldBeTrue)
