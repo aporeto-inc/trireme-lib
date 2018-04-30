@@ -448,6 +448,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	record.Action = policy.Accept | policy.Encrypt
+
+	fmt.Printf("Sending stats record %+v\n", record)
 	p.fwd.ServeHTTP(w, r)
 }
 
