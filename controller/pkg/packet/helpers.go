@@ -135,7 +135,7 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	buf[9] = 6
 
 	// bytes 10,11: TCP buffer size (real header + payload)
-	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.tcpData)+len(p.tcpOption)))
+	binary.BigEndian.PutUint16(buf[10:12], tcpSize+uint16(len(p.tcpData)+len(p.tcpOptions)))
 
 	// bytes 12+: The TCP buffer (real header + payload)
 	copy(buf[12:], p.Buffer[p.l4BeginPos:])

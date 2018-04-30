@@ -221,6 +221,7 @@ type UDPConnection struct {
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
 	reported         bool
+	isEncrypted      bool
 	packetQueue      [][]byte
 	writer           afinetrawsocket.SocketWriter
 }
@@ -274,6 +275,12 @@ func (c *UDPConnection) TransmitQueuePackets() error {
 		}
 	}
 	return nil
+}
+
+// DropPackets drops packets on errors during AUthorization.
+func (c *UDPConnection) DropPackets() {
+
+	c.packetQueue = [][]byte{}
 }
 
 // GetState returns the state of a proxy connection
