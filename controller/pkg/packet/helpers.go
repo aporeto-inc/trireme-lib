@@ -192,6 +192,7 @@ func checksum(buf []byte) uint16 {
 // UpdateUDPChecksum updates the UDP checksum field of packet
 func (p *Packet) UpdateUDPChecksum() {
 
+	// checksum set to 0, ignored by the stack
 	ignoreCheckSum := []byte{0, 0}
 	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
 	binary.BigEndian.PutUint16(p.Buffer[UDPChecksumPos:UDPChecksumPos+2], p.ipChecksum)
@@ -227,21 +228,24 @@ func (p *Packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
 }
 
 // CreateReverseFlowPacket modifies the packet for reverse flow.
-func (p *Packet) CreateReverseFlowPacket() error {
+func (p *Packet) CreateReverseFlowPacket() {
 
-	// srcAddr := make([]byte, len(p.SourceAddress))
-	// destAddr := make([]byte, len(p.DestinationAddress))
-	// srcPort := make([]byte, len(p.SourcePort))
-	// dstPort := make([]byte, len(p.DestinationPort))
+	srcAddr := binary.BigEndian.Uint32(p.Buffer[ipSourceAddrPos : ipSourceAddrPos+4])
+	destAddr := binary.BigEndian.Uint32(p.Buffer[ipDestAddrPos : ipDestAddrPos+4])
 
-	// // copy the fields
-	// binary.BigEndian.PutUint32(p.Buffer[packet.ipSourceAddrPos:packet.ipSourceAddrPos+4], destAddr)
-	// binary.BigEndian.PutUint32(p.Buffer[packet.ipDestAddrPos:packet.ipDestAddrPos+4], srcAddr)
-	// binary.BigEndian.PutUint16(p.Buffer[packet.tcpSourcePortPos:packet.tcpSourcePortPos+2], destPort)
-	// binary.BigEndian.PutUint16(p.Buffer[packet.tcpDestPortPos:packet.tcpDestPortPos+2], srcPort)
+	// copy the fields
+	binary.BigEndian.PutUint32(p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4], destAddr)
+	binary.BigEndian.PutUint32(p.Buffer[ipDestAddrPos:ipDestAddrPos+4], srcAddr)
+	binary.BigEndian.PutUint16(p.Buffer[tcpSourcePortPos:tcpSourcePortPos+2], p.DestinationPort)
+	binary.BigEndian.PutUint16(p.Buffer[tcpDestPortPos:tcpDestPortPos+2], p.SourcePort)
 
-	// p.UpdateIPChecksum()
+	p.UpdateIPChecksum()
 
-	// p.UpdateUDPChecksum()
-	return nil
+	p.UpdateUDPChecksum()
+}
+func (p *Packet) GetUDPType() byte {
+
+	// last byte of marker as of now.
+	return p.Buffer[47]
+
 }

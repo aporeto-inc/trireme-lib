@@ -224,7 +224,7 @@ type UDPConnection struct {
 	reported         bool
 	isEncrypted      bool
 	packetQueue      [][]byte
-	writer           afinetrawsocket.SocketWriter
+	Writer           afinetrawsocket.SocketWriter
 }
 
 // NewProxyConnection returns a new Proxy Connection
@@ -242,7 +242,7 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 		state:       UDPSynSend,
 		Context:     context,
 		packetQueue: [][]byte{},
-		writer:      writer,
+		Writer:      writer,
 	}
 }
 
@@ -270,7 +270,7 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) {
 func (c *UDPConnection) TransmitQueuePackets() error {
 
 	for _, packet := range c.packetQueue {
-		err := c.writer.WriteSocket(packet)
+		err := c.Writer.WriteSocket(packet)
 		if err != nil {
 			zap.L().Error("Unable to transmit UDP packets", zap.Error(err))
 		}
