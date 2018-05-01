@@ -257,17 +257,6 @@ func (p *Packet) ReadTCPData() []byte {
 	return []byte{}
 }
 
-// ReadUDPData returns ths payload in a string variable
-// It does not remove the payload from the packet
-func (p *Packet) ReadUDPData() []byte {
-
-	if uint16(len(p.Buffer)) >= p.IPTotalLength {
-		return p.Buffer[p.TCPDataStartBytes():p.IPTotalLength]
-	}
-
-	return []byte{}
-}
-
 // CheckTCPAuthenticationOption ensures authentication option exists at the offset provided
 func (p *Packet) CheckTCPAuthenticationOption(iOptionLength int) (err error) {
 
