@@ -7,6 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
@@ -91,7 +92,9 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 
 	err = d.processNetUDPPacket(p, conn.Context, conn)
 
-	// check for encryption and do it later on..
+	// check for encryption and do it later on.
+	// capture the encrypt action when policy is being resolved - netsyn/netsynack
+	// in connection object and encrypt later on.
 
 	return err
 }
@@ -348,10 +351,23 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	conn.SetState(connection.UDPAckProcessed)
 
+	if err = d.conntrackHdl.ConntrackTableUpdateMark(
+		udpPacket.SourceAddress.String(),
+		udpPacket.DestinationAddress.String(),
+		udpPacket.IPProto,
+		udpPacket.SourcePort,
+		udpPacket.DestinationPort,
+		constants.DefaultConnMark,
+	); err != nil {
+		zap.L().Error("Failed to update conntrack table for flow",
+			zap.String("context", string(conn.Auth.LocalContext)),
+			zap.String("app-conn", udpPacket.L4ReverseFlowHash()),
+			zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+		)
+	}
+
 	// Be optimistic and send Queued Packets
 	err = conn.TransmitQueuePackets()
-
-	// Plumb connmark rule.
 
 	return err
 }
@@ -362,21 +378,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	// what about external services ??????
 	_, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 
-	// use claims.
-	// If the token signature is not valid,
-	// we must drop the connection and we drop the Syn packet. The source will
-	// retry but we have no state to maintain here.
-	// if err != nil {
-	// 	d.reportRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
-	// 	return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
-	// }
-
-	// if there are no claims we must drop the connection and we drop the Syn
-	// packet. The source will retry but we have no state to maintain here.
-	// if claims == nil {
-	// 	d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
-	// 	return nil, nil, errors.New("Syn packet dropped because of no claims")
-	// }
+	// get claims and evaluate policy.
 
 	hash := udpPacket.L4FlowHash()
 	// Update the connection state and store the Nonse send to us by the host.
@@ -411,16 +413,26 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 	return nil
 }
 
-func (d *Datapath) processNetworkUDPAckPacket(udppacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
+func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
-	_, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udppacket.ReadUDPToken())
+	_, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		// report rejected flow.
+		// report rejected flow.// needs modification in report infra to support udp.
 		return err
 	}
 	conn.SetState(connection.UDPAckProcessed)
 
 	// Plumb connmark rule here.
+	if err := d.conntrackHdl.ConntrackTableUpdateMark(
+		udpPacket.SourceAddress.String(),
+		udpPacket.DestinationAddress.String(),
+		udpPacket.IPProto,
+		udpPacket.SourcePort,
+		udpPacket.DestinationPort,
+		constants.DefaultConnMark,
+	); err != nil {
+		zap.L().Error("Failed to update conntrack table after ack packet")
+	}
 
 	return nil
 }
