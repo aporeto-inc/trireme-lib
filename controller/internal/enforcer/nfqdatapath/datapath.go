@@ -345,7 +345,7 @@ func (d *Datapath) GetPortSetInstance() portset.PortSet {
 func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
-	if d.service != nil {
+	if d.service != nil && d.mode != constants.RemoteContainer {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}
 

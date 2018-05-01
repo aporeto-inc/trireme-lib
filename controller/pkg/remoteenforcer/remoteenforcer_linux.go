@@ -396,7 +396,8 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	if secret == "" {
 		zap.L().Fatal("No secret found")
 	}
-
+	logFile, _ := os.Create("/tmp/stderr")
+	syscall.Dup2(int(logFile.Fd()), 2)
 	flag := unix.SIGHUP
 	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(flag), 0, 0, 0); err != nil {
 		return err
