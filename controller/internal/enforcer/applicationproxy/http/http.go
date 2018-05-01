@@ -341,7 +341,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI:        r.RequestURI,
+			URI:        r.Method + " " + r.RequestURI,
 			HTTPMethod: r.Method,
 			Type:       collector.EnpointTypePU,
 		},
