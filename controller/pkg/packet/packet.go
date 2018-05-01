@@ -52,7 +52,7 @@ func init() {
 // packet bytes.
 func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) {
 
-	p := &Packet{}
+	var p Packet
 
 	// Buffer Setup
 	p.Buffer = bytes
@@ -109,7 +109,7 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	}
 	p.context = context
 
-	return p, nil
+	return &p, nil
 }
 
 // IsEmptyTCPPayload returns the TCP data offset
