@@ -442,12 +442,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if record.Source.ID == "" && record.Source.UserID != "" {
-		// DEMO HACK - ignore and replace
-		// record.Source.Type = collector.EndPointTypeExteranlIPAddress
-		// record.Source.ID = collector.DefaultEndPoint
-		record.Source.Type = collector.EndpointTypeClaims
-		record.Source.ID = collector.SomeClaimsSource
+	if record.Source.ID == "" {
+		if record.Source.UserID != "" {
+			record.Source.Type = collector.EndpointTypeClaims
+			record.Source.ID = collector.SomeClaimsSource
+		} else if rule.Public {
+			record.Source.Type = collector.EndPointTypeExteranlIPAddress
+			record.Source.ID = collector.DefaultEndPoint
+		}
 	}
 
 	record.Action = policy.Accept | policy.Encrypt
