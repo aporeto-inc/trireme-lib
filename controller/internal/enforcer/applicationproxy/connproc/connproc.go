@@ -104,12 +104,11 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *syn
 	var total int64
 	var nwrote int64
 
-	defer wg.Done()
-
 	pipe := []int{0, 0}
 	err := syscall.Pipe2(pipe, syscall.O_CLOEXEC)
 	if err != nil {
 		zap.L().Error("error creating splicing:", zap.String("Direction", direction), zap.Error(err))
+		wg.Done()
 		return
 	}
 	defer func() {
@@ -126,6 +125,7 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *syn
 		if err = syscall.Close(pipe[1]); err != nil {
 			zap.L().Warn("Failed to close pipe ", zap.Error(err))
 		}
+		wg.Done()
 	}()
 
 	for {
