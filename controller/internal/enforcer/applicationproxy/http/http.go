@@ -288,14 +288,15 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Internal server error"), http.StatusInternalServerError)
 			return
 		}
-		if !rule.Public {
-			// If it is a secrets request we process it and move on. No need to
-			// validate policy.
-			if p.isSecretsRequest(w, r) {
-				zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
-				return
-			}
 
+		// If it is a secrets request we process it and move on. No need to
+		// validate policy.
+		if p.isSecretsRequest(w, r) {
+			zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
+			return
+		}
+
+		if !rule.Public {
 			// Validate the policy based on the scopes of the PU.
 			// TODO: Add user scopes
 			if err = p.verifyPolicy(rule.Scopes, puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
@@ -340,7 +341,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI:        r.RequestURI,
+			URI:        r.Method + " " + r.RequestURI,
 			HTTPMethod: r.Method,
 			Type:       collector.EnpointTypePU,
 		},
@@ -410,24 +411,23 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Calculate the user attributes and claims.
+	userAttributes := parseUserAttributes(r, jwtCert)
+	if len(userAttributes) > 0 {
+		userRecord := &collector.UserRecord{Claims: userAttributes}
+		p.collector.CollectUserEvent(userRecord)
+		record.Source.UserID = userRecord.ID
+	}
+
+	var claims *JWTClaims
+	claims, err = p.parseClientToken(key, token)
+	if err != nil && len(userAttributes) == 0 && !rule.Public {
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	record.Source.ID = claims.SourceID
+
 	if !rule.Public {
-		// Calculate the user attributes and claims.
-		userAttributes := parseUserAttributes(r, jwtCert)
-		if len(userAttributes) > 0 {
-			userRecord := &collector.UserRecord{Claims: userAttributes}
-			p.collector.CollectUserEvent(userRecord)
-			record.Source.UserID = userRecord.ID
-		}
-
-		var claims *JWTClaims
-		claims, err = p.parseClientToken(key, token)
-		if err != nil && len(userAttributes) == 0 {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
-			return
-		}
-
-		record.Source.ID = claims.SourceID
-
 		// Validate the policy and drop the request if there is no authorization.
 		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
 			http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -442,12 +442,20 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if record.Source.ID == "" && record.Source.UserID != "" {
-		record.Source.Type = collector.EndpointTypeClaims
-		record.Source.ID = collector.SomeClaimsSource
+	if record.Source.ID == "" {
+		if record.Source.UserID != "" {
+			record.Source.Type = collector.EndpointTypeClaims
+			record.Source.ID = collector.SomeClaimsSource
+		} else if rule.Public {
+			record.Source.Type = collector.EndPointTypeExteranlIPAddress
+			record.Source.ID = collector.DefaultEndPoint
+		}
 	}
 
 	record.Action = policy.Accept | policy.Encrypt
+
+	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+
 	p.fwd.ServeHTTP(w, r)
 }
 
