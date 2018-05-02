@@ -19,6 +19,14 @@ func initTrieRules() []*policy.HTTPRule {
 			Scopes: []string{"app=old"},
 		},
 		&policy.HTTPRule{
+			Methods: []string{"PATCH"},
+			URIs: []string{
+				"/users/*/name",
+				"/things/*",
+			},
+			Scopes: []string{"app=patch"},
+		},
+		&policy.HTTPRule{
 			Methods: []string{"POST"},
 			URIs: []string{
 				"/v1/users/*/name",
@@ -46,49 +54,44 @@ func TestNewAPICache(t *testing.T) {
 		Convey("When I insert them in the cache, I should get a valid cache", func() {
 			c := NewAPICache(rules, "id", false)
 			So(c, ShouldNotBeNil)
-			So(c.root.leaf, ShouldBeTrue)
-			So(c.root.data.(*policy.HTTPRule), ShouldNotBeNil)
-			So(c.root.verbs, ShouldResemble, map[string]struct{}{"POST": struct{}{}})
-			So(len(c.root.data.(*policy.HTTPRule).Scopes), ShouldEqual, 1)
-			So(len(c.root.children), ShouldEqual, 4)
+			So(c.methodRoots, ShouldNotBeNil)
+			So(len(c.methodRoots), ShouldEqual, 4)
+			So(c.methodRoots, ShouldContainKey, "GET")
+			So(c.methodRoots, ShouldContainKey, "POST")
+			So(c.methodRoots, ShouldContainKey, "PUT")
+			So(c.methodRoots, ShouldContainKey, "PATCH")
+			So(c.methodRoots["GET"], ShouldNotBeNil)
+			So(c.methodRoots["POST"], ShouldNotBeNil)
+			So(c.methodRoots["PUT"], ShouldNotBeNil)
+			So(c.methodRoots["PATCH"], ShouldNotBeNil)
+			So(c.methodRoots["POST"].data, ShouldNotBeNil)
+			So(len(c.methodRoots["GET"].children), ShouldEqual, 2)
 		})
 	})
 }
 
 func TestInsert(t *testing.T) {
-	empty := struct{}{}
 
 	Convey("When I insert a root node, it should succeed", t, func() {
 		n := &node{}
-		verbs := map[string]struct{}{
-			"POST": empty,
-		}
-		insert(n, "/", verbs, "data")
+		insert(n, "/", "data")
 		So(n.data.(string), ShouldResemble, "data")
 		So(n.leaf, ShouldBeTrue)
-		So(n.verbs, ShouldResemble, verbs)
 	})
 
 	Convey("When I insert a one level node, it should succeed", t, func() {
 		n := &node{}
-		verbs := map[string]struct{}{
-			"POST": empty,
-		}
-		insert(n, "/a", verbs, "data")
+		insert(n, "/a", "data")
 		So(n.leaf, ShouldEqual, false)
 		So(len(n.children), ShouldEqual, 1)
 		So(n.children["/a"], ShouldNotBeNil)
 		So(n.children["/a"].leaf, ShouldBeTrue)
 		So(n.children["/a"].data.(string), ShouldResemble, "data")
-		So(n.children["/a"].verbs, ShouldResemble, verbs)
 	})
 
 	Convey("When I insert two level node, it should succeed", t, func() {
 		n := &node{}
-		verbs := map[string]struct{}{
-			"POST": empty,
-		}
-		insert(n, "/a/b", verbs, "data")
+		insert(n, "/a/b", "data")
 		So(n.leaf, ShouldEqual, false)
 		So(len(n.children), ShouldEqual, 1)
 		So(n.children["/a"], ShouldNotBeNil)
@@ -99,10 +102,7 @@ func TestInsert(t *testing.T) {
 
 	Convey("When I insert two level node with a * it should succeed", t, func() {
 		n := &node{}
-		verbs := map[string]struct{}{
-			"POST": empty,
-		}
-		insert(n, "/a/*", verbs, "data")
+		insert(n, "/a/*", "data")
 		So(n.leaf, ShouldEqual, false)
 		So(len(n.children), ShouldEqual, 1)
 		So(n.children["/a"], ShouldNotBeNil)
@@ -113,10 +113,7 @@ func TestInsert(t *testing.T) {
 
 	Convey("When I insert a two level node, where the first part is * it should succeed", t, func() {
 		n := &node{}
-		verbs := map[string]struct{}{
-			"POST": empty,
-		}
-		insert(n, "/*/a", verbs, "data")
+		insert(n, "/*/a", "data")
 		So(n.leaf, ShouldEqual, false)
 		So(len(n.children), ShouldEqual, 1)
 		So(n.children["/*"], ShouldNotBeNil)
@@ -166,18 +163,33 @@ func TestAPICacheFind(t *testing.T) {
 			found, data := c.Find("GET", "/users/123/name")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
+			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "app=old")
+
+			found, data = c.Find("HEAD", "/users/123/name")
+			So(found, ShouldBeFalse)
+			So(data, ShouldBeNil)
+
+			found, data = c.Find("PATCH", "/users/123/name")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "app=patch")
+
 			found, data = c.Find("PUT", "/users/123/name")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
+
 			found, data = c.Find("GET", "/things/123")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
+
 			found, data = c.Find("POST", "/v1/users/123/name")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
+
 			found, data = c.Find("POST", "/v1/things/123454656")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
+
 			found, data = c.Find("POST", "/")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
