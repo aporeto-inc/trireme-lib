@@ -173,8 +173,10 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	skip := make([]bool, m.numberOfPolicies+1)
 
 	// Disable all policies that fail the not key exists
+	copiedTags := tags.GetSlice()
 	var k, v string
-	for _, t := range tags.GetSlice() {
+
+	for _, t := range copiedTags {
 		if err := m.tagSplit(t, &k, &v); err != nil {
 			continue
 		}
@@ -184,7 +186,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	}
 
 	// Go through the list of tags
-	for _, t := range tags.GetSlice() {
+	for _, t := range copiedTags {
 		if err := m.tagSplit(t, &k, &v); err != nil {
 			continue
 		}
