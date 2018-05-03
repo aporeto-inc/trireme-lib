@@ -90,19 +90,20 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 	go func() {
 		defer wg.Done()
 		copyBytes(ctx, "incoming", inFd, outFd)
+		if err := inConn.Close(); err != nil {
+			zap.L().Error("Failed to close in connection", zap.Error(err))
+		}
+
 	}()
 	go func() {
 		defer wg.Done()
 		copyBytes(ctx, "outgoing", outFd, inFd)
+		if err := outConn.Close(); err != nil {
+			zap.L().Error("Failed to close out connection", zap.Error(err))
+		}
 	}()
 
 	wg.Wait()
-	if err := outConn.Close(); err != nil {
-		zap.L().Error("Failed to close out connection", zap.Error(err))
-	}
-	if err := inConn.Close(); err != nil {
-		zap.L().Error("Failed to close in connection", zap.Error(err))
-	}
 
 	return nil
 }
@@ -110,6 +111,14 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 func copyBytes(ctx context.Context, direction string, destFd, srcFd int) {
 	var total int64
 	var nwrote int64
+
+	pipe := []int{0, 0}
+	err := syscall.Pipe2(pipe, syscall.O_CLOEXEC)
+	if err != nil {
+		syscall.Shutdown(destFd, syscall.SHUT_WR) // nolint errcheck
+		zap.L().Error("error creating splicing:", zap.String("Direction", direction), zap.Error(err))
+		return
+	}
 
 	defer func() {
 		if err := syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
@@ -119,15 +128,6 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int) {
 				}
 			}
 		}
-	}()
-
-	pipe := []int{0, 0}
-	err := syscall.Pipe2(pipe, syscall.O_CLOEXEC)
-	if err != nil {
-		zap.L().Error("error creating splicing:", zap.String("Direction", direction), zap.Error(err))
-		return
-	}
-	defer func() {
 		if err = syscall.Close(pipe[0]); err != nil {
 			zap.L().Warn("Failed to close pipe", zap.Error(err))
 		}
