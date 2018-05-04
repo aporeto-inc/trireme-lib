@@ -103,11 +103,11 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 		return err
 	}
 
-	if err := tcpIn.SetKeepAlivePeriod(10 * time.Second); err != nil {
+	if err := tcpIn.SetKeepAlivePeriod(5 * time.Second); err != nil {
 		return err
 	}
 
-	if err := tcpOut.SetKeepAlivePeriod(10 * time.Second); err != nil {
+	if err := tcpOut.SetKeepAlivePeriod(5 * time.Second); err != nil {
 		return err
 	}
 
@@ -116,12 +116,12 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 
 	go func() {
 		defer wg.Done()
-		copyBytes(ctx, "incoming", inFd, outFd, tcpIn, tcpOut)
+		copyBytes(ctx, false, inFd, outFd, tcpIn, tcpOut)
 	}()
 
 	go func() {
 		defer wg.Done()
-		copyBytes(ctx, "outgoing", outFd, inFd, tcpOut, tcpIn)
+		copyBytes(ctx, true, outFd, inFd, tcpOut, tcpIn)
 	}()
 
 	if err := inConn.Close(); err != nil {
@@ -148,7 +148,7 @@ func tcpConnection(c net.Conn) (*net.TCPConn, error) {
 	}
 }
 
-func copyBytes(ctx context.Context, direction string, destFd, srcFd int, destConn, srcCon *net.TCPConn) {
+func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, destConn, srcCon *net.TCPConn) {
 	var total int64
 	var nwrote int64
 
@@ -156,7 +156,7 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, destCon
 	err := syscall.Pipe2(pipe, syscall.O_CLOEXEC)
 	if err != nil {
 		syscall.Shutdown(destFd, syscall.SHUT_WR) // nolint errcheck
-		zap.L().Error("error creating splicing:", zap.String("Direction", direction), zap.Error(err))
+		zap.L().Error("error creating splicing:", zap.Bool("Downstream", downstream), zap.Error(err))
 		return
 	}
 
@@ -164,7 +164,7 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, destCon
 		if err := syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
 			if er, ok := err.(syscall.Errno); ok {
 				if er != syscall.ENOTCONN {
-					zap.L().Warn("closing connection failed:", zap.String("Direction", direction), zap.Error(err))
+					zap.L().Warn("closing connection failed:", zap.Bool("Downstream", downstream), zap.Error(err))
 				}
 			}
 		}
@@ -182,22 +182,20 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, destCon
 		case <-ctx.Done():
 			break
 		default:
-			// if err := srcCon.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
-			// 	return
-			// }
 			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 16384, 0)
 			if err != nil {
-				fmt.Println("Timed out .... nice ... ")
-				logPipeError(err)
-				return
+				if isTemporary(err) && !downstream {
+					continue
+				}
 			}
 			if nread == 0 {
 				return
 			}
 			for total = 0; total < nread; {
 				if nwrote, err = syscall.Splice(pipe[0], nil, destFd, nil, int(nread-total), 0); err != nil {
-					logPipeError(err)
-					fmt.Println("Go write error and returning")
+					if !isTemporary(err) {
+						return
+					}
 					return
 				}
 				total += nwrote
@@ -206,12 +204,19 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int, destCon
 	}
 }
 
-func logPipeError(err error) {
-	er, ok := err.(syscall.Errno)
-	if ok {
-		if er == syscall.ECONNRESET || er == syscall.ECONNABORTED || er == syscall.ENOTCONN {
-			return
+func isTemporary(err error) bool {
+	switch t := err.(type) {
+	case net.Error:
+		if t.Timeout() {
+			return true
 		}
+	case syscall.Errno:
+		if t == syscall.ECONNRESET || t == syscall.ECONNABORTED || t == syscall.ENOTCONN || t == syscall.EPIPE {
+			return false
+		}
+		zap.L().Error("Connection error to destination", zap.Error(err))
+	default:
+		zap.L().Error("Connection terminated", zap.Error(err))
 	}
-	zap.L().Error("error splicing", zap.Error(err))
+	return false
 }
