@@ -26,7 +26,6 @@ type tundev struct {
 	processor                 datapathimpl.DataPathPacketHandler
 	numTunDevicesPerDirection uint8
 	tundeviceHdls             []*tuntap.TunTap
-	iprouteHdl                *iproute.Iproute
 	needQueueingPolicy        bool
 }
 
@@ -40,6 +39,9 @@ var numQueues uint16
 
 func init() {
 	numQueues = maxNumQueues
+
+	cleanupApplicationIPRule();
+	cleanupNetworkIPRule();
 }
 
 func networkQueueCallBack(data []byte, cbData interface{}) error {
@@ -52,23 +54,18 @@ func appQueueCallBack(data []byte, cbData interface{}) error {
 
 // NewTunDataPath instantiates a new tundatapath
 func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int, mode constants.ModeType) (datapathimpl.DatapathImpl, error) {
-
-	ipr, err := iproute.NewIPRouteHandle()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create an iproute handle %s", err)
-	}
 	needQueueingPolicy := false
 	if mode != constants.RemoteContainer {
 		needQueueingPolicy = true
 	}
 	//GetRlimit
 	var rlimit syscall.Rlimit
-	if err = syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rlimit); err != nil {
+	if err := syscall.Getrlimit(syscall.RLIMIT_NOFILE, &rlimit); err != nil {
 		return nil, fmt.Errorf("Unable to get current limit %s ", err)
 	}
 
 	//Set ulimit for open files here
-	if err = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &syscall.Rlimit{
+	if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, &syscall.Rlimit{
 		Cur: 8192,
 		Max: 8192,
 	}); err != nil {
@@ -79,7 +76,6 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 		processor:                 processor,
 		numTunDevicesPerDirection: numTunDevicesPerDirection,
 		tundeviceHdls:             make([]*tuntap.TunTap, numTunDevicesPerDirection),
-		iprouteHdl:                ipr,
 		needQueueingPolicy:        needQueueingPolicy,
 	}, nil
 }
@@ -131,9 +127,11 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 	return fmt.Errorf("Invalid ip protocol: %d", appPacket.IPProto)
 }
 
-func (t *tundev) cleanupNetworkIPRule() {
+func cleanupNetworkIPRule() {
 	// nolint
-	t.iprouteHdl.DeleteRule(&netlink.Rule{
+	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+
+	iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
 		Mark:     (cgnetcls.Initialmarkval - 1),
@@ -141,7 +139,7 @@ func (t *tundev) cleanupNetworkIPRule() {
 	})
 	//restore local rule again
 	// nolint
-	t.iprouteHdl.AddRule(&netlink.Rule{
+	iprouteHdl.AddRule(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0x0,
 		Mark:     0,
@@ -150,7 +148,7 @@ func (t *tundev) cleanupNetworkIPRule() {
 
 	//Delete prio 10 local rule
 	// nolint
-	t.iprouteHdl.DeleteRule(&netlink.Rule{
+	iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0xa,
 		Mark:     0,
@@ -189,6 +187,8 @@ func (t *tundev) applyNetworkInterceptorTCConfig(deviceName string) {
 	}
 }
 func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
+	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+
 	deviceName := baseTunDeviceName + baseTunDeviceInput + strconv.Itoa(i+1)
 	ipaddress := tunIPAddressSubnetIn + strconv.Itoa(i+1)
 
@@ -227,7 +227,7 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 		LinkIndex: intf.Index,
 	}
 
-	if err = t.iprouteHdl.AddRoute(route); err != nil {
+	if err = iprouteHdl.AddRoute(route); err != nil {
 		// We are initing here refuse to start if this fails
 		zap.L().Fatal("Unable to add ip route", zap.Error(err), zap.String("IP Address", net.ParseIP(ipaddress).String()), zap.Int("Table", NetworkRuleTable), zap.Int("Interface Index", intf.Index))
 
@@ -238,12 +238,14 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
+	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
 
 	//Reduce prio of local table so our rules get hit before even for local traffic
-	if err := t.iprouteHdl.AddRule(&netlink.Rule{
+	if err := iprouteHdl.AddRule(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0xa,
 		Mark:     0,
@@ -253,7 +255,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 
 	//Delete local table at prio 0
-	if err := t.iprouteHdl.DeleteRule(&netlink.Rule{
+	if err := iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0x0,
 		Mark:     0,
@@ -263,7 +265,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 
 	//Program ip route and ip rules
-	if err := t.iprouteHdl.AddRule(&netlink.Rule{
+	if err := iprouteHdl.AddRule(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
 		Mark:     (cgnetcls.Initialmarkval - 1),
@@ -276,7 +278,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	go func() {
 		//Cleanup on exit
 		<-ctx.Done()
-		t.cleanupNetworkIPRule()
+		cleanupNetworkIPRule()
 	}()
 
 	for i := 0; i < numTunDevicesPerDirection; i++ {
@@ -285,10 +287,13 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 }
 
-func (t *tundev) cleanupApplicationIPRule() {
+func cleanupApplicationIPRule() {
 	//Cleanup on exit
 	// nolint
-	t.iprouteHdl.DeleteRule(&netlink.Rule{
+
+	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+
+	iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
 		Mark:     cgnetcls.Initialmarkval - 2,
@@ -327,6 +332,7 @@ func (t *tundev) startApplicationSocket(qIndex int, tun *tuntap.TunTap) {
 	})
 }
 func (t *tundev) startApplicationInterceptorInstance(i int) {
+	iprouteHdl, _ := iproute.NewIPRouteHandle()
 	deviceName := baseTunDeviceName + baseTunDeviceOutput + strconv.Itoa(i+1)
 	ipaddress := tunIPAddressSubnetOut + strconv.Itoa(i+1)
 	var err error
@@ -365,22 +371,22 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 		LinkIndex: intf.Index,
 	}
 
-	if err := t.iprouteHdl.AddRoute(route); err != nil {
+	if err := iprouteHdl.AddRoute(route); err != nil {
 		// We are initing here refuse to start if this fails
 		zap.L().Fatal("Unable to add ip route", zap.Error(err), zap.String("IP Address", net.ParseIP(ipaddress).String()), zap.Int("Table", NetworkRuleTable), zap.Int("Interface Index", intf.Index))
-
 	}
 }
 
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
 func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
+	iprouteHdl, _ := iproute.NewIPRouteHandle()	
 
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
 
-	if err := t.iprouteHdl.AddRule(&netlink.Rule{
+	if err := iprouteHdl.AddRule(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
 		Mark:     cgnetcls.Initialmarkval - 2,
@@ -393,7 +399,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 
 	go func() {
 		<-ctx.Done()
-		t.cleanupApplicationIPRule()
+		cleanupApplicationIPRule()
 	}()
 
 	for i := 0; i < numTunDevicesPerDirection; i++ {

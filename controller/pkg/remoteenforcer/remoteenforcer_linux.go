@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	_ "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 
@@ -389,14 +390,18 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
-	defer cancelMainCtx()
+	defer func() {
+		cancelMainCtx()
+		time.Sleep(5*time.Second)
+	}()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)
 	secret := os.Getenv(constants.EnvRPCClientSecret)
 	if secret == "" {
 		zap.L().Fatal("No secret found")
 	}
-
+	logFile, _ := os.Create("/tmp/stderr")
+	syscall.Dup2(int(logFile.Fd()), 2)
 	flag := unix.SIGHUP
 	if err := unix.Prctl(unix.PR_SET_PDEATHSIG, uintptr(flag), 0, 0, 0); err != nil {
 		return err
