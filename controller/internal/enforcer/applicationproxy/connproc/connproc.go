@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.uber.org/zap"
@@ -84,31 +85,70 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 	}
 	defer outFile.Close() // nolint
 
+	tcpIn, err := tcpConnection(inConn)
+	if err != nil {
+		return err
+	}
+
+	tcpOut, err := tcpConnection(outConn)
+	if err != nil {
+		return err
+	}
+
+	if err := tcpIn.SetKeepAlive(true); err != nil {
+		return err
+	}
+
+	if err := tcpOut.SetKeepAlive(true); err != nil {
+		return err
+	}
+
+	if err := tcpIn.SetKeepAlivePeriod(10 * time.Second); err != nil {
+		return err
+	}
+
+	if err := tcpOut.SetKeepAlivePeriod(10 * time.Second); err != nil {
+		return err
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-		copyBytes(ctx, "incoming", inFd, outFd)
-		if err := inConn.Close(); err != nil {
-			zap.L().Error("Failed to close in connection", zap.Error(err))
-		}
-
+		copyBytes(ctx, "incoming", inFd, outFd, tcpIn, tcpOut)
 	}()
+
 	go func() {
 		defer wg.Done()
-		copyBytes(ctx, "outgoing", outFd, inFd)
-		if err := outConn.Close(); err != nil {
-			zap.L().Error("Failed to close out connection", zap.Error(err))
-		}
+		copyBytes(ctx, "outgoing", outFd, inFd, tcpOut, tcpIn)
 	}()
+
+	if err := inConn.Close(); err != nil {
+		zap.L().Error("Failed to close in connection", zap.Error(err))
+	}
+
+	if err := outConn.Close(); err != nil {
+		zap.L().Error("Failed to close out connection", zap.Error(err))
+	}
 
 	wg.Wait()
 
 	return nil
 }
 
-func copyBytes(ctx context.Context, direction string, destFd, srcFd int) {
+func tcpConnection(c net.Conn) (*net.TCPConn, error) {
+	switch c.(type) {
+	case *net.TCPConn:
+		return c.(*net.TCPConn), nil
+	case *markedconn.ProxiedConnection:
+		return c.(*markedconn.ProxiedConnection).GetTCPConnection(), nil
+	default:
+		return nil, fmt.Errorf("Uknown connection type")
+	}
+}
+
+func copyBytes(ctx context.Context, direction string, destFd, srcFd int, destConn, srcCon *net.TCPConn) {
 	var total int64
 	var nwrote int64
 
@@ -142,8 +182,12 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int) {
 		case <-ctx.Done():
 			break
 		default:
+			// if err := srcCon.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+			// 	return
+			// }
 			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 16384, 0)
 			if err != nil {
+				fmt.Println("Timed out .... nice ... ")
 				logPipeError(err)
 				return
 			}
@@ -153,6 +197,7 @@ func copyBytes(ctx context.Context, direction string, destFd, srcFd int) {
 			for total = 0; total < nread; {
 				if nwrote, err = syscall.Splice(pipe[0], nil, destFd, nil, int(nread-total), 0); err != nil {
 					logPipeError(err)
+					fmt.Println("Go write error and returning")
 					return
 				}
 				total += nwrote

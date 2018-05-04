@@ -124,7 +124,6 @@ func (p *Proxy) ShutDown() error {
 
 // handle handles a connection
 func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
-
 	defer upConn.Close() // nolint
 
 	ip, port := upConn.(*markedconn.ProxiedConnection).GetOriginalDestination()
@@ -295,7 +294,6 @@ func (p *Proxy) CompleteEndPointAuthorization(downIP fmt.Stringer, downPort int,
 
 //StartClientAuthStateMachine -- Starts the aporeto handshake for client application
 func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, downConn net.Conn) (bool, error) {
-
 	// We are running on top of TCP nothing should be lost or come out of order makes the state machines easy....
 	puContext, err := p.puContextFromContextID(p.puContext)
 	if err != nil {
@@ -310,11 +308,11 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 	}
 
 	for {
-		if err := downConn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			return false, err
-		}
 		switch conn.GetState() {
 		case connection.ClientTokenSend:
+			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return false, err
+			}
 			token, err := p.tokenaccessor.CreateSynPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create syn token: %s", err)
@@ -327,7 +325,9 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 			conn.SetState(connection.ClientPeerTokenReceive)
 
 		case connection.ClientPeerTokenReceive:
-
+			if err := downConn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return false, err
+			}
 			msg, err := readMsg(downConn)
 			if err != nil {
 				return false, fmt.Errorf("Failed to read peer token: %s", err)
@@ -352,11 +352,13 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 			conn.SetState(connection.ClientSendSignedPair)
 
 		case connection.ClientSendSignedPair:
+			if err := downConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return false, err
+			}
 			token, err := p.tokenaccessor.CreateAckPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create ack token: %s", err)
 			}
-
 			if n, err := writeMsg(downConn, token); err != nil || n < len(token) {
 				return isEncrypted, fmt.Errorf("unable to send ack: %s", err)
 			}
@@ -389,7 +391,9 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 
 		switch conn.GetState() {
 		case connection.ServerReceivePeerToken:
-
+			if err := upConn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return false, err
+			}
 			msg, err := readMsg(upConn)
 			if err != nil {
 				return false, fmt.Errorf("unable to receive syn token: %s", err)
@@ -419,7 +423,9 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 			conn.SetState(connection.ServerSendToken)
 
 		case connection.ServerSendToken:
-
+			if err := upConn.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return false, err
+			}
 			claims, err := p.tokenaccessor.CreateSynAckPacketToken(puContext, &conn.Auth)
 			if err != nil {
 				return isEncrypted, fmt.Errorf("unable to create synack token: %s", err)
@@ -429,15 +435,16 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 				zap.L().Error("Failed to write", zap.Error(err))
 				return false, fmt.Errorf("Failed to write ack: %s", err)
 			}
-
 			conn.SetState(connection.ServerAuthenticatePair)
 
 		case connection.ServerAuthenticatePair:
+			if err := upConn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return false, err
+			}
 			msg, err := readMsg(upConn)
 			if err != nil {
 				return false, fmt.Errorf("unable to receive ack token: %s", err)
 			}
-
 			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
 				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
 				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
