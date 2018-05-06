@@ -6,7 +6,6 @@ import (
 
 type node struct {
 	children map[string]*node
-	verbs    map[string]struct{}
 	leaf     bool
 	data     interface{}
 }
