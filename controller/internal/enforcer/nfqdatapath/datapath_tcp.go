@@ -535,12 +535,13 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
-	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
+	tags := claims.T.Copy()
+	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
-	report, packet := context.SearchRcvRules(claims.T)
+	report, packet := context.SearchRcvRules(tags)
 	if packet.Action.Rejected() {
 		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
-		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
+		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", tags.String())
 	}
 
 	hash := tcpPacket.L4FlowHash()

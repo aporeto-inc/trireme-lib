@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.uber.org/zap"
@@ -84,81 +85,138 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 	}
 	defer outFile.Close() // nolint
 
+	tcpIn, err := tcpConnection(inConn)
+	if err != nil {
+		return err
+	}
+
+	tcpOut, err := tcpConnection(outConn)
+	if err != nil {
+		return err
+	}
+
+	if err := tcpIn.SetKeepAlive(true); err != nil {
+		return err
+	}
+
+	if err := tcpOut.SetKeepAlive(true); err != nil {
+		return err
+	}
+
+	if err := tcpIn.SetKeepAlivePeriod(5 * time.Second); err != nil {
+		return err
+	}
+
+	if err := tcpOut.SetKeepAlivePeriod(5 * time.Second); err != nil {
+		return err
+	}
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go copyBytes(ctx, "incoming", inFd, outFd, &wg)
-	go copyBytes(ctx, "outgoing", outFd, inFd, &wg)
-	wg.Wait()
-	if err := outConn.Close(); err != nil {
-		fmt.Println("inconn close", err)
-	}
+	go func() {
+		defer wg.Done()
+		copyBytes(ctx, false, inFd, outFd, tcpIn, tcpOut)
+	}()
+
+	go func() {
+		defer wg.Done()
+		copyBytes(ctx, true, outFd, inFd, tcpOut, tcpIn)
+	}()
+
 	if err := inConn.Close(); err != nil {
-		fmt.Println("inconn close", err)
+		zap.L().Error("Failed to close in connection", zap.Error(err))
 	}
+
+	if err := outConn.Close(); err != nil {
+		zap.L().Error("Failed to close out connection", zap.Error(err))
+	}
+
+	wg.Wait()
 
 	return nil
 }
 
-func copyBytes(ctx context.Context, direction string, destFd, srcFd int, wg *sync.WaitGroup) {
+func tcpConnection(c net.Conn) (*net.TCPConn, error) {
+	switch c.(type) {
+	case *net.TCPConn:
+		return c.(*net.TCPConn), nil
+	case *markedconn.ProxiedConnection:
+		return c.(*markedconn.ProxiedConnection).GetTCPConnection(), nil
+	default:
+		return nil, fmt.Errorf("Uknown connection type")
+	}
+}
+
+func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, destConn, srcCon *net.TCPConn) {
 	var total int64
 	var nwrote int64
-
-	defer wg.Done()
 
 	pipe := []int{0, 0}
 	err := syscall.Pipe2(pipe, syscall.O_CLOEXEC)
 	if err != nil {
-		zap.L().Error("error creating splicing:", zap.String("Direction", direction), zap.Error(err))
+		syscall.Shutdown(destFd, syscall.SHUT_WR) // nolint errcheck
+		zap.L().Error("error creating splicing:", zap.Bool("Downstream", downstream), zap.Error(err))
 		return
 	}
+
 	defer func() {
 		if err = syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
 			if er, ok := err.(syscall.Errno); ok {
 				if er != syscall.ENOTCONN {
-					zap.L().Warn("closing connection failed:", zap.String("Direction", direction), zap.Error(err))
+					zap.L().Warn("closing connection failed:", zap.Bool("Downstream", downstream), zap.Error(err))
 				}
 			}
 		}
 		if err = syscall.Close(pipe[0]); err != nil {
-			zap.L().Warn("Failed to close pipe ", zap.Error(err))
+			zap.L().Warn("Failed to close pipe", zap.Error(err))
 		}
 		if err = syscall.Close(pipe[1]); err != nil {
-			zap.L().Warn("Failed to close pipe ", zap.Error(err))
+			zap.L().Warn("Failed to close pipe", zap.Error(err))
 		}
 	}()
 
+	var nread int64
 	for {
 		select {
 		case <-ctx.Done():
 			break
 		default:
-			nread, serr := syscall.Splice(srcFd, nil, pipe[1], nil, 16384, 0)
-			if serr != nil {
-				if er, ok := serr.(syscall.Errno); ok {
-					if er == syscall.ECONNRESET || er == syscall.ECONNABORTED || er == syscall.ENOTCONN {
-						return
-					}
-					zap.L().Error("error splicing:", zap.String("Direction", direction), zap.Error(serr))
-					return
+			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 16384, 0)
+			if err != nil {
+				if isTemporary(err) && !downstream {
+					continue
 				}
-				return
 			}
 			if nread == 0 {
 				return
 			}
 			for total = 0; total < nread; {
 				if nwrote, err = syscall.Splice(pipe[0], nil, destFd, nil, int(nread-total), 0); err != nil {
-					if er, ok := serr.(syscall.Errno); ok {
-						if er == syscall.ECONNRESET || er == syscall.ECONNABORTED || er == syscall.ENOTCONN {
-							return
-						}
-						zap.L().Error("error splicing:", zap.String("Direction", direction), zap.Error(serr))
+					if !isTemporary(err) {
 						return
 					}
+					return
 				}
 				total += nwrote
 			}
 		}
 	}
+}
+
+func isTemporary(err error) bool {
+	switch t := err.(type) {
+	case net.Error:
+		if t.Timeout() {
+			return true
+		}
+	case syscall.Errno:
+		if t == syscall.ECONNRESET || t == syscall.ECONNABORTED || t == syscall.ENOTCONN || t == syscall.EPIPE {
+			return false
+		}
+		zap.L().Error("Connection error to destination", zap.Error(err))
+	default:
+		zap.L().Error("Connection terminated", zap.Error(err))
+	}
+	return false
 }

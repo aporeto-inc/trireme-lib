@@ -6,35 +6,33 @@ import (
 
 type node struct {
 	children map[string]*node
-	verbs    map[string]struct{}
 	leaf     bool
 	data     interface{}
 }
 
 // APICache represents an API cache.
 type APICache struct {
-	root     *node
-	ID       string
-	External bool
+	methodRoots map[string]*node
+	ID          string
+	External    bool
 }
 
 // NewAPICache creates a new API cache
 func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 	a := &APICache{
-		root:     &node{},
-		ID:       id,
-		External: external,
+		methodRoots: map[string]*node{},
+		ID:          id,
+		External:    external,
 	}
 
-	empty := struct{}{}
 	for _, rule := range rules {
-		methods := map[string]struct{}{}
-		for _, m := range rule.Methods {
-			methods[m] = empty
-		}
-
-		for _, uri := range rule.URIs {
-			insert(a.root, uri, methods, rule)
+		for _, method := range rule.Methods {
+			if _, ok := a.methodRoots[method]; !ok {
+				a.methodRoots[method] = &node{}
+			}
+			for _, uri := range rule.URIs {
+				insert(a.methodRoots[method], uri, rule)
+			}
 		}
 	}
 
@@ -44,7 +42,12 @@ func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 // Find finds a URI in the cache and returns true and the data if found.
 // If not found it returns false.
 func (c *APICache) Find(verb, uri string) (bool, interface{}) {
-	return search(c.root, verb, uri)
+	root, ok := c.methodRoots[verb]
+	if !ok {
+		return false, nil
+	}
+
+	return search(root, uri)
 }
 
 // parse parses a URI and splits into prefix, suffix
@@ -62,11 +65,10 @@ func parse(s string) (string, string) {
 }
 
 // insert adds an api to the api cache
-func insert(n *node, api string, verbs map[string]struct{}, data interface{}) {
+func insert(n *node, api string, data interface{}) {
 	if len(api) == 0 {
 		n.data = data
 		n.leaf = true
-		n.verbs = verbs
 		return
 	}
 
@@ -76,7 +78,6 @@ func insert(n *node, api string, verbs map[string]struct{}, data interface{}) {
 	if prefix == "/" {
 		n.data = data
 		n.leaf = true
-		n.verbs = verbs
 		return
 	}
 
@@ -91,16 +92,15 @@ func insert(n *node, api string, verbs map[string]struct{}, data interface{}) {
 		n.children[prefix] = next
 	}
 
-	insert(next, suffix, verbs, data)
+	insert(next, suffix, data)
 }
 
-func search(n *node, verb string, api string) (found bool, data interface{}) {
+func search(n *node, api string) (found bool, data interface{}) {
 	prefix, suffix := parse(api)
 
 	if prefix == "/" {
 		if n.leaf {
-			_, matched := n.verbs[verb]
-			return matched, n.data
+			return true, n.data
 		}
 	}
 
@@ -112,12 +112,11 @@ func search(n *node, verb string, api string) (found bool, data interface{}) {
 
 	// We found either an exact match or a * match
 	if foundPrefix {
-		return search(next, verb, suffix)
+		return search(next, suffix)
 	}
 
 	if n.leaf && len(prefix) == 0 {
-		_, matched := n.verbs[verb]
-		return matched, n.data
+		return true, n.data
 	}
 
 	return false, nil

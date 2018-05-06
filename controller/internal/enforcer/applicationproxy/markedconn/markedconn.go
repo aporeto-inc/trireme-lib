@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"github.com/rs/xid"
@@ -48,10 +49,18 @@ func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Con
 		return nil, fmt.Errorf("Failed to assing mark to socket: %s", err)
 	}
 
+	if err := setSocketTimeout(fd, time.Second*5); err != nil {
+		return nil, fmt.Errorf("Failed to set connect timeout: %s", err)
+	}
+
 	if err := syscall.Connect(fd, address); err != nil {
 		conn.Close() // nolint
 		return nil, fmt.Errorf("Unable to connect: %s", err)
 	}
+
+	// if err := setSocketTimeout(fd, 0); err != nil {
+	// 	return nil, fmt.Errorf("Failed to set connect timeout: %s", err)
+	// }
 
 	return conn, nil
 }
@@ -219,4 +228,15 @@ func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err er
 		err = e1
 	}
 	return
+}
+
+// setSocketTimeout sets the receive and send timeouts on the given socket.
+func setSocketTimeout(fd int, timeout time.Duration) error {
+	tv := syscall.NsecToTimeval(timeout.Nanoseconds())
+	for _, opt := range []int{syscall.SO_RCVTIMEO, syscall.SO_SNDTIMEO} {
+		if err := syscall.SetsockoptTimeval(fd, syscall.SOL_SOCKET, opt, &tv); err != nil {
+			return os.NewSyscallError("setsockopt", err)
+		}
+	}
+	return nil
 }

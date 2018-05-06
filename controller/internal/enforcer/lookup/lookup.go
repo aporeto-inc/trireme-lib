@@ -141,21 +141,28 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 
 // Custom implementation for splitting strings. Gives significant performance
 // improvement. Do not allocate new strings
-func (m *PolicyDB) tagSplit(str string, k *string, v *string) error {
-	n := len(str)
-	if n == 0 {
-		return fmt.Errorf("Null string")
+func (m *PolicyDB) tagSplit(tag string, k *string, v *string) error {
+	l := len(tag)
+	if l < 3 {
+		return fmt.Errorf("Invalid tag: invalid length '%s'", tag)
 	}
 
-	for i := 0; i < n; i++ {
-		if str[i] == '=' {
-			*k = str[:i]
-			*v = str[i+1:]
+	if tag[0] == '=' {
+		return fmt.Errorf("Invalid tag: missing key '%s'", tag)
+	}
+
+	for i := 0; i < l; i++ {
+		if tag[i] == '=' {
+			if i+1 >= l {
+				return fmt.Errorf("Invalid tag: missing value '%s'", tag)
+			}
+			*k = tag[:i]
+			*v = tag[i+1:]
 			return nil
 		}
 	}
 
-	return fmt.Errorf("no key/value pair found for tag: %s", str)
+	return fmt.Errorf("Invalid tag: missing equal symbol '%s'", tag)
 }
 
 //Search searches for a set of tags in the database to find a policy match
@@ -166,8 +173,10 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	skip := make([]bool, m.numberOfPolicies+1)
 
 	// Disable all policies that fail the not key exists
+	copiedTags := tags.GetSlice()
 	var k, v string
-	for _, t := range tags.GetSlice() {
+
+	for _, t := range copiedTags {
 		if err := m.tagSplit(t, &k, &v); err != nil {
 			continue
 		}
@@ -177,7 +186,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	}
 
 	// Go through the list of tags
-	for _, t := range tags.GetSlice() {
+	for _, t := range copiedTags {
 		if err := m.tagSplit(t, &k, &v); err != nil {
 			continue
 		}

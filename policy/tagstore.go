@@ -32,7 +32,7 @@ func NewTagStoreFromMap(tags map[string]string) *TagStore {
 
 // GetSlice returns the tagstore as a slice
 func (t *TagStore) GetSlice() []string {
-	return t.Tags
+	return append([]string{}, t.Tags...)
 }
 
 // Copy copies a TagStore
