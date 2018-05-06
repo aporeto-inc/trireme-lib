@@ -161,7 +161,7 @@ func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, destConn
 	}
 
 	defer func() {
-		if err := syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
+		if err = syscall.Shutdown(destFd, syscall.SHUT_WR); err != nil {
 			if er, ok := err.(syscall.Errno); ok {
 				if er != syscall.ENOTCONN {
 					zap.L().Warn("closing connection failed:", zap.Bool("Downstream", downstream), zap.Error(err))
