@@ -45,6 +45,15 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
+		{
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-p", "udp",
+			"-m", "multiport",
+			"--destination-ports", port,
+			"-m", "comment", "--comment", "Container-specific-chain",
+			"-j", netChain,
+		},
 	}
 
 	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName)...)
@@ -241,11 +250,26 @@ func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]
 		"-j", "MARK",
 		"--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
 	})
+
+	rules = append(rules, []string{
+		i.appPacketIPTableContext, appChain,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "udp",
+		"-j", "MARK",
+		"--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
+	})
 	// Application Packets
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "tcp",
+		"-j", "ACCEPT",
+	})
+
+	rules = append(rules, []string{
+		i.appPacketIPTableContext, appChain,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "udp",
 		"-j", "ACCEPT",
 	})
 
@@ -260,7 +284,19 @@ func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "udp",
+			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 1)),
+		})
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
 			"-p", "tcp",
+			"-j", "ACCEPT",
+		})
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "udp",
 			"-j", "ACCEPT",
 		})
 	} else {
@@ -270,10 +306,25 @@ func (i *Instance) trapRules(appChain string, netChain string, mark string) [][]
 			"-p", "tcp",
 			"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 1),
 		})
+
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "udp",
+			"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 1),
+		})
+
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-m", "set", "--match-set", targetNetworkSet, "src",
 			"-p", "tcp",
+			"-j", "ACCEPT",
+		})
+
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-m", "set", "--match-set", targetNetworkSet, "src",
+			"-p", "udp",
 			"-j", "ACCEPT",
 		})
 	}
@@ -917,6 +968,17 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
 	}
+
+	err = i.ipt.Insert(
+		"filter",
+		"FORWARD", 1,
+		"-p", "udp",
+		"-m", "mark", "--mark", mark+"/0xffff",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
+	}
+
 	if i.mode == constants.LocalServer {
 		err = i.ipt.Insert(
 			"raw",
@@ -939,6 +1001,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		if err != nil {
 			return fmt.Errorf("Unable to add NOTRACK rule to raw OUTPUT table %s", err)
 		}
+
 		err = i.ipt.Insert(
 			"nat",
 			"POSTROUTING", 1,
@@ -952,6 +1015,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			return fmt.Errorf("Unable to add MASQUERADE rule to raw OUTPUT table %s", err)
 		}
 	}
+
 	err = i.ipt.Insert(
 		"filter",
 		"FORWARD", 1,
@@ -961,6 +1025,17 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
 	}
+
+	err = i.ipt.Insert(
+		"filter",
+		"FORWARD", 1,
+		"-p", "udp",
+		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-2)+"/0xffff",
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err)
+	}
+
 	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,

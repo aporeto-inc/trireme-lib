@@ -40,8 +40,8 @@ var numQueues uint16
 func init() {
 	numQueues = maxNumQueues
 
-	cleanupApplicationIPRule();
-	cleanupNetworkIPRule();
+	cleanupApplicationIPRule()
+	cleanupNetworkIPRule()
 }
 
 func networkQueueCallBack(data []byte, cbData interface{}) error {
@@ -82,7 +82,10 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 
 func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
 	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
+
+	zap.L().Debug("Recieved Network packet from Tun")
 	if err != nil {
+		zap.L().Debug("Error creating new packet")
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		if err = t.processor.ProcessNetworkPacket(netPacket); err != nil {
@@ -96,6 +99,7 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 		return writer.WriteSocket(buffer[:copyIndex])
 
 	} else if netPacket.IPProto == packet.IPProtocolUDP {
+		zap.L().Debug("Varks: Processing Network UDP Packet")
 		if err = t.processor.ProcessNetworkUDPPacket(netPacket); err != nil {
 			return fmt.Errorf("Network bad UDP Packet %s", err)
 		}
@@ -106,7 +110,9 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
 	zap.L().Error("Received Packet on queue", zap.Int("QUE", queueNum), zap.Int("MARK", queueNum-1+cgnetcls.Initialmarkval))
 	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
+
 	if err != nil {
+		zap.L().Debug("Varks: Error creating new packet- app side", zap.Error(err))
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		if err = t.processor.ProcessApplicationPacket(appPacket); err != nil {
@@ -120,6 +126,7 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
 		return writer.WriteSocket(buffer[:copyIndex])
 	} else if appPacket.IPProto == packet.IPProtocolUDP {
+		zap.L().Debug("Processing App udp packet of length", zap.Reflect("length", len(appPacket.Buffer)))
 		if err = t.processor.ProcessApplicationUDPPacket(appPacket); err != nil {
 			return fmt.Errorf("Application bad UDP packet %s", err)
 		}
@@ -129,7 +136,7 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 
 func cleanupNetworkIPRule() {
 	// nolint
-	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
 	iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    NetworkRuleTable,
@@ -187,7 +194,7 @@ func (t *tundev) applyNetworkInterceptorTCConfig(deviceName string) {
 	}
 }
 func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
-	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
 	deviceName := baseTunDeviceName + baseTunDeviceInput + strconv.Itoa(i+1)
 	ipaddress := tunIPAddressSubnetIn + strconv.Itoa(i+1)
@@ -238,7 +245,7 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
-	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
@@ -291,7 +298,7 @@ func cleanupApplicationIPRule() {
 	//Cleanup on exit
 	// nolint
 
-	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
 	iprouteHdl.DeleteRule(&netlink.Rule{
 		Table:    ApplicationRuleTable,
@@ -380,7 +387,7 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
 func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
-	iprouteHdl, _ := iproute.NewIPRouteHandle()	
+	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")

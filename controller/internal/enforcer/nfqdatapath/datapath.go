@@ -102,8 +102,11 @@ type Datapath struct {
 	//datapathImpl
 	datapathhdl datapathimpl.DatapathImpl
 
-	// udp socket fd
+	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
+
+	// udp socket fd for network.
+	udpSocketNetworkWriter afinetrawsocket.SocketWriter
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -190,6 +193,11 @@ func New(
 		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
 
+	udpSocketNetworkWriter, err := afinetrawsocket.CreateSocket(afinetrawsocket.NetworkRawSocketMark, "udp")
+	if err != nil {
+		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
+	}
+
 	d := &Datapath{
 		puFromMark:        cache.NewCache("puFromMark"),
 		contextIDFromPort: contextIDFromPort,
@@ -203,11 +211,11 @@ func New(
 		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
 
-		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*24),
-		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*24),
-		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*24),
-		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*24),
-		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*24),
+		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
+		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
+		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
+		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
+		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		filterQueue:            filterQueue,
@@ -223,6 +231,7 @@ func New(
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
+		udpSocketNetworkWriter: udpSocketNetworkWriter,
 	}
 
 	packet.PacketLogLevel = packetLogs

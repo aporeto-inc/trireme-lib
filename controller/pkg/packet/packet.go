@@ -70,12 +70,16 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	p.DestinationAddress = net.IP(bytes[ipDestAddrPos : ipDestAddrPos+4])
 
 	// Some sanity checking...
-	if p.IPTotalLength < minIPPacketLen {
-		return nil, fmt.Errorf("ip packet too small: hdrlen=%d", p.ipHeaderLen)
-	}
+	// TODO : do sanity checks for UDP as well.
+	if p.IPProto == IPProtocolTCP {
 
-	if p.ipHeaderLen != minIPHdrWords {
-		return nil, fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHeaderLen)
+		if p.IPTotalLength < minIPPacketLen {
+			return nil, fmt.Errorf("ip packet too small: hdrlen=%d", p.ipHeaderLen)
+		}
+
+		if p.ipHeaderLen != minIPHdrWords {
+			return nil, fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHeaderLen)
+		}
 	}
 
 	if p.IPTotalLength != uint16(len(p.Buffer)) {
@@ -86,6 +90,7 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		}
 	}
 
+	zap.L().Debug("Varks: Creating new packet of Type: ", zap.Reflect("packetType", p.IPProto), zap.Reflect("length", len(p.Buffer)))
 	if p.IPProto == IPProtocolTCP {
 		// TCP Header Processing
 		p.l4BeginPos = minIPHdrSize
@@ -102,6 +107,7 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		p.tcpData = []byte{}
 	} else {
 		// UDP Header Processing
+		zap.L().Debug("Creating UDP packet")
 		p.UDPChecksum = binary.BigEndian.Uint16(bytes[UDPChecksumPos : UDPChecksumPos+2])
 		p.udpData = []byte{}
 		p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])

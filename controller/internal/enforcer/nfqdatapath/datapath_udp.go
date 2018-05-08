@@ -34,11 +34,14 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
+	zap.L().Debug("Varks: Recieved packet from UDP peer?", zap.Reflect("packet", p), zap.Reflect("Length", len(p.Buffer)), zap.String("flow", p.L4FlowHash()))
+	fmt.Println("UDP marker recieved is", p.Buffer[28:48])
 	// Idealy all packets from network should only be auth packets, other packets will go to application
 	// once connmark is set.
 	var conn *connection.UDPConnection
 	udpPacketType := p.GetUDPType()
 
+	zap.L().Debug("Varks: Packet Type is:", zap.Reflect("udptype", udpPacketType))
 	switch udpPacketType & packet.UDPSynAckMask {
 	case packet.UDPSynMask:
 		conn, err = d.netSynUDPRetrieveState(p)
@@ -68,6 +71,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 			}
 			// flush the packetQueue on errors.
 			if conn != nil {
+				zap.L().Debug("Dropping packets ")
 				conn.DropPackets()
 			}
 			return err
@@ -86,7 +90,8 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 	default:
 		// what to do here?
-		return fmt.Errorf("Dropping packet, since Auth in progress")
+		zap.L().Debug("Not an aporeto handshake packet, Send it on the wire", zap.String("flow", p.L4FlowHash()))
+		return d.udpSocketNetworkWriter.WriteSocket(p.Buffer)
 
 	}
 
@@ -117,7 +122,7 @@ func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConn
 
 func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
 
-	conn, err := d.sourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
+	conn, err := d.udpSourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		if d.packetLogs {
 			zap.L().Debug("No connection for SynAck packet ",
@@ -204,6 +209,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
+	zap.L().Debug("Processing application UDP packet", zap.Reflect("length", len(p.Buffer)), zap.String("flow", p.L4FlowHash()))
 	var conn *connection.UDPConnection
 	conn, err = d.appUDPRetrieveState(p)
 	if err != nil {
@@ -212,6 +218,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	// queue packets if connection is still authorized.
 	if conn.GetState() != connection.UDPAckProcessed {
+		zap.L().Debug("Varks: Packets are queued")
 		conn.QueuePackets(p)
 	}
 
@@ -219,8 +226,9 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	case connection.UDPSynSend:
 		// connection not authorized yet. queue the packets and start handshake.
-
+		zap.L().Debug("Varks: Sending out Application UDP Syn Packet with options")
 		err = d.processApplicationUDPSynPacket(p, conn.Context, conn)
+		zap.L().Debug("Varks: Sucessfully app udp syn is it?", zap.Error(err))
 
 	case connection.UDPAckProcessed:
 		// send the packet on the wire.
@@ -266,7 +274,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	// send packet
 	err = d.udpSocketWriter.WriteSocket(newPacket.Buffer)
 	if err != nil {
-		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
+		zap.L().Debug("Unable to send syn token on raw socket", zap.Error(err))
 	}
 
 	// Set the state indicating that we send out a Syn packet
@@ -275,26 +283,36 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	// Poplate the caches to track the connection
 	hash := udpPacket.L4FlowHash()
 	d.udpAppOrigConnectionTracker.AddOrUpdate(hash, conn)
-	d.udpSourcePortConnectionCache.AddOrUpdate(udpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+	d.udpSourcePortConnectionCache.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), conn)
 	// Attach the tags to the packet and accept the packet
 
+	zap.L().Debug("Varks: Application syn caches are being updated properly")
 	return nil
 
 }
 
 func (d *Datapath) clonePacket(p *packet.Packet) (*packet.Packet, error) {
 
-	newPacket := make([]byte, len(p.Buffer))
-	_ = copy(newPacket, p.Buffer)
+	// copy the ip and udp headers.
+
+	newPacket := make([]byte, 28)
+	zap.L().Debug("Clongin a new packet of length", zap.Reflect("length", len(p.Buffer)))
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, 28)
+	_ = copy(newPacket, p.Buffer[:28])
+
 	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark)
 }
 
 // CreateUDPAuthMarker creates a UDP auth marker.
 func (d *Datapath) CreateUDPAuthMarker(packetType uint8) []byte {
 	// TODO Need a better marker. 20 byte marker.
-	marker := make([]byte, 20)
+	marker := make([]byte, 19)
 	_ = copy(marker, []byte(UDPAuthMarker))
+	fmt.Println("UDPAuth marker", marker)
+	zap.L().Debug("Varks:  UDP Marker is: ", zap.Binary("marker", marker), zap.Reflect("length", len(marker)))
 	marker = append(marker, byte(packetType))
+	zap.L().Debug("Packet type is", zap.Reflect("packetType", byte(packetType)))
+	zap.L().Debug("UDP marker with packet type is:", zap.Binary("marker", marker), zap.Reflect("length", len(marker)))
 
 	return marker
 }
@@ -330,6 +348,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	// Create UDP Option
+	zap.L().Debug("Sending UDP Ack packet", zap.String("flow", udpPacket.L4ReverseFlowHash()))
 	udpOptions := d.CreateUDPAuthMarker(packet.UDPAckMask)
 
 	udpData, err := d.tokenAccessor.CreateAckPacketToken(context, &conn.Auth)
@@ -346,10 +365,18 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	// send packet
 	err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
 	if err != nil {
-		zap.L().Debug("Unable to send synack token on raw socket", zap.Error(err))
+		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
 	}
 
 	conn.SetState(connection.UDPAckProcessed)
+
+	// Be optimistic and send Queued Packets
+	err = conn.TransmitQueuePackets()
+	if err != nil {
+		return fmt.Errorf("Unable to send queued packets: %s", err)
+	}
+
+	zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
 
 	if err = d.conntrackHdl.ConntrackTableUpdateMark(
 		udpPacket.SourceAddress.String(),
@@ -363,11 +390,9 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 			zap.String("context", string(conn.Auth.LocalContext)),
 			zap.String("app-conn", udpPacket.L4ReverseFlowHash()),
 			zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+			zap.Error(err),
 		)
 	}
-
-	// Be optimistic and send Queued Packets
-	err = conn.TransmitQueuePackets()
 
 	return err
 }
@@ -377,7 +402,10 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// what about external services ??????
 	_, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
-
+	if err != nil {
+		zap.L().Debug("Unable to parse packet token")
+		// return err
+	}
 	// get claims and evaluate policy.
 
 	hash := udpPacket.L4FlowHash()
@@ -422,6 +450,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	}
 	conn.SetState(connection.UDPAckProcessed)
 
+	zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 	// Plumb connmark rule here.
 	if err := d.conntrackHdl.ConntrackTableUpdateMark(
 		udpPacket.SourceAddress.String(),

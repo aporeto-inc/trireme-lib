@@ -270,6 +270,7 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) {
 func (c *UDPConnection) TransmitQueuePackets() error {
 
 	for _, packet := range c.packetQueue {
+		zap.L().Debug("Transmitting packet of length :", zap.Binary("packet", packet[28:]), zap.Reflect("len", len(packet)))
 		err := c.Writer.WriteSocket(packet)
 		if err != nil {
 			zap.L().Error("Unable to transmit UDP packets", zap.Error(err))

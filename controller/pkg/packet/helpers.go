@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"strconv"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/ipv4"
 )
 
@@ -195,7 +197,7 @@ func (p *Packet) UpdateUDPChecksum() {
 	// checksum set to 0, ignored by the stack
 	ignoreCheckSum := []byte{0, 0}
 	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
-	binary.BigEndian.PutUint16(p.Buffer[UDPChecksumPos:UDPChecksumPos+2], p.ipChecksum)
+	binary.BigEndian.PutUint16(p.Buffer[UDPChecksumPos:UDPChecksumPos+2], p.UDPChecksum)
 
 }
 
@@ -214,6 +216,8 @@ func (p *Packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
 	udpData = append(udpData, udpdata...)
 	udpData = append(udpData, udptoken...)
 
+	fmt.Println("UDP Marker beign attached is:", udpdata, len(udpdata))
+
 	p.udpData = udpData
 
 	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
@@ -222,8 +226,13 @@ func (p *Packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
 
 	// Attach Data @ the end of current buffer
+	zap.L().Debug("Varks: Packet buffer after attach", zap.Binary("udpData", udpData))
+	fmt.Println("Size of Buffer before attach", len(p.Buffer))
+
 	p.Buffer = append(p.Buffer, p.udpData...)
 
+	zap.L().Debug("Varks: Packet being sent on wire is:", zap.Binary("buffer", p.Buffer))
+	fmt.Println("UDP marker being sent is", p.Buffer[28:48])
 	p.UpdateUDPChecksum()
 }
 
@@ -239,6 +248,20 @@ func (p *Packet) CreateReverseFlowPacket() {
 	binary.BigEndian.PutUint16(p.Buffer[tcpSourcePortPos:tcpSourcePortPos+2], p.DestinationPort)
 	binary.BigEndian.PutUint16(p.Buffer[tcpDestPortPos:tcpDestPortPos+2], p.SourcePort)
 
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, 28)
+
+	// Just get the IP/UDP header. Ignore the rest.
+	p.Buffer = p.Buffer[:28]
+
+	// change the fields
+	p.SourceAddress = net.IP(p.Buffer[ipSourceAddrPos : ipSourceAddrPos+4])
+	p.DestinationAddress = net.IP(p.Buffer[ipDestAddrPos : ipDestAddrPos+4])
+
+	p.SourcePort = binary.BigEndian.Uint16(p.Buffer[tcpSourcePortPos : tcpSourcePortPos+2])
+	p.DestinationPort = binary.BigEndian.Uint16(p.Buffer[tcpDestPortPos : tcpDestPortPos+2])
+
+	zap.L().Debug("Reverse Packet: flow", zap.String("flow", p.L4FlowHash()))
+
 	p.UpdateIPChecksum()
 
 	p.UpdateUDPChecksum()
@@ -250,6 +273,12 @@ func (p *Packet) GetUDPType() byte {
 	// last byte of marker as of now.
 	// TODO Sanity checks, Check for IP header length, and for valid bufffer sizes.
 	// TODO : check for udpauth marker, if absent , return zero.
-	return p.Buffer[47]
+	UDPAuthMarker := "n30njxq7bmiwr6dtxqq"
+	if bytes.Equal(p.Buffer[28:47], []byte(UDPAuthMarker)) {
+		return p.Buffer[47]
+	}
+
+	zap.L().Debug("Not a Aporeto HandShake Packet")
+	return 0
 
 }
