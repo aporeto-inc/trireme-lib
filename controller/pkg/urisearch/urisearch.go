@@ -17,6 +17,11 @@ type APICache struct {
 	External    bool
 }
 
+type scopeRule struct {
+	rule   *policy.HTTPRule
+	scopes map[string]struct{}
+}
+
 // NewAPICache creates a new API cache
 func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 	a := &APICache{
@@ -26,17 +31,58 @@ func NewAPICache(rules []*policy.HTTPRule, id string, external bool) *APICache {
 	}
 
 	for _, rule := range rules {
+		sc := &scopeRule{
+			rule:   rule,
+			scopes: map[string]struct{}{},
+		}
+		for _, term := range rule.Scopes {
+			sc.scopes[term] = struct{}{}
+		}
 		for _, method := range rule.Methods {
 			if _, ok := a.methodRoots[method]; !ok {
 				a.methodRoots[method] = &node{}
 			}
 			for _, uri := range rule.URIs {
-				insert(a.methodRoots[method], uri, rule)
+				insert(a.methodRoots[method], uri, sc)
 			}
 		}
 	}
 
 	return a
+}
+
+// FindRule finds a rule in the APICache without validating scopes
+func (c *APICache) FindRule(verb, uri string) (bool, *policy.HTTPRule) {
+	found, rule := c.Find(verb, uri)
+	if rule == nil {
+		return found, nil
+	}
+	if policyRule, ok := rule.(*scopeRule); ok {
+		return found, policyRule.rule
+	}
+	return false, nil
+}
+
+// FindAndMatchScope finds the rule and returns true only if the scope matches
+// as well.
+func (c *APICache) FindAndMatchScope(verb, uri string, attributes []string) bool {
+	found, rule := c.Find(verb, uri)
+	if !found || rule == nil {
+		return false
+	}
+	policyRule, ok := rule.(*scopeRule)
+	if !ok {
+		return false
+	}
+	if policyRule.rule.Public {
+		return true
+	}
+	for _, attr := range attributes {
+		if _, ok := policyRule.scopes[attr]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // Find finds a URI in the cache and returns true and the data if found.
@@ -46,7 +92,6 @@ func (c *APICache) Find(verb, uri string) (bool, interface{}) {
 	if !ok {
 		return false, nil
 	}
-
 	return search(root, uri)
 }
 

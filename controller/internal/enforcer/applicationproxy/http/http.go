@@ -275,17 +275,10 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		defer p.collector.CollectFlowEvent(record)
 
 		// Get the corresponding scopes
-		found, t := apiCache.Find(r.Method, r.URL.Path)
+		found, rule := apiCache.FindRule(r.Method, r.URL.Path)
 		if !found {
 			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
-			return
-		}
-
-		rule, ok := t.(*policy.HTTPRule)
-		if !ok {
-			zap.L().Error("Internal error - wrong rule", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Internal server error"), http.StatusInternalServerError)
 			return
 		}
 
@@ -399,15 +392,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Look in the cache for the method and request URI for the associated scopes
 	// and policies.
-	found, t := apiCache.Find(r.Method, r.URL.Path)
+	found, rule := apiCache.FindRule(r.Method, r.URL.Path)
 	if !found {
 		http.Error(w, fmt.Sprintf("Unknown or unauthorized service"), http.StatusForbidden)
-		return
-	}
-
-	rule, ok := t.(*policy.HTTPRule)
-	if !ok {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
