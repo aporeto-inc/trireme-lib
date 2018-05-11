@@ -370,20 +370,20 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	conn.SetState(connection.UDPAckProcessed)
 
-	// Be optimistic and send Queued Packets
-	err = conn.TransmitQueuePackets()
-	if err != nil {
-		return fmt.Errorf("Unable to send queued packets: %s", err)
-	}
+	// // Be optimistic and send Queued Packets
+	// err = conn.TransmitQueuePackets()
+	// if err != nil {
+	// 	return fmt.Errorf("Unable to send queued packets: %s", err)
+	// }
 
 	zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
 
 	if err = d.conntrackHdl.ConntrackTableUpdateMark(
-		udpPacket.SourceAddress.String(),
 		udpPacket.DestinationAddress.String(),
+		udpPacket.SourceAddress.String(),
 		udpPacket.IPProto,
-		udpPacket.SourcePort,
 		udpPacket.DestinationPort,
+		udpPacket.SourcePort,
 		constants.DefaultConnMark,
 	); err != nil {
 		zap.L().Error("Failed to update conntrack table for flow",
@@ -392,6 +392,12 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 			zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			zap.Error(err),
 		)
+	}
+
+	// Be optimistic and send Queued Packets
+	err = conn.TransmitQueuePackets()
+	if err != nil {
+		return fmt.Errorf("Unable to send queued packets: %s", err)
 	}
 
 	return err
