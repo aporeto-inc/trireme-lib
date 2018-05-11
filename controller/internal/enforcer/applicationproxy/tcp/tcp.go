@@ -35,13 +35,12 @@ const (
 
 // Proxy maintains state for proxies connections from listen to backend.
 type Proxy struct {
-	wg sync.WaitGroup
-
 	tokenaccessor tokenaccessor.TokenAccessor
 	collector     collector.EventCollector
 
 	puContext string
 	puFromID  cache.DataStore
+	portCache map[int]string
 
 	certificate *tls.Certificate
 	ca          *x509.CertPool
@@ -58,6 +57,8 @@ type proxyFlowProperties struct {
 	DestIP     string
 	SourcePort uint16
 	DestPort   uint16
+	PolicyID   string
+	ServiceID  string
 }
 
 // NewTCPProxy creates a new instance of proxy reate a new instance of Proxy
@@ -73,7 +74,6 @@ func NewTCPProxy(
 	localIPs := connproc.GetInterfaces()
 
 	return &Proxy{
-		wg:            sync.WaitGroup{},
 		collector:     c,
 		tokenaccessor: tp,
 		puFromID:      puFromID,
@@ -120,6 +120,13 @@ func (p *Proxy) serve(ctx context.Context, listener net.Listener) {
 // ShutDown shuts down the server.
 func (p *Proxy) ShutDown() error {
 	return nil
+}
+
+// UpdatePortCache updates the port cache
+func (p *Proxy) UpdatePortCache(portCache map[int]string) {
+	p.Lock()
+	defer p.Unlock()
+	p.portCache = portCache
 }
 
 // handle handles a connection
@@ -303,8 +310,9 @@ func (p *Proxy) StartClientAuthStateMachine(downIP fmt.Stringer, downPort int, d
 	conn := connection.NewProxyConnection()
 
 	flowproperties := &proxyFlowProperties{
-		DestIP: downIP.String(),
-		// SourceIP: downConn.LocalAddr().Network(),
+		DestIP:   downIP.String(),
+		DestPort: uint16(downPort),
+		SourceIP: downConn.LocalAddr().Network(),
 	}
 
 	for {
@@ -377,8 +385,10 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	isEncrypted := false
 
 	flowProperties := &proxyFlowProperties{
-		DestIP:   ip.String(),
-		DestPort: uint16(backendport),
+		DestIP:    ip.String(),
+		DestPort:  uint16(backendport),
+		SourceIP:  getIP(upConn),
+		ServiceID: p.portCache[backendport],
 	}
 
 	conn := connection.NewProxyConnection()
@@ -470,11 +480,13 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 			Port: flowproperties.DestPort,
 			Type: collector.EnpointTypePU,
 		},
-		Tags:       context.Annotations(),
-		Action:     reportAction.Action,
-		DropReason: mode,
-		PolicyID:   reportAction.PolicyID,
-		L4Protocol: packet.IPProtocolTCP,
+		Tags:        context.Annotations(),
+		Action:      reportAction.Action,
+		DropReason:  mode,
+		PolicyID:    reportAction.PolicyID,
+		L4Protocol:  packet.IPProtocolTCP,
+		ServiceType: policy.ServiceTCP,
+		ServiceID:   flowproperties.ServiceID,
 	}
 
 	if reportAction.ObserveAction.Observed() {
@@ -548,4 +560,11 @@ func checkErr(err error) bool {
 		zap.L().Error("Connection terminated", zap.Error(err))
 	}
 	return false
+}
+
+func getIP(conn net.Conn) string {
+	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		return addr.IP.String()
+	}
+	return ""
 }
