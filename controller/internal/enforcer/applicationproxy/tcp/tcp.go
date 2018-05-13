@@ -55,12 +55,12 @@ type Proxy struct {
 type proxyFlowProperties struct {
 	SourceIP   string
 	DestIP     string
-	SourcePort uint16
-	DestPort   uint16
 	PolicyID   string
 	ServiceID  string
 	DestType   collector.EndPointType
 	SourceType collector.EndPointType
+	SourcePort uint16
+	DestPort   uint16
 }
 
 // NewTCPProxy creates a new instance of proxy reate a new instance of Proxy
