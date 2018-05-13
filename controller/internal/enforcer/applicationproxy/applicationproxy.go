@@ -285,6 +285,9 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 
 	// Register the DependentServices with the multiplexer.
 	for _, service := range puInfo.Policy.DependentServices() {
+		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
+			continue
+		}
 		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type), false); err != nil {
 			return fmt.Errorf("Duplicate dependent service: %s", err)
 		}

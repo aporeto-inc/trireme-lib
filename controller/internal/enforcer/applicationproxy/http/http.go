@@ -244,35 +244,40 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
+
+	record := &collector.FlowRecord{
+		ContextID: p.puContext,
+		Destination: &collector.EndPoint{
+			URI:        r.RequestURI,
+			HTTPMethod: r.Method,
+			Type:       collector.EndPointTypeExteranlIPAddress,
+			Port:       uint16(originalDestination.Port),
+			IP:         r.Host,
+			ID:         collector.DefaultEndPoint,
+		},
+		Source: &collector.EndPoint{
+			Type: collector.EnpointTypePU,
+			ID:   puContext.ManagementID(),
+		},
+		Action:      policy.Reject,
+		L4Protocol:  packet.IPProtocolTCP,
+		ServiceType: policy.ServiceHTTP,
+		ServiceID:   apiCache.ID,
+		Tags:        puContext.Annotations(),
+	}
+
+	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
+		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
+		p.collector.CollectFlowEvent(record)
+		return
+	}
+
 	// For external services we validate policy at the ingress. Note that the
 	// certificate distribution service is considered as external and must
 	// be defined as external.
 	if apiCache.External {
-		_, _port, perr := originalServicePort(w, r)
-		if perr != nil {
-			return
-		}
-		record := &collector.FlowRecord{
-			ContextID: p.puContext,
-			Destination: &collector.EndPoint{
-				URI:        r.RequestURI,
-				HTTPMethod: r.Method,
-				Type:       collector.EndPointTypeExteranlIPAddress,
-				Port:       _port,
-				IP:         r.Host,
-				ID:         collector.DefaultEndPoint,
-			},
-			Source: &collector.EndPoint{
-				Type: collector.EnpointTypePU,
-				ID:   puContext.ManagementID(),
-			},
-			Action:      policy.Reject,
-			L4Protocol:  packet.IPProtocolTCP,
-			ServiceType: policy.ServiceHTTP,
-			ServiceID:   apiCache.ID,
-			Tags:        puContext.Annotations(),
-		}
-		defer p.collector.CollectFlowEvent(record)
 
 		// Get the corresponding scopes
 		found, t := apiCache.Find(r.Method, r.URL.Path)
@@ -310,6 +315,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			record.Action = policy.Encrypt
 		}
 		record.Action = record.Action | policy.Accept
+		p.collector.CollectFlowEvent(record)
 	}
 
 	// Generate the client identity
@@ -338,16 +344,26 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
+	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
+
+	sourceAddress, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid network information"), http.StatusForbidden)
+		return
+	}
+
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
 			URI:        r.Method + " " + r.RequestURI,
 			HTTPMethod: r.Method,
 			Type:       collector.EnpointTypePU,
+			IP:         originalDestination.IP.String(),
+			Port:       uint16(originalDestination.Port),
 		},
 		Source: &collector.EndPoint{
 			Type: collector.EnpointTypePU,
-			IP:   remoteIP(r.RemoteAddr),
+			IP:   sourceAddress.IP.String(),
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
@@ -359,19 +375,27 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Retrieve the context and policy
 	puContext, apiCache, err := p.retrieveContextAndPolicy(p.exposedAPICache, w, r)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		return
 	}
 	record.ServiceID = apiCache.ID
 
 	// Find the original port from the URL
-	port, _port, err := originalServicePort(w, r)
+	port, _, err := originalServicePort(w, r)
 	if err != nil {
 		return
 	}
 
-	record.Destination.Port = uint16(_port)
 	record.Tags = puContext.Annotations()
 	record.Destination.ID = puContext.ManagementID()
+
+	_, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
+	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
+		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+		record.Source.Type = collector.EndPointTypeExteranlIPAddress
+		record.Source.ID = collector.DefaultEndPoint
+		return
+	}
 
 	// Retrieve the headers with the key and auth parameters.
 	token := r.Header.Get("X-APORETO-AUTH")
@@ -429,16 +453,23 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	record.Source.ID = claims.SourceID
 
+	if noNetAccessPolicy != nil {
+		_, netPolicyAction := puContext.SearchRcvRules(policy.NewTagStoreFromSlice(claims.Profile))
+		if netPolicyAction.Action.Rejected() {
+			http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
+			return
+		}
+	}
+
 	if !rule.Public {
 		// Validate the policy and drop the request if there is no authorization.
 		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, err.Error(), http.StatusForbidden)
 			return
 		}
 	}
 
 	// Create the target URI and forward the request.
-	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 	r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
@@ -650,9 +681,4 @@ func originalServicePort(w http.ResponseWriter, r *http.Request) (string, uint16
 	}
 	_port, _ := strconv.Atoi(port)
 	return port, uint16(_port), nil
-}
-
-func remoteIP(addr string) string {
-	parts := strings.SplitN(addr, ":", 2)
-	return parts[0]
 }
