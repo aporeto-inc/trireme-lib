@@ -371,6 +371,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
 	}
+
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
@@ -486,6 +487,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	record.Action = policy.Accept | policy.Encrypt
+	record.Destination.IP = originalDestination.IP.String()
+	record.Destination.Port = uint16(originalDestination.Port)
 
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
@@ -678,4 +681,9 @@ func originalServicePort(w http.ResponseWriter, r *http.Request) (string, uint16
 	}
 	_port, _ := strconv.Atoi(port)
 	return port, uint16(_port), nil
+}
+
+func remoteIP(addr string) string {
+	parts := strings.SplitN(addr, ":", 2)
+	return parts[0]
 }
