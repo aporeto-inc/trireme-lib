@@ -246,9 +246,31 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
+	record := &collector.FlowRecord{
+		ContextID: p.puContext,
+		Destination: &collector.EndPoint{
+			URI:        r.RequestURI,
+			HTTPMethod: r.Method,
+			Type:       collector.EndPointTypeExteranlIPAddress,
+			Port:       uint16(originalDestination.Port),
+			IP:         r.Host,
+			ID:         collector.DefaultEndPoint,
+		},
+		Source: &collector.EndPoint{
+			Type: collector.EnpointTypePU,
+			ID:   puContext.ManagementID(),
+		},
+		Action:      policy.Reject,
+		L4Protocol:  packet.IPProtocolTCP,
+		ServiceType: policy.ServiceHTTP,
+		ServiceID:   apiCache.ID,
+		Tags:        puContext.Annotations(),
+	}
+
 	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
+		p.collector.CollectFlowEvent(record)
 		return
 	}
 
@@ -256,31 +278,6 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	// certificate distribution service is considered as external and must
 	// be defined as external.
 	if apiCache.External {
-		_, _port, perr := originalServicePort(w, r)
-		if perr != nil {
-			return
-		}
-		record := &collector.FlowRecord{
-			ContextID: p.puContext,
-			Destination: &collector.EndPoint{
-				URI:        r.RequestURI,
-				HTTPMethod: r.Method,
-				Type:       collector.EndPointTypeExteranlIPAddress,
-				Port:       _port,
-				IP:         r.Host,
-				ID:         collector.DefaultEndPoint,
-			},
-			Source: &collector.EndPoint{
-				Type: collector.EnpointTypePU,
-				ID:   puContext.ManagementID(),
-			},
-			Action:      policy.Reject,
-			L4Protocol:  packet.IPProtocolTCP,
-			ServiceType: policy.ServiceHTTP,
-			ServiceID:   apiCache.ID,
-			Tags:        puContext.Annotations(),
-		}
-		defer p.collector.CollectFlowEvent(record)
 
 		// Get the corresponding scopes
 		found, t := apiCache.Find(r.Method, r.URL.Path)
@@ -318,6 +315,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			record.Action = policy.Encrypt
 		}
 		record.Action = record.Action | policy.Accept
+		p.collector.CollectFlowEvent(record)
 	}
 
 	// Generate the client identity
