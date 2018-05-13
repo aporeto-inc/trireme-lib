@@ -392,6 +392,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	_, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+		record.Source.Type = collector.EndPointTypeExteranlIPAddress
+		record.Source.ID = collector.DefaultEndPoint
 		return
 	}
 
