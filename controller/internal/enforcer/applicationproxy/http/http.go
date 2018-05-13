@@ -682,8 +682,3 @@ func originalServicePort(w http.ResponseWriter, r *http.Request) (string, uint16
 	_port, _ := strconv.Atoi(port)
 	return port, uint16(_port), nil
 }
-
-func remoteIP(addr string) string {
-	parts := strings.SplitN(addr, ":", 2)
-	return parts[0]
-}
