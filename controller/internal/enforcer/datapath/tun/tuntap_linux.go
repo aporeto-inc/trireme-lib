@@ -121,7 +121,7 @@ func cleanupNetworkIPRule() {
 	// nolint
 	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
-	iprouteHdl.DeleteRule(&netlink.Rule{
+	netlink.RuleDel(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
 		Mark:     (cgnetcls.Initialmarkval - 1),
@@ -130,7 +130,7 @@ func cleanupNetworkIPRule() {
 	//restore local rule again
 	// nolint
 
-	iprouteHdl.AddRule(&netlink.Rule{ //
+	netlink.RuleAdd(&netlink.Rule{ //
 		Table:    0xff, //
 		Priority: 0x0,  //
 		Mark:     0,    //
@@ -139,7 +139,7 @@ func cleanupNetworkIPRule() {
 
 	//Delete prio 10 local rule
 	// nolint
-	iprouteHdl.DeleteRule(&netlink.Rule{
+	netlink.RuleDel(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0xa,
 		Mark:     0,
@@ -236,7 +236,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 
 	//Reduce prio of local table so our rules get hit before even for local traffic
-	if err := iprouteHdl.AddRule(&netlink.Rule{
+	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0xa,
 		Mark:     0,
@@ -246,7 +246,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 
 	//Delete local table at prio 0
-	if err := iprouteHdl.DeleteRule(&netlink.Rule{
+	if err := netlink.RuleDel(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0x0,
 		Mark:     0,
@@ -256,7 +256,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 
 	//Program ip route and ip rules
-	if err := iprouteHdl.AddRule(&netlink.Rule{
+	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
 		Mark:     (cgnetcls.Initialmarkval - 1),
@@ -284,7 +284,7 @@ func cleanupApplicationIPRule() {
 
 	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
-	iprouteHdl.DeleteRule(&netlink.Rule{
+	netlink.RuleAdd(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
 		Mark:     cgnetcls.Initialmarkval - 2,
@@ -377,7 +377,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
 
-	if err := iprouteHdl.AddRule(&netlink.Rule{
+	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
 		Mark:     cgnetcls.Initialmarkval - 2,
