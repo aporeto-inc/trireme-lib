@@ -197,7 +197,14 @@ func (p *Packet) UpdateUDPChecksum() {
 	// checksum set to 0, ignored by the stack
 	ignoreCheckSum := []byte{0, 0}
 	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
+
+	udpDataLen := p.IPTotalLength - p.GetUDPDataStartBytes()
+
+	// update checksum.
 	binary.BigEndian.PutUint16(p.Buffer[UDPChecksumPos:UDPChecksumPos+2], p.UDPChecksum)
+
+	// update length.
+	binary.BigEndian.PutUint16(p.Buffer[UDPLengthPos:UDPLengthPos+2], udpDataLen)
 
 }
 
@@ -209,8 +216,8 @@ func (p *Packet) ReadUDPToken() []byte {
 	return p.Buffer[48:]
 }
 
-// UDPDataAttach attached udp data and token.
-func (p *Packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
+// UDPTokenAttach attached udp packet signature and tokens.
+func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
 
 	udpData := []byte{}
 	udpData = append(udpData, udpdata...)
@@ -234,6 +241,48 @@ func (p *Packet) UDPDataAttach(udpdata []byte, udptoken []byte) {
 	zap.L().Debug("Varks: Packet being sent on wire is:", zap.Binary("buffer", p.Buffer))
 	fmt.Println("UDP marker being sent is", p.Buffer[28:48])
 	p.UpdateUDPChecksum()
+}
+
+// UDPDataAttach Attaches UDP data
+func (p *Packet) UDPDataAttach(udpdata []byte) {
+
+	udpData := []byte{}
+	udpData = append(udpData, udpdata...)
+
+	fmt.Println("UDP data (cipher) beign attached is:", udpdata, len(udpdata))
+
+	p.udpData = udpData
+
+	packetLenIncrease := uint16(len(udpdata))
+
+	// IP Header Processing
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
+
+	// Attach Data @ the end of current buffer
+	zap.L().Debug("Varks: Packet buffer after attach", zap.Binary("udpData", udpData))
+	fmt.Println("Size of Buffer before attach", len(p.Buffer))
+
+	p.Buffer = append(p.Buffer, p.udpData...)
+
+	zap.L().Debug("Varks: Packet being sent on wire is:", zap.Binary("buffer", p.Buffer))
+	p.UpdateUDPChecksum()
+}
+
+// UDPDataDetach detaches UDP payload from the Buffer. Called only during Encrypt/Decrypt.
+func (p *Packet) UDPDataDetach() {
+
+	// Create constants for IP header + UDP header. copy ?
+	p.Buffer = p.Buffer[:28]
+	p.udpData = []byte{}
+
+	// IP header/checksum updated on DataAttach.
+}
+
+// UDPDataOffset returns the beginning of UDP data.
+func (p *Packet) UDPDataOffset() uint16 {
+
+	// TODO: get the constants and sanity checks done.
+	return 28
 }
 
 // CreateReverseFlowPacket modifies the packet for reverse flow.

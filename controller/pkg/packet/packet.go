@@ -135,6 +135,13 @@ func (p *Packet) GetUDPData() []byte {
 	return p.Buffer[28:]
 }
 
+// GetUDPDataStartBytes return start of UDP data
+func (p *Packet) GetUDPDataStartBytes() uint16 {
+
+	// TODO: have sanity
+	return 28
+}
+
 // SetTCPData returns any additional data in the packet
 func (p *Packet) SetTCPData(b []byte) {
 	p.tcpData = b

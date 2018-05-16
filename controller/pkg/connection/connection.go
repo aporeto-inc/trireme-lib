@@ -222,9 +222,14 @@ type UDPConnection struct {
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
 	reported         bool
-	isEncrypted      bool
-	packetQueue      [][]byte
-	Writer           afinetrawsocket.SocketWriter
+	// ServiceConnection indicates that this connection is handled by a service
+	ServiceConnection bool
+	// ServiceData allows services to associate state with a connection
+	ServiceData interface{}
+
+	// PacketQueue indicates app UDP packets queued while authorization is in progress.
+	PacketQueue []*packet.Packet
+	Writer      afinetrawsocket.SocketWriter
 }
 
 // NewProxyConnection returns a new Proxy Connection
@@ -241,7 +246,7 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 	return &UDPConnection{
 		state:       UDPSynSend,
 		Context:     context,
-		packetQueue: [][]byte{},
+		PacketQueue: []*packet.Packet{},
 		Writer:      writer,
 	}
 }
@@ -260,18 +265,19 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) {
 
-	buffer := make([]byte, len(udpPacket.Buffer))
-	_ = copy(buffer, udpPacket.Buffer)
+	// buffer := make([]byte, len(udpPacket.Buffer))
+	// _ = copy(buffer, udpPacket.Buffer)
 
-	c.packetQueue = append(c.packetQueue, buffer)
+	c.PacketQueue = append(c.PacketQueue, udpPacket)
 }
 
-// TransmitQueuePackets transmits UDP packetes oncle flow is authenticated.
+// TransmitQueuePackets transmits UDP packetes once flow is authenticated.
 func (c *UDPConnection) TransmitQueuePackets() error {
 
-	for _, packet := range c.packetQueue {
-		zap.L().Debug("Transmitting packet of length :", zap.Binary("packet", packet[28:]), zap.Reflect("len", len(packet)))
-		err := c.Writer.WriteSocket(packet)
+	for _, packet := range c.PacketQueue {
+		zap.L().Debug("Transmitting packet of length :", zap.Binary("packet", packet.Buffer[28:]), zap.Reflect("len", len(packet.Buffer)))
+
+		err := c.Writer.WriteSocket(packet.Buffer)
 		if err != nil {
 			zap.L().Error("Unable to transmit UDP packets", zap.Error(err))
 		}
@@ -279,10 +285,10 @@ func (c *UDPConnection) TransmitQueuePackets() error {
 	return nil
 }
 
-// DropPackets drops packets on errors during AUthorization.
+// DropPackets drops packets on errors during Authorization.
 func (c *UDPConnection) DropPackets() {
 
-	c.packetQueue = [][]byte{}
+	c.PacketQueue = []*packet.Packet{}
 }
 
 // GetState returns the state of a proxy connection

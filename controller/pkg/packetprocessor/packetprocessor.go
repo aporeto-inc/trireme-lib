@@ -30,4 +30,16 @@ type PacketProcessor interface {
 
 	// PostProcessTCPNetPacket will be called for network packets and return value of false means drop packet
 	PostProcessTCPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *pucontext.PUContext, conn *connection.TCPConnection) bool
+
+	// PreProcessUDPAppPacket will be called for application packets and return value of false means drop packet
+	PreProcessUDPAppPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) bool
+
+	// PostProcessUDPAppPacket will be called for application packets and return value of false means drop packet.
+	PostProcessUDPAppPacket(p *packet.Packet, action interface{}, context *pucontext.PUContext, conn *connection.UDPConnection) bool
+
+	// PreProcessUDPNetPacket will be called for network packets and return value of false means drop packet
+	PreProcessUDPNetPacket(p *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) bool
+
+	// PostProcessUDPNetPacket will be called for network packets and return value of false means drop packet
+	PostProcessUDPNetPacket(p *packet.Packet, action interface{}, claims *tokens.ConnectionClaims, context *pucontext.PUContext, conn *connection.UDPConnection) bool
 }

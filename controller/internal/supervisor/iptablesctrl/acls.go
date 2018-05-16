@@ -1086,14 +1086,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add set mark rule for reinjecting packet app: %s", err)
 	}
-	err = i.ipt.Insert(
-		i.appPacketIPTableContext,
-		appChain, 1,
-		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.NetworkRawSocketMark),
-		"-j", "ACCEPT")
-	if err != nil {
-		return fmt.Errorf("unable to add accept mark rule for recirculated packets app: %s", err)
-	}
+
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
@@ -1230,6 +1223,16 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
+
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.NetworkRawSocketMark),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add accept mark rule for recirculated packets app: %s", err)
+	}
+
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,

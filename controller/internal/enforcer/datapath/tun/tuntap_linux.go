@@ -101,7 +101,7 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 	} else if netPacket.IPProto == packet.IPProtocolUDP {
 		zap.L().Debug("Varks: Processing Network UDP Packet")
 		if err = t.processor.ProcessNetworkUDPPacket(netPacket); err != nil {
-			return fmt.Errorf("Network bad UDP Packet %s", err)
+			return fmt.Errorf("UDP Network packet dropped %s:", err)
 		}
 	}
 	return fmt.Errorf("Invalid ip protocol: %d", netPacket.IPProto)
