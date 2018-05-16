@@ -119,8 +119,6 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 
 func cleanupNetworkIPRule() {
 	// nolint
-	iprouteHdl, _ := iproute.NewIPRouteHandle()
-
 	netlink.RuleDel(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
@@ -229,8 +227,6 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
-	iprouteHdl, _ := iproute.NewIPRouteHandle()
-
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
@@ -281,8 +277,6 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 func cleanupApplicationIPRule() {
 	//Cleanup on exit
 	// nolint
-
-	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
 	netlink.RuleAdd(&netlink.Rule{
 		Table:    ApplicationRuleTable,
@@ -371,7 +365,6 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
 func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
-	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
