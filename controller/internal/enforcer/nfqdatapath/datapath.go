@@ -7,13 +7,14 @@ import (
 	"os/exec"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/iproute"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
@@ -27,6 +28,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.uber.org/zap"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -36,10 +38,11 @@ const DefaultExternalIPTimeout = "500ms"
 type Datapath struct {
 
 	// Configuration parameters
-	filterQueue    *fqconfig.FilterQueue
-	collector      collector.EventCollector
-	tokenAccessor  tokenaccessor.TokenAccessor
-	service        packetprocessor.PacketProcessor
+	filterQueue   *fqconfig.FilterQueue
+	collector     collector.EventCollector
+	tokenAccessor tokenaccessor.TokenAccessor
+	service       packetprocessor.PacketProcessor
+
 	secrets        secrets.Secrets
 	nflogger       nflog.NFLogger
 	procMountPoint string
@@ -83,6 +86,9 @@ type Datapath struct {
 	packetLogs          bool
 
 	portSetInstance portset.PortSet
+
+	//datapathImpl
+	datapathhdl datapathimpl.DatapathImpl
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -103,9 +109,9 @@ func New(
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
 ) *Datapath {
-
+	var err error
 	if ExternalIPCacheTimeout <= 0 {
-		var err error
+
 		ExternalIPCacheTimeout, err = time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 		if err != nil {
 			ExternalIPCacheTimeout = time.Second
@@ -114,18 +120,46 @@ func New(
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
-
-		sysctlCmd, err := exec.LookPath("sysctl")
+		var sysctlCmd string
+		sysctlCmd, err = exec.LookPath("sysctl")
 		if err != nil {
 			zap.L().Fatal("sysctl command must be installed", zap.Error(err))
 		}
 
 		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-		if err := cmd.Run(); err != nil {
+		if err = cmd.Run(); err != nil {
 			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_forward=1")
 
+		if err = cmd.Run(); err != nil {
+			//TODO Fatal here
+			zap.L().Error("Failed to set ip forward", zap.Error(err))
+		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.rp_filter=0")
+
+		if err = cmd.Run(); err != nil {
+			zap.L().Error("Failed to set ip forward", zap.Error(err))
+		}
+
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
+
+		if err = cmd.Run(); err != nil {
+			zap.L().Error("Failed to set ip early demux", zap.Error(err))
+		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.route_localnet=1")
+
+		if err = cmd.Run(); err != nil {
+			zap.L().Error("Failed to setup route_localnet ", zap.Error(err))
+		}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.accept_local=1")
+
+		if err = cmd.Run(); err != nil {
+			zap.L().Error("Failed to setup accept_local", zap.Error(err))
+		}
 	}
+
+	iproute.InitIPRules()
 
 	// This cache is shared with portSetInstance. The portSetInstance
 	// cleans up the entry corresponding to port when port is no longer
@@ -168,7 +202,13 @@ func New(
 	packet.PacketLogLevel = packetLogs
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
+	//TODO :: Remove Call to NFQ once we pass tun tests
+	//d.datapathhdl = nfq.NewNfq(d, filterQueue)
 
+	d.datapathhdl, err = tundatapath.NewTunDataPath(d, 0x100, mode)
+	if err != nil {
+		zap.L().Fatal("Unable to instantiate datapath", zap.Error(err))
+	}
 	return d
 }
 
@@ -221,8 +261,6 @@ func NewWithDefaults(
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
-	zap.L().Debug("Called Proxy Enforce")
 
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
@@ -289,6 +327,8 @@ func (d *Datapath) Unenforce(contextID string) error {
 		)
 	}
 
+	//Return the mark to be used somewhere else
+	//cgnetcls.ReleaseMarkVal(pu.Mark())
 	return nil
 }
 
@@ -308,12 +348,12 @@ func (d *Datapath) GetPortSetInstance() portset.PortSet {
 func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
-	if d.service != nil {
+	if d.service != nil && d.mode != constants.RemoteContainer {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}
 
-	d.startApplicationInterceptor(ctx)
-	d.startNetworkInterceptor(ctx)
+	d.datapathhdl.StartApplicationInterceptor(ctx)
+	d.datapathhdl.StartNetworkInterceptor(ctx)
 
 	go d.nflogger.Run(ctx)
 

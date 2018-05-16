@@ -109,6 +109,7 @@ func OptionPacketLogs() Option {
 }
 
 func (t *trireme) newEnforcers() error {
+	
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
 	if t.config.linuxProcess {

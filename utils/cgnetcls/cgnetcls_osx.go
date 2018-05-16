@@ -3,6 +3,9 @@
 //Package cgnetcls implements functionality to manage classid for processes belonging to different cgroups
 package cgnetcls
 
+type netCls struct {
+}
+
 //Creategroup creates a cgroup/net_cls structure and writes the allocated classid to the file.
 //To add a new process to this cgroup we need to write to the cgroup file
 func (s *netCls) Creategroup(cgroupname string) error {

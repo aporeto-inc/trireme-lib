@@ -17,12 +17,11 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
-// processNetworkPackets processes packets arriving from network and are destined to the application
-func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
+// ProcessNetworkPacket processes packets arriving from network and are destined to the application
+func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
@@ -137,8 +136,8 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	return nil
 }
 
-// processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
+// ProcessApplicationPacket processes packets arriving from an application and are destined to the network
+func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
@@ -177,14 +176,17 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
-
-			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
-				//SYN ACK came through the global rule.
-				//This not from a process we are monitoring
-				//let his packet through
-				return nil
-			}
-			return err
+			//TODO :: we should steer packets with a specific mark to a queue
+			// part of uidpam.everything else lands on queue 0
+			//This handling is a part of the uidpam port auto discovery
+			// if p.Mark != "0" {
+			// 	//SYN ACK came through the global rule.
+			// 	//This not from a process we are monitoring
+			// 	//let his packet through
+			// 	return nil
+			// }
+			// return err
+			return nil
 		}
 	default:
 		conn, err = d.appRetrieveState(p)
@@ -724,7 +726,6 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 	// Validate that the source/destination nonse matches. The signature has validated both directions
 	if conn.GetState() == connection.TCPSynAckSend || conn.GetState() == connection.TCPSynReceived {
-
 		if err := tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 			d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidFormat, nil, nil)
 			return nil, nil, fmt.Errorf("TCP authentication option not found: %s", err)
@@ -753,7 +754,6 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 			// We accept the packet as a new flow
 			d.reportAcceptedFlow(tcpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 		}
-
 		conn.SetState(connection.TCPData)
 
 		if !conn.ServiceConnection {
@@ -784,7 +784,6 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		zap.String("context", context.ManagementID()),
 		zap.String("net-conn", hash),
 	)
-
 	return nil, nil, fmt.Errorf("Ack packet dropped, invalid duplicate state: %d", conn.GetState())
 }
 

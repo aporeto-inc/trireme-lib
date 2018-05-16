@@ -70,7 +70,6 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	if err != nil {
 		return err
 	}
-
 	// Extract the metadata and create the runtime
 	runtime, err := l.metadataExtractor(eventInfo)
 	if err != nil {
@@ -86,7 +85,6 @@ func (l *linuxProcessor) Start(ctx context.Context, eventInfo *common.EventInfo)
 	if err = l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventStart, runtime); err != nil {
 		return fmt.Errorf("Unable to start PU: %s", err)
 	}
-
 	l.Lock()
 	// We can now program cgroups and everything else.
 	if eventInfo.HostService {
@@ -263,7 +261,9 @@ func (l *linuxProcessor) processLinuxServiceStart(nativeID string, event *common
 	}
 
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	err = l.netcls.AssignMark(nativeID, mark)
+	//TODO :: CgroupHighBit from constants
+	zap.L().Error("CGROUP Assign", zap.String("NativeID", nativeID), zap.Int("MARK", (1<<16)|int(mark)))
+	err = l.netcls.AssignMark(nativeID, (1<<16)|mark)
 	if err != nil {
 		if derr := l.netcls.DeleteCgroup(nativeID); derr != nil {
 			zap.L().Warn("Failed to clean cgroup", zap.Error(derr))
