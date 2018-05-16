@@ -383,7 +383,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 		Mark:     cgnetcls.Initialmarkval - 2,
 		Mask:     RuleMask,
 	}); err != nil {
-		zap.L().Fatal("Unable to add ip rule", zap.Error(err))
+		zap.L().Error("Unable to add ip rule", zap.Error(err))
 	}
 
 	go func() {
