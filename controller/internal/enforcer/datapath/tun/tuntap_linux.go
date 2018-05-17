@@ -118,6 +118,24 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 	return writer.WriteSocket(buffer[:copyIndex])
 }
 
+func showIPrules() {
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		fmt.Println("ip command not found")
+		return
+	}
+
+	out, err := exec.Command(ipCmd, "rule", "list").Output()
+
+	if err != nil {
+		zap.L().Error("ip rule list returned error")
+	} else {
+		zap.L().Error("ip output",
+			zap.String("out", string(out)))
+	}
+}
+
 func cleanupNetworkIPRule() {
 	// nolint
 	var ipCmd string
@@ -128,6 +146,8 @@ func cleanupNetworkIPRule() {
 		fmt.Println("ip command not found")
 		return
 	}
+
+	showIPrules()
 
 	cmd := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "10")
 
@@ -144,6 +164,7 @@ func cleanupNetworkIPRule() {
 	//restore local rule again
 	// nolint
 
+	showIPrules()
 	cmd = exec.Command(ipCmd, "rule", "add", "prio", "0", "table", "local")
 
 	if err = cmd.Run(); err != nil {
@@ -170,7 +191,8 @@ func cleanupNetworkIPRule() {
 		Mask:     0,
 	})
         */
-	
+
+	showIPrules()
 	cmd = exec.Command(ipCmd, "rule", "del", "prio", "10", "table", "local")
 
 	if err = cmd.Run(); err != nil {
@@ -272,10 +294,11 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 		return
 	}
 
+	showIPrules()
 	cmd := exec.Command(ipCmd, "rule", "add", "prio", "10", "table", "local")
 
 	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+		zap.L().Error("failed to add ip rules")
 	}
 
 /*
@@ -290,6 +313,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 */
 
+	showIPrules()
 	cmd = exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "local")
 
 	if err = cmd.Run(); err != nil {
@@ -308,6 +332,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 		zap.L().Error("Unable to delete ip rule", zap.Error(err))
 	}
 */
+	showIPrules()
 	cmd = exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xff/0xffff", "table", "10")
 
 	if err = cmd.Run(); err != nil {
@@ -347,6 +372,8 @@ func cleanupApplicationIPRule() {
 		fmt.Println("ip command not found")
 		return
 	}
+
+	showIPrules()
 
 	cmd := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "11")
 
@@ -453,11 +480,12 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
 
+	showIPrules()
 			
 	cmd := exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xfe/0xffff", "table", "11")
 
 	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+		zap.L().Error("failed to add ip rules")
 	}
 
 /*
