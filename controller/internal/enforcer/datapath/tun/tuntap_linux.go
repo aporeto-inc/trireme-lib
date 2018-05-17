@@ -149,12 +149,13 @@ func cleanupNetworkIPRule() {
 
 	showIPrules()
 
-	cmd := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "10")
+	cmd, err := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "10").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+	if err != nil {
+		zap.L().Error("ip rule del prio 0 table 10 returned error ",
+			zap.String("error", string(cmd)))
 	}
-	
+
 	/*netlink.RuleDel(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
@@ -165,13 +166,13 @@ func cleanupNetworkIPRule() {
 	// nolint
 
 	showIPrules()
-	cmd = exec.Command(ipCmd, "rule", "add", "prio", "0", "table", "local")
+	cmd, err = exec.Command(ipCmd, "rule", "add", "prio", "0", "table", "local").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+	if err != nil {
+		zap.L().Error("ip rule add prio 0 table local returned error",
+			zap.String("error", string(cmd)))
 	}
-
-
+	
 	/*
 	netlink.RuleAdd(&netlink.Rule{ //
 		Table:    0xff, //
@@ -193,10 +194,11 @@ func cleanupNetworkIPRule() {
         */
 
 	showIPrules()
-	cmd = exec.Command(ipCmd, "rule", "del", "prio", "10", "table", "local")
+	cmd, err = exec.Command(ipCmd, "rule", "del", "prio", "10", "table", "local").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+	if err != nil {
+		zap.L().Error("ip rule del prio 10 table local returned error",
+			zap.String("error", string(cmd)))
 	}
 }
 
@@ -295,10 +297,11 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 
 	showIPrules()
-	cmd := exec.Command(ipCmd, "rule", "add", "prio", "10", "table", "local")
+	cmd, err := exec.Command(ipCmd, "rule", "add", "prio", "10", "table", "local").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to add ip rules")
+	if err != nil {
+		zap.L().Error("ip rule add prio 10 table local returned error",
+			zap.String("error", string(cmd)))
 	}
 
 /*
@@ -314,12 +317,12 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 */
 
 	showIPrules()
-	cmd = exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "local")
+	cmd, err = exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "local").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+	if err != nil {
+		zap.L().Error("ip rule del prio 0 table local returned error",
+			zap.String("error", string(cmd)))
 	}
-
 
 	/*
 	//Delete local table at prio 0
@@ -333,13 +336,14 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}
 */
 	showIPrules()
-	cmd = exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xff/0xffff", "table", "10")
+	cmd, err = exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xff/0xffff", "table", "10").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+	if err != nil {
+		zap.L().Error("ip rule add prio 0 fwmark 0xff/0xffff table 10 returned error",
+			zap.String("error", string(cmd)))
 	}
 
-/*
+	/*
 	//Program ip route and ip rules
 	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    NetworkRuleTable,
@@ -375,10 +379,11 @@ func cleanupApplicationIPRule() {
 
 	showIPrules()
 
-	cmd := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "11")
+	cmd, err := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "11").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to del ip rules")
+	if err != nil {
+		zap.L().Error("ip rule del prio 0 table 11 returned error",
+			zap.String("error", string(cmd)))
 	}
 
 /*	netlink.RuleAdd(&netlink.Rule{
@@ -482,13 +487,14 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 
 	showIPrules()
 			
-	cmd := exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xfe/0xffff", "table", "11")
+	cmd, err := exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xfe/0xffff", "table", "11").Output()
 
-	if err = cmd.Run(); err != nil {
-		zap.L().Error("failed to add ip rules")
+	if err != nil {
+		zap.L().Error("ip rule add prio 0 fwmark 0xfe/0xffff table 11 returned error",
+			zap.String("error", string(cmd)))
 	}
 
-/*
+	/*
 	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
