@@ -386,6 +386,7 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 }
 
 func setIPRulesApplication(ctx context.Context) {
+	zap.L().Error("Setting up ip rules application")
 	ipCmd, err := exec.LookPath("ip")
 	if err != nil {
 		zap.L().Error("ip command not found")
@@ -408,6 +409,7 @@ func setIPRulesApplication(ctx context.Context) {
 }
 
 func setIPRulesNetwork(ctx context.Context) {
+	zap.L().Error("Setting up ip rules network")
 	ipCmd, err := exec.LookPath("ip")
 	if err != nil {
 		zap.L().Error("ip command not found")
