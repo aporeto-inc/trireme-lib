@@ -394,7 +394,7 @@ func setIPRulesApplication(ctx context.Context) {
 
 	showIPrules()
 			
-	cmd, err := exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xfe/0xffff", "table", "11").Output()
+	cmd, err := exec.Command(ipCmd, "rule", "add", "prio", "1", "fwmark", "0xfe/0xffff", "table", "11").Output()
 
 	if err != nil {
 		zap.L().Error("ip rule add prio 0 fwmark 0xfe/0xffff table 11 returned error",
