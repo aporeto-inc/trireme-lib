@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os/user"
+	"os/exec"
 	"strconv"
 	"syscall"
 
@@ -119,31 +120,64 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 
 func cleanupNetworkIPRule() {
 	// nolint
-	netlink.RuleDel(&netlink.Rule{
+	var ipCmd string
+
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		fmt.Println("ip command not found")
+		return
+	}
+
+	cmd := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "10")
+
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
+	
+	/*netlink.RuleDel(&netlink.Rule{
 		Table:    NetworkRuleTable,
 		Priority: RulePriority,
 		Mark:     (cgnetcls.Initialmarkval - 1),
 		Mask:     RuleMask,
-	})
+	})*/
 	//restore local rule again
 	// nolint
 
+	cmd = exec.Command(ipCmd, "rule", "add", "prio", "0", "table", "local")
+
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
+
+
+	/*
 	netlink.RuleAdd(&netlink.Rule{ //
 		Table:    0xff, //
 		Priority: 0x0,  //
 		Mark:     0,    //
 		Mask:     0,    //
-	}) //
-
+	}) //  
+        */
 	//Delete prio 10 local rule
 	// nolint
+
+	/*
 	netlink.RuleDel(&netlink.Rule{
 		Table:    0xff,
 		Priority: 0xa,
 		Mark:     0,
 		Mask:     0,
 	})
+        */
+	
+	cmd = exec.Command(ipCmd, "rule", "del", "prio", "10", "table", "local")
+
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
 }
+
 func (t *tundev) startNetworkSocket(qIndex int, tun *tuntap.TunTap) error {
 
 	writer, err := afinetrawsocket.CreateSocket(afinetrawsocket.NetworkRawSocketMark, "tun-out1")
@@ -231,6 +265,20 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
 
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		fmt.Println("ip command not found")
+		return
+	}
+
+	cmd := exec.Command(ipCmd, "rule", "add", "prio", "10", "table", "local")
+
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
+
+/*
 	//Reduce prio of local table so our rules get hit before even for local traffic
 	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    0xff,
@@ -240,7 +288,16 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}); err != nil {
 		zap.L().Fatal("Unable to add ip rule", zap.Error(err))
 	}
+*/
 
+	cmd = exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "local")
+
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
+
+
+	/*
 	//Delete local table at prio 0
 	if err := netlink.RuleDel(&netlink.Rule{
 		Table:    0xff,
@@ -250,7 +307,14 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}); err != nil {
 		zap.L().Error("Unable to delete ip rule", zap.Error(err))
 	}
+*/
+	cmd = exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xff/0xffff", "table", "10")
 
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
+
+/*
 	//Program ip route and ip rules
 	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    NetworkRuleTable,
@@ -260,7 +324,7 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 	}); err != nil {
 		zap.L().Fatal("Unable to add ip rule", zap.Error(err))
 	}
-
+*/
 	//Startup a cleanup routine here.
 	go func() {
 		//Cleanup on exit
@@ -277,14 +341,26 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
 func cleanupApplicationIPRule() {
 	//Cleanup on exit
 	// nolint
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		fmt.Println("ip command not found")
+		return
+	}
 
-	netlink.RuleAdd(&netlink.Rule{
+	cmd := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "11")
+
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
+
+/*	netlink.RuleAdd(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
 		Mark:     cgnetcls.Initialmarkval - 2,
 		Mask:     RuleMask,
 	})
-
+*/
 }
 
 func (t *tundev) applyApplicationInterceptorTCConfig(deviceName string) {
@@ -366,10 +442,25 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 // packets originated from a local application
 func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		fmt.Println("ip command not found")
+		return
+	}
+
 	if numTunDevicesPerDirection > 255 {
 		zap.L().Fatal("Cannot create more than 255 devices per direction")
 	}
 
+			
+	cmd := exec.Command(ipCmd, "rule", "add", "prio", "0", "fwmark", "0xfe/0xffff", "table", "11")
+
+	if err = cmd.Run(); err != nil {
+		zap.L().Error("failed to del ip rules")
+	}
+
+/*
 	if err := netlink.RuleAdd(&netlink.Rule{
 		Table:    ApplicationRuleTable,
 		Priority: RulePriority,
@@ -378,7 +469,7 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
 	}); err != nil {
 		zap.L().Error("Unable to add ip rule", zap.Error(err))
 	}
-
+*/
 	go func() {
 		<-ctx.Done()
 		cleanupApplicationIPRule()

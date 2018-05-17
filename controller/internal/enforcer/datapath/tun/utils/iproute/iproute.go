@@ -18,7 +18,6 @@ import (
 type Iproute struct {
 }
 
-
 func InitIPRules() {
 	var ipCmd string
 
