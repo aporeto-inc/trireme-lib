@@ -352,8 +352,8 @@ func (d *Datapath) Run(ctx context.Context) error {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}
 
-	d.datapathhdl.StartApplicationInterceptor(ctx)
 	d.datapathhdl.StartNetworkInterceptor(ctx)
+	d.datapathhdl.StartApplicationInterceptor(ctx)
 
 	go d.nflogger.Run(ctx)
 
