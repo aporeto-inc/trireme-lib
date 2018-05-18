@@ -40,7 +40,11 @@ func (i *Instance) CleanAllSynAckPacketCaptures() error {
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 	markint, _ := strconv.Atoi(mark)
+	
 	cgroup := strconv.Itoa((1 << 16) | markint)
+	zap.L().Error("Mehul: ",
+		zap.String("mark", strconv.Itoa(markint)),
+		zap.String("cgroup", cgroup))
 	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
