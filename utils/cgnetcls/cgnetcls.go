@@ -233,8 +233,10 @@ func mountCgroupController() {
 	}
 
 	if len(cgroupMount) == 0 {
-		zap.L().Error("Cgroups are not enabled or net_cls is not mounted")
-		return
+		//Cgroup mount not found
+		// let us create set
+		cgroupMount = defaultCgroupBasePath
+		//return
 	}
 
 	if !netCls {
