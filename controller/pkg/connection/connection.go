@@ -71,8 +71,11 @@ const (
 )
 
 const (
+	// UDPSynStart is the state where a syn will be sent.
+	UDPSynStart UDPFlowState = iota
+
 	// UDPSynSend is the state where a syn has been sent.
-	UDPSynSend UDPFlowState = iota
+	UDPSynSend
 
 	// UDPSynReceived is the state where a syn packet has been received.
 	UDPSynReceived
@@ -85,6 +88,9 @@ const (
 
 	// UDPSynAckSent is the state where syn ack packet has been sent.
 	UDPSynAckSent
+
+	// UDPAckReceived is the state where udp ack packet is recieved.
+	UDPAckReceived
 )
 
 const (
@@ -244,7 +250,7 @@ func NewProxyConnection() *ProxyConnection {
 func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.SocketWriter) *UDPConnection {
 
 	return &UDPConnection{
-		state:       UDPSynSend,
+		state:       UDPSynStart,
 		Context:     context,
 		PacketQueue: []*packet.Packet{},
 		Writer:      writer,
@@ -263,12 +269,17 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 }
 
 // QueuePackets queues UDP packets till the flow is authenticated.
-func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) {
+func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 
-	// buffer := make([]byte, len(udpPacket.Buffer))
-	// _ = copy(buffer, udpPacket.Buffer)
+	buffer := make([]byte, len(udpPacket.Buffer))
+	copy(buffer, udpPacket.Buffer)
 
-	c.PacketQueue = append(c.PacketQueue, udpPacket)
+	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark)
+	if err != nil {
+		return fmt.Errorf("Unable to copy pakcets to queue:%s", err)
+	}
+	c.PacketQueue = append(c.PacketQueue, copyPacket)
+	return nil
 }
 
 // TransmitQueuePackets transmits UDP packetes once flow is authenticated.

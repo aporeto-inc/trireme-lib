@@ -116,6 +116,8 @@ const (
 	UDPChecksumPos = 26
 	// UDPDataPos is the location of UDP data
 	UDPDataPos = 28
+	// UDPBeginPos is the location of UDP Header
+	UDPBeginPos = 20
 	// UDPSynMask is a mask for the UDP Syn flags
 	UDPSynMask = 0x2
 	// UDPSynAckMask  mask idenitifies a UDP SYN-ACK packet

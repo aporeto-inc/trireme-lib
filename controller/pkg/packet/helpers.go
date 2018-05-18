@@ -152,6 +152,45 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	return checksum(buf)
 }
 
+// Computes the UDP checksum over UDP pseudoheader. This is
+// called after all modifications on the packet have been made.
+func (p *Packet) computeUDPChecksum() uint16 {
+
+	var pseudoHeaderLen uint16 = 12
+	udpSize := uint16(len(p.Buffer)) - UDPBeginPos
+	bufLen := pseudoHeaderLen + udpSize
+	buf := make([]byte, bufLen)
+
+	// Construct the pseudo-header for UDP checksum computation:
+
+	// bytes 0-3: Source IP address
+	copy(buf[0:4], p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4])
+
+	// bytes 4-7: Destination IP address
+	copy(buf[4:8], p.Buffer[ipDestAddrPos:ipDestAddrPos+4])
+
+	// byte 8: Constant zero
+	buf[8] = 0
+
+	// byte 9: Protocol (17== UDP)
+	buf[9] = 17
+
+	// bytes 10,11: UDP buffer size (real header + payload)
+	binary.BigEndian.PutUint16(buf[10:12], udpSize)
+
+	// bytes 12+: The TCP buffer (real header + payload)
+	copy(buf[12:], p.Buffer[UDPDataPos:])
+
+	// Set current checksum to zero (in buf, not changing packet)
+	buf[pseudoHeaderLen+6] = 0
+	buf[pseudoHeaderLen+7] = 0
+
+	// Is this required ?
+	//	buf = append(buf, p.udpData...)
+
+	return checksum(buf)
+}
+
 // incCsum16 implements rfc1624, equation 3.
 func incCsum16(start, old, new uint16) uint16 {
 
@@ -196,16 +235,22 @@ func (p *Packet) UpdateUDPChecksum() {
 
 	// checksum set to 0, ignored by the stack
 	ignoreCheckSum := []byte{0, 0}
+	// p.UDPChecksum = p.computeUDPChecksum()
 	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
 
-	udpDataLen := p.IPTotalLength - p.GetUDPDataStartBytes()
+	curLen := uint16(len(p.Buffer))
+	udpDataLen := curLen - p.GetUDPDataStartBytes()
 
+	zap.L().Debug("Updating udp header pktlen as", zap.Reflect("len", udpDataLen))
 	// update checksum.
 	binary.BigEndian.PutUint16(p.Buffer[UDPChecksumPos:UDPChecksumPos+2], p.UDPChecksum)
 
 	// update length.
-	binary.BigEndian.PutUint16(p.Buffer[UDPLengthPos:UDPLengthPos+2], udpDataLen)
+	binary.BigEndian.PutUint16(p.Buffer[UDPLengthPos:UDPLengthPos+2], udpDataLen+8)
 
+	udpLen := binary.BigEndian.Uint16(p.Buffer[UDPLengthPos : UDPLengthPos+2])
+
+	zap.L().Debug("Updated header length verified is:", zap.Reflect("len", udpLen))
 }
 
 // ReadUDPToken return the UDP token
@@ -255,14 +300,14 @@ func (p *Packet) UDPDataAttach(udpdata []byte) {
 
 	packetLenIncrease := uint16(len(udpdata))
 
-	// IP Header Processing
-	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
-
 	// Attach Data @ the end of current buffer
 	zap.L().Debug("Varks: Packet buffer after attach", zap.Binary("udpData", udpData))
 	fmt.Println("Size of Buffer before attach", len(p.Buffer))
 
 	p.Buffer = append(p.Buffer, p.udpData...)
+
+	// IP Header Processing
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
 
 	zap.L().Debug("Varks: Packet being sent on wire is:", zap.Binary("buffer", p.Buffer))
 	p.UpdateUDPChecksum()
