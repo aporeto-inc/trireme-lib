@@ -91,12 +91,14 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	p.Print(packet.PacketStageIncoming)
 
-	if d.service != nil {
-		if !d.service.PreProcessTCPNetPacket(p, conn.Context, conn) {
-			p.Print(packet.PacketFailureService)
-			return errors.New("pre service processing failed for network packet")
-		}
-	}
+	//////////////////////////////////////////////////////////////////////////////////////////////////
+	// if d.service != nil {								        //
+	// 	if !d.service.PreProcessTCPNetPacket(p, conn.Context, conn) {			        //
+	// 		p.Print(packet.PacketFailureService)					        //
+	// 		return errors.New("pre service processing failed for network packet")	        //
+	// 	}										        //
+	// }											        //
+	//////////////////////////////////////////////////////////////////////////////////////////////////
 
 	p.Print(packet.PacketStageAuth)
 
@@ -116,18 +118,20 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	p.Print(packet.PacketStageService)
 
-	if d.service != nil {
-		// PostProcessServiceInterface
-		if !d.service.PostProcessTCPNetPacket(p, action, claims, conn.Context, conn) {
-			p.Print(packet.PacketFailureService)
-			return errors.New("post service processing failed for network packet")
-		}
-
-		if conn.ServiceConnection && conn.TimeOut > 0 {
-			d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint
-		}
-
-	}
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// if d.service != nil {										 //
+	// 	// PostProcessServiceInterface									 //
+	// 	if !d.service.PostProcessTCPNetPacket(p, action, claims, conn.Context, conn) {			 //
+	// 		p.Print(packet.PacketFailureService)							 //
+	// 		return errors.New("post service processing failed for network packet")			 //
+	// 	}												 //
+	// 													 //
+	// 	if conn.ServiceConnection && conn.TimeOut > 0 {							 //
+	// 		d.netReplyConnectionTracker.SetTimeOut(p.L4FlowHash(), conn.TimeOut) // nolint		 //
+	// 	}												 //
+	// 													 //
+	// }													 //
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Accept the packet
 	p.UpdateTCPChecksum()
@@ -207,13 +211,15 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	p.Print(packet.PacketStageIncoming)
 
-	if d.service != nil {
-		// PreProcessServiceInterface
-		if !d.service.PreProcessTCPAppPacket(p, conn.Context, conn) {
-			p.Print(packet.PacketFailureService)
-			return errors.New("pre service processing failed for application packet")
-		}
-	}
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
+	// if d.service != nil {									    //
+	// 	// PreProcessServiceInterface								    //
+	// 	if !d.service.PreProcessTCPAppPacket(p, conn.Context, conn) {				    //
+	// 		p.Print(packet.PacketFailureService)						    //
+	// 		return errors.New("pre service processing failed for application packet")	    //
+	// 	}											    //
+	// }												    //
+	//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	p.Print(packet.PacketStageAuth)
 
@@ -233,13 +239,15 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	p.Print(packet.PacketStageService)
 
-	if d.service != nil {
-		// PostProcessServiceInterface
-		if !d.service.PostProcessTCPAppPacket(p, action, conn.Context, conn) {
-			p.Print(packet.PacketFailureService)
-			return errors.New("post service processing failed for application packet")
-		}
-	}
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	// if d.service != nil {									     //
+	// 	// PostProcessServiceInterface								     //
+	// 	if !d.service.PostProcessTCPAppPacket(p, action, conn.Context, conn) {			     //
+	// 		p.Print(packet.PacketFailureService)						     //
+	// 		return errors.New("post service processing failed for application packet")	     //
+	// 	}											     //
+	// }												     //
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	// Accept the packet
 	p.UpdateTCPChecksum()
