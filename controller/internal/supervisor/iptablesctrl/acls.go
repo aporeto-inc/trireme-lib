@@ -67,6 +67,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-p", "tcp",
 			"-m", "multiport",
 			"--destination-ports", port,
+			"-m", "addrtype", "--dst-type", "LOCAL", 
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
