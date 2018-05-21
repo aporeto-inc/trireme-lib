@@ -103,7 +103,7 @@ func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 	p.Print(packet.PacketStageAuth)
 
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
-	_, _, err = d.processNetworkTCPPacket(p, conn.Context, conn)
+	action, claims, err := d.processNetworkTCPPacket(p, conn.Context, conn)
 	if err != nil {
 		p.Print(packet.PacketFailureAuth)
 		if d.packetLogs {
@@ -224,7 +224,7 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 	p.Print(packet.PacketStageAuth)
 
 	// Match the tags of the packet against the policy rules - drop if the lookup fails
-	_, err = d.processApplicationTCPPacket(p, conn.Context, conn)
+	action, err := d.processApplicationTCPPacket(p, conn.Context, conn)
 	if err != nil {
 		if d.packetLogs {
 			zap.L().Debug("Dropping packet  ",
