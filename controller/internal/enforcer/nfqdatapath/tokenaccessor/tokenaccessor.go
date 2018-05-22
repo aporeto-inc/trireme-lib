@@ -75,7 +75,7 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 		RMT: auth.RemoteContext,
 	}
 
-	token, _, err := t.getToken().CreateAndSign(true, claims)
+	token, err := t.getToken().CreateAndSign(true, claims, auth.LocalContext)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -87,10 +87,9 @@ func (t *tokenAccessor) CreateAckPacketToken(context *pucontext.PUContext, auth 
 func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth *connection.AuthInfo) (token []byte, err error) {
 
 	token, serviceContext, err := context.GetCachedTokenAndServiceContext()
-
 	if err == nil && bytes.Equal(auth.LocalServiceContext, serviceContext) {
 		// Randomize the nonce and send it
-		auth.LocalContext, err = t.getToken().Randomize(token)
+		err = t.getToken().Randomize(token, auth.LocalContext)
 		if err == nil {
 			return token, nil
 		}
@@ -102,7 +101,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		EK: auth.LocalServiceContext,
 	}
 
-	if token, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
+	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
 		return []byte{}, nil
 	}
 
@@ -121,7 +120,7 @@ func (t *tokenAccessor) CreateSynAckPacketToken(context *pucontext.PUContext, au
 		EK:  auth.LocalServiceContext,
 	}
 
-	if token, auth.LocalContext, err = t.getToken().CreateAndSign(false, claims); err != nil {
+	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
 		return []byte{}, nil
 	}
 
