@@ -1106,6 +1106,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		netChain, 1,
 		"-p", "udp",
 		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
+		"-m", "socket",
 		"-j", "MARK", "--set-mark", mark,
 	)
 	if err != nil {
