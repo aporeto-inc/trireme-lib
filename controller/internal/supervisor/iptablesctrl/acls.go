@@ -994,6 +994,19 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 		err = i.ipt.Insert(
 			"raw",
+			"PREROUTING", 1,
+			"-i", "docker0",
+			"-p", "udp",
+			"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
+			"-m", "addrtype", "--dst-type", "LOCAL",
+			"-j", "NOTRACK",
+		)
+		if err != nil {
+			return fmt.Errorf("Unable to add NOTRACK udp rule to raw PREROUTING table %s", err)
+		}
+
+		err = i.ipt.Insert(
+			"raw",
 			"OUTPUT", 1,
 			"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 			"-j", "NOTRACK",
@@ -1085,6 +1098,18 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
 		return fmt.Errorf("unable to add set mark rule for reinjecting packet app: %s", err)
+	}
+
+	// TODO: varun Is this rule required in container.
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		"-p", "udp",
+		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
+		"-j", "MARK", "--set-mark", mark,
+	)
+	if err != nil {
+		return fmt.Errorf("unable to add capture udp control packet for table %s, chain %s: %s", i.netPacketIPTableContext, i.netPacketIPTableSection, err)
 	}
 
 	err = i.ipt.Insert(

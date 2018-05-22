@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/aporeto-inc/trireme-lib/common"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/client"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
@@ -339,14 +340,32 @@ func ParseServices(ports []string) ([]common.Service, error) {
 
 	// Parse the ports and create the services. Cleanup any bad ports
 	services := []common.Service{}
+	protocol := packet.IPProtocolTCP
+
 	for _, p := range ports {
-		s, err := portspec.NewPortSpecFromString(p, nil)
+		// check for port string of form port#/udp eg 8085/udp
+		portProtocolPair := strings.Split(p, "/")
+		if len(portProtocolPair) > 2 || len(portProtocolPair) <= 0 {
+			return nil, fmt.Errorf("Invalid port format. Expected format is of form 80 or 8085/udp")
+		}
+
+		if len(portProtocolPair) == 2 {
+			if portProtocolPair[1] == "tcp" {
+				protocol = packet.IPProtocolTCP
+			} else if portProtocolPair[1] == "udp" {
+				protocol = packet.IPProtocolUDP
+			} else {
+				return nil, fmt.Errorf("Invalid protocol specified. Only tcp/udp accepted")
+			}
+		}
+
+		s, err := portspec.NewPortSpecFromString(portProtocolPair[0], nil)
 		if err != nil {
 			return nil, fmt.Errorf("Invalid port spec: %s ", err)
 		}
 
 		services = append(services, common.Service{
-			Protocol: uint8(6),
+			Protocol: uint8(protocol),
 			Ports:    s,
 		})
 	}

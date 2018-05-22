@@ -8,19 +8,13 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
-)
-
-const (
-	// UDPAuthMarker is marker for UDP. Change it later.
-	UDPAuthMarker = "n30njxq7bmiwr6dtxqq"
-	// UDPAuthMarkerLen is the length of UDP marker.
-	UDPAuthMarkerLen = 19
 )
 
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application
@@ -37,15 +31,12 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
-	zap.L().Debug("Varks: Recieved packet from UDP peer?", zap.Reflect("packet", p), zap.Reflect("Length", len(p.Buffer)), zap.String("flow", p.L4FlowHash()))
-	fmt.Println("UDP marker recieved is", p.Buffer[28:48])
 	// Idealy all packets from network should only be auth packets, other packets will go to application
 	// once connmark is set.
 	var conn *connection.UDPConnection
 	udpPacketType := p.GetUDPType()
 
-	zap.L().Debug("Varks: Packet Type is:", zap.Reflect("udptype", udpPacketType))
-	switch udpPacketType & packet.UDPSynAckMask {
+	switch udpPacketType {
 	case packet.UDPSynMask:
 		conn, err = d.netSynUDPRetrieveState(p)
 		if err != nil {
@@ -118,11 +109,11 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 
 	}
 
-	// p.Print(packet.PacketStageIncoming)
+	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
 		if !d.service.PreProcessUDPNetPacket(p, conn.Context, conn) {
-			//	p.Print(packet.PacketFailureService)
+			p.Print(packet.PacketFailureService)
 			return errors.New("pre service processing failed for network packet")
 		}
 	}
@@ -137,10 +128,6 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 		return fmt.Errorf("packet processing failed for network packet: %s", err)
 	}
-	// check for encryption and do it later on.
-	// capture the encrypt action when policy is being resolved - netsyn/netsynack
-	// in connection object and encrypt later on.
-
 	return nil
 }
 
@@ -197,7 +184,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 
 	udpPacketType := udpPacket.GetUDPType()
 	// Update connection state in the internal state machine tracker
-	switch udpPacketType & packet.UDPSynAckMask {
+	switch udpPacketType {
 
 	case packet.UDPSynMask:
 		action, claims, err := d.processNetworkUDPSynPacket(context, conn, udpPacket)
@@ -408,13 +395,25 @@ func (d *Datapath) clonePacket(p *packet.Packet) (*packet.Packet, error) {
 
 // CreateUDPAuthMarker creates a UDP auth marker.
 func (d *Datapath) CreateUDPAuthMarker(packetType uint8) []byte {
-	// TODO Need a better marker. 20 byte marker.
-	marker := make([]byte, 19)
-	_ = copy(marker, []byte(UDPAuthMarker))
+
+	// Every UDP control packet has a 20 byte packet signature. The
+	// first 2 bytes represent the following control information.
+	// Byte 0 : Bits 0,1 are reserved fields.
+	//          Bits 2,3,4 represent version information.
+	//          Bits 6,7 represent udp packet type,
+	//          Bit 7 represents encryption. (currently unused).
+	// Byte 1: reserved for future use.
+	// Bytes [2:20]: Packet signature.
+	zap.L().Debug("Packet type is", zap.Reflect("packetType", byte(packetType)))
+
+	marker := make([]byte, packet.UDPSignatureLen)
+	// ignore version info as of now.
+	marker[0] |= packetType // byte 0
+	marker[1] = 0           // byte 1
+	// byte 2 - 19
+	copy(marker[2:], []byte(packet.UDPAuthMarker))
 	fmt.Println("UDPAuth marker", marker)
 	zap.L().Debug("Varks:  UDP Marker is: ", zap.Binary("marker", marker), zap.Reflect("length", len(marker)))
-	marker = append(marker, byte(packetType))
-	zap.L().Debug("Packet type is", zap.Reflect("packetType", byte(packetType)))
 	zap.L().Debug("UDP marker with packet type is:", zap.Binary("marker", marker), zap.Reflect("length", len(marker)))
 
 	return marker
@@ -544,18 +543,19 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	// what about external services ??????
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		//d.reportRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
 		return nil, nil, fmt.Errorf("UDP Syn packet dropped because of invalid token: %s", err)
 	}
 
 	// if there are no claims we must drop the connection and we drop the Syn
 	// packet. The source will retry but we have no state to maintain here.
 	if claims == nil {
-		//	d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
+		d.reportUDPRejectedFlow(udpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
 		return nil, nil, errors.New("UDP Syn packet dropped because of no claims")
 	}
 
-	// txLabel, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
+	// Why is this required. Take a look.
+	txLabel, _ := claims.T.Get(enforcerconstants.TransmitterLabel)
 
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
@@ -563,7 +563,8 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	report, packet := context.SearchRcvRules(claims.T)
 	if packet.Action.Rejected() {
-		//d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
+		// txLabel : check what is this?
+		d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
 	}
 
@@ -592,19 +593,19 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 	// Decode the JWT token using the context key
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		// d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
+		d.reportUDPRejectedFlow(udpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
 		return nil, nil, fmt.Errorf("SynAck packet dropped because of bad claims: %s", err)
 	}
 
 	if claims == nil {
-		// d.reportRejectedFlow(tcpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
+		d.reportUDPRejectedFlow(udpPacket, nil, collector.DefaultEndPoint, context.ManagementID(), context, collector.MissingToken, nil, nil)
 		return nil, nil, errors.New("SynAck packet dropped because of no claims")
 	}
 
-	_, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
 	if packet.Action.Rejected() {
 		// TODO: add report above
-		// d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
+		d.reportUDPRejectedFlow(udpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
 	}
 
@@ -619,7 +620,7 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 
 	claims, err = d.tokenAccessor.ParseAckToken(&conn.Auth, udpPacket.ReadUDPToken())
 	if err != nil {
-		// p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
+		d.reportUDPRejectedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, collector.PolicyDrop, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 		return nil, nil, fmt.Errorf("ack packet dropped because signature validation failed: %s", err)
 	}
 
@@ -639,7 +640,6 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 			zap.L().Error("Failed to update conntrack table after ack packet")
 		}
 	}
-	// p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
-
+	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 	return nil, nil, nil
 }

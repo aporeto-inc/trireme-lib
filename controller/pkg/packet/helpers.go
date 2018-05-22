@@ -365,14 +365,13 @@ func (p *Packet) CreateReverseFlowPacket() {
 func (p *Packet) GetUDPType() byte {
 
 	// last byte of marker as of now.
-	// TODO Sanity checks, Check for IP header length, and for valid bufffer sizes.
+	// TODO Sanity checks, Check for IP header length, and for valid buffer sizes.
 	// TODO : check for udpauth marker, if absent , return zero.
-	UDPAuthMarker := "n30njxq7bmiwr6dtxqq"
-	if bytes.Equal(p.Buffer[28:47], []byte(UDPAuthMarker)) {
-		return p.Buffer[47]
+	marker := p.Buffer[28:47]
+	if !bytes.Equal(p.Buffer[30:47], []byte(UDPAuthMarker)) {
+		zap.L().Debug("Not an Aporeto control Packet", zap.String("flow", p.L4FlowHash()))
+		return 0
 	}
-
-	zap.L().Debug("Not a Aporeto HandShake Packet")
-	return 0
-
+	// control packet. byte 0 has packet type information.
+	return marker[0] & UDPPacketMask
 }

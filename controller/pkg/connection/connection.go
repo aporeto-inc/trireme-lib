@@ -93,6 +93,9 @@ const (
 	UDPAckReceived
 )
 
+// MaximumUDPQueueLen is the maximum number of UDP packets buffered.
+const MaximumUDPQueueLen = 50
+
 const (
 
 	// RejectReported represents that flow was reported as rejected
@@ -220,11 +223,16 @@ type ProxyConnection struct {
 
 // UDPConnection is information regarding UDP connection.
 type UDPConnection struct {
-	sync.Mutex
+	sync.RWMutex
 
-	state            UDPFlowState
-	Context          *pucontext.PUContext
-	Auth             AuthInfo
+	state   UDPFlowState
+	Context *pucontext.PUContext
+	Auth    AuthInfo
+	// Debugging Information
+	flowReported int
+	// Debugging information - pushed to the end for compact structure
+	flowLastReporting bool
+
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
 	reported         bool
@@ -271,6 +279,13 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 
+	qlen := len(c.PacketQueue)
+	// only queue first 50 packets.
+	if qlen > MaximumUDPQueueLen {
+		zap.L().Info("Reached Maximum queue length, Dropping packet", zap.String("flow", udpPacket.L4FlowHash()))
+		return nil
+	}
+
 	buffer := make([]byte, len(udpPacket.Buffer))
 	copy(buffer, udpPacket.Buffer)
 
@@ -300,6 +315,22 @@ func (c *UDPConnection) TransmitQueuePackets() error {
 func (c *UDPConnection) DropPackets() {
 
 	c.PacketQueue = []*packet.Packet{}
+}
+
+// SetReported is used to track if a flow is reported
+func (c *UDPConnection) SetReported(flowState bool) {
+
+	c.flowReported++
+
+	if c.flowReported > 1 && c.flowLastReporting != flowState {
+		zap.L().Info("Connection reported multiple times",
+			zap.Int("report count", c.flowReported),
+			zap.Bool("previous", c.flowLastReporting),
+			zap.Bool("next", flowState),
+		)
+	}
+
+	c.flowLastReporting = flowState
 }
 
 // GetState returns the state of a proxy connection

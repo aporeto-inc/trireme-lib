@@ -119,9 +119,20 @@ const (
 	// UDPBeginPos is the location of UDP Header
 	UDPBeginPos = 20
 	// UDPSynMask is a mask for the UDP Syn flags
-	UDPSynMask = 0x2
+	UDPSynMask = 0x20
 	// UDPSynAckMask  mask idenitifies a UDP SYN-ACK packet
-	UDPSynAckMask = 0x12
-	// UDPAckMask mask that identifies ACK packets
-	UDPAckMask = 0x10
+	UDPSynAckMask = 0x40
+	// UDPAckMask mask that identifies ACK packets.
+	UDPAckMask = 0x60
+	// UDPPacketMask identifies type of UDP packet.
+	UDPPacketMask = 0x60
+)
+
+const (
+	// UDPAuthMarker is 18 byte Aporeto signature for UDP
+	UDPAuthMarker = "n30njxq7bmiwr6dtx"
+	// UDPAuthMarkerLen is the length of UDP marker.
+	UDPAuthMarkerLen = 18
+	// UDPSignatureLen is the length of signature on UDP control packet.
+	UDPSignatureLen = 20
 )
