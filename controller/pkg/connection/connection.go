@@ -291,23 +291,9 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 
 	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark)
 	if err != nil {
-		return fmt.Errorf("Unable to copy pakcets to queue:%s", err)
+		return fmt.Errorf("Unable to copy packets to queue:%s", err)
 	}
 	c.PacketQueue = append(c.PacketQueue, copyPacket)
-	return nil
-}
-
-// TransmitQueuePackets transmits UDP packetes once flow is authenticated.
-func (c *UDPConnection) TransmitQueuePackets() error {
-
-	for _, packet := range c.PacketQueue {
-		zap.L().Debug("Transmitting packet of length :", zap.Binary("packet", packet.Buffer[28:]), zap.Reflect("len", len(packet.Buffer)))
-
-		err := c.Writer.WriteSocket(packet.Buffer)
-		if err != nil {
-			zap.L().Error("Unable to transmit UDP packets", zap.Error(err))
-		}
-	}
 	return nil
 }
 

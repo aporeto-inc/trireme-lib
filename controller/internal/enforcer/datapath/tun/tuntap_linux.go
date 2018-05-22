@@ -83,9 +83,7 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, markoffset int
 func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
 	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 
-	zap.L().Debug("Recieved Network packet from Tun")
 	if err != nil {
-		zap.L().Debug("Error creating new packet")
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		if err = t.processor.ProcessNetworkPacket(netPacket); err != nil {
@@ -99,7 +97,7 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 		return writer.WriteSocket(buffer[:copyIndex])
 
 	} else if netPacket.IPProto == packet.IPProtocolUDP {
-		zap.L().Debug("Varks: Processing Network UDP Packet")
+		zap.L().Debug("Processing Net udp packet of length", zap.Reflect("length", len(netPacket.Buffer)))
 		if err = t.processor.ProcessNetworkUDPPacket(netPacket); err != nil {
 			return fmt.Errorf("UDP Network packet dropped %s:", err)
 		}
@@ -112,7 +110,6 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 
 	if err != nil {
-		zap.L().Debug("Varks: Error creating new packet- app side", zap.Error(err))
 		return fmt.Errorf("Unable to create packet %s", err)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		if err = t.processor.ProcessApplicationPacket(appPacket); err != nil {

@@ -1,9 +1,10 @@
 package packet
 
 const (
-	// minIPPacketLen is the min ip packet size
-	minIPPacketLen = 40
-
+	// minIPPacketLen is the min ip packet size for TCP packet
+	minTCPIPPacketLen = 40
+	// minIPPacketLen is the min ip packet size for UDP packet
+	minUDPIPPacketLen = 28
 	// minIPHdrSize
 	minIPHdrSize = 20
 
@@ -130,9 +131,15 @@ const (
 
 const (
 	// UDPAuthMarker is 18 byte Aporeto signature for UDP
-	UDPAuthMarker = "n30njxq7bmiwr6dtx"
+	UDPAuthMarker = "n30njxq7bmiwr6dtxq"
 	// UDPAuthMarkerLen is the length of UDP marker.
 	UDPAuthMarkerLen = 18
 	// UDPSignatureLen is the length of signature on UDP control packet.
 	UDPSignatureLen = 20
+	// UDPAuthMarkerOffset is the beginning of UDPAuthMarker
+	UDPAuthMarkerOffset = 30
+	// UDPSignatureEnd is the end of UDPSignature.
+	UDPSignatureEnd = UDPDataPos + UDPSignatureLen
+	// UDPJwtTokenOffset is beginning of Jwt Token.
+	UDPJwtTokenOffset = 48
 )

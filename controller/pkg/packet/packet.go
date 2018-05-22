@@ -69,16 +69,20 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	p.SourceAddress = net.IP(bytes[ipSourceAddrPos : ipSourceAddrPos+4])
 	p.DestinationAddress = net.IP(bytes[ipDestAddrPos : ipDestAddrPos+4])
 
-	// Some sanity checking...
-	// TODO : do sanity checks for UDP as well.
+	if p.ipHeaderLen != minIPHdrWords {
+		return nil, fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHeaderLen)
+	}
+	// Some sanity checking for TCP.
 	if p.IPProto == IPProtocolTCP {
-
-		if p.IPTotalLength < minIPPacketLen {
-			return nil, fmt.Errorf("ip packet too small: hdrlen=%d", p.ipHeaderLen)
+		if p.IPTotalLength < minTCPIPPacketLen {
+			return nil, fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.ipHeaderLen)
 		}
+	}
 
-		if p.ipHeaderLen != minIPHdrWords {
-			return nil, fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHeaderLen)
+	// Some sanity checking for UDP.
+	if p.IPProto == IPProtocolUDP {
+		if p.IPTotalLength < minUDPIPPacketLen {
+			return nil, fmt.Errorf("udp ip packet too small: hdrlen=%d", p.ipHeaderLen)
 		}
 	}
 
@@ -90,7 +94,6 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		}
 	}
 
-	zap.L().Debug("Varks: Creating new packet of Type: ", zap.Reflect("packetType", p.IPProto), zap.Reflect("length", len(p.Buffer)))
 	if p.IPProto == IPProtocolTCP {
 		// TCP Header Processing
 		p.l4BeginPos = minIPHdrSize
@@ -107,7 +110,6 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		p.tcpData = []byte{}
 	} else {
 		// UDP Header Processing
-		zap.L().Debug("Creating UDP packet")
 		p.UDPChecksum = binary.BigEndian.Uint16(bytes[UDPChecksumPos : UDPChecksumPos+2])
 		p.udpData = []byte{}
 		p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
@@ -131,15 +133,17 @@ func (p *Packet) GetTCPData() []byte {
 // GetUDPData return additonal data in packet
 func (p *Packet) GetUDPData() []byte {
 
-	// data starts from 28. create a constant.
-	return p.Buffer[28:]
+	// data starts from 28. Packet validation done during creation of
+	// UDP packet.
+	return p.Buffer[UDPDataPos:]
 }
 
 // GetUDPDataStartBytes return start of UDP data
 func (p *Packet) GetUDPDataStartBytes() uint16 {
 
-	// TODO: have sanity
-	return 28
+	// UDP packet will be atleast 28 bytes. checked during packet
+	// creation.
+	return UDPDataPos
 }
 
 // SetTCPData returns any additional data in the packet
