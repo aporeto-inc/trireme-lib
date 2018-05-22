@@ -121,10 +121,13 @@ func (m *monitors) Run(ctx context.Context) (err error) {
 		return err
 	}
 
-	for _, v := range m.monitors {
+	zap.L().Debug("monitor server started")
+	for k, v := range m.monitors {
 		if err = v.Run(ctx); err != nil {
 			return err
 		}
+		zap.L().Debug("monitor started",
+			zap.Reflect("monitor-type", k))
 	}
 
 	return nil
