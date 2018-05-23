@@ -20,7 +20,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/crypto"
-	"github.com/kardianos/osext"
 )
 
 var (
@@ -31,6 +30,7 @@ var (
 const (
 	// netNSPath holds the directory to ensure ip netns command works
 	netNSPath               = "/var/run/netns/"
+	remoteEnforcerBuildPath = "/var/lib/aporeto/"
 	processMonitorCacheName = "ProcessMonitorCache"
 	secretLength            = 32
 )
@@ -223,10 +223,7 @@ func (p *processMon) pollStdOutAndErr(
 // getLaunchProcessCmd returns the command used to launch the enforcerd
 func (p *processMon) getLaunchProcessCmd(arg string) (*exec.Cmd, error) {
 
-	cmdName, err := osext.Executable()
-	if err != nil {
-		return nil, err
-	}
+	cmdName := remoteEnforcerBuildPath + constants.RemoteEnforcerBuildName
 
 	cmdArgs := []string{arg}
 	zap.L().Debug("Enforcer executed",
