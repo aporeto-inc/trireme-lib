@@ -73,5 +73,5 @@ const (
 )
 const (
 	// RemoteEnforcerBuildName is the name of the remote enforcer binary
-	RemoteEnforcerBuildName = "remoteenforcer"
+	RemoteEnforcerBuildName = "enforcerd"
 )
