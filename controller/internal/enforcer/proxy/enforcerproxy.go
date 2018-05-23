@@ -143,6 +143,7 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
 
+	zap.L().Debug("Mehul rpc enforce returned")
 	return nil
 }
 

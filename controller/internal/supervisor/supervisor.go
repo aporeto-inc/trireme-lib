@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-
+	"runtime/debug"
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
@@ -96,7 +96,10 @@ func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
 
 	_, err := s.versionTracker.Get(contextID)
 	if err != nil {
+//		debug.PrintStack()
 		// ContextID is not found in Cache, New PU: Do create.
+
+		
 		return s.doCreatePU(contextID, pu)
 	}
 
@@ -131,13 +134,18 @@ func (s *Config) Unsupervise(contextID string) error {
 // Run starts the supervisor
 func (s *Config) Run(ctx context.Context) error {
 
+	zap.L().Debug("impl run started")
 	if err := s.impl.Run(ctx); err != nil {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
-
+	zap.L().Debug("impl run ended")
 	s.Lock()
+	zap.L().Debug("lock obtained")
 	defer s.Unlock()
-	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+	err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+	zap.L().Debug("settargetnetworks returned")
+
+	return err
 }
 
 // CleanUp implements the cleanup interface
@@ -167,6 +175,9 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Lock()
 	defer s.Unlock()
+
+	debug.PrintStack()
+	zap.L().Debug("MEHUL creating PU")
 
 	c := &cacheData{
 		version:       0,

@@ -242,26 +242,29 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
 
+	zap.L().Debug("start 1")
 	// Cleanup old ACLs
 	if len(current) > 0 {
 		return i.updateTargetNetworks(current, networks)
 	}
 
+	zap.L().Debug("start 2")
 	// Create the target network set
 	if err := i.createTargetSet(networks); err != nil {
 		return err
 	}
 
+	zap.L().Debug("start 3")
 	if err := i.createListenerPortSet(); err != nil {
 		return err
 	}
 
+	zap.L().Debug("start 4")
 	if i.mode == constants.RemoteContainer {
 		// Add the entire port list for remote container
-		for port := 0; port < 65536; port++ {
-			i.addPortToListenerPortSet(strconv.Itoa(port))
-		}
+		i.addPortToListenerPortSet("0-65535")
 	}
+	zap.L().Debug("start 5")
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
