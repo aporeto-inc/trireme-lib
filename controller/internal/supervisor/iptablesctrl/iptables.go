@@ -447,7 +447,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		}
 	}
 
-	if err := i.addAppACLs(contextID, appChain, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(contextID, appChain, netChain, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 

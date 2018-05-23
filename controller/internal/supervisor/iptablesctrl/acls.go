@@ -413,7 +413,7 @@ func (i *Instance) addPacketTrapLinux(appChain string, netChain string, networks
 
 // addAppACLs adds a set of rules to the external services that are initiated
 // by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addAppACLs(contextID, chain string, rules policy.IPRuleList) error {
+func (i *Instance) addAppACLs(contextID, chain string, netChain string, rules policy.IPRuleList) error {
 
 	for loop := 0; loop < 3; loop++ {
 
@@ -437,15 +437,15 @@ func (i *Instance) addAppACLs(contextID, chain string, rules policy.IPRuleList) 
 
 			proto := strings.ToLower(rule.Protocol)
 
-			if proto == "udp" || proto == "tcp" {
+			if proto == "udp" /*|| proto == "tcp"*/ {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
 
 					if rule.Policy.Action&policy.Log > 0 || observeContinue {
-						if err := i.ipt.Append(
+						if err := i.ipt.Insert(
 							i.appPacketIPTableContext,
-							chain,
+							chain, 1,
 							"-p", rule.Protocol,
 							"-d", rule.Address,
 							"--dport", rule.Port,
@@ -459,8 +459,8 @@ func (i *Instance) addAppACLs(contextID, chain string, rules policy.IPRuleList) 
 					}
 
 					if observeContinue {
-						if err := i.ipt.Append(
-							i.appPacketIPTableContext, chain,
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext, chain, 1,
 							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
 							"-d", rule.Address,
 							"--dport", rule.Port,
@@ -470,14 +470,26 @@ func (i *Instance) addAppACLs(contextID, chain string, rules policy.IPRuleList) 
 							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
 						}
 					} else {
-						if err := i.ipt.Append(
-							i.appPacketIPTableContext, chain,
+
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext, chain, 1,
 							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
 							"-d", rule.Address,
 							"--dport", rule.Port,
 							"-j", "ACCEPT",
 						); err != nil {
 							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
+						}
+
+						// Add an acl rule on top of network chain to accept the traffic.
+						if err := i.ipt.Insert(
+							i.netPacketIPTableContext, netChain, 1,
+							"-p", rule.Protocol,
+							"-s", rule.Address,
+							"--sport", rule.Port,
+							"-j", "ACCEPT",
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, netChain, err)
 						}
 					}
 
@@ -680,15 +692,15 @@ func (i *Instance) addNetACLs(contextID, chain string, rules policy.IPRuleList) 
 
 			proto := strings.ToLower(rule.Protocol)
 
-			if proto == "udp" || proto == "tcp" {
+			if proto == "udp" /*|| proto == "tcp"*/ {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
 
 					if rule.Policy.Action&policy.Log > 0 || observeContinue {
-						if err := i.ipt.Append(
+						if err := i.ipt.Insert(
 							i.netPacketIPTableContext,
-							chain,
+							chain, 1,
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
@@ -702,8 +714,8 @@ func (i *Instance) addNetACLs(contextID, chain string, rules policy.IPRuleList) 
 					}
 
 					if observeContinue {
-						if err := i.ipt.Append(
-							i.netPacketIPTableContext, chain,
+						if err := i.ipt.Insert(
+							i.netPacketIPTableContext, chain, 1,
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
@@ -713,8 +725,8 @@ func (i *Instance) addNetACLs(contextID, chain string, rules policy.IPRuleList) 
 							return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
 						}
 					} else {
-						if err := i.ipt.Append(
-							i.netPacketIPTableContext, chain,
+						if err := i.ipt.Insert(
+							i.netPacketIPTableContext, chain, 1,
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
