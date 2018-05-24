@@ -82,7 +82,9 @@ func (t *trireme) Run(ctx context.Context) error {
 // CleanUp cleans all the acls and all the remote supervisors
 func (t *trireme) CleanUp() error {
 	for _, s := range t.supervisors {
-		s.CleanUp() // nolint
+		go func() {
+			s.CleanUp() // nolint
+		}()
 	}
 	return nil
 }
