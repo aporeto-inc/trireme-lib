@@ -224,9 +224,13 @@ func (p *portSetInstance) updateIPPortSets() {
 		// This is a go routine, cannot return error
 		return
 	}
-
+	// TODO ::  THis should not be here. Need to create its own ACLS
 	s := string(buffer)
-
+	setname := "ListenerPortSet"
+	listenerPortSet := ipset.IPSet{
+		Name: setname,
+	}
+	// TODO ::  THis should not be here. Need to create its own ACLS
 	for cnt, line := range strings.Split(s, "\n") {
 
 		line := strings.Fields(line)
@@ -278,5 +282,8 @@ func (p *portSetInstance) updateIPPortSets() {
 		if err = p.addPortSet(userName, port); err != nil {
 			zap.L().Debug("Unable to add port to portset ", zap.Error(err))
 		}
+		//TODO :: Debug :: Add better rules
+		listenerPortSet.Add(port, 0)
+
 	}
 }
