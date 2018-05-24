@@ -224,7 +224,7 @@ func (p *processMon) pollStdOutAndErr(
 // getLaunchProcessCmd returns the command used to launch the enforcerd
 func (p *processMon) getLaunchProcessCmd(arg string) (*exec.Cmd, error) {
 
-	cmdName := remoteEnforcerTempBuildPath + remoteEnforcerBuildName
+	cmdName := filepath.Join(remoteEnforcerTempBuildPath, remoteEnforcerBuildName)
 
 	cmdArgs := []string{arg}
 	zap.L().Debug("Enforcer executed",
