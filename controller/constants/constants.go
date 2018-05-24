@@ -71,7 +71,3 @@ const (
 	// LocalServer indicates that the Supervisor applies to Linux processes
 	LocalServer
 )
-const (
-	// RemoteEnforcerBuildName is the name of the remote enforcer binary
-	RemoteEnforcerBuildName = "enforcerd"
-)

@@ -29,10 +29,11 @@ var (
 
 const (
 	// netNSPath holds the directory to ensure ip netns command works
-	netNSPath               = "/var/run/netns/"
-	remoteEnforcerBuildPath = "/var/lib/aporeto/"
-	processMonitorCacheName = "ProcessMonitorCache"
-	secretLength            = 32
+	netNSPath                   = "/var/run/netns/"
+	processMonitorCacheName     = "ProcessMonitorCache"
+	remoteEnforcerBuildName     = "enforcerd"
+	remoteEnforcerTempBuildPath = "/tmp/aporeto/bin/"
+	secretLength                = 32
 )
 
 // processMon is an instance of processMonitor
@@ -223,7 +224,7 @@ func (p *processMon) pollStdOutAndErr(
 // getLaunchProcessCmd returns the command used to launch the enforcerd
 func (p *processMon) getLaunchProcessCmd(arg string) (*exec.Cmd, error) {
 
-	cmdName := remoteEnforcerBuildPath + constants.RemoteEnforcerBuildName
+	cmdName := remoteEnforcerTempBuildPath + remoteEnforcerBuildName
 
 	cmdArgs := []string{arg}
 	zap.L().Debug("Enforcer executed",
