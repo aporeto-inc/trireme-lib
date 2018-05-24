@@ -394,10 +394,6 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
-	defer func() {
-		cancelMainCtx()
-		time.Sleep(5*time.Second)
-	}()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)
 	secret := os.Getenv(constants.EnvRPCClientSecret)
@@ -426,10 +422,11 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-c
-
+	cancelMainCtx()
 	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
 		zap.L().Fatal("Failed to stop the server", zap.Error(err))
 	}
 
+	time.Sleep(2*time.Second)
 	return nil
 }
