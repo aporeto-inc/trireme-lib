@@ -107,7 +107,11 @@ func search(n *node, api string) (found bool, data interface{}) {
 	next, foundPrefix := n.children[prefix]
 	if !foundPrefix {
 		// If not found, try the star
-		next, foundPrefix = n.children["/*"]
+		next, foundPrefix = n.children["/?"]
+		if !foundPrefix {
+			next, foundPrefix = n.children["/*"]
+			suffix = "/"
+		}
 	}
 
 	// We found either an exact match or a * match

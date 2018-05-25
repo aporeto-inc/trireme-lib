@@ -13,24 +13,24 @@ func initTrieRules() []*policy.HTTPRule {
 		&policy.HTTPRule{
 			Methods: []string{"GET", "PUT"},
 			URIs: []string{
-				"/users/*/name",
-				"/things/*",
+				"/users/?/name",
+				"/things/?",
 			},
 			Scopes: []string{"app=old"},
 		},
 		&policy.HTTPRule{
 			Methods: []string{"PATCH"},
 			URIs: []string{
-				"/users/*/name",
-				"/things/*",
+				"/users/?/name",
+				"/things/?",
 			},
 			Scopes: []string{"app=patch"},
 		},
 		&policy.HTTPRule{
 			Methods: []string{"POST"},
 			URIs: []string{
-				"/v1/users/*/name",
-				"/v1/things/*",
+				"/v1/users/?/name",
+				"/v1/things/?",
 			},
 			Scopes: []string{"app=v1"},
 		},
@@ -41,6 +41,16 @@ func initTrieRules() []*policy.HTTPRule {
 		},
 		&policy.HTTPRule{
 			Methods: []string{"PATCH"},
+			URIs:    []string{"/?"},
+			Scopes:  []string{"app=rootstart"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"GET"},
+			URIs:    []string{"/a/b/c/d/e/f/*"},
+			Scopes:  []string{"app=rootstart"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"HEAD"},
 			URIs:    []string{"/*"},
 			Scopes:  []string{"app=rootstart"},
 		},
@@ -55,7 +65,7 @@ func TestNewAPICache(t *testing.T) {
 			c := NewAPICache(rules, "id", false)
 			So(c, ShouldNotBeNil)
 			So(c.methodRoots, ShouldNotBeNil)
-			So(len(c.methodRoots), ShouldEqual, 4)
+			So(len(c.methodRoots), ShouldEqual, 5)
 			So(c.methodRoots, ShouldContainKey, "GET")
 			So(c.methodRoots, ShouldContainKey, "POST")
 			So(c.methodRoots, ShouldContainKey, "PUT")
@@ -65,7 +75,7 @@ func TestNewAPICache(t *testing.T) {
 			So(c.methodRoots["PUT"], ShouldNotBeNil)
 			So(c.methodRoots["PATCH"], ShouldNotBeNil)
 			So(c.methodRoots["POST"].data, ShouldNotBeNil)
-			So(len(c.methodRoots["GET"].children), ShouldEqual, 2)
+			So(len(c.methodRoots["GET"].children), ShouldEqual, 3)
 		})
 	})
 }
@@ -166,8 +176,8 @@ func TestAPICacheFind(t *testing.T) {
 			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "app=old")
 
 			found, data = c.Find("HEAD", "/users/123/name")
-			So(found, ShouldBeFalse)
-			So(data, ShouldBeNil)
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
 
 			found, data = c.Find("PATCH", "/users/123/name")
 			So(found, ShouldBeTrue)
@@ -191,6 +201,10 @@ func TestAPICacheFind(t *testing.T) {
 			So(data, ShouldNotBeNil)
 
 			found, data = c.Find("POST", "/")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("GET", "/a/b/c/d/e/f/g/h")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
 		})
