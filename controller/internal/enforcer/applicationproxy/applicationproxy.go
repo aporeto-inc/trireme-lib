@@ -107,7 +107,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	defer p.Unlock()
 
 	// First update the caches with the new policy information.
-	apicache, dependentCache, jwtcache, caPool := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
+	apicache, dependentCache, jwtcache, caPool, portCache := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
 	p.exposedAPICache.AddOrUpdate(puID, apicache)
 	p.jwtcache.AddOrUpdate(puID, jwtcache)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
@@ -157,6 +157,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
+	client.netserver[protomux.TCPNetwork].(*tcp.Proxy).UpdatePortCache(portCache)
 
 	if err := p.registerServices(client, puInfo); err != nil {
 		return fmt.Errorf("Unable to register services: %s ", err)
@@ -284,6 +285,9 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 
 	// Register the DependentServices with the multiplexer.
 	for _, service := range puInfo.Policy.DependentServices() {
+		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
+			continue
+		}
 		if err := register.Add(service.NetworkInfo, serviceTypeToApplicationListenerType(service.Type), false); err != nil {
 			return fmt.Errorf("Duplicate dependent service: %s", err)
 		}
@@ -382,13 +386,20 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 	}
 }
 
-func buildCaches(exposedServices, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]*x509.Certificate, [][]byte) {
+func buildCaches(exposedServices, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]*x509.Certificate, [][]byte, map[int]string) {
 	apicache := map[string]*urisearch.APICache{}
 	jwtcache := map[string]*x509.Certificate{}
 	dependentCache := map[string]*urisearch.APICache{}
+	portCache := map[int]string{}
 	caPool := [][]byte{}
 
 	for _, service := range exposedServices {
+		if service.Type == policy.ServiceTCP {
+			if port, err := service.PrivateNetworkInfo.Ports.SinglePort(); err == nil {
+				portCache[int(port)] = service.ID
+			}
+			continue
+		}
 		if service.Type != policy.ServiceHTTP {
 			continue
 		}
@@ -433,7 +444,7 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 			caPool = append(caPool, service.CACert)
 		}
 	}
-	return apicache, dependentCache, jwtcache, caPool
+	return apicache, dependentCache, jwtcache, caPool, portCache
 }
 
 func serviceFromProxySet(pair string) (*common.Service, error) {
