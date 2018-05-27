@@ -32,6 +32,7 @@ func initTrieRules() []*policy.HTTPRule {
 				"/v1/users/?/name",
 				"/v1/things/?",
 			},
+			Public: true,
 			Scopes: []string{"policy3"},
 		},
 		&policy.HTTPRule{
@@ -43,11 +44,6 @@ func initTrieRules() []*policy.HTTPRule {
 			Methods: []string{"PATCH"},
 			URIs:    []string{"/?"},
 			Scopes:  []string{"policy5"},
-		},
-		&policy.HTTPRule{
-			Methods: []string{"GET"},
-			URIs:    []string{"/a/b/c/d/e/f/*"},
-			Scopes:  []string{"policy6"},
 		},
 		&policy.HTTPRule{
 			Methods: []string{"HEAD"},
@@ -65,14 +61,19 @@ func initTrieRules() []*policy.HTTPRule {
 			Scopes:  []string{"policy9"},
 		},
 		&policy.HTTPRule{
-			Methods: []string{"UPDATE"},
+			Methods: []string{"HEAD"},
 			URIs:    []string{"/a/*/c/x"},
 			Scopes:  []string{"policy10"},
 		},
 		&policy.HTTPRule{
-			Methods: []string{"UPDATE"},
+			Methods: []string{"HEAD"},
 			URIs:    []string{"/a/b/?/w"},
 			Scopes:  []string{"policy11"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"HEAD"},
+			URIs:    []string{"/a/b/?/y/*"},
+			Scopes:  []string{"policy12"},
 		},
 	}
 }
@@ -85,7 +86,7 @@ func TestNewAPICache(t *testing.T) {
 			c := NewAPICache(rules, "id", false)
 			So(c, ShouldNotBeNil)
 			So(c.methodRoots, ShouldNotBeNil)
-			So(len(c.methodRoots), ShouldEqual, 6)
+			So(len(c.methodRoots), ShouldEqual, 5)
 			So(c.methodRoots, ShouldContainKey, "GET")
 			So(c.methodRoots, ShouldContainKey, "POST")
 			So(c.methodRoots, ShouldContainKey, "PUT")
@@ -96,7 +97,7 @@ func TestNewAPICache(t *testing.T) {
 			So(c.methodRoots["PUT"], ShouldNotBeNil)
 			So(c.methodRoots["PATCH"], ShouldNotBeNil)
 			So(c.methodRoots["POST"].data, ShouldNotBeNil)
-			So(len(c.methodRoots["GET"].children), ShouldEqual, 3)
+			So(len(c.methodRoots["GET"].children), ShouldEqual, 2)
 		})
 	})
 }
@@ -191,75 +192,111 @@ func TestAPICacheFind(t *testing.T) {
 	Convey("Given valid API cache", t, func() {
 		c := NewAPICache(initTrieRules(), "id", false)
 		Convey("When I search for correct URIs, I should get the right data", func() {
-			found, data := c.Find("GET", "/users/123/name")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "policy1")
 
-			found, data = c.Find("HEAD", "/users/123/name")
+			// GET and PUT combined rule
+			found, rule := c.FindRule("GET", "/users/bob/name")
 			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy1")
 
-			found, data = c.Find("PATCH", "/users/123/name")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "policy2")
-
-			found, data = c.Find("PUT", "/users/123/name")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("GET", "/things/123")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("POST", "/v1/users/123/name")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("POST", "/v1/things/123454656")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("POST", "/")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("GET", "/a/b/c/d/e/f/g/h")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("HEAD", "/a/b/c/d")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("HEAD", "/a/x/c/d")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("HEAD", "/a/b/x/e")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("HEAD", "/a/b/x")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("UPDATE", "/a/b/c/d/e/c/x")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("UPDATE", "/a/b/c/w")
-			So(found, ShouldBeTrue)
-			So(data, ShouldNotBeNil)
-
-			found, data = c.Find("UPDATE", "/a/b/c/z")
+			found, rule = c.FindRule("BADVERB", "/users/bob/name")
 			So(found, ShouldBeFalse)
-			So(data, ShouldBeNil)
+			So(rule, ShouldBeNil)
 
-			found, data = c.Find("UPDATE", "/a/b/c/d/e/f/w")
+			found, rule = c.FindRule("PUT", "/users/bob/name")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy1")
+
+			found, rule = c.FindRule("GET", "/things/something")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy1")
+
+			found, rule = c.FindRule("GET", "/prefix/things/something")
 			So(found, ShouldBeFalse)
-			So(data, ShouldBeNil)
+			So(rule, ShouldBeNil)
+
+			// PATCH rule
+			found, rule = c.FindRule("PATCH", "/things/something")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy2")
+
+			found, rule = c.FindRule("PATCH", "/users/bob/name")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy2")
+
+			// POST rule
+			found, rule = c.FindRule("POST", "/v1/users/123/name")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy3")
+
+			found, rule = c.FindRule("POST", "/v1/things/123454656")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy3")
+
+			found, rule = c.FindRule("POST", "/")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy4")
+
+			// HEAD Rules
+			found, rule = c.FindRule("HEAD", "/users/123/name")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+
+			found, rule = c.FindRule("PATCH", "/users/123/name")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy2")
+
+			found, rule = c.FindRule("HEAD", "/a/b/c/d")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy8")
+
+			found, rule = c.FindRule("HEAD", "/a/x/c/d")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy8")
+
+			found, rule = c.FindRule("HEAD", "/a/b/x/e")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy9")
+
+			found, rule = c.FindRule("HEAD", "/a/b/x")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+
+			found, rule = c.FindRule("HEAD", "/a/b/c/d/e/c/x")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy10")
+
+			found, rule = c.FindRule("HEAD", "/a/b/c/w")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy11")
+
+			found, rule = c.FindRule("HEAD", "/a/b/c/z")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy7")
+
+			found, rule = c.FindRule("HEAD", "/a/b/c/d/e/f/w")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy7")
+
+			found, rule = c.FindRule("HEAD", "/a/b/c/y/d/e/f/g/g")
+			So(found, ShouldBeTrue)
+			So(rule, ShouldNotBeNil)
+			So(rule.Scopes, ShouldContain, "policy12")
 		})
 
 		Convey("When I search for bad URIs, I should get not found", func() {
@@ -282,6 +319,37 @@ func TestAPICacheFind(t *testing.T) {
 				found, _ := c.Find("GET", "/users/123/name")
 				So(found, ShouldBeTrue)
 			}
+		})
+	})
+}
+
+func TestFindAndMachScope(t *testing.T) {
+	Convey("Given a valid API cache", t, func() {
+		c := NewAPICache(initTrieRules(), "id", false)
+
+		Convey("When I search for rules matching scopes, it should return true", func() {
+			found := c.FindAndMatchScope("GET", "/users/bob/name", []string{"policy1"})
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I search for an invalid URI, it should return false", func() {
+			found := c.FindAndMatchScope("GET", "/this/doesnot/exist", []string{"policy1"})
+			So(found, ShouldBeFalse)
+		})
+
+		Convey("When I search for a valid URI and not matching scopes, it should return false", func() {
+			found := c.FindAndMatchScope("GET", "/users/bob/name", []string{"policy10"})
+			So(found, ShouldBeFalse)
+		})
+
+		Convey("When I search for public rule and bad scopes it should always return true", func() {
+			found := c.FindAndMatchScope("POST", "/v1/things/something", []string{"policy10"})
+			So(found, ShouldBeTrue)
+		})
+
+		Convey("When I search for public rule and good scopes it should always return true", func() {
+			found := c.FindAndMatchScope("POST", "/v1/things/something", []string{"policy3"})
+			So(found, ShouldBeTrue)
 		})
 	})
 }
