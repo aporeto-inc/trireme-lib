@@ -1,6 +1,8 @@
 package urisearch
 
 import (
+	"fmt"
+
 	"github.com/aporeto-inc/trireme-lib/policy"
 )
 
@@ -96,6 +98,7 @@ func insert(n *node, api string, data interface{}) {
 }
 
 func search(n *node, api string) (found bool, data interface{}) {
+
 	prefix, suffix := parse(api)
 
 	if prefix == "/" {
@@ -105,18 +108,39 @@ func search(n *node, api string) (found bool, data interface{}) {
 	}
 
 	next, foundPrefix := n.children[prefix]
-	if !foundPrefix {
-		// If not found, try the star
-		next, foundPrefix = n.children["/?"]
-		if !foundPrefix {
-			next, foundPrefix = n.children["/*"]
-			suffix = "/"
+	// We found either an exact match or a * match
+	if foundPrefix {
+		matchedChildren, data := search(next, suffix)
+		if matchedChildren {
+			return true, data
 		}
 	}
 
-	// We found either an exact match or a * match
+	// If not found, try the ignore operator.
+	next, foundPrefix = n.children["/?"]
 	if foundPrefix {
-		return search(next, suffix)
+		matchedChildren, data := search(next, suffix)
+		if matchedChildren {
+			return true, data
+		}
+	}
+
+	// If not found, try the * operator and ignore the rest of path.
+	next, foundPrefix = n.children["/*"]
+	if foundPrefix {
+		for len(suffix) > 0 {
+			fmt.Println("Testing with suffix ", suffix)
+			matchedChildren, data := search(next, suffix)
+			if matchedChildren {
+				return true, data
+			}
+			prefix, suffix = parse(suffix)
+			fmt.Println("New suffix ", suffix)
+		}
+		matchedChildren, data := search(next, "/")
+		if matchedChildren {
+			return true, data
+		}
 	}
 
 	if n.leaf && len(prefix) == 0 {
