@@ -13,36 +13,66 @@ func initTrieRules() []*policy.HTTPRule {
 		&policy.HTTPRule{
 			Methods: []string{"GET", "PUT"},
 			URIs: []string{
-				"/users/*/name",
-				"/things/*",
+				"/users/?/name",
+				"/things/?",
 			},
-			Scopes: []string{"app=old"},
+			Scopes: []string{"policy1"},
 		},
 		&policy.HTTPRule{
 			Methods: []string{"PATCH"},
 			URIs: []string{
-				"/users/*/name",
-				"/things/*",
+				"/users/?/name",
+				"/things/?",
 			},
-			Scopes: []string{"app=patch"},
+			Scopes: []string{"policy2"},
 		},
 		&policy.HTTPRule{
 			Methods: []string{"POST"},
 			URIs: []string{
-				"/v1/users/*/name",
-				"/v1/things/*",
+				"/v1/users/?/name",
+				"/v1/things/?",
 			},
-			Scopes: []string{"app=v1"},
+			Scopes: []string{"policy3"},
 		},
 		&policy.HTTPRule{
 			Methods: []string{"POST"},
 			URIs:    []string{"/"},
-			Scopes:  []string{"app=root"},
+			Scopes:  []string{"policy4"},
 		},
 		&policy.HTTPRule{
 			Methods: []string{"PATCH"},
+			URIs:    []string{"/?"},
+			Scopes:  []string{"policy5"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"GET"},
+			URIs:    []string{"/a/b/c/d/e/f/*"},
+			Scopes:  []string{"policy6"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"HEAD"},
 			URIs:    []string{"/*"},
-			Scopes:  []string{"app=rootstart"},
+			Scopes:  []string{"policy7"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"HEAD"},
+			URIs:    []string{"/a/?/c/d"},
+			Scopes:  []string{"policy8"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"HEAD"},
+			URIs:    []string{"/a/b/?/e"},
+			Scopes:  []string{"policy9"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"UPDATE"},
+			URIs:    []string{"/a/*/c/x"},
+			Scopes:  []string{"policy10"},
+		},
+		&policy.HTTPRule{
+			Methods: []string{"UPDATE"},
+			URIs:    []string{"/a/b/?/w"},
+			Scopes:  []string{"policy11"},
 		},
 	}
 }
@@ -55,17 +85,18 @@ func TestNewAPICache(t *testing.T) {
 			c := NewAPICache(rules, "id", false)
 			So(c, ShouldNotBeNil)
 			So(c.methodRoots, ShouldNotBeNil)
-			So(len(c.methodRoots), ShouldEqual, 4)
+			So(len(c.methodRoots), ShouldEqual, 6)
 			So(c.methodRoots, ShouldContainKey, "GET")
 			So(c.methodRoots, ShouldContainKey, "POST")
 			So(c.methodRoots, ShouldContainKey, "PUT")
 			So(c.methodRoots, ShouldContainKey, "PATCH")
+			So(c.methodRoots, ShouldContainKey, "HEAD")
 			So(c.methodRoots["GET"], ShouldNotBeNil)
 			So(c.methodRoots["POST"], ShouldNotBeNil)
 			So(c.methodRoots["PUT"], ShouldNotBeNil)
 			So(c.methodRoots["PATCH"], ShouldNotBeNil)
 			So(c.methodRoots["POST"].data, ShouldNotBeNil)
-			So(len(c.methodRoots["GET"].children), ShouldEqual, 2)
+			So(len(c.methodRoots["GET"].children), ShouldEqual, 3)
 		})
 	})
 }
@@ -163,16 +194,16 @@ func TestAPICacheFind(t *testing.T) {
 			found, data := c.Find("GET", "/users/123/name")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
-			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "app=old")
+			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "policy1")
 
 			found, data = c.Find("HEAD", "/users/123/name")
-			So(found, ShouldBeFalse)
-			So(data, ShouldBeNil)
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
 
 			found, data = c.Find("PATCH", "/users/123/name")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
-			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "app=patch")
+			So(data.(*policy.HTTPRule).Scopes, ShouldContain, "policy2")
 
 			found, data = c.Find("PUT", "/users/123/name")
 			So(found, ShouldBeTrue)
@@ -193,6 +224,42 @@ func TestAPICacheFind(t *testing.T) {
 			found, data = c.Find("POST", "/")
 			So(found, ShouldBeTrue)
 			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("GET", "/a/b/c/d/e/f/g/h")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("HEAD", "/a/b/c/d")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("HEAD", "/a/x/c/d")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("HEAD", "/a/b/x/e")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("HEAD", "/a/b/x")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("UPDATE", "/a/b/c/d/e/c/x")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("UPDATE", "/a/b/c/w")
+			So(found, ShouldBeTrue)
+			So(data, ShouldNotBeNil)
+
+			found, data = c.Find("UPDATE", "/a/b/c/z")
+			So(found, ShouldBeFalse)
+			So(data, ShouldBeNil)
+
+			found, data = c.Find("UPDATE", "/a/b/c/d/e/f/w")
+			So(found, ShouldBeFalse)
+			So(data, ShouldBeNil)
 		})
 
 		Convey("When I search for bad URIs, I should get not found", func() {
