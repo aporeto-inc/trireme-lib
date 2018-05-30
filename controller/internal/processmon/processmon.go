@@ -176,7 +176,7 @@ func (p *processMon) KillProcess(contextID string) {
 				zap.String("Kill error", err.Error()))
 		}
 
-	case <-time.After(5 * time.Second):
+	case <-time.After(1 * time.Second):
 		if err := procInfo.process.Kill(); err != nil {
 			zap.L().Info("Time out while killing process ",
 				zap.Error(err))
