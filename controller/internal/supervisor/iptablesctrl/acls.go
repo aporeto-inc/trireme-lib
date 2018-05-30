@@ -1010,6 +1010,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			"-i", "docker0",
 			"-p", "udp",
 			"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
+			"-m", "u32", "--u32", "0x19&0x60=0x40",
 			"-m", "addrtype", "--dst-type", "LOCAL",
 			"-j", "NOTRACK",
 		)
@@ -1138,13 +1139,15 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add set mark rule for reinjecting udp packet app: %s", err)
 	}
 
-	// TODO: varun Is this rule required in container.
+	// TODO: varun Is this rule required in container. No harm
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-p", "udp",
 		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
-		"-m", "socket",
+		"-m", "u32", "--u32", "0x19&0x60=0x40",
+		"-m", "addrtype", "--dst-type", "LOCAL",
+		"-m", "comment", "--comment", "capture udp syn ack packets",
 		"-j", "MARK", "--set-mark", mark,
 	)
 	if err != nil {

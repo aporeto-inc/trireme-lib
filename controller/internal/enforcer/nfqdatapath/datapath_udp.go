@@ -59,7 +59,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		conn, err = d.netSynAckUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
-				zap.L().Debug("Packet Rejected",
+				zap.L().Debug("Syn ack Packet Rejected/ignored",
 					zap.String("flow", p.L4FlowHash()),
 				)
 			}
@@ -103,7 +103,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 				return errors.New("post service processing failed for network packet")
 			}
 		}
-
+		zap.L().Debug("Delivering packet to application")
 		// deliver to the application.
 		return d.udpSocketNetworkWriter.WriteSocket(p.Buffer)
 
@@ -152,9 +152,17 @@ func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPC
 	conn, err := d.udpSourcePortConnectionCache.GetReset(p.SourcePortHash(packet.PacketTypeNetwork), 0)
 	if err != nil {
 		if d.packetLogs {
-			zap.L().Debug("No connection for SynAck packet ",
+			zap.L().Debug("No connection for udp SynAck packet, ignore it",
 				zap.String("flow", p.L4FlowHash()),
 			)
+		}
+		// ignore the syn ack packet. This is needed in case of
+		// portforwarding scenarios. Between container - container portforwarding
+		// on different machines. The syn ack response from server container
+		// will show up on host enforcer, which needs to be ignored.
+		err = d.udpSocketNetworkWriter.WriteSocket(p.Buffer)
+		if err != nil {
+			zap.L().Error("Unable to transmit ignored syn ack packet", zap.String("flow", p.L4FlowHash()))
 		}
 		return nil, fmt.Errorf("no synack connection: %s", err)
 	}
@@ -387,7 +395,7 @@ func (d *Datapath) CreateUDPAuthMarker(packetType uint8) []byte {
 	// first 2 bytes represent the following control information.
 	// Byte 0 : Bits 0,1 are reserved fields.
 	//          Bits 2,3,4 represent version information.
-	//          Bits 6,7 represent udp packet type,
+	//          Bits 5, 6 represent udp packet type,
 	//          Bit 7 represents encryption. (currently unused).
 	// Byte 1: reserved for future use.
 	// Bytes [2:20]: Packet signature.

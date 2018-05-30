@@ -335,9 +335,14 @@ func (p *Packet) CreateReverseFlowPacket() {
 // GetUDPType returns udp type of packet.
 func (p *Packet) GetUDPType() byte {
 
-	// last byte of marker as of now.
-	// TODO Sanity checks, Check for IP header length, and for valid buffer sizes.
-	// TODO : check for udpauth marker, if absent , return zero.
+	// Every UDP control packet has a 20 byte packet signature. The
+	// first 2 bytes represent the following control information.
+	// Byte 0 : Bits 0,1 are reserved fields.
+	//          Bits 2,3,4 represent version information.
+	//          Bits 5,6 represent udp packet type,
+	//          Bit 7 represents encryption. (currently unused).
+	// Byte 1: reserved for future use.
+	// Bytes [2:20]: Packet signature.
 	if len(p.Buffer) < (UDPDataPos + UDPSignatureLen) {
 		// Not an Aporeto control packet.
 		return 0

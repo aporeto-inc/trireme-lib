@@ -291,10 +291,10 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 
-	if i.mode == constants.RemoteContainer {
-		// Add the entire port List for remote container.
-		i.addPortToListenerPortSet("0-65535", "0-65535")
-	}
+	// if i.mode == constants.RemoteContainer {
+	// 	// Add the entire port List for remote container.
+	// 	i.addPortToListenerPortSet("0-65535", "0-65535")
+	// }
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)

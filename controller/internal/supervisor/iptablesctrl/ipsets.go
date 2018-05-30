@@ -217,7 +217,8 @@ func (i *Instance) addPortToListenerPortSet(tcpPorts string, udpPorts string) (e
 
 	for _, p := range ports {
 		err = listenerPortSetTCP.Add(p, 0)
-		zap.L().Error("Error adding port to ListenerPortSet-tcp", zap.String("port", p))
+		zap.L().Error("Error adding port to ListenerPortSet-tcp", zap.String("port", p),
+			zap.Error(err))
 	}
 
 	setname = "ListenerPortSet-udp"
@@ -228,7 +229,8 @@ func (i *Instance) addPortToListenerPortSet(tcpPorts string, udpPorts string) (e
 	ports = strings.Split(udpPorts, ",")
 	for _, p := range ports {
 		err = listenerPortSetUDP.Add(p, 0)
-		zap.L().Error("Error adding port to ListenerPortSet-udp", zap.String("port", p))
+		zap.L().Error("Error adding port to ListenerPortSet-udp", zap.String("port", p),
+			zap.Error(err))
 	}
 
 	return err
