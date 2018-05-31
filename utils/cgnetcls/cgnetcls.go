@@ -30,9 +30,9 @@ type netCls struct {
 var basePath = "/sys/fs/cgroup/net_cls"
 var markallocator allocator.Allocator
 
-//Initialize only ince
+//Initialize only once
 func init() {
-	markallocator = allocator.New(Initialmarkval, 255)
+	markallocator = allocator.New(Initialmarkval+ReservedMarkOffset, 255-ReservedMarkOffset)
 	mountCgroupController()
 }
 
