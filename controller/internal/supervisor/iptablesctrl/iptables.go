@@ -206,6 +206,13 @@ func (i *Instance) Run(ctx context.Context) error {
 		return fmt.Errorf("Unable to initialize chains: %s", err)
 	}
 
+	go func() {
+		<-ctx.Done()
+		zap.L().Debug("Stop the supervisor")
+
+		i.CleanUp() // nolint
+	}()
+
 	zap.L().Debug("Started the iptables controller")
 
 	return nil
@@ -226,7 +233,7 @@ func (i *Instance) CleanUp() error {
 	if err := i.cleanUpGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		zap.L().Error("Failed to Clean up global rules");
 	}
-	zap.L().Debug("mehul iptables cleanup ended")
+	zap.L().Debug("mehul cleanup ended")
 
 	return nil
 }

@@ -106,16 +106,9 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 
 // CleanUp implements the cleanup interface
 func (s *ProxyInfo) CleanUp() error {
-	var wg sync.WaitGroup
-
 	for c := range s.initDone {
-		wg.Add(1)
-		go func() {
-			s.Unsupervise(c) // nolint
-			wg.Done()
-		}()
+		s.Unsupervise(c) // nolint
 	}
-	wg.Wait()
 	return nil
 }
 

@@ -79,19 +79,13 @@ func (t *trireme) Run(ctx context.Context) error {
 	return nil
 }
 
-// CleanUp cleans all the remote supervisors
+// CleanUp cleans all the acls and all the remote supervisors
 func (t *trireme) CleanUp() error {
-	var wg sync.WaitGroup
-
 	for _, s := range t.supervisors {
-		wg.Add(1)
 		go func() {
 			s.CleanUp() // nolint
-			wg.Done()
 		}()
 	}
-	wg.Wait()
-
 	return nil
 }
 

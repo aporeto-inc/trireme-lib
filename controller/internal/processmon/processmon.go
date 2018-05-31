@@ -142,7 +142,6 @@ func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel str
 
 // KillProcess sends a rpc to the process to exit failing which it will kill the process
 func (p *processMon) KillProcess(contextID string) {
-	zap.L().Debug("Mehul Kill process called")
 
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
@@ -176,7 +175,7 @@ func (p *processMon) KillProcess(contextID string) {
 				zap.String("Kill error", err.Error()))
 		}
 
-	case <-time.After(1 * time.Second):
+	case <-time.After(5 * time.Second):
 		if err := procInfo.process.Kill(); err != nil {
 			zap.L().Info("Time out while killing process ",
 				zap.Error(err))
@@ -331,17 +330,13 @@ func (p *processMon) LaunchProcess(
 		return fmt.Errorf("enforcer binary not found: %s", err)
 	}
 
-	
-//	exited := make(chan int, 2)
-
-	/*
-waitForExitCount := 0
+	exited := make(chan int, 2)
+	waitForExitCount := 0
 	if p.logToConsole {
 		if waitForExitCount, err = p.pollStdOutAndErr(cmd, exited, contextID); err != nil {
 			return err
 		}
 	}
-      */
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
 	if err != nil {
@@ -368,8 +363,10 @@ waitForExitCount := 0
 	}
 
 	go func() {
+		for i := 0; i < waitForExitCount; i++ {
+			<-exited
+		}
 		status := cmd.Wait()
-		zap.L().Info("reaped enforcer")
 		p.childExitStatus <- exitStatus{
 			process:    cmd.Process.Pid,
 			contextID:  contextID,

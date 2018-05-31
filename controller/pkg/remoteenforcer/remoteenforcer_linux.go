@@ -426,7 +426,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
 		zap.L().Fatal("Failed to stop the server", zap.Error(err))
 	}
-	zap.L().Debug("Starting 2 sec timer")
+
 	time.Sleep(2*time.Second)
 	return nil
 }
