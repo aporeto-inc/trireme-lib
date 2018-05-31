@@ -96,10 +96,6 @@ func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
 
 	_, err := s.versionTracker.Get(contextID)
 	if err != nil {
-//		debug.PrintStack()
-		// ContextID is not found in Cache, New PU: Do create.
-
-		
 		return s.doCreatePU(contextID, pu)
 	}
 
