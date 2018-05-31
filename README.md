@@ -13,7 +13,7 @@ Trireme-lib supports both containers and Linux Processes as well user based acti
 
 # TL;DR
 
-Trireme-lib is a library. The followin projects use it:
+Trireme-lib is a library. The following projects use it:
 
 * [Trireme as a set of simple examples to get started](https://github.com/aporeto-inc/trireme-example)
 * [Trireme implementing NetworkPolicies on Kubernetes](https://github.com/aporeto-inc/trireme-kubernetes/tree/master/deployment)
@@ -23,7 +23,7 @@ Trireme-lib is a library. The followin projects use it:
 In the Trireme world, a processing unit end-point can be a container, Kubernetes POD, or a general Linux process. It can also be a user session
 to a particular server. We will be referring to processing units as PUs throughout this discussion.
 
-The technology behind Trireme is streamlined, elegant, and simple. It is based on The concepts of Zero-Trust networking:
+The technology behind Trireme is streamlined, elegant, and simple. It is based on the concepts of Zero-Trust networking:
 
 1. The identity is the set of attributes and metadata that describes the container as key/value pairs. Trireme provides an extensible interface for defining these identities. Users can choose customized methods appropriate to their environment for establishing PU identity. For example, in a Kubernetes environment, the identity can be the set of labels identifying a POD.
 2. There is an authorization policy that defines when processing units with different types of identity attributes can interact or exchange traffic. The authorization policy implements an Attribute-Based Access Control (ABAC) mechanism (https://en.wikipedia.org/wiki/Attribute-Based_Access_Control), where the policy describes relationships between identity attributes.
@@ -46,7 +46,7 @@ Trireme is a node-centric library.  Each node participating in the Trireme clust
 
 Trireme is a Zero-Trust networking library. The security model behind Zero-trust networking is:
 * The Network is always untrusted. It doesn't matter if you are inside or outside your enterprise.
-* Every Flow/Connection needs to be authenticated and authorized by the endpoints
+* Every Flow/Connection needs to be authenticated and authorized by the endpoints.
 * The network information (IP/Port) is completely irrelevant to the authorization/authentication.
 
 With Trireme, there is no need to define any security rules with IPs, port numbers, or ACLs.   Everything is based on identity attributes; your IP and port allocation scheme is not relevant to Trireme and it is compatible with most underlying networking technologies. The end-to-end authentication and authorization approach is also compatible with NATs and IPv4/IPv6 translations.
@@ -73,7 +73,7 @@ Trireme conists of two main packages:
 * The `Monitor` listens to a well-defined PU creation module.  The built-in monitor listens to Docker events and generates a standard Trireme Processing Unit runtime representation. Additional
 monitors provided can listen to events on creation of Linux processes or user sessions from the Linux PAM module. The `Monitor` hands-over the Processing Unit runtime to an external
 `Resolver`.
-* The `Resolver` is implemented outside of Trireme and not part of the library. The `Resolver` depends on the orchestration system used for managing identity and policy. If you plan to implement your own Policy with Trireme, you will essentially need to implement a `Resolver`
+* The `Resolver` is implemented outside of Trireme and not part of the library. The `Resolver` depends on the orchestration system used for managing identity and policy. If you plan to implement your own Policy with Trireme, you will essentially need to implement a `Resolver`.
 * The `Controller` receives instructions from the `Resolver` and enforces the policy by analyzing the redirected packets and enforcing the identity and policy rules.
 
 
@@ -86,7 +86,7 @@ In order to define your own policies and identities, you need to implement a Res
 
 
 ```go
-// A Resolver must be implemnted by a policy engine that receives monitor events.
+// A Resolver must be implemented by a policy engine that receives monitor events.
 type Resolver interface {
 
 	// HandlePUEvent is called by all monitors when a PU event is generated. The implementer
@@ -97,7 +97,7 @@ type Resolver interface {
 
 Each Container event generates a call to `HandlePUEvent`
 
-The `Resolver` can then issue explicit calls to the `Controller` in order implement the policy decision. The controller interface
+The `Resolver` can then issue explicit calls to the `Controller` in order to implement the policy decision. The controller interface
 is consumed by the `Resolver` and it is described below:
 
 ```go
@@ -112,7 +112,7 @@ type TriremeController interface {
 	// Enforce asks the controller to enforce policy on a processing unit
 	Enforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) (err error)
 
-	// UnEnforce asks the controller to ub-enforce policy on a processing unit
+	// UnEnforce asks the controller to un-enforce policy on a processing unit
 	UnEnforce(ctx context.Context, puID string, policy *policy.PUPolicy, runtime *policy.PURuntime) (err error)
 
 	// UpdatePolicy updates the policy of the isolator for a container.
