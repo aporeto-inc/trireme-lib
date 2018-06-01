@@ -1222,7 +1222,6 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		errors = append(errors, fmt.Sprintf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err))
 	}
-
 	if i.mode == constants.LocalServer {
 		err = i.ipt.Delete(
 			"raw",
@@ -1258,7 +1257,6 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 			errors = append(errors, fmt.Sprintf("Unable to add MASQUERADE rule to raw OUTPUT table %s", err))
 		}
 	}
-
 	err = i.ipt.Delete(
 		"filter",
 		"FORWARD",

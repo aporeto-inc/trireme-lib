@@ -229,11 +229,9 @@ func (i *Instance) CleanUp() error {
 		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
 	}
 
-	zap.L().Debug("mehul cleanup")
 	if err := i.cleanUpGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		zap.L().Error("Failed to Clean up global rules");
 	}
-	zap.L().Debug("mehul cleanup ended")
 
 	return nil
 }
