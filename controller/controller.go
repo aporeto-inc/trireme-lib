@@ -94,7 +94,7 @@ func (t *trireme) CleanUp() error {
 			sup.CleanUp() // nolint
 			zap.L().Error("Supervisor Cleanup end", zap.Int("index", i2))
 			wg.Done()
-		}(s)
+		}(s, i)
 	}
 	zap.L().Error("Trireme Cleanup end")
 
