@@ -9,7 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	
+
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
@@ -221,6 +221,7 @@ func (i *Instance) Run(ctx context.Context) error {
 // CleanUp requires the implementor to clean up all ACLs
 func (i *Instance) CleanUp() error {
 
+	zap.L().Debug("ACLs Cleanup start")
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
@@ -230,8 +231,9 @@ func (i *Instance) CleanUp() error {
 	}
 
 	if err := i.cleanUpGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
-		zap.L().Error("Failed to Clean up global rules");
+		zap.L().Error("Failed to Clean up global rules")
 	}
+	zap.L().Debug("ACLs Cleanup end")
 
 	return nil
 }
@@ -380,7 +382,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 		}
 	}
 
-	i.addPortToListenerPortSet(strings.Replace(port,":","-",-1)) //nolint
+	i.addPortToListenerPortSet(strings.Replace(port, ":", "-", -1)) //nolint
 	return i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName)
 }
 

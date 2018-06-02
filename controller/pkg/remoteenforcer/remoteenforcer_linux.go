@@ -356,7 +356,10 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if s.supervisor != nil {
+
+		zap.L().Debug("Remote Supervisor Cleanup start")
 		s.supervisor.CleanUp() // nolint
+		zap.L().Debug("Remote Supervisor Cleanup end")
 	}
 	s.cancel()
 
@@ -396,7 +399,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
 	defer func() {
 		cancelMainCtx()
-		time.Sleep(5*time.Second)
+		time.Sleep(5 * time.Second)
 	}()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)

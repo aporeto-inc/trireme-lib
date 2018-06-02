@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"sync"
+
+	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
@@ -151,6 +152,8 @@ func (s *Config) CleanUp() error {
 	s.Lock()
 	defer s.Unlock()
 
+	zap.L().Debug("Impl Cleanup start")
+	defer zap.L().Debug("Impl Cleanup end")
 	return s.impl.CleanUp()
 }
 

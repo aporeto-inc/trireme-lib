@@ -106,9 +106,24 @@ func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
 
 // CleanUp implements the cleanup interface
 func (s *ProxyInfo) CleanUp() error {
+
+	wg := sync.WaitGroup{}
+
+	zap.L().Debug("Supervisor Proxy Cleanup start")
 	for c := range s.initDone {
-		s.Unsupervise(c) // nolint
+
+		wg.Add(1)
+
+		go func(contextID string) {
+			zap.L().Debug("Supervisor Proxy Unsupervise start")
+			s.Unsupervise(contextID) // nolint
+			zap.L().Debug("Supervisor Proxy Unsupervise end")
+			wg.Done()
+		}(c)
 	}
+	zap.L().Debug("Supervisor Proxy Cleanup end")
+
+	wg.Wait()
 	return nil
 }
 
