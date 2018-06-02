@@ -9,7 +9,6 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/crypto"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -77,7 +76,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 
 // CreateAndSign  creates a new token, attaches an ephemeral key pair and signs with the issuer
 // key. It also randomizes the source nonce of the token. It returns back the token and the private key.
-func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) (token []byte, nonce []byte, err error) {
+func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []byte) (token []byte, err error) {
 
 	// Combine the application claims with the standard claims
 	allclaims := &JWTClaims{
@@ -91,17 +90,12 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) (token [
 	// Create the token and sign with our key
 	strtoken, err := jwt.NewWithClaims(c.signMethod, allclaims).SignedString(c.secrets.EncodingKey())
 	if err != nil {
-		return []byte{}, []byte{}, err
+		return []byte{}, err
 	}
 
 	// Copy the certificate if needed. Note that we don't send the certificate
 	// again for Ack packets to reduce overhead
 	if !isAck {
-
-		nonce, err := crypto.GenerateRandomBytes(NonceLength)
-		if err != nil {
-			return []byte{}, []byte{}, err
-		}
 
 		txKey := c.secrets.TransmittedKey()
 
@@ -124,10 +118,10 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims) (token [
 			copy(token[tokenPosition+len(strtoken)+1:], txKey)
 		}
 
-		return token, nonce, nil
+		return token, nil
 	}
 
-	return []byte(strtoken), []byte{}, nil
+	return []byte(strtoken), nil
 
 }
 
@@ -197,20 +191,15 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 }
 
 // Randomize adds a nonce to an existing token. Returns the nonce
-func (c *JWTConfig) Randomize(token []byte) (nonce []byte, err error) {
+func (c *JWTConfig) Randomize(token []byte, nonce []byte) (err error) {
 
 	if len(token) < tokenPosition {
-		return []byte{}, errors.New("token is too small")
-	}
-
-	nonce, err = crypto.GenerateRandomBytes(NonceLength)
-	if err != nil {
-		return []byte{}, err
+		return errors.New("token is too small")
 	}
 
 	copy(token[noncePosition:], nonce)
 
-	return nonce, nil
+	return nil
 }
 
 // RetrieveNonce returns the nonce of a token. It copies the value
