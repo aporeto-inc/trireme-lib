@@ -180,14 +180,12 @@ func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 			//TODO :: we should steer packets with a specific mark to a queue
 			// part of uidpam.everything else lands on queue 0
 			//This handling is a part of the uidpam port auto discovery
-			if p.Mark == "256" {
+			if p.Mark != "256" {
 				//SYN ACK came through the global rule.
 				//This not from a process we are monitoring
 				//let his packet through
-				return nil
+				return err
 			}
-
-			return err
 		}
 	default:
 		conn, err = d.appRetrieveState(p)
