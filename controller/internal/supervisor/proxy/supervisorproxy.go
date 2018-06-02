@@ -109,19 +109,19 @@ func (s *ProxyInfo) CleanUp() error {
 
 	wg := sync.WaitGroup{}
 
-	zap.L().Debug("Supervisor Proxy Cleanup start")
+	zap.L().Error("Supervisor Proxy Cleanup start")
 	for c := range s.initDone {
 
 		wg.Add(1)
 
 		go func(contextID string) {
-			zap.L().Debug("Supervisor Proxy Unsupervise start")
+			zap.L().Error("Supervisor Proxy Unsupervise start")
 			s.Unsupervise(contextID) // nolint
-			zap.L().Debug("Supervisor Proxy Unsupervise end")
+			zap.L().Error("Supervisor Proxy Unsupervise end")
 			wg.Done()
 		}(c)
 	}
-	zap.L().Debug("Supervisor Proxy Cleanup end")
+	zap.L().Error("Supervisor Proxy Cleanup end")
 
 	wg.Wait()
 	return nil

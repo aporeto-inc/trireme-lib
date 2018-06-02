@@ -84,19 +84,19 @@ func (t *trireme) CleanUp() error {
 
 	wg := sync.WaitGroup{}
 
-	zap.L().Debug("Trireme Cleanup start")
-	for _, s := range t.supervisors {
+	zap.L().Error("Trireme Cleanup start")
+	for i, s := range t.supervisors {
 
 		wg.Add(1)
 
-		go func(sup supervisor.Supervisor) {
-			zap.L().Debug("Supervisor Cleanup start")
+		go func(sup supervisor.Supervisor, i2 int) {
+			zap.L().Error("Supervisor Cleanup start", zap.Int("index", i2))
 			sup.CleanUp() // nolint
-			zap.L().Debug("Supervisor Cleanup end")
+			zap.L().Error("Supervisor Cleanup end", zap.Int("index", i2))
 			wg.Done()
 		}(s)
 	}
-	zap.L().Debug("Trireme Cleanup end")
+	zap.L().Error("Trireme Cleanup end")
 
 	wg.Wait()
 	return nil

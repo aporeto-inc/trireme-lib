@@ -152,8 +152,8 @@ func (s *Config) CleanUp() error {
 	s.Lock()
 	defer s.Unlock()
 
-	zap.L().Debug("Impl Cleanup start")
-	defer zap.L().Debug("Impl Cleanup end")
+	zap.L().Error("Impl Cleanup start")
+	defer zap.L().Error("Impl Cleanup end")
 	return s.impl.CleanUp()
 }
 
