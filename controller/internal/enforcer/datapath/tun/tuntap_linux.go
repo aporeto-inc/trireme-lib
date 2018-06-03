@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os/user"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"syscall"
 
@@ -118,90 +118,6 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 	return writer.WriteSocket(buffer[:copyIndex])
 }
 
-func showIPrules() {
-	ipCmd, err := exec.LookPath("ip")
-	if err != nil {
-		zap.L().Error("ip command not found")
-		fmt.Println("ip command not found")
-		return
-	}
-
-	out, err := exec.Command(ipCmd, "rule", "list").Output()
-
-	if err != nil {
-		zap.L().Error("ip rule list returned error")
-	} else {
-		zap.L().Error("ip output",
-			zap.String("out", string(out)))
-	}
-}
-
-func cleanupNetworkIPRule() {
-	// nolint
-	var ipCmd string
-
-	ipCmd, err := exec.LookPath("ip")
-	if err != nil {
-		zap.L().Error("ip command not found")
-		fmt.Println("ip command not found")
-		return
-	}
-
-	showIPrules()
-
-	cmd, err := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "10").Output()
-
-	if err != nil {
-		zap.L().Error("ip rule del prio 0 table 10 returned error ",
-			zap.String("error", string(cmd)))
-	}
-
-	/*netlink.RuleDel(&netlink.Rule{
-		Table:    NetworkRuleTable,
-		Priority: RulePriority,
-		Mark:     (cgnetcls.Initialmarkval - 1),
-		Mask:     RuleMask,
-	})*/
-	//restore local rule again
-	// nolint
-
-	showIPrules()
-	cmd, err = exec.Command(ipCmd, "rule", "add", "prio", "0", "table", "local").Output()
-
-	if err != nil {
-		zap.L().Error("ip rule add prio 0 table local returned error",
-			zap.String("error", string(cmd)))
-	}
-	
-	/*
-	netlink.RuleAdd(&netlink.Rule{ //
-		Table:    0xff, //
-		Priority: 0x0,  //
-		Mark:     0,    //
-		Mask:     0,    //
-	}) //  
-        */
-	//Delete prio 10 local rule
-	// nolint
-
-	/*
-	netlink.RuleDel(&netlink.Rule{
-		Table:    0xff,
-		Priority: 0xa,
-		Mark:     0,
-		Mask:     0,
-	})
-        */
-
-	showIPrules()
-	cmd, err = exec.Command(ipCmd, "rule", "del", "prio", "10", "table", "local").Output()
-
-	if err != nil {
-		zap.L().Error("ip rule del prio 10 table local returned error",
-			zap.String("error", string(cmd)))
-	}
-}
-
 func (t *tundev) startNetworkSocket(qIndex int, tun *tuntap.TunTap) error {
 
 	writer, err := afinetrawsocket.CreateSocket(afinetrawsocket.NetworkRawSocketMark, "tun-out1")
@@ -233,6 +149,7 @@ func (t *tundev) applyNetworkInterceptorTCConfig(deviceName string) {
 		zap.L().Fatal("Unable to install queuing policy", zap.Error(err))
 	}
 }
+
 func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 	iprouteHdl, _ := iproute.NewIPRouteHandle()
 
@@ -282,34 +199,6 @@ func (t *tundev) startNetworkInterceptorInstance(i int) (err error) {
 	return nil
 }
 
-func cleanupApplicationIPRule() {
-	//Cleanup on exit
-	// nolint
-	ipCmd, err := exec.LookPath("ip")
-	if err != nil {
-		zap.L().Error("ip command not found")
-		fmt.Println("ip command not found")
-		return
-	}
-
-	showIPrules()
-
-	cmd, err := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "11").Output()
-
-	if err != nil {
-		zap.L().Error("ip rule del prio 0 table 11 returned error",
-			zap.String("error", string(cmd)))
-	}
-
-/*	netlink.RuleAdd(&netlink.Rule{
-		Table:    ApplicationRuleTable,
-		Priority: RulePriority,
-		Mark:     cgnetcls.Initialmarkval - 2,
-		Mask:     RuleMask,
-	})
-*/
-}
-
 func (t *tundev) applyApplicationInterceptorTCConfig(deviceName string) {
 
 	// We map cgroups from queue 1 to (numQueues - 1), queue 0
@@ -339,6 +228,7 @@ func (t *tundev) startApplicationSocket(qIndex int, tun *tuntap.TunTap) {
 		writer:   writer,
 	})
 }
+
 func (t *tundev) startApplicationInterceptorInstance(i int) {
 	iprouteHdl, _ := iproute.NewIPRouteHandle()
 	deviceName := baseTunDeviceName + baseTunDeviceOutput + strconv.Itoa(i+1)
@@ -385,6 +275,59 @@ func (t *tundev) startApplicationInterceptorInstance(i int) {
 	}
 }
 
+// startApplicationInterceptor will create a interceptor that processes
+// packets originated from a local application
+func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
+	if numTunDevicesPerDirection > 255 {
+		zap.L().Fatal("Cannot create more than 255 devices per direction")
+	}
+
+	for i := 0; i < numTunDevicesPerDirection; i++ {
+		t.startApplicationInterceptorInstance(i)
+	}
+
+	setIPRulesApplication(ctx)
+
+	go func() {
+
+		<-ctx.Done()
+
+		zap.L().Debug("Stopping Application Interceptor start")
+
+		defer zap.L().Debug("Stopping Application Interceptor end")
+
+		cleanupApplicationIPRule()
+	}()
+
+}
+
+// startNetworkInterceptor will the process that processes  packets from the network
+// Still has one more copy than needed. Can be improved.
+func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
+	if numTunDevicesPerDirection > 255 {
+		zap.L().Fatal("Cannot create more than 255 devices per direction")
+	}
+
+	for i := 0; i < numTunDevicesPerDirection; i++ {
+		// nolint
+		t.startNetworkInterceptorInstance(i)
+	}
+
+	setIPRulesNetwork(ctx)
+
+	// Startup a cleanup routine here.
+	go func() {
+
+		<-ctx.Done()
+
+		zap.L().Debug("Stopping Network Interceptor start")
+
+		defer zap.L().Debug("Stopping Network Interceptor end")
+
+		cleanupNetworkIPRule()
+	}()
+}
+
 func setIPRulesApplication(ctx context.Context) {
 	zap.L().Error("Setting up ip rules application")
 	ipCmd, err := exec.LookPath("ip")
@@ -394,18 +337,13 @@ func setIPRulesApplication(ctx context.Context) {
 	}
 
 	showIPrules()
-			
+
 	cmd, err := exec.Command(ipCmd, "rule", "add", "prio", "1", "fwmark", "0xfe/0xffff", "table", "11").Output()
 
 	if err != nil {
 		zap.L().Error("ip rule add prio 0 fwmark 0xfe/0xffff table 11 returned error",
 			zap.String("error", string(cmd)))
 	}
-
-	go func() {
-		<-ctx.Done()
-		cleanupApplicationIPRule()
-	}()
 }
 
 func setIPRulesNetwork(ctx context.Context) {
@@ -439,42 +377,79 @@ func setIPRulesNetwork(ctx context.Context) {
 		zap.L().Error("ip rule add prio 0 fwmark 0xff/0xffff table 10 returned error",
 			zap.String("error", string(cmd)))
 	}
-
-	//Startup a cleanup routine here.
-	go func() {
-		//Cleanup on exit
-		<-ctx.Done()
-		cleanupNetworkIPRule()
-	}()
 }
 
-// startApplicationInterceptor will create a interceptor that processes
-// packets originated from a local application
-func (t *tundev) StartApplicationInterceptor(ctx context.Context) {
-	if numTunDevicesPerDirection > 255 {
-		zap.L().Fatal("Cannot create more than 255 devices per direction")
+func showIPrules() {
+
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		fmt.Println("ip command not found")
+		return
 	}
 
-	for i := 0; i < numTunDevicesPerDirection; i++ {
-		t.startApplicationInterceptorInstance(i)
-	}
+	out, err := exec.Command(ipCmd, "rule", "list").Output()
 
-	setIPRulesApplication(ctx)
+	if err != nil {
+		zap.L().Warn("ip rule list returned error")
+	} else {
+		zap.L().Debug("ip output",
+			zap.String("out", string(out)))
+	}
 }
 
-// startNetworkInterceptor will the process that processes  packets from the network
-// Still has one more copy than needed. Can be improved.
-func (t *tundev) StartNetworkInterceptor(ctx context.Context) {
-	if numTunDevicesPerDirection > 255 {
-		zap.L().Fatal("Cannot create more than 255 devices per direction")
+func cleanupApplicationIPRule() {
+
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		return
 	}
 
+	showIPrules()
 
-	for i := 0; i < numTunDevicesPerDirection; i++ {
-		// nolint
-		t.startNetworkInterceptorInstance(i)
+	cmd, err := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "11").Output()
+	if err != nil {
+		zap.L().Error("ip rule del prio 0 table 11 returned error",
+			zap.String("error", string(cmd)))
 	}
-
-	setIPRulesNetwork(ctx)
 }
 
+func cleanupNetworkIPRule() {
+
+	var ipCmd string
+
+	ipCmd, err := exec.LookPath("ip")
+	if err != nil {
+		zap.L().Error("ip command not found")
+		fmt.Println("ip command not found")
+		return
+	}
+
+	showIPrules()
+
+	cmd, err := exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "10").Output()
+
+	if err != nil {
+		zap.L().Error("ip rule del prio 0 table 10 returned error ",
+			zap.String("error", string(cmd)))
+	}
+
+	showIPrules()
+
+	cmd, err = exec.Command(ipCmd, "rule", "add", "prio", "0", "table", "local").Output()
+
+	if err != nil {
+		zap.L().Error("ip rule add prio 0 table local returned error",
+			zap.String("error", string(cmd)))
+	}
+
+	showIPrules()
+
+	cmd, err = exec.Command(ipCmd, "rule", "del", "prio", "10", "table", "local").Output()
+
+	if err != nil {
+		zap.L().Error("ip rule del prio 10 table local returned error",
+			zap.String("error", string(cmd)))
+	}
+}
