@@ -16,4 +16,6 @@ const (
 	notifyOnReleaseFile  = "/notify_on_release"
 	//Initialmarkval is the start of mark values we assign to cgroup
 	Initialmarkval = 0x100
+	ReservedMarkVals = 0x20
+
 )

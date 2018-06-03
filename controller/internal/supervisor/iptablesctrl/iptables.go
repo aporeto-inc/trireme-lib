@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-
+	"strings"
+	
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
@@ -378,8 +379,8 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 			return err
 		}
 	}
-
-	i.addPortToListenerPortSet(port) //nolint
+	i.addPortToListenerPortSet(strings.Replace(port,":","-",-1)) //nolint
+	
 	return i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName)
 }
 

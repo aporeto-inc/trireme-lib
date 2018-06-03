@@ -32,7 +32,7 @@ var markallocator allocator.Allocator
 
 //Initialize only ince
 func init() {
-	markallocator = allocator.New(Initialmarkval, 255)
+	markallocator = allocator.New(Initialmarkval+ReservedMarkVals, 0xff-ReservedMarkVals)
 	mountCgroupController()
 }
 
