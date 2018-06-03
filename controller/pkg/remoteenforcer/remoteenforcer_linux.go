@@ -358,6 +358,9 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	if s.supervisor != nil {
 		s.supervisor.CleanUp() // nolint
 	}
+	if s.service != nil {
+		s.service.Stop()
+	}
 	s.cancel()
 
 	return nil
@@ -396,7 +399,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	ctx, cancelMainCtx := context.WithCancel(context.Background())
 	defer func() {
 		cancelMainCtx()
-		time.Sleep(5*time.Second)
+		time.Sleep(5 * time.Second)
 	}()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)
