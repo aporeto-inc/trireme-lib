@@ -62,6 +62,18 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-j", appChain,
 		},
 		{
+			i.appPacketIPTableContext,
+			i.appCgroupIPTableSection,
+			"-m", "cgroup", "!", "--cgroup", cgroup,
+			"-m", "comment", "--comment", "Server-specific-chain",
+			"-p", "tcp",
+			"-m", "multiport",
+			"--destination-ports", port,
+			"-m", "addrtype", "--dst-type", "LOCAL",
+			"-m", "addrtype", "--src-type", "LOCAL", 
+			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
+		},
+		{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
 			"-p", "tcp",
