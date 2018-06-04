@@ -305,9 +305,11 @@ func (t *tundev) StartApplicationInterceptor(ctx context.Context) error {
 		}
 	}
 
-	if err := setIPRulesApplication(ctx); err != nil {
-		return fmt.Errorf("Setup of IP application rules failed: %s", err)
-	}
+	// if err :=
+	setIPRulesApplication(ctx)
+	// ; err != nil {
+	// 	return fmt.Errorf("Setup of IP application rules failed: %s", err)
+	// }
 
 	return nil
 }
