@@ -70,7 +70,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "multiport",
 			"--destination-ports", port,
 			"-m", "addrtype", "--dst-type", "LOCAL",
-			"-m", "addrtype", "--src-type", "LOCAL", 
+			"-m", "addrtype", "--src-type", "LOCAL",
 			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
 		},
 		{
@@ -1223,7 +1223,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "mark", "--mark", mark+"/0xffff",
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err))
+		errors = append(errors, fmt.Sprintf("unable to del filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err))
 	}
 	if i.mode == constants.LocalServer {
 		err = i.ipt.Delete(
@@ -1235,7 +1235,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 			"-j", "NOTRACK",
 		)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("Unable to add NOTRACK rule to raw PREROUTING table %s", err))
+			errors = append(errors, fmt.Sprintf("unable to del NOTRACK rule to raw PREROUTING table %s", err))
 		}
 
 		err = i.ipt.Delete(
@@ -1245,7 +1245,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 			"-j", "NOTRACK",
 		)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("Unable to add NOTRACK rule to raw OUTPUT table %s", err))
+			errors = append(errors, fmt.Sprintf("unable to del NOTRACK rule to raw OUTPUT table %s", err))
 		}
 		err = i.ipt.Delete(
 			"nat",
@@ -1257,7 +1257,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 			"--to", "172.17.0.1",
 		)
 		if err != nil {
-			errors = append(errors, fmt.Sprintf("Unable to add MASQUERADE rule to raw OUTPUT table %s", err))
+			errors = append(errors, fmt.Sprintf("unable to del MASQUERADE rule to raw OUTPUT table %s", err))
 		}
 	}
 	err = i.ipt.Delete(
@@ -1267,7 +1267,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-2)+"/0xffff",
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err))
+		errors = append(errors, fmt.Sprintf("unable to del filter rule for allowing packet forwarding %s, chain %s: %s", "filter", "forward", err))
 	}
 	err = i.ipt.Delete(
 		i.appPacketIPTableContext,
@@ -1276,7 +1276,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-2))
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
+		errors = append(errors, fmt.Sprintf("unable to del capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
 	}
 	err = i.ipt.Delete(
 		i.appPacketIPTableContext,
@@ -1284,7 +1284,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at app: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at app: %s", err))
 	}
 
 	// For local addresses our packet handling changes.
@@ -1297,7 +1297,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "mark", "--mark", strconv.Itoa(cgnetcls.Initialmarkval-1)+"/0xffff",
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add accept mark rule for recirculated packets app: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del accept mark rule for recirculated packets app: %s", err))
 	}
 	err = i.ipt.Delete(
 		i.appPacketIPTableContext,
@@ -1307,7 +1307,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "set", "--match-set", "ListenerPortSet", "dst",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add set mark rule for reinjecting packet app: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del set mark rule for reinjecting packet app: %s", err))
 	}
 	err = i.ipt.Delete(
 		i.appPacketIPTableContext,
@@ -1317,7 +1317,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "set", "--match-set", "ListenerPortSet", "src",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add set mark rule for reinjecting packet app: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del set mark rule for reinjecting packet app: %s", err))
 	}
 	err = i.ipt.Delete(
 		i.appPacketIPTableContext,
@@ -1325,7 +1325,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.NetworkRawSocketMark),
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add accept mark rule for recirculated packets app: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del accept mark rule for recirculated packets app: %s", err))
 	}
 	err = i.ipt.Delete(
 		i.netPacketIPTableContext,
@@ -1337,7 +1337,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 	)
 
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add capture syn rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
+		errors = append(errors, fmt.Sprintf("unable to del capture syn rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
 	}
 
 	err = i.ipt.Delete(
@@ -1348,7 +1348,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-j", "MARK", "--set-mark", mark)
 
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
+		errors = append(errors, fmt.Sprintf("unable to del capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
 	}
 
 	err = i.ipt.Delete(
@@ -1357,7 +1357,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.NetworkRawSocketMark),
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default accept raw socket packets on network : %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default accept raw socket packets on network : %s", err))
 	}
 
 	//Rules to skip the masqurade rule inserted by docker for packet recirculated by us
@@ -1367,7 +1367,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-s", "172.17.0.1/16",
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add accept rules for recirced packets: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del accept rules for recirced packets: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appProxyIPTableContext,
@@ -1376,7 +1376,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-s", "172.17.0.1/16",
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add accept rules for recirced packets: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del accept rules for recirced packets: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appProxyIPTableContext,
@@ -1385,21 +1385,21 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-s", "172.17.0.1/16",
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add accept rules for recirced packets: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del accept rules for recirced packets: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appProxyIPTableContext,
 		ipTableSectionPreRouting,
 		"-j", natProxyInputChain)
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at net: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at net: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appProxyIPTableContext,
 		ipTableSectionOutput,
 		"-j", natProxyOutputChain)
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at net: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at net: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appProxyIPTableContext,
@@ -1408,7 +1408,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"--mark", proxyMark,
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at net: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at net: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appProxyIPTableContext,
@@ -1417,7 +1417,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"--mark", proxyMark,
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at net: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at net: %s", err))
 	}
 
 	err = i.ipt.Delete(i.netPacketIPTableContext,
@@ -1426,7 +1426,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"--mark", proxyMark,
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at net: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at net: %s", err))
 	}
 
 	err = i.ipt.Delete(i.netPacketIPTableContext,
@@ -1435,7 +1435,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"--mark", proxyMark,
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at net: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at net: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appPacketIPTableContext,
@@ -1443,7 +1443,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-j", proxyInputChain,
 	)
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at net: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at net: %s", err))
 	}
 
 	err = i.ipt.Delete(i.appPacketIPTableContext,
@@ -1451,7 +1451,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-j", proxyOutputChain,
 	)
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add proxy output chain: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del proxy output chain: %s", err))
 	}
 	err = i.ipt.Delete(
 		i.appPacketIPTableContext,
@@ -1459,7 +1459,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add default allow for marked packets at app: %s", err))
+		errors = append(errors, fmt.Sprintf("unable to del default allow for marked packets at app: %s", err))
 	}
 	err = i.ipt.Delete(
 		i.netPacketIPTableContext,
@@ -1467,7 +1467,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
 		"-j", "ACCEPT")
 	if err != nil {
-		errors = append(errors, fmt.Sprintf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
+		errors = append(errors, fmt.Sprintf("unable to del capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err))
 	}
 
 	for _, iptable_err := range errors {
