@@ -361,6 +361,13 @@ func (d *Datapath) Run(ctx context.Context) error {
 
 	go d.nflogger.Run(ctx)
 
+	go func() {
+
+		<-ctx.Done()
+
+		d.datapathhdl.CleanUp()
+	}()
+
 	return nil
 }
 
