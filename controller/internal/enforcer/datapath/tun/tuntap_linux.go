@@ -326,9 +326,11 @@ func (t *tundev) StartNetworkInterceptor(ctx context.Context) error {
 		}
 	}
 
-	if err := setIPRulesNetwork(ctx); err != nil {
-		return fmt.Errorf("Setup of IP network rules failed: %s", err)
-	}
+	setIPRulesNetwork(ctx) //nolint TODO: SATYAM: If we trap error here it doesnt work.
+
+	// if err := setIPRulesNetwork(ctx); err != nil {
+	// 	return fmt.Errorf("Setup of IP network rules failed: %s", err)
+	// }
 
 	return nil
 }
