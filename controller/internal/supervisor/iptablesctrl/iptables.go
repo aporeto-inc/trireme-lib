@@ -9,7 +9,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	
+
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
@@ -209,8 +209,6 @@ func (i *Instance) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		zap.L().Debug("Stop the supervisor")
-
-		i.CleanUp() // nolint
 	}()
 
 	zap.L().Debug("Started the iptables controller")
@@ -221,16 +219,16 @@ func (i *Instance) Run(ctx context.Context) error {
 // CleanUp requires the implementor to clean up all ACLs
 func (i *Instance) CleanUp() error {
 
+	if err := i.cleanUpGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
+		zap.L().Error("Failed to Clean up global rules")
+	}
+
 	if err := i.cleanACLs(); err != nil {
 		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
 	}
 
 	if err := i.ipset.DestroyAll(); err != nil {
 		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
-	}
-
-	if err := i.cleanUpGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
-		zap.L().Error("Failed to Clean up global rules");
 	}
 
 	return nil
@@ -379,8 +377,8 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 			return err
 		}
 	}
-	i.addPortToListenerPortSet(strings.Replace(port,":","-",-1)) //nolint
-	
+	i.addPortToListenerPortSet(strings.Replace(port, ":", "-", -1)) //nolint
+
 	return i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName)
 }
 
