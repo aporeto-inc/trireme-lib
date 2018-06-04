@@ -352,12 +352,24 @@ func (d *Datapath) Run(ctx context.Context) error {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}
 
-	d.datapathhdl.StartNetworkInterceptor(ctx)
-	d.datapathhdl.StartApplicationInterceptor(ctx)
+	if err := d.datapathhdl.StartNetworkInterceptor(ctx); err != nil {
+		return err
+	}
+	if err := d.datapathhdl.StartApplicationInterceptor(ctx); err != nil {
+		return err
+	}
 
 	go d.nflogger.Run(ctx)
 
 	return nil
+}
+
+// CleanUp implements clean up
+func (d *Datapath) CleanUp() error {
+
+	zap.L().Debug("Cleanup enforcer", zap.Int("mode", int(d.mode)))
+
+	return d.datapathhdl.CleanUp()
 }
 
 // UpdateSecrets updates the secrets used for signing communication between trireme instances

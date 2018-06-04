@@ -40,7 +40,7 @@ func (i *Instance) CleanAllSynAckPacketCaptures() error {
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 	markint, _ := strconv.Atoi(mark)
-	
+
 	cgroup := strconv.Itoa((1 << 16) | markint)
 	zap.L().Error("Mehul: ",
 		zap.String("mark", strconv.Itoa(markint)),
@@ -79,7 +79,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-p", "tcp",
 			"-m", "multiport",
 			"--destination-ports", port,
-			"-m", "addrtype", "--dst-type", "LOCAL", 
+			"-m", "addrtype", "--dst-type", "LOCAL",
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
@@ -1207,8 +1207,11 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 }
 
 func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
+
 	var errors []string
 	mark := strconv.Itoa(cgnetcls.Initialmarkval - 1)
+
+	zap.L().Debug("cleanUpGlobalRules", zap.Stack("cleanUpGlobalRules"))
 
 	// Rules for allowing forwarded packets. When docker is installed. It switches the default policy
 	// of this filter/Forward chain to drop in case no rules are matched.

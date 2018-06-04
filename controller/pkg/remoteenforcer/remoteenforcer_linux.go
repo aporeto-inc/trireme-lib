@@ -42,7 +42,6 @@ var cmdLock sync.Mutex
 // newServer starts a new server
 func newServer(
 	ctx context.Context,
-	cancel context.CancelFunc,
 	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	rpcChannel string,
@@ -73,7 +72,6 @@ func newServer(
 		procMountPoint: procMountPoint,
 		statsClient:    statsClient,
 		ctx:            ctx,
-		cancel:         cancel,
 	}, nil
 }
 
@@ -358,7 +356,10 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	if s.supervisor != nil {
 		s.supervisor.CleanUp() // nolint
 	}
-	s.cancel()
+
+	if s.enforcer != nil {
+		s.enforcer.CleanUp() // nolint
+	}
 
 	return nil
 }
@@ -393,10 +394,10 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
-	ctx, cancelMainCtx := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
-		cancelMainCtx()
-		time.Sleep(5*time.Second)
+		cancel()
+		time.Sleep(5 * time.Second)
 	}()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)
@@ -412,7 +413,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil)
+	server, err := newServer(ctx, service, rpcHandle, namedPipe, secret, nil)
 	if err != nil {
 		return err
 	}

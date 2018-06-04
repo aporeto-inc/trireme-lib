@@ -14,6 +14,7 @@ type DataPathPacketHandler interface {
 
 // DatapathImpl is the interface called from the the enforcer to start the infra to receive packets
 type DatapathImpl interface {
-	StartNetworkInterceptor(ctx context.Context)
-	StartApplicationInterceptor(ctx context.Context)
+	CleanUp() error
+	StartNetworkInterceptor(ctx context.Context) error
+	StartApplicationInterceptor(ctx context.Context) error
 }
