@@ -43,7 +43,7 @@ func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
 
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
-func (d *nfq) StartNetworkInterceptor(ctx context.Context) {
+func (d *nfq) StartNetworkInterceptor(ctx context.Context) error {
 	var err error
 
 	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumNetworkQueues())
@@ -61,11 +61,12 @@ func (d *nfq) StartNetworkInterceptor(ctx context.Context) {
 			}
 		}
 	}
+	return nil
 }
 
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
-func (d *nfq) StartApplicationInterceptor(ctx context.Context) {
+func (d *nfq) StartApplicationInterceptor(ctx context.Context) error {
 	var err error
 
 	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumApplicationQueues())
@@ -84,6 +85,7 @@ func (d *nfq) StartApplicationInterceptor(ctx context.Context) {
 
 		}
 	}
+	return nil
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue

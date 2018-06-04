@@ -38,6 +38,9 @@ type Enforcer interface {
 	// Run starts the PolicyEnforcer.
 	Run(ctx context.Context) error
 
+	// CleanUp cleans up enforcer
+	CleanUp() error
+
 	// UpdateSecrets -- updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
 }
@@ -66,12 +69,24 @@ func (e *enforcer) Run(ctx context.Context) error {
 	return nil
 }
 
+// CleanUp implements the clean up
+func (e *enforcer) CleanUp() error {
+
+	if e.transport != nil {
+		if err := e.transport.CleanUp(); err != nil {
+			return fmt.Errorf("Failed to clean up in transport %s", err.Error())
+		}
+	}
+
+	return nil
+}
+
 // Enforce implements the enforce interface by sending the event to all the enforcers.
 func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in nfq %s", err.Error())
+			return fmt.Errorf("Failed to enforce in transport %s", err.Error())
 		}
 	}
 
