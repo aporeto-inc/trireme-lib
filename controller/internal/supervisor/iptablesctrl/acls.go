@@ -1191,14 +1191,14 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	)
 
 	// SATYAM: If we dont configure the rules in proxy why do we delete in proxy ?
+	//AMIT :: Testing if this is the reason for failure. We should not need this. We seem to have code to delete it in globalrules
+	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
+		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
+	}
 
-	// if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
-	// 	zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
-	// }
-
-	// if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
-	// 	zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
-	// }
+	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
+		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
+	}
 
 	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
 		zap.L().Warn("Failed to clear chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
@@ -1209,11 +1209,11 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	}
 
 	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain),zap.Error(err))
+		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain), zap.Error(err))
 	}
 
 	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain),zap.Error(err))
+		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain), zap.Error(err))
 	}
 
 	// NAT table is clean
