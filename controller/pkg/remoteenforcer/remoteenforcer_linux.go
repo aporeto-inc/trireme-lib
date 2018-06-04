@@ -428,6 +428,10 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-c
 
+	// Wait a little, if this is a graceful shutdown, mothership would have cleaned us up.
+	// If not, this doesnt hurt anyways. This allows mothership to clean up gracefully.
+	<-time.After(750 * time.Millisecond)
+
 	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
 		zap.L().Fatal("Failed to stop the server", zap.Error(err))
 	}

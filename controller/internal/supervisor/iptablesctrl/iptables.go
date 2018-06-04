@@ -209,6 +209,8 @@ func (i *Instance) Run(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
 		zap.L().Debug("Stop the supervisor")
+
+		i.CleanUp() //nolint
 	}()
 
 	zap.L().Debug("Started the iptables controller")
