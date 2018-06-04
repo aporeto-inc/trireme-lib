@@ -1194,11 +1194,11 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 		zap.String("proxyOutputChain", proxyOutputChain),
 	)
 
-	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
+	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-m", "comment", "--comment", commentPrefix+"", "-j", natProxyInputChain); err != nil {
 		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 
-	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
+	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-m", "comment", "--comment", commentPrefix+"", "-j", natProxyOutputChain); err != nil {
 		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
 	}
 
