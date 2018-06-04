@@ -113,7 +113,7 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-p", "tcp",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
-			"-m", "comment", "--comment", chainPrefix + "",
+			"-m", "comment", "--comment", chainPrefix + "mark a packet",
 			"-m", "set",
 			"--match-set", srcSetName, "src,dst",
 			"-j", "REDIRECT",
@@ -996,9 +996,9 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN", "--tcp-option", "34",
 		"-m", "comment", "--comment", chainPrefix+"",
-		"34", "-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynStr())
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynStr())
 
 	if err != nil {
 		return fmt.Errorf("unable to add capture syn rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
