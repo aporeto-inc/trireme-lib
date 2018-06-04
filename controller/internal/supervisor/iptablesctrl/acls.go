@@ -1190,13 +1190,15 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 		zap.String("proxyOutputChain", proxyOutputChain),
 	)
 
-	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
-		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
-	}
+	// SATYAM: If we dont configure the rules in proxy why do we delete in proxy ?
 
-	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
-		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
-	}
+	// if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
+	// 	zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
+	// }
+
+	// if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
+	// 	zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
+	// }
 
 	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
 		zap.L().Warn("Failed to clear chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
