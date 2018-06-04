@@ -42,18 +42,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	markint, _ := strconv.Atoi(mark)
 
 	cgroup := strconv.Itoa((1 << 16) | markint)
-	zap.L().Error("Mehul: ",
-		zap.String("mark", strconv.Itoa(markint)),
-		zap.String("cgroup", cgroup))
 	rules := [][]string{
-		{
-			i.appPacketIPTableContext,
-			i.appCgroupIPTableSection,
-			"-m", "cgroup", "--cgroup", cgroup,
-			"-m", "comment", "--comment", "Mark All Packets from a cgroup",
-			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 2)),
-		},
-
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
