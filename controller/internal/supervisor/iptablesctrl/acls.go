@@ -981,7 +981,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			"nat",
 			"POSTROUTING", 1,
 			"-m", "addrtype", "--src-type", "LOCAL",
-			"-d", "172.17.0.2/16",
+			"-d", "172.17.0.0/16",
 			"-o", "tun-out1",
 			"-j", "SNAT",
 			"--to", "172.17.0.1",
@@ -1211,8 +1211,6 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 	var errors []string
 	mark := strconv.Itoa(cgnetcls.Initialmarkval - 1)
 
-	zap.L().Debug("cleanUpGlobalRules", zap.Stack("cleanUpGlobalRules"))
-
 	// Rules for allowing forwarded packets. When docker is installed. It switches the default policy
 	// of this filter/Forward chain to drop in case no rules are matched.
 	// These rules open the gate for packets forwarded by us
@@ -1251,7 +1249,7 @@ func (i *Instance) cleanUpGlobalRules(appChain, netChain string) error {
 			"nat",
 			"POSTROUTING",
 			"-m", "addrtype", "--src-type", "LOCAL",
-			"-d", "172.17.0.2/16",
+			"-d", "172.17.0.0/16",
 			"-o", "tun-out1",
 			"-j", "SNAT",
 			"--to", "172.17.0.1",
