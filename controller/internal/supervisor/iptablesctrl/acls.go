@@ -53,7 +53,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 		{
 			i.appPacketIPTableContext,
 			i.appCgroupIPTableSection,
-			"-m", "comment", "--comment", "Server-specific-chain ", cgroup,
+			"-m", "comment", "--comment", "Server-specific-chain",
 			"-p", "tcp", "--tcp-flags", "SYN, ACK SYN, ACK", 
 			"-m", "multiport",
 			"--sport", port,
