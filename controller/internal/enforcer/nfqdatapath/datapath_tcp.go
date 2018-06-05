@@ -391,11 +391,11 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// delegated to the service module
 		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
 			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
+				tcpPacket.SourceAddress.String(),
 				tcpPacket.IPProto,
-				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
+				tcpPacket.SourcePort,
 				constants.DefaultConnMark,
 			); err != nil {
 				zap.L().Error("Failed to update conntrack table for flow",
