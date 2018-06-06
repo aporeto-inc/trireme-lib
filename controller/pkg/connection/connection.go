@@ -199,9 +199,16 @@ type ProxyConnection struct {
 
 // NewProxyConnection returns a new Proxy Connection
 func NewProxyConnection() *ProxyConnection {
+	nonce, err := crypto.GenerateRandomBytes(16)
+	if err != nil {
+		return nil
+	}
 
 	return &ProxyConnection{
 		state: ClientTokenSend,
+		Auth: AuthInfo{
+			LocalContext: nonce,
+		},
 	}
 }
 
