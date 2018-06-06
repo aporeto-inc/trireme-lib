@@ -23,9 +23,10 @@ const (
 
 // MonitorConfig specifies the configs for monitors.
 type MonitorConfig struct {
-	Common    *ProcessorConfig
-	MergeTags []string
-	Monitors  map[Type]interface{}
+	Common               *ProcessorConfig
+	MergeTags            []string
+	Monitors             map[Type]interface{}
+	ApplicationProxyPort int
 }
 
 // String returns the configuration in string
@@ -42,9 +43,10 @@ func (c *MonitorConfig) String() string {
 
 // ProcessorConfig holds configuration for the processors
 type ProcessorConfig struct {
-	Collector collector.EventCollector
-	Policy    policy.Resolver
-	MergeTags []string
+	Collector            collector.EventCollector
+	Policy               policy.Resolver
+	MergeTags            []string
+	ApplicationProxyPort int
 }
 
 // IsComplete checks if configuration is complete
