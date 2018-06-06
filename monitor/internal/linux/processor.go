@@ -215,7 +215,7 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 		runtime.SetOptions(policy.OptionsType{
 			CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
 			CgroupName: cgroup,
-			ProxyPort:  "5000",
+			ProxyPort:  strconv.Itoa(l.config.ApplicationProxyPort),
 		})
 
 		// Processes are still alive. We should enforce policy.
