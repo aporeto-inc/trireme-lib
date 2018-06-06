@@ -207,6 +207,14 @@ func OptionMergeTags(tags []string) Options {
 	}
 }
 
+// OptionApplicationProxyPort is to provide the application proxy port
+func OptionApplicationProxyPort(proxyPort int) Options {
+	return func(cfg *config.MonitorConfig) {
+		cfg.ApplicationProxyPort = proxyPort
+		cfg.Common.ApplicationProxyPort = proxyPort
+	}
+}
+
 // OptionCollector provide a way to add to the docker monitor the collector instance
 func OptionCollector(c collector.EventCollector) Options {
 	return func(cfg *config.MonitorConfig) {
