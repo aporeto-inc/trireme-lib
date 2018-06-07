@@ -92,13 +92,13 @@ func (i *Instance) chainRules(appChain string, netChain string, port string, pro
 		{
 			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
-			"-m", "comment", "--comment", "Container-specific-chain",
+			"-m", "comment", "--comment", commentPrefix + "Container-specific-chain",
 			"-j", appChain,
 		},
 		{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
-			"-m", "comment", "--comment", "Container-specific-chain",
+			"-m", "comment", "--comment", commentPrefix + "Container-specific-chain",
 			"-j", netChain,
 		},
 	}
@@ -616,6 +616,7 @@ func (i *Instance) addAppACLs(contextID, chain string, rules policy.IPRuleList) 
 	if err := i.ipt.Append(
 		i.appPacketIPTableContext, chain,
 		"-d", "0.0.0.0/0",
+		"-m", "comment", "--comment", commentPrefix+" drop all",
 		"-j", "DROP"); err != nil {
 
 		return fmt.Errorf("unable to add default drop acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
@@ -805,7 +806,7 @@ func (i *Instance) addNetACLs(contextID, chain string, rules policy.IPRuleList) 
 							i.netPacketIPTableContext, chain, 1,
 							"-p", rule.Protocol,
 							"-s", rule.Address,
-							"-m", "comment", "--comment", " send specific packets to DROP",
+							"-m", "comment", "--comment", commentPrefix+" send specific packets to DROP",
 							"-j", "DROP",
 						); err != nil {
 							return fmt.Errorf("unable to add net acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, chain, err)
