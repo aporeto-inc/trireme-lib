@@ -19,6 +19,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	_ "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 
@@ -41,7 +42,6 @@ var cmdLock sync.Mutex
 // newServer starts a new server
 func newServer(
 	ctx context.Context,
-	cancel context.CancelFunc,
 	service packetprocessor.PacketProcessor,
 	rpcHandle rpcwrapper.RPCServer,
 	rpcChannel string,
@@ -72,7 +72,6 @@ func newServer(
 		procMountPoint: procMountPoint,
 		statsClient:    statsClient,
 		ctx:            ctx,
-		cancel:         cancel,
 	}, nil
 }
 
@@ -353,7 +352,10 @@ func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.R
 	if s.supervisor != nil {
 		s.supervisor.CleanUp() // nolint
 	}
-	s.cancel()
+
+	if s.enforcer != nil {
+		s.enforcer.CleanUp() // nolint
+	}
 
 	return nil
 }
@@ -388,8 +390,11 @@ func (s *RemoteEnforcer) UpdateSecrets(req rpcwrapper.Request, resp *rpcwrapper.
 // LaunchRemoteEnforcer launches a remote enforcer
 func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 
-	ctx, cancelMainCtx := context.WithCancel(context.Background())
-	defer cancelMainCtx()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		cancel()
+		time.Sleep(5 * time.Second)
+	}()
 
 	namedPipe := os.Getenv(constants.EnvContextSocket)
 	secret := os.Getenv(constants.EnvRPCClientSecret)
@@ -403,7 +408,7 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	}
 
 	rpcHandle := rpcwrapper.NewRPCServer()
-	server, err := newServer(ctx, cancelMainCtx, service, rpcHandle, namedPipe, secret, nil)
+	server, err := newServer(ctx, service, rpcHandle, namedPipe, secret, nil)
 	if err != nil {
 		return err
 	}
@@ -417,6 +422,10 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	<-c
+
+	// Wait a little, if this is a graceful shutdown, mothership would have cleaned us up.
+	// If not, this doesnt hurt anyways. This allows mothership to clean up gracefully.
+	<-time.After(750 * time.Millisecond)
 
 	if err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{}); err != nil {
 		zap.L().Fatal("Failed to stop the server", zap.Error(err))

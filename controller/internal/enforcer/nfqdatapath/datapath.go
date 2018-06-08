@@ -7,13 +7,14 @@ import (
 	"os/exec"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/aporeto-inc/netlink-go/conntrack"
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapath/tun/utils/iproute"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/datapathimpl"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
@@ -27,6 +28,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/aporeto-inc/trireme-lib/utils/portcache"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.uber.org/zap"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -83,6 +85,8 @@ type Datapath struct {
 	packetLogs          bool
 
 	portSetInstance portset.PortSet
+
+	datapathhdl datapathimpl.DatapathImpl
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -102,10 +106,9 @@ func New(
 	packetLogs bool,
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
-) *Datapath {
-
+) (*Datapath, error) {
+	var err error
 	if ExternalIPCacheTimeout <= 0 {
-		var err error
 		ExternalIPCacheTimeout, err = time.ParseDuration(enforcerconstants.DefaultExternalIPTimeout)
 		if err != nil {
 			ExternalIPCacheTimeout = time.Second
@@ -114,24 +117,38 @@ func New(
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
-
 		sysctlCmd, err := exec.LookPath("sysctl")
 		if err != nil {
-			zap.L().Fatal("sysctl command must be installed", zap.Error(err))
+			return nil, fmt.Errorf("sysctl command must be installed")
 		}
 
 		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-		if err := cmd.Run(); err != nil {
-			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
+		if err = cmd.Run(); err != nil {
+			return nil, fmt.Errorf("Failed to set conntrack options, %v", err.Error())
 		}
 
-		if mode == constants.LocalServer {
-			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
-			if err := cmd.Run(); err != nil {
-				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
-			}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_forward=1")
+		if err = cmd.Run(); err != nil {
+			return nil, fmt.Errorf("Failed to set ip forward: %v", err.Error())
+		}
+
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.rp_filter=0")
+		if err = cmd.Run(); err != nil {
+			return nil, fmt.Errorf("Failed to set ip forward: %v", err.Error())
+		}
+
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.route_localnet=1")
+		if err = cmd.Run(); err != nil {
+			return nil, fmt.Errorf("Failed to setup route_localnet: %v", err.Error())
+		}
+
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.accept_local=1")
+		if err = cmd.Run(); err != nil {
+			return nil, fmt.Errorf("Failed to setup accept_local:%v", err.Error())
 		}
 	}
+
+	iproute.InitIPRules()
 
 	// This cache is shared with portSetInstance. The portSetInstance
 	// cleans up the entry corresponding to port when port is no longer
@@ -175,7 +192,12 @@ func New(
 
 	d.nflogger = nflog.NewNFLogger(11, 10, d.puInfoDelegate, collector)
 
-	return d
+	d.datapathhdl, err = tundatapath.NewTunDataPath(d, mode)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to instantiate datapath")
+	}
+
+	return d, nil
 }
 
 // NewWithDefaults create a new data path with most things used by default
@@ -186,10 +208,10 @@ func NewWithDefaults(
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
-) *Datapath {
+) (*Datapath, error) {
 
 	if collector == nil {
-		zap.L().Fatal("Collector must be given to NewDefaultDatapathEnforcer")
+		return nil, fmt.Errorf("Collector must be given to NewDefaultDatapathEnforcer")
 	}
 
 	defaultMutualAuthorization := false
@@ -203,7 +225,7 @@ func NewWithDefaults(
 
 	tokenaccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
 	if err != nil {
-		zap.L().Fatal("Cannot create a token engine")
+		return nil, fmt.Errorf("Cannot create a token engine")
 	}
 
 	puFromContextID := cache.NewCache("puFromContextID")
@@ -314,16 +336,35 @@ func (d *Datapath) GetPortSetInstance() portset.PortSet {
 func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
-	if d.service != nil {
+	if d.service != nil && d.mode != constants.RemoteContainer {
 		d.service.Initialize(d.secrets, d.filterQueue)
 	}
 
-	d.startApplicationInterceptor(ctx)
-	d.startNetworkInterceptor(ctx)
+	if err := d.datapathhdl.StartNetworkInterceptor(ctx); err != nil {
+		return err
+	}
+	if err := d.datapathhdl.StartApplicationInterceptor(ctx); err != nil {
+		return err
+	}
 
 	go d.nflogger.Run(ctx)
 
+	go func() {
+
+		<-ctx.Done()
+
+		d.datapathhdl.CleanUp()
+	}()
+
 	return nil
+}
+
+// CleanUp implements clean up
+func (d *Datapath) CleanUp() error {
+
+	zap.L().Debug("Cleanup enforcer", zap.Int("mode", int(d.mode)))
+
+	return d.datapathhdl.CleanUp()
 }
 
 // UpdateSecrets updates the secrets used for signing communication between trireme instances

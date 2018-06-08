@@ -1,10 +1,10 @@
 // +build !linux
 
-package nfqdatapath
+package tundatapath
 
-import "context"
-
-// Go libraries
+import (
+	"context"
+)
 
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.

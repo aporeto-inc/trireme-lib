@@ -17,12 +17,11 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
-// processNetworkPackets processes packets arriving from network and are destined to the application
-func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
+// ProcessNetworkPacket processes packets arriving from network and are destined to the application
+func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
@@ -137,8 +136,8 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	return nil
 }
 
-// processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
+// ProcessApplicationPacket processes packets arriving from an application and are destined to the network
+func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
@@ -177,8 +176,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
-
-			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
+			if p.Mark == "256" {
 				//SYN ACK came through the global rule.
 				//This not from a process we are monitoring
 				//let his packet through

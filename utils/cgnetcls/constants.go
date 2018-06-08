@@ -15,5 +15,8 @@ const (
 	releaseAgentConfFile = "/release_agent"
 	notifyOnReleaseFile  = "/notify_on_release"
 	//Initialmarkval is the start of mark values we assign to cgroup
-	Initialmarkval = 100
+	Initialmarkval = 0x100
+	//ReservedMarkVals reserves marks for future use. Currently syn/ack
+	//comes from the reserved marks
+	ReservedMarkVals = 0x20
 )

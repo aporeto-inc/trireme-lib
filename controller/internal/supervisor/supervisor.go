@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
-
 	"go.uber.org/zap"
+	"sync"
 
 	"github.com/aporeto-inc/trireme-lib/collector"
 	"github.com/aporeto-inc/trireme-lib/common"
@@ -75,7 +74,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
-	return &Config{
+	return &Config {
 		mode:            mode,
 		impl:            impl,
 		versionTracker:  cache.NewCache("SupVersionTracker"),
@@ -134,10 +133,11 @@ func (s *Config) Run(ctx context.Context) error {
 	if err := s.impl.Run(ctx); err != nil {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
-
 	s.Lock()
 	defer s.Unlock()
-	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+	err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+
+	return err
 }
 
 // CleanUp implements the cleanup interface
