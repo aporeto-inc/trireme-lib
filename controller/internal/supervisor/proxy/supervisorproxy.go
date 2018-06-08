@@ -17,7 +17,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"go.uber.org/zap"
+
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.

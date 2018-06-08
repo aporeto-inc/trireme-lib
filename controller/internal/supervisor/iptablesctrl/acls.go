@@ -1020,7 +1020,14 @@ func (i *Instance) globalRules(appChain, netChain string) [][]string {
 		"-m", "set", "--match-set", "ListenerPortSet", "src",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 1),
 	})
-
+	rules = append(rules, []string{
+		i.appPacketIPTableContext,
+		appChain,
+		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		"-m", "addrtype", "--src-type", "local", "--dst-type", "local",
+		"-p","tcp","--tcp-flags","SYN,ACK","SYN,ACK",
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 1),
+	})
 	rules = append(rules, []string{
 		i.netPacketIPTableContext,
 		netChain,
