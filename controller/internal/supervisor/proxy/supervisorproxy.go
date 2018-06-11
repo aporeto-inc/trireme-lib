@@ -17,7 +17,7 @@ import (
 
 	"github.com/aporeto-inc/trireme-lib/controller/internal/processmon"
 	"github.com/aporeto-inc/trireme-lib/policy"
-	"go.uber.org/zap"
+
 )
 
 //ProxyInfo is a struct used to store state for the remote launcher.
@@ -37,17 +37,14 @@ type ProxyInfo struct {
 
 //Supervise Calls Supervise on the remote supervisor
 func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
-	zap.L().Debug("Mehul Calling rpc Supervise 1")
 	s.Lock()
 	_, ok := s.initDone[contextID]
 	s.Unlock()
 	if !ok {
-		zap.L().Debug("Mehul Calling Initremotesupervisor")
 		err := s.InitRemoteSupervisor(contextID, puInfo)
 		if err != nil {
 			return err
 		}
-		zap.L().Debug("Mehul returned Initremotesupervisor")
 	}
 
 	req := &rpcwrapper.Request{
@@ -57,15 +54,12 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 		},
 	}
 
-	zap.L().Debug("Mehul Calling rpc Supervise 2")
 	if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.Supervise, req, &rpcwrapper.Response{}); err != nil {
 		s.Lock()
 		delete(s.initDone, contextID)
 		s.Unlock()
 		return fmt.Errorf("unable to send supervise command for context id %s: %s", contextID, err)
 	}
-
-	zap.L().Debug("Mehul rpc Supervise returned")
 
 	return nil
 

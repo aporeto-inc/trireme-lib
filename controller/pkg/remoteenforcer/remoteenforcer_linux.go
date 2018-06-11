@@ -226,12 +226,10 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 			s.supervisor = supervisorHandle
 		}
 
-		zap.L().Debug("mehul supervisor run")
 		if err := s.supervisor.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
 
-		zap.L().Debug("mehul supervisor finished")
 		if s.service != nil {
 			s.service.Initialize(s.secrets, s.enforcer.GetFilterQueue())
 		}
@@ -341,8 +339,6 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 		resp.Status = err.Error()
 		return err
 	}
-
-	zap.L().Debug("mehul rpc response enforcer returned")
 
 	resp.Status = ""
 

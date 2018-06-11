@@ -289,10 +289,10 @@ func (l *linuxProcessor) processHostServiceStart(event *common.EventInfo, runtim
 	if event.NetworkOnlyTraffic {
 		return nil
 	}
-
+	
 	markval := runtimeInfo.Options().CgroupMark
 	mark, _ := strconv.ParseUint(markval, 10, 32)
-	hexmark := "0x" + (strconv.FormatUint(mark, 16))
+	hexmark := "0x" + (strconv.FormatUint((1<<16)|mark, 16))
 
 	return ioutil.WriteFile("/sys/fs/cgroup/net_cls,net_prio/net_cls.classid", []byte(hexmark), 0644)
 }
