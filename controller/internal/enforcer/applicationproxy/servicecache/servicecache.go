@@ -6,8 +6,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 type entry struct {

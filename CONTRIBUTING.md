@@ -5,13 +5,13 @@ As an open source project, your contributions are important to the future of Tri
 
 ### Reporting Bugs
 
-Filing issues is a simple but very important part of contributing to Trireme. It provides a metric for measuring progress and allows the community to know what is being worked on. "Issues" in the context of the project refer to everything from broken aspects of the framework, to regressions and unimplemented features. Trireme uses [GitHub Issues](https://github.com/aporeto-inc/trireme-lib/issues) for tracking issues!
+Filing issues is a simple but very important part of contributing to Trireme. It provides a metric for measuring progress and allows the community to know what is being worked on. "Issues" in the context of the project refer to everything from broken aspects of the framework, to regressions and unimplemented features. Trireme uses [GitHub Issues](https://go.aporeto.io/trireme-lib/issues) for tracking issues!
 
-When opening an issue or a pull request, labels will be applied to it. You can check the Issue and Pull Request Lifecycle [here](https://github.com/aporeto-inc/trireme-lib/wiki/Issue-and-Pull-Request-Lifecycle).
+When opening an issue or a pull request, labels will be applied to it. You can check the Issue and Pull Request Lifecycle [here](https://go.aporeto.io/trireme-lib/wiki/Issue-and-Pull-Request-Lifecycle).
 
 ### Contributing to the project
 
-There are always bugs to be fixed and features to be implemented, some large, some small. Fixing even the smallest bug is enormously helpful! If you have something in mind, don't hesitate to create a pull request [here](https://github.com/aporeto-inc/trireme-lib/pulls)!
+There are always bugs to be fixed and features to be implemented, some large, some small. Fixing even the smallest bug is enormously helpful! If you have something in mind, don't hesitate to create a pull request [here](https://go.aporeto.io/trireme-lib/pulls)!
 
 When contributing to a project you must propose a pull request for each modifications you do.
 To do a PR, please follow this instructions :

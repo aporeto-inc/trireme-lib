@@ -5,8 +5,8 @@ import (
 	"crypto/x509"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pkiverifier"
-	"github.com/aporeto-inc/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
+	"go.aporeto.io/trireme-lib/utils/crypto"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

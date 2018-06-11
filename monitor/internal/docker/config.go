@@ -1,8 +1,8 @@
 package dockermonitor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/monitor/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/monitor/constants"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 )
 
 // Config is the configuration options to start a CNI monitor

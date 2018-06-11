@@ -19,7 +19,7 @@ and a complex infrastructure.
 In order to illustrate how to use Trireme with Linux processes we will use
 the Trireme example with default settings.
 
-1. Download and build trireme-example from https://github.com/aporeto-inc/trireme-example
+1. Download and build trireme-example from https://go.aporeto.io/trireme-example
    Follow the instructions in the Readme file and make sure all the dependencies
    are installed in your system.
 

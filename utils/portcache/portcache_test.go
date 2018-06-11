@@ -3,7 +3,7 @@ package portcache
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

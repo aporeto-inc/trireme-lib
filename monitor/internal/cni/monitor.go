@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 )
 
 // Config is the configuration options to start a CNI monitor

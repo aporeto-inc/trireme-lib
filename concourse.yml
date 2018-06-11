@@ -7,7 +7,7 @@ image_resource:
 
 inputs:
 - name: src
-  path: go/src/github.com/aporeto-inc/trireme
+  path: go/src/go.aporeto.io/trireme
 
 outputs:
 - name: docker
@@ -20,7 +20,7 @@ run:
   - |
     PS4='${LINENO}: '
     
-    cd go/src/github.com/aporeto-inc/trireme
+    cd go/src/go.aporeto.io/trireme
     git branch
     commit_sha=$(git rev-parse HEAD)
     cd -

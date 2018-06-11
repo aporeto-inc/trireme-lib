@@ -8,10 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	portset "github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	fqconfig "github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	secrets "github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	policy "github.com/aporeto-inc/trireme-lib/policy"
+	portset "go.aporeto.io/trireme-lib/controller/internal/portset"
+	fqconfig "go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	policy "go.aporeto.io/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )
 

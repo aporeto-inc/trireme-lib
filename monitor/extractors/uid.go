@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 )
 
 // UIDMetadataExtractor is a metadata extractor for uid/gid.

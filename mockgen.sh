@@ -1,6 +1,6 @@
 #! /bin/bash -e
 
-go get github.com/aporeto-inc/mock/mockgen
+go get go.aporeto.io/mock/mockgen
 go get -u github.com/golang/mock/gomock
 go get -u golang.org/x/tools/cmd/goimports
 
@@ -12,7 +12,7 @@ goimport_sanitize () {
 
 echo "Cgnetcls Mocks"
 mkdir -p utils/cgnetcls/mock
-mockgen -source utils/cgnetcls/interfaces.go -destination utils/cgnetcls/mock/mockcgnetcls.go -package mockcgnetcls -source_package github.com/aporeto-inc/trireme-lib/utils/cgnetcls
+mockgen -source utils/cgnetcls/interfaces.go -destination utils/cgnetcls/mock/mockcgnetcls.go -package mockcgnetcls -source_package go.aporeto.io/trireme-lib/utils/cgnetcls
 goimport_sanitize utils/cgnetcls/mock/mockcgnetcls.go
 
 echo "Controller/internal/supervisor/Provider Mocks"
@@ -47,32 +47,32 @@ goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mock/moc
 
 echo "Collector Mocks"
 mkdir -p collector/mock
-mockgen -source collector/interfaces.go -destination collector/mock/mockcollector.go -package mockcollector -source_package github.com/aporeto-inc/trireme-lib/collector
+mockgen -source collector/interfaces.go -destination collector/mock/mockcollector.go -package mockcollector -source_package go.aporeto.io/trireme-lib/collector
 goimport_sanitize collector/mock/mockcollector.go
 
 echo "Monitor Mocks"
 mkdir -p monitor/mock
-mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -package mockmonitor -source_package github.com/aporeto-inc/trireme-lib/monitor
+mockgen -source monitor/interfaces.go -destination monitor/mock/mockmonitor.go -package mockmonitor -source_package go.aporeto.io/trireme-lib/monitor
 goimport_sanitize monitor/mock/mockmonitor.go
 
 echo "Monitor/processor Mocks"
 mkdir -p monitor/processor/mock
-mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mock/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package github.com/aporeto-inc/trireme-lib/monitor/processor
+mockgen -source monitor/processor/interfaces.go -destination monitor/processor/mock/mockprocessor.go -aux_files collector=collector/interfaces.go -package mockprocessor -source_package go.aporeto.io/trireme-lib/monitor/processor
 goimport_sanitize monitor/processor/mock/mockprocessor.go
 
 echo "RPC Wrapper Mocks"
 mkdir -p controller/internal/enforcer/utils/rpcwrapper/mock 
-mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go -package mockrpcwrapper -source_package github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper 
+mockgen -source controller/internal/enforcer/utils/rpcwrapper/interfaces.go -destination controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go -package mockrpcwrapper -source_package go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper 
 goimport_sanitize controller/internal/enforcer/utils/rpcwrapper/mock/mockrpcwrapper.go
 
 echo "Policy Interfaces Mock"
 mkdir -p policy/mock
-mockgen -source policy/interfaces.go -destination policy/mock/mockpolicy.go -package mockpolicy -source_package github.com/aporeto-inc/trireme-lib/policy
+mockgen -source policy/interfaces.go -destination policy/mock/mockpolicy.go -package mockpolicy -source_package go.aporeto.io/trireme-lib/policy
 goimport_sanitize policy/mock/mockpolicy.go
 
 echo "Trireme Controller Mock"
 mkdir -p controller/mock
-mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package github.com/aporeto-inc/trireme-lib/controller
+mockgen -source controller/interfaces.go -destination controller/mock/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package go.aporeto.io/trireme-lib/controller
 goimport_sanitize controller/mock/mocktrireme.go
 
 echo >&2 "OK"

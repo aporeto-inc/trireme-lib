@@ -8,17 +8,17 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application

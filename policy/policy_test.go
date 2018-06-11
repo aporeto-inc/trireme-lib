@@ -3,7 +3,7 @@ package policy
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/common"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

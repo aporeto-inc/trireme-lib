@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/crypto"
 	jwt "github.com/dgrijalva/jwt-go"
 	. "github.com/smartystreets/goconvey/convey"
 )

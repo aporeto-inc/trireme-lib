@@ -12,19 +12,19 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/processmon"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	"go.aporeto.io/trireme-lib/controller/internal/processmon"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/crypto"
 )
 
 // ProxyInfo is the struct used to hold state about active enforcers in the system

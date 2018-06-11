@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"github.com/shirou/gopsutil/process"
 
-	"github.com/aporeto-inc/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 // EventServer is a new event server

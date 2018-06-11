@@ -8,13 +8,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kubecache "k8s.io/client-go/tools/cache"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 
-	dockermonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 )
 
 // KubernetesMonitor implements a monitor that sends pod events upstream

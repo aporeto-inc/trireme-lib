@@ -1,7 +1,7 @@
 package remoteenforcer
 
 import (
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 )
 
 const (
