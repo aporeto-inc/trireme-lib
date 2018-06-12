@@ -153,9 +153,9 @@ func New(
 			zap.L().Error("Failed to setup route_localnet ", zap.Error(err))
 		}
 		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.accept_local=1")
-
 		if err = cmd.Run(); err != nil {
 			zap.L().Error("Failed to setup accept_local", zap.Error(err))
+		}
 		if mode == constants.LocalServer {
 			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
 			if err := cmd.Run(); err != nil {
