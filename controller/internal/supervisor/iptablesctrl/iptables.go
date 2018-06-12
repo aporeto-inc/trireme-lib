@@ -23,6 +23,7 @@ import (
 const (
 	uidchain         = "UIDCHAIN"
 	chainPrefix      = "TRIREME-"
+	commentPrefix    = "APORETO:"
 	appChainPrefix   = chainPrefix + "App-"
 	netChainPrefix   = chainPrefix + "Net-"
 	targetNetworkSet = "TargetNetSet"
