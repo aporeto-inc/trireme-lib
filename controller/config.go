@@ -40,6 +40,7 @@ type config struct {
 	procMountPoint         string
 	externalIPcacheTimeout time.Duration
 	targetNetworks         []string
+	proxyPort              int
 }
 
 // Option is provided using functional arguments.
@@ -91,6 +92,13 @@ func OptionDisableMutualAuth() Option {
 func OptionTargetNetworks(n []string) Option {
 	return func(cfg *config) {
 		cfg.targetNetworks = n
+	}
+}
+
+// OptionApplicationProxyPort is an option provide starting proxy port for application proxy
+func OptionApplicationProxyPort(proxyPort int) Option {
+	return func(cfg *config) {
+		cfg.proxyPort = proxyPort
 	}
 }
 
@@ -190,7 +198,7 @@ func newTrireme(c *config) TriremeController {
 
 	t := &trireme{
 		config:               c,
-		port:                 allocator.New(5000, 100),
+		port:                 allocator.New(c.proxyPort, 100),
 		rpchdl:               rpcwrapper.NewRPCWrapper(),
 		enforcers:            map[constants.ModeType]enforcer.Enforcer{},
 		supervisors:          map[constants.ModeType]supervisor.Supervisor{},

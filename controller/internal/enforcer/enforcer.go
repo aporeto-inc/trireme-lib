@@ -86,13 +86,13 @@ func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in transport %s", err.Error())
+			return fmt.Errorf("Failed to enforce in nfq: %s", err.Error())
 		}
 	}
 
 	if e.proxy != nil {
 		if err := e.proxy.Enforce(context.Background(), contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in proxy %s", err.Error())
+			return fmt.Errorf("Failed to enforce in proxy: %s", err.Error())
 		}
 	}
 
