@@ -389,7 +389,7 @@ func cleanupApplicationIPRule() error {
 		return err
 	}
 
-	return exec.Command(ipCmd, "rule", "del", "prio", "0", "table", "11").Run()
+	return exec.Command(ipCmd, "rule", "del", "prio", "1", "table", "11").Run()
 }
 
 func setIPRulesNetwork(ctx context.Context) error {
