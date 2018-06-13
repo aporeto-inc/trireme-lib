@@ -137,6 +137,11 @@ func New(
 			return nil, fmt.Errorf("Failed to set ip forward: %v", err.Error())
 		}
 
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
+		if err = cmd.Run(); err != nil {
+			zap.L().Error("Failed to set ip early demux", zap.Error(err))
+		}
+		
 		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.conf.all.route_localnet=1")
 		if err = cmd.Run(); err != nil {
 			return nil, fmt.Errorf("Failed to setup route_localnet: %v", err.Error())
