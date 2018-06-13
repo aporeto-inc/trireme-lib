@@ -46,6 +46,7 @@ func New(serverID string, opts ...Option) TriremeController {
 		validity:               time.Hour * 8760,
 		procMountPoint:         constants.DefaultProcMountPoint,
 		externalIPcacheTimeout: -1,
+		proxyPort:              5000,
 	}
 
 	for _, opt := range opts {
