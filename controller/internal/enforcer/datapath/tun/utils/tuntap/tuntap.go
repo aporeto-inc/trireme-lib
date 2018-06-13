@@ -5,6 +5,7 @@ package tuntap
 import (
 	"fmt"
 	"net"
+	"os/exec"
 	"sync/atomic"
 	"syscall"
 	"unsafe"
@@ -148,6 +149,8 @@ func (t *TunTap) setupTun() error {
 		return err
 	}
 
+	t.setDeviceQueueLen()
+
 	return nil
 }
 
@@ -181,6 +184,30 @@ func (t *TunTap) createTun(queueIndex int, ifname *ifreqDevType) error {
 	t.fdtoQueueNum[fd] = queueIndex
 
 	return nil
+}
+
+// setDeviceQueueLen
+func (t *TunTap) setDeviceQueueLen() {
+	ifcfgCmd, err := exec.LookPath("ifconfig")
+	if err != nil {
+		zap.L().Error("ifconfig not found")
+		return
+	}
+
+	ret := ""
+	err = exec.Command(ifcfgCmd, t.deviceName, "txqueuelen", "500000").Run()
+	if err != nil {
+		ret = "cmd1: " + err.Error() + " "
+	}
+
+	err = exec.Command(ifcfgCmd, t.deviceName, "rxqueuelen", "500000").Run()
+	if err != nil {
+		ret = ret + "cmd2: " + err.Error() + " "
+	}
+
+	if ret != "" {
+		zap.L().Error("Could not set device queue len for tuntap devices")
+	}
 }
 
 //setipaddress sets the ip address of the tun interface. netmask is assumed to be 255.255.255.0
