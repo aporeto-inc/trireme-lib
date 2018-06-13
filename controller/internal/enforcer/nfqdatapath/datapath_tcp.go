@@ -903,10 +903,12 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 			// update the unknownSynConnectionTracker cache to keep track of
 			// syn packet that has no context yet.
-			if err = d.unknownSynConnectionTracker.Add(p.L4FlowHash(), nil); err != nil {
-				return nil, fmt.Errorf("unable to keep track of syn packet: %s", err)
-			}
+			// if err = d.unknownSynConnectionTracker.Add(p.L4FlowHash(), nil); err != nil {
+			// 	return nil, fmt.Errorf("unable to keep track of syn packet: %s", err)
+			// }
 
+			d.unknownSynConnectionTracker.AddOrUpdate(p.L4FlowHash(), nil)
+			zap.L().Debug("Keep track of unknown syn- mostly for uidpam")
 			// Remove any of our data from the packet.
 			if err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 				return nil, nil
