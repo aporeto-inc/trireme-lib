@@ -608,7 +608,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 	// a state that indicates that we have already processed one. This means that
 	// our ack packet was lost. We need to revert conntrack in this case and get
 	// back into the picture.
-	if conn.GetState() != connection.TCPSynSend {
+	if conn.GetState() == connection.TCPAckSend || conn.GetState() == connection.TCPData {
 
 		// Revert the connmarks - dealing with retransmissions
 		if cerr := d.conntrackHdl.ConntrackTableUpdateMark(
