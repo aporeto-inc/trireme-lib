@@ -17,12 +17,11 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/aporeto-inc/trireme-lib/utils/portspec"
 )
 
-// processNetworkPackets processes packets arriving from network and are destined to the application
-func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
+// ProcessNetworkPacket processes packets arriving from network and are destined to the application
+func (d *Datapath) ProcessNetworkPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
@@ -137,8 +136,8 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 	return nil
 }
 
-// processApplicationPackets processes packets arriving from an application and are destined to the network
-func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
+// ProcessApplicationPacket processes packets arriving from an application and are destined to the network
+func (d *Datapath) ProcessApplicationPacket(p *packet.Packet) (err error) {
 
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
@@ -177,8 +176,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
 			}
-
-			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
+			if p.Mark == "256" {
 				//SYN ACK came through the global rule.
 				//This not from a process we are monitoring
 				//let his packet through
@@ -389,11 +387,11 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// delegated to the service module
 		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
 			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
+				tcpPacket.SourceAddress.String(),
 				tcpPacket.IPProto,
-				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
+				tcpPacket.SourcePort,
 				constants.DefaultConnMark,
 			); err != nil {
 				zap.L().Error("Failed to update conntrack table for flow",
@@ -905,10 +903,7 @@ func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnect
 
 			// update the unknownSynConnectionTracker cache to keep track of
 			// syn packet that has no context yet.
-			if err = d.unknownSynConnectionTracker.Add(p.L4FlowHash(), nil); err != nil {
-				return nil, fmt.Errorf("unable to keep track of syn packet: %s", err)
-			}
-
+			d.unknownSynConnectionTracker.AddOrUpdate(p.L4FlowHash(), nil)
 			// Remove any of our data from the packet.
 			if err = p.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 				return nil, nil

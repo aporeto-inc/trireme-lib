@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
@@ -15,22 +16,21 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/provider"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/policy"
-
+	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
 	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )
 
 const (
-	uidchain         = "UIDCHAIN"
+	uidchain = "UIDCHAIN"
 	chainPrefix      = "TRIREME-"
 	appChainPrefix   = chainPrefix + "App-"
 	netChainPrefix   = chainPrefix + "Net-"
 	targetNetworkSet = "TargetNetSet"
 	// PuPortSet The prefix for portset names
-	PuPortSet                = "PUPort-"
-	proxyPortSetPrefix       = "Proxy-"
-	ipTableSectionOutput     = "OUTPUT"
-	ipTableSectionInput      = "INPUT"
+	PuPortSet            = "PUPort-"
+	proxyPortSetPrefix   = "Proxy-"
+	ipTableSectionOutput = "OUTPUT"
 	ipTableSectionPreRouting = "PREROUTING"
 	natProxyOutputChain      = "RedirProxy-App"
 	natProxyInputChain       = "RedirProxy-Net"
@@ -82,51 +82,12 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 		portSetInstance:         portset,
 		appPacketIPTableSection: ipTableSectionOutput,
 		appCgroupIPTableSection: ipTableSectionOutput,
-		netPacketIPTableSection: ipTableSectionInput,
+		netPacketIPTableSection: ipTableSectionPreRouting,
 		appSynAckIPTableSection: ipTableSectionOutput,
 	}
 
 	return i, nil
 
-}
-
-// chainPrefix returns the chain name for the specific PU.
-func (i *Instance) chainName(contextID string, version int) (app, net string, err error) {
-	hash := md5.New()
-
-	if _, err := io.WriteString(hash, contextID); err != nil {
-		return "", "", err
-	}
-	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
-	if len(contextID) > 4 {
-		contextID = contextID[:4] + string(output[:6])
-	} else {
-		contextID = contextID + string(output[:6])
-	}
-
-	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
-	net = netChainPrefix + contextID + "-" + strconv.Itoa(version)
-
-	return app, net, nil
-}
-
-// puPortSetName returns the name of the pu portset.
-func puPortSetName(contextID string, prefix string) string {
-	hash := md5.New()
-
-	if _, err := io.WriteString(hash, contextID); err != nil {
-		return ""
-	}
-
-	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
-
-	if len(contextID) > 4 {
-		contextID = contextID[:4] + string(output[:4])
-	} else {
-		contextID = contextID + string(output[:4])
-	}
-
-	return (prefix + contextID)
 }
 
 // ConfigureRules implmenets the ConfigureRules interface. It will create the
@@ -173,7 +134,9 @@ func (i *Instance) DeleteRules(version int, contextID string, port string, mark 
 	if err = i.deleteAllContainerChains(appChain, netChain); err != nil {
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
-
+	if mark != "" {
+		cgnetcls.ReleaseMarkVal(mark)
+	}
 	if uid != "" {
 		if err := i.deleteUIDSets(contextID, uid, mark); err != nil {
 			return err
@@ -233,9 +196,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 func (i *Instance) Run(ctx context.Context) error {
 
 	// Clean any previous ACLs
-	if err := i.cleanACLs(); err != nil {
-		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
-	}
+	i.cleanACLs()
 
 	if err := i.InitializeChains(); err != nil {
 		return fmt.Errorf("Unable to initialize chains: %s", err)
@@ -245,7 +206,7 @@ func (i *Instance) Run(ctx context.Context) error {
 		<-ctx.Done()
 		zap.L().Debug("Stop the supervisor")
 
-		i.CleanUp() // nolint
+		i.CleanUp() //nolint
 	}()
 
 	zap.L().Debug("Started the iptables controller")
@@ -256,13 +217,9 @@ func (i *Instance) Run(ctx context.Context) error {
 // CleanUp requires the implementor to clean up all ACLs
 func (i *Instance) CleanUp() error {
 
-	if err := i.cleanACLs(); err != nil {
-		zap.L().Error("Failed to clean acls while stopping the supervisor", zap.Error(err))
-	}
-
-	if err := i.ipset.DestroyAll(); err != nil {
-		zap.L().Error("Failed to clean up ipsets", zap.Error(err))
-	}
+	i.cleanUpGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection)
+	i.cleanACLs()
+	i.ipset.DestroyAll()
 
 	return nil
 }
@@ -284,6 +241,14 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 		return err
 	}
 
+	if err := i.createListenerPortSet(); err != nil {
+		return err
+	}
+
+	if i.mode == constants.RemoteContainer {
+		// Add the entire port list for remote container
+		i.addPortToListenerPortSet("0-65535")
+	}
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
@@ -326,6 +291,45 @@ func (i *Instance) InitializeChains() error {
 	return nil
 }
 
+// chainPrefix returns the chain name for the specific PU.
+func (i *Instance) chainName(contextID string, version int) (app, net string, err error) {
+	hash := md5.New()
+
+	if _, err := io.WriteString(hash, contextID); err != nil {
+		return "", "", err
+	}
+	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+	if len(contextID) > 4 {
+		contextID = contextID[:4] + string(output[:6])
+	} else {
+		contextID = contextID + string(output[:6])
+	}
+
+	app = appChainPrefix + contextID + "-" + strconv.Itoa(version)
+	net = netChainPrefix + contextID + "-" + strconv.Itoa(version)
+
+	return app, net, nil
+}
+
+// puPortSetName returns the name of the pu portset.
+func puPortSetName(contextID string, prefix string) string {
+	hash := md5.New()
+
+	if _, err := io.WriteString(hash, contextID); err != nil {
+		return ""
+	}
+
+	output := base64.URLEncoding.EncodeToString(hash.Sum(nil))
+
+	if len(contextID) > 4 {
+		contextID = contextID[:4] + string(output[:4])
+	} else {
+		contextID = contextID + string(output[:4])
+	}
+
+	return (prefix + contextID)
+}
+
 // configureContainerRule adds the chain rules for a container.
 func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
 
@@ -358,6 +362,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 			return err
 		}
 	}
+	i.addPortToListenerPortSet(strings.Replace(port, ":", "-", -1)) //nolint
 
 	return i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName)
 }
@@ -429,10 +434,15 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		if err := i.configureLinuxRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
 			return err
 		}
-	}
 
-	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
-		return err
+		if err := i.addPacketTrapLinux(appChain, netChain, containerInfo.Policy.TriremeNetworks(), containerInfo.Runtime.Options().CgroupMark); err != nil {
+			return err
+		}
+	} else {
+
+		if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
+			return err
+		}
 	}
 
 	if err := i.addAppACLs(contextID, appChain, policyrules.ApplicationACLs()); err != nil {

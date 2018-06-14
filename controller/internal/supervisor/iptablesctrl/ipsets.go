@@ -173,6 +173,33 @@ func (i *Instance) getSetNames(portSetName string) (string, string, string) {
 
 }
 
+// createListenerPortSet create set of port for listeners
+func (i *Instance) createListenerPortSet() error {
+	setname := "ListenerPortSet"
+	path, _ := exec.LookPath("ipset")
+	out, err := exec.Command(path, "create", setname, "bitmap:port", "range", "0-65535", "timeout", "0").CombinedOutput()
+	if err != nil {
+		if strings.Contains(string(out), "set with the same name already exists") {
+			zap.L().Warn("Set already exists - cleaning up", zap.String("set name", setname))
+			// Clean up the existing set
+			if _, cerr := exec.Command(path, "-F", setname).CombinedOutput(); cerr != nil {
+				return fmt.Errorf("Failed to clean up existing ipset: %s", err)
+			}
+			return nil
+		}
+		zap.L().Error("Unable to create set", zap.String("set name", setname), zap.String("ipset-output", string(out)))
+	}
+	return err
+}
+
+func (i *Instance) addPortToListenerPortSet(port string) error {
+	setname := "ListenerPortSet"
+	listenerPortSet := ipset.IPSet{
+		Name: setname,
+	}
+	return listenerPortSet.Add(port, 0)
+}
+
 //Not using ipset from coreos library they don't support bitmap:port
 func (i *Instance) createPUPortSet(setname string) error {
 	//Bitmap type is not supported by the ipset library

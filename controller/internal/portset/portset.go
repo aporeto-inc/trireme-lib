@@ -40,7 +40,10 @@ type portSetInstance struct {
 
 // expirer deletes the port entry in the portset when the key uid:port expires.
 func expirer(c cache.DataStore, id interface{}, item interface{}) {
-
+	setname := "ListenerPortSet"
+	listenerPortSet := ipset.IPSet{
+		Name: setname,
+	}
 	userPort := strings.Split(id.(string), ":")
 	portSetObject := item.(*portSetInstance)
 
@@ -66,6 +69,7 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 		zap.L().Debug("Unable to remove port from contextIDFromPort Cache")
 	}
 
+	listenerPortSet.Del(port)
 }
 
 // New creates an implementation portset interface.
@@ -224,7 +228,10 @@ func (p *portSetInstance) updateIPPortSets() {
 		// This is a go routine, cannot return error
 		return
 	}
-
+	setname := "ListenerPortSet"
+	listenerPortSet := ipset.IPSet{
+		Name: setname,
+	}
 	s := string(buffer)
 
 	for cnt, line := range strings.Split(s, "\n") {
@@ -278,5 +285,7 @@ func (p *portSetInstance) updateIPPortSets() {
 		if err = p.addPortSet(userName, port); err != nil {
 			zap.L().Debug("Unable to add port to portset ", zap.Error(err))
 		}
+		listenerPortSet.Add(port,0)
+
 	}
 }

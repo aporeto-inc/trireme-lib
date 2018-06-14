@@ -178,6 +178,11 @@ func (s *ProxyInfo) Run(ctx context.Context) error {
 	return nil
 }
 
+// CleanUp implements the clean up
+func (s *ProxyInfo) CleanUp() error {
+	return nil
+}
+
 // NewProxyEnforcer creates a new proxy to remote enforcers.
 func NewProxyEnforcer(mutualAuth bool,
 	filterQueue *fqconfig.FilterQueue,
