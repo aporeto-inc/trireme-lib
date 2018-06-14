@@ -95,6 +95,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			i.appPacketIPTableContext,
 			ipTableSectionPreRouting,
 			"-m", "set", "--match-set", portSetName, "dst",
+			"-m", "addrtype", "--dst-type", "LOCAL",
 			"-j", "MARK", "--set-mark", strconv.Itoa((markint << 16) | (cgnetcls.Initialmarkval - 1)),
 		},
 		{
@@ -1025,7 +1026,7 @@ func (i *Instance) globalRules(appChain, netChain string) [][]string {
 		appChain,
 		"-m", "mark", "--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
 		"-m", "addrtype", "--src-type", "local", "--dst-type", "local",
-		"-p","tcp","--tcp-flags","SYN,ACK","SYN,ACK",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
 		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval - 1),
 	})
 	rules = append(rules, []string{
