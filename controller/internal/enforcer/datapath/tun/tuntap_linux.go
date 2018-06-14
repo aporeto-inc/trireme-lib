@@ -36,6 +36,7 @@ type privateData struct {
 	t        *tundev
 	queueNum int
 	writer   afinetrawsocket.SocketWriter
+	buffer   [2048]byte
 }
 
 var numQueues uint16
@@ -45,11 +46,11 @@ func init() {
 }
 
 func networkQueueCallBack(data []byte, cbData interface{}) error {
-	return cbData.(*privateData).t.processNetworkPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer)
+	return cbData.(*privateData).t.processNetworkPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer, cbData.(*privateData).buffer[:])
 }
 
 func appQueueCallBack(data []byte, cbData interface{}) error {
-	return cbData.(*privateData).t.processAppPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer)
+	return cbData.(*privateData).t.processAppPacketFromTun(data, cbData.(*privateData).queueNum, cbData.(*privateData).writer, cbData.(*privateData).buffer[:])
 }
 
 // NewTunDataPath instantiates a new tundatapath
@@ -82,8 +83,9 @@ func NewTunDataPath(processor datapathimpl.DataPathPacketHandler, mode constants
 	}, nil
 }
 
-func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
 
+func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter, buffer []byte) error {
+	
 	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
@@ -96,15 +98,15 @@ func (t *tundev) processNetworkPacketFromTun(data []byte, queueNum int, writer a
 	}
 
 	// Copy the buffer
-	buffer := make([]byte, len(netPacket.Buffer)+netPacket.TCPOptionLength()+netPacket.TCPDataLength())
+	//buffer := make([]byte, len(netPacket.Buffer)+netPacket.TCPOptionLength()+netPacket.TCPDataLength())
 	copyIndex := copy(buffer, netPacket.Buffer)
 	copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 	copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
 	return writer.WriteSocket(buffer[:copyIndex])
 }
 
-func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter) error {
-
+func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afinetrawsocket.SocketWriter, buffer []byte) error {
+	
 	appPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(queueNum-1+cgnetcls.Initialmarkval))
 	if err != nil {
 		return fmt.Errorf("Unable to create packet %s", err)
@@ -117,7 +119,7 @@ func (t *tundev) processAppPacketFromTun(data []byte, queueNum int, writer afine
 	}
 
 	// Copy the buffer
-	buffer := make([]byte, len(appPacket.Buffer)+appPacket.TCPOptionLength()+appPacket.TCPDataLength())
+	//buffer := make([]byte, len(appPacket.Buffer)+appPacket.TCPOptionLength()+appPacket.TCPDataLength())
 	copyIndex := copy(buffer, appPacket.Buffer)
 	copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 	copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())

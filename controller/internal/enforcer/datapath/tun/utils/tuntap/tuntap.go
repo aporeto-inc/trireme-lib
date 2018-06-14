@@ -70,7 +70,6 @@ func NewTun(numQueues uint16, ipAddress string, macAddress []byte, deviceName st
 // StartQueue starts the data loop for a tun queue.
 // Wait for all goroutine to start successfully before continuing
 func (t *TunTap) StartQueue(queueIndex int, privateData interface{}) {
-	// TODO define constant or retrieve MTU of tun interface
 	var data [75 * 1024]byte
 	for {
 		if n, err := t.ReadQueue(queueIndex, data[:]); err == nil {
