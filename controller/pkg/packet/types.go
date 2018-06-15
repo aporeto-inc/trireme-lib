@@ -170,6 +170,10 @@ type Packet struct {
 	TCPFlags      uint8
 	TCPChecksum   uint16
 
+	// UDP Specific fields.
+	UDPChecksum uint16
+	udpData     []byte
+
 	// Service Metadata
 	SvcMetadata interface{}
 	// Connection Metadata

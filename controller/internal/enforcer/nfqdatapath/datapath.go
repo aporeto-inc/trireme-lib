@@ -14,10 +14,10 @@ import (
 	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packetprocessor"
@@ -67,6 +67,15 @@ type Datapath struct {
 	netReplyConnectionTracker   cache.DataStore
 	unknownSynConnectionTracker cache.DataStore
 
+	udpSourcePortConnectionCache cache.DataStore
+
+	// Hash on full five-tuple and return the connection
+	// These are auto-expired connections after 60 seconds of inactivity.
+	udpAppOrigConnectionTracker  cache.DataStore
+	udpAppReplyConnectionTracker cache.DataStore
+	udpNetOrigConnectionTracker  cache.DataStore
+	udpNetReplyConnectionTracker cache.DataStore
+
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
 
@@ -83,6 +92,8 @@ type Datapath struct {
 	packetLogs          bool
 
 	portSetInstance portset.PortSet
+	// udp socket fd for application.
+	udpSocketWriter afinetrawsocket.SocketWriter
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -144,6 +155,11 @@ func New(
 		portSetInstance = portset.New(contextIDFromPort)
 	}
 
+	udpSocketWriter, err := afinetrawsocket.CreateSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
+	if err != nil {
+		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
+	}
+
 	d := &Datapath{
 		puFromMark:        cache.NewCache("puFromMark"),
 		contextIDFromPort: contextIDFromPort,
@@ -156,19 +172,27 @@ func New(
 		netOrigConnectionTracker:    cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
 		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
-		ExternalIPCacheTimeout:      ExternalIPCacheTimeout,
-		filterQueue:                 filterQueue,
-		mutualAuthorization:         mutualAuth,
-		service:                     service,
-		collector:                   collector,
-		tokenAccessor:               tokenaccessor,
-		secrets:                     secrets,
-		ackSize:                     secrets.AckSize(),
-		mode:                        mode,
-		procMountPoint:              procMountPoint,
-		conntrackHdl:                conntrack.NewHandle(),
-		portSetInstance:             portSetInstance,
-		packetLogs:                  packetLogs,
+
+		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
+		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
+		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
+		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
+		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
+
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
+		filterQueue:            filterQueue,
+		mutualAuthorization:    mutualAuth,
+		service:                service,
+		collector:              collector,
+		tokenAccessor:          tokenaccessor,
+		secrets:                secrets,
+		ackSize:                secrets.AckSize(),
+		mode:                   mode,
+		procMountPoint:         procMountPoint,
+		conntrackHdl:           conntrack.NewHandle(),
+		portSetInstance:        portSetInstance,
+		packetLogs:             packetLogs,
+		udpSocketWriter:        udpSocketWriter,
 	}
 
 	packet.PacketLogLevel = packetLogs
@@ -348,7 +372,7 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
