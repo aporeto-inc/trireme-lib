@@ -35,8 +35,6 @@ const (
 
 // Proxy maintains state for proxies connections from listen to backend.
 type Proxy struct {
-	wg sync.WaitGroup
-
 	tokenaccessor tokenaccessor.TokenAccessor
 	collector     collector.EventCollector
 
@@ -78,7 +76,6 @@ func NewTCPProxy(
 	localIPs := connproc.GetInterfaces()
 
 	return &Proxy{
-		wg:            sync.WaitGroup{},
 		collector:     c,
 		tokenaccessor: tp,
 		puFromID:      puFromID,

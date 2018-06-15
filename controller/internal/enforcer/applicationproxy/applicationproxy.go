@@ -390,6 +390,7 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 	apicache := map[string]*urisearch.APICache{}
 	jwtcache := map[string]*x509.Certificate{}
 	dependentCache := map[string]*urisearch.APICache{}
+	portCache := map[int]string{}
 	caPool := [][]byte{}
 
 	for _, service := range exposedServices {

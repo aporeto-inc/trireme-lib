@@ -315,6 +315,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			record.Action = policy.Encrypt
 		}
 		record.Action = record.Action | policy.Accept
+		p.collector.CollectFlowEvent(record)
 	}
 
 	// Generate the client identity
@@ -368,6 +369,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
 	}
+
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
