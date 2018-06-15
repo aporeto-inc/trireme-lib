@@ -19,6 +19,7 @@ import (
 
 const (
 	testDirBase = "/tmp"
+	testBinary  = "testbinary"
 )
 
 func LaunchContainer(path string) int {
@@ -57,7 +58,7 @@ func TestLaunchProcess(t *testing.T) {
 	//Will use refPid to be 1 (init) guaranteed to be there
 	//Normal case should launch a process
 	rpchdl := rpcwrapper.NewTestRPCClient()
-	p := newProcessMon(testDirBase)
+	p := newProcessMon(testDirBase, testDirBase, testBinary)
 	contextID := "12345"
 
 	refPid := 1
@@ -68,7 +69,15 @@ func TestLaunchProcess(t *testing.T) {
 		t.Errorf("TEST:Setup failed")
 		t.SkipNow()
 	}
-	err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
+
+	err := exec.Command("cp", dir+"/testbinary/testbinary", "/tmp").Run()
+	if err != nil {
+		fmt.Println(err)
+		t.Errorf("TEST:Setup failed")
+		t.SkipNow()
+	}
+
+	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
 	if err == nil {
 		t.Errorf("TEST:Launch Process launches a process in the hostnamespace -- %s should fail", dir)
 		t.SkipNow()
@@ -130,7 +139,7 @@ func TestKillProcess(t *testing.T) {
 	// paramvalidate := false
 
 	//Lets launch process
-	p := newProcessMon(testDirBase)
+	p := newProcessMon(testDirBase, testDirBase, testBinary)
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
@@ -151,7 +160,7 @@ func TestKillProcess(t *testing.T) {
 
 func TestGetProcessManagerHdl(t *testing.T) {
 
-	newProcessMon(netNSPath)
+	newProcessMon(netNSPath, remoteEnforcerTempBuildPath, remoteEnforcerBuildName)
 	hdl := GetProcessManagerHdl()
 	cache := cache.NewCache(processMonitorCacheName)
 
