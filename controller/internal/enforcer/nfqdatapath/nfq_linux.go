@@ -80,6 +80,8 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		netPacket.Print(packet.PacketFailureCreate)
 	} else if netPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processNetworkTCPPackets(netPacket)
+	} else if netPacket.IPProto == packet.IPProtocolUDP {
+		err = d.ProcessNetworkUDPPacket(netPacket)
 	} else {
 		err = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto)
 	}
@@ -114,6 +116,8 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		appPacket.Print(packet.PacketFailureCreate)
 	} else if appPacket.IPProto == packet.IPProtocolTCP {
 		err = d.processApplicationTCPPackets(appPacket)
+	} else if appPacket.IPProto == packet.IPProtocolUDP {
+		err = d.ProcessApplicationUDPPacket(appPacket)
 	} else {
 		err = fmt.Errorf("invalid ip protocol: %d", appPacket.IPProto)
 	}
