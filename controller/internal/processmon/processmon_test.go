@@ -71,8 +71,6 @@ func TestLaunchProcess(t *testing.T) {
 		t.SkipNow()
 	}
 
-	buildCmd := fmt.Sprintf("GOOS=%s GOARCH=%s go build", runtime.GOOS, runtime.GOARCH)
-
 	if err := os.Chdir("testbinary"); err != nil {
 		if err != nil {
 			t.Errorf("TEST:Setup failed")
@@ -80,6 +78,8 @@ func TestLaunchProcess(t *testing.T) {
 		}
 	}
 	defer os.Chdir(dir)
+
+	buildCmd := fmt.Sprintf("GOOS=%s GOARCH=%s go build", runtime.GOOS, runtime.GOARCH)
 
 	err := exec.Command("bash", "-c", buildCmd).Run()
 	if err != nil {
