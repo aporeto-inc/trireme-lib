@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -70,9 +71,16 @@ func TestLaunchProcess(t *testing.T) {
 		t.SkipNow()
 	}
 
-	err := exec.Command("cp", dir+"/testbinary/testbinary", "/tmp").Run()
+	buildCmd := fmt.Sprintf("GOOS=%s go build", runtime.GOOS)
+
+	err := exec.Command("bash", "-c", buildCmd, dir+"/testbinary").Run()
 	if err != nil {
-		fmt.Println(err)
+		t.Errorf("TEST:Setup failed")
+		t.SkipNow()
+	}
+
+	err = exec.Command("cp", dir+"/testbinary/testbinary", "/tmp").Run()
+	if err != nil {
 		t.Errorf("TEST:Setup failed")
 		t.SkipNow()
 	}
