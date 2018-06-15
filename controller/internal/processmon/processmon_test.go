@@ -79,7 +79,7 @@ func TestLaunchProcess(t *testing.T) {
 		t.SkipNow()
 	}
 
-	err = exec.Command("cp", dir+"/testbinary/testbinary", "/tmp").Run()
+	err = exec.Command("cp", dir+"/testbinary/testbinary", testDirBase).Run()
 	if err != nil {
 		t.Errorf("TEST:Setup failed")
 		t.SkipNow()
