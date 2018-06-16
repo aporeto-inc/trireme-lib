@@ -77,7 +77,7 @@ func TestLaunchProcess(t *testing.T) {
 			t.SkipNow()
 		}
 	}
-	defer os.Chdir(dir)
+	defer os.Chdir(dir) // nolint
 
 	buildCmd := fmt.Sprintf("GOOS=%s GOARCH=%s go build", runtime.GOOS, runtime.GOARCH)
 
