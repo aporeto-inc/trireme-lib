@@ -36,8 +36,10 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 	var conn *connection.UDPConnection
 	udpPacketType := p.GetUDPType()
 
+	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.Buffer)))
 	switch udpPacketType {
 	case packet.UDPSynMask:
+		zap.L().Debug("Recieved Syn Network packet")
 		conn, err = d.netSynUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -56,6 +58,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		conn.SetState(connection.UDPSynReceived)
 
 	case packet.UDPSynAckMask:
+		zap.L().Debug("Recieved Syn Ack Network packet")
 		conn, err = d.netSynAckUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -72,6 +75,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 
 	case packet.UDPAckMask:
+		zap.L().Debug("Recieved udp Network packet")
 		conn, err = d.netUDPAckRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -104,7 +108,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		// 	}
 		// }
 		zap.L().Debug("Delivering packet to application")
-		// deliver to the application.
+		// deliver to the application only if we are Ack Processed state.
 		// return d.udpSocketNetworkWriter.WriteSocket(p.Buffer)
 		return nil
 	}
@@ -197,6 +201,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 
 	case packet.UDPSynMask:
 		// action, claims
+		zap.L().Debug("Prcessing net udp syn packet")
 		_, _, err := d.processNetworkUDPSynPacket(context, conn, udpPacket)
 		if err != nil {
 			return err
@@ -209,6 +214,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 		// 	}
 		// }
 		// setup Encryption based on action and claims.
+		zap.L().Debug("Sending UDP syn ack packet")
 		err = d.sendUDPSynAckPacket(udpPacket, context, conn)
 		if err != nil {
 			return err
@@ -216,6 +222,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 
 	case packet.UDPAckMask:
 		// action,claims.
+		zap.L().Debug("Processing network Ack Packet")
 		_, _, err := d.processNetworkUDPAckPacket(udpPacket, context, conn)
 		if err != nil {
 			zap.L().Error("Error during authorization", zap.Error(err))
@@ -229,10 +236,12 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 		// 	}
 		// }
 		conn.SetState(connection.UDPAckProcessed)
-		return nil
+		// we have drop the handshake packet after succesfull completion of the handshake.
+		return fmt.Errorf("Drop udp ack (net) handshake packet as it is not intended for the application")
 
 	case packet.UDPSynAckMask:
 		// action, claims
+		zap.L().Debug("Processing net udp syn ack packet")
 		_, _, err := d.processNetworkUDPSynAckPacket(udpPacket, context, conn)
 		if err != nil {
 			zap.L().Error("UDP Syn ack failed with", zap.Error(err))
@@ -245,7 +254,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 		// 		return errors.New("post service processing failed for network packet")
 		// 	}
 		// }
-
+		zap.L().Debug("Sending udp ack packet - 3rd packet")
 		err = d.sendUDPAckPacket(udpPacket, context, conn)
 		if err != nil {
 			zap.L().Error("Unable to send udp Syn ack failed", zap.Error(err))
@@ -278,6 +287,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	// queue packets if connection is still unauthorized.
 	if conn.GetState() != connection.UDPAckProcessed {
+		zap.L().Debug("Packets are being queueed")
 		if err = conn.QueuePackets(p); err != nil {
 			return fmt.Errorf("Unable to queue packets:%s", err)
 		}
@@ -304,6 +314,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		// 	}
 		// }
 		// Send Packet on the wire.
+		zap.L().Debug("Ack Processed, write on the app socket")
 		return conn.Writer.WriteSocket(p.Buffer)
 	}
 	// if not in the above two states, packets are queued.
@@ -486,25 +497,25 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	conn.SetState(connection.UDPAckProcessed)
 
-	if !conn.ServiceConnection {
-		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
+	//	if !conn.ServiceConnection {
+	zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
 
-		if err = d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.DestinationAddress.String(),
-			udpPacket.SourceAddress.String(),
-			udpPacket.IPProto,
-			udpPacket.DestinationPort,
-			udpPacket.SourcePort,
-			constants.DefaultConnMark,
-		); err != nil {
-			zap.L().Error("Failed to update conntrack table for flow",
-				zap.String("context", string(conn.Auth.LocalContext)),
-				zap.String("app-conn", udpPacket.L4ReverseFlowHash()),
-				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
-				zap.Error(err),
-			)
-		}
+	if err = d.conntrackHdl.ConntrackTableUpdateMark(
+		udpPacket.DestinationAddress.String(),
+		udpPacket.SourceAddress.String(),
+		udpPacket.IPProto,
+		udpPacket.DestinationPort,
+		udpPacket.SourcePort,
+		constants.DefaultConnMark,
+	); err != nil {
+		zap.L().Error("Failed to update conntrack table for flow",
+			zap.String("context", string(conn.Auth.LocalContext)),
+			zap.String("app-conn", udpPacket.L4ReverseFlowHash()),
+			zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+			zap.Error(err),
+		)
 	}
+	//}
 
 	// Be optimistic and Transmit Queued Packets
 	for _, udpPacket := range conn.PacketQueue {
@@ -609,20 +620,20 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 
 	conn.SetState(connection.UDPAckReceived)
 
-	if !conn.ServiceConnection {
-		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
-		// Plumb connmark rule here.
-		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.SourceAddress.String(),
-			udpPacket.DestinationAddress.String(),
-			udpPacket.IPProto,
-			udpPacket.SourcePort,
-			udpPacket.DestinationPort,
-			constants.DefaultConnMark,
-		); err != nil {
-			zap.L().Error("Failed to update conntrack table after ack packet")
-		}
+	//	if !conn.ServiceConnection {
+	zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
+	// Plumb connmark rule here.
+	if err := d.conntrackHdl.ConntrackTableUpdateMark(
+		udpPacket.SourceAddress.String(),
+		udpPacket.DestinationAddress.String(),
+		udpPacket.IPProto,
+		udpPacket.SourcePort,
+		udpPacket.DestinationPort,
+		constants.DefaultConnMark,
+	); err != nil {
+		zap.L().Error("Failed to update conntrack table after ack packet")
 	}
+	//	}
 	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 	return nil, nil, nil
 }

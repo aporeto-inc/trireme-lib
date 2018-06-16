@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/aporeto-inc/trireme-lib/controller/constants"
+	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
@@ -37,6 +38,15 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
 			"-p", "tcp",
+			"-m", "multiport",
+			"--destination-ports", port,
+			"-m", "comment", "--comment", "Container-specific-chain",
+			"-j", netChain,
+		},
+		{
+			i.netPacketIPTableContext,
+			i.netPacketIPTableSection,
+			"-p", "udp",
 			"-m", "multiport",
 			"--destination-ports", port,
 			"-m", "comment", "--comment", "Container-specific-chain",
@@ -254,6 +264,13 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
 
+	rules = append(rules, []string{
+		i.appPacketIPTableContext, appChain,
+		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-p", "udp",
+		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+	})
+
 	// Network Packets - SYN
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
@@ -266,6 +283,14 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		i.netPacketIPTableContext, netChain,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
+		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
+	})
+
+	// UDP Network packets.
+	rules = append(rules, []string{
+		i.netPacketIPTableContext, netChain,
+		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-p", "udp",
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
 
@@ -917,6 +942,16 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN,ACK",
+		"-j", "MARK", "--set-mark", strconv.Itoa(cgnetcls.Initialmarkval-1))
+	if err != nil {
+		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
+	}
+
 	if i.mode == constants.LocalServer {
 		err = i.ipt.Insert(
 			i.appPacketIPTableContext,
@@ -957,6 +992,18 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	if err != nil {
 		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
+	}
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
+		"-m", "set", "--match-set", targetNetworkSet, "dst",
+		"-p", "udp",
+		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
+		"-m", "u32", "--u32", "0x19&0x60=0x40",
+		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
+	if err != nil {
+		return fmt.Errorf("unable to add capture synack rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
 	err = i.ipt.Insert(
@@ -1033,6 +1080,17 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	)
 	if err != nil {
 		return fmt.Errorf("unable to add proxy output chain: %s", err)
+	}
+
+	err = i.ipt.Insert(i.appPacketIPTableContext,
+		i.appPacketIPTableSection,
+		1,
+		"-m", "mark",
+		"--mark", strconv.Itoa(afinetrawsocket.ApplicationRawSocketMark),
+		"-j", "ACCEPT",
+	)
+	if err != nil {
+		return fmt.Errorf("unable to add application raw socket mark rule output chain: %s", err)
 	}
 
 	return nil

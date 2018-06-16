@@ -289,11 +289,19 @@ type UDPConnection struct {
 // NewUDPConnection returns UDPConnection struct.
 func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.SocketWriter) *UDPConnection {
 
+	nonce, err := crypto.GenerateRandomBytes(16)
+	if err != nil {
+		return nil
+	}
+
 	return &UDPConnection{
 		state:       UDPSynStart,
 		Context:     context,
 		PacketQueue: []*packet.Packet{},
 		Writer:      writer,
+		Auth: AuthInfo{
+			LocalContext: nonce,
+		},
 	}
 }
 
