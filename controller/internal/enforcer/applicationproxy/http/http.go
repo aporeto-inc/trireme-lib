@@ -286,6 +286,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		if !found {
 			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
+			// @dimitri : do we need to report here?
 			return
 		}
 
@@ -302,6 +303,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			if err = p.verifyPolicy(rule.Scopes, puContext.Identity().Tags, puContext.Scopes(), []string{}); err != nil {
 				zap.L().Error("Uknown  or unauthorized service", zap.Error(err))
 				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
+				// @dimitri : do we need to report here?
 				return
 			}
 
