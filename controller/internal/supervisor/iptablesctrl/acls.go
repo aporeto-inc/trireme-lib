@@ -749,7 +749,6 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT",
 	); err != nil {
-
 		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
 	}
 
