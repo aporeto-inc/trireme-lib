@@ -125,11 +125,12 @@ func New(
 			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
 		}
 
-		if mode == constants.LocalServer {
-			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
-			if err := cmd.Run(); err != nil {
-				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
-			}
+		cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
+		if err := cmd.Run(); err != nil {
+			// On some linux systems ip_early_demux does not
+			// exist inside the network namespace. Even if this fails
+			// we do not want to log it as an Error.
+			zap.L().Info("Failed to set early demux options", zap.Error(err))
 		}
 	}
 
