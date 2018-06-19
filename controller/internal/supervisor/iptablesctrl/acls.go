@@ -496,7 +496,7 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy
 					continue
 				}
 
-			} else {
+			} else if proto != "tcp" { /* protos other than tcp/udp */
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
