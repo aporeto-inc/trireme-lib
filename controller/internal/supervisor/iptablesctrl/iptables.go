@@ -435,11 +435,11 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
-	if err := i.addAppACLs(contextID, appChain, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(contextID, appChain, netChain, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(contextID, netChain, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(contextID, appChain, netChain, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 
