@@ -268,6 +268,10 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+	// netaction is never nil
+	record.Destination.ID = netaction.ServiceID
+	record.PolicyID = netaction.PolicyID
+
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
 		p.collector.CollectFlowEvent(record)
@@ -284,6 +288,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		if !found {
 			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
+			// @dimitri : do we need to report here?
 			return
 		}
 
@@ -338,7 +343,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
-
+	var srcID string
 	sourceAddress, err := net.ResolveTCPAddr("tcp", r.RemoteAddr)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid network information"), http.StatusForbidden)
@@ -383,10 +388,15 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Destination.ID = puContext.ManagementID()
 
 	_, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
+
+	// networkPolicy is never nil.
+	record.Source.Type = collector.EndPointTypeExteranlIPAddress
+	record.Source.ID = networkPolicy.ServiceID
+	// placeholder for sourceID.
+	srcID = networkPolicy.ServiceID
+	record.PolicyID = networkPolicy.PolicyID
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
-		record.Source.Type = collector.EndPointTypeExteranlIPAddress
-		record.Source.ID = collector.DefaultEndPoint
 		return
 	}
 
@@ -438,14 +448,19 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
+
+	// Do we need to populate sourceID here?
 	record.Source.ID = claims.SourceID
 
 	if noNetAccessPolicy != nil {
 		_, netPolicyAction := puContext.SearchRcvRules(policy.NewTagStoreFromSlice(claims.Profile))
+		record.Source.ID = netPolicyAction.ServiceID
+		record.PolicyID = netPolicyAction.PolicyID
 		if netPolicyAction.Action.Rejected() {
 			http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
+
 	}
 
 	if !rule.Public {
@@ -469,7 +484,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			record.Source.ID = collector.SomeClaimsSource
 		} else if rule.Public {
 			record.Source.Type = collector.EndPointTypeExteranlIPAddress
-			record.Source.ID = collector.DefaultEndPoint
+			// source.ID could have been overwritten by claims for normal flows. Use the placeholder to update
+			// the correct value.
+			record.Source.ID = srcID
 		}
 	}
 
