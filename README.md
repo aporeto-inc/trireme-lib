@@ -15,8 +15,8 @@ Trireme-lib supports both containers and Linux Processes as well user based acti
 
 Trireme-lib is a library. The following projects use it:
 
-* [Trireme as a set of simple examples to get started](https://go.aporeto.io/trireme-example)
-* [Trireme implementing NetworkPolicies on Kubernetes](https://go.aporeto.io/trireme-kubernetes/tree/master/deployment)
+* [Trireme as a set of simple examples to get started](https://github.com/aporeto-inc/trireme-example)
+* [Trireme implementing NetworkPolicies on Kubernetes](https://github.com/aporeto-inc/trireme-kubernetes/tree/master/deployment)
 
 # Description
 
@@ -35,11 +35,11 @@ Trireme is a node-centric library.  Each node participating in the Trireme clust
 
 # Existing implementation using Trireme library
 
-* [This example ](https://go.aporeto.io/trireme-example) is a straightforward implementation of the PolicyLogic for a simple use-case.
+* [This example ](https://github.com/aporeto-inc/trireme-example) is a straightforward implementation of the PolicyLogic for a simple use-case.
 
-* [Kubernetes-Integration ] (https://go.aporeto.io/kubernetes-integration) is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
+* [Kubernetes-Integration ] (https://github.com/aporeto-inc/kubernetes-integration) is a full implementation of PolicyLogic that follows the Kubernetes Network Policies model.
 
-* [Bare-Metal-Integration] (https://go.aporeto.io/trireme-bare-metal) is an implementation of Trireme for Kubernetes on-Prem, with a Cumulus agent that allows you to have a very simple networking model (routes are advertised by Cumulus) together with Trireme for policy enforcement.
+* [Bare-Metal-Integration] (https://github.com/aporeto-inc/trireme-bare-metal) is an implementation of Trireme for Kubernetes on-Prem, with a Cumulus agent that allows you to have a very simple networking model (routes are advertised by Cumulus) together with Trireme for policy enforcement.
 
 
 # Security Model
@@ -55,7 +55,7 @@ With Trireme, there is no need to define any security rules with IPs, port numbe
 A PU is a logical unit of control to which you attach identity and authorization policies. It provides a simple mechanism where the identity is derived out of the Docker manifest; however, other mechanisms are possible for more sophisticated identity definition.   For instance, you may want to tag your 3-tier container application as "frontend," "backend," and "database." By associating corresponding labels and containers, these labels become "the identity." A policy for the “backend” containers can simply accept traffic only from “frontend” containers. Alternatively, an orchestration system might define a composite identity for each container and implement more sophisticated policies.
 
 
-PolicyLogic defines the set of authorization rules as a function of the identity of attributes and loads these rules into Trireme when a container is instantiated. Authorization rules describe the set of identities with which a particular container is allowed to interact. We provide an example of this integration logic with Kubernetes  [here](https://go.aporeto.io/kubernetes-integration). Furthermore, we provide an example of a simple policy where two containers can only talk to each other if they have matching labels in [this example](https://go.aporeto.io/trireme-lib/tree/master/example). Each rule defines a match based on the identity attributes. PolicyLogic assumes a whitelist model where everything is dropped unless explicitly allowed by the authorization policy.
+PolicyLogic defines the set of authorization rules as a function of the identity of attributes and loads these rules into Trireme when a container is instantiated. Authorization rules describe the set of identities with which a particular container is allowed to interact. We provide an example of this integration logic with Kubernetes  [here](https://github.com/aporeto-inc/kubernetes-integration). Furthermore, we provide an example of a simple policy where two containers can only talk to each other if they have matching labels in [this example](https://github.com/aporeto-inc/trireme-lib/tree/master/example). Each rule defines a match based on the identity attributes. PolicyLogic assumes a whitelist model where everything is dropped unless explicitly allowed by the authorization policy.
 
 
 PU identities are cryptographically signed with a node specific secret and sent as part of a TCP connection setup negotiation. Trireme supports both mutual and receiver-only authorization. Moreover, it supports two authentication and signing modes: (1) A pre-shared key and (2) a PKI mechanism based on ECDSA. In the case of ECDSA, public keys are either transmitted on the wire or pre-populated through an out-of-band mechanism to improve efficiency. Trireme also supports two identity encoding mechanisms: (1) A signed JSON Web Token (JWT) and (2) a custom binary mapping mechanism.
