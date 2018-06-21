@@ -17,7 +17,7 @@ import (
 
 const observeMark = "39"
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, port string, uid string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 
 	rules := [][]string{
 		{
@@ -39,7 +39,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			i.netPacketIPTableSection,
 			"-p", "tcp",
 			"-m", "multiport",
-			"--destination-ports", port,
+			"--destination-ports", tcpPorts,
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
@@ -48,13 +48,13 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			i.netPacketIPTableSection,
 			"-p", "udp",
 			"-m", "multiport",
-			"--destination-ports", port,
+			"--destination-ports", udpPorts,
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
 	}
 
-	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName)...)
+	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName)...)
 }
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string, proyPortSetName string) [][]string {
@@ -349,17 +349,17 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 }
 
 // addChainrules implements all the iptable rules that redirect traffic to a chain
-func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 	if i.mode == constants.LocalServer {
-		if port != "0" || uid == "" {
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Append")
+		if tcpPorts != "0" || udpPorts != "0" || uid == "" {
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName), "Append")
 		}
 
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Append")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Append")
 
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, port, proxyPort, proxyPortSetName), "Append")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName), "Append")
 
 }
 
@@ -1046,17 +1046,17 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules policy
 }
 
 // deleteChainRules deletes the rules that send traffic to our chain
-func (i *Instance) deleteChainRules(contextID, appChain, netChain, port string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
+func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Delete")
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName), "Delete")
 		}
 		portSetName := puPortSetName(contextID, PuPortSet)
-		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, port, uid, proxyPort, proxyPortSetName), "Delete")
+		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Delete")
 	}
 
-	return i.processRulesFromList(i.chainRules(appChain, netChain, port, proxyPort, proxyPortSetName), "Delete")
+	return i.processRulesFromList(i.chainRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName), "Delete")
 }
 
 // deleteAllContainerChains removes all the container specific chains and basic rules
