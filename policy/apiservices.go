@@ -1,7 +1,7 @@
 package policy
 
 import (
-	"github.com/aporeto-inc/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 // ServiceType are the types of services that can are suported.

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/utils/cache"
 
 	"github.com/dgrijalva/jwt-go"
 )

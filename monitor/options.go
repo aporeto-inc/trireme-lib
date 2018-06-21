@@ -1,15 +1,15 @@
 package monitor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/kubernetes"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/uid"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/monitor/internal/cni"
+	"go.aporeto.io/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
+	"go.aporeto.io/trireme-lib/monitor/internal/linux"
+	"go.aporeto.io/trireme-lib/monitor/internal/uid"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // Options is provided using functional arguments.

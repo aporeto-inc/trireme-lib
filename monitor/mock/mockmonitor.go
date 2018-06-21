@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	config "github.com/aporeto-inc/trireme-lib/monitor/config"
-	registerer "github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	config "go.aporeto.io/trireme-lib/monitor/config"
+	registerer "go.aporeto.io/trireme-lib/monitor/registerer"
 	gomock "github.com/golang/mock/gomock"
 )
 

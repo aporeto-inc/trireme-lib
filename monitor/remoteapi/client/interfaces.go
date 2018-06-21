@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/aporeto-inc/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 // APIClient is the interface of the API client

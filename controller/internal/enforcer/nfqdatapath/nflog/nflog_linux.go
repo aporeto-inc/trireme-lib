@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aporeto-inc/netlink-go/nflog"
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/netlink-go/nflog"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/policy"
 
 	"go.uber.org/zap"
 )

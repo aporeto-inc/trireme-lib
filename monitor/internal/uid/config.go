@@ -1,7 +1,7 @@
 package uidmonitor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
 )
 
 // Config is the configuration options to start a CNI monitor

@@ -7,7 +7,7 @@ package mockremoteenforcer
 import (
 	reflect "reflect"
 
-	rpcwrapper "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	gomock "github.com/golang/mock/gomock"
 )
 

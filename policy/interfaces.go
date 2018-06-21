@@ -11,7 +11,7 @@ package policy
 import (
 	"context"
 
-	"github.com/aporeto-inc/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/common"
 	"github.com/docker/go-connections/nat"
 )
 

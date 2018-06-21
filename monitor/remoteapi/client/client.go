@@ -9,7 +9,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/aporeto-inc/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 // Client is an api client structure.

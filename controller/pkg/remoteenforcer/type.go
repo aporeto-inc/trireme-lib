@@ -3,13 +3,13 @@ package remoteenforcer
 import (
 	"context"
 
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 )
 
 // RemoteEnforcer : This is the structure for maintaining state required by the

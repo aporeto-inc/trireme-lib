@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	secrets "github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	policy "github.com/aporeto-inc/trireme-lib/policy"
+	secrets "go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	policy "go.aporeto.io/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
 )
 

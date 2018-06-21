@@ -3,8 +3,8 @@ package controller
 import (
 	"context"
 
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // TriremeController is the main API of the Trireme controller
