@@ -19,9 +19,9 @@ import (
 
 	"net/rpc"
 
+	"github.com/mitchellh/hashstructure"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"github.com/mitchellh/hashstructure"
 )
 
 // RPCHdl is a per client handle

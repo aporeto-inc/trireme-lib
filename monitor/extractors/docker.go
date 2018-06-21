@@ -8,12 +8,12 @@ import (
 	"os/exec"
 	"strconv"
 
+	"github.com/docker/docker/api/types"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/constants"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.aporeto.io/trireme-lib/utils/portspec"
-	"github.com/docker/docker/api/types"
 )
 
 // A DockerMetadataExtractor is a function used to extract a *policy.PURuntime from a given

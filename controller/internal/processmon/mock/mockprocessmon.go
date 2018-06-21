@@ -7,8 +7,8 @@ package mockprocessmon
 import (
 	reflect "reflect"
 
-	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	gomock "github.com/golang/mock/gomock"
+	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 )
 
 // MockProcessManager is a mock of ProcessManager interface

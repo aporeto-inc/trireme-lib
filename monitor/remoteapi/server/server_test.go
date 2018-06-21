@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/processor/mock"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
-	"github.com/golang/mock/gomock"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewEventServer(t *testing.T) {

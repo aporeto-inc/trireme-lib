@@ -7,6 +7,7 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portspec"
 
 	"go.aporeto.io/trireme-lib/common"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 

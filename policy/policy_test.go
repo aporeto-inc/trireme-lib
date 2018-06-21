@@ -3,8 +3,8 @@ package policy
 import (
 	"testing"
 
-	"go.aporeto.io/trireme-lib/common"
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 func TestNewPolicy(t *testing.T) {

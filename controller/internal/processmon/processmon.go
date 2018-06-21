@@ -15,12 +15,12 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/kardianos/osext"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/crypto"
-	"github.com/kardianos/osext"
 )
 
 var (

@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"github.com/shirou/gopsutil/process"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 
 	"go.aporeto.io/trireme-lib/common"
 )

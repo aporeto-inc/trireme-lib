@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	policy "go.aporeto.io/trireme-lib/policy"
 	gomock "github.com/golang/mock/gomock"
+	policy "go.aporeto.io/trireme-lib/policy"
 )
 
 // MockSupervisor is a mock of Supervisor interface

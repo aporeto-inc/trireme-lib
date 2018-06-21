@@ -8,6 +8,11 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/events"
+	"github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	tevents "go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
@@ -16,11 +21,6 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
 	"go.aporeto.io/trireme-lib/policy/mock"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls/mock"
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/events"
-	"github.com/golang/mock/gomock"
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (
@@ -634,7 +634,7 @@ func Test_initTestDockerInfo(t *testing.T) {
 		args args
 		want *types.ContainerJSON
 	}{
-	// TODO: Add test cases.
+		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

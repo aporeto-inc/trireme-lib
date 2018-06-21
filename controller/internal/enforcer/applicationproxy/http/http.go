@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+	"github.com/vulcand/oxy/forward"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -24,8 +26,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/vulcand/oxy/forward"
 	"go.uber.org/zap"
 )
 

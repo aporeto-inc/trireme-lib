@@ -3,8 +3,8 @@ package policy
 import (
 	"errors"
 
-	"go.aporeto.io/trireme-lib/common"
 	"github.com/docker/go-connections/nat"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 const (

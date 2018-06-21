@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+
 	gomock "github.com/golang/mock/gomock"
 )
 
