@@ -101,6 +101,7 @@ func (t *tokenAccessor) CreateSynPacketToken(context *pucontext.PUContext, auth 
 		EK: auth.LocalServiceContext,
 	}
 
+	zap.L().Info("Varks: sending token out as:", zap.Reflect("tags", context.Identity()))
 	if token, err = t.getToken().CreateAndSign(false, claims, auth.LocalContext); err != nil {
 		return []byte{}, nil
 	}

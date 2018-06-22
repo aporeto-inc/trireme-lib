@@ -285,7 +285,6 @@ func (p *PUContext) searchRules(
 	var reportingAction *policy.FlowPolicy
 	var packetAction *policy.FlowPolicy
 
-	defer zap.L().Info("Varks: reporting action, packet action", zap.Reflect("report", reportingAction), zap.Reflect("packet", packetAction))
 	if !skipRejectPolicies {
 		// Look for rejection rules
 		observeIndex, observeAction := policies.observeRejectRules.Search(tags)
@@ -326,6 +325,8 @@ func (p *PUContext) searchRules(
 			if reportingAction == nil {
 				reportingAction = packetAction
 			}
+			zap.L().Info("Varks: reporting action, packet action", zap.Reflect("report", reportingAction), zap.Reflect("packet", packetAction))
+
 			return reportingAction, packetAction
 		}
 	}
