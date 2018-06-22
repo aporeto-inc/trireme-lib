@@ -14,6 +14,7 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -284,6 +285,7 @@ func (p *PUContext) searchRules(
 	var reportingAction *policy.FlowPolicy
 	var packetAction *policy.FlowPolicy
 
+	defer zap.L().Info("Varks: reporting action, packet action", zap.Reflect("report", reportingAction), zap.Reflect("packet", packetAction))
 	if !skipRejectPolicies {
 		// Look for rejection rules
 		observeIndex, observeAction := policies.observeRejectRules.Search(tags)
@@ -318,6 +320,7 @@ func (p *PUContext) searchRules(
 			// Look for encrypt rules
 			encryptIndex, _ := policies.encryptRules.Search(tags)
 			if encryptIndex >= 0 {
+				zap.L().Info("Varks: policy programmed as encrypt", zap.Reflect("tags", tags))
 				packetAction.Action |= policy.Encrypt
 			}
 			if reportingAction == nil {
