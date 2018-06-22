@@ -23,7 +23,7 @@ before_install:
   - go get -u gopkg.in/alecthomas/gometalinter.v1
   - go get -v github.com/Masterminds/glide
   - gometalinter.v1 --install
-  - ln -s ${TRAVIS_BUILD_DIR} ${GOPATH}/src/go.aporeto.io/trireme-lib
+  - mkdir -p ${GOPATH}/src/go.aporeto.io && ln -s ${TRAVIS_BUILD_DIR} ${GOPATH}/src/go.aporeto.io/trireme-lib
 
 install:
   - mkdir -p ${GOPATH}/src/github.com/docker && cd ${GOPATH}/src/github.com/docker && git clone https://github.com/docker/docker -b v17.05.0-ce docker && cd -
