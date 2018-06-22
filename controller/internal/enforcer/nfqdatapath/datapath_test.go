@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bvandewalle/go-ipset/ipset"
+	"github.com/golang/mock/gomock"
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/collector/mock"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
@@ -20,8 +21,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/portspec"
-	"github.com/bvandewalle/go-ipset/ipset"
-	"github.com/golang/mock/gomock"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 

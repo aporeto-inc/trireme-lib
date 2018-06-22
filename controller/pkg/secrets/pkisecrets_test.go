@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"go.aporeto.io/trireme-lib/utils/crypto"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 

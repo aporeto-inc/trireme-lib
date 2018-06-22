@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"go.aporeto.io/trireme-lib/policy"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 

@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/crypto"
-	jwt "github.com/dgrijalva/jwt-go"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
