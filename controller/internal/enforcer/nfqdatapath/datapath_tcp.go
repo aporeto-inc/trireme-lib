@@ -536,7 +536,6 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// Add the port as a label with an @ prefix. These labels are invalid otherwise
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	tags := claims.T.Copy()
-	zap.L().Info("Varks: Recieved tags on network syn:", zap.Reflect("tags", tags))
 	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
 	report, packet := context.SearchRcvRules(tags)

@@ -14,7 +14,6 @@ import (
 	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
 	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -319,8 +318,8 @@ func (p *PUContext) searchRules(
 			// Look for encrypt rules
 			encryptIndex, _ := policies.encryptRules.Search(tags)
 			if encryptIndex >= 0 {
+				// Do not overwrite the action for accept rules.
 				finalAction := action.(*policy.FlowPolicy)
-				zap.L().Info("Varks: policy programmed as encrypt", zap.Reflect("tags", tags))
 				packetAction = &policy.FlowPolicy{
 					Action:    policy.Accept | policy.Encrypt,
 					PolicyID:  finalAction.PolicyID,
@@ -330,8 +329,6 @@ func (p *PUContext) searchRules(
 			if reportingAction == nil {
 				reportingAction = packetAction
 			}
-			zap.L().Info("Varks: reporting action, packet action", zap.Reflect("report", reportingAction), zap.Reflect("packet", packetAction))
-
 			return reportingAction, packetAction
 		}
 	}
