@@ -39,7 +39,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 	zap.L().Debug("Got packet of type:", zap.Reflect("Type", udpPacketType), zap.Reflect("Len", len(p.Buffer)))
 	switch udpPacketType {
 	case packet.UDPSynMask:
-		zap.L().Debug("Recieved Syn Network packet")
+		zap.L().Debug("Received Syn Network packet")
 		conn, err = d.netSynUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -58,7 +58,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		conn.SetState(connection.UDPSynReceived)
 
 	case packet.UDPSynAckMask:
-		zap.L().Debug("Recieved Syn Ack Network packet")
+		zap.L().Debug("Received Syn Ack Network packet")
 		conn, err = d.netSynAckUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
@@ -75,7 +75,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 
 	case packet.UDPAckMask:
-		zap.L().Debug("Recieved udp Network packet")
+		zap.L().Debug("Received udp Network packet")
 		conn, err = d.netUDPAckRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {

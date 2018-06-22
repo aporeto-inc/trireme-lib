@@ -130,7 +130,7 @@ func (p *Packet) GetTCPData() []byte {
 	return p.tcpData
 }
 
-// GetUDPData return additonal data in packet
+// GetUDPData return additional data in packet
 func (p *Packet) GetUDPData() []byte {
 
 	// data starts from 28. Packet validation done during creation of

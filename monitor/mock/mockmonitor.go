@@ -157,7 +157,7 @@ func (m *MockImplementation) Resync(ctx context.Context) error {
 	return ret0
 }
 
-// Reync indicates an expected call of Resync
+// Resync indicates an expected call of Resync
 // nolint
 func (mr *MockImplementationMockRecorder) Resync(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockImplementation)(nil).Resync), ctx)
