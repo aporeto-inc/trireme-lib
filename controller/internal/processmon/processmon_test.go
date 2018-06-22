@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -20,7 +19,6 @@ import (
 
 const (
 	testDirBase = "/tmp"
-	testBinary  = "testbinary"
 )
 
 func LaunchContainer(path string) int {
@@ -59,7 +57,7 @@ func TestLaunchProcess(t *testing.T) {
 	//Will use refPid to be 1 (init) guaranteed to be there
 	//Normal case should launch a process
 	rpchdl := rpcwrapper.NewTestRPCClient()
-	p := newProcessMon(testDirBase, testDirBase, testBinary)
+	p := newProcessMon(testDirBase)
 	contextID := "12345"
 
 	refPid := 1
@@ -70,30 +68,7 @@ func TestLaunchProcess(t *testing.T) {
 		t.Errorf("TEST:Setup failed")
 		t.SkipNow()
 	}
-
-	if err := os.Chdir("testbinary"); err != nil {
-		if err != nil {
-			t.Errorf("TEST:Setup failed")
-			t.SkipNow()
-		}
-	}
-	defer os.Chdir(dir) // nolint
-
-	buildCmd := fmt.Sprintf("GOOS=%s GOARCH=%s go build", runtime.GOOS, runtime.GOARCH)
-
-	err := exec.Command("bash", "-c", buildCmd).Run()
-	if err != nil {
-		t.Errorf("TEST:Setup failed")
-		t.SkipNow()
-	}
-
-	err = exec.Command("cp", filepath.Join(dir, "testbinary/testbinary"), testDirBase).Run()
-	if err != nil {
-		t.Errorf("TEST:Setup failed")
-		t.SkipNow()
-	}
-
-	err = p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
+	err := p.LaunchProcess(contextID, refPid, refNSPath, rpchdl, "", "mysecret", testDirBase)
 	if err == nil {
 		t.Errorf("TEST:Launch Process launches a process in the hostnamespace -- %s should fail", dir)
 		t.SkipNow()
@@ -155,7 +130,7 @@ func TestKillProcess(t *testing.T) {
 	// paramvalidate := false
 
 	//Lets launch process
-	p := newProcessMon(testDirBase, testDirBase, testBinary)
+	p := newProcessMon(testDirBase)
 	rpchdl := rpcwrapper.NewTestRPCClient()
 	//Kill Process should return an error when we try to kill non-existing process
 	p.KillProcess(contextID)
@@ -176,7 +151,7 @@ func TestKillProcess(t *testing.T) {
 
 func TestGetProcessManagerHdl(t *testing.T) {
 
-	newProcessMon(netNSPath, remoteEnforcerTempBuildPath, remoteEnforcerBuildName)
+	newProcessMon(netNSPath)
 	hdl := GetProcessManagerHdl()
 	cache := cache.NewCache(processMonitorCacheName)
 
