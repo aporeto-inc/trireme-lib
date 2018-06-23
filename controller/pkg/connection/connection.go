@@ -90,7 +90,7 @@ const (
 	// UDPSynAckSent is the state where syn ack packet has been sent.
 	UDPSynAckSent
 
-	// UDPAckReceived is the state where udp ack packet is recieved.
+	// UDPAckReceived is the state where udp ack packet is received.
 	UDPAckReceived
 )
 
@@ -270,20 +270,20 @@ type UDPConnection struct {
 	Auth    AuthInfo
 	// Debugging Information
 	flowReported int
-	// Debugging information - pushed to the end for compact structure
-	flowLastReporting bool
 
 	ReportFlowPolicy *policy.FlowPolicy
 	PacketFlowPolicy *policy.FlowPolicy
-	reported         bool
-	// ServiceConnection indicates that this connection is handled by a service
-	ServiceConnection bool
 	// ServiceData allows services to associate state with a connection
 	ServiceData interface{}
 
 	// PacketQueue indicates app UDP packets queued while authorization is in progress.
 	PacketQueue []*packet.Packet
 	Writer      afinetrawsocket.SocketWriter
+	// Debugging information - pushed to the end for compact structure
+	flowLastReporting bool
+	reported          bool
+	// ServiceConnection indicates that this connection is handled by a service
+	ServiceConnection bool
 }
 
 // NewUDPConnection returns UDPConnection struct.
