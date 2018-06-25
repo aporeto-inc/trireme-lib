@@ -125,7 +125,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// Create the network listener and cache it so that we can terminate it later.
 	l, err := p.createNetworkListener(":" + puInfo.Runtime.Options().ProxyPort)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Runtime.Options().ProxyPort, err)
+		return fmt.Errorf("Cannot create listener: port:%d %s", puInfo.Runtime.Options().ProxyPort, err)
 	}
 
 	// Create a new client entry and start the servers.

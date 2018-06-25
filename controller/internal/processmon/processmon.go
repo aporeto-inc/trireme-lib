@@ -15,6 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/kardianos/osext"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
@@ -29,23 +30,17 @@ var (
 
 const (
 	// netNSPath holds the directory to ensure ip netns command works
-	netNSPath                   = "/var/run/netns/"
-	processMonitorCacheName     = "ProcessMonitorCache"
-	remoteEnforcerBuildName     = "enforcerd"
-	remoteEnforcerTempBuildPath = "/var/run/aporeto/tmp/bin/"
-	secretLength                = 32
+	netNSPath               = "/var/run/netns/"
+	processMonitorCacheName = "ProcessMonitorCache"
+	secretLength            = 32
 )
 
 // processMon is an instance of processMonitor
 type processMon struct {
 	// netNSPath made configurable to enable running tests
-	netNSPath string
-	// remoteEnforcerTempBuildPath made configurable to enable running tests
-	remoteEnforcerTempBuildPath string
-	// remoteEnforcerBuildName made configurable to enable running tests
-	remoteEnforcerBuildName string
-	activeProcesses         *cache.Cache
-	childExitStatus         chan exitStatus
+	netNSPath       string
+	activeProcesses *cache.Cache
+	childExitStatus chan exitStatus
 	// logToConsole stores if we should log to console.
 	logToConsole bool
 	// logWithID is the ID for for log files if logging to file.
@@ -73,7 +68,7 @@ type exitStatus struct {
 
 func init() {
 	// Setup new launcher
-	newProcessMon(netNSPath, remoteEnforcerTempBuildPath, remoteEnforcerBuildName)
+	newProcessMon(netNSPath)
 }
 
 // contextID2SocketPath returns the socket path to use for a givent context
@@ -103,14 +98,12 @@ func processIOReader(fd io.Reader, contextID string, exited chan int) {
 }
 
 // newProcessMon is a method to create a new processmon
-func newProcessMon(netns, remoteEnforcerPath, remoteEnforcerName string) ProcessManager {
+func newProcessMon(netns string) ProcessManager {
 
 	launcher = &processMon{
-		remoteEnforcerTempBuildPath: remoteEnforcerPath,
-		remoteEnforcerBuildName:     remoteEnforcerName,
-		netNSPath:                   netns,
-		activeProcesses:             cache.NewCache(processMonitorCacheName),
-		childExitStatus:             make(chan exitStatus, 100),
+		netNSPath:       netns,
+		activeProcesses: cache.NewCache(processMonitorCacheName),
+		childExitStatus: make(chan exitStatus, 100),
 	}
 
 	go launcher.collectChildExitStatus()
@@ -228,9 +221,12 @@ func (p *processMon) pollStdOutAndErr(
 }
 
 // getLaunchProcessCmd returns the command used to launch the enforcerd
-func (p *processMon) getLaunchProcessCmd(remoteEnforcerBuildPath, remoteEnforcerName, arg string) (*exec.Cmd, error) {
+func (p *processMon) getLaunchProcessCmd(arg string) (*exec.Cmd, error) {
 
-	cmdName := filepath.Join(remoteEnforcerBuildPath, remoteEnforcerName)
+	cmdName, err := osext.Executable()
+	if err != nil {
+		return nil, err
+	}
 
 	cmdArgs := []string{arg}
 	zap.L().Debug("Enforcer executed",
@@ -329,7 +325,7 @@ func (p *processMon) LaunchProcess(
 		}
 	}
 
-	cmd, err := p.getLaunchProcessCmd(p.remoteEnforcerTempBuildPath, p.remoteEnforcerBuildName, arg)
+	cmd, err := p.getLaunchProcessCmd(arg)
 	if err != nil {
 		return fmt.Errorf("enforcer binary not found: %s", err)
 	}

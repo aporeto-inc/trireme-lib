@@ -2,4 +2,3 @@
 example/example
 vendor
 coverage.txt
-controller/internal/processmon/testbinary/testbinary
