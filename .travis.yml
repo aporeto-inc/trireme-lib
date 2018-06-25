@@ -27,8 +27,6 @@ before_install:
 
 install:
   - dep ensure -v
-  - cd ${GOPATH}/src/github.com/docker/docker && rm -rf vendor/golang.org/x/net/context && cd -
-  - go get -t -v ./...
   
 script:
   - gometalinter.v1 --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
