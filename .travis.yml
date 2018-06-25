@@ -26,11 +26,11 @@ before_install:
   - mkdir -p ${GOPATH}/src/go.aporeto.io && ln -s ${TRAVIS_BUILD_DIR} ${GOPATH}/src/go.aporeto.io/trireme-lib
 
 install:
-  - dep ensure -v
+  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && dep ensure -v
   
 script:
-  - gometalinter.v1 --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
-  - ./.test.sh
+  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && gometalinter.v1 --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
+  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && ./.test.sh
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && bash <(curl -s https://codecov.io/bash)
