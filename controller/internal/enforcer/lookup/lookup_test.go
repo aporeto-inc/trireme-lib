@@ -3,7 +3,8 @@ package lookup
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 

@@ -8,19 +8,19 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	tevents "github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker/mockdocker"
-	"github.com/aporeto-inc/trireme-lib/policy/mock"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/collector"
+	tevents "go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/constants"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
+	"go.aporeto.io/trireme-lib/policy/mock"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/mock"
 )
 
 var (
@@ -634,7 +634,7 @@ func Test_initTestDockerInfo(t *testing.T) {
 		args args
 		want *types.ContainerJSON
 	}{
-	// TODO: Add test cases.
+		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

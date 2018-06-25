@@ -1,6 +1,6 @@
 package tokens
 
-import "github.com/aporeto-inc/trireme-lib/policy"
+import "go.aporeto.io/trireme-lib/policy"
 
 // ConnectionClaims captures all the claim information
 type ConnectionClaims struct {

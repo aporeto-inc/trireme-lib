@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 )
 
 // UIDMonitor captures all the monitor processor information for a UIDLoginPU

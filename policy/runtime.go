@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/docker/go-connections/nat"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 // PURuntime holds all data related to the status of the container run time

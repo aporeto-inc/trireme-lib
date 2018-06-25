@@ -12,21 +12,21 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/constants"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/dchest/siphash"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/constants"
+	"go.aporeto.io/trireme-lib/policy"
 
-	tevents "github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	tevents "go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 
 	dockerClient "github.com/docker/docker/client"
 )

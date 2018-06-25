@@ -7,8 +7,8 @@ package mockstatscollector
 import (
 	reflect "reflect"
 
-	collector "github.com/aporeto-inc/trireme-lib/collector"
 	gomock "github.com/golang/mock/gomock"
+	collector "go.aporeto.io/trireme-lib/collector"
 )
 
 // MockCollectorReader is a mock of CollectorReader interface

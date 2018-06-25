@@ -4,9 +4,10 @@ import (
 	"net"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 
-	"github.com/aporeto-inc/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/common"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
