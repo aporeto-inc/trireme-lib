@@ -122,6 +122,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 	}
 
+	// handle handshake packets and do not deliver to application.
 	err = d.processNetUDPPacket(p, conn.Context, conn)
 	if err != nil {
 		if d.packetLogs {
@@ -132,7 +133,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 		return fmt.Errorf("packet processing failed for network packet: %s", err)
 	}
-	return nil
+	return fmt.Errorf("Drop net hanshake packets (udp)")
 }
 
 func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
@@ -360,7 +361,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 		return err
 	}
 
-	newPacket, err := d.clonePacket(udpPacket)
+	newPacket, err := d.clonePacketHeaders(udpPacket)
 	if err != nil {
 		return fmt.Errorf("Unable to clone packet: %s", err)
 	}
@@ -394,7 +395,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 
 }
 
-func (d *Datapath) clonePacket(p *packet.Packet) (*packet.Packet, error) {
+func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) {
 	// copy the ip and udp headers.
 	newPacket := make([]byte, packet.UDPDataPos)
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, packet.UDPDataPos)
@@ -454,7 +455,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
 
-	// // Setup ConnMark for encryption.
+	// Setup ConnMark for encryption.
 	if d.service != nil {
 		// PostProcessServiceInterface
 		if !d.service.PostProcessUDPAppPacket(udpPacket, nil, context, conn) {
@@ -563,7 +564,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	report, packet := context.SearchRcvRules(claims.T)
 	if packet.Action.Rejected() {
-		// txLabel : check what is this?
+		// txLabel
 		d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
 	}
@@ -624,16 +625,18 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 		zap.L().Debug("Plumb conntrack rule for flow:", zap.String("flow", udpPacket.L4FlowHash()))
 		// Plumb connmark rule here.
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.SourceAddress.String(),
 			udpPacket.DestinationAddress.String(),
+			udpPacket.SourceAddress.String(),
 			udpPacket.IPProto,
-			udpPacket.SourcePort,
 			udpPacket.DestinationPort,
+			udpPacket.SourcePort,
 			constants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack table after ack packet")
 		}
 	}
+
 	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+
 	return nil, nil, nil
 }
