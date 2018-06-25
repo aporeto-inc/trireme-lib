@@ -30,7 +30,7 @@ install:
   - ./mockgen.sh
   
 script:
-  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && gometalinter --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
+  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && gometalinter --vendor --skip=mockdocker --deadline=10m ./...
   - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && ./.test.sh
 
 after_success:
