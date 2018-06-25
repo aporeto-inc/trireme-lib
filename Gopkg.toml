@@ -1,10 +1,6 @@
 ##
 ## Aporeto 
 ## 
-[[constraint]]
-  name = "github.com/aporeto-inc/trireme-lib"
-  version = "^8.0.0"
-
 [[override]]
   name = "github.com/bvandewalle/go-ipset"
   revision = "0ee897a6d8bc6095299e9c03293ece091ef871de"
@@ -19,18 +15,6 @@
 [[constraint]]
   name = "go.uber.org/zap"
   version = "^1.5.0"
-
-[[constraint]]
-  name = "github.com/spf13/cobra"
-  version = "^0.0.0"
-
-[[constraint]]
-  name = "github.com/spf13/pflag"
-  version = "^1.0.0"
-
-[[constraint]]
-  name = "github.com/spf13/viper"
-  version = "^1.0.0"
 
 [[constraint]]
   name = "k8s.io/api"
