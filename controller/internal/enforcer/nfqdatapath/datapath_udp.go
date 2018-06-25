@@ -133,6 +133,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		}
 		return fmt.Errorf("packet processing failed for network packet: %s", err)
 	}
+	// handshake packets are not to be delivered to application.
 	return fmt.Errorf("Drop net hanshake packets (udp)")
 }
 
@@ -518,7 +519,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		}
 	}
 
-	// Be optimistic and Transmit Queued Packets, Transmit and then plumb conntrack rule ?
+	// Be optimistic and Transmit Queued Packets.
 	for _, udpPacket := range conn.PacketQueue {
 		// check for Encryption.
 		if d.service != nil {

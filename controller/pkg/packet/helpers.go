@@ -235,7 +235,6 @@ func (p *Packet) UpdateUDPChecksum() {
 
 	// checksum set to 0, ignored by the stack
 	ignoreCheckSum := []byte{0, 0}
-	// p.UDPChecksum = p.computeUDPChecksum()
 	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
 
 	curLen := uint16(len(p.Buffer))

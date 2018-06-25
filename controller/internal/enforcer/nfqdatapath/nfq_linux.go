@@ -88,7 +88,6 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if err != nil {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
-		zap.L().Debug("Varks: Dropping Handshake (net) packets", zap.Error(err))
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
 		return
 	}
@@ -107,7 +106,6 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		// Buffer is already modified.
 		buffer := make([]byte, len(netPacket.Buffer))
 		copyIndex := copy(buffer, netPacket.Buffer)
-		zap.L().Debug("Varks: Setting pass verdict on net packet of len", zap.Reflect("BufferLen", copyIndex))
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 
 	}
@@ -134,7 +132,6 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	if err != nil {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
-		zap.L().Debug("Varks: Dropping app packets", zap.Error(err))
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
 		return
 	}
@@ -154,7 +151,6 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else {
 		buffer := make([]byte, len(appPacket.Buffer))
 		copyIndex := copy(buffer, appPacket.Buffer)
-		zap.L().Debug("Varks: Setting pass verdict on app packet of len", zap.Reflect("BufferLen", copyIndex))
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 
 	}
