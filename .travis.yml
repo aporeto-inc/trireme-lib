@@ -20,9 +20,9 @@ env:
     - SUDO_PERMITTED=1
 
 before_install:
-  - go get -u gopkg.in/alecthomas/gometalinter.v2
+  - go get -u github.com/alecthomas/gometalinter
+  - gometalinter --install
   - go get -u github.com/golang/dep/cmd/dep
-  - gometalinter.v2 --install
   - mkdir -p ${GOPATH}/src/go.aporeto.io && ln -s ${TRAVIS_BUILD_DIR} ${GOPATH}/src/go.aporeto.io/trireme-lib
 
 install:
@@ -30,7 +30,7 @@ install:
   - ./mockgen.sh
   
 script:
-  - gometalinter.v2 --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
+  - gometalinter --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
   - ./.test.sh
 
 after_success:
