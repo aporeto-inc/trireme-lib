@@ -1,6 +1,6 @@
 #! /bin/bash -e
 
-go get go.aporeto.io/mock/mockgen
+go get github.com/aporeto-inc/mock/mockgen
 go get -u github.com/golang/mock/gomock
 go get -u golang.org/x/tools/cmd/goimports
 

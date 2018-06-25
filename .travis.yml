@@ -27,6 +27,7 @@ before_install:
 
 install:
   - dep ensure -v
+  - ./mockgen.sh
   
 script:
   - gometalinter.v1 --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
