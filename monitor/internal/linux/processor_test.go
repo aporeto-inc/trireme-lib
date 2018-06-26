@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/aporeto-inc/trireme-lib/policy/mockpolicy"
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
@@ -14,8 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/policy/mockpolicy"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls/mock"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
 )
 
 func testLinuxProcessor(puHandler policy.Resolver) *linuxProcessor {

@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/mocksupervisor"
+	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"github.com/mitchellh/hashstructure"
 
 	"go.aporeto.io/trireme-lib/collector"
@@ -17,11 +19,10 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapperrpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
-	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 
