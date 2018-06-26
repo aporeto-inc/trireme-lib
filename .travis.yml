@@ -26,9 +26,9 @@ before_install:
   - gometalinter.v2 --install
   - go get -u github.com/golang/dep/cmd/dep
   - mkdir -p ${GOPATH}/src/go.aporeto.io && ln -s ${TRAVIS_BUILD_DIR} ${GOPATH}/src/go.aporeto.io/trireme-lib
-  - goimports ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go.bk
+  - goimports ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go > ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go.bk
   - diff ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go.bk
-  - goimports ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go.bk
+  - goimports ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go > ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go.bk
   - diff ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go.bk
 
 install:
