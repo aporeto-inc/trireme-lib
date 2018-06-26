@@ -3,11 +3,10 @@ package registerer
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/processor/mockprocessor"
-	"github.com/golang/mock/gomock"
-
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/processor/mockprocessor"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
 )
 

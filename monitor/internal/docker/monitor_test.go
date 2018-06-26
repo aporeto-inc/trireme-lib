@@ -8,21 +8,18 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/policy/mockpolicy"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mockcgnetcls"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/golang/mock/gomock"
-
 	"go.aporeto.io/trireme-lib/collector"
-
 	tevents "go.aporeto.io/trireme-lib/common"
-
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/constants"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
+	"go.aporeto.io/trireme-lib/policy/mockpolicy"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
