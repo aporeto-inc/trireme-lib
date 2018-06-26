@@ -139,7 +139,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 
 func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
 
-	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort)
+	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolUDP)
 	if err != nil {
 		zap.L().Debug("Received Packets from unenforcerd process")
 		return nil, err
@@ -336,7 +336,7 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 		return conn.(*connection.UDPConnection), nil
 	}
 
-	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
+	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolUDP)
 	if err != nil {
 		return nil, errors.New("No context in app processing")
 	}

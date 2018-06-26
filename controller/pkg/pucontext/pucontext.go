@@ -38,7 +38,8 @@ type PUContext struct {
 	externalIPCache   cache.DataStore
 	mark              string
 	ProxyPort         string
-	ports             []string
+	tcpPorts          []string
+	udpPorts          []string
 	puType            common.PUType
 	synToken          []byte
 	synServiceContext []byte
@@ -70,8 +71,9 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 
 	pu.CreateTxtRules(puInfo.Policy.TransmitterRules())
 
-	ports := common.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
-	pu.ports = strings.Split(ports, ",")
+	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
+	pu.tcpPorts = strings.Split(tcpPorts, ",")
+	pu.udpPorts = strings.Split(udpPorts, ",")
 
 	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
@@ -110,9 +112,14 @@ func (p *PUContext) Mark() string {
 	return p.mark
 }
 
-// Ports returns the PU ports
-func (p *PUContext) Ports() []string {
-	return p.ports
+// TCPPorts returns the PU TCP ports
+func (p *PUContext) TCPPorts() []string {
+	return p.tcpPorts
+}
+
+// UDPPorts returns the PU UDP ports
+func (p *PUContext) UDPPorts() []string {
+	return p.udpPorts
 }
 
 // Annotations returns the annotations
@@ -151,8 +158,8 @@ func (p *PUContext) CacheExternalFlowPolicy(packet *packet.Packet, plc interface
 }
 
 // GetProcessKeys returns the cache keys for a process
-func (p *PUContext) GetProcessKeys() (string, []string) {
-	return p.mark, p.ports
+func (p *PUContext) GetProcessKeys() (string, []string, []string) {
+	return p.mark, p.tcpPorts, p.udpPorts
 }
 
 // SynServiceContext returns synServiceContext

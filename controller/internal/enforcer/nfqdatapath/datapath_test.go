@@ -1289,7 +1289,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err, ShouldBeNil)
 				_, err1 := enforcer.puFromMark.Get("100")
 				So(err1, ShouldBeNil)
-				_, err2 := enforcer.contextIDFromPort.GetSpecValueFromPort(80)
+				_, err2 := enforcer.contextIDFromTCPPort.GetSpecValueFromPort(80)
 				So(err2, ShouldBeNil)
 				So(enforcer.puFromIP, ShouldBeNil)
 			})
@@ -1373,7 +1373,7 @@ func TestContextFromIP(t *testing.T) {
 
 		Convey("If there is no IP match, it should try the port for net packets ", func() {
 			s, _ := portspec.NewPortSpec(8000, 8000, contextID)
-			enforcer.contextIDFromPort.AddPortSpec(s)
+			enforcer.contextIDFromTCPPort.AddPortSpec(s)
 			enforcer.puFromContextID.AddOrUpdate(contextID, context)
 			enforcer.mode = constants.LocalServer
 

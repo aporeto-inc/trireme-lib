@@ -32,10 +32,10 @@ const (
 
 // portSetInstance contains look up tables to manage updates to ipset portsets.
 type portSetInstance struct {
-	userPortSet       cache.DataStore
-	userPortMap       cache.DataStore
-	markUserMap       cache.DataStore
-	contextIDFromPort *portcache.PortCache
+	userPortSet          cache.DataStore
+	userPortMap          cache.DataStore
+	markUserMap          cache.DataStore
+	contextIDFromTCPPort *portcache.PortCache
 }
 
 // expirer deletes the port entry in the portset when the key uid:port expires.
@@ -61,21 +61,21 @@ func expirer(c cache.DataStore, id interface{}, item interface{}) {
 		zap.L().Debug("Cache: Failed to delete port from set", zap.Error(err))
 	}
 
-	// delete the port from contextIDFromPort cache
-	if err := portSetObject.contextIDFromPort.RemoveStringPorts(port); err != nil {
-		zap.L().Debug("Unable to remove port from contextIDFromPort Cache")
+	// delete the port from contextIDFromTCPPort cache
+	if err := portSetObject.contextIDFromTCPPort.RemoveStringPorts(port); err != nil {
+		zap.L().Debug("Unable to remove port from contextIDFromTCPPort Cache")
 	}
 
 }
 
 // New creates an implementation portset interface.
-func New(contextIDFromPort *portcache.PortCache) PortSet {
+func New(contextIDFromTCPPort *portcache.PortCache) PortSet {
 
 	p := &portSetInstance{
-		userPortSet:       cache.NewCache("userPortSet"),
-		userPortMap:       cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout*time.Second, expirer),
-		markUserMap:       cache.NewCache("markUserMap"),
-		contextIDFromPort: contextIDFromPort,
+		userPortSet:          cache.NewCache("userPortSet"),
+		userPortMap:          cache.NewCacheWithExpirationNotifier("userPortMap", portEntryTimeout*time.Second, expirer),
+		markUserMap:          cache.NewCache("markUserMap"),
+		contextIDFromTCPPort: contextIDFromTCPPort,
 	}
 
 	go startPortSetTask(p)

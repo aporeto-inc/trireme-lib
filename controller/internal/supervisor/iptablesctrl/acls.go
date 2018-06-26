@@ -34,7 +34,10 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", appChain,
 		},
-		{
+	}
+
+	if tcpPorts != "0" {
+		rules = append(rules, []string{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
 			"-p", "tcp",
@@ -42,8 +45,11 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"--destination-ports", tcpPorts,
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
-		},
-		{
+		})
+	}
+
+	if udpPorts != "0" {
+		rules = append(rules, []string{
 			i.netPacketIPTableContext,
 			i.netPacketIPTableSection,
 			"-p", "udp",
@@ -51,7 +57,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"--destination-ports", udpPorts,
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
-		},
+		})
 	}
 
 	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName)...)

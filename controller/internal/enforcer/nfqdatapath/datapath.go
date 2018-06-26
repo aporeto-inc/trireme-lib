@@ -46,10 +46,10 @@ type Datapath struct {
 
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
-	puFromContextID   cache.DataStore
-	puFromMark        cache.DataStore
-	contextIDFromPort *portcache.PortCache
-
+	puFromContextID      cache.DataStore
+	puFromMark           cache.DataStore
+	contextIDFromTCPPort *portcache.PortCache
+	contextIDFromUDPPort *portcache.PortCache
 	// For remotes this is a reverse link to the context
 	puFromIP *pucontext.PUContext
 
@@ -147,12 +147,14 @@ func New(
 	// This cache is shared with portSetInstance. The portSetInstance
 	// cleans up the entry corresponding to port when port is no longer
 	// part of ipset portset.
-	contextIDFromPort := portcache.NewPortCache("contextIDFromPort")
+	contextIDFromTCPPort := portcache.NewPortCache("contextIDFromTCPPort")
+
+	contextIDFromUDPPort := portcache.NewPortCache("contextIDFromUDPPort")
 
 	var portSetInstance portset.PortSet
 
 	if mode != constants.RemoteContainer {
-		portSetInstance = portset.New(contextIDFromPort)
+		portSetInstance = portset.New(contextIDFromTCPPort)
 	}
 
 	udpSocketWriter, err := afinetrawsocket.CreateSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
@@ -161,8 +163,9 @@ func New(
 	}
 
 	d := &Datapath{
-		puFromMark:        cache.NewCache("puFromMark"),
-		contextIDFromPort: contextIDFromPort,
+		puFromMark:           cache.NewCache("puFromMark"),
+		contextIDFromTCPPort: contextIDFromTCPPort,
+		contextIDFromUDPPort: contextIDFromUDPPort,
 
 		puFromContextID: puFromContextID,
 
@@ -262,16 +265,25 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() == common.LinuxProcessPU || pu.Type() == common.UIDLoginPU {
-		mark, ports := pu.GetProcessKeys()
+		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
-		for _, port := range ports {
+		for _, port := range tcpPorts {
 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
 			if err != nil {
 				continue
 			}
-			d.contextIDFromPort.AddPortSpec(portSpec)
+			d.contextIDFromTCPPort.AddPortSpec(portSpec)
 		}
+
+		for _, port := range udpPorts {
+			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
+			if err != nil {
+				continue
+			}
+			d.contextIDFromUDPPort.AddPortSpec(portSpec)
+		}
+
 	} else {
 		d.puFromIP = pu
 	}
@@ -302,8 +314,17 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	// Cleanup the port cache
-	for _, port := range pu.Ports() {
-		if err := d.contextIDFromPort.RemoveStringPorts(port); err != nil {
+	for _, port := range pu.TCPPorts() {
+		if err := d.contextIDFromTCPPort.RemoveStringPorts(port); err != nil {
+			zap.L().Debug("Unable to remove cache entry during unenforcement",
+				zap.String("Port", port),
+				zap.Error(err),
+			)
+		}
+	}
+
+	for _, port := range pu.UDPPorts() {
+		if err := d.contextIDFromTCPPort.RemoveStringPorts(port); err != nil {
 			zap.L().Debug("Unable to remove cache entry during unenforcement",
 				zap.String("Port", port),
 				zap.Error(err),
@@ -401,4 +422,50 @@ func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, 
 	}
 
 	d.collector.CollectFlowEvent(c)
+}
+
+// contextFromIP returns the PU context from the default IP if remote. Otherwise
+// it returns the context from the port or mark values of the packet. Synack
+// packets are again special and the flow is reversed. If a container doesn't supply
+// its IP information, we use the default IP. This will only work with remotes
+// and Linux processes.
+func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port uint16, protocol uint8) (*pucontext.PUContext, error) {
+
+	if d.puFromIP != nil {
+		return d.puFromIP, nil
+	}
+
+	if app {
+		pu, err := d.puFromMark.Get(mark)
+		if err != nil {
+			return nil, fmt.Errorf("pu context cannot be found using mark %s: %s", mark, err)
+		}
+		return pu.(*pucontext.PUContext), nil
+	}
+
+	if protocol == packet.IPProtocolTCP {
+		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
+		if err != nil {
+			return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
+		}
+
+		pu, err := d.puFromContextID.Get(contextID)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find contextID: %s", contextID)
+		}
+		return pu.(*pucontext.PUContext), nil
+	} else if protocol == packet.IPProtocolUDP {
+		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
+		if err != nil {
+			return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
+		}
+
+		pu, err := d.puFromContextID.Get(contextID)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find contextID: %s", contextID)
+		}
+		return pu.(*pucontext.PUContext), nil
+	} else {
+		return nil, fmt.Errorf("Invalid protocol:%d", protocol)
+	}
 }
