@@ -41,7 +41,7 @@ mockgen -source controller/pkg/remoteenforcer/internal/statsclient/interfaces.go
 goimport_sanitize controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient/mockstatsclient.go
 
 echo "controller/pkg/remoteenforcer/StatsCollector Mocks"
-mkdir -p controller/pkg/remoteenforcer/statscontrollor/mockstatscollector
+mkdir -p controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector
 mockgen -source controller/pkg/remoteenforcer/internal/statscollector/interfaces.go -aux_files collector=collector/interfaces.go -destination controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go -package mockstatscollector
 goimport_sanitize controller/pkg/remoteenforcer/internal/statscollector/mockstatscollector/mockstatscollector.go
 
@@ -71,8 +71,8 @@ mockgen -source policy/interfaces.go -destination policy/mockpolicy/mockpolicy.g
 goimport_sanitize policy/mockpolicy/mockpolicy.go
 
 echo "Trireme Controller Mock"
-mkdir -p controllor/mockcontroller
-mockgen -source controller/interfaces.go -destination controllor/mockcontroller/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package go.aporeto.io/trireme-lib/controller
-goimport_sanitize controllor/mockcontroller/mocktrireme.go
+mkdir -p controller/mockcontroller
+mockgen -source controller/interfaces.go -destination controller/mockcontroller/mocktrireme.go -package mockcontroller  -aux_files constants=controller/constants/constants.go events=common/events.go policy=policy/interfaces.go processor=monitor/processor/interfaces.go supervisor=controller/internal/supervisor/interfaces.go -source_package go.aporeto.io/trireme-lib/controller
+goimport_sanitize controller/mockcontroller/mocktrireme.go
 
 echo >&2 "OK"
