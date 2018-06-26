@@ -11,7 +11,7 @@ import (
 	"github.com/bvandewalle/go-ipset/ipset"
 	"github.com/golang/mock/gomock"
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/collector/mockcollectorcollector"
+	"go.aporeto.io/trireme-lib/collector/mockcollector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
