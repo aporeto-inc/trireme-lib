@@ -29,7 +29,7 @@ install:
   - dep ensure -v
   
 script:
-  - gometalinter --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
+  - gometalinter --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=interfacer --enable=goconst --enable=misspell --deadline=10m ./...
   - ./.test.sh
 
 after_success:
