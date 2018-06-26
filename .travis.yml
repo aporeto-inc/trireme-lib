@@ -2,6 +2,8 @@ language: go
 sudo: required
 dist: trusty
 
+go_import_path: go.aporeto.io/trireme-lib
+
 go:
  - 1.9.2
 
@@ -26,11 +28,11 @@ before_install:
   - mkdir -p ${GOPATH}/src/go.aporeto.io && ln -s ${TRAVIS_BUILD_DIR} ${GOPATH}/src/go.aporeto.io/trireme-lib
 
 install:
-  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && dep ensure -v
+  - dep ensure -v
   
 script:
-  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && gometalinter --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=interfacer --enable=goconst --enable=misspell --deadline=10m ./...
-  - cd ${GOPATH}/src/go.aporeto.io/trireme-lib && ./.test.sh
+  - gometalinter --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=interfacer --enable=goconst --enable=misspell --deadline=10m ./...
+  - ./.test.sh
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
