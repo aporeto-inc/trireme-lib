@@ -582,7 +582,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		// Never seen this IP before, let's parse them.
 		report, pkt, perr := context.ApplicationACLPolicy(tcpPacket)
-		if perr != nil || packet.Action.Rejected() {
+		if perr != nil || pkt.Action.Rejected() {
 			d.reportReverseExternalServiceFlow(context, report, pkt, true, tcpPacket)
 			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, pkt.Action)
 		}
