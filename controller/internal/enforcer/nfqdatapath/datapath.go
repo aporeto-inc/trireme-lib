@@ -201,7 +201,7 @@ func NewWithDefaults(
 	}
 	defaultPacketLogs := false
 
-	tokenaccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
@@ -220,7 +220,7 @@ func NewWithDefaults(
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
 		defaultPacketLogs,
-		tokenaccessor,
+		tokenAccessor,
 		puFromContextID,
 	)
 }

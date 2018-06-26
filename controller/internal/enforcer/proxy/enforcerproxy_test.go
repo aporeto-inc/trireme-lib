@@ -9,15 +9,15 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
+	"go.aporeto.io/trireme-lib/controller/internal/processmon/mockprocessmon"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 
 	gomock "github.com/golang/mock/gomock"
-	mockrpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mock"
-	mockprocessmon "go.aporeto.io/trireme-lib/controller/internal/processmon/mock"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
