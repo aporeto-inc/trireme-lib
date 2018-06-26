@@ -22,7 +22,6 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
 	"go.aporeto.io/trireme-lib/policy/mock"
-	"go.aporeto.io/trireme-lib/utils/cgnetcls/mock"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -637,9 +636,7 @@ func Test_initTestDockerInfo(t *testing.T) {
 		name string
 		args args
 		want *types.ContainerJSON
-	}{
-		// TODO: Add test cases.
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := initTestDockerInfo(tt.args.id, tt.args.nwmode, tt.args.state); !reflect.DeepEqual(got, tt.want) {
