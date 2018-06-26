@@ -16,8 +16,8 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 
 	gomock "github.com/golang/mock/gomock"
-	mockrpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mock"
-	mockprocessmon "go.aporeto.io/trireme-lib/controller/internal/processmon/mock"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/processmon/mockprocessmon"
 
 	. "github.com/smartystreets/goconvey/convey"
 )

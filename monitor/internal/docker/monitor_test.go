@@ -21,8 +21,8 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/constants"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
-	mockpolicy "go.aporeto.io/trireme-lib/policy/mock"
-	mockcgnetcls "go.aporeto.io/trireme-lib/utils/cgnetcls/mock"
+	"go.aporeto.io/trireme-lib/policy/mockpolicy"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
 
 	. "github.com/smartystreets/goconvey/convey"
 )

@@ -14,7 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
-	"go.aporeto.io/trireme-lib/policy/mock"
+	"go.aporeto.io/trireme-lib/policy/mockpolicy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls/mock"
 )
 

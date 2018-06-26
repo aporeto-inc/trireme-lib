@@ -9,7 +9,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
-	mock_supervisor "go.aporeto.io/trireme-lib/controller/internal/supervisor/mock"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -110,7 +110,7 @@ func TestSupervise(t *testing.T) {
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I supervise a new PU with invalid policy", func() {
@@ -178,7 +178,7 @@ func TestUnsupervise(t *testing.T) {
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I try to unsupervise a PU that was not see before", func() {
@@ -215,7 +215,7 @@ func TestStart(t *testing.T) {
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I try to start it and the implementor works", func() {
@@ -249,7 +249,7 @@ func TestStop(t *testing.T) {
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I try to start it and the implementor works", func() {
