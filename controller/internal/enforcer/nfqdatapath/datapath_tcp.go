@@ -486,9 +486,9 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	if err = tcpPacket.CheckTCPAuthenticationOption(enforcerconstants.TCPAuthenticationOptionBaseLen); err != nil {
 
 		// If there is no auth option, attempt the ACLs
-		report, packet, perr := context.NetworkACLPolicy(tcpPacket)
-		d.reportExternalServiceFlow(context, report, packet, false, tcpPacket)
-		if perr != nil || packet.Action.Rejected() {
+		report, pkt, perr := context.NetworkACLPolicy(tcpPacket)
+		d.reportExternalServiceFlow(context, report, pkt, false, tcpPacket)
+		if perr != nil || pkt.Action.Rejected() {
 			return nil, nil, fmt.Errorf("no auth or acls: outgoing connection dropped: %s", perr)
 		}
 
@@ -496,7 +496,7 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 		d.netOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.appReplyConnectionTracker.AddOrUpdate(tcpPacket.L4ReverseFlowHash(), conn)
 
-		return packet, nil, nil
+		return pkt, nil, nil
 	}
 
 	// Packets that have authorization information go through the auth path
@@ -538,9 +538,9 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	tags := claims.T.Copy()
 	tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(tcpPacket.DestinationPort)))
 
-	report, packet := context.SearchRcvRules(tags)
-	if packet.Action.Rejected() {
-		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
+	report, pkt := context.SearchRcvRules(tags)
+	if pkt.Action.Rejected() {
+		d.reportRejectedFlow(tcpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", tags.String())
 	}
 
@@ -555,10 +555,10 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 
 	// Cache the action
 	conn.ReportFlowPolicy = report
-	conn.PacketFlowPolicy = packet
+	conn.PacketFlowPolicy = pkt
 
 	// Accept the connection
-	return packet, claims, nil
+	return pkt, claims, nil
 }
 
 // policyPair stores both reporting and actual action taken on packet.
@@ -581,10 +581,10 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		}
 
 		// Never seen this IP before, let's parse them.
-		report, packet, perr := context.ApplicationACLPolicy(tcpPacket)
+		report, pkt, perr := context.ApplicationACLPolicy(tcpPacket)
 		if perr != nil || packet.Action.Rejected() {
-			d.reportReverseExternalServiceFlow(context, report, packet, true, tcpPacket)
-			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, packet.Action)
+			d.reportReverseExternalServiceFlow(context, report, pkt, true, tcpPacket)
+			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, pkt.Action)
 		}
 
 		// Added to the cache if we can accept it
@@ -592,16 +592,16 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			tcpPacket,
 			&policyPair{
 				report: report,
-				packet: packet,
+				packet: pkt,
 			},
 		)
 
 		// Set the state to Data so the other state machines ignore subsequent packets
 		conn.SetState(connection.TCPData)
 
-		d.releaseFlow(context, report, packet, tcpPacket)
+		d.releaseFlow(context, report, pkt, tcpPacket)
 
-		return packet, nil, nil
+		return pkt, nil, nil
 	}
 
 	// This is a corner condition. We are receiving a SynAck packet and we are in
@@ -669,9 +669,9 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		return nil, claims, nil
 	}
 
-	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
-	if packet.Action.Rejected() {
-		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
+	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	if pkt.Action.Rejected() {
+		d.reportRejectedFlow(tcpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
 	}
 
@@ -679,7 +679,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 	// conntrack
 	d.netReplyConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
-	return packet, claims, nil
+	return pkt, claims, nil
 }
 
 // processNetworkAckPacket processes an Ack packet arriving from the network
@@ -692,14 +692,14 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
-		_, policy, perr := context.NetworkACLPolicy(tcpPacket)
+		_, plcy, perr := context.NetworkACLPolicy(tcpPacket)
 
 		if perr != nil {
 			err := tcpPacket.ConvertAcktoFinAck()
 			return nil, nil, err
 		}
 
-		if policy.Action.Rejected() {
+		if plcy.Action.Rejected() {
 			return nil, nil, errors.New("Reject the packet")
 		}
 

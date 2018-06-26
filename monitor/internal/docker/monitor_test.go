@@ -368,10 +368,10 @@ func TestHandleStartEvent(t *testing.T) {
 		})
 
 		Convey("When I try to handle start event with no ID given", func() {
-			container := defaultContainer()
-			container.ID = ""
+			c := defaultContainer()
+			c.ID = ""
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerInspect(gomock.Any(), gomock.Any()).Return(container, nil)
+				ContainerInspect(gomock.Any(), gomock.Any()).Return(c, nil)
 
 			err := dmi.handleStartEvent(context.Background(), initTestMessage(""))
 

@@ -558,8 +558,8 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			Convey("When I try to exit the enforcer with supervisor", func() {
 				server.statsClient = nil
 				c := &collector.DefaultCollector{}
-				secrets := secrets.NewPSKSecrets([]byte("test password"))
-				e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+				scrts := secrets.NewPSKSecrets([]byte("test password"))
+				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
 				server.enforcer = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
@@ -952,8 +952,8 @@ func TestUnSupervise(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				c := &collector.DefaultCollector{}
-				secrets := secrets.NewPSKSecrets([]byte("test password"))
-				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, secrets, constants.RemoteContainer, "/proc")
+				scrts := secrets.NewPSKSecrets([]byte("test password"))
+				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
 

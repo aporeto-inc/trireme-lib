@@ -95,8 +95,8 @@ func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT Engine with shared secrets, it should succeed", t, func() {
 
 		j := &JWTConfig{}
-		secrets := secrets.NewPSKSecrets(psk)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		scrts := secrets.NewPSKSecrets(psk)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
 		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                             ")
@@ -107,9 +107,9 @@ func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT Engine with PKI secrets, it should succeed", t, func() {
 
 		j := &JWTConfig{}
-		secrets, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
+		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
 		So(serr, ShouldBeNil)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
 		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                             ")
@@ -120,9 +120,9 @@ func TestConstructorNewJWT(t *testing.T) {
 	Convey("Given that I instantiate a new JWT null encryption, it should succeed", t, func() {
 
 		j := &JWTConfig{}
-		secrets, err := secrets.NewNullPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool))
+		scrts, err := secrets.NewNullPKI([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 		So(err, ShouldBeNil)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 
 		So(jwtConfig, ShouldHaveSameTypeAs, j)
 		So(jwtConfig.Issuer, ShouldResemble, "TRIREME                             ")
@@ -134,8 +134,8 @@ func TestConstructorNewJWT(t *testing.T) {
 
 func TestCreateAndVerifyPSK(t *testing.T) {
 	Convey("Given a JWT valid engine with pre-shared key ", t, func() {
-		secrets := secrets.NewPSKSecrets(psk)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		scrts := secrets.NewPSKSecrets(psk)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		nonce := []byte("1234567890123456")
 		Convey("Given a signature request for a normal packet", func() {
 			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce)
@@ -175,9 +175,9 @@ func TestCreateAndVerifyPSK(t *testing.T) {
 
 func TestCreateAndVerifyPKI(t *testing.T) {
 	Convey("Given a JWT valid engine with a PKI  key ", t, func() {
-		secrets, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
+		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
 		So(serr, ShouldBeNil)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		_, cert, _, _ := crypto.LoadAndVerifyECSecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool))
 
 		nonce := []byte("1234567890123456")
@@ -248,9 +248,9 @@ func TestCreateAndVerifyPKI(t *testing.T) {
 
 func TestNegativeConditions(t *testing.T) {
 	Convey("Given a JWT valid engine with a PKI  key ", t, func() {
-		secrets, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
+		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
 		So(serr, ShouldBeNil)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		nonce := []byte("012456789123456")
 		Convey("Test a token with a bad length ", func() {
 			token, err1 := jwtConfig.CreateAndSign(false, &defaultClaims, nonce)
@@ -284,9 +284,9 @@ func TestNegativeConditions(t *testing.T) {
 func TestRamdomize(t *testing.T) {
 	Convey("Given a token engine with PKI key and a good token", t, func() {
 		nonce := []byte("012456789123456")
-		secrets, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
+		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
 		So(serr, ShouldBeNil)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		token, err := jwtConfig.CreateAndSign(false, &defaultClaims, nonce)
 		So(err, ShouldBeNil)
 
@@ -306,9 +306,9 @@ func TestRamdomize(t *testing.T) {
 
 func TestRetrieveNonce(t *testing.T) {
 	Convey("Given a token engine and a good token", t, func() {
-		secrets, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
+		scrts, serr := secrets.NewPKISecrets([]byte(keyPEM), []byte(certPEM), []byte(caPool), nil)
 		So(serr, ShouldBeNil)
-		jwtConfig, _ := NewJWT(validity, "TRIREME", secrets)
+		jwtConfig, _ := NewJWT(validity, "TRIREME", scrts)
 		nonce := []byte("0124567890123456")
 		token, err := jwtConfig.CreateAndSign(false, &defaultClaims, nonce)
 		So(err, ShouldBeNil)

@@ -561,12 +561,12 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
 
-	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
+	dc, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create docker client: %s", err)
 	}
 
-	return dockerClient, nil
+	return dc, nil
 }
 
 func (d *DockerMonitor) setupDockerDaemon() (err error) {

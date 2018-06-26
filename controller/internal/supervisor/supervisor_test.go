@@ -104,8 +104,8 @@ func TestSupervise(t *testing.T) {
 
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{})
 		So(s, ShouldNotBeNil)
@@ -172,8 +172,8 @@ func TestUnsupervise(t *testing.T) {
 
 	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
@@ -209,8 +209,8 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
@@ -243,8 +243,8 @@ func TestStop(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
