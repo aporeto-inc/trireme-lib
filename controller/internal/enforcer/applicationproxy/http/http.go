@@ -249,11 +249,11 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
 		Destination: &collector.EndPoint{
-			URI:        r.RequestURI,
+			URI:        r.Method + " " + r.RequestURI,
 			HTTPMethod: r.Method,
-			Type:       collector.EndPointTypeExteranlIPAddress,
+			Type:       collector.EndPointTypeExternalIP,
 			Port:       uint16(originalDestination.Port),
-			IP:         r.Host,
+			IP:         originalDestination.IP.String(),
 			ID:         collector.DefaultEndPoint,
 		},
 		Source: &collector.EndPoint{
@@ -270,6 +270,8 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 	if noNetAccesPolicy == nil && netaction.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Unauthorized Service - Rejected Outgoing Request by Network Policies"), http.StatusNetworkAuthenticationRequired)
+		record.PolicyID = netaction.PolicyID
+		record.DropReason = collector.PolicyDrop
 		p.collector.CollectFlowEvent(record)
 		return
 	}
@@ -362,7 +364,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			Port:       uint16(originalDestination.Port),
 		},
 		Source: &collector.EndPoint{
-			Type: collector.EndPointTypeExteranlIPAddress,
+			Type: collector.EndPointTypeExternalIP,
 			IP:   sourceAddress.IP.String(),
 			ID:   collector.DefaultEndPoint,
 		},
@@ -370,12 +372,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
 	}
+
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
 	puContext, apiCache, err := p.retrieveContextAndPolicy(p.exposedAPICache, w, r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
+		record.DropReason = collector.PolicyDrop
 		return
 	}
 	record.ServiceID = apiCache.ID
@@ -385,6 +389,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Find the original port from the URL
 	port, _, err := originalServicePort(w, r)
 	if err != nil {
+		http.Error(w, fmt.Sprintf("Unable to detect destination"), http.StatusInternalServerError)
+		record.DropReason = collector.InvalidConnection
 		return
 	}
 
@@ -393,6 +399,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.PolicyID = aclPolicy.PolicyID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+		record.DropReason = collector.PolicyDrop
 		return
 	}
 
@@ -447,6 +454,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			record.PolicyID = netPolicyAction.PolicyID
 			if netPolicyAction.Action.Rejected() {
 				http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
+				record.DropReason = collector.PolicyDrop
 				return
 			}
 		} else {
@@ -466,6 +474,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	rule, ok := t.(*policy.HTTPRule)
 	if !ok {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		record.DropReason = collector.InvalidConnection
 		return
 	}
 
@@ -475,6 +484,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 				// We have no PU claims or user claims and this is not a public API.
 				// We drop at this point.
 				http.Error(w, err.Error(), http.StatusUnauthorized)
+				record.DropReason = collector.PolicyDrop
 				return
 			}
 			// We have no PU claims. We will rely only on user information for authorization.
@@ -483,6 +493,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 		// Validate the policy and drop the request if there is no authorization.
 		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
+			record.DropReason = collector.APIPolicyDrop
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
 		}
@@ -491,6 +502,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Create the target URI and forward the request.
 	r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
 	if err != nil {
+		record.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
 	}

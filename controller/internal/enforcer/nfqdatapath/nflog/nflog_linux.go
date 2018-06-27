@@ -125,10 +125,10 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	if puIsSource {
 		record.Source.Type = collector.EnpointTypePU
 		record.Source.ID = puID
-		record.Destination.Type = collector.EndPointTypeExteranlIPAddress
+		record.Destination.Type = collector.EndPointTypeExternalIP
 		record.Destination.ID = extSrvID
 	} else {
-		record.Source.Type = collector.EndPointTypeExteranlIPAddress
+		record.Source.Type = collector.EndPointTypeExternalIP
 		record.Source.ID = extSrvID
 		record.Destination.Type = collector.EnpointTypePU
 		record.Destination.ID = puID
