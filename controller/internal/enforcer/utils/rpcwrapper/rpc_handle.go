@@ -19,9 +19,9 @@ import (
 
 	"net/rpc"
 
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/mitchellh/hashstructure"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
 // RPCHdl is a per client handle
@@ -252,15 +252,15 @@ func RegisterTypes() {
 	gob.Register(&secrets.CompactPKIPublicSecrets{})
 	gob.Register(&secrets.PKIPublicSecrets{})
 	gob.Register(&secrets.PSKPublicSecrets{})
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Init_Response_Payload", *(&InitResponsePayload{}))
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Init_Supervisor_Payload", *(&InitSupervisorPayload{}))
+	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Response_Payload", *(&InitResponsePayload{}))
+	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Supervisor_Payload", *(&InitSupervisorPayload{}))
 
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
-	gob.RegisterName("github.com/aporeto-inc/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Enforce_Payload", *(&EnforcePayload{}))
+	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.UnEnforce_Payload", *(&UnEnforcePayload{}))
 
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
-	gob.RegisterName("github.com/aporeto-inc/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
+	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.Supervise_Request_Payload", *(&SuperviseRequestPayload{}))
+	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
+	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
+	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
 }

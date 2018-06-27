@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	config "github.com/aporeto-inc/trireme-lib/monitor/config"
-	registerer "github.com/aporeto-inc/trireme-lib/monitor/registerer"
 	gomock "github.com/golang/mock/gomock"
+	config "go.aporeto.io/trireme-lib/monitor/config"
+	registerer "go.aporeto.io/trireme-lib/monitor/registerer"
 )
 
 // MockMonitor is a mock of Monitor interface
@@ -157,7 +157,7 @@ func (m *MockImplementation) Resync(ctx context.Context) error {
 	return ret0
 }
 
-// Reync indicates an expected call of Resync
+// Resync indicates an expected call of Resync
 // nolint
 func (mr *MockImplementationMockRecorder) Resync(ctx interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resync", reflect.TypeOf((*MockImplementation)(nil).Resync), ctx)

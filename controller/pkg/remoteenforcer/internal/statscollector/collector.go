@@ -3,7 +3,7 @@ package statscollector
 import (
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/collector"
 )
 
 // NewCollector provides a new collector interface

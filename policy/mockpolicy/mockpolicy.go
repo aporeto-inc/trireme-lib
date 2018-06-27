@@ -8,9 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	common "github.com/aporeto-inc/trireme-lib/common"
-	policy "github.com/aporeto-inc/trireme-lib/policy"
+	nat "github.com/docker/go-connections/nat"
 	gomock "github.com/golang/mock/gomock"
+	common "go.aporeto.io/trireme-lib/common"
+	policy "go.aporeto.io/trireme-lib/policy"
 )
 
 // MockRuntimeReader is a mock of RuntimeReader interface
@@ -66,6 +67,20 @@ func (m *MockRuntimeReader) Name() string {
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockRuntimeReader)(nil).Name))
+}
+
+// NSPath mocks base method
+// nolint
+func (m *MockRuntimeReader) NSPath() string {
+	ret := m.ctrl.Call(m, "NSPath")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// NSPath indicates an expected call of NSPath
+// nolint
+func (mr *MockRuntimeReaderMockRecorder) NSPath() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NSPath", reflect.TypeOf((*MockRuntimeReader)(nil).NSPath))
 }
 
 // Tag mocks base method
@@ -149,6 +164,20 @@ func (m *MockRuntimeReader) SetServices(services []common.Service) {
 // nolint
 func (mr *MockRuntimeReaderMockRecorder) SetServices(services interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetServices", reflect.TypeOf((*MockRuntimeReader)(nil).SetServices), services)
+}
+
+// PortMap mocks base method
+// nolint
+func (m *MockRuntimeReader) PortMap() map[nat.Port][]string {
+	ret := m.ctrl.Call(m, "PortMap")
+	ret0, _ := ret[0].(map[nat.Port][]string)
+	return ret0
+}
+
+// PortMap indicates an expected call of PortMap
+// nolint
+func (mr *MockRuntimeReaderMockRecorder) PortMap() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortMap", reflect.TypeOf((*MockRuntimeReader)(nil).PortMap))
 }
 
 // MockResolver is a mock of Resolver interface
