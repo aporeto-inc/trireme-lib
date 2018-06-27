@@ -3,7 +3,7 @@
 set -e
 echo "" > coverage.txt
 
-#./mockgen.sh
+./mockgen.sh
 
 for d in $(go list ./... | grep -v mock); do
     sudo -E env "PATH=$PATH" go test -race -tags test -coverprofile=profile.out -covermode=atomic $d
