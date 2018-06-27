@@ -464,13 +464,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rule, ok := t.(*policy.HTTPRule)
-	if !ok {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		record.DropReason = collector.InvalidConnection
-		return
-	}
-
 	if !rule.Public {
 		if claims == nil {
 			if len(userAttributes) == 0 {
