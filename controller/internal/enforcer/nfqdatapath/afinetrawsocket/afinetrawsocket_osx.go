@@ -2,6 +2,21 @@
 
 package afinetrawsocket
 
+const (
+	// RawSocketMark is the mark asserted on all packet sent out of this socket
+	RawSocketMark = 0x63
+	// NetworkRawSocketMark is the mark on packet egressing
+	//the raw socket coming in from network
+	NetworkRawSocketMark = 0x40000063
+	//ApplicationRawSocketMark is the mark on packet egressing
+	//the raw socket coming from application
+	ApplicationRawSocketMark = 0x40000062
+)
+
+type rawsocket struct {
+	fd int
+}
+
 // CreateSocket returns a handle to SocketWriter interface
 func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 
