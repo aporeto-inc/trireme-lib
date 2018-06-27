@@ -9,23 +9,23 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/http"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	cryptohelpers "github.com/aporeto-inc/trireme-lib/utils/crypto"
-	cryptoutils "github.com/aporeto-inc/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	cryptohelpers "go.aporeto.io/trireme-lib/utils/crypto"
+	cryptoutils "go.aporeto.io/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 
@@ -125,7 +125,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// Create the network listener and cache it so that we can terminate it later.
 	l, err := p.createNetworkListener(":" + puInfo.Runtime.Options().ProxyPort)
 	if err != nil {
-		return fmt.Errorf("Cannot create listener: %s", err)
+		return fmt.Errorf("Cannot create listener: port:%s %s", puInfo.Runtime.Options().ProxyPort, err)
 	}
 
 	// Create a new client entry and start the servers.

@@ -8,18 +8,19 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	tevents "github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/constants"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker/mockdocker"
-	"github.com/aporeto-inc/trireme-lib/policy/mock"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls/mock"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/golang/mock/gomock"
+	"go.aporeto.io/trireme-lib/collector"
+	tevents "go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/constants"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker"
+	"go.aporeto.io/trireme-lib/policy/mockpolicy"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 
@@ -368,10 +369,10 @@ func TestHandleStartEvent(t *testing.T) {
 		})
 
 		Convey("When I try to handle start event with no ID given", func() {
-			container := defaultContainer()
-			container.ID = ""
+			c := defaultContainer()
+			c.ID = ""
 			dmi.dockerClient.(*mockdocker.MockCommonAPIClient).EXPECT().
-				ContainerInspect(gomock.Any(), gomock.Any()).Return(container, nil)
+				ContainerInspect(gomock.Any(), gomock.Any()).Return(c, nil)
 
 			err := dmi.handleStartEvent(context.Background(), initTestMessage(""))
 
@@ -633,9 +634,7 @@ func Test_initTestDockerInfo(t *testing.T) {
 		name string
 		args args
 		want *types.ContainerJSON
-	}{
-	// TODO: Add test cases.
-	}
+	}{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := initTestDockerInfo(tt.args.id, tt.args.nwmode, tt.args.state); !reflect.DeepEqual(got, tt.want) {

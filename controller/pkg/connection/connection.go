@@ -7,9 +7,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/crypto"
 )
 
 // TCPFlowState identifies the constants of the state of a TCP connectioncon
@@ -172,9 +173,16 @@ func (c *TCPConnection) Cleanup(expiration bool) {
 // NewTCPConnection returns a TCPConnection information struct
 func NewTCPConnection(context *pucontext.PUContext) *TCPConnection {
 
+	nonce, err := crypto.GenerateRandomBytes(16)
+	if err != nil {
+		return nil
+	}
 	return &TCPConnection{
 		state:   TCPSynSend,
 		Context: context,
+		Auth: AuthInfo{
+			LocalContext: nonce,
+		},
 	}
 }
 
@@ -191,9 +199,16 @@ type ProxyConnection struct {
 
 // NewProxyConnection returns a new Proxy Connection
 func NewProxyConnection() *ProxyConnection {
+	nonce, err := crypto.GenerateRandomBytes(16)
+	if err != nil {
+		return nil
+	}
 
 	return &ProxyConnection{
 		state: ClientTokenSend,
+		Auth: AuthInfo{
+			LocalContext: nonce,
+		},
 	}
 }
 

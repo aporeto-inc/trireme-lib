@@ -5,17 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -71,13 +71,13 @@ func (e *enforcer) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	if e.transport != nil {
 		if err := e.transport.Enforce(contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in nfq %s", err.Error())
+			return fmt.Errorf("Failed to enforce in nfq: %s", err.Error())
 		}
 	}
 
 	if e.proxy != nil {
 		if err := e.proxy.Enforce(context.Background(), contextID, puInfo); err != nil {
-			return fmt.Errorf("Failed to enforce in proxy %s", err.Error())
+			return fmt.Errorf("Failed to enforce in proxy: %s", err.Error())
 		}
 	}
 

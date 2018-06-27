@@ -15,17 +15,17 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/urisearch"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/vulcand/oxy/forward"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
 )
 
@@ -282,17 +282,10 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	if apiCache.External {
 
 		// Get the corresponding scopes
-		found, t := apiCache.Find(r.Method, r.URL.Path)
+		found, rule := apiCache.FindRule(r.Method, r.URL.Path)
 		if !found {
 			zap.L().Error("Uknown  or unauthorized service - no policy found", zap.Error(err))
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
-			return
-		}
-
-		rule, ok := t.(*policy.HTTPRule)
-		if !ok {
-			zap.L().Error("Internal error - wrong rule", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Internal server error"), http.StatusInternalServerError)
 			return
 		}
 
@@ -465,7 +458,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Look in the cache for the method and request URI for the associated scopes
 	// and policies.
-	found, t := apiCache.Find(r.Method, r.URL.Path)
+	found, rule := apiCache.FindRule(r.Method, r.URL.Path)
 	if !found {
 		http.Error(w, fmt.Sprintf("Unknown or unauthorized service"), http.StatusForbidden)
 		return

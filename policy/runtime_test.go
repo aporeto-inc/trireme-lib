@@ -3,9 +3,9 @@ package policy
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/common"
 	"github.com/docker/go-connections/nat"
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/common"
 )
 
 func TestNewPURunTime(t *testing.T) {

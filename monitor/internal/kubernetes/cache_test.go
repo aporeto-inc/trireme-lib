@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 func Test_cache_updatePUIDCache(t *testing.T) {

@@ -12,21 +12,21 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/constants"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/dchest/siphash"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/constants"
+	"go.aporeto.io/trireme-lib/policy"
 
-	tevents "github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	tevents "go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 
 	dockerClient "github.com/docker/docker/client"
 )
@@ -561,12 +561,12 @@ func initDockerClient(socketType string, socketAddress string) (*dockerClient.Cl
 
 	defaultHeaders := map[string]string{"User-Agent": "engine-api-dockerClient-1.0"}
 
-	dockerClient, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
+	dc, err := dockerClient.NewClient(socket, DockerClientVersion, nil, defaultHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create docker client: %s", err)
 	}
 
-	return dockerClient, nil
+	return dc, nil
 }
 
 func (d *DockerMonitor) setupDockerDaemon() (err error) {

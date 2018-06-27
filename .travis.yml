@@ -2,6 +2,8 @@ language: go
 sudo: required
 dist: trusty
 
+go_import_path: go.aporeto.io/trireme-lib
+
 go:
  - 1.9.2
 
@@ -20,18 +22,22 @@ env:
     - SUDO_PERMITTED=1
 
 before_install:
-  - go get -u gopkg.in/alecthomas/gometalinter.v1
-  - go get -v github.com/Masterminds/glide
-  - gometalinter.v1 --install
+  - go get -u gopkg.in/alecthomas/gometalinter.v2
+  - gometalinter.v2 --install
+  - go get -u github.com/golang/dep/cmd/dep
+  - mkdir -p ${GOPATH}/src/go.aporeto.io && ln -s ${TRAVIS_BUILD_DIR} ${GOPATH}/src/go.aporeto.io/trireme-lib
+  - goimports ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go > ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go.bk
+  - diff ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/datapath_test.go.bk
+  - goimports ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go > ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go.bk
+  - diff ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go ${GOPATH}/src/go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/remoteenforcer_test.go.bk
 
 install:
-  - mkdir -p $GOPATH/src/github.com/docker && cd $GOPATH/src/github.com/docker && git clone https://github.com/docker/docker -b v17.05.0-ce docker && cd -
-  - cd $GOPATH/src/github.com/docker/docker && rm -rf vendor/golang.org/x/net/context && cd -
-  - go get -t -v ./...
+  - dep ensure -v
   
 script:
-  - gometalinter.v1 --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=structcheck --enable=aligncheck --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=varcheck --enable=interfacer --enable=goconst --enable=staticcheck --enable=unused --enable=misspell --deadline=10m ./...
   - ./.test.sh
+  - gometalinter.v2 --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=interfacer --enable=goconst --enable=misspell --deadline=10m ./...
+
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

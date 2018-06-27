@@ -7,8 +7,8 @@ package mockremoteenforcer
 import (
 	reflect "reflect"
 
-	rpcwrapper "github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	gomock "github.com/golang/mock/gomock"
+	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 )
 
 // MockRemoteIntf is a mock of RemoteIntf interface
