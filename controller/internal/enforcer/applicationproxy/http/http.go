@@ -362,14 +362,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			Port:       uint16(originalDestination.Port),
 		},
 		Source: &collector.EndPoint{
-			Type: collector.EnpointTypePU,
+			Type: collector.EndPointTypeExteranlIPAddress,
 			IP:   sourceAddress.IP.String(),
+			ID:   collector.DefaultEndPoint,
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
 	}
-
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
@@ -379,6 +379,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record.ServiceID = apiCache.ID
+	record.Tags = puContext.Annotations()
+	record.Destination.ID = puContext.ManagementID()
 
 	// Find the original port from the URL
 	port, _, err := originalServicePort(w, r)
@@ -386,14 +388,11 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	record.Tags = puContext.Annotations()
-	record.Destination.ID = puContext.ManagementID()
-
-	_, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
-	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
+	// Check for network access rules that might require a drop.
+	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
+	record.PolicyID = aclPolicy.PolicyID
+	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
-		record.Source.Type = collector.EndPointTypeExteranlIPAddress
-		record.Source.ID = collector.DefaultEndPoint
 		return
 	}
 
@@ -423,6 +422,39 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Calculate the user attributes and claims.
+	userAttributes := parseUserAttributes(r, jwtCert)
+	if len(userAttributes) > 0 {
+		userRecord := &collector.UserRecord{Claims: userAttributes}
+		p.collector.CollectUserEvent(userRecord)
+		record.Source.UserID = userRecord.ID
+		record.Source.ID = userRecord.ID
+		record.Source.Type = collector.EndpointTypeClaims
+	}
+
+	var claims *JWTClaims
+	claims, err = p.parseClientToken(key, token)
+	if err != nil {
+		claims = nil
+	} else {
+		record.Source.ID = claims.SourceID
+		record.Source.Type = collector.EnpointTypePU
+	}
+
+	if noNetAccessPolicy != nil {
+		if claims != nil {
+			_, netPolicyAction := puContext.SearchRcvRules(policy.NewTagStoreFromSlice(claims.Profile))
+			record.PolicyID = netPolicyAction.PolicyID
+			if netPolicyAction.Action.Rejected() {
+				http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
+				return
+			}
+		} else {
+			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			return
+		}
+	}
+
 	// Look in the cache for the method and request URI for the associated scopes
 	// and policies.
 	found, t := apiCache.Find(r.Method, r.URL.Path)
@@ -437,31 +469,18 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Calculate the user attributes and claims.
-	userAttributes := parseUserAttributes(r, jwtCert)
-	if len(userAttributes) > 0 {
-		userRecord := &collector.UserRecord{Claims: userAttributes}
-		p.collector.CollectUserEvent(userRecord)
-		record.Source.UserID = userRecord.ID
-	}
-
-	var claims *JWTClaims
-	claims, err = p.parseClientToken(key, token)
-	if err != nil && len(userAttributes) == 0 && !rule.Public {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	record.Source.ID = claims.SourceID
-
-	if noNetAccessPolicy != nil {
-		_, netPolicyAction := puContext.SearchRcvRules(policy.NewTagStoreFromSlice(claims.Profile))
-		if netPolicyAction.Action.Rejected() {
-			http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
-			return
-		}
-	}
-
 	if !rule.Public {
+		if claims == nil {
+			if len(userAttributes) == 0 {
+				// We have no PU claims or user claims and this is not a public API.
+				// We drop at this point.
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+			}
+			// We have no PU claims. We will rely only on user information for authorization.
+			claims = &JWTClaims{}
+		}
+
 		// Validate the policy and drop the request if there is no authorization.
 		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
 			http.Error(w, err.Error(), http.StatusForbidden)
@@ -474,16 +493,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
 		return
-	}
-
-	if record.Source.ID == "" {
-		if record.Source.UserID != "" {
-			record.Source.Type = collector.EndpointTypeClaims
-			record.Source.ID = collector.SomeClaimsSource
-		} else if rule.Public {
-			record.Source.Type = collector.EndPointTypeExteranlIPAddress
-			record.Source.ID = collector.DefaultEndPoint
-		}
 	}
 
 	record.Action = policy.Accept | policy.Encrypt
@@ -639,7 +648,7 @@ func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
 
 	// We can't decode it. Just ignore the user attributes at this point.
 	if err != nil || token == nil {
-		zap.L().Warn("Identified toke, but it is invalid", zap.Error(err))
+		zap.L().Warn("Identified token, but it is invalid", zap.Error(err))
 		return attributes
 	}
 

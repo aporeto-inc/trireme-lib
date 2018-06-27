@@ -341,7 +341,7 @@ func (p *PUContext) searchRules(
 	if packetAction == nil {
 		packetAction = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 
