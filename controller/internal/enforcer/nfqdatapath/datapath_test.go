@@ -1351,7 +1351,7 @@ func TestContextFromIP(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("If I try to get context based on IP and its  not there and its a local container it should fail ", func() {
-			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0)
+			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0, packet.IPProtocolTCP)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -1360,14 +1360,14 @@ func TestContextFromIP(t *testing.T) {
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the mark exists", func() {
-				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", 0)
+				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", 0, packet.IPProtocolTCP)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)
 			})
 
 			Convey("If the mark doesn't exist", func() {
-				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", 0)
+				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", 0, packet.IPProtocolTCP)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -1379,14 +1379,14 @@ func TestContextFromIP(t *testing.T) {
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the port exists", func() {
-				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", 8000)
+				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", 8000, packet.IPProtocolTCP)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)
 			})
 
 			Convey("If the port doesn't exist", func() {
-				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", 9000)
+				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", 9000, packet.IPProtocolTCP)
 				So(err, ShouldNotBeNil)
 			})
 		})
