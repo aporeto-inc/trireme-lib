@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/provider"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor/provider"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 func matchSpec(term string, rulespec []string) error {

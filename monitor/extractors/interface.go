@@ -1,8 +1,8 @@
 package extractors
 
 import (
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // EventMetadataExtractor is a function used to extract a *policy.PURuntime from a given

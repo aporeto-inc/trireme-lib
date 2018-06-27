@@ -9,24 +9,24 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/netlink-go/conntrack"
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/portcache"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/netlink-go/conntrack"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/portcache"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
@@ -228,7 +228,7 @@ func NewWithDefaults(
 	}
 	defaultPacketLogs := false
 
-	tokenaccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
+	tokenAccessor, err := tokenaccessor.New(serverID, defaultValidity, secrets)
 	if err != nil {
 		zap.L().Fatal("Cannot create a token engine")
 	}
@@ -247,7 +247,7 @@ func NewWithDefaults(
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
 		defaultPacketLogs,
-		tokenaccessor,
+		tokenAccessor,
 		puFromContextID,
 	)
 }

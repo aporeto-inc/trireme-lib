@@ -8,15 +8,15 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/portset"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/iptablesctrl"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
 type cacheData struct {

@@ -3,7 +3,7 @@ package acls
 import (
 	"errors"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 var catchAllPolicy = &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}

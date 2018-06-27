@@ -11,10 +11,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/client"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 var stderrlogger *log.Logger

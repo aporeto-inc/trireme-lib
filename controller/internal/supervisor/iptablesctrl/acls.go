@@ -8,11 +8,11 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 )
 
 const observeMark = "39"

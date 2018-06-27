@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/utils/crypto"
+	"go.aporeto.io/trireme-lib/utils/crypto"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 

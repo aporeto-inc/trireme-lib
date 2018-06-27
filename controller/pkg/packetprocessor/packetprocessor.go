@@ -1,12 +1,12 @@
 package packetprocessor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/tokens"
+	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 )
 
 // PacketProcessor is an interface for extending packet processing functions such

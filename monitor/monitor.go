@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/kubernetes"
+	"go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/cni"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/linux"
-	"github.com/aporeto-inc/trireme-lib/monitor/internal/uid"
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
-	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/server"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/internal/cni"
+	"go.aporeto.io/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/monitor/internal/linux"
+	"go.aporeto.io/trireme-lib/monitor/internal/uid"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/monitor/remoteapi/server"
 	"go.uber.org/zap"
 )
 

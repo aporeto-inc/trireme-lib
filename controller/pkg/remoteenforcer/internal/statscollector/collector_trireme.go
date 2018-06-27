@@ -1,7 +1,7 @@
 package statscollector
 
 import (
-	"github.com/aporeto-inc/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/collector"
 	"go.uber.org/zap"
 )
 

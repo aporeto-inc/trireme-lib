@@ -8,10 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	common "github.com/aporeto-inc/trireme-lib/common"
-	policy "github.com/aporeto-inc/trireme-lib/policy"
 	nat "github.com/docker/go-connections/nat"
 	gomock "github.com/golang/mock/gomock"
+	common "go.aporeto.io/trireme-lib/common"
+	policy "go.aporeto.io/trireme-lib/policy"
 )
 
 // MockRuntimeReader is a mock of RuntimeReader interface

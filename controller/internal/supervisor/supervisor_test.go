@@ -5,13 +5,13 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	mock_supervisor "github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/mock"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/golang/mock/gomock"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
@@ -104,13 +104,13 @@ func TestSupervise(t *testing.T) {
 
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I supervise a new PU with invalid policy", func() {
@@ -172,13 +172,13 @@ func TestUnsupervise(t *testing.T) {
 
 	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I try to unsupervise a PU that was not see before", func() {
@@ -209,13 +209,13 @@ func TestStart(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I try to start it and the implementor works", func() {
@@ -243,13 +243,13 @@ func TestStop(t *testing.T) {
 
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
-		secrets := secrets.NewPSKSecrets([]byte("test password"))
-		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
 		So(s, ShouldNotBeNil)
 
-		impl := mock_supervisor.NewMockImplementor(ctrl)
+		impl := mocksupervisor.NewMockImplementor(ctrl)
 		s.impl = impl
 
 		Convey("When I try to start it and the implementor works", func() {

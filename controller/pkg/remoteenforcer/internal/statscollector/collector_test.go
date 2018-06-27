@@ -3,9 +3,10 @@ package statscollector
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/policy"
+
 	. "github.com/smartystreets/goconvey/convey"
 )
 

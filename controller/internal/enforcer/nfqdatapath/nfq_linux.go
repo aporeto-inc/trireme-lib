@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	nfqueue "github.com/aporeto-inc/netlink-go/nfqueue"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
+	nfqueue "go.aporeto.io/netlink-go/nfqueue"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
 

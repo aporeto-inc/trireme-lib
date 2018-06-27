@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
 	"github.com/bvandewalle/go-ipset/ipset"
+	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 )
 

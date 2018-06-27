@@ -3,8 +3,8 @@ package monitor
 import (
 	"context"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 )
 
 // A Monitor is an interface implmented to start/stop monitors.

@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.uber.org/zap"
 )
 
