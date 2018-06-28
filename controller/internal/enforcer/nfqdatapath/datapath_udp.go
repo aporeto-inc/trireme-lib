@@ -20,6 +20,7 @@ import (
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application
 func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 
+	d.packetLogs = true
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -267,6 +268,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 // ProcessApplicationUDPPacket processes packets arriving from an application and are destined to the network
 func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
+	d.packetLogs = true
 	if d.packetLogs {
 		zap.L().Debug("Processing application UDP packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -297,7 +299,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	case connection.UDPSynStart:
 		// connection not authorized yet. queue the packets and start handshake.
-		zap.L().Debug("Varks: Sending out Application UDP Syn Packet with options")
+		zap.L().Debug("Varks: Sending out Application UDP Syn Packet with options", zap.String("flow", p.L4FlowHash()))
 		err = d.processApplicationUDPSynPacket(p, conn.Context, conn)
 
 		if err != nil {
