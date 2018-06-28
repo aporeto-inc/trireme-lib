@@ -315,7 +315,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 		DestIP:     downIP.String(),
 		DestPort:   uint16(downPort),
 		SourceIP:   downConn.LocalAddr().(*net.TCPAddr).IP.String(),
-		DestType:   collector.EndPointTypeExteranlIPAddress,
+		DestType:   collector.EndPointTypeExternalIP,
 		SourceType: collector.EnpointTypePU,
 	}
 
@@ -405,7 +405,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP.To4(), uint16(backendport))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		flowProperties.SourceType = collector.EndPointTypeExteranlIPAddress
+		flowProperties.SourceType = collector.EndPointTypeExternalIP
 		p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
 		return false, fmt.Errorf("Unauthorized")
 	}
