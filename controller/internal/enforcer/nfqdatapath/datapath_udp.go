@@ -20,7 +20,6 @@ import (
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application
 func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 
-	d.packetLogs = true
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
