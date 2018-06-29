@@ -270,12 +270,12 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
 
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "udp",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
-	})
+	// rules = append(rules, []string{
+	// 	i.appPacketIPTableContext, appChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "src",
+	// 	"-p", "udp",
+	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
+	// })
 
 	// Network Packets - SYN
 	rules = append(rules, []string{
@@ -292,13 +292,13 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
 
-	// UDP Network packets.
-	rules = append(rules, []string{
-		i.netPacketIPTableContext, netChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "udp",
-		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
-	})
+	// // UDP Network packets.
+	// rules = append(rules, []string{
+	// 	i.netPacketIPTableContext, netChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "src",
+	// 	"-p", "udp",
+	// 	"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
+	// })
 
 	return rules
 }
