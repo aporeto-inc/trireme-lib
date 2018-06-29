@@ -83,8 +83,8 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else if netPacket.IPProto == packet.IPProtocolUDP {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), length, uint32(p.ID), buffer)
-		zap.L().Debug("Varks: Set verdict to 1 (Net)", zap.String("flow", netPacket.L4FlowHash()))
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		zap.L().Debug("Varks: Set verdict to 0 (Net)", zap.String("flow", netPacket.L4FlowHash()))
 		return
 		//err = d.ProcessNetworkUDPPacket(netPacket)
 	} else {
@@ -131,8 +131,8 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 	} else if appPacket.IPProto == packet.IPProtocolUDP {
 		length := uint32(len(p.Buffer))
 		buffer := p.Buffer
-		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), length, uint32(p.ID), buffer)
-		zap.L().Debug("Varks: Set verdict to 1 (App)", zap.String("flow", appPacket.L4FlowHash()))
+		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
+		zap.L().Debug("Varks: Set verdict to 0 (App)", zap.String("flow", appPacket.L4FlowHash()))
 		return
 		//err = d.ProcessApplicationUDPPacket(appPacket)
 	} else {
