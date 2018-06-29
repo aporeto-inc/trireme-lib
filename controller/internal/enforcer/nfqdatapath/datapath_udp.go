@@ -289,7 +289,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	// queue packets if connection is still unauthorized.
 	if conn.GetState() != connection.UDPAckProcessed {
-		zap.L().Debug("Packets are not being queueed", zap.String("flow", p.L4FlowHash()))
+		zap.L().Debug("Packets are being queueed", zap.String("flow", p.L4FlowHash()))
 		if err = conn.QueuePackets(p); err != nil {
 			return fmt.Errorf("Unable to queue packets:%s", err)
 		}
@@ -373,10 +373,10 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	newPacket.UDPTokenAttach(udpOptions, udpData)
 
 	// send packet
-	// err = d.udpSocketWriter.WriteSocket(newPacket.Buffer)
-	// if err != nil {
-	// 	zap.L().Debug("Unable to send syn token on raw socket", zap.Error(err))
-	// }
+	err = d.udpSocketWriter.WriteSocket(newPacket.Buffer)
+	if err != nil {
+		zap.L().Debug("Unable to send syn token on raw socket", zap.Error(err))
+	}
 
 	// Set the state indicating that we send out a Syn packet
 	conn.SetState(connection.UDPSynSend)
