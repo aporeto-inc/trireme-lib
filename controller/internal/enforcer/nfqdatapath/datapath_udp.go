@@ -289,7 +289,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	// queue packets if connection is still unauthorized.
 	if conn.GetState() != connection.UDPAckProcessed {
-		zap.L().Debug("Packets are being queueed")
+		zap.L().Debug("Packets are being queueed", zap.String("flow", p.L4FlowHash()))
 		if err = conn.QueuePackets(p); err != nil {
 			return fmt.Errorf("Unable to queue packets:%s", err)
 		}
@@ -322,6 +322,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 	}
 	// if not in the above two states, packets are queued. NFQ can drop them, as they are already
 	// in connection packet queue.
+	zap.L().Debug("Dropping packet by setting verdict to 0", zap.String("flow", p.L4FlowHash()))
 	return fmt.Errorf("Packets cloned. Dropping the original packet")
 }
 

@@ -270,13 +270,13 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
 
-	// drop these
-	rules = append(rules, []string{
-		i.appPacketIPTableContext, appChain,
-		"-m", "set", "--match-set", targetNetworkSet, "src",
-		"-p", "udp", "--dport", "53",
-		"-j", "DROP",
-	})
+	// // drop these
+	// rules = append(rules, []string{
+	// 	i.appPacketIPTableContext, appChain,
+	// 	"-m", "set", "--match-set", targetNetworkSet, "src",
+	// 	"-p", "udp", "--dport", "53",
+	// 	"-j", "DROP",
+	// })
 
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
