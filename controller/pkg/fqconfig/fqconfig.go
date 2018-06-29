@@ -79,14 +79,14 @@ func NewFilterQueue(queueSeparation bool, MarkValue int, QueueStart, NumberOfNet
 	} else {
 
 		fq.ApplicationQueue = QueueStart
-		fq.ApplicationQueuesSynStr = strconv.Itoa(int(fq.ApplicationQueue)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+NumberOfApplicationQueues-1))
+		fq.ApplicationQueuesSynStr = strconv.Itoa(int(fq.ApplicationQueue)) + ":" + strconv.Itoa(int(fq.ApplicationQueue+NumberOfApplicationQueues-2))
 		fq.ApplicationQueuesAckStr = fq.ApplicationQueuesSynStr
 		fq.ApplicationQueuesSvcStr = fq.ApplicationQueuesSynStr
 		fq.ApplicationQueuesSynAckStr = fq.ApplicationQueuesSynStr
 		fq.NumberOfApplicationQueues = NumberOfApplicationQueues
 
 		fq.NetworkQueue = QueueStart + fq.NumberOfApplicationQueues
-		fq.NetworkQueuesSynStr = strconv.Itoa(int(fq.NetworkQueue)) + ":" + strconv.Itoa(int(fq.NetworkQueue+NumberOfNetworkQueues-1))
+		fq.NetworkQueuesSynStr = strconv.Itoa(int(fq.NetworkQueue)) + ":" + strconv.Itoa(int(fq.NetworkQueue+NumberOfNetworkQueues-2))
 		fq.NetworkQueuesAckStr = fq.NetworkQueuesSynStr
 		fq.NetworkQueuesSynAckStr = fq.NetworkQueuesSynStr
 		fq.NetworkQueuesSvcStr = fq.NetworkQueuesSynStr
