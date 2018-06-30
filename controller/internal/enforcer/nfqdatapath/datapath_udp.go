@@ -267,7 +267,6 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 // ProcessApplicationUDPPacket processes packets arriving from an application and are destined to the network
 func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
-	d.packetLogs = true
 	if d.packetLogs {
 		zap.L().Debug("Processing application UDP packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -277,6 +276,13 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 			zap.String("flow", p.L4FlowHash()),
 			zap.Error(err),
 		)
+	}
+
+	if p.DestinationPort == 53 {
+		zap.L().Debug("Processing application UDP packet- let go 53",
+			zap.String("flow", p.L4FlowHash()),
+		)
+		return nil
 	}
 
 	var conn *connection.UDPConnection

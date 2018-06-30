@@ -317,7 +317,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 	for _, port := range pu.TCPPorts() {
 		if err := d.contextIDFromTCPPort.RemoveStringPorts(port); err != nil {
 			zap.L().Debug("Unable to remove cache entry during unenforcement",
-				zap.String("Port", port),
+				zap.String("TCPPort", port),
 				zap.Error(err),
 			)
 		}
@@ -326,7 +326,7 @@ func (d *Datapath) Unenforce(contextID string) error {
 	for _, port := range pu.UDPPorts() {
 		if err := d.contextIDFromUDPPort.RemoveStringPorts(port); err != nil {
 			zap.L().Debug("Unable to remove cache entry during unenforcement",
-				zap.String("Port", port),
+				zap.String("UDPPort", port),
 				zap.Error(err),
 			)
 		}
