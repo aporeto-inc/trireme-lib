@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"github.com/aporeto-inc/bireme/pkg/generictokens"
 	"go.aporeto.io/trireme-lib/common"
 )
 
@@ -46,7 +47,7 @@ type ApplicationService struct {
 	// JWTCertificate is a certificate for validating JWT bearer tokens in http requests.
 	// It is only useful for HTTP services where the Bearer Authentication header provides
 	// a JWT token. It is used to validate the JWT tokens.
-	JWTCertificate []byte
+	JWTTokenHandler generictokens.Verifier
 
 	// External indicates if this is an external service. For external services
 	// access control is implemented at the ingress.

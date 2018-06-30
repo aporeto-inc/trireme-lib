@@ -11,6 +11,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/utils/portspec"
 
+	"github.com/aporeto-inc/bireme/pkg/auth"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
@@ -25,7 +26,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	cryptohelpers "go.aporeto.io/trireme-lib/utils/crypto"
-	cryptoutils "go.aporeto.io/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
 )
 
@@ -50,14 +50,14 @@ type clientData struct {
 type AppProxy struct {
 	cert *tls.Certificate
 
-	tokenaccessor     tokenaccessor.TokenAccessor
-	collector         collector.EventCollector
-	puFromID          cache.DataStore
-	exposedAPICache   cache.DataStore
-	dependentAPICache cache.DataStore
-	jwtcache          cache.DataStore
-	systemCAPool      *x509.CertPool
-	secrets           secrets.Secrets
+	tokenaccessor      tokenaccessor.TokenAccessor
+	collector          collector.EventCollector
+	authProcessorCache cache.DataStore
+	serviceMap         cache.DataStore
+	puFromID           cache.DataStore
+	dependentAPICache  cache.DataStore
+	systemCAPool       *x509.CertPool
+	secrets            secrets.Secrets
 
 	clients cache.DataStore
 	sync.RWMutex
@@ -79,16 +79,16 @@ func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puF
 	}
 
 	return &AppProxy{
-		collector:         c,
-		tokenaccessor:     tp,
-		secrets:           s,
-		puFromID:          puFromID,
-		cert:              certificate,
-		clients:           cache.NewCache("clients"),
-		exposedAPICache:   cache.NewCache("exposed services"),
-		dependentAPICache: cache.NewCache("dependencies"),
-		jwtcache:          cache.NewCache("jwtcache"),
-		systemCAPool:      systemPool,
+		collector:          c,
+		tokenaccessor:      tp,
+		secrets:            s,
+		puFromID:           puFromID,
+		cert:               certificate,
+		authProcessorCache: cache.NewCache("authprocessors"),
+		serviceMap:         cache.NewCache("servicemap"),
+		clients:            cache.NewCache("clients"),
+		dependentAPICache:  cache.NewCache("dependencies"),
+		systemCAPool:       systemPool,
 	}, nil
 }
 
@@ -99,18 +99,21 @@ func (p *AppProxy) Run(ctx context.Context) error {
 	return nil
 }
 
-// Enforce implements enforcer.Enforcer interface. It will will create the necessary
-// proxies for the particular PU.
+// Enforce implements enforcer.Enforcer interface. It will create the necessary
+// proxies for the particular PU. Enforce can be called multiple times, once
+// for every policy update.
 func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUInfo) error {
 
 	p.Lock()
 	defer p.Unlock()
 
 	// First update the caches with the new policy information.
-	apicache, dependentCache, jwtcache, caPool, portCache := buildCaches(puInfo.Policy.ExposedServices(), puInfo.Policy.DependentServices())
-	p.exposedAPICache.AddOrUpdate(puID, apicache)
-	p.jwtcache.AddOrUpdate(puID, jwtcache)
+	authProcessor := auth.NewProcessor(p.secrets, p.systemCAPool)
+	serviceMap, portCache := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
+	dependentCache, caPool := buildDependentCaches(puInfo.Policy.DependentServices())
+	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
+	p.serviceMap.Add(puID, serviceMap)
 
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
@@ -182,16 +185,12 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 	p.Lock()
 	defer p.Unlock()
 
-	if err := p.exposedAPICache.Remove(puID); err != nil {
+	if err := p.authProcessorCache.Remove(puID); err != nil {
 		zap.L().Warn("Cannot find PU in the API cache")
 	}
 
 	if err := p.dependentAPICache.Remove(puID); err != nil {
 		zap.L().Warn("Cannot find PU in the Dependent API cache")
-	}
-
-	if err := p.jwtcache.Remove(puID); err != nil {
-		zap.L().Warn("Cannot find PU in the JWT cache")
 	}
 
 	// Find the correct client.
@@ -317,7 +316,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.exposedAPICache, p.dependentAPICache, p.jwtcache, appproxy, proxyMarkInt, p.secrets)
+		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)
@@ -386,12 +385,16 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 	}
 }
 
-func buildCaches(exposedServices, dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, map[string]*urisearch.APICache, map[string]*x509.Certificate, [][]byte, map[int]string) {
-	apicache := map[string]*urisearch.APICache{}
-	jwtcache := map[string]*x509.Certificate{}
-	dependentCache := map[string]*urisearch.APICache{}
+// buildExposedServices builds the caches for the exposed services. It assumes that an authorization
+// processor has already been created. It return two maps. The first has a mapping between
+// destination rhost values and service IDs. The second has map between destination ports
+// and service IDs.
+// TODO:
+// We just need the port mapping and not the rhost mapping since we know the original port. This will
+// be simplified farther.
+func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[string]string, map[int]string) {
+	serviceMap := map[string]string{}
 	portCache := map[int]string{}
-	caPool := [][]byte{}
 
 	for _, service := range exposedServices {
 		if service.Type == policy.ServiceTCP {
@@ -404,26 +407,30 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 			continue
 		}
 		if service.NetworkInfo.Ports.IsMultiPort() {
-			zap.L().Error("Multiport services are not supported")
+			zap.L().Error("Multiport HTTP services are not supported")
 			continue
 		}
 		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
+		p.AddOrUpdateService(service.ID, ruleCache, service.JWTTokenHandler)
+		fmt.Println("Added serviceID and auth ", service.ID, ruleCache)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			rhost := fqdn + ":" + service.NetworkInfo.Ports.String()
-			apicache[rhost] = ruleCache
+			serviceMap[rhost] = service.ID
 		}
 		for _, addr := range service.NetworkInfo.Addresses {
 			rhost := addr.IP.String() + ":" + service.NetworkInfo.Ports.String()
-			apicache[rhost] = ruleCache
+			serviceMap[rhost] = service.ID
 		}
-		cert, err := cryptoutils.LoadCertificate(service.JWTCertificate)
-		if err != nil {
-			// We just ignore bad certificates and move on.
-			zap.L().Debug("Unable to decode provided JWT PEM", zap.Error(err))
-			continue
-		}
-		jwtcache[service.NetworkInfo.Ports.String()] = cert
 	}
+	return serviceMap, portCache
+}
+
+// buildDependentCaches builds the caches for the dependent services.
+// It returns a map of API caches based on destination rhost values and
+// and array of public CAs for accessing external services.
+func buildDependentCaches(dependentServices policy.ApplicationServicesList) (map[string]*urisearch.APICache, [][]byte) {
+	dependentCache := map[string]*urisearch.APICache{}
+	caPool := [][]byte{}
 
 	for _, service := range dependentServices {
 		if service.Type != policy.ServiceHTTP {
@@ -444,7 +451,7 @@ func buildCaches(exposedServices, dependentServices policy.ApplicationServicesLi
 			caPool = append(caPool, service.CACert)
 		}
 	}
-	return apicache, dependentCache, jwtcache, caPool, portCache
+	return dependentCache, caPool
 }
 
 func serviceFromProxySet(pair string) (*common.Service, error) {
