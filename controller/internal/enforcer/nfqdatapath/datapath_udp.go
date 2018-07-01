@@ -278,12 +278,12 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
-	if p.DestinationPort == 53 {
-		zap.L().Debug("Processing application UDP packet- let go 53",
-			zap.String("flow", p.L4FlowHash()),
-		)
-		return nil
-	}
+	// if p.DestinationPort == 53 {
+	// 	zap.L().Debug("Processing application UDP packet- let go 53",
+	// 		zap.String("flow", p.L4FlowHash()),
+	// 	)
+	// 	return nil
+	// }
 
 	var conn *connection.UDPConnection
 	conn, err = d.appUDPRetrieveState(p)
