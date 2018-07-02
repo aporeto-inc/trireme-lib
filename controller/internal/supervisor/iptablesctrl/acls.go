@@ -1180,15 +1180,15 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
 
-	err = i.ipt.Insert(
-		i.appPacketIPTableContext,
-		appChain, 1,
-		"-p", "udp", "--dport", "53",
-		"-j", "DROP")
+	// err = i.ipt.Insert(
+	// 	i.appPacketIPTableContext,
+	// 	appChain, 1,
+	// 	"-p", "udp", "--dport", "53",
+	// 	"-j", "DROP")
 
-	if err != nil {
-		return fmt.Errorf("unable to add dns drop at app: %s", err)
-	}
+	// if err != nil {
+	// 	return fmt.Errorf("unable to add dns drop at app: %s", err)
+	// }
 
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,

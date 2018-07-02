@@ -447,7 +447,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		_, policy, perr := context.ApplicationACLPolicy(tcpPacket)
 
 		if perr != nil {
-			err := tcpPacket.ConvertAcktoFinAck()
+			//err := tcpPacket.ConvertAcktoFinAck()
 			return nil, err
 		}
 
