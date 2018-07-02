@@ -1181,6 +1181,16 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	}
 
 	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-p", "udp", "--dport", "53",
+		"-j", "DROP")
+
+	if err != nil {
+		return fmt.Errorf("unable to add dns drop at app: %s", err)
+	}
+
+	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
