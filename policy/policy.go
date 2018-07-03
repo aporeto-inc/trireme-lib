@@ -419,11 +419,13 @@ type PUPolicyPublic struct {
 }
 
 // ToPrivatePolicy converts the object to a private object.
-func (p *PUPolicyPublic) ToPrivatePolicy() *PUPolicy {
+func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
 
 	exposedServices := ApplicationServicesList{}
 	for _, e := range p.ExposedServices {
-		e.JWTTokenHandler = generictokens.NewVerifier(e.JWTTokenHandler)
+		if convert {
+			e.JWTTokenHandler = generictokens.NewVerifier(e.JWTTokenHandler)
+		}
 		exposedServices = append(exposedServices, e)
 	}
 

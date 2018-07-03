@@ -412,7 +412,6 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 		}
 		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
 		p.AddOrUpdateService(service.ID, ruleCache, service.JWTTokenHandler)
-		fmt.Println("Added serviceID and auth ", service.ID, ruleCache)
 		for _, fqdn := range service.NetworkInfo.FQDNs {
 			rhost := fqdn + ":" + service.NetworkInfo.Ports.String()
 			serviceMap[rhost] = service.ID

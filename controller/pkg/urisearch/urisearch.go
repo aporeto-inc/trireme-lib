@@ -66,25 +66,27 @@ func (c *APICache) FindRule(verb, uri string) (bool, *policy.HTTPRule) {
 }
 
 // FindAndMatchScope finds the rule and returns true only if the scope matches
-// as well.
-func (c *APICache) FindAndMatchScope(verb, uri string, attributes []string) bool {
+// as well. It also returns true of this was a public rule, allowing the callers
+// to decide how to present the data or potentially what to do if authorization
+// fails.
+func (c *APICache) FindAndMatchScope(verb, uri string, attributes []string) (bool, bool) {
 	found, rule := c.Find(verb, uri)
 	if !found || rule == nil {
-		return false
+		return false, false
 	}
 	policyRule, ok := rule.(*scopeRule)
 	if !ok {
-		return false
+		return false, false
 	}
 	if policyRule.rule.Public {
-		return true
+		return true, true
 	}
 	for _, attr := range attributes {
 		if _, ok := policyRule.scopes[attr]; ok {
-			return true
+			return true, false
 		}
 	}
-	return false
+	return false, false
 }
 
 // Find finds a URI in the cache and returns true and the data if found.

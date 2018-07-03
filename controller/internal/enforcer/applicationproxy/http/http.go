@@ -408,6 +408,11 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Tags = puContext.Annotations()
 	record.Destination.ID = puContext.ManagementID()
 
+	if strings.HasPrefix(r.RequestURI, "/aporeto/authorization-code/callback") {
+		authorizer.Callback(serviceID, w, r)
+		return
+	}
+
 	// Check for network access rules that might require a drop.
 	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
 	record.PolicyID = aclPolicy.PolicyID
@@ -417,7 +422,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retrieve the headers with the key and auth parameters.
+	// Retrieve the headers with the key and auth parameters. If the parameters do not
+	// exist, we will end up with empty values, but processing can continue. The authorizer
+	// will validate if they are needed or not.
 	token := r.Header.Get("X-APORETO-AUTH")
 	if token != "" {
 		r.Header.Del("X-APORETO-AUTH")
@@ -430,8 +437,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Calculate the user attributes. User attributes can be derived either from a
 	// token or from a certificate. The authorizer library will parse them.
 	userToken, userCerts := userCredentials(r)
-	userAttributes := authorizer.DecodeUserClaims(serviceID, userToken, userCerts)
-	if len(userAttributes) > 0 {
+	userAttributes, redirect, _ := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
+	if len(userAttributes) > 0 && !redirect {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		p.collector.CollectUserEvent(userRecord)
 		record.Source.UserID = userRecord.ID
@@ -468,14 +475,22 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// We can now validate the API authorization. This is the final step
 	// before forwarding.
 	allClaims := append(aporetoClaims, userAttributes...)
-	if !authorizer.Check(serviceID, r.Method, r.URL.Path, allClaims) {
-		http.Error(w, fmt.Sprintf("Unauthorized Access to %s", r.URL), http.StatusUnauthorized)
-		record.DropReason = collector.PolicyDrop
-		zap.L().Warn("No match found in API token",
-			zap.Strings("User Attributes", userAttributes),
-			zap.Strings("Aporeto Claims", aporetoClaims),
-		)
-		return
+	accept, public := authorizer.Check(serviceID, r.Method, r.URL.Path, allClaims)
+	if !accept {
+		if !public {
+			if redirect && len(aporetoClaims) == 0 && !strings.Contains(r.RequestURI, "favicon") {
+				w.Header().Add("Location", authorizer.RedirectURI(serviceID, r.URL.String()))
+				http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
+				return
+			}
+			http.Error(w, fmt.Sprintf("Unauthorized Access to %s", r.URL), http.StatusUnauthorized)
+			record.DropReason = collector.PolicyDrop
+			zap.L().Warn("No match found in API token",
+				zap.Strings("User Attributes", userAttributes),
+				zap.Strings("Aporeto Claims", aporetoClaims),
+			)
+			return
+		}
 	}
 
 	// Create the target URI and forward the request.
@@ -605,13 +620,14 @@ func userCredentials(r *http.Request) (string, []*x509.Certificate) {
 
 	authorization := r.Header.Get("Authorization")
 	if len(authorization) < 7 {
+		cookie, err := r.Cookie("X-APORETO-AUTH")
+		if err == nil {
+			return cookie.Value, certs
+		}
 		return "", certs
 	}
 
 	authorization = strings.TrimPrefix(authorization, "Bearer ")
-	if len(authorization) == 0 {
-		return "", certs
-	}
 
 	return authorization, certs
 }
