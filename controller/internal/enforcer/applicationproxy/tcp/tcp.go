@@ -16,17 +16,17 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
 const (
@@ -315,7 +315,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 		DestIP:     downIP.String(),
 		DestPort:   uint16(downPort),
 		SourceIP:   downConn.LocalAddr().(*net.TCPAddr).IP.String(),
-		DestType:   collector.EndPointTypeExteranlIPAddress,
+		DestType:   collector.EndPointTypeExternalIP,
 		SourceType: collector.EnpointTypePU,
 	}
 
@@ -405,7 +405,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP.To4(), uint16(backendport))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		flowProperties.SourceType = collector.EndPointTypeExteranlIPAddress
+		flowProperties.SourceType = collector.EndPointTypeExternalIP
 		p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
 		return false, fmt.Errorf("Unauthorized")
 	}

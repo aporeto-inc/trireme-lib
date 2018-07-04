@@ -4,9 +4,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	dockermonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 	api "k8s.io/api/core/v1"
 	kubefields "k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"

@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aporeto-inc/netlink-go/nflog"
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/netlink-go/nflog"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/policy"
 
 	"go.uber.org/zap"
 )
@@ -125,10 +125,10 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	if puIsSource {
 		record.Source.Type = collector.EnpointTypePU
 		record.Source.ID = puID
-		record.Destination.Type = collector.EndPointTypeExteranlIPAddress
+		record.Destination.Type = collector.EndPointTypeExternalIP
 		record.Destination.ID = extSrvID
 	} else {
-		record.Source.Type = collector.EndPointTypeExteranlIPAddress
+		record.Source.Type = collector.EndPointTypeExternalIP
 		record.Source.ID = extSrvID
 		record.Destination.Type = collector.EnpointTypePU
 		record.Destination.ID = puID

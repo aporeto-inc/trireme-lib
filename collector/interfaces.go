@@ -3,7 +3,7 @@ package collector
 import (
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // Flow event description
@@ -28,6 +28,8 @@ const (
 	InvalidNonse = "nonse"
 	// PolicyDrop indicates that the flow is rejected because of the policy decision
 	PolicyDrop = "policy"
+	// APIPolicyDrop indicates that the request was dropped because of failed API validation.
+	APIPolicyDrop = "api"
 )
 
 // Container event description
@@ -76,8 +78,8 @@ type EventCollector interface {
 type EndPointType byte
 
 const (
-	// EndPointTypeExteranlIPAddress indicates that the endpoint is an external IP address
-	EndPointTypeExteranlIPAddress EndPointType = iota
+	// EndPointTypeExternalIP indicates that the endpoint is an external IP address
+	EndPointTypeExternalIP EndPointType = iota
 	// EnpointTypePU indicates that the endpoint is a PU.
 	EnpointTypePU
 	// EndpointTypeClaims indicates that the endpoint is of type claims.
@@ -87,7 +89,7 @@ const (
 func (e *EndPointType) String() string {
 
 	switch *e {
-	case EndPointTypeExteranlIPAddress:
+	case EndPointTypeExternalIP:
 		return "ext"
 	case EnpointTypePU:
 		return "pu"

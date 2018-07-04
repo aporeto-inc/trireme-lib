@@ -3,7 +3,7 @@ package common
 import (
 	"net"
 
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 // Service is a protocol/port service of interest - used to pass user requests

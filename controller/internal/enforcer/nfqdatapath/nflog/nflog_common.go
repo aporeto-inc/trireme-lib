@@ -3,7 +3,7 @@ package nflog
 import (
 	"context"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // NFLogger provides an interface for NFLog

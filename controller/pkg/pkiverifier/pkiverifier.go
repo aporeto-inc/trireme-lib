@@ -10,7 +10,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
 const (

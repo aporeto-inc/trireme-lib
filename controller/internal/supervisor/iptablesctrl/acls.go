@@ -8,10 +8,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cgnetcls"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 )
 
 const observeMark = "39"
@@ -115,17 +115,6 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"--mark", proxyMark,
 			"-m", "set",
 			"--match-set", srcSetName, "src,dst",
-			"-j", "REDIRECT",
-			"--to-port", proxyPort,
-		},
-		{
-			i.appProxyIPTableContext,
-			natProxyInputChain,
-			"-p", "tcp",
-			"-m", "mark", "!",
-			"--mark", proxyMark,
-			"-m", "set",
-			"--match-set", destSetName, "dst,dst",
 			"-j", "REDIRECT",
 			"--to-port", proxyPort,
 		},

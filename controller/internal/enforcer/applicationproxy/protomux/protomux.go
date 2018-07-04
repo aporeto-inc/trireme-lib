@@ -7,9 +7,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache"
 	"go.uber.org/zap"
 )
 

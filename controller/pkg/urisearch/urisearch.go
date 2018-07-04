@@ -3,7 +3,7 @@ package urisearch
 import (
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 type node struct {

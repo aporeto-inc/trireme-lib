@@ -3,10 +3,10 @@ package kubernetesmonitor
 import (
 	"testing"
 
-	"github.com/aporeto-inc/trireme-lib/monitor/config"
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	dockermonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
-	"github.com/aporeto-inc/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	dockermonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 	"k8s.io/client-go/kubernetes"
 	kubecache "k8s.io/client-go/tools/cache"
 )

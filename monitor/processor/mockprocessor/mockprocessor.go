@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	common "github.com/aporeto-inc/trireme-lib/common"
 	gomock "github.com/golang/mock/gomock"
+	common "go.aporeto.io/trireme-lib/common"
 )
 
 // MockProcessor is a mock of Processor interface

@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/acls"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/lookup"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/policy"
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/lookup"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/utils/cache"
 )
 
 type policies struct {
@@ -341,7 +341,7 @@ func (p *PUContext) searchRules(
 	if packetAction == nil {
 		packetAction = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 

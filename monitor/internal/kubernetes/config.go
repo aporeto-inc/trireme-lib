@@ -1,8 +1,8 @@
 package kubernetesmonitor
 
 import (
-	"github.com/aporeto-inc/trireme-lib/monitor/extractors"
-	dockerMonitor "github.com/aporeto-inc/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+	dockerMonitor "go.aporeto.io/trireme-lib/monitor/internal/docker"
 )
 
 // Config is the config for the Kubernetes monitor

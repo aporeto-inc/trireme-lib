@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/policy"
 	"go.uber.org/zap"
 	api "k8s.io/api/core/v1"
 )

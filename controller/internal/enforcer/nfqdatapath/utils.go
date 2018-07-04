@@ -1,11 +1,11 @@
 package nfqdatapath
 
 import (
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/connection"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packet"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/pucontext"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
+	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
@@ -38,10 +38,10 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		src.ID = context.ManagementID()
 		src.Type = collector.EnpointTypePU
 		dst.ID = report.ServiceID
-		dst.Type = collector.EndPointTypeExteranlIPAddress
+		dst.Type = collector.EndPointTypeExternalIP
 	} else {
 		src.ID = report.ServiceID
-		src.Type = collector.EndPointTypeExteranlIPAddress
+		src.Type = collector.EndPointTypeExternalIP
 		dst.ID = context.ManagementID()
 		dst.Type = collector.EnpointTypePU
 	}

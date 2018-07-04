@@ -1,0 +1,29 @@
+required = ["github.com/docker/distribution"]
+
+[[constraint]]
+  name = "github.com/bvandewalle/go-ipset"
+  revision = "0ee897a6d8bc6095299e9c03293ece091ef871de"
+
+[[constraint]]
+  name = "github.com/docker/docker"
+  version = "v17.05.0-ce-rc3"
+
+[[constraint]]
+  name = "github.com/docker/distribution"
+  revision = "b38e5838b7b2f2ad48e06ec4b500011976080621"
+
+[[constraint]]
+  name = "k8s.io/api"
+  version = "kubernetes-1.10.0"
+
+[[constraint]]
+  name = "k8s.io/apimachinery"
+  version = "kubernetes-1.10.0"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  version = "7.0.0"
+
+[prune]
+  go-tests = true
+  unused-packages = true

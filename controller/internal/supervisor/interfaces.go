@@ -3,7 +3,7 @@ package supervisor
 import (
 	"context"
 
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // A Supervisor is implementing the node control plane that captures the packets.

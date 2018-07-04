@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aporeto-inc/trireme-lib/utils/cache"
-	"github.com/aporeto-inc/trireme-lib/utils/portspec"
+	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 // PortCache is a generic cache of port pairs or exact ports. It can store

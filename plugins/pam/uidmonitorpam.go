@@ -18,8 +18,8 @@ import (
 	"log/syslog"
 	"os"
 
-	"github.com/aporeto-inc/trireme-lib/common"
-	"github.com/aporeto-inc/trireme-lib/monitor/remoteapi/client"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/remoteapi/client"
 )
 
 // nolint

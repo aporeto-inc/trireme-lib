@@ -12,19 +12,19 @@ import (
 
 	"github.com/mitchellh/hashstructure"
 
-	"github.com/aporeto-inc/trireme-lib/collector"
-	"github.com/aporeto-inc/trireme-lib/controller/constants"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/mock"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mock"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor"
-	"github.com/aporeto-inc/trireme-lib/controller/internal/supervisor/mock"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/fqconfig"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/packetprocessor"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mock"
-	"github.com/aporeto-inc/trireme-lib/controller/pkg/secrets"
-	"github.com/aporeto-inc/trireme-lib/policy"
+	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
+	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient"
+	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/smartystreets/goconvey/convey"
@@ -558,8 +558,8 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 			Convey("When I try to exit the enforcer with supervisor", func() {
 				server.statsClient = nil
 				c := &collector.DefaultCollector{}
-				secrets := secrets.NewPSKSecrets([]byte("test password"))
-				e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.RemoteContainer, "/proc")
+				scrts := secrets.NewPSKSecrets([]byte("test password"))
+				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
 				server.enforcer = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
@@ -952,8 +952,8 @@ func TestUnSupervise(t *testing.T) {
 				rpcwrperreq.HashAuth = digest.Sum(nil)
 
 				c := &collector.DefaultCollector{}
-				secrets := secrets.NewPSKSecrets([]byte("test password"))
-				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, secrets, constants.RemoteContainer, "/proc")
+				scrts := secrets.NewPSKSecrets([]byte("test password"))
+				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
 
