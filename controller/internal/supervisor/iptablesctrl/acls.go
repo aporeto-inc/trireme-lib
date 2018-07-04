@@ -270,14 +270,6 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
 
-	// // drop these
-	// rules = append(rules, []string{
-	// 	i.appPacketIPTableContext, appChain,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "src",
-	// 	"-p", "udp", "--dport", "53",
-	// 	"-j", "DROP",
-	// })
-
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
@@ -299,14 +291,6 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-p", "tcp", "--tcp-flags", "SYN,ACK", "ACK",
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
-
-	// // // UDP Network packets.
-	// rules = append(rules, []string{
-	// 	i.netPacketIPTableContext, netChain,
-	// 	"-m", "set", "--match-set", targetNetworkSet, "src",
-	// 	"-p", "udp", "--sport", "53",
-	// 	"-j", "ACCEPT",
-	// })
 
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
@@ -391,21 +375,237 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, networks []st
 
 }
 
-// addAppACLs adds a set of rules to the external services that are initiated
-// by an application. The allow rules are inserted with highest priority.
-func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy.IPRuleList) error {
+func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleList) error {
 
-	// if err := i.addTCPAppACLS(contextID, appChain, rules); err != nil {
-	// 	return fmt.Errorf("Unable to add tcp net acls: %s", err)
-	// }
+	for loop := 0; loop < 3; loop++ {
 
-	// if err := i.addUDPAppACLS(contextID, appChain, netChain, rules); err != nil {
-	// 	return fmt.Errorf("Unable to add udp net acls: %s", err)
-	// }
+		for _, rule := range rules {
 
-	// if err := i.addOtherAppACLS(contextID, appChain, rules); err != nil {
-	// 	return fmt.Errorf("Unable to add other net acls: %s", err)
-	// }
+			observeContinue := rule.Policy.ObserveAction.ObserveContinue()
+			switch loop {
+			case 0:
+				if !observeContinue {
+					continue
+				}
+			case 1:
+				if rule.Policy.ObserveAction.Observed() {
+					continue
+				}
+			case 2:
+				if !rule.Policy.ObserveAction.ObserveApply() {
+					continue
+				}
+			}
+
+			proto := strings.ToLower(rule.Protocol)
+
+			if proto == "tcp" {
+
+				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
+				case policy.Accept:
+
+					if rule.Policy.Action&policy.Log > 0 || observeContinue {
+						if err := i.ipt.Append(
+							i.appPacketIPTableContext,
+							chain,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"--dport", rule.Port,
+							"-m", "mark", "!", "--mark", observeMark,
+							"-m", "state", "--state", "NEW",
+							"-j", "NFLOG", "--nflog-group", "10",
+							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+						); err != nil {
+							return fmt.Errorf("unable to add acl log rule for table %s, appChain %s: %s", i.appPacketIPTableContext, chain, err)
+						}
+					}
+
+					if observeContinue {
+						if err := i.ipt.Append(
+							i.appPacketIPTableContext, chain,
+							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+							"-d", rule.Address,
+							"--dport", rule.Port,
+							"-m", "mark", "!", "--mark", observeMark,
+							"-j", "MARK", "--set-mark", observeMark,
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
+						}
+					} else {
+						if err := i.ipt.Append(
+							i.appPacketIPTableContext, chain,
+							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+							"-d", rule.Address,
+							"--dport", rule.Port,
+							"-j", "ACCEPT",
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
+						}
+					}
+
+				case policy.Reject:
+					if observeContinue {
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext, chain, 1,
+							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+							"-d", rule.Address,
+							"--dport", rule.Port,
+							"-m", "mark", "!", "--mark", observeMark,
+							"-j", "MARK", "--set-mark", observeMark,
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
+						}
+					} else {
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext, chain, 1,
+							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+							"-d", rule.Address,
+							"--dport", rule.Port,
+							"-j", "DROP",
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
+						}
+					}
+
+					if rule.Policy.Action&policy.Log > 0 || observeContinue {
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext,
+							chain,
+							1,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"--dport", rule.Port,
+							"-m", "mark", "!", "--mark", observeMark,
+							"-m", "state", "--state", "NEW",
+							"-j", "NFLOG", "--nflog-group", "10",
+							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+						); err != nil {
+							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
+						}
+					}
+
+				default:
+					continue
+				}
+
+			}
+		}
+	}
+
+	return nil
+}
+
+func (i *Instance) addOtherAppACLs(contextID, appChain string, rules policy.IPRuleList) error {
+
+	for loop := 0; loop < 3; loop++ {
+
+		for _, rule := range rules {
+
+			observeContinue := rule.Policy.ObserveAction.ObserveContinue()
+			switch loop {
+			case 0:
+				if !observeContinue {
+					continue
+				}
+			case 1:
+				if rule.Policy.ObserveAction.Observed() {
+					continue
+				}
+			case 2:
+				if !rule.Policy.ObserveAction.ObserveApply() {
+					continue
+				}
+			}
+
+			proto := strings.ToLower(rule.Protocol)
+			if proto != "udp" && proto != "tcp" {
+
+				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
+				case policy.Accept:
+
+					if rule.Policy.Action&policy.Log > 0 || observeContinue {
+						if err := i.ipt.Append(
+							i.appPacketIPTableContext,
+							appChain,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"-m", "state", "--state", "NEW",
+							"-m", "mark", "!", "--mark", observeMark,
+							"-j", "NFLOG", "--nflog-group", "10",
+							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+						); err != nil {
+							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+						}
+					}
+
+					if observeContinue {
+						if err := i.ipt.Append(
+							i.appPacketIPTableContext, appChain,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"-m", "mark", "!", "--mark", observeMark,
+							"-j", "MARK", "--set-mark", observeMark,
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+						}
+					} else {
+						if err := i.ipt.Append(
+							i.appPacketIPTableContext, appChain,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"-j", "ACCEPT",
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+						}
+					}
+
+				case policy.Reject:
+					if observeContinue {
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext, appChain, 1,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"-m", "mark", "!", "--mark", observeMark,
+							"-j", "MARK", "--set-mark", observeMark,
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+						}
+					} else {
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext, appChain, 1,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"-j", "DROP",
+						); err != nil {
+							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+						}
+					}
+
+					if rule.Policy.Action&policy.Log > 0 || observeContinue {
+						if err := i.ipt.Insert(
+							i.appPacketIPTableContext,
+							appChain,
+							1,
+							"-p", rule.Protocol,
+							"-d", rule.Address,
+							"-m", "state", "--state", "NEW",
+							"-m", "mark", "!", "--mark", observeMark,
+							"-j", "NFLOG", "--nflog-group", "10",
+							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
+						); err != nil {
+							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+						}
+					}
+				default:
+					continue
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
 	for loop := 0; loop < 3; loop++ {
 
@@ -529,110 +729,36 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy
 					continue
 				}
 
-			} else if proto != "tcp" { /* protos other than tcp/udp */
-
-				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
-				case policy.Accept:
-
-					if rule.Policy.Action&policy.Log > 0 || observeContinue {
-						if err := i.ipt.Append(
-							i.appPacketIPTableContext,
-							appChain,
-							"-p", rule.Protocol,
-							"-d", rule.Address,
-							"-m", "state", "--state", "NEW",
-							"-m", "mark", "!", "--mark", observeMark,
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
-						); err != nil {
-							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					}
-
-					if observeContinue {
-						if err := i.ipt.Append(
-							i.appPacketIPTableContext, appChain,
-							"-p", rule.Protocol,
-							"-d", rule.Address,
-							"-m", "mark", "!", "--mark", observeMark,
-							"-j", "MARK", "--set-mark", observeMark,
-						); err != nil {
-							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					} else {
-						if err := i.ipt.Append(
-							i.appPacketIPTableContext, appChain,
-							"-p", rule.Protocol,
-							"-d", rule.Address,
-							"-j", "ACCEPT",
-						); err != nil {
-							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					}
-
-				case policy.Reject:
-					if observeContinue {
-						if err := i.ipt.Insert(
-							i.appPacketIPTableContext, appChain, 1,
-							"-p", rule.Protocol,
-							"-d", rule.Address,
-							"-m", "mark", "!", "--mark", observeMark,
-							"-j", "MARK", "--set-mark", observeMark,
-						); err != nil {
-							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					} else {
-						if err := i.ipt.Insert(
-							i.appPacketIPTableContext, appChain, 1,
-							"-p", rule.Protocol,
-							"-d", rule.Address,
-							"-j", "DROP",
-						); err != nil {
-							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					}
-
-					if rule.Policy.Action&policy.Log > 0 || observeContinue {
-						if err := i.ipt.Insert(
-							i.appPacketIPTableContext,
-							appChain,
-							1,
-							"-p", rule.Protocol,
-							"-d", rule.Address,
-							"-m", "state", "--state", "NEW",
-							"-m", "mark", "!", "--mark", observeMark,
-							"-j", "NFLOG", "--nflog-group", "10",
-							"--nflog-prefix", rule.Policy.LogPrefix(contextID),
-						); err != nil {
-							return fmt.Errorf("unable to add acl log rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
-						}
-					}
-				default:
-					continue
-				}
 			}
 		}
 	}
+	return nil
+}
 
-	// Below two rules are not required.
-	// // Accept established connections
-	// if err := i.ipt.Append(
-	// 	i.appPacketIPTableContext, chain,
-	// 	"-d", "0.0.0.0/0",
-	// 	"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
-	// 	"-j", "ACCEPT"); err != nil {
+// addAppACLs adds a set of rules to the external services that are initiated
+// by an application. The allow rules are inserted with highest priority.
+func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	// 	return fmt.Errorf("unable to add default udp acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
-	// }
+	if err := i.addTCPAppACLS(contextID, appChain, rules); err != nil {
+		return fmt.Errorf("Unable to add tcp app acls: %s", err)
+	}
 
-	// if err := i.ipt.Append(
-	// 	i.appPacketIPTableContext, chain,
-	// 	"-d", "0.0.0.0/0",
-	// 	"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
-	// 	"-j", "ACCEPT"); err != nil {
+	if err := i.addUDPAppACLS(contextID, appChain, netChain, rules); err != nil {
+		return fmt.Errorf("Unable to add udp app acls: %s", err)
+	}
 
-	// 	return fmt.Errorf("unable to add default tcp acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
-	// }
+	if err := i.addOtherAppACLs(contextID, appChain, rules); err != nil {
+		return fmt.Errorf("Unable to add other app acls: %s", err)
+	}
+
+	if err := i.ipt.Append(
+		i.appPacketIPTableContext, appChain,
+		"-d", "0.0.0.0/0",
+		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT"); err != nil {
+
+		return fmt.Errorf("unable to add default tcp acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
+	}
 
 	// Log everything else
 	if err := i.ipt.Append(
@@ -1191,16 +1317,6 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
 	}
-
-	// err = i.ipt.Insert(
-	// 	i.appPacketIPTableContext,
-	// 	appChain, 1,
-	// 	"-p", "udp", "--dport", "53",
-	// 	"-j", "DROP")
-
-	// if err != nil {
-	// 	return fmt.Errorf("unable to add dns drop at app: %s", err)
-	// }
 
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
