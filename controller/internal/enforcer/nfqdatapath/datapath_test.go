@@ -15,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
@@ -40,11 +41,11 @@ func TestInvalidContext(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 
@@ -80,11 +81,11 @@ func TestInvalidIPContext(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 
@@ -191,11 +192,11 @@ func TestInvalidTokenContext(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 
@@ -298,11 +299,11 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		if collectors != nil {
 			// mock the call
-			prevRawSocket := getUDPRawSocket
+			prevRawSocket := GetUDPRawSocket
 			defer func() {
-				getUDPRawSocket = prevRawSocket
+				GetUDPRawSocket = prevRawSocket
 			}()
-			getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 				return nil, nil
 			}
 			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
@@ -311,11 +312,11 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		} else {
 			collector := &collector.DefaultCollector{}
 			// mock the call
-			prevRawSocket := getUDPRawSocket
+			prevRawSocket := GetUDPRawSocket
 			defer func() {
-				getUDPRawSocket = prevRawSocket
+				GetUDPRawSocket = prevRawSocket
 			}()
-			getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 				return nil, nil
 			}
 
@@ -400,11 +401,11 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 	if collectors != nil {
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 		enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
@@ -415,11 +416,11 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 	} else {
 
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 		collector := &collector.DefaultCollector{}
@@ -1283,11 +1284,11 @@ func TestCacheState(t *testing.T) {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
@@ -1339,11 +1340,11 @@ func TestDoCreatePU(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 
@@ -1383,11 +1384,11 @@ func TestDoCreatePU(t *testing.T) {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 
@@ -1413,11 +1414,11 @@ func TestDoCreatePU(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 
@@ -1445,11 +1446,11 @@ func TestContextFromIP(t *testing.T) {
 		collector := &collector.DefaultCollector{}
 
 		// mock the call
-		prevRawSocket := getUDPRawSocket
+		prevRawSocket := GetUDPRawSocket
 		defer func() {
-			getUDPRawSocket = prevRawSocket
+			GetUDPRawSocket = prevRawSocket
 		}()
-		getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
 
@@ -4327,11 +4328,11 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 			collector := &collector.DefaultCollector{}
 			// mock the call
-			prevRawSocket := getUDPRawSocket
+			prevRawSocket := GetUDPRawSocket
 			defer func() {
-				getUDPRawSocket = prevRawSocket
+				GetUDPRawSocket = prevRawSocket
 			}()
-			getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 				return nil, nil
 			}
 			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc")
@@ -4687,11 +4688,11 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 						collector := &collector.DefaultCollector{}
 						// mock the call
-						prevRawSocket := getUDPRawSocket
+						prevRawSocket := GetUDPRawSocket
 						defer func() {
-							getUDPRawSocket = prevRawSocket
+							GetUDPRawSocket = prevRawSocket
 						}()
-						getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 							return nil, nil
 						}
 						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc")
@@ -4749,11 +4750,11 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						collector := &collector.DefaultCollector{}
 
 						// mock the call
-						prevRawSocket := getUDPRawSocket
+						prevRawSocket := GetUDPRawSocket
 						defer func() {
-							getUDPRawSocket = prevRawSocket
+							GetUDPRawSocket = prevRawSocket
 						}()
-						getUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 							return nil, nil
 						}
 						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc")

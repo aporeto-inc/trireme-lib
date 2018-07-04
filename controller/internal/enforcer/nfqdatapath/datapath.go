@@ -32,7 +32,8 @@ import (
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
 
-var getUDPRawSocket = afinetrawsocket.CreateSocket
+// GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
+var GetUDPRawSocket = afinetrawsocket.CreateSocket
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
@@ -159,7 +160,7 @@ func New(
 		portSetInstance = portset.New(contextIDFromTCPPort)
 	}
 
-	udpSocketWriter, err := getUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
+	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
 	if err != nil {
 		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}

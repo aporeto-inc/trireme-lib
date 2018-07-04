@@ -395,6 +395,18 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, networks []st
 // by an application. The allow rules are inserted with highest priority.
 func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
+	// if err := i.addTCPAppACLS(contextID, appChain, rules); err != nil {
+	// 	return fmt.Errorf("Unable to add tcp net acls: %s", err)
+	// }
+
+	// if err := i.addUDPAppACLS(contextID, appChain, netChain, rules); err != nil {
+	// 	return fmt.Errorf("Unable to add udp net acls: %s", err)
+	// }
+
+	// if err := i.addOtherAppACLS(contextID, appChain, rules); err != nil {
+	// 	return fmt.Errorf("Unable to add other net acls: %s", err)
+	// }
+
 	for loop := 0; loop < 3; loop++ {
 
 		for _, rule := range rules {
