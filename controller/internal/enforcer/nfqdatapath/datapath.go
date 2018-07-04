@@ -32,6 +32,8 @@ import (
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
 
+var getUDPRawSocket = afinetrawsocket.CreateSocket
+
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
 
@@ -157,7 +159,7 @@ func New(
 		portSetInstance = portset.New(contextIDFromTCPPort)
 	}
 
-	udpSocketWriter, err := afinetrawsocket.CreateSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
+	udpSocketWriter, err := getUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
 	if err != nil {
 		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
