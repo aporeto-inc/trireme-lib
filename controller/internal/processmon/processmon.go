@@ -31,7 +31,7 @@ const (
 	// netNSPath holds the directory to ensure ip netns command works
 	netNSPath                   = "/var/run/netns/"
 	processMonitorCacheName     = "ProcessMonitorCache"
-	remoteEnforcerBuildName     = "enforcerd"
+	remoteEnforcerBuildName     = "remoteenforcerd"
 	remoteEnforcerTempBuildPath = "/var/run/aporeto/tmp/bin/"
 	secretLength                = 32
 )
