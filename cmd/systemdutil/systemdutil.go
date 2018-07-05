@@ -359,7 +359,7 @@ func ParseServices(ports []string) ([]common.Service, error) {
 			}
 		}
 
-		s, err := portspec.NewPortSpecFromString(p, nil)
+		s, err := portspec.NewPortSpecFromString(portProtocolPair[0], nil)
 		if err != nil {
 			return nil, fmt.Errorf("Invalid port spec: %s ", err)
 		}
