@@ -62,10 +62,10 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		src.ID = context.ManagementID()
 		src.Type = collector.EnpointTypePU
 		dst.ID = report.ServiceID
-		dst.Type = collector.EndPointTypeExteranlIPAddress
+		dst.Type = collector.EndPointTypeExternalIP
 	} else {
 		src.ID = report.ServiceID
-		src.Type = collector.EndPointTypeExteranlIPAddress
+		src.Type = collector.EndPointTypeExternalIP
 		dst.ID = context.ManagementID()
 		dst.Type = collector.EnpointTypePU
 	}
