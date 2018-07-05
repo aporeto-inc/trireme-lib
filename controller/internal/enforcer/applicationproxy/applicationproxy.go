@@ -11,7 +11,6 @@ import (
 
 	"go.aporeto.io/trireme-lib/utils/portspec"
 
-	"github.com/aporeto-inc/bireme/pkg/auth"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
@@ -20,12 +19,14 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/tcp"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	cryptohelpers "go.aporeto.io/trireme-lib/utils/crypto"
+
 	"go.uber.org/zap"
 )
 
@@ -108,7 +109,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	defer p.Unlock()
 
 	// First update the caches with the new policy information.
-	authProcessor := auth.NewProcessor(p.secrets, p.systemCAPool)
+	authProcessor := auth.NewProcessor(p.secrets, nil)
 	serviceMap, portCache := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
 	dependentCache, caPool := buildDependentCaches(puInfo.Policy.DependentServices())
 	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
@@ -316,7 +317,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.tokenaccessor, p.collector, puID, p.puFromID, p.systemCAPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets)
+		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, p.systemCAPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)

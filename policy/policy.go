@@ -3,7 +3,7 @@ package policy
 import (
 	"sync"
 
-	"github.com/aporeto-inc/bireme/pkg/generictokens"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 )
 
 // PUPolicy captures all policy information related ot the container
@@ -424,7 +424,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
 	exposedServices := ApplicationServicesList{}
 	for _, e := range p.ExposedServices {
 		if convert {
-			e.JWTTokenHandler = generictokens.NewVerifier(e.JWTTokenHandler)
+			e.JWTTokenHandler = usertokens.NewVerifier(e.JWTTokenHandler)
 		}
 		exposedServices = append(exposedServices, e)
 	}

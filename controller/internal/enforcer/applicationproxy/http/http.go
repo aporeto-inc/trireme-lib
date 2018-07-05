@@ -2,7 +2,6 @@ package httpproxy
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -13,19 +12,23 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aporeto-inc/bireme/pkg/auth"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/vulcand/oxy/forward"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
+)
+
+const (
+	defaultValidity = 60 * time.Second
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -43,7 +46,7 @@ type Config struct {
 	keyPEM             string
 	certPEM            string
 	secrets            secrets.Secrets
-	tokenaccessor      tokenaccessor.TokenAccessor
+	verifier           *servicetokens.Verifier
 	collector          collector.EventCollector
 	puContext          string
 	puFromIDCache      cache.DataStore
@@ -61,7 +64,6 @@ type Config struct {
 
 // NewHTTPProxy creates a new instance of proxy reate a new instance of Proxy
 func NewHTTPProxy(
-	tp tokenaccessor.TokenAccessor,
 	c collector.EventCollector,
 	puContext string,
 	puFromIDCache cache.DataStore,
@@ -76,7 +78,6 @@ func NewHTTPProxy(
 
 	return &Config{
 		collector:          c,
-		tokenaccessor:      tp,
 		puFromIDCache:      puFromIDCache,
 		puContext:          puContext,
 		ca:                 caPool,
@@ -86,6 +87,7 @@ func NewHTTPProxy(
 		applicationProxy:   applicationProxy,
 		mark:               mark,
 		secrets:            secrets,
+		verifier:           servicetokens.NewVerifier(secrets, nil),
 	}
 }
 
@@ -342,8 +344,14 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		p.collector.CollectFlowEvent(record)
 	}
 
-	// Generate the client identity
-	token, err := p.createClientToken(puContext)
+	token, err := servicetokens.CreateAndSign(
+		p.server.Addr,
+		puContext.Identity().Tags,
+		puContext.Scopes(),
+		puContext.ManagementID(),
+		defaultValidity,
+		p.secrets.EncodingKey(),
+	)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Cannot handle request - cannot create token"), http.StatusForbidden)
 		return
@@ -437,8 +445,8 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Calculate the user attributes. User attributes can be derived either from a
 	// token or from a certificate. The authorizer library will parse them.
 	userToken, userCerts := userCredentials(r)
-	userAttributes, redirect, _ := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
-	if len(userAttributes) > 0 && !redirect {
+	userAttributes, redirect, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
+	if err == nil && len(userAttributes) > 0 && !redirect {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		p.collector.CollectUserEvent(userRecord)
 		record.Source.UserID = userRecord.ID
@@ -478,14 +486,15 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	accept, public := authorizer.Check(serviceID, r.Method, r.URL.Path, allClaims)
 	if !accept {
 		if !public {
-			if redirect && len(aporetoClaims) == 0 && !strings.Contains(r.RequestURI, "favicon") {
+			if redirect && len(aporetoClaims) == 0 {
 				w.Header().Add("Location", authorizer.RedirectURI(serviceID, r.URL.String()))
 				http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
 				return
 			}
 			http.Error(w, fmt.Sprintf("Unauthorized Access to %s", r.URL), http.StatusUnauthorized)
 			record.DropReason = collector.PolicyDrop
-			zap.L().Warn("No match found in API token",
+			zap.L().Warn("No match found for the request or authorization Error",
+				zap.String("Request", r.Method+" "+r.RequestURI),
 				zap.Strings("User Attributes", userAttributes),
 				zap.Strings("Aporeto Claims", aporetoClaims),
 			)
@@ -508,40 +517,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	p.fwd.ServeHTTP(w, r)
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-}
-
-func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, error) {
-
-	claims := &JWTClaims{
-		StandardClaims: jwt.StandardClaims{
-			Issuer:    p.server.Addr,
-			ExpiresAt: time.Now().Add(10 * time.Second).Unix(),
-		},
-		Profile:  puContext.Identity().Tags,
-		Scopes:   puContext.Scopes(),
-		SourceID: puContext.ManagementID(),
-	}
-	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(p.secrets.EncodingKey())
-}
-
-func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, error) {
-	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
-	if err != nil {
-		return &JWTClaims{}, fmt.Errorf("Invalid Service Token")
-	}
-
-	claims := &JWTClaims{}
-	_, err = jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		ekey, ok := key.(*ecdsa.PublicKey)
-		if !ok {
-			return nil, fmt.Errorf("Invalid key")
-		}
-		return ekey, nil
-	})
-	if err != nil {
-		return claims, fmt.Errorf("Error parsing token: %s", err)
-	}
-	return claims, nil
 }
 
 func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAttributes []string) error {

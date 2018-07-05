@@ -8,9 +8,8 @@ import (
 	"encoding/gob"
 	"fmt"
 
-	"github.com/aporeto-inc/bireme/pkg/generictokens/oidc"
-	"github.com/aporeto-inc/bireme/pkg/generictokens/okta"
-	"github.com/aporeto-inc/bireme/pkg/generictokens/pkitokens"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
 
 	"go.uber.org/zap"
 
@@ -257,7 +256,6 @@ func RegisterTypes() {
 	gob.Register(&secrets.PKIPublicSecrets{})
 	gob.Register(&secrets.PSKPublicSecrets{})
 	gob.Register(&pkitokens.PKIJWTVerifier{})
-	gob.Register(&okta.Verifier{})
 	gob.Register(&oidc.TokenVerifier{})
 	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Request_Payload", *(&InitRequestPayload{}))
 	gob.RegisterName("go.aporeto.io/internal/enforcer/utils/rpcwrapper.Init_Response_Payload", *(&InitResponsePayload{}))
