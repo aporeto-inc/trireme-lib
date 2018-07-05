@@ -15,7 +15,11 @@ import (
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 )
 
-const observeMark = "39"
+const (
+	observeMark = "39"
+	tcpProto    = "tcp"
+	udpProto    = "udp"
+)
 
 func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string) [][]string {
 
@@ -507,7 +511,7 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules policy.IPRu
 			}
 
 			proto := strings.ToLower(rule.Protocol)
-			if proto != "udp" && proto != "tcp" {
+			if proto != udpProto && proto != tcpProto {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
@@ -619,7 +623,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 			proto := strings.ToLower(rule.Protocol)
 
 			// tcp external services are auto discovered. No need for explicit rules.
-			if proto == "udp" /*|| proto == "tcp"*/ {
+			if proto == udpProto {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
@@ -798,7 +802,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 
 			proto := strings.ToLower(rule.Protocol)
 
-			if proto == "tcp" {
+			if proto == tcpProto {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
@@ -927,7 +931,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 
 			proto := strings.ToLower(rule.Protocol)
 
-			if proto == "udp" {
+			if proto == udpProto {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
@@ -1030,15 +1034,6 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 		}
 	}
 
-	// if err := i.ipt.Append(
-	// 	i.netPacketIPTableContext, netChain,
-	// 	"-s", "0.0.0.0/0",
-	// 	"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
-	// 	"-j", "ACCEPT",
-	// ); err != nil {
-	// 	return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
-	// }
-
 	return nil
 }
 
@@ -1066,7 +1061,7 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules policy.IPRu
 
 			proto := strings.ToLower(rule.Protocol)
 
-			if proto != "udp" && proto != "tcp" {
+			if proto != udpProto && proto != tcpProto {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:

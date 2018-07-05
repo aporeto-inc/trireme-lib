@@ -571,10 +571,10 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 	// If all policies are restricted by port numbers this will allow port-specific policies
 	claims.T.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(udpPacket.DestinationPort)))
 
-	report, packet := context.SearchRcvRules(claims.T)
-	if packet.Action.Rejected() {
+	report, pkt := context.SearchRcvRules(claims.T)
+	if pkt.Action.Rejected() {
 		// txLabel
-		d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, packet)
+		d.reportUDPRejectedFlow(udpPacket, conn, txLabel, context.ManagementID(), context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("connection rejected because of policy: %s", claims.T.String())
 	}
 
@@ -587,7 +587,7 @@ func (d *Datapath) processNetworkUDPSynPacket(context *pucontext.PUContext, conn
 
 	// Record actions
 	conn.ReportFlowPolicy = report
-	conn.PacketFlowPolicy = packet
+	conn.PacketFlowPolicy = pkt
 
 	return packet, claims, nil
 }
@@ -607,9 +607,9 @@ func (d *Datapath) processNetworkUDPSynAckPacket(udpPacket *packet.Packet, conte
 		return nil, nil, errors.New("SynAck packet dropped because of no claims")
 	}
 
-	report, packet := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
-	if packet.Action.Rejected() {
-		d.reportUDPRejectedFlow(udpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, packet)
+	report, pkt := context.SearchTxtRules(claims.T, !d.mutualAuthorization)
+	if pkt.Action.Rejected() {
+		d.reportUDPRejectedFlow(udpPacket, conn, context.ManagementID(), conn.Auth.RemoteContextID, context, collector.PolicyDrop, report, pkt)
 		return nil, nil, fmt.Errorf("dropping because of reject rule on transmitter: %s", claims.T.String())
 	}
 

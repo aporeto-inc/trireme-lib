@@ -24,18 +24,6 @@ import (
 // processNetworkPackets processes packets arriving from network and are destined to the application
 func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
-	if p.DestinationPort == 22 {
-		zap.L().Info("Varks:Processing network packet ",
-			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-		)
-
-		defer zap.L().Info("Varks:Finished Processing network packet ",
-			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-			zap.Error(err))
-	}
-
 	if d.packetLogs {
 		zap.L().Debug("Processing network packet ",
 			zap.String("flow", p.L4FlowHash()),
@@ -151,21 +139,6 @@ func (d *Datapath) processNetworkTCPPackets(p *packet.Packet) (err error) {
 
 // processApplicationPackets processes packets arriving from an application and are destined to the network
 func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
-
-	// Debug: remove later on
-	if p.SourcePort == 22 {
-
-		zap.L().Info("Varks:Processing application packet ",
-			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-		)
-
-		defer zap.L().Info("Varks:Finished Processing application packet ",
-			zap.String("flow", p.L4FlowHash()),
-			zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
-			zap.Error(err),
-		)
-	}
 
 	if d.packetLogs {
 		zap.L().Debug("Processing application packet ",
