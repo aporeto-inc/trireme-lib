@@ -111,15 +111,17 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// First update the caches with the new policy information.
 	authProcessor := auth.NewProcessor(p.secrets, nil)
 	serviceMap, portCache := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
-	dependentCache, caPool := buildDependentCaches(puInfo.Policy.DependentServices())
+	dependentCache, caPoolPEM := buildDependentCaches(puInfo.Policy.DependentServices())
 	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
 	p.serviceMap.AddOrUpdate(puID, serviceMap)
 
+	caPool := p.expandCAPool(caPoolPEM)
+
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
-		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPool)
+		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPoolPEM)
 		if perr != nil {
 			return perr
 		}
@@ -139,25 +141,25 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	client.protomux = protomux.NewMultiplexedListener(l, proxyMarkInt)
 
 	// Listen to HTTP requests from the clients
-	client.netserver[protomux.HTTPApplication], err = p.registerAndRun(ctx, puID, protomux.HTTPApplication, client.protomux, true)
+	client.netserver[protomux.HTTPApplication], err = p.registerAndRun(ctx, puID, protomux.HTTPApplication, client.protomux, caPool, true)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPApplication, err)
 	}
 
 	// Listen to HTTPS requests only on the network side.
-	client.netserver[protomux.HTTPSNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPSNetwork, client.protomux, false)
+	client.netserver[protomux.HTTPSNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPSNetwork, client.protomux, caPool, false)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPSNetwork, err)
 	}
 
 	// TCP Requests for clients
-	client.netserver[protomux.TCPApplication], err = p.registerAndRun(ctx, puID, protomux.TCPApplication, client.protomux, true)
+	client.netserver[protomux.TCPApplication], err = p.registerAndRun(ctx, puID, protomux.TCPApplication, client.protomux, caPool, true)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPApplication, err)
 	}
 
 	// TCP Requests from the network side
-	client.netserver[protomux.TCPNetwork], err = p.registerAndRun(ctx, puID, protomux.TCPNetwork, client.protomux, false)
+	client.netserver[protomux.TCPNetwork], err = p.registerAndRun(ctx, puID, protomux.TCPNetwork, client.protomux, caPool, false)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
@@ -167,7 +169,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 		return fmt.Errorf("Unable to register services: %s ", err)
 	}
 
-	if _, err := p.processCertificateUpdates(puInfo, client, caPool); err != nil {
+	if _, err := p.processCertificateUpdates(puInfo, client, caPoolPEM); err != nil {
 		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
 
@@ -298,7 +300,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 }
 
 // registerAndRun registers a new listener of the given type and runs the corresponding server
-func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protomux.ListenerType, mux *protomux.MultiplexedListener, appproxy bool) (ServerInterface, error) {
+func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protomux.ListenerType, mux *protomux.MultiplexedListener, caPool *x509.CertPool, appproxy bool) (ServerInterface, error) {
 	var listener net.Listener
 	var err error
 
@@ -317,10 +319,10 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, p.systemCAPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets)
+		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, caPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
-		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, p.systemCAPool)
+		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, caPool)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }
@@ -474,4 +476,21 @@ func serviceFromProxySet(pair string) (*common.Service, error) {
 		Protocol:  6,
 		Addresses: []*net.IPNet{ip},
 	}, nil
+}
+
+func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
+	systemPool, err := x509.SystemCertPool()
+	if err != nil {
+		return p.systemCAPool
+	}
+	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
+	if p.secrets.PublicSecrets().SecretsType() != secrets.PSKType {
+		if ok := systemPool.AppendCertsFromPEM(p.secrets.PublicSecrets().CertAuthority()); !ok {
+			return p.systemCAPool
+		}
+	}
+	for _, ca := range externalCAs {
+		systemPool.AppendCertsFromPEM(ca)
+	}
+	return systemPool
 }
