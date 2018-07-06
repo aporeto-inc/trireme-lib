@@ -51,6 +51,9 @@ func NewVerifierFromPEM(jwtCertPEM []byte, redirectURI string, redirectOnFail, r
 
 // NewVerifier creates a new verifier from the provided configuration.
 func NewVerifier(v *PKIJWTVerifier) (*PKIJWTVerifier, error) {
+	if len(v.JWTCertPEM) == 0 {
+		return v, nil
+	}
 	jwtCertificate, err := tglib.ParseCertificate(v.JWTCertPEM)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to parse certificate: %s", err)
