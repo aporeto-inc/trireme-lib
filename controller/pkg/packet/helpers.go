@@ -302,16 +302,16 @@ func (p *Packet) UDPDataDetach() {
 }
 
 // CreateReverseFlowPacket modifies the packet for reverse flow.
-func (p *Packet) CreateReverseFlowPacket() {
+func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
 
-	srcAddr := binary.BigEndian.Uint32(p.Buffer[ipSourceAddrPos : ipSourceAddrPos+4])
+	srcAddr := binary.BigEndian.Uint32(destIP.To4())
 	destAddr := binary.BigEndian.Uint32(p.Buffer[ipDestAddrPos : ipDestAddrPos+4])
 
 	// copy the fields
 	binary.BigEndian.PutUint32(p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4], destAddr)
 	binary.BigEndian.PutUint32(p.Buffer[ipDestAddrPos:ipDestAddrPos+4], srcAddr)
 	binary.BigEndian.PutUint16(p.Buffer[tcpSourcePortPos:tcpSourcePortPos+2], p.DestinationPort)
-	binary.BigEndian.PutUint16(p.Buffer[tcpDestPortPos:tcpDestPortPos+2], p.SourcePort)
+	binary.BigEndian.PutUint16(p.Buffer[tcpDestPortPos:tcpDestPortPos+2], destPort)
 
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, UDPDataPos)
 

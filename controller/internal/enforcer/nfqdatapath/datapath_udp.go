@@ -4,7 +4,9 @@ package nfqdatapath
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -390,6 +392,7 @@ func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, cont
 	hash := udpPacket.L4FlowHash()
 	d.udpAppOrigConnectionTracker.AddOrUpdate(hash, conn)
 	d.udpSourcePortConnectionCache.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), conn)
+	d.udpNatConnectionTracker.AddOrUpdate(newPacket.SourcePortHash(packet.PacketTypeApplication), newPacket.SourcePortHash(packet.PacketTypeNetwork))
 	// Attach the tags to the packet and accept the packet
 
 	if d.service != nil {
@@ -457,7 +460,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 		return err
 	}
 
-	udpPacket.CreateReverseFlowPacket()
+	udpPacket.CreateReverseFlowPacket(udpPacket.SourceAddress, udpPacket.SourcePort)
 	// Set the state for future reference
 	conn.SetState(connection.UDPSynAckSent)
 
@@ -494,7 +497,19 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		return err
 	}
 
-	udpPacket.CreateReverseFlowPacket()
+	srcPortHash, err := d.udpNatConnectionTracker.GetReset(udpPacket.SourcePortHash(packet.PacketTypeNetwork), 0)
+	if err != nil {
+		return fmt.Errorf("error getting actual destination")
+	}
+
+	destIPPort := srcPortHash.(string)
+	destIP := strings.Split(destIPPort, ":")[0]
+	destPort, err := (strconv.Atoi(strings.Split(destIPPort, ":")[1]))
+	if err != nil {
+		return fmt.Errorf("Unable to get dest port from cache")
+	}
+
+	udpPacket.CreateReverseFlowPacket(net.ParseIP(destIP), uint16(destPort))
 
 	// Attach the UDP data and token
 	udpPacket.UDPTokenAttach(udpOptions, udpData)
@@ -511,10 +526,10 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
 
 		if err = d.conntrackHdl.ConntrackTableUpdateMark(
-			udpPacket.DestinationAddress.String(),
+			destIP,
 			udpPacket.SourceAddress.String(),
 			udpPacket.IPProto,
-			udpPacket.DestinationPort,
+			uint16(destPort),
 			udpPacket.SourcePort,
 			constants.DefaultConnMark,
 		); err != nil {
