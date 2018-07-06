@@ -31,7 +31,7 @@ func UIDMetadataExtractor(event *common.EventInfo) (*policy.PURuntime, error) {
 	options := &policy.OptionsType{
 		CgroupName: event.PUID,
 		CgroupMark: strconv.FormatUint(cgnetcls.MarkVal(), 10),
-		UserID:     event.PUID,
+		UserID:     strings.TrimLeft(event.PUID, "/"),
 		Services:   event.Services,
 	}
 
