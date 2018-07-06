@@ -114,7 +114,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	dependentCache, caPool := buildDependentCaches(puInfo.Policy.DependentServices())
 	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
-	p.serviceMap.Add(puID, serviceMap)
+	p.serviceMap.AddOrUpdate(puID, serviceMap)
 
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.

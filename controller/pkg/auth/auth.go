@@ -131,7 +131,7 @@ func (p *Processor) DecodeAporetoClaims(name, aporetoToken string, publicKey str
 
 // Callback is function called by and IDP auth provider will exchange the provided
 // authorization code with a JWT token. This closes the Oauth loop.
-func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request) (int, error) {
+func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request) {
 	p.RLock()
 	defer p.RUnlock()
 
@@ -139,13 +139,15 @@ func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request
 	// right OAUTH context.
 	srv, ok := p.serviceMap[name]
 	if !ok {
-		return http.StatusInternalServerError, fmt.Errorf("Unknown service")
+		http.Error(w, "Unknown service", http.StatusInternalServerError)
+		return
 	}
 
 	// Validate the JWT token through the handler.
 	token, originURL, status, err := srv.userJWThandler.Callback(r)
 	if err != nil {
-		return status, err
+		http.Error(w, fmt.Sprintf("Invalid code %s:", err), http.StatusInternalServerError)
+		return
 	}
 
 	cookie := &http.Cookie{
@@ -162,7 +164,8 @@ func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request
 	// that choose to use it directly without a cookie.
 	data, err := json.MarshalIndent(cookie, " ", " ")
 	if err != nil {
-		return http.StatusInternalServerError, err
+		http.Error(w, "Bad data", http.StatusInternalServerError)
+		return
 	}
 
 	// We redirect here to the original URL that the application attempted
@@ -170,7 +173,7 @@ func (p *Processor) Callback(name string, w http.ResponseWriter, r *http.Request
 	w.Header().Add("Location", originURL)
 	http.Error(w, string(data), status)
 
-	return http.StatusFound, err
+	return
 }
 
 // Check is the main method that will search API cache and validate whether the call should

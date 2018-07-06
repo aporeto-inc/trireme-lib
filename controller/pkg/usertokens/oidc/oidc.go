@@ -84,7 +84,9 @@ func (v *TokenVerifier) IssueRedirect(originURL string) string {
 	if err != nil {
 		state = xid.New().String()
 	}
-	v.state.Set(state, originURL)
+	if err := v.state.Set(state, originURL); err != nil {
+		return ""
+	}
 
 	return v.clientConfig.AuthCodeURL(state)
 }
@@ -156,7 +158,9 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 	}
 
 	// Cache the token and attributes to avoid multiple validations.
-	v.cache.Set(token, attributes)
+	if err := v.cache.Set(token, attributes); err != nil {
+		return []string{}, false, fmt.Errorf("Cannot cache token")
+	}
 
 	return attributes, false, nil
 }
