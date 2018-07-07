@@ -104,6 +104,9 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 	}
 
 	// Now we can parse the user claims.
+	if srv.userJWThandler == nil {
+		return attributes, false, nil
+	}
 	claims, redirect, err := srv.userJWThandler.Validate(r.Context(), userToken)
 	if err != nil {
 		if len(attributes) == 0 {
