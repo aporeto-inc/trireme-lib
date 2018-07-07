@@ -1,8 +1,6 @@
 package urisearch
 
 import (
-	"fmt"
-
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -176,13 +174,11 @@ func search(n *node, api string) (found bool, data interface{}) {
 	next, foundPrefix = n.children["/*"]
 	if foundPrefix {
 		for len(suffix) > 0 {
-			fmt.Println("Testing with suffix ", suffix)
 			matchedChildren, data := search(next, suffix)
 			if matchedChildren {
 				return true, data
 			}
 			prefix, suffix = parse(suffix)
-			fmt.Println("New suffix ", suffix)
 		}
 		matchedChildren, data := search(next, "/")
 		if matchedChildren {
