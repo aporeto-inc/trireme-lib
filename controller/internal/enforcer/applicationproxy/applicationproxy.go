@@ -481,15 +481,18 @@ func serviceFromProxySet(pair string) (*common.Service, error) {
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
 	systemPool, err := x509.SystemCertPool()
 	if err != nil {
+		fmt.Println("Failed to find the root CA pool")
 		return p.systemCAPool
 	}
 	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
 	if p.secrets.PublicSecrets().SecretsType() != secrets.PSKType {
 		if ok := systemPool.AppendCertsFromPEM(p.secrets.PublicSecrets().CertAuthority()); !ok {
+			fmt.Println("Failed to add the ca  pool for the standard service")
 			return p.systemCAPool
 		}
 	}
 	for _, ca := range externalCAs {
+		fmt.Println("Adding ca", string(ca))
 		systemPool.AppendCertsFromPEM(ca)
 	}
 	return systemPool
