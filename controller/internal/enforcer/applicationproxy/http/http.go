@@ -132,9 +132,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 				RootCAs:            p.ca,
 				InsecureSkipVerify: false,
 			})
-			for _, s := range p.ca.Subjects() {
-				fmt.Println("At connectiong added subject", string(s))
-			}
 			return tlsConn, nil
 		},
 	}
