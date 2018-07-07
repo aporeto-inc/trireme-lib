@@ -322,8 +322,6 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP.To4(), uint16(downPort))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		fmt.Println("I am dropping at the entry", downIP.To4().String(), networkPolicy.Action.ActionString(), networkPolicy.PolicyID, "report", networkReport.PolicyID)
-		fmt.Printf("Flowproperties %+v\n ", flowproperties)
 		p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
 		return false, fmt.Errorf("Unauthorized")
 	}

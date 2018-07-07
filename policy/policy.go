@@ -2,6 +2,8 @@ package policy
 
 import (
 	"sync"
+
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 )
 
 // PUPolicy captures all policy information related ot the container
@@ -417,7 +419,16 @@ type PUPolicyPublic struct {
 }
 
 // ToPrivatePolicy converts the object to a private object.
-func (p *PUPolicyPublic) ToPrivatePolicy() *PUPolicy {
+func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
+
+	exposedServices := ApplicationServicesList{}
+	for _, e := range p.ExposedServices {
+		if convert {
+			e.JWTTokenHandler = usertokens.NewVerifier(e.JWTTokenHandler)
+		}
+		exposedServices = append(exposedServices, e)
+	}
+
 	return &PUPolicy{
 		managementID:        p.ManagementID,
 		triremeAction:       p.TriremeAction,
@@ -431,7 +442,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy() *PUPolicy {
 		triremeNetworks:     p.TriremeNetworks,
 		excludedNetworks:    p.ExcludedNetworks,
 		proxiedServices:     p.ProxiedServices,
-		exposedServices:     p.ExposedServices,
+		exposedServices:     exposedServices,
 		dependentServices:   p.DependentServices,
 		scopes:              p.Scopes,
 		servicesCA:          p.ServicesCA,

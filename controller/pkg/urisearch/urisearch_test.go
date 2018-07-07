@@ -329,27 +329,27 @@ func TestFindAndMachScope(t *testing.T) {
 		c := NewAPICache(initTrieRules(), "id", false)
 
 		Convey("When I search for rules matching scopes, it should return true", func() {
-			found := c.FindAndMatchScope("GET", "/users/bob/name", []string{"policy1"})
+			found, _ := c.FindAndMatchScope("GET", "/users/bob/name", []string{"policy1"})
 			So(found, ShouldBeTrue)
 		})
 
 		Convey("When I search for an invalid URI, it should return false", func() {
-			found := c.FindAndMatchScope("GET", "/this/doesnot/exist", []string{"policy1"})
+			found, _ := c.FindAndMatchScope("GET", "/this/doesnot/exist", []string{"policy1"})
 			So(found, ShouldBeFalse)
 		})
 
 		Convey("When I search for a valid URI and not matching scopes, it should return false", func() {
-			found := c.FindAndMatchScope("GET", "/users/bob/name", []string{"policy10"})
+			found, _ := c.FindAndMatchScope("GET", "/users/bob/name", []string{"policy10"})
 			So(found, ShouldBeFalse)
 		})
 
 		Convey("When I search for public rule and bad scopes it should always return true", func() {
-			found := c.FindAndMatchScope("POST", "/v1/things/something", []string{"policy10"})
+			found, _ := c.FindAndMatchScope("POST", "/v1/things/something", []string{"policy10"})
 			So(found, ShouldBeTrue)
 		})
 
 		Convey("When I search for public rule and good scopes it should always return true", func() {
-			found := c.FindAndMatchScope("POST", "/v1/things/something", []string{"policy3"})
+			found, _ := c.FindAndMatchScope("POST", "/v1/things/something", []string{"policy3"})
 			So(found, ShouldBeTrue)
 		})
 	})
