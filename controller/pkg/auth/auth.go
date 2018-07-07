@@ -117,7 +117,7 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 
 // DecodeAporetoClaims decodes the Aporeto claims
 func (p *Processor) DecodeAporetoClaims(name, aporetoToken string, publicKey string) (string, []string) {
-	if len(aporetoToken) == 0 {
+	if len(aporetoToken) == 0 || p.aporetoJWT == nil {
 		return "", []string{}
 	}
 

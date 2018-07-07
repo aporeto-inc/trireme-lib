@@ -23,6 +23,9 @@ type Verifier interface {
 // NewVerifier initializes data structures based on the interface that
 // is transmitted over the RPC between main and remote enforcers.
 func NewVerifier(v Verifier) Verifier {
+	if v == nil {
+		return nil
+	}
 	switch v.VerifierType() {
 	case common.PKI:
 		p := v.(*pkitokens.PKIJWTVerifier)
