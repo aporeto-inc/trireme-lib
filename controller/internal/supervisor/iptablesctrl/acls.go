@@ -267,7 +267,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		i.appPacketIPTableContext, appChain,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "udp",
-		"-j", "NFQUEUE", "--queue-num", "3",
+		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
 
 	// Network Packets - SYN
@@ -289,7 +289,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		i.netPacketIPTableContext, netChain,
 		"-m", "set", "--match-set", targetNetworkSet, "src",
 		"-p", "udp",
-		"-j", "NFQUEUE", "--queue-num", "7",
+		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueAckStr(),
 	})
 
 	return rules
