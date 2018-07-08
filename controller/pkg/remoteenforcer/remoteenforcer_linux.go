@@ -261,7 +261,7 @@ func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Resp
 
 	puInfo := &policy.PUInfo{
 		ContextID: payload.ContextID,
-		Policy:    payload.Policy.ToPrivatePolicy(),
+		Policy:    payload.Policy.ToPrivatePolicy(false),
 		Runtime:   policy.NewPURuntimeWithDefaults(),
 	}
 
@@ -326,7 +326,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 
 	puInfo := &policy.PUInfo{
 		ContextID: payload.ContextID,
-		Policy:    payload.Policy.ToPrivatePolicy(),
+		Policy:    payload.Policy.ToPrivatePolicy(true),
 		Runtime:   policy.NewPURuntimeWithDefaults(),
 	}
 

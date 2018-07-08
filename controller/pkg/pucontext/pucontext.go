@@ -325,7 +325,13 @@ func (p *PUContext) searchRules(
 			// Look for encrypt rules
 			encryptIndex, _ := policies.encryptRules.Search(tags)
 			if encryptIndex >= 0 {
-				packetAction.Action |= policy.Encrypt
+				// Do not overwrite the action for accept rules.
+				finalAction := action.(*policy.FlowPolicy)
+				packetAction = &policy.FlowPolicy{
+					Action:    policy.Accept | policy.Encrypt,
+					PolicyID:  finalAction.PolicyID,
+					ServiceID: finalAction.ServiceID,
+				}
 			}
 			if reportingAction == nil {
 				reportingAction = packetAction
