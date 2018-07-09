@@ -62,6 +62,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		})
+
 	}
 
 	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName)...)
@@ -346,10 +347,34 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 	return nil
 }
 
+// addUDPNatRule adds a rule to avoid masquarading traffic from host udp servers.
+func (i *Instance) getUDPNatRule(udpPorts string) [][]string {
+
+	rules := [][]string{
+		{
+			"nat",
+			"POSTROUTING",
+			"-p", "udp",
+			"-m", "addrtype", "--src-type", "LOCAL",
+			"-m", "multiport",
+			"--source-ports", udpPorts,
+			"-j", "ACCEPT",
+		},
+	}
+	return rules
+}
+
 // addChainrules implements all the iptable rules that redirect traffic to a chain
 func (i *Instance) addChainRules(portSetName string, appChain string, netChain string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string, proxyPortSetName string) error {
 	if i.mode == constants.LocalServer {
 		if tcpPorts != "0" || udpPorts != "0" || uid == "" {
+			if udpPorts != "0" {
+				// Add a postrouting Nat rule for udp to not masquarade udp traffic for host servers.
+				err := i.processRulesFromList(i.getUDPNatRule(udpPorts), "Insert")
+				if err != nil {
+					return fmt.Errorf("Unable to add nat rule for udp: %s", err)
+				}
+			}
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName), "Append")
 		}
 
@@ -1193,6 +1218,13 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 
 	if i.mode == constants.LocalServer {
 		if uid == "" {
+			if udpPorts != "0" {
+				// Delete the postrouting Nat rule for udp.
+				err := i.processRulesFromList(i.getUDPNatRule(udpPorts), "Delete")
+				if err != nil {
+					return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
+				}
+			}
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName), "Delete")
 		}
 		portSetName := puPortSetName(contextID, PuPortSet)
