@@ -33,8 +33,6 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
-	// Idealy all packets from network should only be auth packets, other packets will go to application
-	// once connmark is set.
 	var conn *connection.UDPConnection
 	udpPacketType := p.GetUDPType()
 
@@ -110,8 +108,6 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 			}
 		}
 		zap.L().Debug("Delivering packet to application")
-		// deliver to the application only if we are Ack Processed state.
-		// return d.udpSocketNetworkWriter.WriteSocket(p.Buffer)
 		return nil
 	}
 
@@ -147,11 +143,6 @@ func (d *Datapath) netSynUDPRetrieveState(p *packet.Packet) (*connection.UDPConn
 		return nil, err
 	}
 
-	// This is not really required.
-	// if conn, err := d.netOrigConnectionTracker.GetReset(p.L4FlowHash(), 0); err == nil {
-	// 	return conn.(*connection.UDPConnection), nil
-	// }
-
 	return connection.NewUDPConnection(context, d.udpSocketWriter), nil
 }
 
@@ -164,15 +155,7 @@ func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPC
 				zap.String("flow", p.L4FlowHash()),
 			)
 		}
-		// ignore the syn ack packet. This is needed in case of
-		// portforwarding scenarios. Between container - container portforwarding
-		// on different machines. The syn ack response from server container
-		// will show up on host enforcer, which needs to be ignored.
-		//  err = d.udpSocketNetworkWriter.WriteSocket(p.Buffer)
-		// if err != nil {
-		// 	zap.L().Error("Unable to transmit ignored syn ack packet", zap.String("flow", p.L4FlowHash()))
-		// }
-		// return nil, fmt.Errorf("no synack connection: %s", err)
+		// ignore the syn ack packet.
 		return nil, nil
 	}
 
@@ -280,13 +263,6 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
-	// if p.DestinationPort == 53 {
-	// 	zap.L().Debug("Processing application UDP packet- let go 53",
-	// 		zap.String("flow", p.L4FlowHash()),
-	// 	)
-	// 	return nil
-	// }
-
 	var conn *connection.UDPConnection
 	conn, err = d.appUDPRetrieveState(p)
 	if err != nil {
@@ -306,7 +282,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	case connection.UDPSynStart:
 		// connection not authorized yet. queue the packets and start handshake.
-		zap.L().Debug("Varks: Sending out Application UDP Syn Packet with options", zap.String("flow", p.L4FlowHash()))
+		zap.L().Debug("Sending out Application UDP Syn Packet with options", zap.String("flow", p.L4FlowHash()))
 		err = d.processApplicationUDPSynPacket(p, conn.Context, conn)
 
 		if err != nil {
@@ -324,7 +300,6 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		}
 		// Set verdict to 1.
 		zap.L().Debug("Ack Processed, write on the app socket")
-		//return conn.Writer.WriteSocket(p.Buffer)
 		return nil
 	}
 	// if not in the above two states, packets are queued. NFQ can drop them, as they are already
@@ -335,7 +310,6 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnection, error) {
 
-	// ThinkItOver: what about timers? shouldnt matter in case of UDP
 	hash := p.L4FlowHash()
 
 	if conn, err := d.udpAppReplyConnectionTracker.GetReset(hash, 0); err == nil {
@@ -542,7 +516,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 		}
 	}
 
-	// Be optimistic and Transmit Queued Packets.
+	// Transmit Queued Packets.
 	for _, udpPacket := range conn.PacketQueue {
 		// check for Encryption.
 		if d.service != nil {
