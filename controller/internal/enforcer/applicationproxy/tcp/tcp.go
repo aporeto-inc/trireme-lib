@@ -237,6 +237,9 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 				}
 				return
 			}
+			if err := dest.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return
+			}
 			if _, err = dest.Write(b[:n]); err != nil {
 				if checkErr(err) {
 					continue
