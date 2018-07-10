@@ -322,6 +322,8 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 		SourceType: collector.EnpointTypePU,
 	}
 
+	defer downConn.SetDeadline(time.Time{})
+
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP.To4(), uint16(downPort))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
@@ -410,6 +412,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 		p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
 		return false, fmt.Errorf("Unauthorized")
 	}
+
+	defer upConn.SetDeadline(time.Time{})
 
 	for {
 		if err := upConn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {

@@ -115,22 +115,24 @@ func Pipe(ctx context.Context, inConn, outConn net.Conn) error {
 	wg.Add(2)
 
 	go func() {
-		defer wg.Done()
+		defer func() {
+			if err := outConn.Close(); err != nil {
+				zap.L().Error("Failed to close in connection", zap.Error(err))
+			}
+			wg.Done()
+		}()
 		copyBytes(ctx, false, inFd, outFd, tcpIn, tcpOut)
 	}()
 
 	go func() {
-		defer wg.Done()
+		defer func() {
+			if err := inConn.Close(); err != nil {
+				zap.L().Error("Failed to close out connection", zap.Error(err))
+			}
+			wg.Done()
+		}()
 		copyBytes(ctx, true, outFd, inFd, tcpOut, tcpIn)
 	}()
-
-	if err := inConn.Close(); err != nil {
-		zap.L().Error("Failed to close in connection", zap.Error(err))
-	}
-
-	if err := outConn.Close(); err != nil {
-		zap.L().Error("Failed to close out connection", zap.Error(err))
-	}
 
 	wg.Wait()
 
@@ -182,11 +184,12 @@ func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, destConn
 		case <-ctx.Done():
 			break
 		default:
-			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 16384, 0)
+			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 8192, 0)
 			if err != nil {
 				if isTemporary(err) && !downstream {
 					continue
 				}
+				return
 			}
 			if nread == 0 {
 				return
@@ -208,6 +211,7 @@ func isTemporary(err error) bool {
 	switch t := err.(type) {
 	case net.Error:
 		if t.Timeout() {
+			fmt.Println("Timeout error")
 			return true
 		}
 	case syscall.Errno:
