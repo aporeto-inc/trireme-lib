@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.uber.org/zap"
 )
@@ -184,7 +186,7 @@ func copyBytes(ctx context.Context, downstream bool, destFd, srcFd int, destConn
 		case <-ctx.Done():
 			break
 		default:
-			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 8192, 0)
+			nread, err = syscall.Splice(srcFd, nil, pipe[1], nil, 2*8192, unix.SPLICE_F_NONBLOCK)
 			if err != nil {
 				if isTemporary(err) && !downstream {
 					continue
