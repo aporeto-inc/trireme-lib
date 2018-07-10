@@ -98,9 +98,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex := copy(buffer, netPacket.Buffer)
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], netPacket.GetTCPData())
-		// buffer = append(buffer, netPacket.GetTCPOptions()...)
-		// buffer = append(buffer, netPacket.GetTCPData()...)
-		// length = uint32(len(buffer))
+
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 	} else {
 		// Buffer is already modified.
@@ -142,10 +140,6 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex := copy(buffer, appPacket.Buffer)
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
-		// buffer := appPacket.Buffer
-		// buffer = append(buffer, appPacket.GetTCPOptions()...)
-		// buffer = append(buffer, appPacket.GetTCPData()...)
-		// length = uint32(len(buffer))
 
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 	} else {
