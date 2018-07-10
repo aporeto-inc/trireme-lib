@@ -171,11 +171,13 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	case packet.TCPSynAckMask:
 		conn, err = d.appRetrieveState(p)
 		if err != nil {
+			d.packetLogs = true
 			if d.packetLogs {
-				zap.L().Debug("SynAckPacket Ignored",
+				zap.L().Info("SynAckPacket Ignored",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
+				d.packetLogs = false
 			}
 
 			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
@@ -809,7 +811,7 @@ func (d *Datapath) createTCPAuthenticationOption(token []byte) []byte {
 // It creates a new connection by default
 func (d *Datapath) appSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
-	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
+	context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolTCP)
 	if err != nil {
 		return nil, errors.New("No context in app processing")
 	}
@@ -835,7 +837,7 @@ func processSynAck(d *Datapath, p *packet.Packet, context *pucontext.PUContext) 
 		return nil, fmt.Errorf("Invalid port format %s", err)
 	}
 
-	d.contextIDFromPort.AddPortSpec(portSpec)
+	d.contextIDFromTCPPort.AddPortSpec(portSpec)
 	// Find the uid for which mark was asserted.
 	uid, err := d.portSetInstance.GetUserMark(p.Mark)
 	if err != nil {
@@ -864,14 +866,14 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 			if d.mode != constants.RemoteContainer && p.TCPFlags&packet.TCPSynAckMask == packet.TCPSynAckMask {
 				// We see a syn ack for which we have not recorded a syn
 				// Update the port for the context matching the mark this packet has comes with
-				context, perr := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
+				context, perr := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolTCP)
 				if perr == nil {
 					return processSynAck(d, p, context)
 				}
 			}
 			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 				// Let's try if its an existing connection
-				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort)
+				context, err := d.contextFromIP(true, p.SourceAddress.String(), p.Mark, p.SourcePort, packet.IPProtocolTCP)
 				if err != nil {
 					return nil, errors.New("No context in app processing")
 				}
@@ -897,7 +899,7 @@ func (d *Datapath) appRetrieveState(p *packet.Packet) (*connection.TCPConnection
 // Obviously if no state is found, it generates a new connection record.
 func (d *Datapath) netSynRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 
-	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort)
+	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolTCP)
 	if err != nil {
 		//This needs to hit only for local processes never for containers
 		//Don't return an error create a dummy context and return it so we truncate the packet before we send it up
@@ -964,7 +966,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 		if err != nil {
 			if p.TCPFlags&packet.TCPSynAckMask == packet.TCPAckMask {
 				// Let's try if its an existing connection
-				context, cerr := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort)
+				context, cerr := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolTCP)
 				if cerr != nil {
 					return nil, errors.New("No context in app processing")
 				}
@@ -996,38 +998,6 @@ func updateTimer(c cache.DataStore, hash string, conn *connection.TCPConnection)
 		return c.SetTimeOut(hash, conn.TimeOut)
 	}
 	return nil
-}
-
-// contextFromIP returns the PU context from the default IP if remote. Otherwise
-// it returns the context from the port or mark values of the packet. Synack
-// packets are again special and the flow is reversed. If a container doesn't supply
-// its IP information, we use the default IP. This will only work with remotes
-// and Linux processes.
-func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port uint16) (*pucontext.PUContext, error) {
-
-	if d.puFromIP != nil {
-		return d.puFromIP, nil
-	}
-
-	if app {
-		pu, err := d.puFromMark.Get(mark)
-		if err != nil {
-			return nil, fmt.Errorf("pu context cannot be found using mark %s: %s", mark, err)
-		}
-		return pu.(*pucontext.PUContext), nil
-	}
-
-	contextID, err := d.contextIDFromPort.GetSpecValueFromPort(port)
-	if err != nil {
-		return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
-	}
-
-	pu, err := d.puFromContextID.Get(contextID)
-	if err != nil {
-		return nil, fmt.Errorf("unable to find contextID: %s", contextID)
-	}
-
-	return pu.(*pucontext.PUContext), nil
 }
 
 // releaseFlow releases the flow and updates the conntrack table

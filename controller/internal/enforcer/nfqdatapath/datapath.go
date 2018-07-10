@@ -14,10 +14,10 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
-	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -31,6 +31,9 @@ import (
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
 const DefaultExternalIPTimeout = "500ms"
+
+// GetUDPRawSocket is placeholder for createSocket function. It is useful to mock tcp unit tests.
+var GetUDPRawSocket = afinetrawsocket.CreateSocket
 
 // Datapath is the structure holding all information about a connection filter
 type Datapath struct {
@@ -46,10 +49,10 @@ type Datapath struct {
 
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
-	puFromContextID   cache.DataStore
-	puFromMark        cache.DataStore
-	contextIDFromPort *portcache.PortCache
-
+	puFromContextID      cache.DataStore
+	puFromMark           cache.DataStore
+	contextIDFromTCPPort *portcache.PortCache
+	contextIDFromUDPPort *portcache.PortCache
 	// For remotes this is a reverse link to the context
 	puFromIP *pucontext.PUContext
 
@@ -67,6 +70,16 @@ type Datapath struct {
 	netReplyConnectionTracker   cache.DataStore
 	unknownSynConnectionTracker cache.DataStore
 
+	udpSourcePortConnectionCache cache.DataStore
+
+	// Hash on full five-tuple and return the connection
+	// These are auto-expired connections after 60 seconds of inactivity.
+	udpAppOrigConnectionTracker  cache.DataStore
+	udpAppReplyConnectionTracker cache.DataStore
+	udpNetOrigConnectionTracker  cache.DataStore
+	udpNetReplyConnectionTracker cache.DataStore
+	udpNatConnectionTracker      cache.DataStore
+
 	// CacheTimeout used for Trireme auto-detecion
 	ExternalIPCacheTimeout time.Duration
 
@@ -83,6 +96,8 @@ type Datapath struct {
 	packetLogs          bool
 
 	portSetInstance portset.PortSet
+	// udp socket fd for application.
+	udpSocketWriter afinetrawsocket.SocketWriter
 }
 
 // New will create a new data path structure. It instantiates the data stores
@@ -136,17 +151,25 @@ func New(
 	// This cache is shared with portSetInstance. The portSetInstance
 	// cleans up the entry corresponding to port when port is no longer
 	// part of ipset portset.
-	contextIDFromPort := portcache.NewPortCache("contextIDFromPort")
+	contextIDFromTCPPort := portcache.NewPortCache("contextIDFromTCPPort")
+
+	contextIDFromUDPPort := portcache.NewPortCache("contextIDFromUDPPort")
 
 	var portSetInstance portset.PortSet
 
 	if mode != constants.RemoteContainer {
-		portSetInstance = portset.New(contextIDFromPort)
+		portSetInstance = portset.New(contextIDFromTCPPort)
+	}
+
+	udpSocketWriter, err := GetUDPRawSocket(afinetrawsocket.ApplicationRawSocketMark, "udp")
+	if err != nil {
+		zap.L().Fatal("Unable to create raw socket for udp packet transmission", zap.Error(err))
 	}
 
 	d := &Datapath{
-		puFromMark:        cache.NewCache("puFromMark"),
-		contextIDFromPort: contextIDFromPort,
+		puFromMark:           cache.NewCache("puFromMark"),
+		contextIDFromTCPPort: contextIDFromTCPPort,
+		contextIDFromUDPPort: contextIDFromUDPPort,
 
 		puFromContextID: puFromContextID,
 
@@ -156,19 +179,28 @@ func New(
 		netOrigConnectionTracker:    cache.NewCacheWithExpiration("netOrigConnectionTracker", time.Second*24),
 		netReplyConnectionTracker:   cache.NewCacheWithExpiration("netReplyConnectionTracker", time.Second*24),
 		unknownSynConnectionTracker: cache.NewCacheWithExpiration("unknownSynConnectionTracker", time.Second*2),
-		ExternalIPCacheTimeout:      ExternalIPCacheTimeout,
-		filterQueue:                 filterQueue,
-		mutualAuthorization:         mutualAuth,
-		service:                     service,
-		collector:                   collector,
-		tokenAccessor:               tokenaccessor,
-		secrets:                     secrets,
-		ackSize:                     secrets.AckSize(),
-		mode:                        mode,
-		procMountPoint:              procMountPoint,
-		conntrackHdl:                conntrack.NewHandle(),
-		portSetInstance:             portSetInstance,
-		packetLogs:                  packetLogs,
+
+		udpSourcePortConnectionCache: cache.NewCacheWithExpiration("udpSourcePortConnectionCache", time.Second*60),
+		udpAppOrigConnectionTracker:  cache.NewCacheWithExpiration("udpAppOrigConnectionTracker", time.Second*60),
+		udpAppReplyConnectionTracker: cache.NewCacheWithExpiration("udpAppReplyConnectionTracker", time.Second*60),
+		udpNetOrigConnectionTracker:  cache.NewCacheWithExpiration("udpNetOrigConnectionTracker", time.Second*60),
+		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
+		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
+
+		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
+		filterQueue:            filterQueue,
+		mutualAuthorization:    mutualAuth,
+		service:                service,
+		collector:              collector,
+		tokenAccessor:          tokenaccessor,
+		secrets:                secrets,
+		ackSize:                secrets.AckSize(),
+		mode:                   mode,
+		procMountPoint:         procMountPoint,
+		conntrackHdl:           conntrack.NewHandle(),
+		portSetInstance:        portSetInstance,
+		packetLogs:             packetLogs,
+		udpSocketWriter:        udpSocketWriter,
 	}
 
 	packet.PacketLogLevel = packetLogs
@@ -238,16 +270,25 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() == common.LinuxProcessPU || pu.Type() == common.UIDLoginPU {
-		mark, ports := pu.GetProcessKeys()
+		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
 		d.puFromMark.AddOrUpdate(mark, pu)
 
-		for _, port := range ports {
+		for _, port := range tcpPorts {
 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
 			if err != nil {
 				continue
 			}
-			d.contextIDFromPort.AddPortSpec(portSpec)
+			d.contextIDFromTCPPort.AddPortSpec(portSpec)
 		}
+
+		for _, port := range udpPorts {
+			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
+			if err != nil {
+				continue
+			}
+			d.contextIDFromUDPPort.AddPortSpec(portSpec)
+		}
+
 	} else {
 		d.puFromIP = pu
 	}
@@ -278,10 +319,19 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	// Cleanup the port cache
-	for _, port := range pu.Ports() {
-		if err := d.contextIDFromPort.RemoveStringPorts(port); err != nil {
+	for _, port := range pu.TCPPorts() {
+		if err := d.contextIDFromTCPPort.RemoveStringPorts(port); err != nil {
 			zap.L().Debug("Unable to remove cache entry during unenforcement",
-				zap.String("Port", port),
+				zap.String("TCPPort", port),
+				zap.Error(err),
+			)
+		}
+	}
+
+	for _, port := range pu.UDPPorts() {
+		if err := d.contextIDFromUDPPort.RemoveStringPorts(port); err != nil {
+			zap.L().Debug("Unable to remove cache entry during unenforcement",
+				zap.String("UDPPort", port),
 				zap.Error(err),
 			)
 		}
@@ -348,7 +398,7 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
@@ -377,4 +427,50 @@ func (d *Datapath) reportFlow(p *packet.Packet, connection *connection.TCPConnec
 	}
 
 	d.collector.CollectFlowEvent(c)
+}
+
+// contextFromIP returns the PU context from the default IP if remote. Otherwise
+// it returns the context from the port or mark values of the packet. Synack
+// packets are again special and the flow is reversed. If a container doesn't supply
+// its IP information, we use the default IP. This will only work with remotes
+// and Linux processes.
+func (d *Datapath) contextFromIP(app bool, packetIP string, mark string, port uint16, protocol uint8) (*pucontext.PUContext, error) {
+
+	if d.puFromIP != nil {
+		return d.puFromIP, nil
+	}
+
+	if app {
+		pu, err := d.puFromMark.Get(mark)
+		if err != nil {
+			return nil, fmt.Errorf("pu context cannot be found using mark %s: %s", mark, err)
+		}
+		return pu.(*pucontext.PUContext), nil
+	}
+
+	if protocol == packet.IPProtocolTCP {
+		contextID, err := d.contextIDFromTCPPort.GetSpecValueFromPort(port)
+		if err != nil {
+			return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
+		}
+
+		pu, err := d.puFromContextID.Get(contextID)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find contextID: %s", contextID)
+		}
+		return pu.(*pucontext.PUContext), nil
+	} else if protocol == packet.IPProtocolUDP {
+		contextID, err := d.contextIDFromUDPPort.GetSpecValueFromPort(port)
+		if err != nil {
+			return nil, fmt.Errorf("pu contextID cannot be found using port %d: %s", port, err)
+		}
+
+		pu, err := d.puFromContextID.Get(contextID)
+		if err != nil {
+			return nil, fmt.Errorf("unable to find contextID: %s", contextID)
+		}
+		return pu.(*pucontext.PUContext), nil
+	} else {
+		return nil, fmt.Errorf("Invalid protocol:%d", protocol)
+	}
 }

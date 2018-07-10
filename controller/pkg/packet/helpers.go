@@ -5,8 +5,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"strconv"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/ipv4"
 )
 
@@ -150,6 +152,45 @@ func (p *Packet) computeTCPChecksum() uint16 {
 	return checksum(buf)
 }
 
+// Computes the UDP checksum over UDP pseudoheader. This is
+// called after all modifications on the packet have been made.
+func (p *Packet) computeUDPChecksum() uint16 {
+
+	var pseudoHeaderLen uint16 = 12
+	udpSize := uint16(len(p.Buffer)) - UDPBeginPos
+	bufLen := pseudoHeaderLen + udpSize
+	buf := make([]byte, bufLen)
+
+	// Construct the pseudo-header for UDP checksum computation:
+
+	// bytes 0-3: Source IP address
+	copy(buf[0:4], p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4])
+
+	// bytes 4-7: Destination IP address
+	copy(buf[4:8], p.Buffer[ipDestAddrPos:ipDestAddrPos+4])
+
+	// byte 8: Constant zero
+	buf[8] = 0
+
+	// byte 9: Protocol (17== UDP)
+	buf[9] = 17
+
+	// bytes 10,11: UDP buffer size (real header + payload)
+	binary.BigEndian.PutUint16(buf[10:12], udpSize)
+
+	// bytes 12+: The TCP buffer (real header + payload)
+	copy(buf[12:], p.Buffer[UDPDataPos:])
+
+	// Set current checksum to zero (in buf, not changing packet)
+	buf[pseudoHeaderLen+6] = 0
+	buf[pseudoHeaderLen+7] = 0
+
+	// Is this required ?
+	//	buf = append(buf, p.udpData...)
+
+	return checksum(buf)
+}
+
 // incCsum16 implements rfc1624, equation 3.
 func incCsum16(start, old, new uint16) uint16 {
 
@@ -187,4 +228,131 @@ func checksum(buf []byte) uint16 {
 	sum := checksumDelta(buf)
 	csum := ^sum
 	return csum
+}
+
+// UpdateUDPChecksum updates the UDP checksum field of packet
+func (p *Packet) UpdateUDPChecksum() {
+
+	// checksum set to 0, ignored by the stack
+	ignoreCheckSum := []byte{0, 0}
+	p.UDPChecksum = binary.BigEndian.Uint16(ignoreCheckSum[:])
+
+	curLen := uint16(len(p.Buffer))
+	udpDataLen := curLen - p.GetUDPDataStartBytes()
+
+	// update checksum.
+	binary.BigEndian.PutUint16(p.Buffer[UDPChecksumPos:UDPChecksumPos+2], p.UDPChecksum)
+	// update length.
+	binary.BigEndian.PutUint16(p.Buffer[UDPLengthPos:UDPLengthPos+2], udpDataLen+8)
+}
+
+// ReadUDPToken returnthe UDP token. Gets called only during the handshake process.
+func (p *Packet) ReadUDPToken() []byte {
+
+	// 20 byte IP hdr, 8 byte udp header, 20 byte udp marker
+	if len(p.Buffer) <= UDPJwtTokenOffset {
+		return []byte{}
+	}
+	return p.Buffer[UDPJwtTokenOffset:]
+}
+
+// UDPTokenAttach attached udp packet signature and tokens.
+func (p *Packet) UDPTokenAttach(udpdata []byte, udptoken []byte) {
+
+	udpData := []byte{}
+	udpData = append(udpData, udpdata...)
+	udpData = append(udpData, udptoken...)
+
+	p.udpData = udpData
+
+	packetLenIncrease := uint16(len(udpdata) + len(udptoken))
+
+	// IP Header Processing
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.IPTotalLength+packetLenIncrease)
+
+	// Attach Data @ the end of current buffer
+	p.Buffer = append(p.Buffer, p.udpData...)
+
+	p.UpdateUDPChecksum()
+}
+
+// UDPDataAttach Attaches UDP data post encryption.
+func (p *Packet) UDPDataAttach(udpdata []byte) {
+
+	udpData := []byte{}
+	udpData = append(udpData, udpdata...)
+	p.udpData = udpData
+	packetLenIncrease := uint16(len(udpdata))
+
+	// Attach Data @ the end of current buffer
+	p.Buffer = append(p.Buffer, p.udpData...)
+	// IP Header Processing
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, p.GetUDPDataStartBytes()+packetLenIncrease)
+	p.UpdateUDPChecksum()
+}
+
+// UDPDataDetach detaches UDP payload from the Buffer. Called only during Encrypt/Decrypt.
+func (p *Packet) UDPDataDetach() {
+
+	// Create constants for IP header + UDP header. copy ?
+	p.Buffer = p.Buffer[:UDPDataPos]
+	p.udpData = []byte{}
+
+	// IP header/checksum updated on DataAttach.
+}
+
+// CreateReverseFlowPacket modifies the packet for reverse flow.
+func (p *Packet) CreateReverseFlowPacket(destIP net.IP, destPort uint16) {
+
+	srcAddr := binary.BigEndian.Uint32(destIP.To4())
+	destAddr := binary.BigEndian.Uint32(p.Buffer[ipDestAddrPos : ipDestAddrPos+4])
+
+	// copy the fields
+	binary.BigEndian.PutUint32(p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4], destAddr)
+	binary.BigEndian.PutUint32(p.Buffer[ipDestAddrPos:ipDestAddrPos+4], srcAddr)
+	binary.BigEndian.PutUint16(p.Buffer[tcpSourcePortPos:tcpSourcePortPos+2], p.DestinationPort)
+	binary.BigEndian.PutUint16(p.Buffer[tcpDestPortPos:tcpDestPortPos+2], destPort)
+
+	p.FixupIPHdrOnDataModify(p.IPTotalLength, UDPDataPos)
+
+	// Just get the IP/UDP header. Ignore the rest. No need for packet
+	// validation here.
+	p.Buffer = p.Buffer[:UDPDataPos]
+
+	// change the fields
+	p.SourceAddress = net.IP(p.Buffer[ipSourceAddrPos : ipSourceAddrPos+4])
+	p.DestinationAddress = net.IP(p.Buffer[ipDestAddrPos : ipDestAddrPos+4])
+
+	p.SourcePort = binary.BigEndian.Uint16(p.Buffer[tcpSourcePortPos : tcpSourcePortPos+2])
+	p.DestinationPort = binary.BigEndian.Uint16(p.Buffer[tcpDestPortPos : tcpDestPortPos+2])
+
+	p.UpdateIPChecksum()
+
+	p.UpdateUDPChecksum()
+}
+
+// GetUDPType returns udp type of packet.
+func (p *Packet) GetUDPType() byte {
+
+	// Every UDP control packet has a 20 byte packet signature. The
+	// first 2 bytes represent the following control information.
+	// Byte 0 : Bits 0,1 are reserved fields.
+	//          Bits 2,3,4 represent version information.
+	//          Bits 5,6 represent udp packet type,
+	//          Bit 7 represents encryption. (currently unused).
+	// Byte 1: reserved for future use.
+	// Bytes [2:20]: Packet signature.
+	if len(p.Buffer) < (UDPDataPos + UDPSignatureLen) {
+		// Not an Aporeto control packet.
+		return 0
+	}
+
+	marker := p.Buffer[UDPDataPos:UDPSignatureEnd]
+	// check for packet signature.
+	if !bytes.Equal(p.Buffer[UDPAuthMarkerOffset:UDPSignatureEnd], []byte(UDPAuthMarker)) {
+		zap.L().Debug("Not an Aporeto control Packet", zap.String("flow", p.L4FlowHash()))
+		return 0
+	}
+	// control packet. byte 0 has packet type information.
+	return marker[0] & UDPPacketMask
 }

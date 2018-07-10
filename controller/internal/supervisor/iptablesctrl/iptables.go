@@ -157,7 +157,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 }
 
 // DeleteRules implements the DeleteRules interface
-func (i *Instance) DeleteRules(version int, contextID string, port string, mark string, uid string, proxyPort string) error {
+func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts string, mark string, uid string, proxyPort string) error {
 
 	proxyPortSetName := puPortSetName(contextID, proxyPortSetPrefix)
 	appChain, netChain, err := i.chainName(contextID, version)
@@ -166,7 +166,7 @@ func (i *Instance) DeleteRules(version int, contextID string, port string, mark 
 		zap.L().Error("Count not generate chain name", zap.Error(err))
 	}
 
-	if derr := i.deleteChainRules(contextID, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName); derr != nil {
+	if derr := i.deleteChainRules(contextID, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName); derr != nil {
 		zap.L().Warn("Failed to clean rules", zap.Error(derr))
 	}
 
@@ -212,15 +212,15 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 
 	// Remove mapping from old chain
 	if i.mode != constants.LocalServer {
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, "", "", "", proxyPort, proxySetName); err != nil {
+		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, "", "", "", "", proxyPort, proxySetName); err != nil {
 			return err
 		}
 	} else {
 		mark := containerInfo.Runtime.Options().CgroupMark
-		port := common.ConvertServicesToPortList(containerInfo.Runtime.Options().Services)
+		tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(containerInfo.Runtime.Options().Services)
 		uid := containerInfo.Runtime.Options().UserID
 
-		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, port, mark, uid, proxyPort, proxySetName); err != nil {
+		if err := i.deleteChainRules(contextID, oldAppChain, oldNetChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxySetName); err != nil {
 			return err
 		}
 	}
@@ -331,7 +331,7 @@ func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyP
 
 	proxyPort := puInfo.Runtime.Options().ProxyPort
 
-	return i.addChainRules("", appChain, netChain, "", "", "", proxyPort, proxyPortSetName)
+	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName)
 }
 
 // configureLinuxRules adds the chain rules for a linux process or a UID process.
@@ -344,7 +344,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 		return errors.New("no mark value found")
 	}
 
-	port := common.ConvertServicesToPortList(puInfo.Runtime.Options().Services)
+	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
 
 	uid := puInfo.Runtime.Options().UserID
 	portSetName := ""
@@ -359,7 +359,7 @@ func (i *Instance) configureLinuxRules(contextID, appChain, netChain, proxyPortS
 		}
 	}
 
-	return i.addChainRules(portSetName, appChain, netChain, port, mark, uid, proxyPort, proxyPortSetName)
+	return i.addChainRules(portSetName, appChain, netChain, tcpPorts, udpPorts, mark, uid, proxyPort, proxyPortSetName)
 }
 
 func (i *Instance) deleteUIDSets(contextID, uid, mark string) error {
@@ -435,11 +435,11 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		return err
 	}
 
-	if err := i.addAppACLs(contextID, appChain, policyrules.ApplicationACLs()); err != nil {
+	if err := i.addAppACLs(contextID, appChain, netChain, policyrules.ApplicationACLs()); err != nil {
 		return err
 	}
 
-	if err := i.addNetACLs(contextID, netChain, policyrules.NetworkACLs()); err != nil {
+	if err := i.addNetACLs(contextID, appChain, netChain, policyrules.NetworkACLs()); err != nil {
 		return err
 	}
 

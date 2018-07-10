@@ -7,6 +7,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -15,6 +17,9 @@ import (
 
 // TCPFlowState identifies the constants of the state of a TCP connectioncon
 type TCPFlowState int
+
+// UDPFlowState identifies the constants of the state of a UDP connection.
+type UDPFlowState int
 
 // ProxyConnState identifies the constants of the state of a proxied connection
 type ProxyConnState int
@@ -65,6 +70,33 @@ const (
 	// ServerAuthenticatePair -- Authenticate pair of tokens
 	ServerAuthenticatePair
 )
+
+const (
+	// UDPSynStart is the state where a syn will be sent.
+	UDPSynStart UDPFlowState = iota
+
+	// UDPSynSend is the state where a syn has been sent.
+	UDPSynSend
+
+	// UDPSynReceived is the state where a syn packet has been received.
+	UDPSynReceived
+
+	// UDPAckProcessed is the state that the negotiation has been completed.
+	UDPAckProcessed
+
+	// UDPSynAckReceived is the state where a syn ack packet has been received.
+	UDPSynAckReceived
+
+	// UDPSynAckSent is the state where syn ack packet has been sent.
+	UDPSynAckSent
+
+	// UDPAckReceived is the state where udp ack packet is received.
+	UDPAckReceived
+)
+
+// MaximumUDPQueueLen is the maximum number of UDP packets buffered.
+const MaximumUDPQueueLen = 50
+
 const (
 
 	// RejectReported represents that flow was reported as rejected
@@ -227,4 +259,102 @@ func (c *ProxyConnection) SetState(state ProxyConnState) {
 // SetReported sets the flag to reported when the conn is reported
 func (c *ProxyConnection) SetReported(reported bool) {
 	c.reported = reported
+}
+
+// UDPConnection is information regarding UDP connection.
+type UDPConnection struct {
+	sync.RWMutex
+
+	state   UDPFlowState
+	Context *pucontext.PUContext
+	Auth    AuthInfo
+	// Debugging Information
+	flowReported int
+
+	ReportFlowPolicy *policy.FlowPolicy
+	PacketFlowPolicy *policy.FlowPolicy
+	// ServiceData allows services to associate state with a connection
+	ServiceData interface{}
+
+	// PacketQueue indicates app UDP packets queued while authorization is in progress.
+	PacketQueue []*packet.Packet
+	Writer      afinetrawsocket.SocketWriter
+	// Debugging information - pushed to the end for compact structure
+	flowLastReporting bool
+	reported          bool
+	// ServiceConnection indicates that this connection is handled by a service
+	ServiceConnection bool
+}
+
+// NewUDPConnection returns UDPConnection struct.
+func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.SocketWriter) *UDPConnection {
+
+	nonce, err := crypto.GenerateRandomBytes(16)
+	if err != nil {
+		return nil
+	}
+
+	return &UDPConnection{
+		state:       UDPSynStart,
+		Context:     context,
+		PacketQueue: []*packet.Packet{},
+		Writer:      writer,
+		Auth: AuthInfo{
+			LocalContext: nonce,
+		},
+	}
+}
+
+// GetState is used to get state of UDP Connection.
+func (c *UDPConnection) GetState() UDPFlowState {
+	return c.state
+}
+
+// SetState is used to setup the state for the UDP Connection.
+func (c *UDPConnection) SetState(state UDPFlowState) {
+
+	c.state = state
+}
+
+// QueuePackets queues UDP packets till the flow is authenticated.
+func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
+
+	qlen := len(c.PacketQueue)
+	// only queue first 50 packets.
+	if qlen > MaximumUDPQueueLen {
+		zap.L().Info("Reached Maximum queue length, Dropping packet", zap.String("flow", udpPacket.L4FlowHash()))
+		return nil
+	}
+
+	buffer := make([]byte, len(udpPacket.Buffer))
+	copy(buffer, udpPacket.Buffer)
+
+	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark)
+	if err != nil {
+		return fmt.Errorf("Unable to copy packets to queue:%s", err)
+	}
+	c.PacketQueue = append(c.PacketQueue, copyPacket)
+	return nil
+}
+
+// DropPackets drops packets on errors during Authorization.
+func (c *UDPConnection) DropPackets() {
+
+	c.PacketQueue = []*packet.Packet{}
+}
+
+// SetReported is used to track if a flow is reported
+func (c *UDPConnection) SetReported(flowState bool) {
+
+	c.flowReported++
+
+	if c.flowReported > 1 && c.flowLastReporting != flowState {
+		zap.L().Info("Connection reported multiple times",
+			zap.Int("report count", c.flowReported),
+			zap.Bool("previous", c.flowLastReporting),
+			zap.Bool("next", flowState),
+		)
+	}
+
+	c.flowLastReporting = flowState
 }

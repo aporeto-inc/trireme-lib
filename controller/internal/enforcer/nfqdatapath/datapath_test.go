@@ -15,6 +15,8 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
+
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -37,6 +39,16 @@ func TestInvalidContext(t *testing.T) {
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
@@ -67,6 +79,16 @@ func TestInvalidIPContext(t *testing.T) {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		puInfo := policy.NewPUInfo("SomeProcessingUnitId", common.LinuxProcessPU)
 		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		Convey("Then enforcer instance must be initialized", func() {
 			So(enforcer, ShouldNotBeNil)
@@ -168,6 +190,16 @@ func TestInvalidTokenContext(t *testing.T) {
 		}
 		puInfo.Runtime.SetIPAddresses(ip)
 		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
@@ -266,11 +298,28 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		if collectors != nil {
+			// mock the call
+			prevRawSocket := GetUDPRawSocket
+			defer func() {
+				GetUDPRawSocket = prevRawSocket
+			}()
+			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+				return nil, nil
+			}
 			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
 			err1 = enforcer.Enforce(puID1, puInfo1)
 			err2 = enforcer.Enforce(puID2, puInfo2)
 		} else {
 			collector := &collector.DefaultCollector{}
+			// mock the call
+			prevRawSocket := GetUDPRawSocket
+			defer func() {
+				GetUDPRawSocket = prevRawSocket
+			}()
+			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+				return nil, nil
+			}
+
 			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc")
 			err1 = enforcer.Enforce(puID1, puInfo1)
 			err2 = enforcer.Enforce(puID2, puInfo2)
@@ -351,13 +400,29 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 
 	secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 	if collectors != nil {
-
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
 		enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
 		err1 = enforcer.Enforce(puID1, puInfo1)
 		err2 = enforcer.Enforce(puID2, puInfo2)
 		err3 = enforcer.Enforce(puID3, puInfo3)
 		err4 = enforcer.Enforce(puID4, puInfo4)
 	} else {
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
 		collector := &collector.DefaultCollector{}
 		enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc")
 		err1 = enforcer.Enforce(puID1, puInfo1)
@@ -1218,6 +1283,14 @@ func TestCacheState(t *testing.T) {
 	Convey("Given I create a new enforcer instance", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		contextID := "123"
 
@@ -1265,6 +1338,16 @@ func TestDoCreatePU(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
@@ -1290,7 +1373,7 @@ func TestDoCreatePU(t *testing.T) {
 				So(err, ShouldBeNil)
 				_, err1 := enforcer.puFromMark.Get("100")
 				So(err1, ShouldBeNil)
-				_, err2 := enforcer.contextIDFromPort.GetSpecValueFromPort(80)
+				_, err2 := enforcer.contextIDFromTCPPort.GetSpecValueFromPort(80)
 				So(err2, ShouldBeNil)
 				So(enforcer.puFromIP, ShouldBeNil)
 			})
@@ -1300,6 +1383,15 @@ func TestDoCreatePU(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
@@ -1320,6 +1412,16 @@ func TestDoCreatePU(t *testing.T) {
 	Convey("Given an initialized enforcer for remote Linux Containers", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
 		enforcer.mode = constants.RemoteContainer
 
@@ -1342,6 +1444,16 @@ func TestContextFromIP(t *testing.T) {
 	Convey("Given an initialized enforcer for Linux Processes", t, func() {
 		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.RemoteContainer, "/proc")
 
 		puInfo := policy.NewPUInfo("SomePU", common.ContainerPU)
@@ -1351,7 +1463,7 @@ func TestContextFromIP(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		Convey("If I try to get context based on IP and its  not there and its a local container it should fail ", func() {
-			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0)
+			_, err := enforcer.contextFromIP(true, "20.1.1.1", "", 0, packet.IPProtocolTCP)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -1360,33 +1472,33 @@ func TestContextFromIP(t *testing.T) {
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the mark exists", func() {
-				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", 0)
+				ctx, err := enforcer.contextFromIP(true, "20.1.1.1", "100", 0, packet.IPProtocolTCP)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)
 			})
 
 			Convey("If the mark doesn't exist", func() {
-				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", 0)
+				_, err := enforcer.contextFromIP(true, "20.1.1.1", "2000", 0, packet.IPProtocolTCP)
 				So(err, ShouldNotBeNil)
 			})
 		})
 
 		Convey("If there is no IP match, it should try the port for net packets ", func() {
 			s, _ := portspec.NewPortSpec(8000, 8000, contextID)
-			enforcer.contextIDFromPort.AddPortSpec(s)
+			enforcer.contextIDFromTCPPort.AddPortSpec(s)
 			enforcer.puFromContextID.AddOrUpdate(contextID, context)
 			enforcer.mode = constants.LocalServer
 
 			Convey("If the port exists", func() {
-				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", 8000)
+				ctx, err := enforcer.contextFromIP(false, "20.1.1.1", "", 8000, packet.IPProtocolTCP)
 				So(err, ShouldBeNil)
 				So(ctx, ShouldNotBeNil)
 				So(ctx, ShouldEqual, context)
 			})
 
 			Convey("If the port doesn't exist", func() {
-				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", 9000)
+				_, err := enforcer.contextFromIP(false, "20.1.1.1", "", 9000, packet.IPProtocolTCP)
 				So(err, ShouldNotBeNil)
 			})
 		})
@@ -4215,6 +4327,14 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 
 			collector := &collector.DefaultCollector{}
+			// mock the call
+			prevRawSocket := GetUDPRawSocket
+			defer func() {
+				GetUDPRawSocket = prevRawSocket
+			}()
+			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+				return nil, nil
+			}
 			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc")
 			err1 := enforcer.Enforce(puID1, puInfo1)
 			err2 := enforcer.Enforce(puID2, puInfo2)
@@ -4567,6 +4687,14 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 						collector := &collector.DefaultCollector{}
+						// mock the call
+						prevRawSocket := GetUDPRawSocket
+						defer func() {
+							GetUDPRawSocket = prevRawSocket
+						}()
+						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+							return nil, nil
+						}
 						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc")
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
@@ -4620,6 +4748,15 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 
 						secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
 						collector := &collector.DefaultCollector{}
+
+						// mock the call
+						prevRawSocket := GetUDPRawSocket
+						defer func() {
+							GetUDPRawSocket = prevRawSocket
+						}()
+						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+							return nil, nil
+						}
 						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc")
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)

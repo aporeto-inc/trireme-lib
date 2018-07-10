@@ -12,7 +12,14 @@ func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConn
 	if conn != nil {
 		conn.SetReported(connection.AcceptReported)
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, "", report, packet)
+	d.reportFlow(p, sourceID, destID, context, "", report, packet)
+}
+
+func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+	if conn != nil {
+		conn.SetReported(connection.AcceptReported)
+	}
+	d.reportFlow(p, sourceID, destID, context, "", report, packet)
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
@@ -29,7 +36,24 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 	if packet == nil {
 		packet = report
 	}
-	d.reportFlow(p, conn, sourceID, destID, context, mode, report, packet)
+	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
+}
+
+func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+	if conn != nil && mode == collector.PolicyDrop {
+		conn.SetReported(connection.RejectReported)
+	}
+
+	if report == nil {
+		report = &policy.FlowPolicy{
+			Action:   policy.Reject,
+			PolicyID: "",
+		}
+	}
+	if packet == nil {
+		packet = report
+	}
+	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
 }
 
 func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet, src, dst *collector.EndPoint) {
