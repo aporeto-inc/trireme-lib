@@ -696,6 +696,10 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		// and if yes, allow the packet to go and release the flow.
 		_, plcy, perr := context.NetworkACLPolicy(tcpPacket)
 
+		// Ignore FIN packets. Let them go through.
+		if tcpPacket.TCPFlags&packet.TCPFinMask != 0 {
+			return nil, nil, nil
+		}
 		if perr != nil {
 			err := tcpPacket.ConvertAcktoFinAck()
 			return nil, nil, err

@@ -237,6 +237,9 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 				}
 				return
 			}
+			if err = dest.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
+				return
+			}
 			if _, err = dest.Write(b[:n]); err != nil {
 				if checkErr(err) {
 					continue
@@ -318,6 +321,8 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 		DestType:   collector.EndPointTypeExternalIP,
 		SourceType: collector.EnpointTypePU,
 	}
+
+	defer downConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP.To4(), uint16(downPort))
@@ -407,6 +412,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 		p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
 		return false, fmt.Errorf("Unauthorized")
 	}
+
+	defer upConn.SetDeadline(time.Time{}) // nolint errcheck
 
 	for {
 		if err := upConn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
