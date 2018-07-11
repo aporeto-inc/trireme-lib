@@ -968,7 +968,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 				// Let's try if its an existing connection
 				context, cerr := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolTCP)
 				if cerr != nil {
-					err := p.ConvertAcktoFinAck()
+					err = p.ConvertAcktoFinAck()
 					return nil, fmt.Errorf("No context in app processing:%s", err)
 				}
 				conn = connection.NewTCPConnection(context)
