@@ -22,6 +22,7 @@ func createDummyPolicy(event *common.EventInfo) *policy.PURuntime {
 	return policy.NewPURuntime(event.Name, int(event.PID), "", runtimeTags, runtimeIps, common.UIDLoginPU, options)
 }
 func TestUIDMetadataExtractor(t *testing.T) {
+	var marshaledgot, marshalledwant []byte
 	type args struct {
 		event *common.EventInfo
 	}
@@ -67,8 +68,11 @@ func TestUIDMetadataExtractor(t *testing.T) {
 				t.Errorf("UIDMetadataExtractor() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-
-			if !reflect.DeepEqual(got, tt.want) {
+			if got != nil && tt.want != nil {
+				marshaledgot, _ = got.MarshalJSON()
+				marshalledwant, _ = tt.want.MarshalJSON()
+			}
+			if !reflect.DeepEqual(got, tt.want) || !reflect.DeepEqual(marshaledgot, marshalledwant) {
 				t.Errorf("UIDMetadataExtractor() = %v, want %v", got, tt.want)
 			}
 		})
