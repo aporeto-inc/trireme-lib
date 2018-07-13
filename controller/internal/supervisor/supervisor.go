@@ -23,7 +23,8 @@ type cacheData struct {
 	version       int
 	ips           policy.ExtendedMap
 	mark          string
-	port          string
+	tcpPorts      string
+	udpPorts      string
 	uid           string
 	containerInfo *policy.PUInfo
 }
@@ -117,7 +118,7 @@ func (s *Config) Unsupervise(contextID string) error {
 	cfg := data.(*cacheData)
 	port := cfg.containerInfo.Runtime.Options().ProxyPort
 
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.port, cfg.mark, cfg.uid, port); err != nil {
+	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
 
@@ -168,11 +169,13 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 	s.Lock()
 	defer s.Unlock()
 
+	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(pu.Runtime.Options().Services)
 	c := &cacheData{
 		version:       0,
 		ips:           pu.Policy.IPAddresses(),
 		mark:          pu.Runtime.Options().CgroupMark,
-		port:          common.ConvertServicesToPortList(pu.Runtime.Options().Services),
+		tcpPorts:      tcpPorts,
+		udpPorts:      udpPorts,
 		uid:           pu.Runtime.Options().UserID,
 		containerInfo: pu,
 	}

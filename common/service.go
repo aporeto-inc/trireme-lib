@@ -3,6 +3,7 @@ package common
 import (
 	"net"
 
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
@@ -39,4 +40,32 @@ func ConvertServicesToPortList(services []Service) string {
 	}
 
 	return portlist
+}
+
+// ConvertServicesToProtocolPortList converts an array of services to tcp/udp port list
+func ConvertServicesToProtocolPortList(services []Service) (string, string) {
+
+	tcpPortlist := ""
+	udpPortlist := ""
+	for _, s := range services {
+		if s.Protocol == packet.IPProtocolTCP {
+			tcpPortlist = tcpPortlist + s.Ports.String() + ","
+		} else {
+			udpPortlist = udpPortlist + s.Ports.String() + ","
+		}
+	}
+
+	if len(tcpPortlist) == 0 {
+		tcpPortlist = "0"
+	} else {
+		tcpPortlist = string(tcpPortlist[:len(tcpPortlist)-1])
+	}
+
+	if len(udpPortlist) == 0 {
+		udpPortlist = "0"
+	} else {
+		udpPortlist = string(udpPortlist[:len(udpPortlist)-1])
+	}
+
+	return tcpPortlist, udpPortlist
 }

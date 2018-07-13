@@ -60,10 +60,6 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	// Get the mark value
 	p.Mark = mark
 
-	// Options and Payload that maybe added
-	p.tcpOptions = []byte{}
-	p.tcpData = []byte{}
-
 	// IP Header Processing
 	p.ipHeaderLen = bytes[ipHdrLenPos] & ipHdrLenMask
 	p.IPProto = bytes[ipProtoPos]
@@ -73,13 +69,21 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 	p.SourceAddress = net.IP(bytes[ipSourceAddrPos : ipSourceAddrPos+4])
 	p.DestinationAddress = net.IP(bytes[ipDestAddrPos : ipDestAddrPos+4])
 
-	// Some sanity checking...
-	if p.IPTotalLength < minIPPacketLen {
-		return nil, fmt.Errorf("ip packet too small: hdrlen=%d", p.ipHeaderLen)
-	}
-
 	if p.ipHeaderLen != minIPHdrWords {
 		return nil, fmt.Errorf("packets with ip options not supported: hdrlen=%d", p.ipHeaderLen)
+	}
+	// Some sanity checking for TCP.
+	if p.IPProto == IPProtocolTCP {
+		if p.IPTotalLength < minTCPIPPacketLen {
+			return nil, fmt.Errorf("tcp ip packet too small: hdrlen=%d", p.ipHeaderLen)
+		}
+	}
+
+	// Some sanity checking for UDP.
+	if p.IPProto == IPProtocolUDP {
+		if p.IPTotalLength < minUDPIPPacketLen {
+			return nil, fmt.Errorf("udp ip packet too small: hdrlen=%d", p.ipHeaderLen)
+		}
 	}
 
 	if p.IPTotalLength != uint16(len(p.Buffer)) {
@@ -90,16 +94,27 @@ func New(context uint64, bytes []byte, mark string) (packet *Packet, err error) 
 		}
 	}
 
-	// TCP Header Processing
-	p.l4BeginPos = minIPHdrSize
-	p.TCPChecksum = binary.BigEndian.Uint16(bytes[TCPChecksumPos : TCPChecksumPos+2])
-	p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
-	p.DestinationPort = binary.BigEndian.Uint16(bytes[tcpDestPortPos : tcpDestPortPos+2])
-	p.TCPAck = binary.BigEndian.Uint32(bytes[tcpAckPos : tcpAckPos+4])
-	p.TCPSeq = binary.BigEndian.Uint32(bytes[tcpSeqPos : tcpSeqPos+4])
-	p.tcpDataOffset = (bytes[tcpDataOffsetPos] & tcpDataOffsetMask) >> 4
-	p.TCPFlags = bytes[tcpFlagsOffsetPos]
+	if p.IPProto == IPProtocolTCP {
+		// TCP Header Processing
+		p.l4BeginPos = minIPHdrSize
+		p.TCPChecksum = binary.BigEndian.Uint16(bytes[TCPChecksumPos : TCPChecksumPos+2])
+		p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
+		p.DestinationPort = binary.BigEndian.Uint16(bytes[tcpDestPortPos : tcpDestPortPos+2])
+		p.TCPAck = binary.BigEndian.Uint32(bytes[tcpAckPos : tcpAckPos+4])
+		p.TCPSeq = binary.BigEndian.Uint32(bytes[tcpSeqPos : tcpSeqPos+4])
+		p.tcpDataOffset = (bytes[tcpDataOffsetPos] & tcpDataOffsetMask) >> 4
+		p.TCPFlags = bytes[tcpFlagsOffsetPos]
 
+		// Options and Payload that maybe added
+		p.tcpOptions = []byte{}
+		p.tcpData = []byte{}
+	} else {
+		// UDP Header Processing
+		p.UDPChecksum = binary.BigEndian.Uint16(bytes[UDPChecksumPos : UDPChecksumPos+2])
+		p.udpData = []byte{}
+		p.SourcePort = binary.BigEndian.Uint16(bytes[tcpSourcePortPos : tcpSourcePortPos+2])
+		p.DestinationPort = binary.BigEndian.Uint16(bytes[tcpDestPortPos : tcpDestPortPos+2])
+	}
 	p.context = context
 
 	return &p, nil
@@ -115,9 +130,30 @@ func (p *Packet) GetTCPData() []byte {
 	return p.tcpData
 }
 
+// GetUDPData return additional data in packet
+func (p *Packet) GetUDPData() []byte {
+
+	// data starts from 28. Packet validation done during creation of
+	// UDP packet.
+	return p.Buffer[UDPDataPos:]
+}
+
+// GetUDPDataStartBytes return start of UDP data
+func (p *Packet) GetUDPDataStartBytes() uint16 {
+
+	// UDP packet will be atleast 28 bytes. checked during packet
+	// creation.
+	return UDPDataPos
+}
+
 // SetTCPData returns any additional data in the packet
 func (p *Packet) SetTCPData(b []byte) {
 	p.tcpData = b
+}
+
+// SetUDPData sets additional data in the packet
+func (p *Packet) SetUDPData(b []byte) {
+	p.udpData = b
 }
 
 // GetTCPOptions returns any additional options in the packet

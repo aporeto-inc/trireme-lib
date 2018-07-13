@@ -2,15 +2,12 @@ package httpproxy
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,14 +16,19 @@ import (
 	"github.com/vulcand/oxy/forward"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
+)
+
+const (
+	defaultValidity = 60 * time.Second
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -39,53 +41,53 @@ type JWTClaims struct {
 
 // Config maintains state for proxies connections from listen to backend.
 type Config struct {
-	cert              *tls.Certificate
-	ca                *x509.CertPool
-	keyPEM            string
-	certPEM           string
-	secrets           secrets.Secrets
-	tokenaccessor     tokenaccessor.TokenAccessor
-	collector         collector.EventCollector
-	puContext         string
-	puFromIDCache     cache.DataStore
-	exposedAPICache   cache.DataStore
-	dependentAPICache cache.DataStore
-	jwtCache          cache.DataStore
-	applicationProxy  bool
-	mark              int
-	server            *http.Server
-	fwd               *forward.Forwarder
-	fwdTLS            *forward.Forwarder
+	cert               *tls.Certificate
+	ca                 *x509.CertPool
+	keyPEM             string
+	certPEM            string
+	secrets            secrets.Secrets
+	verifier           *servicetokens.Verifier
+	collector          collector.EventCollector
+	puContext          string
+	puFromIDCache      cache.DataStore
+	authProcessorCache cache.DataStore
+	serviceMapCache    cache.DataStore
+	dependentAPICache  cache.DataStore
+	jwtCache           cache.DataStore
+	applicationProxy   bool
+	mark               int
+	server             *http.Server
+	fwd                *forward.Forwarder
+	fwdTLS             *forward.Forwarder
 	sync.RWMutex
 }
 
 // NewHTTPProxy creates a new instance of proxy reate a new instance of Proxy
 func NewHTTPProxy(
-	tp tokenaccessor.TokenAccessor,
 	c collector.EventCollector,
 	puContext string,
 	puFromIDCache cache.DataStore,
 	caPool *x509.CertPool,
-	exposedAPICache cache.DataStore,
+	serviceMap cache.DataStore,
+	authProcessorCache cache.DataStore,
 	dependentAPICache cache.DataStore,
-	jwtCache cache.DataStore,
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
 ) *Config {
 
 	return &Config{
-		collector:         c,
-		tokenaccessor:     tp,
-		puFromIDCache:     puFromIDCache,
-		puContext:         puContext,
-		ca:                caPool,
-		exposedAPICache:   exposedAPICache,
-		dependentAPICache: dependentAPICache,
-		applicationProxy:  applicationProxy,
-		jwtCache:          jwtCache,
-		mark:              mark,
-		secrets:           secrets,
+		collector:          c,
+		puFromIDCache:      puFromIDCache,
+		puContext:          puContext,
+		ca:                 caPool,
+		authProcessorCache: authProcessorCache,
+		serviceMapCache:    serviceMap,
+		dependentAPICache:  dependentAPICache,
+		applicationProxy:   applicationProxy,
+		mark:               mark,
+		secrets:            secrets,
+		verifier:           servicetokens.NewVerifier(secrets, nil),
 	}
 }
 
@@ -100,7 +102,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		return fmt.Errorf("Server already running")
 	}
 
-	// If its an encrypted, wrap it in a TLS context.
+	// If its an encrypted, wrap the listener in a TLS context. This is activated
+	// for the listener from the network, but not for the listener from a PU.
 	if encrypted {
 		config := &tls.Config{
 			GetCertificate: p.GetCertificateFunc(),
@@ -109,7 +112,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		l = tls.NewListener(l, config)
 	}
 
-	// Create an encrypted downstream transport
+	// Create an encrypted downstream transport. We will mark the downstream connection
+	// to let the iptables rule capture it.
 	encryptedTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
@@ -147,6 +151,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		},
 	}
 
+	// Create the proxies dowards the network and the application.
 	var err error
 	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport))
 	if err != nil {
@@ -208,7 +213,37 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveContextAndPolicy(c cache.DataStore, w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
+func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *auth.Processor, string, error) {
+	pu, err := p.puFromIDCache.Get(p.puContext)
+	if err != nil {
+		zap.L().Error("Cannot find policy, dropping request")
+		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
+		return nil, nil, "", err
+	}
+	puContext := pu.(*pucontext.PUContext)
+
+	data, err := p.serviceMapCache.Get(p.puContext)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
+		return nil, nil, "", err
+	}
+
+	serviceID, ok := data.(map[string]string)[appendDefaultPort(r.Host)]
+	if !ok {
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown destination %s", r.Host), http.StatusForbidden)
+		return nil, nil, "", fmt.Errorf("Cannot handle request - unknown destination")
+	}
+
+	authorizer, err := p.authProcessorCache.Get(p.puContext)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown authorization %s %s", p.puContext, r.Host), http.StatusForbidden)
+		return nil, nil, "", fmt.Errorf("Cannot handle request - unknown authorization: %s %s", p.puContext, r.Host)
+	}
+
+	return puContext, authorizer.(*auth.Processor), serviceID, nil
+}
+
+func (p *Config) retrieveApplicationContext(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
@@ -220,7 +255,7 @@ func (p *Config) retrieveContextAndPolicy(c cache.DataStore, w http.ResponseWrit
 	// Find the right API cache for this context and service. This is done in two steps.
 	// First lookup is to find the PU context. Second lookup is to find the cache based on
 	// the service.
-	data, err := c.Get(p.puContext)
+	data, err := p.dependentAPICache.Get(p.puContext)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
 		return nil, nil, err
@@ -239,7 +274,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
-	puContext, apiCache, err := p.retrieveContextAndPolicy(p.dependentAPICache, w, r)
+	puContext, apiCache, err := p.retrieveApplicationContext(w, r)
 	if err != nil {
 		return
 	}
@@ -276,11 +311,10 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For external services we validate policy at the ingress. Note that the
+	// For external services we validate policy at the ingress. Note, that the
 	// certificate distribution service is considered as external and must
 	// be defined as external.
 	if apiCache.External {
-
 		// Get the corresponding scopes
 		found, rule := apiCache.FindRule(r.Method, r.URL.Path)
 		if !found {
@@ -288,14 +322,12 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Unknown or unauthorized service - no policy found"), http.StatusForbidden)
 			return
 		}
-
 		// If it is a secrets request we process it and move on. No need to
 		// validate policy.
 		if p.isSecretsRequest(w, r) {
 			zap.L().Debug("Processing certificate request", zap.String("URI", r.RequestURI))
 			return
 		}
-
 		if !rule.Public {
 			// Validate the policy based on the scopes of the PU.
 			// TODO: Add user scopes
@@ -304,7 +336,6 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, fmt.Sprintf("Unknown or unauthorized service - rejected by policy"), http.StatusForbidden)
 				return
 			}
-
 			// All checks have passed. We can accept the request, log it, and create the
 			// right tokens. If it is not an external service, we do not log at the transmit side.
 			record.Action = policy.Encrypt
@@ -313,8 +344,14 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		p.collector.CollectFlowEvent(record)
 	}
 
-	// Generate the client identity
-	token, err := p.createClientToken(puContext)
+	token, err := servicetokens.CreateAndSign(
+		p.server.Addr,
+		puContext.Identity().Tags,
+		puContext.Scopes(),
+		puContext.ManagementID(),
+		defaultValidity,
+		p.secrets.EncodingKey(),
+	)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Cannot handle request - cannot create token"), http.StatusForbidden)
 		return
@@ -369,21 +406,18 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
-	puContext, apiCache, err := p.retrieveContextAndPolicy(p.exposedAPICache, w, r)
+	puContext, authorizer, serviceID, err := p.retrieveNetworkContext(w, r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop
 		return
 	}
-	record.ServiceID = apiCache.ID
+	record.ServiceID = serviceID
 	record.Tags = puContext.Annotations()
 	record.Destination.ID = puContext.ManagementID()
 
-	// Find the original port from the URL
-	port, _, err := originalServicePort(w, r)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Unable to detect destination"), http.StatusInternalServerError)
-		record.DropReason = collector.InvalidConnection
+	if strings.HasPrefix(r.RequestURI, "/aporeto/authorization-code/callback") {
+		authorizer.Callback(serviceID, w, r)
 		return
 	}
 
@@ -396,35 +430,23 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Retrieve the headers with the key and auth parameters.
+	// Retrieve the headers with the key and auth parameters. If the parameters do not
+	// exist, we will end up with empty values, but processing can continue. The authorizer
+	// will validate if they are needed or not.
 	token := r.Header.Get("X-APORETO-AUTH")
 	if token != "" {
 		r.Header.Del("X-APORETO-AUTH")
 	}
-
 	key := r.Header.Get("X-APORETO-KEY")
 	if key != "" {
 		r.Header.Del("X-APORETO-LEN")
 	}
 
-	// Process the Auth header for any JWT context.
-	jwtcache, err := p.jwtCache.Get(p.puContext)
-	if err != nil {
-		zap.L().Debug("No JWT cache found for this pu", zap.Error(err))
-	}
-
-	var jwtCert *x509.Certificate
-	if jwtcache != nil {
-		var ok bool
-		jwtCert, ok = jwtcache.(map[string]*x509.Certificate)[port]
-		if !ok {
-			zap.L().Debug("No JWT found for this port", zap.String("port", port))
-		}
-	}
-
-	// Calculate the user attributes and claims.
-	userAttributes := parseUserAttributes(r, jwtCert)
-	if len(userAttributes) > 0 {
+	// Calculate the user attributes. User attributes can be derived either from a
+	// token or from a certificate. The authorizer library will parse them.
+	userToken, userCerts := userCredentials(r)
+	userAttributes, redirect, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
+	if err == nil && len(userAttributes) > 0 && !redirect {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		p.collector.CollectUserEvent(userRecord)
 		record.Source.UserID = userRecord.ID
@@ -432,18 +454,20 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		record.Source.Type = collector.EndpointTypeClaims
 	}
 
-	var claims *JWTClaims
-	claims, err = p.parseClientToken(key, token)
-	if err != nil {
-		claims = nil
-	} else {
-		record.Source.ID = claims.SourceID
+	// Calculate the Aporeto PU claims by parsing the token if it exists.
+	sourceID, aporetoClaims := authorizer.DecodeAporetoClaims(serviceID, token, key)
+	if len(aporetoClaims) > 0 {
+		record.Source.ID = sourceID
 		record.Source.Type = collector.EnpointTypePU
 	}
 
+	// We need to verify network policy, before validating the API policy. If a network
+	// policy has given us an accept because of IP address based ACLs we proceed anyway.
+	// This is rather convoluted, but a user might choose to implement network
+	// policies with ACLs only, and we have to cover this case.
 	if noNetAccessPolicy != nil {
-		if claims != nil {
-			_, netPolicyAction := puContext.SearchRcvRules(policy.NewTagStoreFromSlice(claims.Profile))
+		if len(aporetoClaims) > 0 {
+			_, netPolicyAction := puContext.SearchRcvRules(policy.NewTagStoreFromSlice(aporetoClaims))
 			record.PolicyID = netPolicyAction.PolicyID
 			if netPolicyAction.Action.Rejected() {
 				http.Error(w, fmt.Sprintf("Access not authorized by network policy"), http.StatusNetworkAuthenticationRequired)
@@ -456,31 +480,24 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Look in the cache for the method and request URI for the associated scopes
-	// and policies.
-	found, rule := apiCache.FindRule(r.Method, r.URL.Path)
-	if !found {
-		http.Error(w, fmt.Sprintf("Unknown or unauthorized service"), http.StatusForbidden)
-		return
-	}
-
-	if !rule.Public {
-		if claims == nil {
-			if len(userAttributes) == 0 {
-				// We have no PU claims or user claims and this is not a public API.
-				// We drop at this point.
-				http.Error(w, err.Error(), http.StatusUnauthorized)
-				record.DropReason = collector.PolicyDrop
+	// We can now validate the API authorization. This is the final step
+	// before forwarding.
+	allClaims := append(aporetoClaims, userAttributes...)
+	accept, public := authorizer.Check(serviceID, r.Method, r.URL.Path, allClaims)
+	if !accept {
+		if !public {
+			if redirect && len(aporetoClaims) == 0 {
+				w.Header().Add("Location", authorizer.RedirectURI(serviceID, r.URL.String()))
+				http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
 				return
 			}
-			// We have no PU claims. We will rely only on user information for authorization.
-			claims = &JWTClaims{}
-		}
-
-		// Validate the policy and drop the request if there is no authorization.
-		if err = p.verifyPolicy(rule.Scopes, claims.Profile, claims.Scopes, userAttributes); err != nil {
-			record.DropReason = collector.APIPolicyDrop
-			http.Error(w, err.Error(), http.StatusForbidden)
+			http.Error(w, fmt.Sprintf("Unauthorized Access to %s", r.URL), http.StatusUnauthorized)
+			record.DropReason = collector.PolicyDrop
+			zap.L().Warn("No match found for the request or authorization Error",
+				zap.String("Request", r.Method+" "+r.RequestURI),
+				zap.Strings("User Attributes", userAttributes),
+				zap.Strings("Aporeto Claims", aporetoClaims),
+			)
 			return
 		}
 	}
@@ -493,27 +510,13 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update the statistics and forward the request. We always encrypt downstream
 	record.Action = policy.Accept | policy.Encrypt
 	record.Destination.IP = originalDestination.IP.String()
 	record.Destination.Port = uint16(originalDestination.Port)
 
-	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
-
 	p.fwd.ServeHTTP(w, r)
-}
-
-func (p *Config) createClientToken(puContext *pucontext.PUContext) (string, error) {
-
-	claims := &JWTClaims{
-		StandardClaims: jwt.StandardClaims{
-			Issuer:    p.server.Addr,
-			ExpiresAt: time.Now().Add(10 * time.Second).Unix(),
-		},
-		Profile:  puContext.Identity().Tags,
-		Scopes:   puContext.Scopes(),
-		SourceID: puContext.ManagementID(),
-	}
-	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(p.secrets.EncodingKey())
+	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
 
 func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAttributes []string) error {
@@ -544,26 +547,6 @@ func (p *Config) verifyPolicy(apitags []string, profile, scopes []string, userAt
 		zap.Strings("PU Scopes", scopes),
 	)
 	return fmt.Errorf("No matching authorization policy")
-}
-
-func (p *Config) parseClientToken(txtKey string, token string) (*JWTClaims, error) {
-	key, err := p.secrets.VerifyPublicKey([]byte(txtKey))
-	if err != nil {
-		return &JWTClaims{}, fmt.Errorf("Invalid Service Token")
-	}
-
-	claims := &JWTClaims{}
-	_, err = jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		ekey, ok := key.(*ecdsa.PublicKey)
-		if !ok {
-			return nil, fmt.Errorf("Invalid key")
-		}
-		return ekey, nil
-	})
-	if err != nil {
-		return claims, fmt.Errorf("Error parsing token: %s", err)
-	}
-	return claims, nil
 }
 
 func (p *Config) isSecretsRequest(w http.ResponseWriter, r *http.Request) bool {
@@ -603,89 +586,23 @@ func getServerName(addr string) string {
 	return addr
 }
 
-func parseUserAttributes(r *http.Request, cert *x509.Certificate) []string {
-	attributes := []string{}
-	for _, cert := range r.TLS.PeerCertificates {
-		attributes = append(attributes, "user="+cert.Subject.CommonName)
-		for _, email := range cert.EmailAddresses {
-			attributes = append(attributes, "email="+email)
-		}
-	}
+// userCredentials will find all the user credentials in the http request.
+// TODO: In addition to looking at the headers, we need to look at the parameters
+// in case authorization is provided there.
+func userCredentials(r *http.Request) (string, []*x509.Certificate) {
+
+	certs := r.TLS.PeerCertificates
 
 	authorization := r.Header.Get("Authorization")
 	if len(authorization) < 7 {
-		return attributes
+		cookie, err := r.Cookie("X-APORETO-AUTH")
+		if err == nil {
+			return cookie.Value, certs
+		}
+		return "", certs
 	}
 
 	authorization = strings.TrimPrefix(authorization, "Bearer ")
-	if len(authorization) == 0 {
-		return attributes
-	}
 
-	// Use a generic claims map. This allows us to customize the user attributes
-	// by providing the right scopes in the API policy.
-	claims := &jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(authorization, claims, func(token *jwt.Token) (interface{}, error) {
-		if cert == nil {
-			return nil, fmt.Errorf("Nil certificate - ignore")
-		}
-		switch token.Method {
-		case token.Method.(*jwt.SigningMethodECDSA):
-			if rcert, ok := cert.PublicKey.(*ecdsa.PublicKey); ok {
-				return rcert, nil
-			}
-		case token.Method.(*jwt.SigningMethodRSA):
-			if rcert, ok := cert.PublicKey.(*rsa.PublicKey); ok {
-				return rcert, nil
-			}
-		default:
-			return nil, fmt.Errorf("Unknown signing method")
-		}
-		return nil, fmt.Errorf("Signing method does not match certificate")
-	})
-
-	// We can't decode it. Just ignore the user attributes at this point.
-	if err != nil || token == nil {
-		zap.L().Warn("Identified token, but it is invalid", zap.Error(err))
-		return attributes
-	}
-
-	if !token.Valid {
-		return attributes
-	}
-
-	for k, v := range *claims {
-		if slice, ok := v.([]string); ok {
-			for _, data := range slice {
-				attributes = append(attributes, k+"="+data)
-			}
-		}
-		if attr, ok := v.(string); ok {
-			attributes = append(attributes, k+"="+attr)
-		}
-		if kv, ok := v.(map[string]interface{}); ok {
-			for key, value := range kv {
-				if attr, ok := value.(string); ok {
-					attributes = append(attributes, k+":"+key+"="+attr)
-				}
-			}
-		}
-	}
-
-	return attributes
-}
-
-func originalServicePort(w http.ResponseWriter, r *http.Request) (string, uint16, error) {
-	var err error
-	port := "80"
-	if strings.Contains(r.Host, ":") {
-		_, port, err = net.SplitHostPort(r.Host)
-		if err != nil {
-			zap.L().Error("Invalid HTTP port parameter", zap.Error(err))
-			http.Error(w, fmt.Sprintf("Invalid HTTP port parameter: %s", err), http.StatusUnprocessableEntity)
-			return "", 0, err
-		}
-	}
-	_port, _ := strconv.Atoi(port)
-	return port, uint16(_port), nil
+	return authorization, certs
 }

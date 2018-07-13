@@ -9,6 +9,8 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -67,6 +69,15 @@ func TestNewSupervisor(t *testing.T) {
 
 		c := &collector.DefaultCollector{}
 		secrets := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc")
 		mode := constants.LocalServer
 
@@ -105,6 +116,14 @@ func TestSupervise(t *testing.T) {
 	Convey("Given a valid supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{})
@@ -132,7 +151,7 @@ func TestSupervise(t *testing.T) {
 
 		Convey("When I supervise a new PU with valid policy, but there is an error", func() {
 			impl.EXPECT().ConfigureRules(0, "errorPU", puInfo).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "errorPU", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			err := s.Supervise("errorPU", puInfo)
 			Convey("I should  get an error", func() {
 				So(err, ShouldNotBeNil)
@@ -153,7 +172,7 @@ func TestSupervise(t *testing.T) {
 		Convey("When I send supervise command for a second time, and the update fails", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
 			impl.EXPECT().UpdateRules(1, "contextID", gomock.Any(), gomock.Any()).Return(errors.New("error"))
-			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(1, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Supervise("contextID", puInfo)
@@ -173,6 +192,15 @@ func TestUnsupervise(t *testing.T) {
 	Convey("Given a properly configured  supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
@@ -192,7 +220,7 @@ func TestUnsupervise(t *testing.T) {
 
 		Convey("When I try to unsupervise a valid PU ", func() {
 			impl.EXPECT().ConfigureRules(0, "contextID", puInfo).Return(nil)
-			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			impl.EXPECT().DeleteRules(0, "contextID", gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 			serr := s.Supervise("contextID", puInfo)
 			So(serr, ShouldBeNil)
 			err := s.Unsupervise("contextID")
@@ -210,6 +238,15 @@ func TestStart(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
@@ -244,6 +281,15 @@ func TestStop(t *testing.T) {
 	Convey("Given a properly configured supervisor", t, func() {
 		c := &collector.DefaultCollector{}
 		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})

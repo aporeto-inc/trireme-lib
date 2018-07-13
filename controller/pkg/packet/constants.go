@@ -1,9 +1,10 @@
 package packet
 
 const (
-	// minIPPacketLen is the min ip packet size
-	minIPPacketLen = 40
-
+	// minIPPacketLen is the min ip packet size for TCP packet
+	minTCPIPPacketLen = 40
+	// minIPPacketLen is the min ip packet size for UDP packet
+	minUDPIPPacketLen = 28
 	// minIPHdrSize
 	minIPHdrSize = 20
 
@@ -106,4 +107,39 @@ const (
 
 	// TCPMssOptionLen is the type for MSS option
 	TCPMssOptionLen = uint8(4)
+)
+
+// UDP related constants.
+const (
+	// UDPLengthPos is the location of UDP length
+	UDPLengthPos = 24
+	// UDPChecksumPos is the location of UDP checksum
+	UDPChecksumPos = 26
+	// UDPDataPos is the location of UDP data
+	UDPDataPos = 28
+	// UDPBeginPos is the location of UDP Header
+	UDPBeginPos = 20
+	// UDPSynMask is a mask for the UDP Syn flags
+	UDPSynMask = 0x20
+	// UDPSynAckMask  mask idenitifies a UDP SYN-ACK packet
+	UDPSynAckMask = 0x40
+	// UDPAckMask mask that identifies ACK packets.
+	UDPAckMask = 0x60
+	// UDPPacketMask identifies type of UDP packet.
+	UDPPacketMask = 0x60
+)
+
+const (
+	// UDPAuthMarker is 18 byte Aporeto signature for UDP
+	UDPAuthMarker = "n30njxq7bmiwr6dtxq"
+	// UDPAuthMarkerLen is the length of UDP marker.
+	UDPAuthMarkerLen = 18
+	// UDPSignatureLen is the length of signature on UDP control packet.
+	UDPSignatureLen = 20
+	// UDPAuthMarkerOffset is the beginning of UDPAuthMarker
+	UDPAuthMarkerOffset = 30
+	// UDPSignatureEnd is the end of UDPSignature.
+	UDPSignatureEnd = UDPDataPos + UDPSignatureLen
+	// UDPJwtTokenOffset is beginning of Jwt Token.
+	UDPJwtTokenOffset = 48
 )

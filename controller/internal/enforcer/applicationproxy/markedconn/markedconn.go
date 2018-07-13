@@ -165,7 +165,6 @@ type ProxiedListener struct {
 func (l ProxiedListener) Accept() (c net.Conn, err error) {
 	nc, err := l.netListener.Accept()
 	if err != nil {
-		fmt.Println("I got an error", err)
 		return nil, err
 	}
 

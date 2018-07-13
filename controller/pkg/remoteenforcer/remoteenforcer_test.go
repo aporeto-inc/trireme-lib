@@ -16,6 +16,8 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
@@ -400,6 +402,15 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+
+				prevRawSocket := nfqdatapath.GetUDPRawSocket
+				defer func() {
+					nfqdatapath.GetUDPRawSocket = prevRawSocket
+				}()
+				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+					return nil, nil
+				}
+
 				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
@@ -446,6 +457,15 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+
+				prevRawSocket := nfqdatapath.GetUDPRawSocket
+				defer func() {
+					nfqdatapath.GetUDPRawSocket = prevRawSocket
+				}()
+				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+					return nil, nil
+				}
+
 				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
@@ -471,6 +491,15 @@ func TestInitSupervisor(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+
+				prevRawSocket := nfqdatapath.GetUDPRawSocket
+				defer func() {
+					nfqdatapath.GetUDPRawSocket = prevRawSocket
+				}()
+				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+					return nil, nil
+				}
+
 				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{})
 
@@ -559,6 +588,15 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 				server.statsClient = nil
 				c := &collector.DefaultCollector{}
 				scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+				prevRawSocket := nfqdatapath.GetUDPRawSocket
+				defer func() {
+					nfqdatapath.GetUDPRawSocket = prevRawSocket
+				}()
+				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+					return nil, nil
+				}
+
 				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc")
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})
 				server.enforcer = nil
@@ -756,6 +794,15 @@ func TestEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+
+				prevRawSocket := nfqdatapath.GetUDPRawSocket
+				defer func() {
+					nfqdatapath.GetUDPRawSocket = prevRawSocket
+				}()
+				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+					return nil, nil
+				}
+
 				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
@@ -855,6 +902,15 @@ func TestUnEnforce(t *testing.T) {
 
 				collector := &collector.DefaultCollector{}
 				secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+
+				prevRawSocket := nfqdatapath.GetUDPRawSocket
+				defer func() {
+					nfqdatapath.GetUDPRawSocket = prevRawSocket
+				}()
+				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+					return nil, nil
+				}
+
 				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc").(enforcer.Enforcer)
 
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
@@ -953,6 +1009,15 @@ func TestUnSupervise(t *testing.T) {
 
 				c := &collector.DefaultCollector{}
 				scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+				prevRawSocket := nfqdatapath.GetUDPRawSocket
+				defer func() {
+					nfqdatapath.GetUDPRawSocket = prevRawSocket
+				}()
+				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+					return nil, nil
+				}
+
 				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc")
 
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{})

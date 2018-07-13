@@ -2,6 +2,7 @@ package policy
 
 import (
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 )
 
 // ServiceType are the types of services that can are suported.
@@ -46,7 +47,7 @@ type ApplicationService struct {
 	// JWTCertificate is a certificate for validating JWT bearer tokens in http requests.
 	// It is only useful for HTTP services where the Bearer Authentication header provides
 	// a JWT token. It is used to validate the JWT tokens.
-	JWTCertificate []byte
+	JWTTokenHandler usertokens.Verifier
 
 	// External indicates if this is an external service. For external services
 	// access control is implemented at the ingress.
