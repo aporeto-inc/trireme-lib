@@ -13,6 +13,12 @@ const (
 	ApplicationRawSocketMark = 0x40000062
 )
 
+// SocketWriter interface exposes an interface to write and close sockets
+type SocketWriter interface {
+	WriteSocket(buf []byte) error
+	CloseSocket() error
+}
+
 type rawsocket struct {
 	fd int
 }
