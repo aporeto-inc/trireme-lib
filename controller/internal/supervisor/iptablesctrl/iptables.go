@@ -418,7 +418,7 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 	}
 
 	// If its a remote and thus container, configure container rules.
-	if i.mode == constants.RemoteContainer {
+	if i.mode == constants.RemoteContainer || i.mode == constants.Sidecar {
 		if err := i.configureContainerRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
 			return err
 		}

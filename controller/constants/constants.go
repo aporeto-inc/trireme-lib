@@ -70,4 +70,6 @@ const (
 	RemoteContainer ModeType = iota
 	// LocalServer indicates that the Supervisor applies to Linux processes
 	LocalServer
+	// Sidecar indicates the controller to be in sidecar mode
+	Sidecar
 )

@@ -156,6 +156,26 @@ func (t *trireme) newEnforcers() error {
 		)
 	}
 
+	zap.L().Debug("TriremeMode", zap.Int("Status", int(t.config.mode)))
+	if t.config.mode == constants.Sidecar {
+		t.enforcers[constants.Sidecar], err = enforcer.New(
+			t.config.mutualAuth,
+			t.config.fq,
+			t.config.collector,
+			t.config.service,
+			t.config.secret,
+			t.config.serverID,
+			t.config.validity,
+			constants.Sidecar,
+			t.config.procMountPoint,
+			t.config.externalIPcacheTimeout,
+			t.config.packetLogs,
+		)
+		if err != nil {
+			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
+		}
+	}
+
 	return nil
 }
 
@@ -185,6 +205,19 @@ func (t *trireme) newSupervisors() error {
 			return nil
 		}
 		t.supervisors[constants.RemoteContainer] = s
+	}
+
+	if t.config.mode == constants.Sidecar {
+		s, err := supervisor.NewSupervisor(
+			t.config.collector,
+			t.enforcers[constants.Sidecar],
+			constants.Sidecar,
+			t.config.targetNetworks,
+		)
+		if err != nil {
+			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)
+		}
+		t.supervisors[constants.Sidecar] = s
 	}
 
 	return nil
@@ -225,6 +258,10 @@ func newTrireme(c *config) TriremeController {
 	if t.config.mode == constants.RemoteContainer {
 		t.puTypeToEnforcerType[common.ContainerPU] = constants.RemoteContainer
 		t.puTypeToEnforcerType[common.KubernetesPU] = constants.RemoteContainer
+	}
+
+	if t.config.mode == constants.Sidecar {
+		t.puTypeToEnforcerType[common.ContainerPU] = constants.Sidecar
 	}
 
 	return t
