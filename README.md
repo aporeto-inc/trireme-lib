@@ -1,4 +1,4 @@
-# Trireme
+# Trireme Debug
 
 <img src="docs/trireme.png" width="400">
 
