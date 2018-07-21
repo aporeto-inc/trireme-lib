@@ -234,7 +234,9 @@ func (r *RequestProcessor) CreateAndRun(c *CLIRequest) error {
 		return nil
 	}
 
-	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), os.Environ())
+	env := os.Environ()
+	env = append(env, "APORETO_WRAP=1")
+	return syscall.Exec(c.Executable, append([]string{c.Executable}, c.Parameters...), env)
 }
 
 // DeleteService will issue a delete command
