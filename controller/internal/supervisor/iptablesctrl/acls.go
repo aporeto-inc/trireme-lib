@@ -247,7 +247,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	if i.mode == constants.Sidecar {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
-			"-p", "udp", "-dport", "53",
+			"-p", "udp", "--dport", "53",
 			"-j", "ACCEPT",
 		})
 	}
@@ -288,7 +288,7 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	if i.mode == constants.Sidecar {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
-			"-p", "udp", "-sport", "53",
+			"-p", "udp", "--sport", "53",
 			"-j", "ACCEPT",
 		})
 	}
