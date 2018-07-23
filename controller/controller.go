@@ -233,7 +233,6 @@ func (t *trireme) doUpdatePolicy(contextID string, newPolicy *policy.PUPolicy, r
 		//We lost communication with the remote and killed it lets restart it here by feeding a create event in the request channel
 		zap.L().Warn("Re-initializing enforcers - connection lost", zap.Error(err))
 
-		// Varks: below statement is not required. Remove it later on.
 		isSidecar := t.puTypeToEnforcerType[containerInfo.Runtime.PUType()] == constants.Sidecar
 		if containerInfo.Runtime.PUType() == common.ContainerPU && !isSidecar {
 			//The unsupervise and unenforce functions just make changes to the proxy structures
