@@ -244,40 +244,6 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 
 	register := client.protomux.NewServiceRegistry()
 
-	// Support for deprecated model. TODO : Remove
-	proxiedServices := puInfo.Policy.ProxiedServices()
-	for _, pair := range proxiedServices.PublicIPPortPair {
-		service, err := serviceFromProxySet(pair)
-		if err != nil {
-			return err
-		}
-		if err := register.Add(service, protomux.TCPApplication, false); err != nil {
-			return fmt.Errorf("Cannot add service: %s", err)
-		}
-	}
-
-	for _, pair := range proxiedServices.PrivateIPPortPair {
-		parts := strings.Split(pair, ",")
-		if len(parts) != 2 {
-			return fmt.Errorf("Invalid service: %s", pair)
-		}
-		ports, err := portspec.NewPortSpecFromString(parts[1], nil)
-		if err != nil {
-			return fmt.Errorf("Invalid service port: %s", err)
-		}
-		service := &common.Service{
-			Ports:     ports,
-			Protocol:  6,
-			Addresses: []*net.IPNet{},
-		}
-		if err != nil {
-			return err
-		}
-		if err := register.Add(service, protomux.TCPNetwork, true); err != nil {
-			return fmt.Errorf("Cannot add service: %s", err)
-		}
-	}
-
 	// Register the ExposedServices with the multiplexer.
 	for _, service := range puInfo.Policy.ExposedServices() {
 		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type), true); err != nil {

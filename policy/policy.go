@@ -34,8 +34,6 @@ type PUPolicy struct {
 	triremeNetworks []string
 	// excludedNetworks a list of networks that must be excluded
 	excludedNetworks []string
-	// ProxiedServices string format ip:port
-	proxiedServices *ProxiedServicesInfo
 	// exposedServices is the list of services that this PU is exposing.
 	exposedServices ApplicationServicesList
 	// dependentServices is the list of services that this PU depends on.
@@ -77,7 +75,6 @@ func NewPUPolicy(
 	ips ExtendedMap,
 	triremeNetworks []string,
 	excludedNetworks []string,
-	proxiedServices *ProxiedServicesInfo,
 	exposedServices ApplicationServicesList,
 	dependentServices ApplicationServicesList,
 	scopes []string,
@@ -108,10 +105,6 @@ func NewPUPolicy(
 		ips = ExtendedMap{}
 	}
 
-	if proxiedServices == nil {
-		proxiedServices = &ProxiedServicesInfo{}
-	}
-
 	if exposedServices == nil {
 		exposedServices = ApplicationServicesList{}
 	}
@@ -132,7 +125,6 @@ func NewPUPolicy(
 		ips:               ips,
 		triremeNetworks:   triremeNetworks,
 		excludedNetworks:  excludedNetworks,
-		proxiedServices:   proxiedServices,
 		exposedServices:   exposedServices,
 		dependentServices: dependentServices,
 		scopes:            scopes,
@@ -141,7 +133,7 @@ func NewPUPolicy(
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, &ProxiedServicesInfo{}, nil, nil, []string{})
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, nil, nil, []string{})
 }
 
 // Clone returns a copy of the policy
@@ -161,7 +153,6 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.ips.Copy(),
 		p.triremeNetworks,
 		p.excludedNetworks,
-		p.proxiedServices,
 		p.exposedServices,
 		p.dependentServices,
 		p.scopes,
@@ -290,14 +281,6 @@ func (p *PUPolicy) TriremeNetworks() []string {
 	return p.triremeNetworks
 }
 
-// ProxiedServices returns the list of networks that Trireme must be applied
-func (p *PUPolicy) ProxiedServices() *ProxiedServicesInfo {
-	p.Lock()
-	defer p.Unlock()
-
-	return p.proxiedServices
-}
-
 // ExposedServices returns the exposed services
 func (p *PUPolicy) ExposedServices() ApplicationServicesList {
 	p.Lock()
@@ -385,7 +368,6 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 		IPs:                 p.ips.Copy(),
 		TriremeNetworks:     p.triremeNetworks,
 		ExcludedNetworks:    p.excludedNetworks,
-		ProxiedServices:     p.proxiedServices,
 		ExposedServices:     p.exposedServices,
 		DependentServices:   p.dependentServices,
 		Scopes:              p.scopes,
@@ -409,7 +391,6 @@ type PUPolicyPublic struct {
 	IPs                 ExtendedMap             `json:"IPs,omitempty"`
 	TriremeNetworks     []string                `json:"triremeNetworks,omitempty"`
 	ExcludedNetworks    []string                `json:"excludedNetworks,omitempty"`
-	ProxiedServices     *ProxiedServicesInfo    `json:"proxiedServices,omitempty"`
 	ExposedServices     ApplicationServicesList `json:"exposedServices,omitempty"`
 	DependentServices   ApplicationServicesList `json:"dependentServices,omitempty"`
 	ServicesCertificate string                  `json:"servicesCertificate,omitempty"`
@@ -441,7 +422,6 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
 		ips:                 p.IPs.Copy(),
 		triremeNetworks:     p.TriremeNetworks,
 		excludedNetworks:    p.ExcludedNetworks,
-		proxiedServices:     p.ProxiedServices,
 		exposedServices:     exposedServices,
 		dependentServices:   p.DependentServices,
 		scopes:              p.Scopes,

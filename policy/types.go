@@ -319,23 +319,3 @@ type OptionsType struct {
 	// PortMap maps container port -> host ports.
 	PortMap map[nat.Port][]string
 }
-
-// ProxiedServicesInfo holds the info for a proxied service.
-type ProxiedServicesInfo struct {
-	// PublicIPPortPair  is an array public ip,port  of load balancer or passthrough object per pu
-	PublicIPPortPair []string
-	// PrivateIPPortPair is an array of private ip,port of load balancer or passthrough object per pu
-	PrivateIPPortPair []string
-}
-
-// AddPublicIPPortPair add a ip port pair to proxied services
-func (p *ProxiedServicesInfo) AddPublicIPPortPair(ipportpair string) {
-	p.PublicIPPortPair = append(p.PublicIPPortPair, ipportpair)
-
-}
-
-// AddPrivateIPPortPair adds a private ip port pair
-func (p *ProxiedServicesInfo) AddPrivateIPPortPair(ipportpair string) {
-	p.PrivateIPPortPair = append(p.PrivateIPPortPair, ipportpair)
-
-}

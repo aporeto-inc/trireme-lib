@@ -97,20 +97,12 @@ func (i *Instance) createUIDSets(contextID string, puInfo *policy.PUInfo) error 
 
 func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) error {
 
-	services := policy.ProxiedServices()
 	dstSetName, srcSetName, srvSetName := i.getSetNames(portSetName)
 	vipTargetSet := ipset.IPSet{
 		Name: dstSetName,
 	}
 	if ferr := vipTargetSet.Flush(); ferr != nil {
 		zap.L().Warn("Unable to flush the vip proxy set")
-	}
-
-	for _, net := range services.PublicIPPortPair {
-		if err := vipTargetSet.Add(net, 0); err != nil {
-			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("unable to add public ip %s to target networks ipset: %s", net, err)
-		}
 	}
 
 	for _, dependentService := range policy.DependentServices() {
@@ -138,21 +130,6 @@ func (i *Instance) updateProxySet(policy *policy.PUPolicy, portSetName string) e
 	}
 	if ferr := srvTargetSet.Flush(); ferr != nil {
 		zap.L().Warn("Unable to flush the pip proxy set")
-	}
-
-	for _, net := range services.PrivateIPPortPair {
-		if err := pipTargetSet.Add(net, 0); err != nil {
-			zap.L().Error("Failed to add vip", zap.Error(err))
-			return fmt.Errorf("unable to add private ip %s to target networks ipset: %s", net, err)
-		}
-		parts := strings.Split(net, ",")
-		if len(parts) != 2 {
-			continue
-		}
-		if err := srvTargetSet.Add(parts[1], 0); err != nil {
-			zap.L().Error("Failed to add port to srv target set", zap.Error(err))
-			return fmt.Errorf("Unable to add port mapping: %s ", err)
-		}
 	}
 
 	for _, exposedService := range policy.ExposedServices() {
