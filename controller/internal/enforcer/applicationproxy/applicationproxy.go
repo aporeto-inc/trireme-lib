@@ -6,13 +6,9 @@ import (
 	"crypto/x509"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 
-	"go.aporeto.io/trireme-lib/utils/portspec"
-
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux"
@@ -420,28 +416,6 @@ func buildDependentCaches(dependentServices policy.ApplicationServicesList) (map
 		}
 	}
 	return dependentCache, caPool
-}
-
-func serviceFromProxySet(pair string) (*common.Service, error) {
-	parts := strings.Split(pair, ",")
-	if len(parts) != 2 {
-		return nil, fmt.Errorf("Invalid service: %s", pair)
-	}
-
-	_, ip, err := net.ParseCIDR(parts[0] + "/32")
-	if err != nil {
-		return nil, fmt.Errorf("Invalid service IP: %s", err)
-	}
-	ports, err := portspec.NewPortSpecFromString(parts[1], nil)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid service port: %s", err)
-	}
-
-	return &common.Service{
-		Ports:     ports,
-		Protocol:  6,
-		Addresses: []*net.IPNet{ip},
-	}, nil
 }
 
 func (p *AppProxy) expandCAPool(externalCAs [][]byte) *x509.CertPool {
