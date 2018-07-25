@@ -82,7 +82,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-				&policy.ProxiedServicesInfo{},
+
 				nil,
 				nil,
 				[]string{})
@@ -120,7 +120,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-				&policy.ProxiedServicesInfo{},
+
 				nil,
 				nil,
 				[]string{},
@@ -151,7 +151,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-				&policy.ProxiedServicesInfo{},
+
 				nil,
 				nil,
 				[]string{},
@@ -190,7 +190,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-				&policy.ProxiedServicesInfo{},
+
 				nil,
 				nil,
 				[]string{},
@@ -324,7 +324,7 @@ func TestUpdateRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-				&policy.ProxiedServicesInfo{},
+
 				nil,
 				nil,
 				[]string{},
