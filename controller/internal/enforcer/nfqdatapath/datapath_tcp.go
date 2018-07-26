@@ -171,13 +171,11 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	case packet.TCPSynAckMask:
 		conn, err = d.appRetrieveState(p)
 		if err != nil {
-			d.packetLogs = true
 			if d.packetLogs {
 				zap.L().Info("SynAckPacket Ignored",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
-				d.packetLogs = false
 			}
 
 			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {

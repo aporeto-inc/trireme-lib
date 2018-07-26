@@ -241,6 +241,17 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 
 	rules := [][]string{}
 
+	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
+	// to accept the dns traffic. This is required for the enforcer to talk to
+	// to the backend services.
+	if i.mode == constants.Sidecar {
+		rules = append(rules, []string{
+			i.appPacketIPTableContext, appChain,
+			"-p", "udp", "--dport", "53",
+			"-j", "ACCEPT",
+		})
+	}
+
 	// Application Packets - SYN
 	rules = append(rules, []string{
 		i.appPacketIPTableContext, appChain,
@@ -270,6 +281,17 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-p", "udp",
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
+
+	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
+	// to accept the dns traffic. This is required for the enforcer to talk to
+	// to the backend services.
+	if i.mode == constants.Sidecar {
+		rules = append(rules, []string{
+			i.netPacketIPTableContext, netChain,
+			"-p", "udp", "--sport", "53",
+			"-j", "ACCEPT",
+		})
+	}
 
 	// Network Packets - SYN
 	rules = append(rules, []string{
