@@ -154,7 +154,7 @@ func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPC
 				zap.String("flow", p.L4FlowHash()),
 			)
 		}
-		// ignore the syn ack packet.
+		// ignore the syn ack packet drop it.
 		return nil, fmt.Errorf("udp syn ack dropped:%s", err)
 	}
 
