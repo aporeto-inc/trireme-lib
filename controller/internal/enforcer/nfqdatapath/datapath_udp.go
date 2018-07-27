@@ -58,6 +58,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		conn.SetState(connection.UDPSynReceived)
 
 	case packet.UDPSynAckMask:
+		zap.L().Debug("Received Syn Ack Network packet")
 		conn, err = d.netSynAckUDPRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
