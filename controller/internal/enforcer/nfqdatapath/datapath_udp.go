@@ -60,6 +60,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 	case packet.UDPSynAckMask:
 		zap.L().Debug("Received Syn Ack Network packet")
 		conn, err = d.netSynAckUDPRetrieveState(p)
+		zap.L().Debug("Received Syn Ack Network packet", zap.Reflect("conn", conn), zap.Error(err))
 		if err != nil {
 			if d.packetLogs {
 				zap.L().Debug("Syn ack Packet Rejected/ignored",
@@ -156,7 +157,8 @@ func (d *Datapath) netSynAckUDPRetrieveState(p *packet.Packet) (*connection.UDPC
 			)
 		}
 		// ignore the syn ack packet.
-		return nil, nil
+		zap.L().Debug("Ignore and drop syn ack packet")
+		return nil, fmt.Errorf("udp syn ack dropped:%s", err)
 	}
 
 	return conn.(*connection.UDPConnection), nil
