@@ -283,18 +283,16 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
-		Destination: &collector.EndPoint{
-			URI:        r.Method + " " + r.RequestURI,
-			HTTPMethod: r.Method,
-			Type:       collector.EndPointTypeExternalIP,
-			Port:       uint16(originalDestination.Port),
-			IP:         originalDestination.IP.String(),
-			ID:         collector.DefaultEndPoint,
-		},
-		Source: &collector.EndPoint{
-			Type: collector.EnpointTypePU,
-			ID:   puContext.ManagementID(),
-		},
+		Destination: collector.NewEndPoint(
+			collector.EndPointTypeExternalIP,
+			collector.DefaultEndPoint,
+			collector.OptionEndPointIPPort(originalDestination.IP.String(),uint16(originalDestination.Port)),
+			collector.OptionEndPointHTTP(r.Method + " " + r.RequestURI, r.Method)
+		),
+		Source: collector.NewEndPoint(
+			collector.EnpointTypePU,
+			puContext.ManagementID(),
+		),
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,

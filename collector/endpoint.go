@@ -40,23 +40,23 @@ type EndPoint struct {
 // EndPointOption is provided using functional arguments.
 type EndPointOption func(*EndPoint)
 
-// OptionIPPort is an option to setup IP and port.
-func OptionIPPort(ip string, port uint16) EndPointOption {
+// OptionEndPointIPPort is an option to setup IP and port.
+func OptionEndPointIPPort(ip string, port uint16) EndPointOption {
 	return func(e *EndPoint) {
 		e.IP = ip
 		e.Port = port
 	}
 }
 
-// OptionUserID is an option to setup user-id.
-func OptionUserID(id string) EndPointOption {
+// OptionEndPointUserID is an option to setup user-id.
+func OptionEndPointUserID(id string) EndPointOption {
 	return func(e *EndPoint) {
 		e.UserID = id
 	}
 }
 
-// OptionHTTP is an option to setup http information.
-func OptionHTTP(uri, method string) EndPointOption {
+// OptionEndPointHTTP is an option to setup http information.
+func OptionEndPointHTTP(uri, method string) EndPointOption {
 	return func(e *EndPoint) {
 		e.URI = uri
 		e.HTTPMethod = method
