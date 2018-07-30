@@ -386,7 +386,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		ContextID: p.puContext,
 		Destination: collector.NewEndPoint(
 			collector.EnpointTypePU,
-			"", // TODO: ID Cant be empty.
+			collector.DefaultEndPoint,
 			collector.OptionEndPointIPPort(originalDestination.IP.String(), uint16(originalDestination.Port)),
 			collector.OptionEndPointHTTP(r.Method+" "+r.RequestURI, r.Method),
 		),
@@ -405,7 +405,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// Retrieve the context and policy
 	puContext, authorizer, serviceID, err := p.retrieveNetworkContext(w, r)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Unknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop
 		return
 	}
