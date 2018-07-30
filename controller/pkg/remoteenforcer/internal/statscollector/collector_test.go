@@ -28,21 +28,12 @@ func TestCollectFlowEvent(t *testing.T) {
 
 		Convey("When I add a flow event", func() {
 			r := &collector.FlowRecord{
-				ContextID: "1",
-				Source: &collector.EndPoint{
-					ID:   "A",
-					IP:   "1.1.1.1",
-					Type: collector.EnpointTypePU,
-				},
-				Destination: &collector.EndPoint{
-					ID:   "B",
-					IP:   "2.2.2.2",
-					Type: collector.EnpointTypePU,
-					Port: 80,
-				},
-				Count:      0,
-				Tags:       policy.NewTagStore(),
-				L4Protocol: packet.IPProtocolTCP,
+				ContextID:   "1",
+				Source:      collector.NewEndPoint(collector.EnpointTypePU, "A", collector.OptionEndPointIPPort("1.1.1.1", 0)),
+				Destination: collector.NewEndPoint(collector.EnpointTypePU, "B", collector.OptionEndPointIPPort("2.2.2.2", 0)),
+				Count:       0,
+				Tags:        policy.NewTagStore(),
+				L4Protocol:  packet.IPProtocolTCP,
 			}
 			c.CollectFlowEvent(r)
 
@@ -54,21 +45,12 @@ func TestCollectFlowEvent(t *testing.T) {
 
 			Convey("When I add a second flow that matches", func() {
 				r := &collector.FlowRecord{
-					ContextID: "1",
-					Source: &collector.EndPoint{
-						ID:   "A",
-						IP:   "1.1.1.1",
-						Type: collector.EnpointTypePU,
-					},
-					Destination: &collector.EndPoint{
-						ID:   "B",
-						IP:   "2.2.2.2",
-						Type: collector.EnpointTypePU,
-						Port: 80,
-					},
-					Count:      10,
-					Tags:       policy.NewTagStore(),
-					L4Protocol: packet.IPProtocolTCP,
+					ContextID:   "1",
+					Source:      collector.NewEndPoint(collector.EnpointTypePU, "A", collector.OptionEndPointIPPort("1.1.1.1", 0)),
+					Destination: collector.NewEndPoint(collector.EnpointTypePU, "B", collector.OptionEndPointIPPort("2.2.2.2", 80)),
+					Count:       10,
+					Tags:        policy.NewTagStore(),
+					L4Protocol:  packet.IPProtocolTCP,
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
@@ -80,21 +62,12 @@ func TestCollectFlowEvent(t *testing.T) {
 
 			Convey("When I add a third flow that doesn't  matche the previous flows ", func() {
 				r := &collector.FlowRecord{
-					ContextID: "1",
-					Source: &collector.EndPoint{
-						ID:   "C",
-						IP:   "3.3.3.3",
-						Type: collector.EnpointTypePU,
-					},
-					Destination: &collector.EndPoint{
-						ID:   "D",
-						IP:   "4.4.4.4",
-						Type: collector.EnpointTypePU,
-						Port: 80,
-					},
-					Count:      33,
-					Tags:       policy.NewTagStore(),
-					L4Protocol: packet.IPProtocolTCP,
+					ContextID:   "1",
+					Source:      collector.NewEndPoint(collector.EnpointTypePU, "C", collector.OptionEndPointIPPort("3.3.3.3", 0)),
+					Destination: collector.NewEndPoint(collector.EnpointTypePU, "B", collector.OptionEndPointIPPort("4.4.4.4", 80)),
+					Count:       33,
+					Tags:        policy.NewTagStore(),
+					L4Protocol:  packet.IPProtocolTCP,
 				}
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {

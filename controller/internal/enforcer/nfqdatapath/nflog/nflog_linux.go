@@ -102,36 +102,49 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		return nil, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
 	}
 
-	record := &collector.FlowRecord{
-		ContextID: contextID,
-		Source: &collector.EndPoint{
-			IP: buf.SrcIP.String(),
-		},
-		Destination: &collector.EndPoint{
-			IP:   buf.DstIP.String(),
-			Port: uint16(buf.DstPort),
-		},
-		PolicyID:   policyID,
-		Tags:       tags,
-		Action:     action,
-		L4Protocol: packet.IPProtocolUDP,
+	record := &collector.FlowRecord{}
+
+	if puIsSource {
+		record = &collector.FlowRecord{
+			ContextID: contextID,
+			Source: collector.NewEndPoint(
+				collector.EnpointTypePU,
+				puID,
+				collector.OptionEndPointIPPort(buf.SrcIP.String(), 0),
+			),
+			Destination: collector.NewEndPoint(
+				collector.EndPointTypeExternalIP,
+				extSrvID,
+				collector.OptionEndPointIPPort(buf.DstIP.String(), uint16(buf.DstPort)),
+			),
+			PolicyID:   policyID,
+			Tags:       tags,
+			Action:     action,
+			L4Protocol: packet.IPProtocolUDP,
+		}
+	} else {
+		record = &collector.FlowRecord{
+			ContextID: contextID,
+			Source: collector.NewEndPoint(
+				collector.EndPointTypeExternalIP,
+				extSrvID,
+				collector.OptionEndPointIPPort(buf.SrcIP.String(), 0),
+			),
+			Destination: collector.NewEndPoint(
+				collector.EnpointTypePU,
+				puID,
+				collector.OptionEndPointIPPort(buf.DstIP.String(), uint16(buf.DstPort)),
+			),
+			PolicyID:   policyID,
+			Tags:       tags,
+			Action:     action,
+			L4Protocol: packet.IPProtocolUDP,
+		}
 	}
 
 	if action.Observed() {
 		record.ObservedAction = action
 		record.ObservedPolicyID = policyID
-	}
-
-	if puIsSource {
-		record.Source.Type = collector.EnpointTypePU
-		record.Source.ID = puID
-		record.Destination.Type = collector.EndPointTypeExternalIP
-		record.Destination.ID = extSrvID
-	} else {
-		record.Source.Type = collector.EndPointTypeExternalIP
-		record.Source.ID = extSrvID
-		record.Destination.Type = collector.EnpointTypePU
-		record.Destination.ID = puID
 	}
 
 	return record, nil

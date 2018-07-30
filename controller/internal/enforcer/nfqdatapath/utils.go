@@ -58,18 +58,6 @@ func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPC
 
 func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet, src, dst *collector.EndPoint) {
 
-	if app {
-		src.ID = context.ManagementID()
-		src.Type = collector.EnpointTypePU
-		dst.ID = report.ServiceID
-		dst.Type = collector.EndPointTypeExternalIP
-	} else {
-		src.ID = report.ServiceID
-		src.Type = collector.EndPointTypeExternalIP
-		dst.ID = context.ManagementID()
-		dst.Type = collector.EnpointTypePU
-	}
-
 	record := &collector.FlowRecord{
 		ContextID:   context.ID(),
 		Source:      src,
@@ -91,30 +79,42 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 
 func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
-	src := &collector.EndPoint{
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
+	var src, dst *collector.EndPoint
+
+	srcID := report.ServiceID
+	srcType := collector.EndPointTypeExternalIP
+	dstID := context.ManagementID()
+	dstType := collector.EnpointTypePU
+	if app {
+		srcID = context.ManagementID()
+		srcType = collector.EnpointTypePU
+		dstID = report.ServiceID
+		dstType = collector.EndPointTypeExternalIP
 	}
 
-	dst := &collector.EndPoint{
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
-	}
+	src = collector.NewEndPoint(srcType, srcID, collector.OptionEndPointIPPort(p.SourceAddress.String(), p.SourcePort))
+	dst = collector.NewEndPoint(dstType, dstID, collector.OptionEndPointIPPort(p.DestinationAddress.String(), p.DestinationPort))
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
 }
 
 func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
 
-	src := &collector.EndPoint{
-		IP:   p.DestinationAddress.String(),
-		Port: p.DestinationPort,
+	var src, dst *collector.EndPoint
+
+	srcID := report.ServiceID
+	srcType := collector.EndPointTypeExternalIP
+	dstID := context.ManagementID()
+	dstType := collector.EnpointTypePU
+	if app {
+		srcID = context.ManagementID()
+		srcType = collector.EnpointTypePU
+		dstID = report.ServiceID
+		dstType = collector.EndPointTypeExternalIP
 	}
 
-	dst := &collector.EndPoint{
-		IP:   p.SourceAddress.String(),
-		Port: p.SourcePort,
-	}
+	src = collector.NewEndPoint(dstType, dstID, collector.OptionEndPointIPPort(p.DestinationAddress.String(), p.DestinationPort))
+	dst = collector.NewEndPoint(srcType, srcID, collector.OptionEndPointIPPort(p.SourceAddress.String(), p.SourcePort))
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
 }

@@ -485,18 +485,16 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, reportAction *policy.FlowPolicy, packetAction *policy.FlowPolicy) {
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
-		Source: &collector.EndPoint{
-			ID:   sourceID,
-			IP:   flowproperties.SourceIP,
-			Port: flowproperties.SourcePort,
-			Type: flowproperties.SourceType,
-		},
-		Destination: &collector.EndPoint{
-			ID:   destID,
-			IP:   flowproperties.DestIP,
-			Port: flowproperties.DestPort,
-			Type: flowproperties.DestType,
-		},
+		Source: collector.NewEndPoint(
+			flowproperties.SourceType,
+			sourceID,
+			collector.OptionEndPointIPPort(flowproperties.SourceIP, flowproperties.SourcePort),
+		),
+		Destination: collector.NewEndPoint(
+			flowproperties.DestType,
+			destID,
+			collector.OptionEndPointIPPort(flowproperties.DestIP, flowproperties.DestPort),
+		),
 		Tags:        context.Annotations(),
 		Action:      packetAction.Action,
 		DropReason:  mode,

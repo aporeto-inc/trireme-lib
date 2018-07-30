@@ -384,18 +384,17 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
-		Destination: &collector.EndPoint{
-			URI:        r.Method + " " + r.RequestURI,
-			HTTPMethod: r.Method,
-			Type:       collector.EnpointTypePU,
-			IP:         originalDestination.IP.String(),
-			Port:       uint16(originalDestination.Port),
-		},
-		Source: &collector.EndPoint{
-			Type: collector.EndPointTypeExternalIP,
-			IP:   sourceAddress.IP.String(),
-			ID:   collector.DefaultEndPoint,
-		},
+		Destination: collector.NewEndPoint(
+			collector.EnpointTypePU,
+			"", // TODO: ID Cant be empty.
+			collector.OptionEndPointIPPort(originalDestination.IP.String(),uint16(originalDestination.Port)),
+			collector.OptionEndPointHTTP(r.Method + " " + r.RequestURI, r.Method),
+		),
+		Source:  collector.NewEndPoint(
+			collector.EndPointTypeExternalIP,
+			collector.DefaultEndPoint,
+			collector.OptionEndPointIPPort(sourceAddress.IP.String(), 0),
+		),
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,

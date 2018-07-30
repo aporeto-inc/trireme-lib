@@ -402,18 +402,16 @@ func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, 
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
-		Source: &collector.EndPoint{
-			ID:   sourceID,
-			IP:   p.SourceAddress.String(),
-			Port: p.SourcePort,
-			Type: collector.EnpointTypePU,
-		},
-		Destination: &collector.EndPoint{
-			ID:   destID,
-			IP:   p.DestinationAddress.String(),
-			Port: p.DestinationPort,
-			Type: collector.EnpointTypePU,
-		},
+		Source: collector.NewEndPoint(
+			collector.EnpointTypePU,
+			sourceID,
+			collector.OptionEndPointIPPort(p.SourceAddress.String(), p.SourcePort),
+		),
+		Destination: collector.NewEndPoint(
+			collector.EnpointTypePU,
+			destID,
+			collector.OptionEndPointIPPort(p.DestinationAddress.String(), p.DestinationPort),
+		),
 		Tags:       context.Annotations(),
 		Action:     report.Action,
 		DropReason: mode,
