@@ -1,9 +1,11 @@
 package collector
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 
+	"github.com/cespare/xxhash"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 )
@@ -106,4 +108,20 @@ func (f *FlowRecord) String() string {
 		f.Action.String(),
 		f.DropReason,
 	)
+}
+
+// StatsFlowHash is a hash function to hash flows
+func (f *FlowRecord) StatsFlowHash() string {
+
+	hash := xxhash.New()
+	hash.Write([]byte(f.Source.ID))      // nolint errcheck
+	hash.Write([]byte(f.Destination.ID)) // nolint errcheck
+
+	port := make([]byte, 2)
+	binary.BigEndian.PutUint16(port, f.Destination.Port)
+	hash.Write(port)                      // nolint errcheck
+	hash.Write([]byte(f.Action.String())) // nolint errcheck
+	hash.Write([]byte(f.DropReason))      // nolint errcheck
+	hash.Write([]byte(f.Destination.URI)) // nolint errcheck
+	return fmt.Sprintf("%d", hash.Sum64())
 }

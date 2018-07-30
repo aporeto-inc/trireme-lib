@@ -48,8 +48,8 @@ func TestCollectFlowEvent(t *testing.T) {
 
 			Convey("The flow should be in the cache", func() {
 				So(len(c.Flows), ShouldEqual, 1)
-				So(c.Flows[collector.StatsFlowHash(r)], ShouldNotBeNil)
-				So(c.Flows[collector.StatsFlowHash(r)].Count, ShouldEqual, 1)
+				So(c.Flows[r.StatsFlowHash()], ShouldNotBeNil)
+				So(c.Flows[r.StatsFlowHash()].Count, ShouldEqual, 1)
 			})
 
 			Convey("When I add a second flow that matches", func() {
@@ -73,8 +73,8 @@ func TestCollectFlowEvent(t *testing.T) {
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
 					So(len(c.Flows), ShouldEqual, 1)
-					So(c.Flows[collector.StatsFlowHash(r)], ShouldNotBeNil)
-					So(c.Flows[collector.StatsFlowHash(r)].Count, ShouldEqual, 11)
+					So(c.Flows[r.StatsFlowHash()], ShouldNotBeNil)
+					So(c.Flows[r.StatsFlowHash()].Count, ShouldEqual, 11)
 				})
 			})
 
@@ -99,8 +99,8 @@ func TestCollectFlowEvent(t *testing.T) {
 				c.CollectFlowEvent(r)
 				Convey("The flow should be in the cache", func() {
 					So(len(c.Flows), ShouldEqual, 2)
-					So(c.Flows[collector.StatsFlowHash(r)], ShouldNotBeNil)
-					So(c.Flows[collector.StatsFlowHash(r)].Count, ShouldEqual, 33)
+					So(c.Flows[r.StatsFlowHash()], ShouldNotBeNil)
+					So(c.Flows[r.StatsFlowHash()].Count, ShouldEqual, 33)
 				})
 			})
 		})
