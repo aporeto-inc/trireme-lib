@@ -286,8 +286,8 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		Destination: collector.NewEndPoint(
 			collector.EndPointTypeExternalIP,
 			collector.DefaultEndPoint,
-			collector.OptionEndPointIPPort(originalDestination.IP.String(),uint16(originalDestination.Port)),
-			collector.OptionEndPointHTTP(r.Method + " " + r.RequestURI, r.Method)
+			collector.OptionEndPointIPPort(originalDestination.IP.String(), uint16(originalDestination.Port)),
+			collector.OptionEndPointHTTP(r.Method+" "+r.RequestURI, r.Method),
 		),
 		Source: collector.NewEndPoint(
 			collector.EnpointTypePU,
@@ -387,10 +387,10 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		Destination: collector.NewEndPoint(
 			collector.EnpointTypePU,
 			"", // TODO: ID Cant be empty.
-			collector.OptionEndPointIPPort(originalDestination.IP.String(),uint16(originalDestination.Port)),
-			collector.OptionEndPointHTTP(r.Method + " " + r.RequestURI, r.Method),
+			collector.OptionEndPointIPPort(originalDestination.IP.String(), uint16(originalDestination.Port)),
+			collector.OptionEndPointHTTP(r.Method+" "+r.RequestURI, r.Method),
 		),
-		Source:  collector.NewEndPoint(
+		Source: collector.NewEndPoint(
 			collector.EndPointTypeExternalIP,
 			collector.DefaultEndPoint,
 			collector.OptionEndPointIPPort(sourceAddress.IP.String(), 0),
