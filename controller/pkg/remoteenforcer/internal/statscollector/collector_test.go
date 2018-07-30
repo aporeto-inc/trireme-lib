@@ -30,7 +30,7 @@ func TestCollectFlowEvent(t *testing.T) {
 			r := &collector.FlowRecord{
 				ContextID:   "1",
 				Source:      collector.NewEndPoint(collector.EnpointTypePU, "A", collector.OptionEndPointIPPort("1.1.1.1", 0)),
-				Destination: collector.NewEndPoint(collector.EnpointTypePU, "B", collector.OptionEndPointIPPort("2.2.2.2", 0)),
+				Destination: collector.NewEndPoint(collector.EnpointTypePU, "B", collector.OptionEndPointIPPort("2.2.2.2", 80)),
 				Count:       0,
 				Tags:        policy.NewTagStore(),
 				L4Protocol:  packet.IPProtocolTCP,
