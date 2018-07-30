@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -53,6 +54,8 @@ type processMon struct {
 	// logLevel is the level of logs for remote command.
 	logLevel  string
 	logFormat string
+	// printLock is used to serialize prints
+	printLock sync.Mutex
 }
 
 // processInfo stores per process information
@@ -87,7 +90,7 @@ func contextID2SocketPath(contextID string) string {
 }
 
 // processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader, contextID string, exited chan int) {
+func processIOReader(p *processMon, fd io.Reader, contextID string, exited chan int) {
 
 	reader := bufio.NewReader(fd)
 
@@ -98,7 +101,9 @@ func processIOReader(fd io.Reader, contextID string, exited chan int) {
 			return
 		}
 
+		p.printLock.Lock()
 		fmt.Print("[" + contextID + "]:" + str)
+		p.printLock.Unlock()
 	}
 }
 
@@ -111,6 +116,7 @@ func newProcessMon(netns, remoteEnforcerPath, remoteEnforcerName string) Process
 		netNSPath:                   netns,
 		activeProcesses:             cache.NewCache(processMonitorCacheName),
 		childExitStatus:             make(chan exitStatus, 100),
+		printLock:                   sync.Mutex{},
 	}
 
 	go launcher.collectChildExitStatus()
@@ -221,8 +227,8 @@ func (p *processMon) pollStdOutAndErr(
 	initializedCount++
 
 	// Stdout/err processing
-	go processIOReader(stdout, contextID, exited)
-	go processIOReader(stderr, contextID, exited)
+	go processIOReader(p, stdout, contextID, exited)
+	go processIOReader(p, stderr, contextID, exited)
 
 	return initializedCount, nil
 }
