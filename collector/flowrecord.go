@@ -33,18 +33,18 @@ type FlowRecord struct {
 	L4Protocol       uint8
 }
 
-// Option is provided using functional arguments.
-type Option func(*FlowRecord)
+// FlowRecordOption is provided using functional arguments.
+type FlowRecordOption func(*FlowRecord)
 
 // OptionActionReject is an option to setup action as reject
-func OptionActionReject(dropReason string) Option {
+func OptionActionReject(dropReason string) FlowRecordOption {
 	return func(f *FlowRecord) {
 		f.DropReason = dropReason
 	}
 }
 
 // OptionObservedAction is an option to setup observed action
-func OptionObservedAction(id string, action policy.ActionType) Option {
+func OptionObservedAction(id string, action policy.ActionType) FlowRecordOption {
 	return func(f *FlowRecord) {
 		f.ObservedPolicyID = id
 		f.ObservedAction = action
@@ -52,7 +52,7 @@ func OptionObservedAction(id string, action policy.ActionType) Option {
 }
 
 // OptionService is an option to set service information
-func OptionService(id string, t policy.ServiceType) Option {
+func OptionService(id string, t policy.ServiceType) FlowRecordOption {
 	return func(f *FlowRecord) {
 		f.ServiceID = id
 		f.ServiceType = t
@@ -60,7 +60,7 @@ func OptionService(id string, t policy.ServiceType) Option {
 }
 
 // NewFlowRecord sets up a new flow record
-func NewFlowRecord(ctxID string, source, dest *EndPoint, protocol uint8, tags *policy.TagStore, action policy.ActionType, opts ...Option) (*FlowRecord, error) {
+func NewFlowRecord(ctxID string, source, dest *EndPoint, protocol uint8, tags *policy.TagStore, action policy.ActionType, opts ...FlowRecordOption) (*FlowRecord, error) {
 
 	if source == nil || source.ID == "" {
 		return nil, ErrFlowRecordInvalidSrc
