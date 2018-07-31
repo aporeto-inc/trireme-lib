@@ -783,9 +783,9 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy
 		return fmt.Errorf("Unable to add tcp app acls: %s", err)
 	}
 
-	if err := i.addUDPAppACLS(contextID, appChain, netChain, rules); err != nil {
-		return fmt.Errorf("Unable to add udp app acls: %s", err)
-	}
+	// if err := i.addUDPAppACLS(contextID, appChain, netChain, rules); err != nil {
+	// 	return fmt.Errorf("Unable to add udp app acls: %s", err)
+	// }
 
 	if err := i.addOtherAppACLs(contextID, appChain, rules); err != nil {
 		return fmt.Errorf("Unable to add other app acls: %s", err)
@@ -1202,9 +1202,9 @@ func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules policy
 		return fmt.Errorf("Unable to add tcp net acls: %s", err)
 	}
 
-	if err := i.addUDPNetACLS(contextID, appChain, netChain, rules); err != nil {
-		return fmt.Errorf("Unable to add udp net acls: %s", err)
-	}
+	// if err := i.addUDPNetACLS(contextID, appChain, netChain, rules); err != nil {
+	// 	return fmt.Errorf("Unable to add udp net acls: %s", err)
+	// }
 
 	if err := i.addOtherNetACLS(contextID, netChain, rules); err != nil {
 		return fmt.Errorf("Unable to add other net acls: %s", err)
