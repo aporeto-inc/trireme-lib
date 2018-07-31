@@ -53,6 +53,11 @@ type PUContext struct {
 	sync.RWMutex
 }
 
+const (
+	tcp = "tcp"
+	udp = "udp"
+)
+
 // NewPU creates a new PU context
 func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
 
@@ -79,19 +84,19 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
 
-	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
+	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLsProtocol(tcp)); err != nil {
 		return nil, err
 	}
 
-	if err := pu.networkACLs.AddRuleList(puInfo.Policy.NetworkACLs()); err != nil {
+	if err := pu.networkACLs.AddRuleList(puInfo.Policy.NetworkACLsProtocol(tcp)); err != nil {
 		return nil, err
 	}
 
-	if err := pu.applicationUDPACLs.AddRuleList(puInfo.Policy.ApplicationUDPACLs()); err != nil {
+	if err := pu.applicationUDPACLs.AddRuleList(puInfo.Policy.ApplicationACLsProtocol(udp)); err != nil {
 		return nil, err
 	}
 
-	if err := pu.networkUDPACLs.AddRuleList(puInfo.Policy.NetworkUDPACLs()); err != nil {
+	if err := pu.networkUDPACLs.AddRuleList(puInfo.Policy.NetworkACLsProtocol(udp)); err != nil {
 		return nil, err
 	}
 

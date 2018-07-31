@@ -244,9 +244,22 @@ type IPRuleList []IPRule
 
 // Copy creates a clone of the IP rule list
 func (l IPRuleList) Copy() IPRuleList {
+
 	list := make(IPRuleList, len(l))
 	for i, v := range l {
 		list[i] = v
+	}
+	return list
+}
+
+// Clone creates a clone of the IP rule list based on protocol
+func (l IPRuleList) Clone(proto string) IPRuleList {
+
+	list := make(IPRuleList, len(l))
+	for i, v := range l {
+		if v.Protocol == proto {
+			list[i] = v
+		}
 	}
 	return list
 }

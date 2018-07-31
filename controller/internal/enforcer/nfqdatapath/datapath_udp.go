@@ -33,6 +33,11 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		)
 	}
 
+	// Before anything else, check if this packet belongs to an external service.
+	if err = d.checkForExternalServices(p); err == nil {
+		return nil
+	}
+
 	var conn *connection.UDPConnection
 	udpPacketType := p.GetUDPType()
 
@@ -261,6 +266,11 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 			zap.String("flow", p.L4FlowHash()),
 			zap.Error(err),
 		)
+	}
+
+	// Before checking anything, check for external services.
+	if err = d.checkForApplicationACLs(p); err == nil {
+		return nil
 	}
 
 	var conn *connection.UDPConnection
@@ -637,4 +647,44 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	d.reportUDPAcceptedFlow(udpPacket, conn, conn.Auth.RemoteContextID, context.ManagementID(), context, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 
 	return nil, nil, nil
+}
+
+func (d *Datapath) checkForApplicationACLs(p *packet.Packet) (err error) {
+
+	context, err := d.contextFromIP(true, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolUDP)
+	if err != nil {
+		return err
+	}
+
+	report, action, err := context.ApplicationUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.DestinationPort)
+	if err != nil {
+		return err
+	}
+
+	d.reportExternalServiceFlow(context, report, action, true, p)
+
+	return nil
+}
+
+func (d *Datapath) checkForExternalServices(p *packet.Packet) (err error) {
+
+	// check for app acl response - like a dns response
+	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolUDP)
+	if err != nil {
+		return err
+	}
+
+	report, action, err := context.ApplicationUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.SourcePort)
+	if err == nil {
+		return nil
+	}
+
+	// check for network ACLS
+	report, action, err = context.NetworkUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.SourcePort)
+	if err != nil {
+		return err
+	}
+
+	d.reportExternalServiceFlow(context, report, action, false, p)
+	return nil
 }
