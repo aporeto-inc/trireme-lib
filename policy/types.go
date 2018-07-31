@@ -5,6 +5,8 @@ import (
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
+
+	"go.uber.org/zap"
 )
 
 const (
@@ -255,10 +257,11 @@ func (l IPRuleList) Copy() IPRuleList {
 // Clone creates a clone of the IP rule list based on protocol
 func (l IPRuleList) Clone(proto string) IPRuleList {
 
-	list := make(IPRuleList, len(l))
-	for i, v := range l {
+	list := IPRuleList{}
+	for _, v := range l {
+		zap.L().Info("Adding ip rule for protocol", zap.String("proto", proto), zap.String("v.Protoocl", v.Protocol))
 		if v.Protocol == proto {
-			list[i] = v
+			list = append(list, v)
 		}
 	}
 	return list
