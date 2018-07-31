@@ -77,6 +77,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		scopes:             puInfo.Policy.Scopes(),
 	}
 
+	zap.L().Info("Creating new pu context")
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
 
 	pu.CreateTxtRules(puInfo.Policy.TransmitterRules())

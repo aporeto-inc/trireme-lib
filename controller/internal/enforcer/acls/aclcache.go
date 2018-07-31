@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"go.aporeto.io/trireme-lib/policy"
+	"go.uber.org/zap"
 )
 
 var catchAllPolicy = &policy.FlowPolicy{Action: policy.Reject, PolicyID: "default", ServiceID: "default"}
@@ -47,10 +48,12 @@ func (c *ACLCache) AddRule(rule policy.IPRule) (err error) {
 // AddRuleList adds a list of rules to the cache
 func (c *ACLCache) AddRuleList(rules policy.IPRuleList) (err error) {
 
+	zap.L().Info("Adding rule to rulelist")
 	for _, rule := range rules {
 		if err = c.AddRule(rule); err != nil {
 			return
 		}
+		zap.L().Info("Added Rule for protocol", zap.String("proto", rule.Protocol), zap.String("ports", rule.Port))
 	}
 
 	c.reject.reverseSort()
