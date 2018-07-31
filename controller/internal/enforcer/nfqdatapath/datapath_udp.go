@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
+	"go.aporeto.io/trireme-lib/policy"
 )
 
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application
@@ -34,7 +35,11 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 	}
 
 	// Before anything else, check if this packet belongs to an external service.
-	if err = d.checkForExternalServices(p); err == nil {
+	action, err := d.checkForExternalServices(p)
+	if err == nil {
+		if action.Action.Rejected() {
+			return fmt.Errorf("UDP external service packet dropped because of net acl policy")
+		}
 		return nil
 	}
 
@@ -269,7 +274,11 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 	}
 
 	// Before checking anything, check for external services.
-	if err = d.checkForApplicationACLs(p); err == nil {
+	action, err := d.checkForApplicationACLs(p)
+	if err == nil {
+		if action.Action.Rejected() {
+			return fmt.Errorf("UDP external service packet dropped because of app acl policy")
+		}
 		return nil
 	}
 
@@ -649,42 +658,42 @@ func (d *Datapath) processNetworkUDPAckPacket(udpPacket *packet.Packet, context 
 	return nil, nil, nil
 }
 
-func (d *Datapath) checkForApplicationACLs(p *packet.Packet) (err error) {
+func (d *Datapath) checkForApplicationACLs(p *packet.Packet) (action *policy.FlowPolicy, err error) {
 
 	context, err := d.contextFromIP(true, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolUDP)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	report, action, err := context.ApplicationUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.DestinationPort)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	d.reportExternalServiceFlow(context, report, action, true, p)
 
-	return nil
+	return action, nil
 }
 
-func (d *Datapath) checkForExternalServices(p *packet.Packet) (err error) {
+func (d *Datapath) checkForExternalServices(p *packet.Packet) (action *policy.FlowPolicy, err error) {
 
 	// check for app acl response - like a dns response
 	context, err := d.contextFromIP(false, p.DestinationAddress.String(), p.Mark, p.DestinationPort, packet.IPProtocolUDP)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	report, action, err := context.ApplicationUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.SourcePort)
 	if err == nil {
-		return nil
+		return nil, nil
 	}
 
 	// check for network ACLS
 	report, action, err = context.NetworkUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.SourcePort)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	d.reportExternalServiceFlow(context, report, action, false, p)
-	return nil
+	return action, nil
 }

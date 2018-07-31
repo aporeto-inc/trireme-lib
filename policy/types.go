@@ -2,6 +2,7 @@ package policy
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
@@ -260,7 +261,7 @@ func (l IPRuleList) Clone(proto string) IPRuleList {
 	list := IPRuleList{}
 	for _, v := range l {
 		zap.L().Info("Adding ip rule for protocol", zap.String("proto", proto), zap.String("v.Protoocl", v.Protocol))
-		if v.Protocol == proto {
+		if strings.ToLower(v.Protocol) == proto {
 			list = append(list, v)
 		}
 	}
