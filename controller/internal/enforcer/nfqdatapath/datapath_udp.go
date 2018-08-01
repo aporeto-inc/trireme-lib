@@ -275,7 +275,6 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	// Before checking anything, check for external services.
 	pkt, err := d.checkForApplicationACLs(p)
-	zap.L().Info("Got back: ", zap.Reflect("action", pkt), zap.Reflect("err", err))
 	if err == nil {
 		if pkt.Action.Rejected() {
 			return fmt.Errorf("UDP external service packet dropped because of app acl policy")
@@ -666,14 +665,18 @@ func (d *Datapath) checkForApplicationACLs(p *packet.Packet) (action *policy.Flo
 		return nil, err
 	}
 
-	report, action, err := context.ApplicationUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.DestinationPort)
+	// check for network ACLS response
+	report, action, err := context.NetworkUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.SourcePort)
+	if err == nil {
+		return action, err
+	}
+
+	report, action, err = context.ApplicationUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.DestinationPort)
 	if err != nil {
 		return nil, err
 	}
 
-	zap.L().Info("Reporting flow", zap.Reflect("action", action))
 	d.reportExternalServiceFlow(context, report, action, true, p)
-	zap.L().Info("Acction returned is", zap.Reflect("action", action))
 	return action, nil
 }
 
@@ -691,7 +694,7 @@ func (d *Datapath) checkForExternalServices(p *packet.Packet) (action *policy.Fl
 	}
 
 	// check for network ACLS
-	report, action, err = context.NetworkUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.SourcePort)
+	report, action, err = context.NetworkUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.DestinationPort)
 	if err != nil {
 		return nil, err
 	}

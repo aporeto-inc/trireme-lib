@@ -14,7 +14,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
-	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -77,7 +76,6 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		scopes:             puInfo.Policy.Scopes(),
 	}
 
-	zap.L().Info("Creating new pu context")
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
 
 	pu.CreateTxtRules(puInfo.Policy.TransmitterRules())
@@ -86,22 +84,18 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
 
-	zap.L().Info("Adding tcp app acls")
 	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLsProtocol(tcp)); err != nil {
 		return nil, err
 	}
 
-	zap.L().Info("Adding tcp net acls")
 	if err := pu.networkACLs.AddRuleList(puInfo.Policy.NetworkACLsProtocol(tcp)); err != nil {
 		return nil, err
 	}
 
-	zap.L().Info("Adding udp app acls")
 	if err := pu.applicationUDPACLs.AddRuleList(puInfo.Policy.ApplicationACLsProtocol(udp)); err != nil {
 		return nil, err
 	}
 
-	zap.L().Info("Adding udp net acls")
 	if err := pu.networkUDPACLs.AddRuleList(puInfo.Policy.NetworkACLsProtocol(udp)); err != nil {
 		return nil, err
 	}
