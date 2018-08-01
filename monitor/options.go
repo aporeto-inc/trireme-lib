@@ -199,14 +199,6 @@ func SubOptionMonitorKubernetesDockerExtractor(extractor extractors.DockerMetada
 	}
 }
 
-// OptionMergeTags provides a way to add merge tags to be used with New().
-func OptionMergeTags(tags []string) Options {
-	return func(cfg *config.MonitorConfig) {
-		cfg.MergeTags = tags
-		cfg.Common.MergeTags = tags
-	}
-}
-
 // OptionApplicationProxyPort is to provide the application proxy port
 func OptionApplicationProxyPort(proxyPort int) Options {
 	return func(cfg *config.MonitorConfig) {

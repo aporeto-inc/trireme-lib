@@ -33,6 +33,24 @@ func TestNewTagStoreFromMap(t *testing.T) {
 	})
 }
 
+func TestNewTagStoreFromMapValues(t *testing.T) {
+	Convey("When I create a new tagstore from map values", t, func() {
+		t := NewTagStoreFromMapValues(map[string]string{
+			"app":   "app=web",
+			"image": "image=nginx",
+		})
+
+		Convey("I should have the right store", func() {
+			So(t, ShouldNotBeNil)
+			tags := t.GetSlice()
+
+			So(len(tags), ShouldEqual, 2)
+			So(tags, ShouldContain, "app=web")
+			So(tags, ShouldContain, "image=nginx")
+		})
+	})
+}
+
 func TestMerge(t *testing.T) {
 	Convey("When I create a new tagstore from a map", t, func() {
 		t := NewTagStoreFromMap(map[string]string{
