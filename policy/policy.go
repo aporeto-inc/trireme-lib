@@ -201,7 +201,7 @@ func (p *PUPolicy) NetworkACLs() IPRuleList {
 	return p.networkACLs.Copy()
 }
 
-// ApplicationACLs returns a copy of IPRuleList based on protocol
+// ApplicationACLsProtocol returns a copy of IPRuleList based on protocol
 func (p *PUPolicy) ApplicationACLsProtocol(proto string) IPRuleList {
 	p.Lock()
 	defer p.Unlock()
@@ -209,7 +209,7 @@ func (p *PUPolicy) ApplicationACLsProtocol(proto string) IPRuleList {
 	return p.applicationACLs.Clone(proto)
 }
 
-// NetworkACLs returns a copy of IPRuleList based on protocol
+// NetworkACLsProtocol returns a copy of IPRuleList based on protocol
 func (p *PUPolicy) NetworkACLsProtocol(proto string) IPRuleList {
 	p.Lock()
 	defer p.Unlock()
