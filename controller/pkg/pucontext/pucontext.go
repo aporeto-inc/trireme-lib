@@ -33,8 +33,8 @@ type PUContext struct {
 	annotations        *policy.TagStore
 	txt                *policies
 	rcv                *policies
-	applicationACLs    *acls.ACLCache
-	networkACLs        *acls.ACLCache
+	applicationTCPACLs *acls.ACLCache
+	networkTCPACLs     *acls.ACLCache
 	applicationUDPACLs *acls.ACLCache
 	networkUDPACLs     *acls.ACLCache
 	externalIPCache    cache.DataStore
@@ -68,8 +68,8 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		identity:           puInfo.Policy.Identity(),
 		annotations:        puInfo.Policy.Annotations(),
 		externalIPCache:    cache.NewCacheWithExpiration("External IP Cache", timeout),
-		applicationACLs:    acls.NewACLCache(),
-		networkACLs:        acls.NewACLCache(),
+		applicationTCPACLs: acls.NewACLCache(),
+		networkTCPACLs:     acls.NewACLCache(),
 		applicationUDPACLs: acls.NewACLCache(),
 		networkUDPACLs:     acls.NewACLCache(),
 		mark:               puInfo.Runtime.Options().CgroupMark,
@@ -84,11 +84,11 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
 
-	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLsProtocol(tcp)); err != nil {
+	if err := pu.applicationTCPACLs.AddRuleList(puInfo.Policy.ApplicationACLsProtocol(tcp)); err != nil {
 		return nil, err
 	}
 
-	if err := pu.networkACLs.AddRuleList(puInfo.Policy.NetworkACLsProtocol(tcp)); err != nil {
+	if err := pu.networkTCPACLs.AddRuleList(puInfo.Policy.NetworkACLsProtocol(tcp)); err != nil {
 		return nil, err
 	}
 
@@ -151,12 +151,12 @@ func (p *PUContext) RetrieveCachedExternalFlowPolicy(id string) (interface{}, er
 
 // NetworkACLPolicy retrieves the policy based on ACLs
 func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
+	return p.networkTCPACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
 }
 
 // NetworkACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) NetworkACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.networkACLs.GetMatchingAction(addr, port)
+	return p.networkTCPACLs.GetMatchingAction(addr, port)
 }
 
 // NetworkUDPACLPolicyFromAddr retrieve the policy given an address and port.
@@ -166,12 +166,12 @@ func (p *PUContext) NetworkUDPACLPolicyFromAddr(addr net.IP, port uint16) (repor
 
 // ApplicationACLPolicy retrieves the policy based on ACLs
 func (p *PUContext) ApplicationACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.SourcePort)
+	return p.applicationTCPACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.SourcePort)
 }
 
 // ApplicationACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(addr, port)
+	return p.applicationTCPACLs.GetMatchingAction(addr, port)
 }
 
 // ApplicationUDPACLPolicyFromAddr retrieve the policy given an address and port.

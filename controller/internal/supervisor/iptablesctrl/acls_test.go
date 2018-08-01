@@ -394,12 +394,12 @@ func TestAddAppACLs(t *testing.T) {
 		Convey("When I add app ACLs with one reject and one accept and the accept fails", func() {
 
 			rules := policy.IPRuleList{
-				// policy.IPRule{
-				// 	Address:  "192.30.253.0/24",
-				// 	Port:     "80",
-				// 	Protocol: "TCP",
-				// 	Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				// },
+				policy.IPRule{
+					Address:  "192.30.253.0/24",
+					Port:     "80",
+					Protocol: "TCP",
+					Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
