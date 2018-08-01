@@ -30,6 +30,17 @@ func NewTagStoreFromMap(tags map[string]string) *TagStore {
 	return t
 }
 
+// NewTagStoreFromMapValues creates a tag store from an input map's values
+func NewTagStoreFromMapValues(tags map[string]string) *TagStore {
+	t := &TagStore{make([]string, len(tags))}
+	i := 0
+	for _, v := range tags {
+		t.Tags[i] = v
+		i++
+	}
+	return t
+}
+
 // GetSlice returns the tagstore as a slice
 func (t *TagStore) GetSlice() []string {
 	return append([]string{}, t.Tags...)
