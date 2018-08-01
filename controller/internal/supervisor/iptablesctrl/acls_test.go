@@ -361,14 +361,14 @@ func TestAddAppACLs(t *testing.T) {
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
-					Protocol: "UDP",
+					Protocol: "TCP",
 					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
-					Protocol: "UDP",
+					Protocol: "TCP",
 					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
@@ -394,26 +394,28 @@ func TestAddAppACLs(t *testing.T) {
 		Convey("When I add app ACLs with one reject and one accept and the accept fails", func() {
 
 			rules := policy.IPRuleList{
-				policy.IPRule{
-					Address:  "192.30.253.0/24",
-					Port:     "80",
-					Protocol: "UDP",
-					Policy:   &policy.FlowPolicy{Action: policy.Reject},
-				},
+				// policy.IPRule{
+				// 	Address:  "192.30.253.0/24",
+				// 	Port:     "80",
+				// 	Protocol: "TCP",
+				// 	Policy:   &policy.FlowPolicy{Action: policy.Reject},
+				// },
 
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
-					Protocol: "UDP",
+					Protocol: "TCP",
 					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
 
-			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if matchSpec("80", rulespec) == nil && matchSpec("DROP", rulespec) == nil {
+					fmt.Println("rule 80 , drop")
 					return nil
 				}
 				if matchSpec("0.0.0.0/0", rulespec) == nil {
+					fmt.Println("why here 0.0.0./0")
 					return nil
 				}
 				return fmt.Errorf("error %s", rulespec)
@@ -430,13 +432,13 @@ func TestAddAppACLs(t *testing.T) {
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
-					Protocol: "UDP",
+					Protocol: "TCP",
 					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "80",
-					Protocol: "UDP",
+					Protocol: "TCP",
 					Policy:   &policy.FlowPolicy{Action: policy.Reject},
 				},
 			}
