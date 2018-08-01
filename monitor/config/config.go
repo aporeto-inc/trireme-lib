@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"strings"
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/policy"
@@ -24,15 +23,13 @@ const (
 // MonitorConfig specifies the configs for monitors.
 type MonitorConfig struct {
 	Common               *ProcessorConfig
-	MergeTags            []string
 	Monitors             map[Type]interface{}
 	ApplicationProxyPort int
 }
 
 // String returns the configuration in string
 func (c *MonitorConfig) String() string {
-	buf := fmt.Sprintf("MergeTags:[%s] ", strings.Join(c.MergeTags, ","))
-	buf += fmt.Sprintf("Common:%+v ", c.Common)
+	buf := fmt.Sprintf("Common:%+v ", c.Common)
 	buf += fmt.Sprintf("Monitors:{")
 	for k, v := range c.Monitors {
 		buf += fmt.Sprintf("{%d:%+v},", k, v)
@@ -45,7 +42,6 @@ func (c *MonitorConfig) String() string {
 type ProcessorConfig struct {
 	Collector            collector.EventCollector
 	Policy               policy.Resolver
-	MergeTags            []string
 	ApplicationProxyPort int
 }
 

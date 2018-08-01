@@ -30,9 +30,8 @@ func NewMonitors(opts ...Options) (Monitor, error) {
 	var err error
 
 	c := &config.MonitorConfig{
-		MergeTags: []string{},
-		Common:    &config.ProcessorConfig{},
-		Monitors:  map[config.Type]interface{}{},
+		Common:   &config.ProcessorConfig{},
+		Monitors: map[config.Type]interface{}{},
 	}
 
 	for _, opt := range opts {
