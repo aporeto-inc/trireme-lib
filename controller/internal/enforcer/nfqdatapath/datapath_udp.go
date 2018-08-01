@@ -668,12 +668,12 @@ func (d *Datapath) checkForApplicationACLs(p *packet.Packet) (action *policy.Flo
 	}
 
 	// check for network ACLS response
-	_, action, err := context.NetworkUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.SourcePort)
+	_, action, err = context.NetworkUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.SourcePort)
 	if err == nil {
 		return action, err
 	}
 
-	report, action, err = context.ApplicationUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.DestinationPort)
+	report, action, err := context.ApplicationUDPACLPolicyFromAddr(p.DestinationAddress.To4(), p.DestinationPort)
 	if err != nil {
 		return nil, err
 	}
@@ -690,13 +690,13 @@ func (d *Datapath) checkForExternalServices(p *packet.Packet) (action *policy.Fl
 		return nil, err
 	}
 
-	_, action, err := context.ApplicationUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.SourcePort)
+	_, action, err = context.ApplicationUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.SourcePort)
 	if err == nil {
 		return action, nil
 	}
 
 	// check for network ACLS
-	report, action, err = context.NetworkUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.DestinationPort)
+	report, action, err := context.NetworkUDPACLPolicyFromAddr(p.SourceAddress.To4(), p.DestinationPort)
 	if err != nil {
 		return nil, err
 	}
