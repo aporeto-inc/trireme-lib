@@ -275,6 +275,17 @@ func (m *PolicyDB) PrintPolicyDB() {
 		}
 	}
 
+	zap.L().Debug("Print Policy DB: equal id table")
+
+	for key, values := range m.equalIDMapTable {
+		for _, policies := range values {
+			zap.L().Debug("Print Policy DB",
+				zap.String("policies", fmt.Sprintf("%#v", policies)),
+				zap.String("key", key),
+			)
+		}
+	}
+
 	zap.L().Debug("Print Policy DB - not equal table")
 
 	for key, values := range m.notEqualMapTable {
