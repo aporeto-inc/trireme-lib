@@ -203,6 +203,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 			if index, action := searchInMapTable(m.equalIDMapTable[t], count, skip); index >= 0 {
 				return index, action
 			}
+			zap.L().Warn("No lookup found", zap.String("tag", t))
 			continue
 		}
 
