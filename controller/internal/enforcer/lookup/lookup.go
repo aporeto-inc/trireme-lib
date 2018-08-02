@@ -196,9 +196,9 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	// Go through the list of tags
 	for _, t := range copiedTags {
-		zap.L().Info("Tags", zap.String("tag", t))
+		zap.L().Warn("Tags", zap.String("tag", t))
 		if err := m.tagSplit(t, &k, &v); err != nil {
-			zap.L().Info("Tags Split failed", zap.String("tag", t))
+			zap.L().Warn("Tags Split failed", zap.String("tag", t))
 			// Search for matches of t (tag id)
 			if index, action := searchInMapTable(m.equalIDMapTable[t], count, skip); index >= 0 {
 				return index, action
