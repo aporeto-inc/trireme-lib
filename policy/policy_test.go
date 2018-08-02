@@ -2,7 +2,6 @@ package policy
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -423,7 +422,6 @@ func TestApplicationACLsProtocol(t *testing.T) {
 		servicesPrivateKey  string
 		servicesCA          string
 		scopes              []string
-		Mutex               sync.Mutex
 	}
 	type args struct {
 		proto string
@@ -464,7 +462,6 @@ func TestApplicationACLsProtocol(t *testing.T) {
 				servicesPrivateKey:  "",
 				servicesCA:          "",
 				scopes:              []string{},
-				Mutex:               sync.Mutex{},
 			},
 			args: args{
 				proto: "tcp",
@@ -511,7 +508,6 @@ func TestApplicationACLsProtocol(t *testing.T) {
 				servicesPrivateKey:  "",
 				servicesCA:          "",
 				scopes:              []string{},
-				Mutex:               sync.Mutex{},
 			},
 			args: args{
 				proto: "udp",
@@ -549,7 +545,6 @@ func TestApplicationACLsProtocol(t *testing.T) {
 				servicesPrivateKey:  tt.fields.servicesPrivateKey,
 				servicesCA:          tt.fields.servicesCA,
 				scopes:              tt.fields.scopes,
-				Mutex:               tt.fields.Mutex,
 			}
 			if got := p.ApplicationACLsProtocol(tt.args.proto); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PUPolicy.ApplicationACLsProtocol() = %v, want %v", got, tt.want)
@@ -577,7 +572,6 @@ func TestNetworkACLsProtocol(t *testing.T) {
 		servicesPrivateKey  string
 		servicesCA          string
 		scopes              []string
-		Mutex               sync.Mutex
 	}
 	type args struct {
 		proto string
@@ -619,7 +613,6 @@ func TestNetworkACLsProtocol(t *testing.T) {
 				servicesPrivateKey:  "",
 				servicesCA:          "",
 				scopes:              []string{},
-				Mutex:               sync.Mutex{},
 			},
 			args: args{
 				proto: "tcp",
@@ -666,7 +659,6 @@ func TestNetworkACLsProtocol(t *testing.T) {
 				servicesPrivateKey:  "",
 				servicesCA:          "",
 				scopes:              []string{},
-				Mutex:               sync.Mutex{},
 			},
 			args: args{
 				proto: "udp",
@@ -704,7 +696,6 @@ func TestNetworkACLsProtocol(t *testing.T) {
 				servicesPrivateKey:  tt.fields.servicesPrivateKey,
 				servicesCA:          tt.fields.servicesCA,
 				scopes:              tt.fields.scopes,
-				Mutex:               tt.fields.Mutex,
 			}
 			if got := p.NetworkACLsProtocol(tt.args.proto); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PUPolicy.NetworkACLsProtocol() = %v, want %v", got, tt.want)
