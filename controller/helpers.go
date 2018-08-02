@@ -43,7 +43,9 @@ func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFo
 
 	logID = os.Getenv(constants.EnvLogID)
 
-	compressedTags = os.Getenv(constants.EnvCompressedTags)
+	if console := os.Getenv(constants.EnvCompressedTags); console == constants.EnvCompressedTagsEnable {
+		compressedTags = true
+	}
 	return
 }
 
