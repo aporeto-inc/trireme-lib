@@ -118,7 +118,6 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 				}
 			}
 			if keyValueOp.ID != "" {
-				zap.L().Info("Equal", zap.String("id", keyValueOp.ID))
 				if _, ok := m.equalIDMapTable[keyValueOp.ID]; !ok {
 					m.equalIDMapTable[keyValueOp.ID] = []*ForwardingPolicy{}
 				}
