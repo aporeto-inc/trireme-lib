@@ -15,18 +15,18 @@ import (
 )
 
 // SetLogParameters sets up environment to be passed to the remote trireme instances.
-func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string) {
+func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags bool) {
 
 	h := processmon.GetProcessManagerHdl()
 	if h == nil {
 		panic("Unable to find process manager handle")
 	}
 
-	h.SetLogParameters(logToConsole, logWithID, logLevel, logFormat)
+	h.SetLogParameters(logToConsole, logWithID, logLevel, logFormat, compressedTags)
 }
 
 // GetLogParameters retrieves log parameters for Remote Enforcer.
-func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string) {
+func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTags bool) {
 
 	logLevel = os.Getenv(constants.EnvLogLevel)
 	if logLevel == "" {
@@ -42,6 +42,10 @@ func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFo
 	}
 
 	logID = os.Getenv(constants.EnvLogID)
+
+	if console := os.Getenv(constants.EnvCompressedTags); console == constants.EnvCompressedTagsEnable {
+		compressedTags = true
+	}
 	return
 }
 
