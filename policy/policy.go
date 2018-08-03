@@ -210,6 +210,22 @@ func (p *PUPolicy) NetworkACLs() IPRuleList {
 	return p.networkACLs.Copy()
 }
 
+// ApplicationACLsProtocol returns a copy of IPRuleList based on protocol
+func (p *PUPolicy) ApplicationACLsProtocol(proto string) IPRuleList {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.applicationACLs.Clone(proto)
+}
+
+// NetworkACLsProtocol returns a copy of IPRuleList based on protocol
+func (p *PUPolicy) NetworkACLsProtocol(proto string) IPRuleList {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.networkACLs.Clone(proto)
+}
+
 // ReceiverRules returns a copy of TagSelectorList
 func (p *PUPolicy) ReceiverRules() TagSelectorList {
 	p.Lock()
