@@ -141,7 +141,7 @@ func TestDatapath_checkForApplicationACLs(t *testing.T) {
 				nil,
 				nil,
 				nil,
-
+				nil,
 				nil,
 				nil,
 				[]string{},
@@ -330,7 +330,7 @@ func TestDatapath_checkForExternalServices(t *testing.T) {
 				nil,
 				nil,
 				nil,
-
+				nil,
 				nil,
 				nil,
 				[]string{},
