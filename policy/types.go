@@ -256,6 +256,7 @@ type KeyValueOperator struct {
 	Key      string
 	Value    []string
 	Operator Operator
+	ID       string
 }
 
 // TagSelector info describes a tag selector key Operator value
