@@ -173,7 +173,7 @@ func (m *PolicyDB) tagSplit(tag string, k *string, v *string) error {
 	return fmt.Errorf("Invalid tag: missing equal symbol '%s'", tag)
 }
 
-//Search searches for a set of tags in the database to find a policy match
+// Search searches for a set of tags in the database to find a policy match
 func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	count := make([]int, m.numberOfPolicies+1)
