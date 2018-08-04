@@ -126,19 +126,8 @@ func (i *Instance) chainRules(appChain string, netChain string, port string, pro
 
 // proxyRules creates all the proxy specific rules.
 func (i *Instance) proxyRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
-	destSetName, srcSetName, srvSetName := i.getSetNames(proxyPortSetName)
+	destSetName, srvSetName := i.getSetNames(proxyPortSetName)
 	proxyrules := [][]string{
-		{
-			i.appProxyIPTableContext,
-			natProxyInputChain,
-			"-p", "tcp",
-			"-m", "mark", "!",
-			"--mark", proxyMark,
-			"-m", "set",
-			"--match-set", srcSetName, "src,dst",
-			"-j", "REDIRECT",
-			"--to-port", proxyPort,
-		},
 		{
 			i.appProxyIPTableContext,
 			natProxyInputChain,
