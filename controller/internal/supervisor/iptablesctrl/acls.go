@@ -265,6 +265,14 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		})
 	}
 
+	// Network Packets - SYN
+	rules = append(rules, []string{
+		i.netPacketIPTableContext, netChain,
+		"-m", "set", "--match-set", targetNetworkSet, "src",
+		"-p", "tcp", "--tcp-flags", "SYN,ACK", "SYN",
+		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetNetworkQueueSynStr(),
+	})
+
 	// Network Packets - Evertyhing but SYN and SYN,ACK (first 4 packets). SYN,ACK is captured by global rule
 	rules = append(rules, []string{
 		i.netPacketIPTableContext, netChain,
