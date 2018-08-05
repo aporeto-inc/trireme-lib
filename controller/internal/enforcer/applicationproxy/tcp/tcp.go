@@ -183,7 +183,7 @@ func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.C
 
 	p.RLock()
 	if p.certificate == nil {
-		zap.L().Error("Trying to encrypt without a certificate - value is nil")
+		zap.L().Error("Trying to encrypt without a certificate - value is nil - drop connection")
 		p.RUnlock()
 		return fmt.Errorf("Failed to start encryption")
 	}
