@@ -220,33 +220,9 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 			dest.(*markedconn.ProxiedConnection).GetTCPConnection().CloseWrite() // nolint errcheck
 		}
 	}()
-	b := make([]byte, 16384)
-	for {
-		// Setting a read deadline here. TODO: We need to account for keep-alives.
-		if err := source.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			return
-		}
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			n, err := source.Read(b)
-			if err != nil {
-				if checkErr(err) {
-					continue
-				}
-				return
-			}
-			if err = dest.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-				return
-			}
-			if _, err = dest.Write(b[:n]); err != nil {
-				if checkErr(err) {
-					continue
-				}
-				return
-			}
-		}
+
+	if _, err := io.Copy(dest, source); err != nil {
+		logErr(err)
 	}
 }
 
@@ -559,19 +535,9 @@ func writeMsg(conn io.Writer, data []byte) (n int, err error) {
 	return conn.Write(data)
 }
 
-func checkErr(err error) bool {
-	if err == io.EOF {
-		return false
-	}
-	switch t := err.(type) {
-	case net.Error:
-		if t.Timeout() {
-			return true
-		}
+func logErr(err error) bool {
+	switch err.(type) {
 	case syscall.Errno:
-		if t == syscall.ECONNRESET || t == syscall.ECONNABORTED || t == syscall.ENOTCONN || t == syscall.EPIPE {
-			return false
-		}
 		zap.L().Error("Connection error to destination", zap.Error(err))
 	default:
 		zap.L().Error("Connection terminated", zap.Error(err))
