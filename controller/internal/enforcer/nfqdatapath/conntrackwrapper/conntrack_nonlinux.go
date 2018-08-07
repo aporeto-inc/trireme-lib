@@ -1,4 +1,4 @@
-// +build linux
+// +build windows darwin !linux
 
 package conntrackwrapper
 
