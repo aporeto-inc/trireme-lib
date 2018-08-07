@@ -1,4 +1,4 @@
-// +build linux
+// +build windows
 
 package supervisor
 
@@ -8,17 +8,14 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
-	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type cacheData struct {
@@ -73,10 +70,11 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, errors.New("portSetInstance cannot be nil")
 	}
 
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
-	}
+	// TODO :: New Driver instance when we support runtime config on driver
+	// impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
+	// }
 
 	return &Config{
 		mode:            mode,
@@ -120,9 +118,11 @@ func (s *Config) Unsupervise(contextID string) error {
 	cfg := data.(*cacheData)
 	port := cfg.containerInfo.Runtime.Options().ProxyPort
 
-	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port); err != nil {
+	// Delete rules not called on windows implementation since the Driver we use today does not allow runtime config
+	// TODO ::: Reenable when we have driver support
+	/* if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
-	}
+	} */
 
 	if err := s.versionTracker.Remove(contextID); err != nil {
 		zap.L().Warn("Failed to clean the rule version cache", zap.Error(err))
@@ -138,18 +138,23 @@ func (s *Config) Run(ctx context.Context) error {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
 
-	s.Lock()
-	defer s.Unlock()
-	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+	//TODO :: Impl is null since driver does not support
+	/* 	s.Lock()
+	   	defer s.Unlock()
+		   return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks) */
+	return nil
 }
+
 
 // CleanUp implements the cleanup interface
 func (s *Config) CleanUp() error {
-	s.Lock()
+	// TODO :: Cleanup driver nothing done here since we don't init driver here
+	return nil
+	/* s.Lock()
 	defer s.Unlock()
 
 	return s.impl.CleanUp()
-}
+} */
 
 // SetTargetNetworks sets the target networks of the supervisor
 func (s *Config) SetTargetNetworks(networks []string) error {
@@ -162,8 +167,9 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
 	s.triremeNetworks = networks
-
-	return s.impl.SetTargetNetworks(s.triremeNetworks, networks)
+	//TODO:: Runtime API required
+	//return s.impl.SetTargetNetworks(s.triremeNetworks, networks)
+	return nil
 }
 
 func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
@@ -184,13 +190,13 @@ func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
 
 	// Version the policy so that we can do hitless policy changes
 	s.versionTracker.AddOrUpdate(contextID, c)
-
+	// TODO :: NO runtime config on driver right now
 	// Configure the rules
-	if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
+	/* if err := s.impl.ConfigureRules(c.version, contextID, pu); err != nil {
 		// Revert what you can since we have an error - it will fail most likely
 		s.Unsupervise(contextID) // nolint
 		return err
-	}
+	} */
 
 	return nil
 }
@@ -201,8 +207,12 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 
 	s.Lock()
 	defer s.Unlock()
-
-	data, err := s.versionTracker.LockedModify(contextID, revert, 1)
+	_, err := s.versionTracker.LockedModify(contextID, revert, 1)
+	if err != nil {
+		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
+	}
+	// TODO :: TODOD runtime rule modification
+	/* data, err := s.versionTracker.LockedModify(contextID, revert, 1)
 	if err != nil {
 		return fmt.Errorf("unable to find pu %s in cache: %s", contextID, err)
 	}
@@ -212,7 +222,7 @@ func (s *Config) doUpdatePU(contextID string, pu *policy.PUInfo) error {
 		// Try to clean up, even though this is fatal and it will most likely fail
 		s.Unsupervise(contextID) // nolint
 		return err
-	}
+	} */
 
 	return nil
 }
@@ -222,3 +232,4 @@ func revert(a, b interface{}) interface{} {
 	entry.version = entry.version ^ 1
 	return entry
 }
+
