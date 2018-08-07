@@ -510,6 +510,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Update the request headers with the user attributes as defined by the mappings
+	authorizer.UpdateRequestHeaders(serviceID, r, userAttributes)
+
 	// Update the statistics and forward the request. We always encrypt downstream
 	record.Action = policy.Accept | policy.Encrypt
 	record.Destination.IP = originalDestination.IP.String()
