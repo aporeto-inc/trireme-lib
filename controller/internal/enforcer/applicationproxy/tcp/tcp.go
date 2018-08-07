@@ -221,7 +221,7 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 		}
 	}()
 
-	if _, err := io.Copy(dest, source); err != nil {
+	if _, err := io.Copy(dest, source); err != nil { // nolint
 		logErr(err)
 	}
 }
