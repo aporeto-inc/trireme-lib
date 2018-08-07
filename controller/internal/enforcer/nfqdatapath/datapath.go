@@ -9,7 +9,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"go.aporeto.io/netlink-go/conntrack"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -17,6 +16,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
+	"go.aporeto.io/trireme-lib/controller/internal/nfqdatapath/conntrackwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -84,7 +84,7 @@ type Datapath struct {
 	ExternalIPCacheTimeout time.Duration
 
 	// connctrack handle
-	conntrackHdl conntrack.Conntrack
+	conntrackHdl conntrackwrapper.ConntrackWrapper
 
 	// mode captures the mode of the enforcer
 	mode constants.ModeType
@@ -197,7 +197,7 @@ func New(
 		ackSize:                secrets.AckSize(),
 		mode:                   mode,
 		procMountPoint:         procMountPoint,
-		conntrackHdl:           conntrack.NewHandle(),
+		conntrackHdl:           conntrackwrapper.New(),
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
