@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,10 +16,9 @@ import (
 )
 
 type service struct {
-	apis             *urisearch.APICache
-	userJWThandler   usertokens.Verifier
-	redirect         bool
-	redirectTemplate string
+	apis                 *urisearch.APICache
+	userJWThandler       usertokens.Verifier
+	userJWTClaimMappings map[string]string
 }
 
 // Processor holds all the local data of the authorization engine. A processor
@@ -48,13 +48,14 @@ func (p *Processor) UpdateSecrets(s secrets.Secrets, trustedCertificate *x509.Ce
 }
 
 // AddOrUpdateService adds or replaces a service in the authorization db.
-func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, handler usertokens.Verifier) {
+func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, handler usertokens.Verifier, mappings map[string]string) {
 	p.Lock()
 	defer p.Unlock()
 
 	p.serviceMap[name] = &service{
-		apis:           apis,
-		userJWThandler: handler,
+		apis:                 apis,
+		userJWThandler:       handler,
+		userJWTClaimMappings: mappings,
 	}
 }
 
@@ -206,4 +207,27 @@ func (p *Processor) RedirectURI(name string, originURL string) string {
 	}
 	//TODO: erropr hanmdlign
 	return srv.userJWThandler.IssueRedirect(originURL)
+}
+
+// UpdateRequestHeaders will update the request headers based on the user claims
+// and the corresponding mappings.
+func (p *Processor) UpdateRequestHeaders(name string, r *http.Request, claims []string) {
+	p.RLock()
+	defer p.RUnlock()
+
+	srv, ok := p.serviceMap[name]
+	if !ok {
+		return
+	}
+
+	if len(srv.userJWTClaimMappings) == 0 {
+		return
+	}
+
+	for _, claim := range claims {
+		parts := strings.SplitN(claim, "=", 2)
+		if header, ok := srv.userJWTClaimMappings[parts[0]]; ok && len(parts) == 2 {
+			r.Header.Add(header, parts[1])
+		}
+	}
 }
