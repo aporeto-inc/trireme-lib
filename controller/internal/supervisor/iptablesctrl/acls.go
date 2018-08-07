@@ -65,7 +65,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 
 	}
 
-	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName)...)
+	return append(rules, i.proxyRules(appChain, netChain, tcpPorts, proxyPort, proxyPortSetName, mark)...)
 }
 
 func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, mark string, port string, uid string, proxyPort string, proyPortSetName string) [][]string {
@@ -121,13 +121,13 @@ func (i *Instance) chainRules(appChain string, netChain string, port string, pro
 		},
 	}
 
-	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName)...)
+	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName, "")...)
 }
 
 // proxyRules creates all the proxy specific rules.
-func (i *Instance) proxyRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string) [][]string {
+func (i *Instance) proxyRules(appChain string, netChain string, port string, proxyPort string, proxyPortSetName string, cgroupMark string) [][]string {
 	destSetName, srcSetName, srvSetName := i.getSetNames(proxyPortSetName)
-	return [][]string{
+	proxyrules := [][]string{
 		{
 			i.appProxyIPTableContext,
 			natProxyInputChain,
@@ -145,17 +145,6 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-p", "tcp",
 			"-m", "set",
 			"--match-set", srvSetName, "dst",
-			"-m", "mark", "!",
-			"--mark", proxyMark,
-			"-j", "REDIRECT",
-			"--to-port", proxyPort,
-		},
-		{
-			i.appProxyIPTableContext,
-			natProxyOutputChain,
-			"-p", "tcp",
-			"-m", "set",
-			"--match-set", destSetName, "dst,dst",
 			"-m", "mark", "!",
 			"--mark", proxyMark,
 			"-j", "REDIRECT",
@@ -234,6 +223,31 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 			"-j", "ACCEPT",
 		},
 	}
+
+	if cgroupMark == "" {
+		proxyrules = append(proxyrules, []string{
+			i.appProxyIPTableContext,
+			natProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "mark", "!", "--mark", proxyMark,
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		})
+	} else {
+		proxyrules = append(proxyrules, []string{
+			i.appProxyIPTableContext,
+			natProxyOutputChain,
+			"-p", "tcp",
+			"-m", "set", "--match-set", destSetName, "dst,dst",
+			"-m", "mark", "!", "--mark", proxyMark,
+			"-m", "cgroup", "--cgroup", cgroupMark,
+			"-j", "REDIRECT",
+			"--to-port", proxyPort,
+		})
+	}
+
+	return proxyrules
 }
 
 //trapRules provides the packet trap rules to add/delete
