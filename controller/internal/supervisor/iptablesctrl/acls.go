@@ -1376,10 +1376,9 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "udp",
 		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
-		"-m", "u32", "--u32", "0x19&0x60=0x40",
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
 	if err != nil {
-		return fmt.Errorf("unable to add capture synack rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
+		return fmt.Errorf("unable to add udp handshake rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
 	err = i.ipt.Insert(
