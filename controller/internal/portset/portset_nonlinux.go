@@ -100,3 +100,7 @@ func (p *portSetInstance) GetUserMark(mark string) (string, error) {
 func (p *portSetInstance) addPortSet(userName string, port string) error {
 	return nil
 }
+
+func (p *portSetInstance) deletePortSet(userName string, port string) error {
+	return nil
+}
