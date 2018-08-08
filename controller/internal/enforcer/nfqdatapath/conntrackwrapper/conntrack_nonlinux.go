@@ -1,12 +1,12 @@
-// +build windows darwin !linux
+// +build windows
 
 package conntrackwrapper
 
-type conntrackwrapper struct {
+type conntrack struct {
 }
 
 func New() ConntrackWrapper {
-	return &conntrackwrapper{}
+	return &conntrack{}
 }
 
 func (c *conntrack) ConntrackTableUpdateMark(ipSrc, ipDst string, protonum uint8, srcport, dstport uint16, newmark uint32) error {

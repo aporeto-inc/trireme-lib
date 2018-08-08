@@ -4,14 +4,14 @@ package conntrackwrapper
 
 import "go.aporeto.io/netlink-go/conntrack"
 
-type conntrackwrapper struct {
+type conntrackwrapperHdl struct {
 	// connctrack handle
 	conntrackHdl conntrack.Conntrack
 }
 
 // New returns a handle to ConntrackWrapper
 func New() ConntrackWrapper {
-	return &conntrackwrapper{
+	return &conntrackwrapperHdl{
 		conntrackHdl: conntrack.NewHandle(),
 	}
 }
