@@ -11,6 +11,20 @@ import (
 	"go.aporeto.io/trireme-lib/utils/portcache"
 )
 
+const (
+	portSetUpdateIntervalinSeconds = 2
+	portEntryTimeout               = 5 * portSetUpdateIntervalinSeconds
+	uidFieldOffset                 = 7
+	procHeaderLineNum              = 0
+	portOffset                     = 1
+	ipPortOffset                   = 1
+	sockStateOffset                = 3
+	sockListeningState             = "0A"
+	hexFormat                      = 16
+	integerSize                    = 64
+	minimumFields                  = 2
+)
+
 // portSetInstance contains look up tables to manage updates to ipset portsets.
 type portSetInstance struct {
 	userPortSet          cache.DataStore
@@ -80,4 +94,9 @@ func (p *portSetInstance) GetUserMark(mark string) (string, error) {
 	}
 
 	return user, nil
+}
+
+// addPortSet programs the ipset portset with port. The portset name is derived from userPortSet cache.
+func (p *portSetInstance) addPortSet(userName string, port string) error {
+	return nil
 }
