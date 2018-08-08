@@ -104,3 +104,7 @@ func (p *portSetInstance) addPortSet(userName string, port string) error {
 func (p *portSetInstance) deletePortSet(userName string, port string) error {
 	return nil
 }
+
+func (p *portSetInstance) getUserPortSet(userName string) (string, error) {
+	return "", nil
+}

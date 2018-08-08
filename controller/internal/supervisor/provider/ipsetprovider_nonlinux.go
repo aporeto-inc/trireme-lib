@@ -11,7 +11,7 @@ type winipset struct{}
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
 func (i *goIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
-	return &winipset{}
+	return &winipset{}, nil
 }
 
 // DestroyAll destroys all the ipsets - it will fail if there are existing references

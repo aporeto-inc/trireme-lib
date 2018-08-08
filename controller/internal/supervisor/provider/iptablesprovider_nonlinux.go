@@ -8,7 +8,7 @@ type winiptables struct{}
 // NewGoIPTablesProvider returns an IptablesProvider interface based on the go-iptables
 // external package.
 func NewGoIPTablesProvider() (IptablesProvider, error) {
-	return &winiptables{}
+	return &winiptables{}, nil
 }
 
 // Append apends a rule to chain of table
