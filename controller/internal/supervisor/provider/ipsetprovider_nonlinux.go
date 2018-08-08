@@ -2,14 +2,16 @@
 
 package provider
 
+import "github.com/bvandewalle/go-ipset/ipset"
+
 type goIpsetProvider struct{}
 
-type ipset struct{}
+type winipset struct{}
 
 // NewIpset returns an IpsetProvider interface based on the go-ipset
 // external package.
 func (i *goIpsetProvider) NewIpset(name string, hasht string, p *ipset.Params) (Ipset, error) {
-	return &ipset{}
+	return &winipset{}
 }
 
 // DestroyAll destroys all the ipsets - it will fail if there are existing references
@@ -23,31 +25,31 @@ func NewGoIPsetProvider() IpsetProvider {
 }
 
 // Add
-func (i *ipset) Add(entry string, timeout int) error {
+func (i *winipset) Add(entry string, timeout int) error {
 	return nil
 }
 
 // AddOption
-func (i *ipset) AddOption(entry string, option string, timeout int) error {
+func (i *winipset) AddOption(entry string, option string, timeout int) error {
 	return nil
 }
 
 // Del
-func (i *ipset) Del(entry string) error {
+func (i *winipset) Del(entry string) error {
 	return nil
 }
 
 // Destroy
-func (i *ipset) Destroy() error {
+func (i *winipset) Destroy() error {
 	return nil
 }
 
 // Flush
-func (i *ipset) Flush() error {
+func (i *winipset) Flush() error {
 	return nil
 }
 
 // Test
-func (i *ipset) Test(entry string) (bool, error) {
+func (i *winipset) Test(entry string) (bool, error) {
 	return true, nil
 }
