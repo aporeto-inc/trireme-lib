@@ -159,9 +159,14 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
+
+	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
+		return err
+	}
+
 	s.triremeNetworks = networks
 
-	return s.impl.SetTargetNetworks(s.triremeNetworks, networks)
+	return nil
 }
 
 func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
