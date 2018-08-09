@@ -158,6 +158,7 @@ type FlowPolicy struct {
 	Action        ActionType
 	ServiceID     string
 	PolicyID      string
+	Labels        []string
 }
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
