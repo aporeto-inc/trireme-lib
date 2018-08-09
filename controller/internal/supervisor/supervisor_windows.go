@@ -111,13 +111,13 @@ func (s *Config) Supervise(contextID string, pu *policy.PUInfo) error {
 // as much cleanup as possible to avoid stale state
 func (s *Config) Unsupervise(contextID string) error {
 
-	data, err := s.versionTracker.Get(contextID)
+	_, err := s.versionTracker.Get(contextID)
 	if err != nil {
 		return fmt.Errorf("cannot find policy version: %s", err)
 	}
 
-	cfg := data.(*cacheData)
-	port := cfg.containerInfo.Runtime.Options().ProxyPort
+	//cfg := data.(*cacheData)
+	//port := cfg.containerInfo.Runtime.Options().ProxyPort
 
 	// Delete rules not called on windows implementation since the Driver we use today does not allow runtime config
 	// TODO ::: Reenable when we have driver support
