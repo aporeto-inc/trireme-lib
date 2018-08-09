@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
@@ -145,7 +146,6 @@ func (s *Config) Run(ctx context.Context) error {
 	return nil
 }
 
-
 // CleanUp implements the cleanup interface
 func (s *Config) CleanUp() error {
 	// TODO :: Cleanup driver nothing done here since we don't init driver here
@@ -153,8 +153,8 @@ func (s *Config) CleanUp() error {
 	/* s.Lock()
 	defer s.Unlock()
 
-	return s.impl.CleanUp()
-} */
+	return s.impl.CleanUp() */
+}
 
 // SetTargetNetworks sets the target networks of the supervisor
 func (s *Config) SetTargetNetworks(networks []string) error {
@@ -232,4 +232,3 @@ func revert(a, b interface{}) interface{} {
 	entry.version = entry.version ^ 1
 	return entry
 }
-
