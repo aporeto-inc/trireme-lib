@@ -79,7 +79,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 
 	return &Config{
 		mode:            mode,
-		impl:            impl,
+		impl:            nil,
 		versionTracker:  cache.NewCache("SupVersionTracker"),
 		collector:       collector,
 		filterQueue:     filterQueue,
@@ -135,9 +135,9 @@ func (s *Config) Unsupervise(contextID string) error {
 // Run starts the supervisor
 func (s *Config) Run(ctx context.Context) error {
 
-	if err := s.impl.Run(ctx); err != nil {
+	/* if err := s.impl.Run(ctx); err != nil {
 		return fmt.Errorf("unable to start the implementer: %s", err)
-	}
+	} */
 
 	//TODO :: Impl is null since driver does not support
 	/* 	s.Lock()
