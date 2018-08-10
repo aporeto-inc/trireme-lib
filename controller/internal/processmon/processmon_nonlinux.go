@@ -21,3 +21,8 @@ func (p *process) LaunchProcess(contextID string, refPid int, refNsPath string, 
 func (p *process) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags bool) {
 	return
 }
+
+// GetProcessManagerHdl returns a handle to processmanager
+func GetProcessManagerHdl() ProcessManager {
+	return &process{}
+}

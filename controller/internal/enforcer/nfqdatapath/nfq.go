@@ -1,4 +1,5 @@
-// +build !linux windows
+// +build !linux darwin
+// +build !windows
 
 package nfqdatapath
 

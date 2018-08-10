@@ -1,4 +1,5 @@
-// +build linux, !windows, !darwin
+// +build linux, !windows
+// +build !darwin
 
 // Package processmon is to manage and monitor remote enforcers.
 package processmon
