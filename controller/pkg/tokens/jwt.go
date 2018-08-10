@@ -41,7 +41,7 @@ type JWTConfig struct {
 	secrets secrets.Secrets
 	// cache test
 	tokenCache cache.DataStore
-	// useCompression determins of compression should be used when creating tokens
+	// useCompression determines of compression should be used when creating tokens
 	useCompression bool
 }
 
