@@ -209,7 +209,11 @@ func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn) {
 	wg.Wait()
 }
 
-func dataprocessor(ctx context.Context, source, dest net.Conn) {
+type readwithContext func(p []byte) (n int, err error)
+
+func (r readwithContext) Read(p []byte) (int, error) { return r(p) }
+
+func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 	defer func() {
 		switch dest.(type) {
 		case *tls.Conn:
@@ -221,7 +225,14 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 		}
 	}()
 
-	if _, err := io.Copy(dest, source); err != nil { // nolint
+	if _, err := io.Copy(dest, readwithContext(func(p []byte) (int, error) {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		default:
+			return source.Read(p)
+		}
+	})); err != nil { // nolint
 		logErr(err)
 	}
 }
