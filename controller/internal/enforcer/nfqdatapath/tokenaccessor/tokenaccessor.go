@@ -3,6 +3,7 @@ package tokenaccessor
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -138,6 +139,9 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	}
 
 	// We always a need a valid remote context ID
+	if claims.T == nil {
+		return nil, fmt.Errorf("No claims found")
+	}
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
 		return nil, errors.New("no transmitter label")
@@ -155,6 +159,14 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 // and it needs to be recovered
 func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
+	gt := t.getToken()
+	if gt == nil {
+		fmt.Println("Should never be nil ")
+		panic("I found it nil ")
+	}
+	if auth == nil {
+		panic("Auth was nil ")
+	}
 	// Validate the certificate and parse the token
 	claims, _, _, err := t.getToken().Decode(true, data, auth.RemotePublicKey)
 	if err != nil {
