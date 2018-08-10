@@ -478,6 +478,10 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
+	} else {
+		if aclPolicy.Action.Accepted() {
+			aporetoClaims = append(aporetoClaims, aclPolicy.Labels...)
+		}
 	}
 
 	// We can now validate the API authorization. This is the final step
