@@ -118,8 +118,6 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 		return []byte{}, err
 	}
 
-	fmt.Println("Here is the token", strtoken)
-
 	// Copy the certificate if needed. Note that we don't send the certificate
 	// again for Ack packets to reduce overhead
 	if !isAck {

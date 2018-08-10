@@ -71,7 +71,7 @@ func TestNewCompactPKI(t *testing.T) {
 	// txkey is a token that has the client public key signed by the CA
 	Convey("When I create a new compact PKI, it should succeed ", t, func() {
 
-		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey)
+		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey, false)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 		So(p.AuthorityPEM, ShouldResemble, []byte(caPEM))
@@ -80,13 +80,13 @@ func TestNewCompactPKI(t *testing.T) {
 	})
 
 	Convey("When I create a new compact PKI with invalid certs, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(privateKeyPEM)[:20], []byte(publicPEM)[:30], []byte(caPEM), txKey)
+		p, err := NewCompactPKI([]byte(privateKeyPEM)[:20], []byte(publicPEM)[:30], []byte(caPEM), txKey, false)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
 
 	Convey("When I create a new compact PKI with invalid CA, it should fail", t, func() {
-		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM)[:10], txKey)
+		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM)[:10], txKey, false)
 		So(err, ShouldNotBeNil)
 		So(p, ShouldBeNil)
 	})
@@ -96,7 +96,7 @@ func TestNewCompactPKI(t *testing.T) {
 func TestBasicInterfaceFunctions(t *testing.T) {
 	txKey := createTxtToken()
 	Convey("Given a valid CompactPKI ", t, func() {
-		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey)
+		p, err := NewCompactPKI([]byte(privateKeyPEM), []byte(publicPEM), []byte(caPEM), txKey, false)
 		So(err, ShouldBeNil)
 		So(p, ShouldNotBeNil)
 
@@ -126,7 +126,7 @@ func TestBasicInterfaceFunctions(t *testing.T) {
 		})
 
 		Convey("I should ge the right ack size", func() {
-			So(p.AckSize(), ShouldEqual, 322)
+			So(p.AckSize(), ShouldEqual, 280)
 		})
 
 		Convey("I should get the right public key, ", func() {
