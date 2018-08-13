@@ -15,7 +15,7 @@ import (
 )
 
 // SetLogParameters sets up environment to be passed to the remote trireme instances.
-func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags bool) {
+func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
 
 	h := processmon.GetProcessManagerHdl()
 	if h == nil {
