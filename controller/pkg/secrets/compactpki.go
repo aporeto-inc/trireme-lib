@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
@@ -16,7 +17,7 @@ type CompactPKI struct {
 	PublicKeyPEM  []byte
 	AuthorityPEM  []byte
 	TokenKeyPEMs  [][]byte
-	Compressed    bool
+	Compressed    constants.CompressionType
 	privateKey    *ecdsa.PrivateKey
 	publicKey     *x509.Certificate
 	txKey         []byte
@@ -24,14 +25,14 @@ type CompactPKI struct {
 }
 
 // NewCompactPKI creates new secrets for PKI implementation based on compact encoding
-func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, compress bool) (*CompactPKI, error) {
+func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, compress constants.CompressionType) (*CompactPKI, error) {
 
 	zap.L().Warn("DEPRECATED. secrets.NewCompactPKI is deprecated in favor of secrets.NewCompactPKIWithTokenCA")
 	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{[]byte(caPEM)}, txKey, compress)
 }
 
 // NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding
-func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte, compress bool) (*CompactPKI, error) {
+func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte, compress constants.CompressionType) (*CompactPKI, error) {
 
 	zap.L().Debug("Initializing with Compact PKI")
 
@@ -164,7 +165,7 @@ type CompactPKIPublicSecrets struct {
 	CA          []byte
 	TokenCAs    [][]byte
 	Token       []byte
-	Compressed  bool
+	Compressed  constants.CompressionType
 }
 
 // SecretsType returns the type of secrets.

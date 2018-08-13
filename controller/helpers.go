@@ -26,7 +26,7 @@ func SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat s
 }
 
 // GetLogParameters retrieves log parameters for Remote Enforcer.
-func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTags bool) {
+func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFormat string, compressedTagsVersion constants.CompressionType) {
 
 	logLevel = os.Getenv(constants.EnvLogLevel)
 	if logLevel == "" {
@@ -43,8 +43,13 @@ func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFo
 
 	logID = os.Getenv(constants.EnvLogID)
 
-	if console := os.Getenv(constants.EnvCompressedTags); console == constants.EnvCompressedTagsEnable {
-		compressedTags = true
+	compressedTagsVersion = CompressionTypeNone
+	if console := os.Getenv(constants.EnvCompressedTags) {
+		if console == constants.CompressionTypeV1 {
+			compressedTagsVersion = console
+		} else if console == constants.CompressionTypeV2 {
+			compressedTagsVersion = console
+		}
 	}
 	return
 }

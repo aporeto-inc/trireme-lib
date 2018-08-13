@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
-	"go.aporeto.io/trireme-lib/policy"
-
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 
 	"github.com/dgrijalva/jwt-go"
@@ -41,8 +41,10 @@ type JWTConfig struct {
 	secrets secrets.Secrets
 	// cache test
 	tokenCache cache.DataStore
-	// useCompression determines of compression should be used when creating tokens
-	useCompression bool
+	// compressionType determines of compression should be used when creating tokens
+	compressionType constants.CompressionType
+	// compressionTagLength is the length of tags based on compressionType
+	compressionTagLength int
 }
 
 // NewJWT creates a new JWT token processor
@@ -57,7 +59,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	}
 
 	var signMethod jwt.SigningMethod
-	useCompression := false
+	compressionType := constants.CompressionTypeNone
 
 	if s == nil {
 		return nil, errors.New("secrets can not be nil")
@@ -66,7 +68,7 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	switch s.Type() {
 	case secrets.PKICompactType:
 		signMethod = jwt.SigningMethodES256
-		useCompression = s.(*secrets.CompactPKI).Compressed
+		compressionType = s.(*secrets.CompactPKI).Compressed
 	case secrets.PKIType:
 		signMethod = jwt.SigningMethodES256
 	case secrets.PSKType:
@@ -76,12 +78,13 @@ func NewJWT(validity time.Duration, issuer string, s secrets.Secrets) (*JWTConfi
 	}
 
 	return &JWTConfig{
-		ValidityPeriod: validity,
-		Issuer:         issuer,
-		signMethod:     signMethod,
-		secrets:        s,
-		tokenCache:     cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
-		useCompression: useCompression,
+		ValidityPeriod:       validity,
+		Issuer:               issuer,
+		signMethod:           signMethod,
+		secrets:              s,
+		tokenCache:           cache.NewCacheWithExpiration("JWTTokenCache", time.Millisecond*500),
+		compressionType:      compressionType,
+		compressionTagLength: constants.CompressionTypeToTagLength(compressionType),
 	}, nil
 }
 
@@ -100,7 +103,7 @@ func (c *JWTConfig) CreateAndSign(isAck bool, claims *ConnectionClaims, nonce []
 
 	// Handling compression here. If we need to use compression, we will copy
 	// the claims to the C claim and remove all the other fields.
-	if c.useCompression && !isAck {
+	if c.compressionType == constants.CompressionTypeNone && !isAck {
 		tags := allclaims.T
 		allclaims.T = nil
 		for _, t := range tags.Tags {
@@ -212,7 +215,7 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 	// Handling of compressed tags in a backward compatible manner. If there are claims
 	// arriving in the compressed field then we append them to the tags.
-	if !isAck && len(jwtClaims.ConnectionClaims.C) > 0 && len(jwtClaims.ConnectionClaims.C)%4 == 0 {
+	if !isAck && c.compressionTagLength != 0 && len(jwtClaims.ConnectionClaims.C) > 0 && len(jwtClaims.ConnectionClaims.C)%c.compressionTagLength == 0 {
 		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
 		if jwtClaims.ConnectionClaims.T != nil {
 			tags = jwtClaims.ConnectionClaims.T.Tags
@@ -221,8 +224,8 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("Invalid claims")
 		}
-		for i := 0; i < len(compressedClaims); i = i + 4 {
-			tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+4]))
+		for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
+			tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
 			jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
 		}
 	}
