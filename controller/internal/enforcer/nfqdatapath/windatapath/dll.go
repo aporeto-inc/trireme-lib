@@ -8,8 +8,8 @@ import (
 	"unsafe"
 )
 
-// #cgo CFLAGS: -I .\include
-//#include "include/windivert.h"
+// #cgo CFLAGS: -I .
+//#include "windivert.h"
 import "C"
 
 const (

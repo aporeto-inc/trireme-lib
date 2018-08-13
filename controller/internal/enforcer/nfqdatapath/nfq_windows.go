@@ -18,7 +18,7 @@ const (
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
-	if hdl, err := windatapath.Newwindatapath(); err != nil {
+	if hdl, err := windatapath.NewWindatapath(); err != nil {
 		zap.L().Fatal("Unable to start windatapath", zap.Error(err))
 	} else {
 
