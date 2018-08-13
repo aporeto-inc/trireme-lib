@@ -110,3 +110,14 @@ func CompressionTypeToTagLength(t CompressionType) int {
 
 	return CompressedTagLengthV2
 }
+
+// String2CompressionType is a helper to convert string to compression type
+func String2CompressionType(s string) CompressionType {
+	if s == string(CompressionTypeV1) {
+		return CompressionTypeV1
+	}
+	if s == string(CompressionTypeV2) {
+		return CompressionTypeV2
+	}
+	return CompressionTypeNone
+}
