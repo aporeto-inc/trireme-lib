@@ -3,7 +3,6 @@ package tokenaccessor
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -140,7 +139,7 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 
 	// We always a need a valid remote context ID
 	if claims.T == nil {
-		return nil, fmt.Errorf("No claims found")
+		return nil, errors.New("no claims found")
 	}
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
