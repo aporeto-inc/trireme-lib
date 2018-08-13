@@ -161,11 +161,10 @@ func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*
 
 	gt := t.getToken()
 	if gt == nil {
-		fmt.Println("Should never be nil ")
-		panic("I found it nil ")
+		return nil, errors.New("token is nil")
 	}
 	if auth == nil {
-		panic("Auth was nil ")
+		return nil, errors.New("auth is nil")
 	}
 	// Validate the certificate and parse the token
 	claims, _, _, err := t.getToken().Decode(true, data, auth.RemotePublicKey)
