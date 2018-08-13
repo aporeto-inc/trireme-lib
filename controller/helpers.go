@@ -43,12 +43,12 @@ func GetLogParameters() (logToConsole bool, logID string, logLevel string, logFo
 
 	logID = os.Getenv(constants.EnvLogID)
 
-	compressedTagsVersion = CompressionTypeNone
-	if console := os.Getenv(constants.EnvCompressedTags) {
-		if console == constants.CompressionTypeV1 {
-			compressedTagsVersion = console
-		} else if console == constants.CompressionTypeV2 {
-			compressedTagsVersion = console
+	compressedTagsVersion = constants.CompressionTypeNone
+	if console := os.Getenv(constants.EnvCompressedTags); console != string(constants.CompressionTypeNone) {
+		if console == string(constants.CompressionTypeV1) {
+			compressedTagsVersion = constants.CompressionTypeV1
+		} else if console == string(constants.CompressionTypeV2) {
+			compressedTagsVersion = constants.CompressionTypeV2
 		}
 	}
 	return
