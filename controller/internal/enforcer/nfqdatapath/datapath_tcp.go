@@ -171,13 +171,11 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 	case packet.TCPSynAckMask:
 		conn, err = d.appRetrieveState(p)
 		if err != nil {
-			d.packetLogs = true
 			if d.packetLogs {
 				zap.L().Debug("SynAckPacket Ignored",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
-				d.packetLogs = false
 			}
 
 			if p.Mark == strconv.Itoa(cgnetcls.Initialmarkval-1) {
@@ -504,10 +502,8 @@ func (d *Datapath) processNetworkSynPacket(context *pucontext.PUContext, conn *c
 	// Packets that have authorization information go through the auth path
 	// Decode the JWT token using the context key
 	claims, err = d.tokenAccessor.ParsePacketToken(&conn.Auth, tcpPacket.ReadTCPData())
-
-	// If the token signature is not valid,
-	// we must drop the connection and we drop the Syn packet. The source will
-	// retry but we have no state to maintain here.
+	// If the token signature is not valid, we must drop the connection and we drop the Syn packet.
+	// The source will retry but we have no state to maintain here.
 	if err != nil {
 		d.reportRejectedFlow(tcpPacket, conn, collector.DefaultEndPoint, context.ManagementID(), context, collector.InvalidToken, nil, nil)
 		return nil, nil, fmt.Errorf("Syn packet dropped because of invalid token: %s", err)
