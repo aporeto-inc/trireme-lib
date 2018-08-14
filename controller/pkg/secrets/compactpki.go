@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
 	"go.uber.org/zap"
@@ -16,6 +17,7 @@ type CompactPKI struct {
 	PublicKeyPEM  []byte
 	AuthorityPEM  []byte
 	TokenKeyPEMs  [][]byte
+	Compressed    constants.CompressionType
 	privateKey    *ecdsa.PrivateKey
 	publicKey     *x509.Certificate
 	txKey         []byte
@@ -23,14 +25,14 @@ type CompactPKI struct {
 }
 
 // NewCompactPKI creates new secrets for PKI implementation based on compact encoding
-func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte) (*CompactPKI, error) {
+func NewCompactPKI(keyPEM []byte, certPEM []byte, caPEM []byte, txKey []byte, compress constants.CompressionType) (*CompactPKI, error) {
 
 	zap.L().Warn("DEPRECATED. secrets.NewCompactPKI is deprecated in favor of secrets.NewCompactPKIWithTokenCA")
-	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{[]byte(caPEM)}, txKey)
+	return NewCompactPKIWithTokenCA(keyPEM, certPEM, caPEM, [][]byte{[]byte(caPEM)}, txKey, compress)
 }
 
 // NewCompactPKIWithTokenCA creates new secrets for PKI implementation based on compact encoding
-func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte) (*CompactPKI, error) {
+func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, tokenKeyPEMs [][]byte, txKey []byte, compress constants.CompressionType) (*CompactPKI, error) {
 
 	zap.L().Debug("Initializing with Compact PKI")
 
@@ -57,6 +59,7 @@ func NewCompactPKIWithTokenCA(keyPEM []byte, certPEM []byte, caPEM []byte, token
 		PublicKeyPEM:  certPEM,
 		AuthorityPEM:  caPEM,
 		TokenKeyPEMs:  tokenKeyPEMs,
+		Compressed:    compress,
 		privateKey:    key,
 		publicKey:     cert,
 		txKey:         txKey,
@@ -112,7 +115,7 @@ func (p *CompactPKI) TransmittedKey() []byte {
 
 // AckSize returns the default size of an ACK packet
 func (p *CompactPKI) AckSize() uint32 {
-	return uint32(322)
+	return uint32(280)
 }
 
 // AuthPEM returns the Certificate Authority PEM
@@ -149,6 +152,7 @@ func (p *CompactPKI) PublicSecrets() PublicSecrets {
 		CA:          p.AuthorityPEM,
 		Token:       p.txKey,
 		TokenCAs:    p.TokenKeyPEMs,
+		Compressed:  p.Compressed,
 	}
 }
 
@@ -161,6 +165,7 @@ type CompactPKIPublicSecrets struct {
 	CA          []byte
 	TokenCAs    [][]byte
 	Token       []byte
+	Compressed  constants.CompressionType
 }
 
 // SecretsType returns the type of secrets.
