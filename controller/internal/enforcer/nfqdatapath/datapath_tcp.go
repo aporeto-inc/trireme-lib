@@ -172,7 +172,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 		conn, err = d.appRetrieveState(p)
 		if err != nil {
 			if d.packetLogs {
-				zap.L().Info("SynAckPacket Ignored",
+				zap.L().Debug("SynAckPacket Ignored",
 					zap.String("flow", p.L4FlowHash()),
 					zap.String("Flags", packet.TCPFlagsToStr(p.TCPFlags)),
 				)
