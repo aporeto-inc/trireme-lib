@@ -1,8 +1,6 @@
 package nfqdatapath
 
 import (
-	"runtime/debug"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
