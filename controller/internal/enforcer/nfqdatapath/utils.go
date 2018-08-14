@@ -1,11 +1,14 @@
 package nfqdatapath
 
 import (
+	"runtime/debug"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
+	"go.uber.org/zap"
 )
 
 func (d *Datapath) reportAcceptedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
@@ -23,6 +26,7 @@ func (d *Datapath) reportUDPAcceptedFlow(p *packet.Packet, conn *connection.UDPC
 }
 
 func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+	zap.L().Debug("drop", zap.String("stack", string(debug.Stack())))
 	if conn != nil && mode == collector.PolicyDrop {
 		conn.SetReported(connection.RejectReported)
 	}
