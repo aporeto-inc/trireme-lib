@@ -215,18 +215,20 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 	// Handling of compressed tags in a backward compatible manner. If there are claims
 	// arriving in the compressed field then we append them to the tags.
-	if !isAck && c.compressionTagLength != 0 && len(jwtClaims.ConnectionClaims.C) > 0 && len(jwtClaims.ConnectionClaims.C)%c.compressionTagLength == 0 {
+	if !isAck && len(jwtClaims.ConnectionClaims.C) > 0 && len(jwtClaims.ConnectionClaims.C)%c.compressionTagLength == 0 {
 		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
 		if jwtClaims.ConnectionClaims.T != nil {
 			tags = jwtClaims.ConnectionClaims.T.Tags
 		}
-		compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.ConnectionClaims.C)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("Invalid claims")
-		}
-		for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
-			tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
-			jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
+		if c.compressionTagLength != 0 {
+			compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.ConnectionClaims.C)
+			if err != nil {
+				return nil, nil, nil, fmt.Errorf("Invalid claims")
+			}
+			for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
+				tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
+				jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
+			}
 		}
 	}
 
