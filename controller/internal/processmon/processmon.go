@@ -53,7 +53,7 @@ type processMon struct {
 	// logLevel is the level of logs for remote command.
 	logLevel       string
 	logFormat      string
-	compressedTags bool
+	compressedTags constants.CompressionType
 }
 
 // processInfo stores per process information
@@ -140,7 +140,7 @@ func (p *processMon) collectChildExitStatus() {
 }
 
 // SetLogParameters setups args that should be propagated to child processes
-func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags bool) {
+func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
 
 	p.logToConsole = logToConsole
 	p.logWithID = logWithID
@@ -264,8 +264,8 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.EnvLogFormat + "=" + p.logFormat,
 	}
 
-	if p.compressedTags {
-		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+constants.EnvCompressedTagsEnable)
+	if p.compressedTags != constants.CompressionTypeNone {
+		newEnvVars = append(newEnvVars, constants.EnvCompressedTags+"="+string(p.compressedTags))
 	}
 
 	if p.logToConsole {

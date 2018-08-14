@@ -2,7 +2,6 @@ package policy
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
@@ -159,6 +158,7 @@ type FlowPolicy struct {
 	Action        ActionType
 	ServiceID     string
 	PolicyID      string
+	Labels        []string
 }
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
@@ -245,22 +245,9 @@ type IPRuleList []IPRule
 
 // Copy creates a clone of the IP rule list
 func (l IPRuleList) Copy() IPRuleList {
-
 	list := make(IPRuleList, len(l))
 	for i, v := range l {
 		list[i] = v
-	}
-	return list
-}
-
-// Clone creates a clone of the IP rule list based on protocol
-func (l IPRuleList) Clone(proto string) IPRuleList {
-
-	list := IPRuleList{}
-	for _, v := range l {
-		if strings.ToLower(v.Protocol) == proto {
-			list = append(list, v)
-		}
 	}
 	return list
 }

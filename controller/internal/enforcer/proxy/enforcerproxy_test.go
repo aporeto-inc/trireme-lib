@@ -192,7 +192,7 @@ func TestInitRemoteEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults and PKICompactType", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		cpki, _ := secrets.NewCompactPKI([]byte(keypem), []byte(certPEM), []byte(caPool), token)
+		cpki, _ := secrets.NewCompactPKI([]byte(keypem), []byte(certPEM), []byte(caPool), token, constants.CompressionTypeNone)
 		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), cpki, rpchdl, procMountPoint)
 
 		Convey("Then policyEnf should not be nil", func() {
