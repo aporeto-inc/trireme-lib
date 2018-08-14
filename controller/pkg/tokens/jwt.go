@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 
 	"github.com/dgrijalva/jwt-go"
 )
@@ -171,7 +172,6 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 	// Decode function. If certificates are distributed out of band we
 	// will look in the certPool for the certificate
 	if !isAck {
-
 		// We must have at least enough data to get the length
 		if len(data) < tokenPosition {
 			return nil, nil, nil, errors.New("not enough data")
@@ -215,20 +215,31 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 
 	// Handling of compressed tags in a backward compatible manner. If there are claims
 	// arriving in the compressed field then we append them to the tags.
-	if !isAck && len(jwtClaims.ConnectionClaims.C) > 0 && len(jwtClaims.ConnectionClaims.C)%c.compressionTagLength == 0 {
+	if !isAck {
+		zap.L().Info("jwtClaims", zap.Reflect("jwtClaims", jwtClaims))
 		tags := []string{enforcerconstants.TransmitterLabel + "=" + jwtClaims.ConnectionClaims.ID}
 		if jwtClaims.ConnectionClaims.T != nil {
 			tags = jwtClaims.ConnectionClaims.T.Tags
 		}
-		if c.compressionTagLength != 0 {
+
+		if c.compressionTagLength != 0 && len(jwtClaims.ConnectionClaims.C) > 0 {
+			if len(jwtClaims.ConnectionClaims.C)%c.compressionTagLength != 0 {
+				return nil, nil, nil, fmt.Errorf("invalid claims length. compression mismatch")
+			}
+
 			compressedClaims, err := base64.StdEncoding.DecodeString(jwtClaims.ConnectionClaims.C)
 			if err != nil {
-				return nil, nil, nil, fmt.Errorf("Invalid claims")
+				return nil, nil, nil, fmt.Errorf("invalid claims")
 			}
+
 			for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
 				tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
 			}
+
+			zap.L().Info("tags2", zap.Strings("tags", tags))
 		}
+
+		zap.L().Info("tags", zap.Strings("tags", tags))
 		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
 	}
 
