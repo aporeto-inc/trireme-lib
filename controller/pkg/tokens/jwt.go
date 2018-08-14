@@ -227,9 +227,9 @@ func (c *JWTConfig) Decode(isAck bool, data []byte, previousCert interface{}) (c
 			}
 			for i := 0; i < len(compressedClaims); i = i + c.compressionTagLength {
 				tags = append(tags, base64.StdEncoding.EncodeToString(compressedClaims[i:i+c.compressionTagLength]))
-				jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
 			}
 		}
+		jwtClaims.ConnectionClaims.T = policy.NewTagStoreFromSlice(tags)
 	}
 
 	c.tokenCache.AddOrUpdate(string(token), jwtClaims.ConnectionClaims)
