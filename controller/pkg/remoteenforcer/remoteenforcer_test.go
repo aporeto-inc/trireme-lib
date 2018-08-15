@@ -109,7 +109,7 @@ func initTestEnfReqPayload() rpcwrapper.InitRequestPayload {
 	initEnfPayload.ServerID = "598236b81c252c000102665d"
 	initEnfPayload.FqConfig = filterQ()
 
-	s, err := secrets.NewCompactPKI(PrivatePEM, PublicPEM, CAPem, Token)
+	s, err := secrets.NewCompactPKI(PrivatePEM, PublicPEM, CAPem, Token, constants.CompressionTypeNone)
 	if err != nil {
 		fmt.Println("CompackPKI creation failed with:", err)
 	}

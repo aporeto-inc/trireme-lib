@@ -138,6 +138,9 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 	}
 
 	// We always a need a valid remote context ID
+	if claims.T == nil {
+		return nil, errors.New("no claims found")
+	}
 	remoteContextID, ok := claims.T.Get(enforcerconstants.TransmitterLabel)
 	if !ok {
 		return nil, errors.New("no transmitter label")
@@ -155,6 +158,13 @@ func (t *tokenAccessor) ParsePacketToken(auth *connection.AuthInfo, data []byte)
 // and it needs to be recovered
 func (t *tokenAccessor) ParseAckToken(auth *connection.AuthInfo, data []byte) (*tokens.ConnectionClaims, error) {
 
+	gt := t.getToken()
+	if gt == nil {
+		return nil, errors.New("token is nil")
+	}
+	if auth == nil {
+		return nil, errors.New("auth is nil")
+	}
 	// Validate the certificate and parse the token
 	claims, _, _, err := t.getToken().Decode(true, data, auth.RemotePublicKey)
 	if err != nil {
