@@ -51,6 +51,7 @@ void nsexec(void) {
 
   // Set namespace
   int retval = syscall(308,fd,0);
+  
   snprintf(msg, sizeof(msg), "path:%s fd:%d retval:%d", path, fd, retval);
   setenv("TRIREME_ENV_NSENTER_LOGS",msg,1);
   if(retval < 0){
