@@ -2,7 +2,7 @@ required = ["github.com/docker/distribution"]
 
 [[constraint]]
   name = "github.com/bvandewalle/go-ipset"
-  revision = "0ee897a6d8bc6095299e9c03293ece091ef871de"
+  revision = "d3b1a89341d7149564602d4a7247f8678f1a4587"
 
 [[constraint]]
   name = "github.com/docker/docker"
