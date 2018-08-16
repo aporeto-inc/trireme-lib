@@ -202,7 +202,7 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, err
 	}
 
-	if err := MarkConnection(nc, l.mark); err != nil {
+	if err = MarkConnection(nc, l.mark); err != nil {
 		return nil, err
 	}
 
