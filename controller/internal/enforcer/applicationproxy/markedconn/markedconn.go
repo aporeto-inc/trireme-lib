@@ -127,7 +127,6 @@ func SocketListener(port string, mark int) (net.Listener, error) {
 // ProxiedConnection is a proxied connection where we can recover the
 // original destination.
 type ProxiedConnection struct {
-	net.Conn
 	originalIP            net.IP
 	originalPort          int
 	originalTCPConnection *net.TCPConn
@@ -155,6 +154,41 @@ func (p *ProxiedConnection) LocalAddr() net.Addr {
 	return addr
 }
 
+// RemoteAddr returns the remote address
+func (p *ProxiedConnection) RemoteAddr() net.Addr {
+	return p.originalTCPConnection.RemoteAddr()
+}
+
+// Read reads data from the connection.
+func (p *ProxiedConnection) Read(b []byte) (n int, err error) {
+	return p.originalTCPConnection.Read(b)
+}
+
+// Write writes data to the connection.
+func (p *ProxiedConnection) Write(b []byte) (n int, err error) {
+	return p.originalTCPConnection.Write(b)
+}
+
+// Close closes the connection.
+func (p *ProxiedConnection) Close() error {
+	return p.originalTCPConnection.Close()
+}
+
+// SetDeadline passes the read deadline to the original TCP connection.
+func (p *ProxiedConnection) SetDeadline(t time.Time) error {
+	return p.originalTCPConnection.SetDeadline(t)
+}
+
+// SetReadDeadline implements the call by passing it to the original connection.
+func (p *ProxiedConnection) SetReadDeadline(t time.Time) error {
+	return p.originalTCPConnection.SetReadDeadline(t)
+}
+
+// SetWriteDeadline implements the call by passing it to the original connection.
+func (p *ProxiedConnection) SetWriteDeadline(t time.Time) error {
+	return p.originalTCPConnection.SetWriteDeadline(t)
+}
+
 // ProxiedListener is a proxied listener that uses proxied connections.
 type ProxiedListener struct {
 	netListener net.Listener
@@ -168,16 +202,21 @@ func (l ProxiedListener) Accept() (c net.Conn, err error) {
 		return nil, err
 	}
 
-	ip, port, err := GetOriginalDestination(nc)
+	if err = MarkConnection(nc, l.mark); err != nil {
+		return nil, err
+	}
+
+	newConnection, ip, port, err := GetOriginalDestination(nc)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := MarkConnection(nc, l.mark); err != nil {
-		return nil, err
+	tcpConn, ok := newConnection.(*net.TCPConn)
+	if !ok {
+		return nil, fmt.Errorf("Not a tcp connection - ignoring")
 	}
 
-	return &ProxiedConnection{nc, ip, port, nc.(*net.TCPConn)}, nil
+	return &ProxiedConnection{ip, port, tcpConn}, nil
 }
 
 // Addr implements the Addr method of net.Listener.
@@ -196,29 +235,42 @@ type sockaddr struct {
 }
 
 // GetOriginalDestination -- Func to get original destination a connection
-func GetOriginalDestination(conn net.Conn) (net.IP, int, error) {
+func GetOriginalDestination(conn net.Conn) (net.Conn, net.IP, int, error) { // nolint interfacer
 	var addr sockaddr
 	size := uint32(unsafe.Sizeof(addr))
 
 	inFile, err := conn.(*net.TCPConn).File()
 	if err != nil {
-		return []byte{}, 0, err
+		return nil, []byte{}, 0, err
 	}
+	defer inFile.Close() // nolint errcheck
 
+	// This places the connection in blocking mode and the deadlines stop
+	// working. After we find the original destination we need a big
+	// hacky work-around to create a new connection out of the fd.
+	// TODO: It is fixed with Go 1.11. Will be removed in the future
 	err = getsockopt(int(inFile.Fd()), syscall.SOL_IP, sockOptOriginalDst, uintptr(unsafe.Pointer(&addr)), &size)
 	if err != nil {
-		return []byte{}, 0, err
+		return nil, []byte{}, 0, err
 	}
 
 	if addr.family != syscall.AF_INET {
-		return []byte{}, 0, fmt.Errorf("invalid address family")
+		return nil, []byte{}, 0, fmt.Errorf("invalid address family")
 	}
 
 	var ip net.IP
 	ip = addr.data[2:6]
 	port := int(addr.data[0])<<8 + int(addr.data[1])
 
-	return ip, port, nil
+	// Here we create a new connection object and return that one to avoid
+	// the blocking issue.
+	// TODO: Remove with Go 1.11
+	newConn, err := net.FileConn(inFile)
+	if err != nil {
+		return nil, []byte{}, 0, fmt.Errorf("Unable to start new connection")
+	}
+	conn.Close() // nolint errcheck
+	return newConn, ip, port, nil
 }
 
 func getsockopt(s int, level int, name int, val uintptr, vallen *uint32) (err error) {

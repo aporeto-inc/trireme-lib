@@ -12,8 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aporeto-inc/oxy/forward"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/vulcand/oxy/forward"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/pkg/auth"
@@ -127,12 +127,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			if err != nil {
 				return nil, err
 			}
-			tlsConn := tls.Client(conn, &tls.Config{
-				ServerName:         getServerName(addr),
-				RootCAs:            p.ca,
-				InsecureSkipVerify: false,
-			})
-			return tlsConn, nil
+			return conn, nil
 		},
 	}
 
@@ -151,9 +146,20 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		},
 	}
 
+	netDial := func(network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, addr)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot resolve address")
+		}
+		return markedconn.DialMarkedTCP(network, nil, raddr, p.mark)
+	}
+
 	// Create the proxies dowards the network and the application.
 	var err error
-	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport))
+	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport),
+		forward.WebsocketTLSClientConfig(&tls.Config{RootCAs: p.ca}),
+		forward.WebSocketNetDial(netDial),
+	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize encrypted transport: %s", err)
 	}
@@ -358,7 +364,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the new target URL based on the Host parameter that we had.
-	r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	r.URL, err = url.ParseRequestURI("https://" + r.Host)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid destination host name"), http.StatusUnprocessableEntity)
 		return
@@ -521,7 +527,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Action = policy.Accept | policy.Encrypt
 	record.Destination.IP = originalDestination.IP.String()
 	record.Destination.Port = uint16(originalDestination.Port)
-
 	p.fwd.ServeHTTP(w, r)
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
@@ -583,14 +588,6 @@ func appendDefaultPort(address string) string {
 		return address + ":80"
 	}
 	return address
-}
-
-func getServerName(addr string) string {
-	parts := strings.Split(addr, ":")
-	if len(parts) == 2 {
-		return parts[0]
-	}
-	return addr
 }
 
 // userCredentials will find all the user credentials in the http request.
