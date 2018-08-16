@@ -31,3 +31,4 @@ required = ["github.com/docker/distribution"]
 [prune]
   go-tests = true
   unused-packages = true
+
