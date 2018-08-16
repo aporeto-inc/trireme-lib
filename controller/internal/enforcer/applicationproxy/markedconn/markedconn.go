@@ -235,7 +235,7 @@ type sockaddr struct {
 }
 
 // GetOriginalDestination -- Func to get original destination a connection
-func GetOriginalDestination(conn net.Conn) (net.Conn, net.IP, int, error) {
+func GetOriginalDestination(conn net.Conn) (net.Conn, net.IP, int, error) { // nolint interfacer
 	var addr sockaddr
 	size := uint32(unsafe.Sizeof(addr))
 

@@ -590,14 +590,6 @@ func appendDefaultPort(address string) string {
 	return address
 }
 
-func getServerName(addr string) string {
-	parts := strings.Split(addr, ":")
-	if len(parts) == 2 {
-		return parts[0]
-	}
-	return addr
-}
-
 // userCredentials will find all the user credentials in the http request.
 // TODO: In addition to looking at the headers, we need to look at the parameters
 // in case authorization is provided there.
