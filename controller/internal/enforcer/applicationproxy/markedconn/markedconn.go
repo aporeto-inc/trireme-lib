@@ -174,7 +174,7 @@ func (p *ProxiedConnection) Close() error {
 	return p.originalTCPConnection.Close()
 }
 
-// Pass the read deadline to the original TCP connection.
+// SetDeadline passes the read deadline to the original TCP connection.
 func (p *ProxiedConnection) SetDeadline(t time.Time) error {
 	return p.originalTCPConnection.SetDeadline(t)
 }
@@ -243,7 +243,7 @@ func GetOriginalDestination(conn net.Conn) (net.Conn, net.IP, int, error) {
 	if err != nil {
 		return nil, []byte{}, 0, err
 	}
-	defer inFile.Close()
+	defer inFile.Close() // nolint errcheck
 
 	// This places the connection in blocking mode and the deadlines stop
 	// working. After we find the original destination we need a big
@@ -269,7 +269,7 @@ func GetOriginalDestination(conn net.Conn) (net.Conn, net.IP, int, error) {
 	if err != nil {
 		return nil, []byte{}, 0, fmt.Errorf("Unable to start new connection")
 	}
-	conn.Close()
+	conn.Close() // nolint errcheck
 	return newConn, ip, port, nil
 }
 
