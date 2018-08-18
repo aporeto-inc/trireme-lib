@@ -314,8 +314,8 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP.To4(), uint16(downPort))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized")
+		p.reportRejectedFlow(flowproperties, conn, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		return false, fmt.Errorf("Unauthorized by Application ACLs")
 	}
 
 	for {
@@ -343,7 +343,7 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowproperties, conn, puContext.ManagementID(), collector.DefaultEndPoint, puContext, collector.InvalidToken, nil, nil)
 				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
 			}
 			report, packet := puContext.SearchTxtRules(claims.T, false)
@@ -396,8 +396,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP.To4(), uint16(backendport))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
 		flowProperties.SourceType = collector.EndPointTypeExternalIP
-		p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized")
+		p.reportRejectedFlow(flowProperties, conn, networkPolicy.ServiceID, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		return false, fmt.Errorf("Unauthorized by Network ACLs")
 	}
 
 	defer upConn.SetDeadline(time.Time{}) // nolint errcheck
@@ -425,7 +425,7 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
 			report, packet := puContext.SearchRcvRules(tags)
 			if packet.Action.Rejected() {
-				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
+				p.reportRejectedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, fmt.Errorf("connection dropped by policy %s: ", packet.PolicyID)
 			}
 
@@ -511,7 +511,7 @@ func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *co
 	if report == nil {
 		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 	if packet == nil {
@@ -524,7 +524,7 @@ func readMsg(reader io.Reader) ([]byte, error) {
 
 	lread := io.LimitReader(reader, 2)
 	lbuf := make([]byte, 2)
-	if _, err := lread.Read(lbuf); err != nil && err != io.EOF {
+	if _, err := lread.Read(lbuf); err != nil {
 		return nil, fmt.Errorf("Invalid length: %s", err)
 	}
 
@@ -532,7 +532,7 @@ func readMsg(reader io.Reader) ([]byte, error) {
 
 	dread := io.LimitReader(reader, int64(dataLength))
 	data := make([]byte, dataLength)
-	if _, err := dread.Read(data); err != nil && err != io.EOF {
+	if _, err := dread.Read(data); err != nil {
 		return nil, fmt.Errorf("Not enough data to read: %s", err)
 	}
 
