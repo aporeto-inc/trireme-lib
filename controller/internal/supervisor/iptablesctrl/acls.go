@@ -429,7 +429,9 @@ func (i *Instance) addPacketTrap(appChain string, netChain string, networks []st
 
 }
 
-func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleList) error {
+// addTCPUDPAppACLS adds iptables rules that manage traffic from external services (via target networks)
+// for TCP/UDP.
+func (i *Instance) addTCPUDPAppACLS(contextID, chain string, rules policy.IPRuleList) error {
 
 	for loop := 0; loop < 3; loop++ {
 
@@ -453,7 +455,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 
 			proto := strings.ToLower(rule.Protocol)
 
-			if proto == "tcp" {
+			if proto == tcpProto || proto == udpProto {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
@@ -793,7 +795,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 // by an application. The allow rules are inserted with highest priority.
 func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	if err := i.addTCPAppACLS(contextID, appChain, rules); err != nil {
+	if err := i.addTCPUDPAppACLS(contextID, appChain, rules); err != nil {
 		return fmt.Errorf("Unable to add tcp app acls: %s", err)
 	}
 
@@ -809,6 +811,15 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy
 		i.appPacketIPTableContext, appChain,
 		"-d", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT"); err != nil {
+
+		return fmt.Errorf("unable to add default tcp acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
+	}
+
+	if err := i.ipt.Append(
+		i.appPacketIPTableContext, appChain,
+		"-d", "0.0.0.0/0",
+		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT"); err != nil {
 
 		return fmt.Errorf("unable to add default tcp acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
@@ -838,8 +849,9 @@ func (i *Instance) addAppACLs(contextID, appChain, netChain string, rules policy
 	return nil
 }
 
-// addTCPNetACLS adds iptables rules that manage traffic from external services for TCP.
-func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRuleList) error {
+// addTCPUDPNetACLS adds iptables rules that manage traffic from external services (via target networks)
+// for TCP/UDP.
+func (i *Instance) addTCPUDPNetACLS(contextID, netChain string, rules policy.IPRuleList) error {
 
 	for loop := 0; loop < 3; loop++ {
 
@@ -863,7 +875,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 
 			proto := strings.ToLower(rule.Protocol)
 
-			if proto == tcpProto {
+			if proto == tcpProto || proto == udpProto {
 
 				switch rule.Policy.Action & (policy.Accept | policy.Reject) {
 				case policy.Accept:
@@ -960,6 +972,16 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 		i.netPacketIPTableContext, netChain,
 		"-s", "0.0.0.0/0",
 		"-p", "tcp", "-m", "state", "--state", "ESTABLISHED",
+		"-j", "ACCEPT",
+	); err != nil {
+		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
+	}
+
+	// Accept established connections
+	if err := i.ipt.Append(
+		i.netPacketIPTableContext, netChain,
+		"-s", "0.0.0.0/0",
+		"-p", "udp", "-m", "state", "--state", "ESTABLISHED",
 		"-j", "ACCEPT",
 	); err != nil {
 		return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
@@ -1212,7 +1234,7 @@ func (i *Instance) addOtherNetACLS(contextID, netChain string, rules policy.IPRu
 // explicit rules are added with the highest priority since they are direct allows.
 func (i *Instance) addNetACLs(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	if err := i.addTCPNetACLS(contextID, netChain, rules); err != nil {
+	if err := i.addTCPUDPNetACLS(contextID, netChain, rules); err != nil {
 		return fmt.Errorf("Unable to add tcp net acls: %s", err)
 	}
 

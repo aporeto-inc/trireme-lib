@@ -419,6 +419,7 @@ func TestAddAppACLs(t *testing.T) {
 				return fmt.Errorf("error %s", rulespec)
 			})
 			err := i.addAppACLs("chain", "appChain", "netChain", rules)
+			fmt.Println("error got is", err)
 			Convey("I should get no error", func() {
 				So(err, ShouldNotBeNil)
 			})
@@ -515,7 +516,7 @@ func TestAddNetAcls(t *testing.T) {
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
-					Protocol: "TCP",
+					Protocol: "UDP",
 					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
@@ -554,7 +555,7 @@ func TestAddNetAcls(t *testing.T) {
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
-					Protocol: "TCP",
+					Protocol: "UDP",
 					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
@@ -590,7 +591,7 @@ func TestAddNetAcls(t *testing.T) {
 				policy.IPRule{
 					Address:  "192.30.253.0/24",
 					Port:     "443",
-					Protocol: "TCP",
+					Protocol: "UDP",
 					Policy:   &policy.FlowPolicy{Action: policy.Accept},
 				},
 			}
