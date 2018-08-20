@@ -121,7 +121,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 				r.Action = policy.Reject
 				r.DropReason = collector.UnableToDial
 				r.PolicyID = "default"
-				fmt.Printf("Dispatching stats report %+v\n", r)
 				p.collector.CollectFlowEvent(r)
 			}
 		}
