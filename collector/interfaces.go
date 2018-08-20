@@ -30,6 +30,8 @@ const (
 	PolicyDrop = "policy"
 	// APIPolicyDrop indicates that the request was dropped because of failed API validation.
 	APIPolicyDrop = "api"
+	// UnableToDial indicates that the proxy cannot dial out the connection
+	UnableToDial = "dial"
 )
 
 // Container event description
