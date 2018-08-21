@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
+
+	"go.uber.org/zap"
 )
 
 // #cgo CFLAGS: -I .
@@ -16,7 +18,7 @@ const (
 	dllname = ".\\WinDivert.dll"
 )
 
-var funcNames = [...]string{"WinDivertOpen", "WinDivertRecv", "WunDivertSend"}
+var funcNames = [...]string{"WinDivertOpen", "WinDivertRecv", "WinDivertSend"}
 
 type windiverthdl struct {
 	hdl           *syscall.LazyDLL
@@ -26,8 +28,9 @@ type windiverthdl struct {
 // WinDivertHdl is the api exposed by the windivert package driver to the datapath
 type WinDivertHdl interface {
 	WinDivertOpen(filter string, layer uint32, priority uint16, flags uint64) (uintptr, error)
-	WinDivertRecv(data []byte, handle uintptr, recvAddr C.PWINDIVERT_ADDRESS, packetlen *uint) error                          // nolint
-	WinDivertSend(lazyDll *syscall.LazyDLL, handle uintptr, data []byte, recvAddr C.PWINDIVERT_ADDRESS, writeLen *uint) error // nolint
+	WinDivertRecv(handle uintptr, data []byte, packetlen *uint) (unsafe.Pointer, error)       // nolint
+	WinDivertSend(handle uintptr, data []byte, recvAddr unsafe.Pointer, writeLen *uint) error // nolint
+
 }
 
 func loadDLL() (*syscall.LazyDLL, error) {
@@ -72,21 +75,22 @@ func (w *windiverthdl) WinDivertOpen(filter string, layer uint32, priority uint1
 	return handle, lastError
 }
 
-func (w *windiverthdl) WinDivertRecv(data []byte, handle uintptr, recvAddr C.PWINDIVERT_ADDRESS, packetlen *uint) error { // nolint
+func (w *windiverthdl) WinDivertRecv(handle uintptr, data []byte, packetlen *uint) (unsafe.Pointer, error) { // nolint
 	addr, ok := w.methodAddress["WinDivertRecv"]
 	if !ok {
-		return fmt.Errorf("Could not address for windivertrecv")
+		return nil, fmt.Errorf("Could not address for windivertrecv")
 	}
+	recvAddr := &C.WINDIVERT_ADDRESS{}
 	gopacket := (*C.void)(unsafe.Pointer(&data[0]))
 	_, _, lastError := addr.Call(handle,
 		uintptr(unsafe.Pointer(gopacket)),
 		uintptr(len(data)),
 		uintptr(unsafe.Pointer(recvAddr)),
 		uintptr(unsafe.Pointer(packetlen)))
-	return lastError
+	return unsafe.Pointer(recvAddr), lastError
 }
 
-func (w *windiverthdl) WinDivertSend(lazyDll *syscall.LazyDLL, handle uintptr, data []byte, recvAddr C.PWINDIVERT_ADDRESS, writeLen *uint) error { // nolint
+func (w *windiverthdl) WinDivertSend(handle uintptr, data []byte, divertAddr unsafe.Pointer, writeLen *uint) error { // nolint
 	addr, ok := w.methodAddress["WinDivertSend"]
 	if !ok {
 		return fmt.Errorf("Could not address for windivertsend")
@@ -96,9 +100,31 @@ func (w *windiverthdl) WinDivertSend(lazyDll *syscall.LazyDLL, handle uintptr, d
 	_, _, lastError := addr.Call(handle,
 		uintptr(unsafe.Pointer(gopacket)),
 		uintptr(len(data)),
-		uintptr(unsafe.Pointer(recvAddr)),
+		uintptr(divertAddr),
 		uintptr(unsafe.Pointer(writeLen)),
 	)
-
+	zap.L().Info("LastError", zap.Error(lastError))
 	return lastError
+}
+
+func (w *windiverthdl) processPackets(handle uintptr, direction string) error {
+	data := make([]byte, 8192)
+	writeLen := uint(8192)
+	//recvAddr := C.WINDIVERT_ADDRESS{}
+	for {
+		recvAddr, _ := w.WinDivertRecv(handle, data, &writeLen)
+		zap.L().Error("Direction received ", zap.String("Packet Received", direction))
+		err := w.WinDivertSend(handle, data[:writeLen], recvAddr, &writeLen)
+		zap.L().Error("Error", zap.Error(err))
+	}
+	return nil
+
+}
+
+// ShowAddr decode addr
+func ShowAddr(addr interface{}) {
+	// recvAddr := addr.(C.PWINDIVERT_ADDRESS)
+	// zap.L().Error("Recv Addr ", zap.Int("ifindex", int(recvAddr.IfIdx)))
+	// zap.L().Error("Recv Addr ", zap.Int("Direction", int(recvAddr.Direction)))
+	// zap.L().Error("Recv Addr ", zap.Int("Impostor", int(recvAddr.Impostor)))
 }

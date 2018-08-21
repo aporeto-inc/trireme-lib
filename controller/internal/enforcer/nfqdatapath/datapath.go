@@ -4,7 +4,6 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"go.uber.org/zap"
@@ -126,8 +125,8 @@ func New(
 			ExternalIPCacheTimeout = time.Second
 		}
 	}
-
-	if mode == constants.RemoteContainer || mode == constants.LocalServer {
+	// TODO :: WINDOWS :: This is not relevant need to move it to move linux only file
+	/* if mode == constants.RemoteContainer || mode == constants.LocalServer {
 		// Make conntrack liberal for TCP
 
 		sysctlCmd, err := exec.LookPath("sysctl")
@@ -146,7 +145,7 @@ func New(
 				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
 			}
 		}
-	}
+	} */
 
 	// This cache is shared with portSetInstance. The portSetInstance
 	// cleans up the entry corresponding to port when port is no longer

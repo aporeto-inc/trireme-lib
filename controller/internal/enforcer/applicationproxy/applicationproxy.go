@@ -63,11 +63,12 @@ type AppProxy struct {
 // NewAppProxy creates a new instance of the application proxy.
 func NewAppProxy(tp tokenaccessor.TokenAccessor, c collector.EventCollector, puFromID cache.DataStore, certificate *tls.Certificate, s secrets.Secrets) (*AppProxy, error) {
 
-	systemPool, err := x509.SystemCertPool()
+	// TDOD :: WINDOWS :: systemcert pool
+	/* systemPool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, err
-	}
-
+	} */
+	systemPool := x509.NewCertPool()
 	// We append the CA only if we are not in PSK mode as it doesn't provide a CA.
 	if s.PublicSecrets().SecretsType() != secrets.PSKType {
 		if ok := systemPool.AppendCertsFromPEM(s.PublicSecrets().CertAuthority()); !ok {
@@ -173,7 +174,8 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	p.clients.AddOrUpdate(puID, client)
 
 	// Start the connection multiplexer
-	go client.protomux.Serve(ctx) // nolint
+	//TODO :: Windows comment
+	//go client.protomux.Serve(ctx) // nolint
 
 	return nil
 }
