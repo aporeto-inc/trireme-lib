@@ -146,14 +146,16 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 			DestType:   collector.EndPointTypeExternalIP,
 			SourceType: collector.EnpointTypePU,
 		}
-		puContext, err := p.puContextFromContextID(p.puContext)
-		var managementID string
-		if err != nil {
-			puContext = nil
-		} else {
-			managementID = puContext.ManagementID()
+
+		puContext, perr := p.puContextFromContextID(p.puContext)
+		if perr != nil {
+			zap.L().Error("Unable to find policy context for tcp connection",
+				zap.String("Context", p.puContext),
+				zap.Error(perr))
+			return
 		}
-		p.reportRejectedFlow(flowproperties, managementID, "default", puContext, collector.UnableToDial, nil, nil)
+
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), "default", puContext, collector.UnableToDial, nil, nil)
 		return
 	}
 	defer downConn.Close() // nolint
