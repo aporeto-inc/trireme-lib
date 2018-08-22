@@ -9,6 +9,7 @@ import (
 
 	"github.com/bluele/gcache"
 	"github.com/dgrijalva/jwt-go"
+	"go.uber.org/zap"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
@@ -90,6 +91,9 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 		return key, nil
 	}); err != nil {
 		return "", nil, nil, err
+	}
+	if err := p.tokenCache.Set(token, claims); err != nil {
+		zap.L().Error("Failed to cache token", zap.Error(err))
 	}
 	return claims.SourceID, claims.Scopes, claims.Profile, nil
 }
