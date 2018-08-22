@@ -11,6 +11,11 @@ import (
 	"github.com/dgrijalva/jwt-go"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/utils/cache"
+)
+
+var (
+	localCache = cache.NewCacheWithExpiration("tokens", time.Second*10)
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -103,6 +108,9 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 	if !ok {
 		return "", fmt.Errorf("Not a valid private key format")
 	}
+	if token, err := localCache.Get(id); err == nil {
+		return token.(string), nil
+	}
 	claims := &JWTClaims{
 		StandardClaims: jwt.StandardClaims{
 			Issuer:    server,
@@ -112,5 +120,12 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 		Scopes:   scopes,
 		SourceID: id,
 	}
-	return jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)
+
+	token, err := jwt.NewWithClaims(jwt.SigningMethodES256, claims).SignedString(key)
+	if err != nil {
+		return "", err
+	}
+
+	localCache.AddOrUpdate(id, token)
+	return token, nil
 }
