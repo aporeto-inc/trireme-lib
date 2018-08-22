@@ -262,6 +262,7 @@ func (p *processMon) getLaunchProcessEnvVars(
 		constants.EnvContainerPID + "=" + strconv.Itoa(refPid),
 		constants.EnvLogLevel + "=" + p.logLevel,
 		constants.EnvLogFormat + "=" + p.logFormat,
+		"GODEBUG=gctrace=1",
 	}
 
 	if p.compressedTags != constants.CompressionTypeNone {

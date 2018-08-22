@@ -1,6 +1,7 @@
 package httpproxy
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -15,6 +16,7 @@ func NewPool() *BufferPool {
 	return &BufferPool{
 		s: sync.Pool{
 			New: func() interface{} {
+				fmt.Println("Allocating memory")
 				return make([]byte, 32*1024)
 			},
 		},
