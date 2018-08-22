@@ -22,7 +22,7 @@ import (
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, dockerRuntime policy.RuntimeReader) error {
 	zap.L().Info("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
 
-	zap.L().Info("Docker monitor runtime recieved is:", zap.Reflect("runtime", dockerRuntime))
+	zap.L().Info("Docker monitor runtime is:", zap.Reflect("runtime", dockerRuntime))
 	var kubernetesRuntime policy.RuntimeReader
 
 	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime from
