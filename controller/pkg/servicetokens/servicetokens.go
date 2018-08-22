@@ -59,7 +59,6 @@ func (p *Verifier) ParseToken(token string, publicKey string) (string, []string,
 		return claims.SourceID, claims.Scopes, claims.Profile, nil
 	}
 
-	fmt.Println("token not found in cache", time.Now())
 	// if a public key is transmitted in the wire, we need to verify its validity and use it.
 	// Otherwise we use the public key of the stored secrets.
 	var key *ecdsa.PublicKey
@@ -132,6 +131,5 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 	}
 
 	localCache.AddOrUpdate(id, token)
-	fmt.Println("Updated token at", time.Now(), time.Now().Add(validity))
 	return token, nil
 }
