@@ -126,42 +126,32 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		}
 	}
 
+	dialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
+		if err != nil {
+			reportStats(ctx)
+			return nil, err
+		}
+		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		if err != nil {
+			reportStats(ctx)
+			return nil, fmt.Errorf("Failed to dial remote: %s", err)
+		}
+		return conn, nil
+	}
+
 	// Create an encrypted downstream transport. We will mark the downstream connection
 	// to let the iptables rule capture it.
 	encryptedTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
-			if err != nil {
-				reportStats(ctx)
-				return nil, err
-			}
-			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
-			if err != nil {
-				reportStats(ctx)
-				return nil, err
-			}
-			return conn, nil
-		},
+		DialContext: dialerWithContext,
 	}
 
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
-			if err != nil {
-				reportStats(ctx)
-				return nil, err
-			}
-			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
-			if err != nil {
-				reportStats(ctx)
-				return nil, fmt.Errorf("Failed to dial remote: %s", err)
-			}
-			return conn, nil
-		},
+		DialContext: dialerWithContext,
 	}
 
 	netDial := func(network, addr string) (net.Conn, error) {
@@ -177,6 +167,7 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport),
 		forward.WebsocketTLSClientConfig(&tls.Config{RootCAs: p.ca}),
 		forward.WebSocketNetDial(netDial),
+		forward.BufferPool(NewPool()),
 	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize encrypted transport: %s", err)
