@@ -127,5 +127,6 @@ func CreateAndSign(server string, profile, scopes []string, id string, validity 
 	}
 
 	localCache.AddOrUpdate(id, token)
+	fmt.Println("Updated token at", time.Now(), time.Now().Add(validity))
 	return token, nil
 }
