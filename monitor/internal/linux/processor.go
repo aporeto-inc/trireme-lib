@@ -189,8 +189,8 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
 
 	if e != nil {
-		// If its a host service then use pus from eventInfo
-		// The code below assumes that pus are already created
+		// If its a host service then use pu from eventInfo
+		// The code block below assumes that pu is already created
 		if e.HostService {
 			runtime, err := l.metadataExtractor(e)
 			if err != nil {
