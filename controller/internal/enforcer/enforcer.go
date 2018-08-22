@@ -40,6 +40,8 @@ type Enforcer interface {
 
 	// UpdateSecrets -- updates the secrets of running enforcers managed by trireme. Remote enforcers will get the secret updates with the next policy push
 	UpdateSecrets(secrets secrets.Secrets) error
+
+	SetTargetNetworks(networks []string) error
 }
 
 // enforcer holds all the active implementations of the enforcer
@@ -113,6 +115,10 @@ func (e *enforcer) Unenforce(contextID string) error {
 	return nil
 }
 
+func (e *enforcer) SetTargetNetworks(networks []string) error {
+	return e.transport.SetTargetNetworks(networks)
+}
+
 // Updatesecrets updates the secrets of the enforcers
 func (e *enforcer) UpdateSecrets(secrets secrets.Secrets) error {
 	if e.proxy != nil {
@@ -153,6 +159,7 @@ func New(
 	procMountPoint string,
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
+	targetNetworks []string,
 ) (Enforcer, error) {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
@@ -176,6 +183,7 @@ func New(
 		packetLogs,
 		tokenAccessor,
 		puFromContextID,
+		targetNetworks,
 	)
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
@@ -197,6 +205,7 @@ func NewWithDefaults(
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
+	targetNetworks []string,
 ) Enforcer {
 	return nfqdatapath.NewWithDefaults(
 		serverID,
@@ -205,5 +214,6 @@ func NewWithDefaults(
 		secrets,
 		mode,
 		procMountPoint,
+		targetNetworks,
 	)
 }

@@ -120,6 +120,14 @@ func (m *MockEnforcer) UpdateSecrets(secrets secrets.Secrets) error {
 	return ret0
 }
 
+// SetTargetNetworks mocks SetTargetNetworks
+// nolint
+func (m *MockEnforcer) SetTargetNetworks(networks []string) error {
+	ret := m.ctrl.Call(m, "SetTargetNetworks", networks)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
 // UpdateSecrets indicates an expected call of UpdateSecrets
 // nolint
 func (mr *MockEnforcerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {

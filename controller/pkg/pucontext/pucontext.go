@@ -142,11 +142,6 @@ func (p *PUContext) NetworkACLPolicyFromAddr(addr net.IP, port uint16) (report *
 	return p.networkACLs.GetMatchingAction(addr, port)
 }
 
-// ApplicationACLPolicy retrieves the policy based on ACLs
-func (p *PUContext) ApplicationACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.SourcePort)
-}
-
 // ApplicationACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
 	return p.applicationACLs.GetMatchingAction(addr, port)
