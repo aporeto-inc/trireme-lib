@@ -185,6 +185,25 @@ func (l *linuxProcessor) Pause(ctx context.Context, eventInfo *common.EventInfo)
 	return l.config.Policy.HandlePUEvent(ctx, puID, common.EventPause, nil)
 }
 
+func (l *linuxProcessor) resyncHostService(ctx context.Context, e *common.EventInfo) error {
+
+	runtime, err := l.metadataExtractor(e)
+	if err != nil {
+		return err
+	}
+
+	nativeID, err := l.generateContextID(e)
+	if err != nil {
+		return err
+	}
+
+	if err = l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventStart, runtime); err != nil {
+		return fmt.Errorf("Unable to start PU: %s", err)
+	}
+
+	return l.processHostServiceStart(e, runtime)
+}
+
 // Resync resyncs with all the existing services that were there before we start
 func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error {
 
@@ -192,21 +211,7 @@ func (l *linuxProcessor) Resync(ctx context.Context, e *common.EventInfo) error 
 		// If its a host service then use pu from eventInfo
 		// The code block below assumes that pu is already created
 		if e.HostService {
-			runtime, err := l.metadataExtractor(e)
-			if err != nil {
-				return err
-			}
-
-			nativeID, err := l.generateContextID(e)
-			if err != nil {
-				return err
-			}
-
-			if err = l.config.Policy.HandlePUEvent(ctx, nativeID, common.EventStart, runtime); err != nil {
-				return fmt.Errorf("Unable to start PU: %s", err)
-			}
-
-			return l.processHostServiceStart(e, runtime)
+			return l.resyncHostService(ctx, e)
 		}
 	}
 
