@@ -1,6 +1,8 @@
 package httpproxy
 
-import "sync"
+import (
+	"sync"
+)
 
 // BufferPool implements the interface of httputil.BufferPool in order
 // to improve memory utilization in the reverse proxy.

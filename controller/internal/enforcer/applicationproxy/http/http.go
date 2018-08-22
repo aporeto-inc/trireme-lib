@@ -173,7 +173,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		return fmt.Errorf("Cannot initialize encrypted transport: %s", err)
 	}
 
-	p.fwd, err = forward.New(forward.RoundTripper(transport))
+	p.fwd, err = forward.New(
+		forward.RoundTripper(transport),
+		forward.BufferPool(NewPool()),
+	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize unencrypted transport: %s", err)
 	}
