@@ -20,8 +20,9 @@ import (
 // is responsible to update all components by explicitly adding a new PU.
 // Specifically for Kubernetes, The monitor handles the downstream events from Docker.
 func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, event common.Event, dockerRuntime policy.RuntimeReader) error {
-	zap.L().Debug("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
+	zap.L().Info("dockermonitor event", zap.String("puID", puID), zap.String("eventType", string(event)))
 
+	zap.L().Info("Docker monitor runtime recieved is:", zap.Refelct("runtime", dockerRuntime))
 	var kubernetesRuntime policy.RuntimeReader
 
 	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime from
