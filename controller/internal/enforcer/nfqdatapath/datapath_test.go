@@ -33,6 +33,33 @@ var (
 	iteration int
 )
 
+func TestEnforcerExternalNetworks(t *testing.T) {
+	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
+		var puInfo1, puInfo2 *policy.PUInfo
+		var enforcer *Datapath
+		var err1, err2 error
+		Convey("Given I create a two processing unit instances", func() {
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", true)
+			Convey("If I send a syn tcp packet from PU to an ip not in target networks", func() {
+				PacketFlow := packetgen.NewTemplateFlow()
+				_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+				So(err, ShouldBeNil)
+
+				synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+				So(err, ShouldBeNil)
+
+				tcpPacket, err := packet.New(0, synPacket, "0")
+				if err == nil && tcpPacket != nil {
+					tcpPacket.UpdateIPChecksum()
+					tcpPacket.UpdateTCPChecksum()
+				}
+				err1 := enforcer.processApplicationTCPPackets(tcpPacket)
+				So(err1, ShouldNotBeNil)
+			})
+		})
+	})
+}
+
 func TestInvalidContext(t *testing.T) {
 
 	Convey("Given I create a new enforcer instance", t, func() {
@@ -49,7 +76,7 @@ func TestInvalidContext(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		PacketFlow := packetgen.NewTemplateFlow()
 		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
 		So(err, ShouldBeNil)
@@ -89,7 +116,7 @@ func TestInvalidIPContext(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		Convey("Then enforcer instance must be initialized", func() {
 			So(enforcer, ShouldNotBeNil)
 		})
@@ -132,7 +159,7 @@ func TestEnforcerConnUnknownState(t *testing.T) {
 		var enforcer *Datapath
 		var err1, err2 error
 		Convey("Given I create a two processing unit instances", func() {
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", false)
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
@@ -200,7 +227,7 @@ func TestInvalidTokenContext(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		enforcer.Enforce("SomeServerId", puInfo) // nolint
 
 		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
@@ -246,7 +273,7 @@ func MyMatcher(x interface{}) gomock.Matcher {
 	return &myMatcher{x: x}
 }
 
-func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEventCollector, multiFlows bool, modeType string) (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2, err3, err4 error) {
+func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEventCollector, multiFlows bool, modeType string, targetNetExternal bool) (puInfo1, puInfo2 *policy.PUInfo, enforcer *Datapath, err1, err2, err3, err4 error) {
 	var mode constants.ModeType
 	if modeType == "container" {
 		mode = constants.RemoteContainer
@@ -306,7 +333,12 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 				return nil, nil
 			}
-			enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
+			if targetNetExternal == true {
+				enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
+			} else {
+				enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
+			}
+
 			err1 = enforcer.Enforce(puID1, puInfo1)
 			err2 = enforcer.Enforce(puID2, puInfo2)
 		} else {
@@ -320,7 +352,11 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 				return nil, nil
 			}
 
-			enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc")
+			if targetNetExternal == true {
+				enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"1.1.1.1/31"})
+			} else {
+				enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
+			}
 			err1 = enforcer.Enforce(puID1, puInfo1)
 			err2 = enforcer.Enforce(puID2, puInfo2)
 		}
@@ -408,7 +444,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
-		enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc")
+		enforcer = NewWithDefaults(serverID, collectors, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
 		err1 = enforcer.Enforce(puID1, puInfo1)
 		err2 = enforcer.Enforce(puID2, puInfo2)
 		err3 = enforcer.Enforce(puID3, puInfo3)
@@ -424,7 +460,7 @@ func setupProcessingUnitsInDatapathAndEnforce(collectors *mockcollector.MockEven
 			return nil, nil
 		}
 		collector := &collector.DefaultCollector{}
-		enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc")
+		enforcer = NewWithDefaults(serverID, collector, nil, secret, mode, "/proc", []string{"0.0.0.0/0"})
 		err1 = enforcer.Enforce(puID1, puInfo1)
 		err2 = enforcer.Enforce(puID2, puInfo2)
 		err3 = enforcer.Enforce(puID3, puInfo3)
@@ -450,7 +486,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 				for k := 0; k < 2; k++ {
 					if k == 0 {
 
-						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", false)
 						So(puInfo1, ShouldNotBeNil)
 						So(puInfo2, ShouldNotBeNil)
 						So(err1, ShouldBeNil)
@@ -458,7 +494,7 @@ func TestPacketHandlingEndToEndPacketsMatch(t *testing.T) {
 
 					} else if k == 1 {
 
-						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server", false)
 						So(puInfo1, ShouldNotBeNil)
 						So(puInfo2, ShouldNotBeNil)
 						So(err1, ShouldBeNil)
@@ -564,7 +600,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 				for k := 0; k < 2; k++ {
 					if k == 0 {
 
-						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", false)
 						So(puInfo1, ShouldNotBeNil)
 						So(puInfo2, ShouldNotBeNil)
 						So(err1, ShouldBeNil)
@@ -650,7 +686,7 @@ func TestPacketHandlingFirstThreePacketsHavePayload(t *testing.T) {
 						}
 					} else if k == 1 {
 
-						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+						puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server", false)
 						So(puInfo1, ShouldNotBeNil)
 						So(puInfo2, ShouldNotBeNil)
 						So(err1, ShouldBeNil)
@@ -753,7 +789,7 @@ func TestPacketHandlingDstPortCacheBehavior(t *testing.T) {
 			var enforcer *Datapath
 			var err1, err2 error
 
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server", false)
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
@@ -833,7 +869,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 			for k := 0; k < 2; k++ {
 				if k == 0 {
 
-					puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+					puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", false)
 					So(puInfo1, ShouldNotBeNil)
 					So(puInfo2, ShouldNotBeNil)
 					So(err1, ShouldBeNil)
@@ -980,7 +1016,7 @@ func TestConnectionTrackerStateLocalContainer(t *testing.T) {
 
 				} else if k == 1 {
 
-					puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+					puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server", false)
 					So(puInfo1, ShouldNotBeNil)
 					So(puInfo2, ShouldNotBeNil)
 					So(err1, ShouldBeNil)
@@ -1183,7 +1219,7 @@ func TestPacketHandlingSrcPortCacheBehavior(t *testing.T) {
 			var enforcer *Datapath
 			var err1, err2 error
 
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server", false)
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
 			So(err1, ShouldBeNil)
@@ -1291,7 +1327,7 @@ func TestCacheState(t *testing.T) {
 		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 			return nil, nil
 		}
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		contextID := "123"
 
 		puInfo := policy.NewPUInfo(contextID, common.ContainerPU)
@@ -1348,7 +1384,7 @@ func TestDoCreatePU(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
@@ -1392,7 +1428,7 @@ func TestDoCreatePU(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		enforcer.mode = constants.LocalServer
 		contextID := "123"
 		puInfo := policy.NewPUInfo(contextID, common.LinuxProcessPU)
@@ -1422,7 +1458,7 @@ func TestDoCreatePU(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 		enforcer.mode = constants.RemoteContainer
 
 		contextID := "123"
@@ -1454,7 +1490,7 @@ func TestContextFromIP(t *testing.T) {
 			return nil, nil
 		}
 
-		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.RemoteContainer, "/proc")
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
 		puInfo := policy.NewPUInfo("SomePU", common.ContainerPU)
 
@@ -1519,7 +1555,7 @@ func TestInvalidPacket(t *testing.T) {
 		for k := 0; k < 2; k++ {
 			if k == 0 {
 
-				puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+				puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", false)
 				So(puInfo1, ShouldNotBeNil)
 				So(puInfo2, ShouldNotBeNil)
 				So(err1, ShouldBeNil)
@@ -1527,7 +1563,7 @@ func TestInvalidPacket(t *testing.T) {
 
 			} else if k == 1 {
 
-				puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+				puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server", false)
 				So(puInfo1, ShouldNotBeNil)
 				So(puInfo2, ShouldNotBeNil)
 				So(err1, ShouldBeNil)
@@ -1572,7 +1608,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 		Convey("Given I create a two processing unit instances", func() {
 
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", false)
 
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
@@ -1599,7 +1635,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -1621,7 +1657,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -1745,7 +1781,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -1767,7 +1803,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -1892,7 +1928,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -1914,7 +1950,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(0)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2044,7 +2080,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2066,7 +2102,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2197,7 +2233,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2219,7 +2255,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2459,7 +2495,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2481,7 +2517,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2645,7 +2681,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 
 		Convey("Given I create a two processing unit instances", func() {
 
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+			puInfo1, puInfo2, enforcer, err1, err2, _, _ := setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 
 			So(puInfo1, ShouldNotBeNil)
 			So(puInfo2, ShouldNotBeNil)
@@ -2673,7 +2709,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2696,7 +2732,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2814,7 +2850,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 					for k := 0; k < 2; k++ {
 						if k == 0 {
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2822,7 +2858,7 @@ func TestForCacheCheckAfter60Seconds(t *testing.T) {
 
 						} else if k == 1 {
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2967,7 +3003,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -2990,7 +3026,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3100,7 +3136,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(gomock.Any()).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3110,7 +3146,7 @@ func TestFlowReportingUptoInvalidSynAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(gomock.Any()).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3244,7 +3280,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3267,7 +3303,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3423,7 +3459,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3446,7 +3482,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3586,7 +3622,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3609,7 +3645,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3742,7 +3778,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3765,7 +3801,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3902,7 +3938,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -3925,7 +3961,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -4065,7 +4101,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -4087,7 +4123,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(MyMatcher(&flowRecord)).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -4188,7 +4224,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(gomock.Any()).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "container", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -4198,7 +4234,7 @@ func TestSynAckPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 
 							mockCollector.EXPECT().CollectFlowEvent(gomock.Any()).Times(1)
 
-							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server")
+							puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(mockCollector, false, "server", false)
 							So(puInfo1, ShouldNotBeNil)
 							So(puInfo2, ShouldNotBeNil)
 							So(err1, ShouldBeNil)
@@ -4335,7 +4371,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 			GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 				return nil, nil
 			}
-			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc")
+			enforcer := NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 			err1 := enforcer.Enforce(puID1, puInfo1)
 			err2 := enforcer.Enforce(puID2, puInfo2)
 			So(err1, ShouldBeNil)
@@ -4695,7 +4731,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 							return nil, nil
 						}
-						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc")
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
 						So(puInfo1, ShouldNotBeNil)
@@ -4757,7 +4793,7 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 						GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 							return nil, nil
 						}
-						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc")
+						enforcer = NewWithDefaults(serverID, collector, nil, secret, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
 						err1 = enforcer.Enforce(puID1, puInfo1)
 						err2 = enforcer.Enforce(puID2, puInfo2)
 
