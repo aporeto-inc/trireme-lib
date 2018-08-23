@@ -46,7 +46,6 @@ type InitRequestPayload struct {
 	ServerID               string                `json:",omitempty"`
 	ExternalIPCacheTimeout time.Duration         `json:",omitempty"`
 	Secrets                secrets.PublicSecrets `json:",omitempty"`
-	TargetNetworks         []string              `json:",omitempty"`
 }
 
 // UpdateSecretsPayload payload for the update secrets to remote enforcers
@@ -112,9 +111,4 @@ type StatsPayload struct {
 //ExcludeIPRequestPayload carries the list of excluded ips
 type ExcludeIPRequestPayload struct {
 	IPs []string `json:",omitempty"`
-}
-
-//SetTargetNetworks carries the payload for target networks
-type SetTargetNetworks struct {
-	TargetNetworks []string `json:",omitempty"`
 }
