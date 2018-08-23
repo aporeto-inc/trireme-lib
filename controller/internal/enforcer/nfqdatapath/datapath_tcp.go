@@ -273,8 +273,22 @@ func (d *Datapath) processApplicationTCPPacket(tcpPacket *packet.Packet, context
 // processApplicationSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationSynPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) (interface{}, error) {
 
-	// First check if the destination is in the external servicess approved cache
-	// and if yes, allow the packet to go.
+	// If the packet is not in target networks then look into the external services application cache to
+	// make a decision whether the packet should be forwarded. For target networks with external services
+	// network syn/ack accepts the packet if it belongs to external services.
+	_, pkt, perr := d.targetNetworks.GetMatchingAction(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
+
+	if perr != nil {
+		report, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
+
+		if perr == nil && policy.Action.Accepted() {
+			return nil, nil
+		}
+
+		d.reportExternalServiceFlow(context, report, pkt, true, tcpPacket)
+		return nil, fmt.Errorf("No acls found for external services. Dropping application syn packet %v", perr.Error())
+	}
+
 	if policy, err := context.RetrieveCachedExternalFlowPolicy(tcpPacket.DestinationAddress.String() + ":" + strconv.Itoa(int(tcpPacket.DestinationPort))); err == nil {
 		d.appOrigConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		d.sourcePortConnectionCache.AddOrUpdate(tcpPacket.SourcePortHash(packet.PacketTypeApplication), conn)
@@ -415,7 +429,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
-		_, policy, perr := context.ApplicationACLPolicy(tcpPacket)
+		_, policy, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.DestinationAddress.To4(), tcpPacket.DestinationPort)
 
 		if perr != nil {
 			err := tcpPacket.ConvertAcktoFinAck()
@@ -579,7 +593,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		}
 
 		// Never seen this IP before, let's parse them.
-		report, pkt, perr := context.ApplicationACLPolicy(tcpPacket)
+		report, pkt, perr := context.ApplicationACLPolicyFromAddr(tcpPacket.SourceAddress.To4(), tcpPacket.SourcePort)
 		if perr != nil || pkt.Action.Rejected() {
 			d.reportReverseExternalServiceFlow(context, report, pkt, true, tcpPacket)
 			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, pkt.Action)
