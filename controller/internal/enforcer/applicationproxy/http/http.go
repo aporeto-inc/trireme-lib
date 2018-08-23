@@ -146,14 +146,16 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-		DialContext: dialerWithContext,
-		MaxIdleConnsPerHost: 100,
+		DialContext:         dialerWithContext,
+		MaxIdleConnsPerHost: 500,
+		MaxIdleConns:        500,
 	}
 
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
 		DialContext:         dialerWithContext,
-		MaxIdleConnsPerHost: 100,
+		MaxIdleConns:        500,
+		MaxIdleConnsPerHost: 500,
 	}
 
 	netDial := func(network, addr string) (net.Conn, error) {
@@ -225,7 +227,6 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
-		fmt.Println("Certificate request")
 		if p.cert != nil {
 			return p.cert, nil
 		}

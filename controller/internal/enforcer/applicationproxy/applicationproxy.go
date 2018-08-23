@@ -326,7 +326,6 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 		return false, fmt.Errorf("Invalid certificates: %s", err)
 	}
 
-	fmt.Println("Updating server certificates")
 	for _, server := range client.netserver {
 		server.UpdateSecrets(&tlsCert, caPool, p.secrets, certPEM, keyPEM)
 	}

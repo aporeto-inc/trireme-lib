@@ -58,9 +58,9 @@ func DialMarkedTCP(network string, laddr, raddr *net.TCPAddr, mark int) (net.Con
 		return nil, fmt.Errorf("Unable to connect: %s", err)
 	}
 
-	if err := setSocketTimeout(fd, 0); err != nil {
-		return nil, fmt.Errorf("Failed to set connect timeout: %s", err)
-	}
+	// if err := setSocketTimeout(fd, 0); err != nil {
+	// 	return nil, fmt.Errorf("Failed to set connect timeout: %s", err)
+	// }
 
 	return conn, nil
 }

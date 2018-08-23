@@ -21,12 +21,12 @@ func NewPool() *BufferPool {
 	}
 }
 
-// Get gets a buffer from the pool
+// Get gets a buffer from the pool.
 func (b *BufferPool) Get() []byte {
 	return b.s.Get().([]byte)
 }
 
-// Put returns the buffer to the pool
+// Put returns the buffer to the pool.
 func (b *BufferPool) Put(buf []byte) {
 	b.s.Put(buf)
 }
