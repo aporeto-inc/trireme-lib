@@ -27,8 +27,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type statsContextKeyType string
+
 const (
 	defaultValidity = 60 * time.Second
+	statsContextKey = statsContextKeyType("statsContext")
 )
 
 // JWTClaims is the structure of the claims we are sending on the wire.
@@ -112,6 +115,17 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		l = tls.NewListener(l, config)
 	}
 
+	reportStats := func(ctx context.Context) {
+		if statsRecord := ctx.Value(statsContextKey); statsRecord != nil {
+			if r, ok := statsRecord.(*collector.FlowRecord); ok {
+				r.Action = policy.Reject
+				r.DropReason = collector.UnableToDial
+				r.PolicyID = "default"
+				p.collector.CollectFlowEvent(r)
+			}
+		}
+	}
+
 	// Create an encrypted downstream transport. We will mark the downstream connection
 	// to let the iptables rule capture it.
 	encryptedTransport := &http.Transport{
@@ -121,10 +135,12 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
+				reportStats(ctx)
 				return nil, err
 			}
 			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
 			if err != nil {
+				reportStats(ctx)
 				return nil, err
 			}
 			return conn, nil
@@ -136,10 +152,12 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
 			if err != nil {
+				reportStats(ctx)
 				return nil, err
 			}
 			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
 			if err != nil {
+				reportStats(ctx)
 				return nil, fmt.Errorf("Failed to dial remote: %s", err)
 			}
 			return conn, nil
@@ -277,7 +295,6 @@ func (p *Config) retrieveApplicationContext(w http.ResponseWriter, r *http.Reque
 }
 
 func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
-
 	zap.L().Debug("Processing Application Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 
 	puContext, apiCache, err := p.retrieveApplicationContext(w, r)
@@ -300,6 +317,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		Source: &collector.EndPoint{
 			Type: collector.EnpointTypePU,
 			ID:   puContext.ManagementID(),
+			IP:   "0.0.0.0/0",
 		},
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
@@ -375,12 +393,12 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 	r.Header.Add("X-APORETO-KEY", string(p.secrets.TransmittedKey()))
 	r.Header.Add("X-APORETO-AUTH", token)
 
+	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
 	// Forward the request.
-	p.fwdTLS.ServeHTTP(w, r)
+	p.fwdTLS.ServeHTTP(w, r.WithContext(contextWithStats))
 }
 
 func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
-
 	zap.L().Debug("Processing Network Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 	originalDestination := r.Context().Value(http.LocalAddrContextKey).(*net.TCPAddr)
 
@@ -527,7 +545,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Action = policy.Accept | policy.Encrypt
 	record.Destination.IP = originalDestination.IP.String()
 	record.Destination.Port = uint16(originalDestination.Port)
-	p.fwd.ServeHTTP(w, r)
+
+	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
+	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
 }
 
