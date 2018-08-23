@@ -132,6 +132,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
+			t.config.targetNetworks,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
@@ -153,6 +154,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
+			t.config.targetNetworks,
 		)
 	}
 
@@ -170,6 +172,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
+			t.config.targetNetworks,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
