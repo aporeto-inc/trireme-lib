@@ -13,7 +13,6 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
-	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
@@ -48,7 +47,6 @@ type Datapath struct {
 	nflogger       nflog.NFLogger
 	procMountPoint string
 
-	targetNetworks *acls.ACLCache
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
 	puFromContextID      cache.DataStore
@@ -102,27 +100,6 @@ type Datapath struct {
 	udpSocketWriter afinetrawsocket.SocketWriter
 }
 
-func createPolicy(networks []string) policy.IPRuleList {
-	var rules policy.IPRuleList
-
-	f := policy.FlowPolicy{
-		Action: policy.Accept,
-	}
-
-	for _, network := range networks {
-		iprule := policy.IPRule{
-			Address:  network,
-			Port:     "0:65535",
-			Protocol: "tcp",
-			Policy:   &f,
-		}
-
-		rules = append(rules, iprule)
-	}
-
-	return rules
-}
-
 // New will create a new data path structure. It instantiates the data stores
 // needed to track sessions. The data path is started with a different call.
 // Only required parameters must be provided. Rest a pre-populated with defaults.
@@ -140,7 +117,6 @@ func New(
 	packetLogs bool,
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
-	targetNetworks []string,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -211,7 +187,6 @@ func New(
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
 
-		targetNetworks:         acls.NewACLCache(),
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		filterQueue:            filterQueue,
 		mutualAuthorization:    mutualAuth,
@@ -226,11 +201,6 @@ func New(
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
-	}
-
-	targetacl := createPolicy(targetNetworks)
-	if err = d.targetNetworks.AddRuleList(targetacl); err != nil {
-		zap.L().Error("Error adding target networks to the ACLs")
 	}
 
 	packet.PacketLogLevel = packetLogs
@@ -248,7 +218,6 @@ func NewWithDefaults(
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
-	targetNetworks []string,
 ) *Datapath {
 
 	if collector == nil {
@@ -285,7 +254,6 @@ func NewWithDefaults(
 		defaultPacketLogs,
 		tokenAccessor,
 		puFromContextID,
-		targetNetworks,
 	)
 }
 
@@ -378,13 +346,6 @@ func (d *Datapath) Unenforce(contextID string) error {
 	}
 
 	return nil
-}
-
-// SetTargetNetworks sets new target networks used by datapath
-func (d *Datapath) SetTargetNetworks(networks []string) error {
-	d.targetNetworks = acls.NewACLCache()
-	targetacl := createPolicy(networks)
-	return d.targetNetworks.AddRuleList(targetacl)
 }
 
 // GetFilterQueue returns the filter queues used by the data path
