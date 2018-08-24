@@ -156,8 +156,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
 		DialContext:         dialerWithContext,
-		MaxIdleConns:        500,
-		MaxIdleConnsPerHost: 500,
+		MaxIdleConns:        2000,
+		MaxIdleConnsPerHost: 2000,
 	}
 
 	netDial := func(network, addr string) (net.Conn, error) {
