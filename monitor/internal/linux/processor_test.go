@@ -244,3 +244,75 @@ func TestStart(t *testing.T) {
 		})
 	})
 }
+
+func TestResync(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	Convey("Given a valid processor", t, func() {
+		puHandler := mockpolicy.NewMockResolver(ctrl)
+		p := testLinuxProcessor(puHandler)
+
+		Convey("When I get a resync event ", func() {
+			event := &common.EventInfo{
+				Name:      "PU",
+				PID:       1,
+				PUID:      "12345",
+				EventType: common.EventStart,
+				PUType:    common.LinuxProcessPU,
+			}
+
+			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
+			p.netcls = mockcls
+
+			Convey("I should not get an error ", func() {
+				mockcls.EXPECT().ListAllCgroups(gomock.Any()).Return([]string{"cgroup"})
+				mockcls.EXPECT().ListCgroupProcesses(gomock.Any()).Return([]string{"procs"}, nil)
+				mockcls.EXPECT().Creategroup(gomock.Any()).Return(nil)
+				mockcls.EXPECT().AssignMark(gomock.Any(), gomock.Any()).Return(nil)
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				err := p.Resync(context.Background(), event)
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I get a resync event with no croup process", func() {
+			event := &common.EventInfo{
+				Name:      "PU",
+				PID:       1,
+				PUID:      "12345",
+				EventType: common.EventStart,
+				PUType:    common.LinuxProcessPU,
+			}
+
+			mockcls := mockcgnetcls.NewMockCgroupnetcls(ctrl)
+			p.netcls = mockcls
+
+			Convey("I should not get an error ", func() {
+				mockcls.EXPECT().ListAllCgroups(gomock.Any()).Return([]string{"cgroup"})
+				mockcls.EXPECT().ListCgroupProcesses(gomock.Any()).Return([]string{}, nil)
+				mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
+				err := p.Resync(context.Background(), event)
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I get a resync event for hostservice", func() {
+			event := &common.EventInfo{
+				Name:               "PU",
+				PID:                1,
+				PUID:               "12345",
+				EventType:          common.EventStart,
+				HostService:        true,
+				NetworkOnlyTraffic: true,
+				PUType:             common.LinuxProcessPU,
+			}
+
+			Convey("I should not get an error ", func() {
+				puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+				err := p.Resync(context.Background(), event)
+				So(err, ShouldBeNil)
+			})
+		})
+	})
+}
