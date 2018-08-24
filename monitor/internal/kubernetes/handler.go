@@ -27,6 +27,7 @@ func (m *KubernetesMonitor) HandlePUEvent(ctx context.Context, puID string, even
 
 	// If the event coming from DockerMonitor is start or create, we will get a meaningful PURuntime from
 	// DockerMonitor. We can use it and combine it with the pod information on Kubernetes API.
+	zap.L().Info("Got event of type:", zap.Reflect("event", event), zap.String("puid", puID))
 	if event == common.EventStart || event == common.EventCreate {
 		// We check first if this is a Kubernetes managed container
 		podNamespace, podName, err := getKubernetesInformation(dockerRuntime)
