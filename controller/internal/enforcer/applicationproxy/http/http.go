@@ -149,8 +149,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 			RootCAs: p.ca,
 		},
 		DialContext:         dialerWithContext,
-		MaxIdleConnsPerHost: 500,
-		MaxIdleConns:        500,
+		MaxIdleConnsPerHost: 2000,
+		MaxIdleConns:        2000,
 	}
 
 	// Create an unencrypted transport for talking to the application
