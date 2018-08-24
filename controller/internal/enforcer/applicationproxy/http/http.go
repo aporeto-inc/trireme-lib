@@ -25,7 +25,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
-	"golang.org/x/net/http2"
 )
 
 type statsContextKeyType string
@@ -152,10 +151,6 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		DialContext:         dialerWithContext,
 		MaxIdleConnsPerHost: 500,
 		MaxIdleConns:        500,
-	}
-
-	if err := http2.ConfigureTransport(encryptedTransport); err != nil {
-		return fmt.Errorf("Unable to configure HTTP/2 transport: %s", err)
 	}
 
 	// Create an unencrypted transport for talking to the application
