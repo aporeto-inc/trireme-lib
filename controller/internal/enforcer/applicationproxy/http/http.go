@@ -111,6 +111,8 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		config := &tls.Config{
 			GetCertificate: p.GetCertificateFunc(),
 			ClientAuth:     tls.RequestClientCert,
+			NextProtos:     []string{"h2"},
+			CipherSuites:   []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
 		}
 		l = tls.NewListener(l, config)
 	}
@@ -126,42 +128,36 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		}
 	}
 
+	dialerWithContext := func(ctx context.Context, network, addr string) (net.Conn, error) {
+		raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
+		if err != nil {
+			reportStats(ctx)
+			return nil, err
+		}
+		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
+		if err != nil {
+			reportStats(ctx)
+			return nil, fmt.Errorf("Failed to dial remote: %s", err)
+		}
+		return conn, nil
+	}
+
 	// Create an encrypted downstream transport. We will mark the downstream connection
 	// to let the iptables rule capture it.
 	encryptedTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			RootCAs: p.ca,
 		},
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
-			if err != nil {
-				reportStats(ctx)
-				return nil, err
-			}
-			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
-			if err != nil {
-				reportStats(ctx)
-				return nil, err
-			}
-			return conn, nil
-		},
+		DialContext:         dialerWithContext,
+		MaxIdleConnsPerHost: 2000,
+		MaxIdleConns:        2000,
 	}
 
 	// Create an unencrypted transport for talking to the application
 	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			raddr, err := net.ResolveTCPAddr(network, ctx.Value(http.LocalAddrContextKey).(*net.TCPAddr).String())
-			if err != nil {
-				reportStats(ctx)
-				return nil, err
-			}
-			conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
-			if err != nil {
-				reportStats(ctx)
-				return nil, fmt.Errorf("Failed to dial remote: %s", err)
-			}
-			return conn, nil
-		},
+		DialContext:         dialerWithContext,
+		MaxIdleConns:        2000,
+		MaxIdleConnsPerHost: 2000,
 	}
 
 	netDial := func(network, addr string) (net.Conn, error) {
@@ -177,12 +173,16 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	p.fwdTLS, err = forward.New(forward.RoundTripper(encryptedTransport),
 		forward.WebsocketTLSClientConfig(&tls.Config{RootCAs: p.ca}),
 		forward.WebSocketNetDial(netDial),
+		forward.BufferPool(NewPool()),
 	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize encrypted transport: %s", err)
 	}
 
-	p.fwd, err = forward.New(forward.RoundTripper(transport))
+	p.fwd, err = forward.New(
+		forward.RoundTripper(transport),
+		forward.BufferPool(NewPool()),
+	)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize unencrypted transport: %s", err)
 	}
@@ -229,11 +229,10 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	return func(clientHello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		p.RLock()
 		defer p.RUnlock()
-
 		if p.cert != nil {
 			return p.cert, nil
 		}
-		return nil, fmt.Errorf("no cert available")
+		return nil, fmt.Errorf("no cert available - cert is nil")
 	}
 }
 
