@@ -324,6 +324,12 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		d.puFromIP = pu
 	}
 
+	// pucontext launches a go routine to periodically
+	// lookup dns names. ctx cancel signals the go routine to exit
+	if prevPU, _ := d.puFromContextID.Get(contextID); prevPU != nil {
+		prevPU.(*pucontext.PUContext).CancelFunc()
+	}
+
 	// Cache PU from contextID for management and policy updates
 	d.puFromContextID.AddOrUpdate(contextID, pu)
 

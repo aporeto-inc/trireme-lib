@@ -1,6 +1,7 @@
 package pucontext
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -33,9 +35,10 @@ type PUContext struct {
 	annotations       *policy.TagStore
 	txt               *policies
 	rcv               *policies
-	applicationACLs   *acls.ACLCache
+	ApplicationACLs   *acls.ACLCache
 	networkACLs       *acls.ACLCache
 	externalIPCache   cache.DataStore
+	DNSACLs           cache.DataStore
 	mark              string
 	ProxyPort         string
 	tcpPorts          []string
@@ -48,11 +51,14 @@ type PUContext struct {
 	jwtExpiration     time.Time
 	scopes            []string
 	Extension         interface{}
+	CancelFunc        context.CancelFunc
 	sync.RWMutex
 }
 
 // NewPU creates a new PU context
 func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
+	ctx := context.Background()
+	ctx, cancelFunc := context.WithCancel(ctx)
 
 	pu := &PUContext{
 		id:              contextID,
@@ -61,10 +67,11 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		identity:        puInfo.Policy.Identity(),
 		annotations:     puInfo.Policy.Annotations(),
 		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
-		applicationACLs: acls.NewACLCache(),
+		ApplicationACLs: acls.NewACLCache(),
 		networkACLs:     acls.NewACLCache(),
 		mark:            puInfo.Runtime.Options().CgroupMark,
 		scopes:          puInfo.Policy.Scopes(),
+		CancelFunc:      cancelFunc,
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
@@ -75,7 +82,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
 
-	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
+	if err := pu.ApplicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
 	}
 
@@ -83,8 +90,61 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		return nil, err
 	}
 
-	return pu, nil
+	dnsACL := puInfo.Policy.DNSNameACLs()
+	go pu.startDNS(ctx, &(dnsACL))
 
+	return pu, nil
+}
+
+func createACLRules(port string, ips []string) *policy.IPRuleList {
+	rules := policy.IPRuleList{}
+
+	for _, ip := range ips {
+		if !strings.Contains(ip, ":") {
+			rules = append(rules, policy.IPRule{
+				Address:  ip,
+				Port:     port,
+				Protocol: "TCP",
+				Policy: &policy.FlowPolicy{
+					Action:        policy.Accept,
+					ObserveAction: policy.ObserveNone,
+					ServiceID:     "default",
+					PolicyID:      "default",
+				},
+			})
+		}
+	}
+	return &rules
+}
+
+func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
+	curTime := time.Now()
+
+	sleepTime := func() time.Duration {
+		if time.Since(curTime) >= 2*time.Minute {
+			return 1 * time.Minute
+		}
+
+		return 4 * time.Second
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			for _, name := range *dnsList {
+				if ips, err := net.LookupHost(name.Name); err == nil {
+					rules := createACLRules(name.Port, ips)
+					if err := p.ApplicationACLs.AddRuleList(*rules); err != nil {
+						zap.L().Error("Error in Adding rules", zap.Error(err))
+					}
+				}
+			}
+		}
+
+		time.Sleep(sleepTime())
+	}
 }
 
 // ID returns the ID of the PU
@@ -144,7 +204,7 @@ func (p *PUContext) NetworkACLPolicyFromAddr(addr net.IP, port uint16) (report *
 
 // ApplicationACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(addr, port)
+	return p.ApplicationACLs.GetMatchingAction(addr, port)
 }
 
 // CacheExternalFlowPolicy will cache an external flow
