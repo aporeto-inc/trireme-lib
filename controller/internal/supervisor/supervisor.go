@@ -14,7 +14,9 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 )
@@ -47,6 +49,8 @@ type Config struct {
 	excludedIPs []string
 	// triremeNetworks are the target networks where Trireme is implemented
 	triremeNetworks []string
+	// service is an external packet service
+	service packetprocessor.PacketProcessor
 
 	sync.Mutex
 }
@@ -55,7 +59,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor) (*Config, error) {
 
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")
@@ -85,6 +89,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		excludedIPs:     []string{},
 		triremeNetworks: networks,
 		portSetInstance: portSetInstance,
+		service:         p,
 	}, nil
 }
 
@@ -136,6 +141,10 @@ func (s *Config) Run(ctx context.Context) error {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
 
+	if s.service != nil {
+		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
+	}
+
 	s.Lock()
 	defer s.Unlock()
 	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
@@ -167,6 +176,12 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 	s.triremeNetworks = networks
 
 	return nil
+}
+
+// ACLProvider returns the ACL provider used by the supervisor that can be
+// shared with other entities.
+func (s *Config) ACLProvider() provider.IptablesProvider {
+	return s.impl.ACLProvider()
 }
 
 func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {
