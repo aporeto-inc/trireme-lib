@@ -184,11 +184,15 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		}
 	}
 
-	if err := i.deleteProxySets(proxyPortSetName); err != nil {
-		return err
+	if err := i.ipt.(*provider.BatchProvider).Commit(); err != nil {
+		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
 	}
 
-	return i.ipt.(*provider.BatchProvider).Commit()
+	if err := i.deleteProxySets(proxyPortSetName); err != nil {
+		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
+	}
+
+	return nil
 }
 
 // UpdateRules implements the update part of the interface. Update will call
