@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"runtime/debug"
 	"time"
 
 	"go.uber.org/zap"
@@ -399,6 +400,10 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 }
 
 func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+
+	if report.PolicyID == "" {
+		fmt.Printf("\nProxy FLOW %+v \nSTACK %s\n", flow, string(debug.Stack()))
+	}
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
