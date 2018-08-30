@@ -329,7 +329,7 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 	buffer := make([]byte, len(udpPacket.Buffer))
 	copy(buffer, udpPacket.Buffer)
 
-	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark)
+	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark, true)
 	if err != nil {
 		return fmt.Errorf("Unable to copy packets to queue:%s", err)
 	}

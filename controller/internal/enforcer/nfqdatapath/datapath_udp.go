@@ -387,7 +387,7 @@ func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) 
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, packet.UDPDataPos)
 	_ = copy(newPacket, p.Buffer[:packet.UDPDataPos])
 
-	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark)
+	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark, true)
 }
 
 // CreateUDPAuthMarker creates a UDP auth marker.
