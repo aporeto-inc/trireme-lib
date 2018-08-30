@@ -485,6 +485,7 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 			Type: flowproperties.DestType,
 		},
 		Tags:        context.Annotations(),
+		Count:       1,
 		Action:      packetAction.Action,
 		DropReason:  mode,
 		PolicyID:    reportAction.PolicyID,

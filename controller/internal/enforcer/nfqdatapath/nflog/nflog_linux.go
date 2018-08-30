@@ -113,6 +113,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		},
 		PolicyID:   policyID,
 		Tags:       tags,
+		Count:      1,
 		Action:     action,
 		L4Protocol: packet.IPProtocolUDP,
 	}

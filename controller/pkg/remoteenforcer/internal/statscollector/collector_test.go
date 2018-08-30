@@ -40,7 +40,7 @@ func TestCollectFlowEvent(t *testing.T) {
 					Type: collector.EnpointTypePU,
 					Port: 80,
 				},
-				Count:      0,
+				Count:      1,
 				Tags:       policy.NewTagStore(),
 				L4Protocol: packet.IPProtocolTCP,
 			}
