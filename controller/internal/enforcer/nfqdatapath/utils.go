@@ -30,7 +30,7 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 	if report == nil {
 		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 	if packet == nil {
@@ -47,7 +47,7 @@ func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPC
 	if report == nil {
 		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 	if packet == nil {
