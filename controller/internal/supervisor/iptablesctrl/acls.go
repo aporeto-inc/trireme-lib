@@ -96,7 +96,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			"-p", "tcp",
 			"-m", "mark",
 			"--mark", mark,
-			"-m", "comment", "--comment", "Container-specific-chain 1",
+			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
 	}
