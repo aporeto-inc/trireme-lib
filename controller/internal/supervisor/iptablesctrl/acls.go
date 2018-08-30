@@ -733,6 +733,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 						"-p", rule.Protocol,
 						"-s", rule.Address,
 						"--sport", rule.Port,
+						"-m", "state", "--state", "ESTABLISHED",
 						"-j", "ACCEPT",
 					); err != nil {
 						return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, netChain, err)
@@ -1020,9 +1021,10 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 					}
 
 					if rule.Policy.Action&policy.Log > 0 {
-						if err := i.ipt.Append(
+						if err := i.ipt.Insert(
 							i.netPacketIPTableContext,
 							netChain,
+							1,
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
@@ -1041,6 +1043,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 						"-p", rule.Protocol,
 						"-d", rule.Address,
 						"--sport", rule.Port,
+						"-m", "state", "--state", "ESTABLISHED",
 						"-j", "ACCEPT",
 					); err != nil {
 						return fmt.Errorf("unable to add net acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
