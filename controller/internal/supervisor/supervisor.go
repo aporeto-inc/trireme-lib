@@ -137,17 +137,22 @@ func (s *Config) Unsupervise(contextID string) error {
 // Run starts the supervisor
 func (s *Config) Run(ctx context.Context) error {
 
+	s.Lock()
+	defer s.Unlock()
+
 	if err := s.impl.Run(ctx); err != nil {
 		return fmt.Errorf("unable to start the implementer: %s", err)
+	}
+
+	if err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks); err != nil {
+		return err
 	}
 
 	if s.service != nil {
 		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
 	}
 
-	s.Lock()
-	defer s.Unlock()
-	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+	return nil
 }
 
 // CleanUp implements the cleanup interface

@@ -115,12 +115,11 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 	} else if pos > len(b.rules[table][chain]) {
 		b.rules[table][chain] = append(b.rules[table][chain], rule)
 	} else {
-		left := append(b.rules[table][chain][:pos-1], rule)
-		b.rules[table][chain] = append(left, b.rules[table][chain][pos-1:]...)
+		left := append(b.rules[table][chain][:pos], rule)
+		b.rules[table][chain] = append(left, b.rules[table][chain][pos:]...)
 	}
 
 	return nil
-	// return b.ipt.Insert(table, chain, pos, rulespec...)
 }
 
 // Delete will delete the rule from the local cache or the system.
@@ -153,14 +152,13 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 			case len(b.rules[table][chain]) - 1:
 				b.rules[table][chain] = b.rules[table][chain][:index-1]
 			default:
-				b.rules[table][chain] = append(b.rules[table][chain][:index-1], b.rules[table][chain][index+1:]...)
+				b.rules[table][chain] = append(b.rules[table][chain][:index], b.rules[table][chain][index+1:]...)
 			}
 			break
 		}
 	}
 
 	return nil
-	// return b.ipt.Delete(table, chain, rulespec...)
 }
 
 // ListChains will provide a list of the current chains.
@@ -190,7 +188,6 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 	b.rules[table][chain] = []string{}
 
 	return nil
-	// return b.ipt.ClearChain(table, chain)
 }
 
 // DeleteChain will delete the chains.
@@ -209,7 +206,6 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 	delete(b.rules[table], chain)
 
 	return nil
-	// return b.ipt.DeleteChain(table, chain)
 }
 
 // NewChain creates a new chain.
@@ -226,7 +222,6 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 	b.rules[table][chain] = []string{}
 
 	return nil
-	// return b.ipt.NewChain(table, chain)
 }
 
 // Commit commits the rules to the system
@@ -290,8 +285,6 @@ func (b *BatchProvider) restore() error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		zap.L().Error("Failed to execute command", zap.Error(err), zap.ByteString("Output", out))
-		again, _ := b.createDataBuffer()
-		fmt.Println("FAILED BUFFER", again.String())
 		return err
 	}
 
