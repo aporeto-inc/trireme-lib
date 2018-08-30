@@ -284,6 +284,8 @@ func (b *BatchProvider) restore() error {
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		again, _ := b.createDataBuffer()
+		fmt.Println("OUTPUT: ", again.String())
 		zap.L().Error("Failed to execute command", zap.Error(err), zap.ByteString("Output", out))
 		return err
 	}
