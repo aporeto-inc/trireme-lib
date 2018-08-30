@@ -3,7 +3,9 @@ package statsclient
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"runtime/debug"
 	"time"
 
 	"go.uber.org/zap"
@@ -59,6 +61,8 @@ func NewStatsClient(cr statscollector.Collector) (StatsClient, error) {
 // sendStats  async function which makes a rpc call to send stats every STATS_INTERVAL
 func (s *statsClient) sendStats(ctx context.Context) {
 
+	fmt.Println("SENDING STATS")
+
 	ticker := time.NewTicker(s.statsInterval)
 	userTicker := time.NewTicker(s.userRetention)
 	// nolint : gosimple
@@ -67,6 +71,15 @@ func (s *statsClient) sendStats(ctx context.Context) {
 		case <-ticker.C:
 
 			flows := s.collector.GetAllRecords()
+
+			for _, flow := range flows {
+				if flow.PolicyID == "" {
+					fmt.Println("PolicyID", flow.PolicyID)
+					fmt.Printf("\nFLOW %+v", flow)
+					fmt.Printf("\nTRACE %s", string(debug.Stack()))
+				}
+			}
+
 			users := s.collector.GetUserRecords()
 			if flows == nil && users == nil {
 				continue
