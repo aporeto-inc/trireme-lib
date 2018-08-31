@@ -706,12 +706,12 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 					} else {
 						if err := i.ipt.Insert(
 							i.appPacketIPTableContext, appChain, 1,
-							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+							"-p", rule.Protocol,
 							"-d", rule.Address,
 							"--dport", rule.Port,
 							"-j", "ACCEPT",
 						); err != nil {
-							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+							return fmt.Errorf("unable to add outgoin acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 						}
 					}
 
