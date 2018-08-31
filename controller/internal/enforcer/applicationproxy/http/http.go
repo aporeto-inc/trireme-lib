@@ -513,7 +513,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the target URI and forward the request.
-	r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
+	r.URL, err = url.ParseRequestURI("http://" + r.Host)
 	if err != nil {
 		record.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
