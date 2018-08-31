@@ -114,6 +114,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
+		payload.TargetNetworks,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -309,6 +310,29 @@ func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Re
 
 	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
 	return s.supervisor.Unsupervise(payload.ContextID)
+}
+
+// SetTargetNetworks calls the same method on the actual enforcer
+func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	var err error
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "SetTargetNetworks message auth failed" //nolint
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	if s.enforcer == nil {
+		return fmt.Errorf(resp.Status)
+	}
+
+	payload := req.Payload.(rpcwrapper.SetTargetNetworks)
+	err = s.enforcer.SetTargetNetworks(payload.TargetNetworks)
+	if err != nil {
+		return err
+	}
+	return nil
+
 }
 
 // Enforce this method calls the enforce method on the enforcer created during initenforcer
