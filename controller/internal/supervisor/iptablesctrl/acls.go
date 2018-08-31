@@ -661,7 +661,6 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules policy.IPRu
 
 func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	fmt.Println("Rules", len(rules), rules)
 	for loop := 0; loop < 6; loop++ {
 
 		for n, rule := range rules {
@@ -688,7 +687,6 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 			}
 
 			proto := strings.ToLower(rule.Protocol)
-			fmt.Println("Implementing rule", rule, rule.Policy.Action, observeContinue)
 			// tcp external services are auto discovered. No need for explicit rules.
 			if proto == udpProto {
 
