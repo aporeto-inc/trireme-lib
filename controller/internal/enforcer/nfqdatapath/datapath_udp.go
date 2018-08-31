@@ -330,6 +330,11 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
+
+	if !destAddressMatch(udpPacket.DestinationAddress, context.UDPNetworks()) {
+		d.reportUDPExternalFlow(udpPacket, context, true, nil, nil)
+		return errors.New("No target found")
+	}
 	// do some pre processing.
 	if d.service != nil {
 		// PreProcessServiceInterface

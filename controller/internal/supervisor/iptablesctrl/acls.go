@@ -661,13 +661,19 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules policy.IPRu
 
 func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	for loop := 0; loop < 3; loop++ {
+	fmt.Println("Rules", len(rules), rules)
+	for loop := 0; loop < 6; loop++ {
 
-		for _, rule := range rules {
+		for n, rule := range rules {
+			if (loop < 3 && rule.Policy.Action&policy.Reject > 0) || (loop >= 3 && rule.Policy.Action&policy.Accept > 0) {
+				// In the first three loops only deal with accept rules.
+				// The drop rules are inserted on top.
+				continue
+			}
 
 			observeContinue := rule.Policy.ObserveAction.ObserveContinue()
-			switch loop {
-			case 0:
+			switch loop % 3 {
+			case 2:
 				if !observeContinue {
 					continue
 				}
@@ -675,14 +681,14 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 				if rule.Policy.ObserveAction.Observed() {
 					continue
 				}
-			case 2:
+			case 0:
 				if !rule.Policy.ObserveAction.ObserveApply() {
 					continue
 				}
 			}
 
 			proto := strings.ToLower(rule.Protocol)
-
+			fmt.Println("Implementing rule", rule, rule.Policy.Action, observeContinue)
 			// tcp external services are auto discovered. No need for explicit rules.
 			if proto == udpProto {
 
@@ -971,13 +977,17 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 
 func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	for loop := 0; loop < 3; loop++ {
-
+	for loop := 0; loop < 6; loop++ {
 		for _, rule := range rules {
 
+			if (loop < 3 && rule.Policy.Action&policy.Reject > 0) || (loop >= 3 && rule.Policy.Action&policy.Accept > 0) {
+				// In the first three loops only deal with accept rules.
+				// The drop rules are inserted on top.
+				continue
+			}
 			observeContinue := rule.Policy.ObserveAction.ObserveContinue()
-			switch loop {
-			case 0:
+			switch loop % 3 {
+			case 2:
 				if !observeContinue {
 					continue
 				}
@@ -985,7 +995,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 				if rule.Policy.ObserveAction.Observed() {
 					continue
 				}
-			case 2:
+			case 0:
 				if !rule.Policy.ObserveAction.ObserveApply() {
 					continue
 				}
