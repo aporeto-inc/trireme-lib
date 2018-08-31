@@ -663,7 +663,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 
 	for loop := 0; loop < 6; loop++ {
 
-		for n, rule := range rules {
+		for _, rule := range rules {
 			if (loop < 3 && rule.Policy.Action&policy.Reject > 0) || (loop >= 3 && rule.Policy.Action&policy.Accept > 0) {
 				// In the first three loops only deal with accept rules.
 				// The drop rules are inserted on top.
