@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -80,6 +81,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	for _, n := range puInfo.Policy.UDPNetworks() {
 		_, cidr, err := net.ParseCIDR(n)
 		if err != nil {
+			zap.L().Error("Invalid UDP Network", zap.String("Network", n))
 			return nil, fmt.Errorf("Invalid udp network: %s", n)
 		}
 		udpNetworks = append(udpNetworks, cidr)

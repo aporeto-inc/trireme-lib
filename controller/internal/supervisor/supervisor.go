@@ -136,9 +136,7 @@ func (s *Config) Run(ctx context.Context) error {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
 
-	s.Lock()
-	defer s.Unlock()
-	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+	return s.SetTargetNetworks(s.triremeNetworks)
 }
 
 // CleanUp implements the cleanup interface
