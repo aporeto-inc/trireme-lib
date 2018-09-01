@@ -76,6 +76,10 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
+	if len(networks) == 0 {
+		networks = []string{"0.0.0.0/1", "128.0.0.1/1"}
+	}
+
 	return &Config{
 		mode:            mode,
 		impl:            impl,
@@ -136,7 +140,10 @@ func (s *Config) Run(ctx context.Context) error {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
 
-	return s.SetTargetNetworks(s.triremeNetworks)
+	s.Lock()
+	defer s.Unlock()
+
+	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
 }
 
 // CleanUp implements the cleanup interface
