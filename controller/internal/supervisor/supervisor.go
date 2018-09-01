@@ -77,7 +77,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	}
 
 	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.1/1"}
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
 
 	return &Config{

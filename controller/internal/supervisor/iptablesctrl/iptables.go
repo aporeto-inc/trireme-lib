@@ -269,7 +269,6 @@ func (i *Instance) CleanUp() error {
 
 // SetTargetNetworks updates ths target networks for SynAck packets
 func (i *Instance) SetTargetNetworks(current, networks []string) error {
-	zap.L().Error("Target networks called", zap.Strings("current", current), zap.Strings("networks", networks))
 
 	// Cleanup old ACLs
 	if len(current) > 0 {
