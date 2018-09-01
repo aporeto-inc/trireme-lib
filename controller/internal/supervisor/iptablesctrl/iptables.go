@@ -269,7 +269,7 @@ func (i *Instance) CleanUp() error {
 
 // SetTargetNetworks updates ths target networks for SynAck packets
 func (i *Instance) SetTargetNetworks(current, networks []string) error {
-
+	zap.L().Error("Target networks called", zap.Strings("current", current), zap.Strings("networks", networks))
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}

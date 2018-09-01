@@ -1321,7 +1321,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
-
+	zap.L().Error("Setting global rules", zap.String("Chains:", appChain+" "+netChain))
 	err := i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,

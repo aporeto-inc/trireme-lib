@@ -138,7 +138,7 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
 }
 
-func destAddressMatch(ip net.IP, targets []*net.IPNet) bool {
+func addressMatch(ip net.IP, targets []*net.IPNet) bool {
 	for _, t := range targets {
 		if t.Contains(ip) {
 			return true
