@@ -466,17 +466,6 @@
   version = "v1.0.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:a1f1545fdc5d7269a55479c4d43656e3f6602689fba31c01953510105fc94da0"
-  name = "github.com/spiffe/go-spiffe"
-  packages = [
-    "spiffe",
-    "uri",
-  ]
-  pruneopts = "UT"
-  revision = "2bb3101d62b4bea6371d792e818360e3f056867b"
-
-[[projects]]
   digest = "1:2d9d06cb9d46dacfdbb45f8575b39fc0126d083841a29d4fbf8d97708f43107e"
   name = "github.com/vishvananda/netlink"
   packages = [
