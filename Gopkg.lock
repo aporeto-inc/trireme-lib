@@ -2,12 +2,12 @@
 
 
 [[projects]]
-  digest = "1:adbfc2db750d6fbe0c165ad801ba2d730883a3bc40bc8fe829516eb42ed17771"
+  digest = "1:f9ae348e1f793dcf9ed930ed47136a67343dbd6809c5c91391322267f4476892"
   name = "github.com/Microsoft/go-winio"
   packages = ["."]
   pruneopts = "UT"
-  revision = "a6d595ae73cf27a1b8fc32930668708f45ce1c85"
-  version = "v0.4.9"
+  revision = "97e4973ce50b2ff5f09635a57e2b88a037aae829"
+  version = "v0.4.11"
 
 [[projects]]
   digest = "1:d867dfa6751c8d7a435821ad3b736310c2ed68945d05b50fb9d23aee0540c8cc"
@@ -24,6 +24,17 @@
   pruneopts = "UT"
   revision = "5d049714c4a64225c3c79a7cf7d02f7fb5b96338"
   version = "1.0.0"
+
+[[projects]]
+  branch = "sirupsen"
+  digest = "1:166bcf999b34584003b16ee615c2eb8c153cbba9ded31c072569d65acc51672d"
+  name = "github.com/aporeto-inc/oxy"
+  packages = [
+    "forward",
+    "utils",
+  ]
+  pruneopts = "UT"
+  revision = "417b4edab1e3b55d5ec6a7d139d3e5c1e6b0b3cf"
 
 [[projects]]
   branch = "master"
@@ -73,20 +84,20 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:a2c1d0e43bd3baaa071d1b9ed72c27d78169b2b269f71c105ac4ba34b1be4a39"
+  digest = "1:ffe9824d294da03b391f44e1ae8281281b4afc1bdaa9588c9097785e3af10cec"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
   pruneopts = "UT"
-  revision = "346938d642f2ec3594ed81d874461961cd0faa76"
-  version = "v1.1.0"
+  revision = "8991bc29aa16c548c550c7ff78260e27b9ab7c73"
+  version = "v1.1.1"
 
 [[projects]]
-  digest = "1:b63a498fc2100264747713e78481daa16826ad733554df58d6cba5c7a4f80ad9"
+  digest = "1:2915e1464ca9a9480ed2fb94d6939cdf418525b03b24bfb256486990abd8155a"
   name = "github.com/dchest/siphash"
   packages = ["."]
   pruneopts = "UT"
-  revision = "4ebf1de738443ea7f45f02dc394c4df1942a126d"
-  version = "v1.1.0"
+  revision = "ca249f45189071f5d44dc6401334e3572037b9cb"
+  version = "v1.2.0"
 
 [[projects]]
   digest = "1:76dc72490af7174349349838f2fe118996381b31ea83243812a97e5a0fd5ed55"
@@ -213,7 +224,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:17fe264ee908afc795734e8c4e63db2accabaf57326dbf21763a7d6b86096260"
+  digest = "1:4c0989ca0bcd10799064318923b9bc2db6b4d6338dd75f3f2d86c3511aaaf5cf"
   name = "github.com/golang/protobuf"
   packages = [
     "proto",
@@ -223,8 +234,8 @@
     "ptypes/timestamp",
   ]
   pruneopts = "UT"
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
+  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
+  version = "v1.2.0"
 
 [[projects]]
   branch = "master"
@@ -263,7 +274,7 @@
   name = "github.com/gopherjs/gopherjs"
   packages = ["js"]
   pruneopts = "UT"
-  revision = "0892b62f0d9fb5857760c3cfca837207185117ee"
+  revision = "0210a2f0f73c96103378b0b935f39868e5731809"
 
 [[projects]]
   digest = "1:c79fb010be38a59d657c48c6ba1d003a8aa651fa56b579d959d74573b7dff8e1"
@@ -282,15 +293,23 @@
   version = "v1.6.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:cf296baa185baae04a9a7004efee8511d08e2f5f51d4cbe5375da89722d681db"
+  digest = "1:cee8e8ac80df6373e7daa11baf1f98c1b6f7242c49ccae7e1ec34a971dc408d9"
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "3ff3320c2a1756a3691521efc290b4701575147c"
+  version = "v1.3.0"
+
+[[projects]]
+  digest = "1:8ec8d88c248041a6df5f6574b87bc00e7e0b493881dad2e7ef47b11dc69093b5"
   name = "github.com/hashicorp/golang-lru"
   packages = [
     ".",
     "simplelru",
   ]
   pruneopts = "UT"
-  revision = "0fb14efe8c47ae851c0034ed7a448854d3d34cf3"
+  revision = "20f1fb78b0740ba8c3cb143a61e86ba5c8669768"
+  version = "v0.5.0"
 
 [[projects]]
   branch = "master"
@@ -314,7 +333,7 @@
   packages = ["."]
   pruneopts = "UT"
   revision = "1624edc4454b8682399def8740d46db5e4362ba4"
-  version = "1.1.5"
+  version = "v1.1.5"
 
 [[projects]]
   digest = "1:1e15f4e455f94aeaedfcf9c75b3e1c449b5acba1551c58446b4b45be507c707b"
@@ -333,20 +352,12 @@
   revision = "ae77be60afb1dcacde03767a8c37337fad28ac14"
 
 [[projects]]
-  branch = "alexander/cbfix"
-  digest = "1:b5fcfc165a89864a955e4a275848234ec8ca5cf37f19ce489da244902f3ccce2"
-  name = "github.com/mailgun/oxy"
-  packages = ["utils"]
-  pruneopts = "UT"
-  revision = "563343dd5c1f1997846c85e353fbf81708982ab5"
-
-[[projects]]
-  branch = "master"
-  digest = "1:544635141f5fb084637823f438f3563be046a9730c256d2e7760dbb741cd88b5"
+  digest = "1:61332bb44d05257bbf0356d8400a8b30fe0b9fdc3b72b8b55661da8f0a4f39ae"
   name = "github.com/mitchellh/hashstructure"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2bca23e0e452137f789efbc8610126fd8b94f73b"
+  revision = "a38c50148365edc8df43c1580c48fb2b3a1e9cd7"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:33422d238f147d247752996a26574ac48dcf472976eda7f5134015f06bf16563"
@@ -392,12 +403,12 @@
   revision = "1555304b9b35fdd2b425bccf1a5613677705e7d0"
 
 [[projects]]
-  digest = "1:757b110984b77e820e01c60d3ac03a376a0fdb05c990dd9d6bd4f9ba0d606261"
+  digest = "1:2e76a73cb51f42d63a2a1a85b3dc5731fd4faf6821b434bd0ef2c099186031d6"
   name = "github.com/rs/xid"
   packages = ["."]
   pruneopts = "UT"
-  revision = "2c7e97ce663ff82c49656bca3048df0fdd83c5f9"
-  version = "v1.2.0"
+  revision = "15d26544def341f036c5f8dca987a4cbe575032c"
+  version = "v1.2.1"
 
 [[projects]]
   digest = "1:7395b855a6078ad2e6c40311402a057a91125fb9f32cf228e1b32cdc57c33538"
@@ -447,12 +458,12 @@
   version = "1.6.3"
 
 [[projects]]
-  digest = "1:9424f440bba8f7508b69414634aef3b2b3a877e522d8a4624692412805407bb7"
+  digest = "1:dab83a1bbc7ad3d7a6ba1a1cc1760f25ac38cdf7d96a5cdd55cd915a4f5ceaf9"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = "UT"
-  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
-  version = "v1.0.1"
+  revision = "9a97c102cda95a86cec2345a6f09f55a939babf5"
+  version = "v1.0.2"
 
 [[projects]]
   digest = "1:2d9d06cb9d46dacfdbb45f8575b39fc0126d083841a29d4fbf8d97708f43107e"
@@ -473,15 +484,7 @@
   revision = "13995c7128ccc8e51e9a6bd2b551020a27180abd"
 
 [[projects]]
-  branch = "alexander/cbfix"
-  digest = "1:8e56ec19ae611a9fb1d062056bdf355bf6327144d5e7d4f18ea6e88d7170e30d"
-  name = "github.com/vulcand/oxy"
-  packages = ["forward"]
-  pruneopts = "UT"
-  revision = "563343dd5c1f1997846c85e353fbf81708982ab5"
-
-[[projects]]
-  digest = "1:13cf8378d15184362acc572d9d98c2d3020713837343469ea105e7fa5b53dd80"
+  digest = "1:e8c33847f5eb76202faf082b81c1e8cceccde368b4d8da1497b18b2360e27638"
   name = "go.aporeto.io/netlink-go"
   packages = [
     "common",
@@ -491,100 +494,16 @@
     "nfqueue",
   ]
   pruneopts = "UT"
-  revision = "74dcd2d383941209e6b2fcf864210f2a470dca18"
-  version = "v1.19.0"
+  revision = "3e318165bf669170006a0be81230c658feb73fc2"
+  version = "v1.25.1"
 
 [[projects]]
   digest = "1:e04f4a7ef2c1299da300b5818a7f2d9b745be4a7c5313439df70a673f4950be9"
   name = "go.aporeto.io/tg"
   packages = ["tglib"]
   pruneopts = "UT"
-  revision = "7c642bb75752a71554fc8c229e497c9476e87a69"
-  version = "v2.41.0"
-
-[[projects]]
-  digest = "1:bb212d6c7da83650df80b798b5c07820ad78e5662f1ccf9db138e00d4e0b3abc"
-  name = "go.aporeto.io/trireme-lib"
-  packages = [
-    "collector",
-    "collector/mockcollector",
-    "common",
-    "controller/constants",
-    "controller/internal/enforcer",
-    "controller/internal/enforcer/acls",
-    "controller/internal/enforcer/applicationproxy",
-    "controller/internal/enforcer/applicationproxy/connproc",
-    "controller/internal/enforcer/applicationproxy/http",
-    "controller/internal/enforcer/applicationproxy/markedconn",
-    "controller/internal/enforcer/applicationproxy/protomux",
-    "controller/internal/enforcer/applicationproxy/servicecache",
-    "controller/internal/enforcer/applicationproxy/tcp",
-    "controller/internal/enforcer/constants",
-    "controller/internal/enforcer/lookup",
-    "controller/internal/enforcer/mockenforcer",
-    "controller/internal/enforcer/nfqdatapath",
-    "controller/internal/enforcer/nfqdatapath/afinetrawsocket",
-    "controller/internal/enforcer/nfqdatapath/nflog",
-    "controller/internal/enforcer/nfqdatapath/tokenaccessor",
-    "controller/internal/enforcer/proxy",
-    "controller/internal/enforcer/utils/nsenter",
-    "controller/internal/enforcer/utils/packetgen",
-    "controller/internal/enforcer/utils/rpcwrapper",
-    "controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper",
-    "controller/internal/portset",
-    "controller/internal/processmon",
-    "controller/internal/processmon/mockprocessmon",
-    "controller/internal/supervisor",
-    "controller/internal/supervisor/iptablesctrl",
-    "controller/internal/supervisor/mocksupervisor",
-    "controller/internal/supervisor/provider",
-    "controller/internal/supervisor/proxy",
-    "controller/pkg/auth",
-    "controller/pkg/connection",
-    "controller/pkg/fqconfig",
-    "controller/pkg/packet",
-    "controller/pkg/packetprocessor",
-    "controller/pkg/pkiverifier",
-    "controller/pkg/pucontext",
-    "controller/pkg/remoteenforcer",
-    "controller/pkg/remoteenforcer/internal/statsclient",
-    "controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient",
-    "controller/pkg/remoteenforcer/internal/statscollector",
-    "controller/pkg/secrets",
-    "controller/pkg/servicetokens",
-    "controller/pkg/tokens",
-    "controller/pkg/urisearch",
-    "controller/pkg/usertokens",
-    "controller/pkg/usertokens/common",
-    "controller/pkg/usertokens/oidc",
-    "controller/pkg/usertokens/pkitokens",
-    "monitor/config",
-    "monitor/constants",
-    "monitor/extractors",
-    "monitor/internal/cni",
-    "monitor/internal/docker",
-    "monitor/internal/docker/mockdocker",
-    "monitor/internal/kubernetes",
-    "monitor/internal/linux",
-    "monitor/internal/uid",
-    "monitor/processor",
-    "monitor/processor/mockprocessor",
-    "monitor/registerer",
-    "monitor/remoteapi/client",
-    "monitor/remoteapi/server",
-    "policy",
-    "policy/mockpolicy",
-    "utils/allocator",
-    "utils/cache",
-    "utils/cgnetcls",
-    "utils/cgnetcls/mockcgnetcls",
-    "utils/crypto",
-    "utils/portcache",
-    "utils/portspec",
-  ]
-  pruneopts = "UT"
-  revision = "e2119fb9d730b3185a623020131455f8387bde8d"
-  version = "v10.17.0"
+  revision = "ca071cfc4716da35d952715b3625037752513bb6"
+  version = "v2.54.0"
 
 [[projects]]
   digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
@@ -619,19 +538,20 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:583f2f436bab7b59a7bd3e759f1375b06f460760ed1f9235604d143eaab83009"
+  digest = "1:8e241498e35f550e5192ee6b1f6ff2c0a7ffe81feff9541d297facffe1383979"
   name = "golang.org/x/crypto"
   packages = [
     "ed25519",
     "ed25519/internal/edwards25519",
+    "pbkdf2",
     "ssh/terminal",
   ]
   pruneopts = "UT"
-  revision = "80fca2ff14a3fb7db622c9a5462f8ce9ea026cba"
+  revision = "182538f80094b6a8efaade63a8fd8e0d9d5843dd"
 
 [[projects]]
   branch = "master"
-  digest = "1:b81cd8734006aa0d28d79b67345cb0d9606fd1fa99c99630d1826325b4c275d5"
+  digest = "1:e271d859e25bde6a2fb30f9679a1e83be66f558a7f83d68b17543cdb1aabe672"
   name = "golang.org/x/net"
   packages = [
     "bpf",
@@ -648,29 +568,29 @@
     "proxy",
   ]
   pruneopts = "UT"
-  revision = "f4c29de78a2a91c00474a2e689954305c350adf9"
+  revision = "8a410e7b638dca158bf9e766925842f6651ff828"
 
 [[projects]]
   branch = "master"
-  digest = "1:af19f6e6c369bf51ef226e989034cd88a45083173c02ac4d7ab74c9a90d356b7"
+  digest = "1:363b547c971a2b07474c598b6e9ebcb238d556d8a27f37b3895ad20cd50e7281"
   name = "golang.org/x/oauth2"
   packages = [
     ".",
     "internal",
   ]
   pruneopts = "UT"
-  revision = "3d292e4d0cdc3a0113e6d207bb137145ef1de42f"
+  revision = "d2e6202438beef2727060aa7cabdd924d92ebfd9"
 
 [[projects]]
   branch = "master"
-  digest = "1:1f2a1717924c1d867098dc9e6c2970e425df30aae2eb89849614993825e0720a"
+  digest = "1:629034aef6b53eb8ea737e6d82cb5402907e2757fbab5ddf5e74c08b4c6473af"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "UT"
-  revision = "2be389f392cd91df245b41638f818a1c041f0c08"
+  revision = "fa5fdf94c78965f1aa8423f0cc50b8b8d728b05a"
 
 [[projects]]
   digest = "1:a2ab62866c75542dd18d2b069fec854577a20211d7c0ea6ae746072a1dccdd18"
@@ -728,7 +648,7 @@
   version = "v0.9.1"
 
 [[projects]]
-  digest = "1:854bc058ebb4ff58a262e2c324d6582c344575489a01b47a6d083ae3f91f4daa"
+  digest = "1:02d2c5be9a35ce750536e74af0d98aca806f225913a3ab28f285843d6283c70d"
   name = "gopkg.in/square/go-jose.v2"
   packages = [
     ".",
@@ -736,8 +656,8 @@
     "json",
   ]
   pruneopts = "UT"
-  revision = "349dc03548930652802aadc09fb126e2b7cb6d80"
-  version = "v2.1.7"
+  revision = "8254d6c783765f38c8675fae4427a1fe73fbd09d"
+  version = "v2.1.8"
 
 [[projects]]
   digest = "1:342378ac4dcb378a5448dd723f0784ae519383532f5e70ade24132c4c8693202"
@@ -928,6 +848,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/aporeto-inc/oxy/forward",
     "github.com/bluele/gcache",
     "github.com/bvandewalle/go-ipset/ipset",
     "github.com/cespare/xxhash",
@@ -955,86 +876,11 @@
     "github.com/rs/xid",
     "github.com/shirou/gopsutil/process",
     "github.com/smartystreets/goconvey/convey",
-    "github.com/vulcand/oxy/forward",
+    "github.com/spiffe/go-spiffe/spiffe",
     "go.aporeto.io/netlink-go/conntrack",
     "go.aporeto.io/netlink-go/nflog",
     "go.aporeto.io/netlink-go/nfqueue",
     "go.aporeto.io/tg/tglib",
-    "go.aporeto.io/trireme-lib/collector",
-    "go.aporeto.io/trireme-lib/collector/mockcollector",
-    "go.aporeto.io/trireme-lib/common",
-    "go.aporeto.io/trireme-lib/controller/constants",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/acls",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/http",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/protomux",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/servicecache",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/tcp",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/constants",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/lookup",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/proxy",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/packetgen",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper",
-    "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper/mockrpcwrapper",
-    "go.aporeto.io/trireme-lib/controller/internal/portset",
-    "go.aporeto.io/trireme-lib/controller/internal/processmon",
-    "go.aporeto.io/trireme-lib/controller/internal/processmon/mockprocessmon",
-    "go.aporeto.io/trireme-lib/controller/internal/supervisor",
-    "go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl",
-    "go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor",
-    "go.aporeto.io/trireme-lib/controller/internal/supervisor/provider",
-    "go.aporeto.io/trireme-lib/controller/internal/supervisor/proxy",
-    "go.aporeto.io/trireme-lib/controller/pkg/auth",
-    "go.aporeto.io/trireme-lib/controller/pkg/connection",
-    "go.aporeto.io/trireme-lib/controller/pkg/fqconfig",
-    "go.aporeto.io/trireme-lib/controller/pkg/packet",
-    "go.aporeto.io/trireme-lib/controller/pkg/packetprocessor",
-    "go.aporeto.io/trireme-lib/controller/pkg/pkiverifier",
-    "go.aporeto.io/trireme-lib/controller/pkg/pucontext",
-    "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer",
-    "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient",
-    "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statsclient/mockstatsclient",
-    "go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer/internal/statscollector",
-    "go.aporeto.io/trireme-lib/controller/pkg/secrets",
-    "go.aporeto.io/trireme-lib/controller/pkg/servicetokens",
-    "go.aporeto.io/trireme-lib/controller/pkg/tokens",
-    "go.aporeto.io/trireme-lib/controller/pkg/urisearch",
-    "go.aporeto.io/trireme-lib/controller/pkg/usertokens",
-    "go.aporeto.io/trireme-lib/controller/pkg/usertokens/common",
-    "go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc",
-    "go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens",
-    "go.aporeto.io/trireme-lib/monitor/config",
-    "go.aporeto.io/trireme-lib/monitor/constants",
-    "go.aporeto.io/trireme-lib/monitor/extractors",
-    "go.aporeto.io/trireme-lib/monitor/internal/cni",
-    "go.aporeto.io/trireme-lib/monitor/internal/docker",
-    "go.aporeto.io/trireme-lib/monitor/internal/docker/mockdocker",
-    "go.aporeto.io/trireme-lib/monitor/internal/kubernetes",
-    "go.aporeto.io/trireme-lib/monitor/internal/linux",
-    "go.aporeto.io/trireme-lib/monitor/internal/uid",
-    "go.aporeto.io/trireme-lib/monitor/processor",
-    "go.aporeto.io/trireme-lib/monitor/processor/mockprocessor",
-    "go.aporeto.io/trireme-lib/monitor/registerer",
-    "go.aporeto.io/trireme-lib/monitor/remoteapi/client",
-    "go.aporeto.io/trireme-lib/monitor/remoteapi/server",
-    "go.aporeto.io/trireme-lib/policy",
-    "go.aporeto.io/trireme-lib/policy/mockpolicy",
-    "go.aporeto.io/trireme-lib/utils/allocator",
-    "go.aporeto.io/trireme-lib/utils/cache",
-    "go.aporeto.io/trireme-lib/utils/cgnetcls",
-    "go.aporeto.io/trireme-lib/utils/cgnetcls/mockcgnetcls",
-    "go.aporeto.io/trireme-lib/utils/crypto",
-    "go.aporeto.io/trireme-lib/utils/portcache",
-    "go.aporeto.io/trireme-lib/utils/portspec",
     "go.uber.org/zap",
     "golang.org/x/net/context",
     "golang.org/x/net/ipv4",

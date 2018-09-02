@@ -330,6 +330,11 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 
 // processApplicationUDPSynPacket processes a single Syn Packet
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
+
+	if !addressMatch(udpPacket.DestinationAddress, context.UDPNetworks()) {
+		d.reportUDPExternalFlow(udpPacket, context, true, nil, nil)
+		return errors.New("No target found")
+	}
 	// do some pre processing.
 	if d.service != nil {
 		// PreProcessServiceInterface
@@ -387,7 +392,7 @@ func (d *Datapath) clonePacketHeaders(p *packet.Packet) (*packet.Packet, error) 
 	p.FixupIPHdrOnDataModify(p.IPTotalLength, packet.UDPDataPos)
 	_ = copy(newPacket, p.Buffer[:packet.UDPDataPos])
 
-	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark)
+	return packet.New(packet.PacketTypeApplication, newPacket, p.Mark, true)
 }
 
 // CreateUDPAuthMarker creates a UDP auth marker.

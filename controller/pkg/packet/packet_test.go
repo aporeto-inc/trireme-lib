@@ -151,7 +151,7 @@ func TestExtractedBytesStillGood(t *testing.T) {
 
 	// Extract unmodified bytes and feed them back in
 	bytes := pkt.Buffer
-	pkt2, err := New(0, bytes, "0")
+	pkt2, err := New(0, bytes, "0", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +360,7 @@ func getTestPacket(t *testing.T, id SamplePacketName) *Packet {
 	tmp := make([]byte, len(testPackets[id]))
 	copy(tmp, testPackets[id])
 
-	pkt, err := New(0, tmp, "0")
+	pkt, err := New(0, tmp, "0", true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -372,6 +372,6 @@ func getTestPacketWithError(t *testing.T, id SamplePacketName) error {
 	tmp := make([]byte, len(testPackets[id]))
 	copy(tmp, testPackets[id])
 
-	_, err := New(0, tmp, "0")
+	_, err := New(0, tmp, "0", true)
 	return err
 }

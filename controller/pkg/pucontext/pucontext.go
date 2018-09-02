@@ -14,6 +14,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -36,6 +37,7 @@ type PUContext struct {
 	applicationACLs   *acls.ACLCache
 	networkACLs       *acls.ACLCache
 	externalIPCache   cache.DataStore
+	udpNetworks       []*net.IPNet
 	mark              string
 	ProxyPort         string
 	tcpPorts          []string
@@ -75,6 +77,17 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
 
+	udpNetworks := []*net.IPNet{}
+	for _, n := range puInfo.Policy.UDPNetworks() {
+		_, cidr, err := net.ParseCIDR(n)
+		if err != nil {
+			zap.L().Error("Invalid UDP Network", zap.String("Network", n))
+			return nil, fmt.Errorf("Invalid udp network: %s", n)
+		}
+		udpNetworks = append(udpNetworks, cidr)
+	}
+	pu.udpNetworks = udpNetworks
+
 	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
 	}
@@ -95,6 +108,11 @@ func (p *PUContext) ID() string {
 // ManagementID returns the management ID
 func (p *PUContext) ManagementID() string {
 	return p.managementID
+}
+
+// UDPNetworks returns the target UDP networks.
+func (p *PUContext) UDPNetworks() []*net.IPNet {
+	return p.udpNetworks
 }
 
 // Type return the pu type
