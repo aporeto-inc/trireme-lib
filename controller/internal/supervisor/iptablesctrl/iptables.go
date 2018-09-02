@@ -234,7 +234,7 @@ func (i *Instance) Run(ctx context.Context) error {
 
 	// Clean any previous ACLs
 	if err := i.cleanACLs(); err != nil {
-		zap.L().Warn("Unable to clean previous acls while starting the supervisor", zap.Error(err))
+		zap.L().Debug("Unable to clean previous acls while starting the supervisor", zap.Error(err))
 	}
 
 	if err := i.InitializeChains(); err != nil {
