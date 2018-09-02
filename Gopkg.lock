@@ -484,7 +484,7 @@
   revision = "13995c7128ccc8e51e9a6bd2b551020a27180abd"
 
 [[projects]]
-  digest = "1:e8c33847f5eb76202faf082b81c1e8cceccde368b4d8da1497b18b2360e27638"
+  digest = "1:4a84c8d5126e27ef48478eed0de43df7ea07485da2b0a79df91a728d70b76dbc"
   name = "go.aporeto.io/netlink-go"
   packages = [
     "common",
@@ -494,8 +494,8 @@
     "nfqueue",
   ]
   pruneopts = "UT"
-  revision = "3e318165bf669170006a0be81230c658feb73fc2"
-  version = "v1.25.1"
+  revision = "a23be513b0313f01d7e2838961f0003ae381e6ef"
+  version = "v1.27.0"
 
 [[projects]]
   digest = "1:e04f4a7ef2c1299da300b5818a7f2d9b745be4a7c5313439df70a673f4950be9"
