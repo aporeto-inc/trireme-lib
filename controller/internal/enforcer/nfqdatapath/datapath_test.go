@@ -1592,7 +1592,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -1614,7 +1614,7 @@ func TestFlowReportingGoodFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -1738,7 +1738,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -1760,7 +1760,7 @@ func TestFlowReportingSynPacketOnlyInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -1885,7 +1885,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -1907,7 +1907,7 @@ func TestFlowReportingUptoSynAckPacketInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2037,7 +2037,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2059,7 +2059,7 @@ func TestFlowReportingUptoFirstAckPacketInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2190,7 +2190,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2212,7 +2212,7 @@ func TestFlowReportingManyPacketsInFlow(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2452,7 +2452,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2474,7 +2474,7 @@ func TestFlowReportingReplayAttack(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2666,7 +2666,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2689,7 +2689,7 @@ func TestFlowReportingPacketDelays(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -2960,7 +2960,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -2983,7 +2983,7 @@ func TestFlowReportingInvalidSyn(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -3237,7 +3237,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -3260,7 +3260,7 @@ func TestFlowReportingUptoFirstInvalidAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -3416,7 +3416,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -3439,7 +3439,7 @@ func TestFlowReportingUptoValidSynAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -3579,7 +3579,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -3602,7 +3602,7 @@ func TestFlowReportingUptoValidAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -3735,7 +3735,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -3758,7 +3758,7 @@ func TestReportingTwoGoodFlows(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -3895,7 +3895,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -3918,7 +3918,7 @@ func TestReportingTwoGoodFlowsUptoSynAck(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Accept
@@ -4058,7 +4058,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -4080,7 +4080,7 @@ func TestSynPacketWithInvalidAuthenticationOptionLength(t *testing.T) {
 							dstEndPoint.IP = "164.67.228.152"
 							dstEndPoint.Port = 80
 
-							flowRecord.Count = 0
+							flowRecord.Count = 1
 							flowRecord.Source = &srcEndPoint
 							flowRecord.Destination = &dstEndPoint
 							flowRecord.Action = policy.Reject
@@ -4429,7 +4429,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 // 							var flowRecord collector.FlowRecord
 
-// 							flowRecord.Count = 0
+// 							flowRecord.Count = 1
 // 							flowRecord.Source.IP = "10.1.10.76"
 // 							flowRecord.Destination.IP = "164.67.228.152"
 // 							flowRecord.Destination.Port = 80
@@ -4448,7 +4448,7 @@ func TestPacketsWithInvalidTags(t *testing.T) {
 
 // 							var flowRecord collector.FlowRecord
 
-// 							flowRecord.Count = 0
+// 							flowRecord.Count = 1
 // 							flowRecord.Source.IP = "10.1.10.76"
 // 							flowRecord.Destination.IP = "164.67.228.152"
 // 							flowRecord.Destination.Port = 80

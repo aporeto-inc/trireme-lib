@@ -98,6 +98,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		Tags:        context.Annotations(),
 		PolicyID:    report.PolicyID,
 		L4Protocol:  p.IPProto,
+		Count:       1,
 	}
 
 	if report.ObserveAction.Observed() {
