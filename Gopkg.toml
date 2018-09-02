@@ -25,6 +25,10 @@ required = ["github.com/docker/distribution"]
   version = "7.0.0"
 
 [[constraint]]
+  name = "go.aporeto.io/netlink-go"
+  branch = "release-3.1.0"
+
+[[constraint]]
   name = "github.com/aporeto-inc/oxy"
   branch = "sirupsen"
 
