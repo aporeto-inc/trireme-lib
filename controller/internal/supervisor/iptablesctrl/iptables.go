@@ -271,7 +271,7 @@ func (i *Instance) CleanUp() error {
 func (i *Instance) SetTargetNetworks(current, networks []string) error {
 
 	// Cleanup old ACLs
-	if len(current) > 0 {
+	if len(current) > 0 && i.targetSet != nil {
 		return i.updateTargetNetworks(current, networks)
 	}
 
