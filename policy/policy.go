@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
-	"go.uber.org/zap"
 )
 
 // PUPolicy captures all policy information related ot the container
@@ -117,7 +116,6 @@ func NewPUPolicy(
 		dependentServices = ApplicationServicesList{}
 	}
 
-	zap.L().Error("NewPolicy with IDs", zap.Strings("UDP", triremeUDPNetworks))
 	return &PUPolicy{
 		managementID:       id,
 		triremeAction:      action,

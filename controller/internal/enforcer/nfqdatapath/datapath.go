@@ -417,6 +417,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, 
 		DropReason: mode,
 		PolicyID:   report.PolicyID,
 		L4Protocol: p.IPProto,
+		Count:      1,
 	}
 
 	if report.ObserveAction.Observed() {

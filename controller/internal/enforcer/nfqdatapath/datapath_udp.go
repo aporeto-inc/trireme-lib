@@ -332,11 +332,6 @@ func (d *Datapath) appUDPRetrieveState(p *packet.Packet) (*connection.UDPConnect
 func (d *Datapath) processApplicationUDPSynPacket(udpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.UDPConnection) (err error) {
 
 	if !addressMatch(udpPacket.DestinationAddress, context.UDPNetworks()) {
-		zap.L().Error("Dropping packet - no destination match",
-			zap.String("Destination address", udpPacket.DestinationAddress.String()))
-		for _, n := range context.UDPNetworks() {
-			zap.L().Error("Network found", zap.String("network", n.String()))
-		}
 		d.reportUDPExternalFlow(udpPacket, context, true, nil, nil)
 		return errors.New("No target found")
 	}
