@@ -143,7 +143,7 @@ func filterQ() *fqconfig.FilterQueue {
 func initTestSupReqPayload(ctype rpcwrapper.CaptureType) rpcwrapper.InitSupervisorPayload {
 	var initSupPayload rpcwrapper.InitSupervisorPayload
 
-	initSupPayload.TriremeNetworks = []string{"127.0.0.1/32 172.0.0.0/8 10.0.0.0/8"}
+	initSupPayload.TriremeNetworks = []string{"127.0.0.1/32", "172.0.0.0/8", "10.0.0.0/8"}
 	initSupPayload.CaptureMethod = ctype
 
 	return initSupPayload

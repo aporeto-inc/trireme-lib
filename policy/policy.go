@@ -35,6 +35,8 @@ type PUPolicy struct {
 	ips ExtendedMap
 	// triremeNetworks is the list of networks that Authorization must be enforced
 	triremeNetworks []string
+	// triremeUDPNetworks is the list of UDP networks that this policy should apply to
+	triremeUDPNetworks []string
 	// excludedNetworks a list of networks that must be excluded
 	excludedNetworks []string
 	// exposedServices is the list of services that this PU is exposing.
@@ -78,6 +80,7 @@ func NewPUPolicy(
 	annotations *TagStore,
 	ips ExtendedMap,
 	triremeNetworks []string,
+	triremeUDPNetworks []string,
 	excludedNetworks []string,
 	exposedServices ApplicationServicesList,
 	dependentServices ApplicationServicesList,
@@ -121,27 +124,28 @@ func NewPUPolicy(
 	}
 
 	return &PUPolicy{
-		managementID:      id,
-		triremeAction:     action,
-		applicationACLs:   appACLs,
-		networkACLs:       netACLs,
-		DNSACLs:           dnsACLs,
-		transmitterRules:  txtags,
-		receiverRules:     rxtags,
-		identity:          identity,
-		annotations:       annotations,
-		ips:               ips,
-		triremeNetworks:   triremeNetworks,
-		excludedNetworks:  excludedNetworks,
-		exposedServices:   exposedServices,
-		dependentServices: dependentServices,
-		scopes:            scopes,
+		managementID:       id,
+		triremeAction:      action,
+		applicationACLs:    appACLs,
+		networkACLs:        netACLs,
+		DNSACLs:            dnsACLs,
+		transmitterRules:   txtags,
+		receiverRules:      rxtags,
+		identity:           identity,
+		annotations:        annotations,
+		ips:                ips,
+		triremeNetworks:    triremeNetworks,
+		triremeUDPNetworks: triremeUDPNetworks,
+		excludedNetworks:   excludedNetworks,
+		exposedServices:    exposedServices,
+		dependentServices:  dependentServices,
+		scopes:             scopes,
 	}
 }
 
 // NewPUPolicyWithDefaults sets up a PU policy with defaults
 func NewPUPolicyWithDefaults() *PUPolicy {
-	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, nil, nil, []string{})
+	return NewPUPolicy("", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, []string{}, nil, nil, []string{})
 }
 
 // Clone returns a copy of the policy
@@ -161,6 +165,7 @@ func (p *PUPolicy) Clone() *PUPolicy {
 		p.annotations.Copy(),
 		p.ips.Copy(),
 		p.triremeNetworks,
+		p.triremeUDPNetworks,
 		p.excludedNetworks,
 		p.exposedServices,
 		p.dependentServices,
@@ -176,6 +181,14 @@ func (p *PUPolicy) ManagementID() string {
 	defer p.Unlock()
 
 	return p.managementID
+}
+
+// UDPNetworks returns the UDP networks
+func (p *PUPolicy) UDPNetworks() []string {
+	p.Lock()
+	defer p.Unlock()
+
+	return p.triremeUDPNetworks
 }
 
 // TriremeAction returns the TriremeAction
@@ -385,6 +398,7 @@ func (p *PUPolicy) ToPublicPolicy() *PUPolicyPublic {
 		Identity:            p.identity.Copy(),
 		IPs:                 p.ips.Copy(),
 		TriremeNetworks:     p.triremeNetworks,
+		TriremeUDPNetworks:  p.triremeUDPNetworks,
 		ExcludedNetworks:    p.excludedNetworks,
 		ExposedServices:     p.exposedServices,
 		DependentServices:   p.dependentServices,
@@ -409,6 +423,7 @@ type PUPolicyPublic struct {
 	ReceiverRules       TagSelectorList         `json:"receiverRules,omitempty"`
 	IPs                 ExtendedMap             `json:"IPs,omitempty"`
 	TriremeNetworks     []string                `json:"triremeNetworks,omitempty"`
+	TriremeUDPNetworks  []string                `json:"triremeUDPNetworks,omitempty"`
 	ExcludedNetworks    []string                `json:"excludedNetworks,omitempty"`
 	ExposedServices     ApplicationServicesList `json:"exposedServices,omitempty"`
 	DependentServices   ApplicationServicesList `json:"dependentServices,omitempty"`
@@ -441,6 +456,7 @@ func (p *PUPolicyPublic) ToPrivatePolicy(convert bool) *PUPolicy {
 		identity:            p.Identity.Copy(),
 		ips:                 p.IPs.Copy(),
 		triremeNetworks:     p.TriremeNetworks,
+		triremeUDPNetworks:  p.TriremeUDPNetworks,
 		excludedNetworks:    p.ExcludedNetworks,
 		exposedServices:     exposedServices,
 		dependentServices:   p.DependentServices,

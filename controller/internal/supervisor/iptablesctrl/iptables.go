@@ -270,12 +270,8 @@ func (i *Instance) CleanUp() error {
 // SetTargetNetworks updates ths target networks for SynAck packets
 func (i *Instance) SetTargetNetworks(current, networks []string) error {
 
-	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
-	}
-
 	// Cleanup old ACLs
-	if len(current) > 0 {
+	if len(current) > 0 && i.targetSet != nil {
 		return i.updateTargetNetworks(current, networks)
 	}
 
