@@ -20,6 +20,11 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 )
 
+const (
+	// Default retransmit delay for first packet
+	retransmitDelay = 200
+)
+
 // ProcessNetworkUDPPacket processes packets arriving from network and are destined to the application.
 func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 
@@ -402,7 +407,7 @@ func (d *Datapath) writeWithRetransmit(buffer []byte, stop chan bool) error {
 
 	go func() {
 		for retries := 0; retries < 3; retries++ {
-			delay := time.Millisecond * time.Duration((200 * (retries + 1)))
+			delay := time.Millisecond * time.Duration((retransmitDelay * (retries + 1)))
 			select {
 			case <-stop:
 				return

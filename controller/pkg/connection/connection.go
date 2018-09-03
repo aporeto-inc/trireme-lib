@@ -304,7 +304,7 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 	return &UDPConnection{
 		state:       UDPSynStart,
 		Context:     context,
-		PacketQueue: make(chan *packet.Packet, 100),
+		PacketQueue: make(chan *packet.Packet, MaximumUDPQueueLen),
 		Writer:      writer,
 		Auth: AuthInfo{
 			LocalContext: nonce,
@@ -393,7 +393,7 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 // DropPackets drops packets on errors during Authorization.
 func (c *UDPConnection) DropPackets() {
 	close(c.PacketQueue)
-	c.PacketQueue = make(chan *packet.Packet, 100)
+	c.PacketQueue = make(chan *packet.Packet, MaximumUDPQueueLen)
 }
 
 // ReadPacket reads a packet from the queue.
