@@ -284,6 +284,13 @@ type UDPConnection struct {
 	reported          bool
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
+
+	// Stop channels for restransmissions
+	synStop    chan bool
+	synAckStop chan bool
+	ackStop    chan bool
+
+	TestIgnore bool
 }
 
 // NewUDPConnection returns UDPConnection struct.
@@ -302,7 +309,55 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
+		synStop:    make(chan bool),
+		synAckStop: make(chan bool),
+		ackStop:    make(chan bool),
+		TestIgnore: true,
 	}
+}
+
+// SynStop issues a stop on the synStop channel.
+func (c *UDPConnection) SynStop() {
+	select {
+	case c.synStop <- true:
+	default:
+		zap.L().Debug("Packet loss - channel was already done")
+	}
+
+}
+
+// SynAckStop issues a stop in the synAckStop channel.
+func (c *UDPConnection) SynAckStop() {
+	select {
+	case c.synAckStop <- true:
+	default:
+		zap.L().Debug("Packet loss - channel was already done")
+	}
+}
+
+// AckStop issues a stop in the Ack channel.
+func (c *UDPConnection) AckStop() {
+	select {
+	case c.ackStop <- true:
+	default:
+		zap.L().Debug("Packet loss - channel was already done")
+	}
+
+}
+
+// SynChannel returns the SynStop channel.
+func (c *UDPConnection) SynChannel() chan bool {
+	return c.synStop
+}
+
+// SynAckChannel returns the SynAck stop channel.
+func (c *UDPConnection) SynAckChannel() chan bool {
+	return c.synAckStop
+}
+
+// AckChannel returns the Ack stop channel.
+func (c *UDPConnection) AckChannel() chan bool {
+	return c.ackStop
 }
 
 // GetState is used to get state of UDP Connection.
@@ -312,7 +367,6 @@ func (c *UDPConnection) GetState() UDPFlowState {
 
 // SetState is used to setup the state for the UDP Connection.
 func (c *UDPConnection) SetState(state UDPFlowState) {
-
 	c.state = state
 }
 
