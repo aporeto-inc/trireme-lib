@@ -277,7 +277,7 @@ type UDPConnection struct {
 	ServiceData interface{}
 
 	// PacketQueue indicates app UDP packets queued while authorization is in progress.
-	PacketQueue []*packet.Packet
+	PacketQueue chan *packet.Packet
 	Writer      afinetrawsocket.SocketWriter
 	// Debugging information - pushed to the end for compact structure
 	flowLastReporting bool
@@ -304,7 +304,7 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 	return &UDPConnection{
 		state:       UDPSynStart,
 		Context:     context,
-		PacketQueue: []*packet.Packet{},
+		PacketQueue: make(chan *packet.Packet, 100),
 		Writer:      writer,
 		Auth: AuthInfo{
 			LocalContext: nonce,
@@ -373,13 +373,6 @@ func (c *UDPConnection) SetState(state UDPFlowState) {
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 
-	qlen := len(c.PacketQueue)
-	// only queue first 50 packets.
-	if qlen > MaximumUDPQueueLen {
-		zap.L().Info("Reached Maximum queue length, Dropping packet", zap.String("flow", udpPacket.L4FlowHash()))
-		return nil
-	}
-
 	buffer := make([]byte, len(udpPacket.Buffer))
 	copy(buffer, udpPacket.Buffer)
 
@@ -387,14 +380,30 @@ func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 	if err != nil {
 		return fmt.Errorf("Unable to copy packets to queue:%s", err)
 	}
-	c.PacketQueue = append(c.PacketQueue, copyPacket)
+
+	select {
+	case c.PacketQueue <- copyPacket:
+	default:
+		return fmt.Errorf("Queue is full")
+	}
+
 	return nil
 }
 
 // DropPackets drops packets on errors during Authorization.
 func (c *UDPConnection) DropPackets() {
+	close(c.PacketQueue)
+	c.PacketQueue = make(chan *packet.Packet, 100)
+}
 
-	c.PacketQueue = []*packet.Packet{}
+// ReadPacket reads a packet from the queue.
+func (c *UDPConnection) ReadPacket() *packet.Packet {
+	select {
+	case p := <-c.PacketQueue:
+		return p
+	default:
+		return nil
+	}
 }
 
 // SetReported is used to track if a flow is reported
