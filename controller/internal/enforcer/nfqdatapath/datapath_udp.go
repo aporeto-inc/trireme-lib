@@ -97,6 +97,10 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 		return nil
 	}
 
+	// We are processing only one connection at a time.
+	conn.Lock()
+	defer conn.Unlock()
+
 	p.Print(packet.PacketStageIncoming)
 
 	if d.service != nil {
@@ -263,6 +267,10 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		zap.L().Debug("Connection not found", zap.Error(err))
 		return fmt.Errorf("Received packet from unenforced process: %s", err)
 	}
+
+	// We are processing only connection at a time.
+	conn.Lock()
+	defer conn.Unlock()
 
 	switch conn.GetState() {
 	case connection.UDPSynStart:
