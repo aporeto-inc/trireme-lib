@@ -252,7 +252,9 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 				}
 			}
 		}
-		fmt.Fprintf(buf, "COMMIT\n")
+		if _, err := fmt.Fprintf(buf, "COMMIT\n"); err != nil {
+			return nil, err
+		}
 	}
 	return buf, nil
 }

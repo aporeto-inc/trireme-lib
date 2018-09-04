@@ -1656,8 +1656,9 @@ func (i *Instance) cleanACLs() error {
 		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
 	}
 
-	i.ipt.Commit()
+	i.ipt.Commit() // nolint
 
+	// Always return nil here. No reason to block anything if cleans fail.
 	return nil
 }
 

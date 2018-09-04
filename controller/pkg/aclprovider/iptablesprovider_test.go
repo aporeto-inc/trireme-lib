@@ -15,7 +15,7 @@ const (
 func TestNewProvider(t *testing.T) {
 	Convey("When I create a new iptables batch provider", t, func() {
 		p, err := NewGoIPTablesProvider([]string{mangle})
-		Convey("It should be succesful", func() {
+		Convey("It should be successful", func() {
 			So(err, ShouldBeNil)
 			So(p, ShouldNotBeNil)
 			So(len(p.batchTables), ShouldEqual, 1)
@@ -158,6 +158,7 @@ func TestDelete(t *testing.T) {
 			So(len(p.rules[mangle][inputChain]), ShouldEqual, 1)
 			So(p.rules[mangle][inputChain][0], ShouldResemble, "val1")
 			err = p.Delete(mangle, inputChain, "val1")
+			So(err, ShouldBeNil)
 			So(len(p.rules[mangle]), ShouldEqual, 1)
 			So(len(p.rules[mangle][inputChain]), ShouldEqual, 0)
 		})
@@ -172,6 +173,7 @@ func TestDelete(t *testing.T) {
 			So(p.rules[mangle][inputChain][0], ShouldResemble, "val1")
 			So(p.rules[mangle][inputChain][1], ShouldResemble, "val2")
 			err = p.Delete(mangle, inputChain, "val2")
+			So(err, ShouldBeNil)
 			So(len(p.rules[mangle]), ShouldEqual, 1)
 			So(len(p.rules[mangle][inputChain]), ShouldEqual, 1)
 			So(p.rules[mangle][inputChain][0], ShouldResemble, "val1")
@@ -187,6 +189,7 @@ func TestDelete(t *testing.T) {
 			So(p.rules[mangle][inputChain][0], ShouldResemble, "val1")
 			So(p.rules[mangle][inputChain][1], ShouldResemble, "val2")
 			err = p.Delete(mangle, inputChain, "val1")
+			So(err, ShouldBeNil)
 			So(len(p.rules[mangle]), ShouldEqual, 1)
 			So(len(p.rules[mangle][inputChain]), ShouldEqual, 1)
 			So(p.rules[mangle][inputChain][0], ShouldResemble, "val2")
@@ -205,6 +208,7 @@ func TestDelete(t *testing.T) {
 			So(p.rules[mangle][inputChain][1], ShouldResemble, "val2")
 			So(p.rules[mangle][inputChain][2], ShouldResemble, "val3")
 			err = p.Delete(mangle, inputChain, "val2")
+			So(err, ShouldBeNil)
 			So(len(p.rules[mangle]), ShouldEqual, 1)
 			So(len(p.rules[mangle][inputChain]), ShouldEqual, 2)
 			So(p.rules[mangle][inputChain][0], ShouldResemble, "val1")
