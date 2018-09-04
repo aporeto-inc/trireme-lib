@@ -38,6 +38,7 @@ type PUContext struct {
 	ApplicationACLs   *acls.ACLCache
 	networkACLs       *acls.ACLCache
 	externalIPCache   cache.DataStore
+	udpNetworks       []*net.IPNet
 	DNSACLs           cache.DataStore
 	mark              string
 	ProxyPort         string
@@ -81,6 +82,17 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	tcpPorts, udpPorts := common.ConvertServicesToProtocolPortList(puInfo.Runtime.Options().Services)
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
+
+	udpNetworks := []*net.IPNet{}
+	for _, n := range puInfo.Policy.UDPNetworks() {
+		_, cidr, err := net.ParseCIDR(n)
+		if err != nil {
+			zap.L().Error("Invalid UDP Network", zap.String("Network", n))
+			return nil, fmt.Errorf("Invalid udp network: %s", n)
+		}
+		udpNetworks = append(udpNetworks, cidr)
+	}
+	pu.udpNetworks = udpNetworks
 
 	if err := pu.ApplicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
@@ -155,6 +167,11 @@ func (p *PUContext) ID() string {
 // ManagementID returns the management ID
 func (p *PUContext) ManagementID() string {
 	return p.managementID
+}
+
+// UDPNetworks returns the target UDP networks.
+func (p *PUContext) UDPNetworks() []*net.IPNet {
+	return p.udpNetworks
 }
 
 // Type return the pu type
