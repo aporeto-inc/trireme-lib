@@ -157,7 +157,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	return i.ipt.(*provider.BatchProvider).Commit()
+	return i.ipt.Commit()
 }
 
 // DeleteRules implements the DeleteRules interface
@@ -178,7 +178,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 
-	if err := i.ipt.(*provider.BatchProvider).Commit(); err != nil {
+	if err := i.ipt.Commit(); err != nil {
 		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
 	}
 
@@ -242,7 +242,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	return i.ipt.(*provider.BatchProvider).Commit()
+	return i.ipt.Commit()
 }
 
 // Run starts the iptables controller

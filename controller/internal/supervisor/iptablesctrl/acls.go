@@ -10,7 +10,6 @@ import (
 
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
-	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
@@ -1657,7 +1656,7 @@ func (i *Instance) cleanACLs() error {
 		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
 	}
 
-	i.ipt.(*provider.BatchProvider).Commit()
+	i.ipt.Commit()
 
 	return nil
 }

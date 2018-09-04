@@ -83,7 +83,7 @@ func TestNewSupervisor(t *testing.T) {
 		mode := constants.LocalServer
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, mode, []string{})
+			s, err := NewSupervisor(c, e, mode, []string{}, nil)
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -92,7 +92,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, mode, []string{})
+			s, err := NewSupervisor(nil, e, mode, []string{}, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -100,7 +100,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, mode, []string{})
+			s, err := NewSupervisor(c, nil, mode, []string{}, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -127,7 +127,7 @@ func TestSupervise(t *testing.T) {
 		}
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -204,7 +204,7 @@ func TestUnsupervise(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -250,7 +250,7 @@ func TestStart(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -293,7 +293,7 @@ func TestStop(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"})
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)

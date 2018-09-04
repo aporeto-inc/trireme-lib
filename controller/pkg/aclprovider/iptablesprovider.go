@@ -29,6 +29,7 @@ type IptablesProvider interface {
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
 	// Commit will commit changes if it is a batch provider.
+	Commit() error
 }
 
 // BatchProvider uses iptables-restore to program ACLs
