@@ -445,8 +445,9 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for network access rules that might require a drop.
-	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(sourceAddress.Port))
+	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(originalDestination.Port))
 	record.PolicyID = aclPolicy.PolicyID
+	record.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
 		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
 		record.DropReason = collector.PolicyDrop
@@ -530,7 +531,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create the target URI and forward the request.
-	r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
+	r.URL, err = url.ParseRequestURI("http://" + r.Host)
 	if err != nil {
 		record.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)

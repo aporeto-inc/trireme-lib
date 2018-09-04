@@ -659,13 +659,18 @@ func (i *Instance) addOtherAppACLs(contextID, appChain string, rules policy.IPRu
 
 func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	for loop := 0; loop < 3; loop++ {
+	for loop := 0; loop < 6; loop++ {
 
 		for _, rule := range rules {
+			if (loop < 3 && rule.Policy.Action&policy.Reject > 0) || (loop >= 3 && rule.Policy.Action&policy.Accept > 0) {
+				// In the first three loops only deal with accept rules.
+				// The drop rules are inserted on top.
+				continue
+			}
 
 			observeContinue := rule.Policy.ObserveAction.ObserveContinue()
-			switch loop {
-			case 0:
+			switch loop % 3 {
+			case 2:
 				if !observeContinue {
 					continue
 				}
@@ -673,14 +678,13 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 				if rule.Policy.ObserveAction.Observed() {
 					continue
 				}
-			case 2:
+			case 0:
 				if !rule.Policy.ObserveAction.ObserveApply() {
 					continue
 				}
 			}
 
 			proto := strings.ToLower(rule.Protocol)
-
 			// tcp external services are auto discovered. No need for explicit rules.
 			if proto == udpProto {
 
@@ -700,12 +704,12 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 					} else {
 						if err := i.ipt.Insert(
 							i.appPacketIPTableContext, appChain, 1,
-							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
+							"-p", rule.Protocol,
 							"-d", rule.Address,
 							"--dport", rule.Port,
 							"-j", "ACCEPT",
 						); err != nil {
-							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
+							return fmt.Errorf("unable to add outgoin acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, appChain, err)
 						}
 					}
 
@@ -731,6 +735,7 @@ func (i *Instance) addUDPAppACLS(contextID, appChain, netChain string, rules pol
 						"-p", rule.Protocol,
 						"-s", rule.Address,
 						"--sport", rule.Port,
+						"-m", "state", "--state", "ESTABLISHED",
 						"-j", "ACCEPT",
 					); err != nil {
 						return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.netPacketIPTableContext, netChain, err)
@@ -968,13 +973,17 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 
 func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules policy.IPRuleList) error {
 
-	for loop := 0; loop < 3; loop++ {
-
+	for loop := 0; loop < 6; loop++ {
 		for _, rule := range rules {
 
+			if (loop < 3 && rule.Policy.Action&policy.Reject > 0) || (loop >= 3 && rule.Policy.Action&policy.Accept > 0) {
+				// In the first three loops only deal with accept rules.
+				// The drop rules are inserted on top.
+				continue
+			}
 			observeContinue := rule.Policy.ObserveAction.ObserveContinue()
-			switch loop {
-			case 0:
+			switch loop % 3 {
+			case 2:
 				if !observeContinue {
 					continue
 				}
@@ -982,7 +991,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 				if rule.Policy.ObserveAction.Observed() {
 					continue
 				}
-			case 2:
+			case 0:
 				if !rule.Policy.ObserveAction.ObserveApply() {
 					continue
 				}
@@ -1018,9 +1027,10 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 					}
 
 					if rule.Policy.Action&policy.Log > 0 {
-						if err := i.ipt.Append(
+						if err := i.ipt.Insert(
 							i.netPacketIPTableContext,
 							netChain,
+							1,
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
@@ -1039,6 +1049,7 @@ func (i *Instance) addUDPNetACLS(contextID, appChain, netChain string, rules pol
 						"-p", rule.Protocol,
 						"-d", rule.Address,
 						"--sport", rule.Port,
+						"-m", "state", "--state", "ESTABLISHED",
 						"-j", "ACCEPT",
 					); err != nil {
 						return fmt.Errorf("unable to add net acl rule for table %s, appChain %s: %s", i.appPacketIPTableContext, appChain, err)
@@ -1575,44 +1586,44 @@ func (i *Instance) removeProxyRules(natproxyTableContext string, proxyTableConte
 	)
 
 	if err = i.ipt.Delete(natproxyTableContext, inputProxySection, "-j", natProxyInputChain); err != nil {
-		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
+		zap.L().Warn("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", inputProxySection), zap.String("Target", natProxyInputChain), zap.Error(err))
 	}
 
 	if err = i.ipt.Delete(natproxyTableContext, outputProxySection, "-j", natProxyOutputChain); err != nil {
-		zap.L().Debug("Failed to remove rule on", zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
+		zap.L().Warn("Failed to remove rule on", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("TableSection", outputProxySection), zap.String("Target", natProxyOutputChain), zap.Error(err))
 	}
 
 	if err = i.ipt.ClearChain(natproxyTableContext, natProxyInputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
+		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
 	}
 
 	if err = i.ipt.ClearChain(natproxyTableContext, natProxyOutputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
+		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
 	}
 
 	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyInputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
+		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyInputChain))
 	}
 
 	if err = i.ipt.DeleteChain(natproxyTableContext, natProxyOutputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
+		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", natproxyTableContext), zap.String("Chain", natProxyOutputChain))
 	}
 
 	//Nat table is clean
 	if err = i.ipt.ClearChain(proxyTableContext, proxyInputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
+		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
 	}
 
 	if err = i.ipt.DeleteChain(proxyTableContext, proxyInputChain); err != nil {
-		zap.L().Warn("Failed to delete chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
+		zap.L().Warn("Failed to delete chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyInputChain))
 	}
 
 	if err = i.ipt.ClearChain(proxyTableContext, proxyOutputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
+		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
 	}
 
 	if err = i.ipt.DeleteChain(proxyTableContext, proxyOutputChain); err != nil {
-		zap.L().Warn("Failed to clear chain", zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
+		zap.L().Warn("Failed to clear chain", zap.Error(err), zap.String("TableContext", proxyTableContext), zap.String("Chain", proxyOutputChain))
 	}
 
 	return nil

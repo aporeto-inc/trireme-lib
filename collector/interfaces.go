@@ -18,6 +18,10 @@ const (
 	InvalidToken = "token"
 	// InvalidFormat indicates that the packet metadata were not correct
 	InvalidFormat = "format"
+	// InvalidHeader indicates that the TCP header was not there.
+	InvalidHeader = "header"
+	// InvalidPayload indicates that the TCP payload was not there or bad.
+	InvalidPayload = "payload"
 	// InvalidContext indicates that there was no context in the metadata
 	InvalidContext = "context"
 	// InvalidConnection indicates that there was no connection found

@@ -80,6 +80,10 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
+	if len(networks) == 0 {
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+	}
+
 	return &Config{
 		mode:            mode,
 		impl:            impl,

@@ -115,6 +115,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		Tags:       tags,
 		Action:     action,
 		L4Protocol: packet.IPProtocolUDP,
+		Count:      1,
 	}
 
 	if action.Observed() {

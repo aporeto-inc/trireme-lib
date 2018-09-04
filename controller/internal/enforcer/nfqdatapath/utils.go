@@ -1,6 +1,8 @@
 package nfqdatapath
 
 import (
+	"net"
+
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -30,13 +32,29 @@ func (d *Datapath) reportRejectedFlow(p *packet.Packet, conn *connection.TCPConn
 	if report == nil {
 		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 	if packet == nil {
 		packet = report
 	}
 	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
+}
+
+func (d *Datapath) reportUDPExternalFlow(p *packet.Packet, context *pucontext.PUContext, app bool, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+
+	if report == nil {
+		report = &policy.FlowPolicy{
+			Action:    policy.Reject,
+			PolicyID:  "default",
+			ServiceID: "default",
+		}
+	}
+	if packet == nil {
+		packet = report
+	}
+
+	d.reportExternalServiceFlow(context, report, packet, app, p)
 }
 
 func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
@@ -47,12 +65,13 @@ func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPC
 	if report == nil {
 		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 	if packet == nil {
 		packet = report
 	}
+
 	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
 }
 
@@ -79,6 +98,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		Tags:        context.Annotations(),
 		PolicyID:    report.PolicyID,
 		L4Protocol:  p.IPProto,
+		Count:       1,
 	}
 
 	if report.ObserveAction.Observed() {
@@ -117,4 +137,13 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext
 	}
 
 	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
+}
+
+func addressMatch(ip net.IP, targets []*net.IPNet) bool {
+	for _, t := range targets {
+		if t.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

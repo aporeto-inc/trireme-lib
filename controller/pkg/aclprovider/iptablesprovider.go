@@ -84,6 +84,7 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 	}
 
 	rule := strings.Join(rulespec, " ")
+
 	b.rules[table][chain] = append(b.rules[table][chain], rule)
 
 	return nil
@@ -147,10 +148,10 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 				if len(b.rules[table][chain]) == 1 {
 					b.rules[table][chain] = []string{}
 				} else {
-					b.rules[table][chain] = b.rules[table][chain][:1]
+					b.rules[table][chain] = b.rules[table][chain][1:]
 				}
 			case len(b.rules[table][chain]) - 1:
-				b.rules[table][chain] = b.rules[table][chain][:index-1]
+				b.rules[table][chain] = b.rules[table][chain][:index]
 			default:
 				b.rules[table][chain] = append(b.rules[table][chain][:index], b.rules[table][chain][index+1:]...)
 			}

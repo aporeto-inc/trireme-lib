@@ -83,6 +83,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
+				[]string{},
 				nil,
 				nil,
 				[]string{})
@@ -121,7 +122,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-
+				[]string{},
 				nil,
 				nil,
 				[]string{},
@@ -153,7 +154,7 @@ func TestConfigureRules(t *testing.T) {
 				ipl,
 				[]string{"172.17.0.0/24"},
 				[]string{},
-
+				[]string{},
 				nil,
 				nil,
 				[]string{},
@@ -192,6 +193,7 @@ func TestConfigureRules(t *testing.T) {
 				nil,
 				ipl,
 				[]string{"172.17.0.0/24"},
+				[]string{},
 				[]string{},
 				nil,
 				nil,
@@ -326,6 +328,7 @@ func TestUpdateRules(t *testing.T) {
 				nil,
 				ipl,
 				[]string{"172.17.0.0/24"},
+				[]string{},
 				[]string{},
 				nil,
 				nil,
