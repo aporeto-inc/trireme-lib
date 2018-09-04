@@ -146,6 +146,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 	}
 
 	if conn.GetState() != connection.UDPData {
+		zap.L().Info("Dropping packet at state", zap.Int("State", int(conn.GetState())))
 		// handshake packets are not to be delivered to application.
 		return fmt.Errorf("Drop net hanshake packets (udp)")
 	}
