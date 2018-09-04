@@ -72,20 +72,20 @@ const (
 )
 
 const (
-	// UDPSynStart is the state where a syn will be sent.
-	UDPSynStart UDPFlowState = iota
+	// UDPStart is the state where a syn will be sent.
+	UDPStart UDPFlowState = iota
 
-	// UDPSynSend is the state where a syn has been sent.
-	UDPSynSend
+	// UDPClientSendSyn is the state where a syn has been sent.
+	UDPClientSendSyn
 
-	// UDPAckSend  is the state where application side has send the ACK.
-	UDPAckSend
+	// UDPClientSendAck  is the state where application side has send the ACK.
+	UDPClientSendAck
 
-	// UDPSynAckSent is the state where syn ack packet has been sent.
-	UDPSynAckSent
+	// UDPReceiverSendSynAck is the state where syn ack packet has been sent.
+	UDPReceiverSendSynAck
 
-	// UDPAckProcessed is the state that the negotiation has been completed.
-	UDPAckProcessed
+	// UDPReceiverProcessedAck is the state that the negotiation has been completed.
+	UDPReceiverProcessedAck
 
 	// UDPData is the state where data is being transmitted.
 	UDPData
@@ -299,7 +299,7 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 	}
 
 	return &UDPConnection{
-		state:       UDPSynStart,
+		state:       UDPStart,
 		Context:     context,
 		PacketQueue: make(chan *packet.Packet, MaximumUDPQueueLen),
 		Writer:      writer,

@@ -126,7 +126,7 @@ func (d *Datapath) ProcessNetworkUDPPacket(p *packet.Packet) (err error) {
 	}
 
 	// If reached the final state, drain the queue.
-	if conn.GetState() == connection.UDPAckSend {
+	if conn.GetState() == connection.UDPClientSendAck {
 		conn.SetState(connection.UDPData)
 		zap.L().Debug("Draining the queue of application packets")
 		for udpPacket := conn.ReadPacket(); udpPacket != nil; udpPacket = conn.ReadPacket() {
@@ -220,7 +220,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 		}
 
 		// Mark the state that we have transmitted a SynAck packet.
-		conn.SetState(connection.UDPSynAckSent)
+		conn.SetState(connection.UDPReceiverSendSynAck)
 		return action, claims, nil
 
 	case packet.UDPAckMask:
@@ -233,7 +233,7 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 		}
 
 		// Set the connection to
-		conn.SetState(connection.UDPAckProcessed)
+		conn.SetState(connection.UDPReceiverProcessedAck)
 		return action, claims, nil
 
 	case packet.UDPSynAckMask:
@@ -252,13 +252,13 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 			return nil, nil, err
 		}
 
-		conn.SetState(connection.UDPAckSend)
+		conn.SetState(connection.UDPClientSendAck)
 
 		return action, claims, nil
 
 	default:
 		state := conn.GetState()
-		if state == connection.UDPAckProcessed || state == connection.UDPAckSend || state == connection.UDPData {
+		if state == connection.UDPReceiverProcessedAck || state == connection.UDPClientSendAck || state == connection.UDPData {
 			conn.SetState(connection.UDPData)
 			return nil, nil, nil
 		}
@@ -301,7 +301,7 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 
 	drop := false
 	switch conn.GetState() {
-	case connection.UDPSynStart:
+	case connection.UDPStart:
 		// Queue the packet. We will send it after we authorize the session.
 		if err = conn.QueuePackets(p); err != nil {
 			return fmt.Errorf("Unable to queue packets:%s", err)
@@ -314,11 +314,11 @@ func (d *Datapath) ProcessApplicationUDPPacket(p *packet.Packet) (err error) {
 		}
 
 		// Set the state indicating that we send out a Syn packet
-		conn.SetState(connection.UDPSynSend)
+		conn.SetState(connection.UDPClientSendSyn)
 		// Drop the packet. We stored it in the queue.
 		drop = true
 
-	case connection.UDPAckProcessed, connection.UDPAckSend, connection.UDPData:
+	case connection.UDPReceiverProcessedAck, connection.UDPClientSendAck, connection.UDPData:
 		conn.SetState(connection.UDPData)
 		break
 
@@ -482,7 +482,7 @@ func (d *Datapath) sendUDPSynAckPacket(udpPacket *packet.Packet, context *pucont
 
 	// If we have already a backgroun re-transmit session, stop it at this point. We will
 	// start from the beginning.
-	if conn.GetState() == connection.UDPSynAckSent {
+	if conn.GetState() == connection.UDPReceiverSendSynAck {
 		conn.SynAckStop()
 	}
 
