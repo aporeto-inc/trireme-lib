@@ -117,8 +117,9 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 	} else if pos > len(b.rules[table][chain]) {
 		b.rules[table][chain] = append(b.rules[table][chain], rule)
 	} else {
-		left := append(b.rules[table][chain][:pos], rule)
-		b.rules[table][chain] = append(left, b.rules[table][chain][pos:]...)
+		b.rules[table][chain] = append(b.rules[table][chain], "newvalue")
+		copy(b.rules[table][chain][pos-1:], b.rules[table][chain][pos-2:])
+		b.rules[table][chain][pos-1] = rule
 	}
 
 	return nil
