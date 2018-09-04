@@ -78,20 +78,17 @@ const (
 	// UDPSynSend is the state where a syn has been sent.
 	UDPSynSend
 
-	// UDPSynReceived is the state where a syn packet has been received.
-	UDPSynReceived
-
-	// UDPAckProcessed is the state that the negotiation has been completed.
-	UDPAckProcessed
-
-	// UDPSynAckReceived is the state where a syn ack packet has been received.
-	UDPSynAckReceived
+	// UDPAckSend  is the state where application side has send the ACK.
+	UDPAckSend
 
 	// UDPSynAckSent is the state where syn ack packet has been sent.
 	UDPSynAckSent
 
-	// UDPAckReceived is the state where udp ack packet is received.
-	UDPAckReceived
+	// UDPAckProcessed is the state that the negotiation has been completed.
+	UDPAckProcessed
+
+	// UDPData is the state where data is being transmitted.
+	UDPData
 )
 
 // MaximumUDPQueueLen is the maximum number of UDP packets buffered.
