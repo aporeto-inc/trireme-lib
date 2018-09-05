@@ -224,7 +224,7 @@ func mountCgroupController() error {
 			if strings.Contains(sc.Text(), "net_cls") {
 				basePath = strings.Split(sc.Text(), " ")[1]
 				netCls = true
-				return fmt.Errorf("net_cls not found")
+				return nil
 			}
 		}
 
@@ -276,7 +276,11 @@ func NewDockerCgroupNetController() Cgroupnetcls {
 //NewCgroupNetController returns a handle to call functions on the cgroup net_cls controller
 func NewCgroupNetController(triremepath string, releasePath string) Cgroupnetcls {
 	if !mounted {
-		zap.L().Error("Unable to mount net_cls controller - Linux process isolation not possible")
+		mounted = true
+		if err := mountCgroupController(); err != nil {
+			zap.L().Error("Unable to mount net_cls controller - Linux process isolation not possible",
+				zap.Error(err))
+		}
 	}
 	binpath, _ := osext.Executable()
 	controller := &netCls{
