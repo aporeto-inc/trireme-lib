@@ -246,25 +246,6 @@ func (d *Datapath) processNetUDPPacket(udpPacket *packet.Packet, context *pucont
 			return nil, nil, err
 		}
 
-		if !conn.ServiceConnection {
-			zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
-			if err = d.conntrackHdl.ConntrackTableUpdateMark(
-				udpPacket.SourceAddress.String(),
-				udpPacket.DestinationAddress.String(),
-				udpPacket.IPProto,
-				udpPacket.SourcePort,
-				udpPacket.DestinationPort,
-				constants.DefaultConnMark,
-			); err != nil {
-				zap.L().Error("Failed to update conntrack table for flow",
-					zap.String("context", string(conn.Auth.LocalContext)),
-					zap.String("app-conn", udpPacket.L4FlowHash()),
-					zap.String("state", fmt.Sprintf("%d", conn.GetState())),
-					zap.Error(err),
-				)
-			}
-		}
-
 		// Send back the acknowledgement.
 		err = d.sendUDPAckPacket(udpPacket, context, conn)
 		if err != nil {
@@ -548,8 +529,27 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 	err = d.udpSocketWriter.WriteSocket(udpPacket.Buffer)
 	if err != nil {
 		zap.L().Debug("Unable to send ack token on raw socket", zap.Error(err))
+		return err
 	}
 
+	if !conn.ServiceConnection {
+		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
+		if err = d.conntrackHdl.ConntrackTableUpdateMark(
+			destIP,
+			udpPacket.SourceAddress.String(),
+			udpPacket.IPProto,
+			uint16(destPort),
+			udpPacket.SourcePort,
+			constants.DefaultConnMark,
+		); err != nil {
+			zap.L().Error("Failed to update conntrack table for flow",
+				zap.String("context", string(conn.Auth.LocalContext)),
+				zap.String("app-conn", udpPacket.L4FlowHash()),
+				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
+				zap.Error(err),
+			)
+		}
+	}
 	return err
 }
 
