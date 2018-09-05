@@ -534,6 +534,8 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 
 	if !conn.ServiceConnection {
 		zap.L().Debug("Plumbing the conntrack (app) rule for flow", zap.String("flow", udpPacket.L4FlowHash()))
+		zap.L().Debug("Programming conntack for flow", zap.String("srcip", destIP), zap.String("dstIP", udpPacket.SourceAddress.String()),
+			zap.Reflect("srcPort", destPort), zap.Reflect("destPort", udpPacket.SourcePort))
 		if err = d.conntrackHdl.ConntrackTableUpdateMark(
 			destIP,
 			udpPacket.SourceAddress.String(),
@@ -550,7 +552,7 @@ func (d *Datapath) sendUDPAckPacket(udpPacket *packet.Packet, context *pucontext
 			)
 		}
 	}
-	return err
+	return nil
 }
 
 // processNetworkUDPSynPacket processes a syn packet arriving from the network
