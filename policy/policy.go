@@ -338,6 +338,16 @@ func (p *PUPolicy) UpdateTriremeNetworks(networks []string) {
 
 }
 
+// UpdateDNSNetworks updates the set of FQDN names allowed by the policy
+func (p *PUPolicy) UpdateDNSNetworks(networks DNSRuleList) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.DNSACLs = make(DNSRuleList, len(networks))
+
+	copy(p.DNSACLs, networks)
+}
+
 // ExcludedNetworks returns the list of excluded networks.
 func (p *PUPolicy) ExcludedNetworks() []string {
 	p.Lock()
