@@ -120,7 +120,13 @@ func (m *MockEnforcer) UpdateSecrets(secrets secrets.Secrets) error {
 	return ret0
 }
 
-// SetTargetNetworks mocks SetTargetNetworks
+// UpdateSecrets indicates an expected call of UpdateSecrets
+// nolint
+func (mr *MockEnforcerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockEnforcer)(nil).UpdateSecrets), secrets)
+}
+
+// SetTargetNetworks mocks base method
 // nolint
 func (m *MockEnforcer) SetTargetNetworks(networks []string) error {
 	ret := m.ctrl.Call(m, "SetTargetNetworks", networks)
@@ -128,8 +134,8 @@ func (m *MockEnforcer) SetTargetNetworks(networks []string) error {
 	return ret0
 }
 
-// UpdateSecrets indicates an expected call of UpdateSecrets
+// SetTargetNetworks indicates an expected call of SetTargetNetworks
 // nolint
-func (mr *MockEnforcerMockRecorder) UpdateSecrets(secrets interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSecrets", reflect.TypeOf((*MockEnforcer)(nil).UpdateSecrets), secrets)
+func (mr *MockEnforcerMockRecorder) SetTargetNetworks(networks interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTargetNetworks", reflect.TypeOf((*MockEnforcer)(nil).SetTargetNetworks), networks)
 }
