@@ -10,7 +10,6 @@ import "C"
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -210,32 +209,25 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
 	if s.supervisor == nil {
-		switch payload.CaptureMethod {
-		case rpcwrapper.IPSets:
-			//TO DO
-			return errors.New("ipsets not supported yet")
-		default:
-			supervisorHandle, err := supervisor.NewSupervisor(
-				s.collector,
-				s.enforcer,
-				constants.RemoteContainer,
-				payload.TriremeNetworks,
-			)
-			if err != nil {
-				zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
-				return err
-			}
-			s.supervisor = supervisorHandle
+		if payload.CaptureMethod != rpcwrapper.IPTables {
+			return fmt.Errorf("Unsupported method")
 		}
+		supervisorHandle, err := supervisor.NewSupervisor(
+			s.collector,
+			s.enforcer,
+			constants.RemoteContainer,
+			payload.TriremeNetworks,
+			s.service,
+		)
+		if err != nil {
+			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
+			return err
+		}
+		s.supervisor = supervisorHandle
 
 		if err := s.supervisor.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
-
-		if s.service != nil {
-			s.service.Initialize(s.secrets, s.enforcer.GetFilterQueue())
-		}
-
 	} else {
 		if err := s.supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
 			zap.L().Error("unable to set target networks", zap.Error(err))

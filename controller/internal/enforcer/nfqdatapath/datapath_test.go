@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -4864,5 +4865,74 @@ func TestForPacketsWithRandomFlags(t *testing.T) {
 				}
 			})
 		})
+	})
+}
+
+func TestDNS(t *testing.T) {
+	externalFQDN := "google.com"
+	var err1, err2 error
+	var lock sync.Mutex
+
+	Convey("Given an initialized enforcer for Linux container", t, func() {
+		secret := secrets.NewPSKSecrets([]byte("Dummy Test Password"))
+		collector := &collector.DefaultCollector{}
+
+		// mock the call
+		prevRawSocket := GetUDPRawSocket
+		defer func() {
+			GetUDPRawSocket = prevRawSocket
+		}()
+		GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		err1 = fmt.Errorf("net lookup not called")
+		// mock the call
+		origLookupHost := pucontext.LookupHost
+		defer func() {
+			pucontext.LookupHost = origLookupHost
+		}()
+
+		pucontext.LookupHost = func(name string) ([]string, error) {
+			defer lock.Unlock()
+			lock.Lock()
+			if name == externalFQDN {
+				err1 = nil
+				return []string{"164.67.228.152"}, nil
+			}
+
+			return nil, fmt.Errorf("Error")
+		}
+
+		puID1 := "SomePU"
+		enforcer := NewWithDefaults("SomeServerId", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"1.1.1.1/31"})
+		puInfo := policy.NewPUInfo(puID1, common.ContainerPU)
+		puInfo.Policy.UpdateDNSNetworks([]policy.DNSRule{{
+			Name:     externalFQDN,
+			Port:     "80",
+			Protocol: "tcp",
+		}})
+
+		err2 = enforcer.Enforce(puID1, puInfo)
+		time.Sleep(5 * time.Second)
+		defer lock.Unlock()
+		lock.Lock()
+		So(err1, ShouldBeNil)
+		So(err2, ShouldBeNil)
+
+		PacketFlow := packetgen.NewPacketFlow("aa:ff:aa:ff:aa:ff", "ff:aa:ff:aa:ff:aa", "10.1.10.76", "10.0.0.0", 666, 80)
+		_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
+		So(err, ShouldBeNil)
+
+		synPacket, err := PacketFlow.GetFirstSynPacket().ToBytes()
+		So(err, ShouldBeNil)
+
+		tcpPacket, err := packet.New(0, synPacket, "0", true)
+		if err == nil && tcpPacket != nil {
+			tcpPacket.UpdateIPChecksum()
+			tcpPacket.UpdateTCPChecksum()
+		}
+		err1 := enforcer.processApplicationTCPPackets(tcpPacket)
+		So(err1, ShouldBeNil)
 	})
 }

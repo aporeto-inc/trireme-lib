@@ -95,7 +95,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 			"-p", "tcp",
 			"-m", "mark",
 			"--mark", mark,
-			"-m", "comment", "--comment", "Container-specific-chain 1",
+			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", netChain,
 		},
 	}
@@ -1656,6 +1656,9 @@ func (i *Instance) cleanACLs() error {
 		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
 	}
 
+	i.ipt.Commit() // nolint
+
+	// Always return nil here. No reason to block anything if cleans fail.
 	return nil
 }
 
