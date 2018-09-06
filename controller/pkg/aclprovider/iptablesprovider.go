@@ -273,9 +273,9 @@ func (b *BatchProvider) restore() error {
 	var restoreLock *net.UnixListener
 	var err error
 
-	cmdString := restoreCmd
+	args := []string{}
 	if b.hasWait {
-		cmdString = restoreCmd + "--wait"
+		args = append(args, "--wait")
 	} else {
 		for i := 0; i < 10; i++ {
 			restoreLock, err = net.ListenUnix("unix", &net.UnixAddr{Name: "@xtables", Net: "unix"})
@@ -293,7 +293,7 @@ func (b *BatchProvider) restore() error {
 		return fmt.Errorf("Failed to crete buffer %s", err)
 	}
 
-	cmd := exec.Command(cmdString)
+	cmd := exec.Command(restoreCmd, args...)
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
