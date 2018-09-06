@@ -12,24 +12,20 @@ const (
 	outputChain = "OUTPUT"
 )
 
-func TestNewProvider(t *testing.T) {
-	Convey("When I create a new iptables batch provider", t, func() {
-		p, err := NewGoIPTablesProvider([]string{mangle})
-		Convey("It should be successful", func() {
-			So(err, ShouldBeNil)
-			So(p, ShouldNotBeNil)
-			So(len(p.batchTables), ShouldEqual, 1)
-			So(p.batchTables[mangle], ShouldBeTrue)
-			So(p.rules, ShouldNotBeNil)
-			So(len(p.rules), ShouldEqual, 0)
-		})
-	})
+func NewTestProvider(batchTables []string) *BatchProvider {
+	batchTablesMap := map[string]bool{}
+	for _, t := range batchTables {
+		batchTablesMap[t] = true
+	}
+	return &BatchProvider{
+		rules:       map[string]map[string][]string{},
+		batchTables: batchTablesMap,
+	}
 }
 
 func TestAppend(t *testing.T) {
 	Convey("Given a valid batch provider", t, func() {
-		p, err := NewGoIPTablesProvider([]string{mangle})
-		So(err, ShouldBeNil)
+		p := NewTestProvider([]string{mangle})
 		Convey("When I append a first rule, it should create the table", func() {
 			err := p.Append(mangle, inputChain, "val1")
 			So(err, ShouldBeNil)
@@ -66,8 +62,7 @@ func TestAppend(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	Convey("Given a valid batch provider", t, func() {
-		p, err := NewGoIPTablesProvider([]string{mangle})
-		So(err, ShouldBeNil)
+		p := NewTestProvider([]string{mangle})
 		Convey("When I insert a first rule, it should create the table", func() {
 			err := p.Insert(mangle, inputChain, 1, "val1")
 			So(err, ShouldBeNil)
@@ -149,8 +144,7 @@ func TestInsert(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	Convey("Given a valid batch provider", t, func() {
-		p, err := NewGoIPTablesProvider([]string{mangle})
-		So(err, ShouldBeNil)
+		p := NewTestProvider([]string{mangle})
 		Convey("When I have one rule, I should be able to delete it", func() {
 			err := p.Append(mangle, inputChain, "val1")
 			So(err, ShouldBeNil)
@@ -219,10 +213,9 @@ func TestDelete(t *testing.T) {
 
 func TestClearChain(t *testing.T) {
 	Convey("Given a valid batch provider", t, func() {
-		p, err := NewGoIPTablesProvider([]string{mangle})
-		So(err, ShouldBeNil)
+		p := NewTestProvider([]string{mangle})
 		Convey("If a clear an empty chain, I should get no error", func() {
-			err = p.ClearChain(mangle, inputChain)
+			err := p.ClearChain(mangle, inputChain)
 			So(err, ShouldBeNil)
 			So(len(p.rules[mangle]), ShouldEqual, 0)
 		})
@@ -242,10 +235,9 @@ func TestClearChain(t *testing.T) {
 
 func TestDeleteChain(t *testing.T) {
 	Convey("Given a valid batch provider", t, func() {
-		p, err := NewGoIPTablesProvider([]string{mangle})
-		So(err, ShouldBeNil)
+		p := NewTestProvider([]string{mangle})
 		Convey("If a delete an empty chain, I should get no error", func() {
-			err = p.ClearChain(mangle, inputChain)
+			err := p.ClearChain(mangle, inputChain)
 			So(err, ShouldBeNil)
 			So(len(p.rules[mangle]), ShouldEqual, 0)
 		})

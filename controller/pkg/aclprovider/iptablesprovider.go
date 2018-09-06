@@ -3,12 +3,10 @@ package provider
 import (
 	"bytes"
 	"fmt"
-	"net"
 	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/coreos/go-iptables/iptables"
 	"github.com/hashicorp/go-version"
@@ -43,7 +41,6 @@ type BatchProvider struct {
 	//        TABLE      CHAIN    RULES
 	rules       map[string]map[string][]string
 	batchTables map[string]bool
-	hasWait     bool
 
 	sync.Mutex
 }
@@ -59,16 +56,21 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	batchTablesMap := map[string]bool{}
-	for _, t := range batchTables {
-		batchTablesMap[t] = true
+	// We will only support the batch method if there is iptables-restore and iptables
+	// version 1.6.2 or better. Otherwise, we fall back to classic iptables instructions.
+	// This will allow us to support older kernel versions.
+	if restoreHasWait() {
+		for _, t := range batchTables {
+			batchTablesMap[t] = true
+		}
 	}
 
 	return &BatchProvider{
 		ipt:         ipt,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
-		hasWait:     restoreHasWait(),
 	}, nil
 }
 
@@ -101,12 +103,12 @@ func (b *BatchProvider) Append(table, chain string, rulespec ...string) error {
 // cache or call the corresponding iptables command, depending on the table.
 func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string) error {
 
+	b.Lock()
+	defer b.Unlock()
+
 	if _, ok := b.batchTables[table]; !ok {
 		return b.ipt.Insert(table, chain, pos, rulespec...)
 	}
-
-	b.Lock()
-	defer b.Unlock()
 
 	if _, ok := b.rules[table]; !ok {
 		b.rules[table] = map[string][]string{}
@@ -133,12 +135,13 @@ func (b *BatchProvider) Insert(table, chain string, pos int, rulespec ...string)
 
 // Delete will delete the rule from the local cache or the system.
 func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
-	if _, ok := b.batchTables[table]; !ok {
-		return b.ipt.Delete(table, chain, rulespec...)
-	}
 
 	b.Lock()
 	defer b.Unlock()
+
+	if _, ok := b.batchTables[table]; !ok {
+		return b.ipt.Delete(table, chain, rulespec...)
+	}
 
 	if _, ok := b.rules[table]; !ok {
 		return nil
@@ -166,7 +169,6 @@ func (b *BatchProvider) Delete(table, chain string, rulespec ...string) error {
 			break
 		}
 	}
-
 	return nil
 }
 
@@ -181,12 +183,12 @@ func (b *BatchProvider) ListChains(table string) ([]string, error) {
 // ClearChain will clear the chains.
 func (b *BatchProvider) ClearChain(table, chain string) error {
 
+	b.Lock()
+	defer b.Unlock()
+
 	if _, ok := b.batchTables[table]; !ok {
 		return b.ipt.ClearChain(table, chain)
 	}
-
-	b.Lock()
-	defer b.Unlock()
 
 	if _, ok := b.rules[table]; !ok {
 		return nil
@@ -202,12 +204,12 @@ func (b *BatchProvider) ClearChain(table, chain string) error {
 // DeleteChain will delete the chains.
 func (b *BatchProvider) DeleteChain(table, chain string) error {
 
+	b.Lock()
+	defer b.Unlock()
+
 	if _, ok := b.batchTables[table]; !ok {
 		return b.ipt.DeleteChain(table, chain)
 	}
-
-	b.Lock()
-	defer b.Unlock()
 
 	if _, ok := b.rules[table]; !ok {
 		return nil
@@ -219,11 +221,12 @@ func (b *BatchProvider) DeleteChain(table, chain string) error {
 
 // NewChain creates a new chain.
 func (b *BatchProvider) NewChain(table, chain string) error {
+	b.Lock()
+	defer b.Unlock()
+
 	if _, ok := b.batchTables[table]; !ok {
 		return b.ipt.NewChain(table, chain)
 	}
-	b.Lock()
-	defer b.Unlock()
 
 	if _, ok := b.rules[table]; !ok {
 		b.rules[table] = map[string][]string{}
@@ -235,6 +238,14 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 
 // Commit commits the rules to the system
 func (b *BatchProvider) Commit() error {
+	b.Lock()
+	defer b.Unlock()
+
+	// We don't commit if we don't have any tables. This is old
+	// kernel compatibility mode.
+	if len(b.batchTables) == 0 {
+		return nil
+	}
 	return b.restore()
 }
 
@@ -270,39 +281,22 @@ func (b *BatchProvider) restore() error {
 	b.Lock()
 	defer b.Unlock()
 
-	var restoreLock *net.UnixListener
-	var err error
-
-	args := []string{}
-	if b.hasWait {
-		args = append(args, "--wait")
-	} else {
-		for i := 0; i < 10; i++ {
-			restoreLock, err = net.ListenUnix("unix", &net.UnixAddr{Name: "@xtables", Net: "unix"})
-			if err != nil {
-				time.Sleep(200 * time.Millisecond)
-				continue
-			}
-			defer restoreLock.Close()
-			break
-		}
-	}
-
 	buf, err := b.createDataBuffer()
 	if err != nil {
 		return fmt.Errorf("Failed to crete buffer %s", err)
 	}
 
-	cmd := exec.Command(restoreCmd, args...)
+	cmd := exec.Command(restoreCmd, "--wait")
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		again, _ := b.createDataBuffer()
-		fmt.Println("OUTPUT: ", again.String())
-		zap.L().Error("Failed to execute command", zap.Error(err), zap.ByteString("Output", out))
-		return err
+		zap.L().Error("Failed to execute command", zap.Error(err),
+			zap.ByteString("Output", out),
+			zap.String("Output", again.String()),
+		)
+		return fmt.Errorf("Failed to execute iptables-restore: %s", err)
 	}
-
 	return nil
 }
 
