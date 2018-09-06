@@ -278,8 +278,6 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 
 // restore will save the current DB to iptables.
 func (b *BatchProvider) restore() error {
-	b.Lock()
-	defer b.Unlock()
 
 	buf, err := b.createDataBuffer()
 	if err != nil {
