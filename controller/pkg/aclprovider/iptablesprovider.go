@@ -3,11 +3,15 @@ package provider
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/coreos/go-iptables/iptables"
+	"github.com/hashicorp/go-version"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +43,7 @@ type BatchProvider struct {
 	//        TABLE      CHAIN    RULES
 	rules       map[string]map[string][]string
 	batchTables map[string]bool
+	hasWait     bool
 
 	sync.Mutex
 }
@@ -63,6 +68,7 @@ func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 		ipt:         ipt,
 		rules:       map[string]map[string][]string{},
 		batchTables: batchTablesMap,
+		hasWait:     restoreHasWait(),
 	}, nil
 }
 
@@ -264,28 +270,30 @@ func (b *BatchProvider) restore() error {
 	b.Lock()
 	defer b.Unlock()
 
-	// // Grab the iptables lock to prevent iptables-restore and iptables
-	// // from stepping on each other.  iptables-restore 1.6.2 will have
-	// // a --wait option like iptables itself, but that's not widely deployed.
-	// if len(runner.restoreWaitFlag) == 0 {
-	// 	locker, err := grabIptablesLocks(runner.lockfilePath)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	trace.Step("Locks grabbed")
-	// 	defer func(locker iptablesLocker) {
-	// 		if err := locker.Close(); err != nil {
-	// 			glog.Errorf("Failed to close iptables locks: %v", err)
-	// 		}
-	// 	}(locker)
-	// }
+	var restoreLock *net.UnixListener
+	var err error
+
+	cmdString := restoreCmd
+	if b.hasWait {
+		cmdString = restoreCmd + "--wait"
+	} else {
+		for i := 0; i < 10; i++ {
+			restoreLock, err = net.ListenUnix("unix", &net.UnixAddr{Name: "@xtables", Net: "unix"})
+			if err != nil {
+				time.Sleep(200 * time.Millisecond)
+				continue
+			}
+			defer restoreLock.Close()
+			break
+		}
+	}
 
 	buf, err := b.createDataBuffer()
 	if err != nil {
 		return fmt.Errorf("Failed to crete buffer %s", err)
 	}
 
-	cmd := exec.Command(restoreCmd)
+	cmd := exec.Command(cmdString)
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -296,4 +304,33 @@ func (b *BatchProvider) restore() error {
 	}
 
 	return nil
+}
+
+func restoreHasWait() bool {
+	cmd := exec.Command(restoreCmd, "--version")
+	cmd.Stdin = bytes.NewReader([]byte{})
+	bytes, err := cmd.CombinedOutput()
+	if err != nil {
+		// Cannot retrieve version - assume no wait.
+		return false
+	}
+
+	versionMatcher := regexp.MustCompile("v([0-9]+(\\.[0-9]+)+)")
+	match := versionMatcher.FindStringSubmatch(string(bytes))
+	if match == nil || len(match) < 2 {
+		// Cannot match version - assume no wait.
+		return false
+	}
+
+	restoreVersion, err := version.NewVersion(match[1])
+	if err != nil {
+		return false
+	}
+
+	minimumVersion, err := version.NewVersion("1.6.2")
+	if err != nil {
+		return false
+	}
+
+	return !restoreVersion.LessThan(minimumVersion)
 }
