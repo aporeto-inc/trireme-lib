@@ -1402,21 +1402,21 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	err = i.ipt.Insert(
 		i.netPacketIPTableContext,
 		netChain, 1,
+		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
+		"-j", "ACCEPT")
+	if err != nil {
+		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
+	}
+
+	err = i.ipt.Insert(
+		i.netPacketIPTableContext,
+		netChain, 1,
 		"-m", "set", "--match-set", targetNetworkSet, "dst",
 		"-p", "udp",
 		"-m", "string", "--algo", "bm", "--string", packet.UDPAuthMarker,
 		"-j", "NFQUEUE", "--queue-bypass", "--queue-balance", i.fqc.GetNetworkQueueSynAckStr())
 	if err != nil {
 		return fmt.Errorf("unable to add capture udp handshake rule for table %s, chain %sr: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
-	}
-
-	err = i.ipt.Insert(
-		i.netPacketIPTableContext,
-		netChain, 1,
-		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
-		"-j", "ACCEPT")
-	if err != nil {
-		return fmt.Errorf("unable to add capture synack rule for table %s, chain %s: %s", i.appPacketIPTableContext, i.appPacketIPTableSection, err)
 	}
 
 	err = i.ipt.Insert(i.appProxyIPTableContext,

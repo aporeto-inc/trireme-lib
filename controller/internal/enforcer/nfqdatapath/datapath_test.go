@@ -36,11 +36,12 @@ var (
 
 func TestEnforcerExternalNetworks(t *testing.T) {
 	Convey("Given I create a new enforcer instance and have a valid processing unit context", t, func() {
-		var puInfo1, puInfo2 *policy.PUInfo
 		var enforcer *Datapath
 		var err1, err2 error
 		Convey("Given I create a two processing unit instances", func() {
-			puInfo1, puInfo2, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", true)
+			_, _, enforcer, err1, err2, _, _ = setupProcessingUnitsInDatapathAndEnforce(nil, false, "container", true)
+			So(err1, ShouldBeNil)
+			So(err2, ShouldBeNil)
 			Convey("If I send a syn tcp packet from PU to an ip not in target networks", func() {
 				PacketFlow := packetgen.NewTemplateFlow()
 				_, err := PacketFlow.GenerateTCPFlow(packetgen.PacketFlowTypeGoodFlowTemplate)
