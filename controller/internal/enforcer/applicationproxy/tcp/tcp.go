@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -239,7 +240,7 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 
 func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
-	if _, ok := p.localIPs[ip.String()]; !ok {
+	if p.isLocal(upConn) {
 		return p.startEncryptedClientDataPath(ctx, downConn, upConn, ip)
 	}
 	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
@@ -276,10 +277,8 @@ func (p *Proxy) downConnection(ip net.IP, port int) (net.Conn, error) {
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
 
-	backendip := downIP.String()
-
 	// If the backend is not a local IP it means that we are a client.
-	if _, ok := p.localIPs[backendip]; !ok {
+	if p.isLocal(upConn) {
 		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
 	}
 
@@ -518,6 +517,18 @@ func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *co
 		packet = report
 	}
 	p.reportFlow(flowproperties, conn, sourceID, destID, context, mode, report, packet)
+}
+
+func (p *Proxy) isLocal(conn net.Conn) bool {
+	addrPair := strings.SplitN(conn.RemoteAddr().String(), ":", 2)
+	if len(addrPair) != 2 {
+		return false
+	}
+
+	if _, ok := p.localIPs[addrPair[0]]; ok {
+		return true
+	}
+	return false
 }
 
 func readMsg(reader io.Reader) ([]byte, error) {
