@@ -10,7 +10,6 @@ import "C"
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -114,6 +113,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 		s.procMountPoint,
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
+		payload.TargetNetworks,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -209,32 +209,25 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 
 	payload := req.Payload.(rpcwrapper.InitSupervisorPayload)
 	if s.supervisor == nil {
-		switch payload.CaptureMethod {
-		case rpcwrapper.IPSets:
-			//TO DO
-			return errors.New("ipsets not supported yet")
-		default:
-			supervisorHandle, err := supervisor.NewSupervisor(
-				s.collector,
-				s.enforcer,
-				constants.RemoteContainer,
-				payload.TriremeNetworks,
-			)
-			if err != nil {
-				zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
-				return err
-			}
-			s.supervisor = supervisorHandle
+		if payload.CaptureMethod != rpcwrapper.IPTables {
+			return fmt.Errorf("Unsupported method")
 		}
+		supervisorHandle, err := supervisor.NewSupervisor(
+			s.collector,
+			s.enforcer,
+			constants.RemoteContainer,
+			payload.TriremeNetworks,
+			s.service,
+		)
+		if err != nil {
+			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))
+			return err
+		}
+		s.supervisor = supervisorHandle
 
 		if err := s.supervisor.Run(s.ctx); err != nil {
 			zap.L().Error("unable to start the supervisor", zap.Error(err))
 		}
-
-		if s.service != nil {
-			s.service.Initialize(s.secrets, s.enforcer.GetFilterQueue())
-		}
-
 	} else {
 		if err := s.supervisor.SetTargetNetworks(payload.TriremeNetworks); err != nil {
 			zap.L().Error("unable to set target networks", zap.Error(err))
@@ -309,6 +302,29 @@ func (s *RemoteEnforcer) Unsupervise(req rpcwrapper.Request, resp *rpcwrapper.Re
 
 	payload := req.Payload.(rpcwrapper.UnSupervisePayload)
 	return s.supervisor.Unsupervise(payload.ContextID)
+}
+
+// SetTargetNetworks calls the same method on the actual enforcer
+func (s *RemoteEnforcer) SetTargetNetworks(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
+	var err error
+	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
+		resp.Status = "SetTargetNetworks message auth failed" //nolint
+		return fmt.Errorf(resp.Status)
+	}
+
+	cmdLock.Lock()
+	defer cmdLock.Unlock()
+	if s.enforcer == nil {
+		return fmt.Errorf(resp.Status)
+	}
+
+	payload := req.Payload.(rpcwrapper.SetTargetNetworks)
+	err = s.enforcer.SetTargetNetworks(payload.TargetNetworks)
+	if err != nil {
+		return err
+	}
+	return nil
+
 }
 
 // Enforce this method calls the enforce method on the enforcer created during initenforcer

@@ -72,26 +72,23 @@ const (
 )
 
 const (
-	// UDPSynStart is the state where a syn will be sent.
-	UDPSynStart UDPFlowState = iota
+	// UDPStart is the state where a syn will be sent.
+	UDPStart UDPFlowState = iota
 
-	// UDPSynSend is the state where a syn has been sent.
-	UDPSynSend
+	// UDPClientSendSyn is the state where a syn has been sent.
+	UDPClientSendSyn
 
-	// UDPSynReceived is the state where a syn packet has been received.
-	UDPSynReceived
+	// UDPClientSendAck  is the state where application side has send the ACK.
+	UDPClientSendAck
 
-	// UDPAckProcessed is the state that the negotiation has been completed.
-	UDPAckProcessed
+	// UDPReceiverSendSynAck is the state where syn ack packet has been sent.
+	UDPReceiverSendSynAck
 
-	// UDPSynAckReceived is the state where a syn ack packet has been received.
-	UDPSynAckReceived
+	// UDPReceiverProcessedAck is the state that the negotiation has been completed.
+	UDPReceiverProcessedAck
 
-	// UDPSynAckSent is the state where syn ack packet has been sent.
-	UDPSynAckSent
-
-	// UDPAckReceived is the state where udp ack packet is received.
-	UDPAckReceived
+	// UDPData is the state where data is being transmitted.
+	UDPData
 )
 
 // MaximumUDPQueueLen is the maximum number of UDP packets buffered.
@@ -277,13 +274,20 @@ type UDPConnection struct {
 	ServiceData interface{}
 
 	// PacketQueue indicates app UDP packets queued while authorization is in progress.
-	PacketQueue []*packet.Packet
+	PacketQueue chan *packet.Packet
 	Writer      afinetrawsocket.SocketWriter
 	// Debugging information - pushed to the end for compact structure
 	flowLastReporting bool
 	reported          bool
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
+
+	// Stop channels for restransmissions
+	synStop    chan bool
+	synAckStop chan bool
+	ackStop    chan bool
+
+	TestIgnore bool
 }
 
 // NewUDPConnection returns UDPConnection struct.
@@ -295,14 +299,62 @@ func NewUDPConnection(context *pucontext.PUContext, writer afinetrawsocket.Socke
 	}
 
 	return &UDPConnection{
-		state:       UDPSynStart,
+		state:       UDPStart,
 		Context:     context,
-		PacketQueue: []*packet.Packet{},
+		PacketQueue: make(chan *packet.Packet, MaximumUDPQueueLen),
 		Writer:      writer,
 		Auth: AuthInfo{
 			LocalContext: nonce,
 		},
+		synStop:    make(chan bool),
+		synAckStop: make(chan bool),
+		ackStop:    make(chan bool),
+		TestIgnore: true,
 	}
+}
+
+// SynStop issues a stop on the synStop channel.
+func (c *UDPConnection) SynStop() {
+	select {
+	case c.synStop <- true:
+	default:
+		zap.L().Debug("Packet loss - channel was already done")
+	}
+
+}
+
+// SynAckStop issues a stop in the synAckStop channel.
+func (c *UDPConnection) SynAckStop() {
+	select {
+	case c.synAckStop <- true:
+	default:
+		zap.L().Debug("Packet loss - channel was already done")
+	}
+}
+
+// AckStop issues a stop in the Ack channel.
+func (c *UDPConnection) AckStop() {
+	select {
+	case c.ackStop <- true:
+	default:
+		zap.L().Debug("Packet loss - channel was already done")
+	}
+
+}
+
+// SynChannel returns the SynStop channel.
+func (c *UDPConnection) SynChannel() chan bool {
+	return c.synStop
+}
+
+// SynAckChannel returns the SynAck stop channel.
+func (c *UDPConnection) SynAckChannel() chan bool {
+	return c.synAckStop
+}
+
+// AckChannel returns the Ack stop channel.
+func (c *UDPConnection) AckChannel() chan bool {
+	return c.ackStop
 }
 
 // GetState is used to get state of UDP Connection.
@@ -312,35 +364,43 @@ func (c *UDPConnection) GetState() UDPFlowState {
 
 // SetState is used to setup the state for the UDP Connection.
 func (c *UDPConnection) SetState(state UDPFlowState) {
-
 	c.state = state
 }
 
 // QueuePackets queues UDP packets till the flow is authenticated.
 func (c *UDPConnection) QueuePackets(udpPacket *packet.Packet) (err error) {
 
-	qlen := len(c.PacketQueue)
-	// only queue first 50 packets.
-	if qlen > MaximumUDPQueueLen {
-		zap.L().Info("Reached Maximum queue length, Dropping packet", zap.String("flow", udpPacket.L4FlowHash()))
-		return nil
-	}
-
 	buffer := make([]byte, len(udpPacket.Buffer))
 	copy(buffer, udpPacket.Buffer)
 
-	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark)
+	copyPacket, err := packet.New(packet.PacketTypeApplication, buffer, udpPacket.Mark, true)
 	if err != nil {
 		return fmt.Errorf("Unable to copy packets to queue:%s", err)
 	}
-	c.PacketQueue = append(c.PacketQueue, copyPacket)
+
+	select {
+	case c.PacketQueue <- copyPacket:
+	default:
+		return fmt.Errorf("Queue is full")
+	}
+
 	return nil
 }
 
 // DropPackets drops packets on errors during Authorization.
 func (c *UDPConnection) DropPackets() {
+	close(c.PacketQueue)
+	c.PacketQueue = make(chan *packet.Packet, MaximumUDPQueueLen)
+}
 
-	c.PacketQueue = []*packet.Packet{}
+// ReadPacket reads a packet from the queue.
+func (c *UDPConnection) ReadPacket() *packet.Packet {
+	select {
+	case p := <-c.PacketQueue:
+		return p
+	default:
+		return nil
+	}
 }
 
 // SetReported is used to track if a flow is reported

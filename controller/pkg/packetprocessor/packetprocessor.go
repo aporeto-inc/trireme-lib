@@ -1,11 +1,11 @@
 package packetprocessor
 
 import (
+	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
-	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/tokens"
 )
 
@@ -13,8 +13,8 @@ import (
 // as encryption, deep packet inspection, etc. These functions are run inline during packet
 // processing. A services processor must implement this interface.
 type PacketProcessor interface {
-	// Initialize  initializes the secrets of the processor
-	Initialize(s secrets.Secrets, fq *fqconfig.FilterQueue)
+	// Initialize  initializes any ACLs that the processor requires
+	Initialize(fq *fqconfig.FilterQueue, p provider.IptablesProvider)
 
 	// Stop stops the packet processor
 	Stop() error
