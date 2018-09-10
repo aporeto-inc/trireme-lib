@@ -1,6 +1,7 @@
 package pucontext
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type policies struct {
@@ -25,6 +27,9 @@ type policies struct {
 	encryptRules       *lookup.PolicyDB // Packet: Encrypt       Report: Encrypt
 }
 
+// LookupHost is mapped to the function net.LookupHost
+var LookupHost = net.LookupHost
+
 // PUContext holds data indexed by the PU ID
 type PUContext struct {
 	id                string
@@ -33,9 +38,11 @@ type PUContext struct {
 	annotations       *policy.TagStore
 	txt               *policies
 	rcv               *policies
-	applicationACLs   *acls.ACLCache
+	ApplicationACLs   *acls.ACLCache
 	networkACLs       *acls.ACLCache
 	externalIPCache   cache.DataStore
+	udpNetworks       []*net.IPNet
+	DNSACLs           cache.DataStore
 	mark              string
 	ProxyPort         string
 	tcpPorts          []string
@@ -48,11 +55,14 @@ type PUContext struct {
 	jwtExpiration     time.Time
 	scopes            []string
 	Extension         interface{}
+	CancelFunc        context.CancelFunc
 	sync.RWMutex
 }
 
 // NewPU creates a new PU context
 func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUContext, error) {
+	ctx := context.Background()
+	ctx, cancelFunc := context.WithCancel(ctx)
 
 	pu := &PUContext{
 		id:              contextID,
@@ -61,10 +71,11 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 		identity:        puInfo.Policy.Identity(),
 		annotations:     puInfo.Policy.Annotations(),
 		externalIPCache: cache.NewCacheWithExpiration("External IP Cache", timeout),
-		applicationACLs: acls.NewACLCache(),
+		ApplicationACLs: acls.NewACLCache(),
 		networkACLs:     acls.NewACLCache(),
 		mark:            puInfo.Runtime.Options().CgroupMark,
 		scopes:          puInfo.Policy.Scopes(),
+		CancelFunc:      cancelFunc,
 	}
 
 	pu.CreateRcvRules(puInfo.Policy.ReceiverRules())
@@ -75,16 +86,107 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	pu.tcpPorts = strings.Split(tcpPorts, ",")
 	pu.udpPorts = strings.Split(udpPorts, ",")
 
-	if err := pu.applicationACLs.AddRuleList(puInfo.Policy.ApplicationACLs()); err != nil {
+	udpNetworks := []*net.IPNet{}
+	for _, n := range puInfo.Policy.UDPNetworks() {
+		_, cidr, err := net.ParseCIDR(n)
+		if err != nil {
+			zap.L().Error("Invalid UDP Network", zap.String("Network", n))
+			return nil, fmt.Errorf("Invalid udp network: %s", n)
+		}
+		udpNetworks = append(udpNetworks, cidr)
+	}
+	pu.udpNetworks = udpNetworks
+
+	if err := pu.UpdateApplicationACLs(puInfo.Policy.ApplicationACLs()); err != nil {
 		return nil, err
 	}
 
-	if err := pu.networkACLs.AddRuleList(puInfo.Policy.NetworkACLs()); err != nil {
+	if err := pu.UpdateNetworkACLs(puInfo.Policy.NetworkACLs()); err != nil {
 		return nil, err
 	}
+
+	dnsACL := puInfo.Policy.DNSNameACLs()
+	pu.startDNS(ctx, &dnsACL)
 
 	return pu, nil
+}
 
+func createACLRules(rules *policy.IPRuleList, port string, ip string) *policy.IPRuleList {
+	// ipv6 is not supported
+	if strings.Contains(ip, ":") {
+		return rules
+	}
+
+	var rulesAppend policy.IPRuleList
+	rulesAppend = append(*rules, policy.IPRule{
+		Address:  ip,
+		Port:     port,
+		Protocol: "TCP",
+		Policy: &policy.FlowPolicy{
+			Action:        policy.Accept,
+			ObserveAction: policy.ObserveNone,
+			ServiceID:     "default",
+			PolicyID:      "default",
+		},
+	})
+
+	return &rulesAppend
+}
+
+func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bool) {
+
+	var rules *policy.IPRuleList
+
+	rules = new(policy.IPRuleList)
+	for _, name := range *dnsList {
+		if ips, err := LookupHost(name.Name); err == nil {
+			for _, ip := range ips {
+				if ipcache[ip] == false {
+					rules = createACLRules(rules, name.Port, ip)
+					ipcache[ip] = true
+				}
+			}
+
+			if len(*rules) > 0 {
+				if err := p.UpdateApplicationACLs(*rules); err != nil {
+					zap.L().Error("Error in Adding rules", zap.Error(err))
+				}
+				// empty the contents of the rules
+				rules = new(policy.IPRuleList)
+			}
+		} else {
+			zap.L().Warn("Failed to resolve name", zap.String("name", name.Name))
+		}
+	}
+}
+
+func (p *PUContext) startDNS(ctx context.Context, dnsList *policy.DNSRuleList) {
+	var ipcache map[string]bool
+
+	ipcache = make(map[string]bool)
+	p.dnsToACLs(dnsList, ipcache)
+
+	go func() {
+		curTime := time.Now()
+		sleepTime := func() time.Duration {
+			if time.Since(curTime) >= 2*time.Minute {
+				return 1 * time.Minute
+			}
+
+			return 30 * time.Second
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				p.dnsToACLs(dnsList, ipcache)
+			}
+
+			time.Sleep(sleepTime())
+		}
+	}()
 }
 
 // ID returns the ID of the PU
@@ -95,6 +197,11 @@ func (p *PUContext) ID() string {
 // ManagementID returns the management ID
 func (p *PUContext) ManagementID() string {
 	return p.managementID
+}
+
+// UDPNetworks returns the target UDP networks.
+func (p *PUContext) UDPNetworks() []*net.IPNet {
+	return p.udpNetworks
 }
 
 // Type return the pu type
@@ -134,22 +241,39 @@ func (p *PUContext) RetrieveCachedExternalFlowPolicy(id string) (interface{}, er
 
 // NetworkACLPolicy retrieves the policy based on ACLs
 func (p *PUContext) NetworkACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
+	defer p.RUnlock()
+	p.RLock()
+
 	return p.networkACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.DestinationPort)
 }
 
 // NetworkACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) NetworkACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.networkACLs.GetMatchingAction(addr, port)
-}
+	defer p.RUnlock()
+	p.RLock()
 
-// ApplicationACLPolicy retrieves the policy based on ACLs
-func (p *PUContext) ApplicationACLPolicy(packet *packet.Packet) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(packet.SourceAddress.To4(), packet.SourcePort)
+	return p.networkACLs.GetMatchingAction(addr, port)
 }
 
 // ApplicationACLPolicyFromAddr retrieve the policy given an address and port.
 func (p *PUContext) ApplicationACLPolicyFromAddr(addr net.IP, port uint16) (report *policy.FlowPolicy, action *policy.FlowPolicy, err error) {
-	return p.applicationACLs.GetMatchingAction(addr, port)
+	defer p.RUnlock()
+	p.RLock()
+	return p.ApplicationACLs.GetMatchingAction(addr, port)
+}
+
+// UpdateApplicationACLs updates the application ACL policy
+func (p *PUContext) UpdateApplicationACLs(rules policy.IPRuleList) error {
+	defer p.Unlock()
+	p.Lock()
+	return p.ApplicationACLs.AddRuleList(rules)
+}
+
+// UpdateNetworkACLs updates the network ACL policy
+func (p *PUContext) UpdateNetworkACLs(rules policy.IPRuleList) error {
+	defer p.Unlock()
+	p.Lock()
+	return p.networkACLs.AddRuleList(rules)
 }
 
 // CacheExternalFlowPolicy will cache an external flow

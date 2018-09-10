@@ -139,6 +139,23 @@ func (p *Proxy) handle(ctx context.Context, upConn net.Conn) {
 
 	downConn, err := p.downConnection(ip, port)
 	if err != nil {
+		flowproperties := &proxyFlowProperties{
+			DestIP:     ip.String(),
+			DestPort:   uint16(port),
+			SourceIP:   upConn.RemoteAddr().(*net.TCPAddr).IP.String(),
+			DestType:   collector.EndPointTypeExternalIP,
+			SourceType: collector.EnpointTypePU,
+		}
+
+		puContext, perr := p.puContextFromContextID(p.puContext)
+		if perr != nil {
+			zap.L().Error("Unable to find policy context for tcp connection",
+				zap.String("Context", p.puContext),
+				zap.Error(perr))
+			return
+		}
+
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), "default", puContext, collector.UnableToDial, nil, nil)
 		return
 	}
 	defer downConn.Close() // nolint
@@ -209,7 +226,11 @@ func (p *Proxy) copyData(ctx context.Context, source, dest net.Conn) {
 	wg.Wait()
 }
 
-func dataprocessor(ctx context.Context, source, dest net.Conn) {
+type readwithContext func(p []byte) (n int, err error)
+
+func (r readwithContext) Read(p []byte) (int, error) { return r(p) }
+
+func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 	defer func() {
 		switch dest.(type) {
 		case *tls.Conn:
@@ -220,33 +241,16 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) {
 			dest.(*markedconn.ProxiedConnection).GetTCPConnection().CloseWrite() // nolint errcheck
 		}
 	}()
-	b := make([]byte, 16384)
-	for {
-		// Setting a read deadline here. TODO: We need to account for keep-alives.
-		if err := source.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
-			return
-		}
+
+	if _, err := io.Copy(dest, readwithContext(func(p []byte) (int, error) {
 		select {
 		case <-ctx.Done():
-			return
+			return 0, ctx.Err()
 		default:
-			n, err := source.Read(b)
-			if err != nil {
-				if checkErr(err) {
-					continue
-				}
-				return
-			}
-			if err = dest.SetWriteDeadline(time.Now().Add(5 * time.Second)); err != nil {
-				return
-			}
-			if _, err = dest.Write(b[:n]); err != nil {
-				if checkErr(err) {
-					continue
-				}
-				return
-			}
+			return source.Read(p)
 		}
+	})); err != nil { // nolint
+		logErr(err)
 	}
 }
 
@@ -327,8 +331,8 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 	// First validate that L3 policies do not require a reject.
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.ApplicationACLPolicyFromAddr(downIP.To4(), uint16(downPort))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
-		p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized")
+		p.reportRejectedFlow(flowproperties, puContext.ManagementID(), networkPolicy.ServiceID, puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		return false, fmt.Errorf("Unauthorized by Application ACLs")
 	}
 
 	for {
@@ -356,12 +360,12 @@ func (p *Proxy) StartClientAuthStateMachine(downIP net.IP, downPort int, downCon
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowproperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), collector.DefaultEndPoint, puContext, collector.InvalidToken, nil, nil)
 				return false, fmt.Errorf("peer token reject because of bad claims: error: %s, claims: %v %v", err, claims, string(msg))
 			}
 			report, packet := puContext.SearchTxtRules(claims.T, false)
 			if packet.Action.Rejected() {
-				p.reportRejectedFlow(flowproperties, conn, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
+				p.reportRejectedFlow(flowproperties, puContext.ManagementID(), conn.Auth.RemoteContextID, puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, errors.New("dropping because of reject rule on transmitter")
 			}
 			if packet.Action.Encrypted() {
@@ -409,8 +413,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	networkReport, networkPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(upConn.RemoteAddr().(*net.TCPAddr).IP.To4(), uint16(backendport))
 	if noNetAccessPolicy == nil && networkPolicy.Action.Rejected() {
 		flowProperties.SourceType = collector.EndPointTypeExternalIP
-		p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
-		return false, fmt.Errorf("Unauthorized")
+		p.reportRejectedFlow(flowProperties, networkPolicy.ServiceID, puContext.ManagementID(), puContext, collector.PolicyDrop, networkReport, networkPolicy)
+		return false, fmt.Errorf("Unauthorized by Network ACLs")
 	}
 
 	defer upConn.SetDeadline(time.Time{}) // nolint errcheck
@@ -431,14 +435,14 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 			}
 			claims, err := p.tokenaccessor.ParsePacketToken(&conn.Auth, msg)
 			if err != nil || claims == nil {
-				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidToken, nil, nil)
 				return isEncrypted, fmt.Errorf("reported rejected flow due to invalid token: %s", err)
 			}
 			tags := claims.T.Copy()
 			tags.AppendKeyValue(enforcerconstants.PortNumberLabelString, strconv.Itoa(int(backendport)))
 			report, packet := puContext.SearchRcvRules(tags)
 			if packet.Action.Rejected() {
-				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
+				p.reportRejectedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, collector.PolicyDrop, report, packet)
 				return isEncrypted, fmt.Errorf("connection dropped by policy %s: ", packet.PolicyID)
 			}
 
@@ -473,16 +477,16 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 				return false, fmt.Errorf("unable to receive ack token: %s", err)
 			}
 			if _, err := p.tokenaccessor.ParseAckToken(&conn.Auth, msg); err != nil {
-				p.reportRejectedFlow(flowProperties, conn, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
+				p.reportRejectedFlow(flowProperties, collector.DefaultEndPoint, puContext.ManagementID(), puContext, collector.InvalidFormat, nil, nil)
 				return isEncrypted, fmt.Errorf("ack packet dropped because signature validation failed %s", err)
 			}
-			p.reportAcceptedFlow(flowProperties, conn, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
+			p.reportAcceptedFlow(flowProperties, conn.Auth.RemoteContextID, puContext.ManagementID(), puContext, conn.ReportFlowPolicy, conn.PacketFlowPolicy)
 			return isEncrypted, nil
 		}
 	}
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, reportAction *policy.FlowPolicy, packetAction *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, reportAction *policy.FlowPolicy, packetAction *policy.FlowPolicy) {
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
 		Source: &collector.EndPoint{
@@ -514,30 +518,30 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, conn *connection
 	p.collector.CollectFlowEvent(c)
 }
 
-func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportAcceptedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
-	p.reportFlow(flowproperties, conn, sourceID, destID, context, "N/A", report, packet)
+	p.reportFlow(flowproperties, sourceID, destID, context, "N/A", report, packet)
 }
 
-func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, conn *connection.ProxyConnection, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
 
 	if report == nil {
 		report = &policy.FlowPolicy{
 			Action:   policy.Reject,
-			PolicyID: "",
+			PolicyID: "default",
 		}
 	}
 	if packet == nil {
 		packet = report
 	}
-	p.reportFlow(flowproperties, conn, sourceID, destID, context, mode, report, packet)
+	p.reportFlow(flowproperties, sourceID, destID, context, mode, report, packet)
 }
 
 func readMsg(reader io.Reader) ([]byte, error) {
 
 	lread := io.LimitReader(reader, 2)
 	lbuf := make([]byte, 2)
-	if _, err := lread.Read(lbuf); err != nil && err != io.EOF {
+	if _, err := lread.Read(lbuf); err != nil {
 		return nil, fmt.Errorf("Invalid length: %s", err)
 	}
 
@@ -545,7 +549,7 @@ func readMsg(reader io.Reader) ([]byte, error) {
 
 	dread := io.LimitReader(reader, int64(dataLength))
 	data := make([]byte, dataLength)
-	if _, err := dread.Read(data); err != nil && err != io.EOF {
+	if _, err := dread.Read(data); err != nil {
 		return nil, fmt.Errorf("Not enough data to read: %s", err)
 	}
 
@@ -559,19 +563,9 @@ func writeMsg(conn io.Writer, data []byte) (n int, err error) {
 	return conn.Write(data)
 }
 
-func checkErr(err error) bool {
-	if err == io.EOF {
-		return false
-	}
-	switch t := err.(type) {
-	case net.Error:
-		if t.Timeout() {
-			return true
-		}
+func logErr(err error) bool {
+	switch err.(type) {
 	case syscall.Errno:
-		if t == syscall.ECONNRESET || t == syscall.ECONNABORTED || t == syscall.ENOTCONN || t == syscall.EPIPE {
-			return false
-		}
 		zap.L().Error("Connection error to destination", zap.Error(err))
 	default:
 		zap.L().Error("Connection terminated", zap.Error(err))

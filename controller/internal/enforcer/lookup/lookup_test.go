@@ -13,17 +13,20 @@ var (
 		Key:      "app",
 		Value:    []string{"web"},
 		Operator: policy.Equal,
+		ID:       "1",
 	}
 	envEqDemo = policy.KeyValueOperator{
 		Key:      "env",
 		Value:    []string{"demo"},
 		Operator: policy.Equal,
+		ID:       "2",
 	}
 
 	envEqDemoOrQa = policy.KeyValueOperator{
 		Key:      "env",
 		Value:    []string{"demo", "qa"},
 		Operator: policy.Equal,
+		ID:       "3",
 	}
 
 	dcKeyExists = policy.KeyValueOperator{
@@ -258,6 +261,13 @@ func TestFuncSearch(t *testing.T) {
 				index, action := policyDB.Search(tags)
 				So(index, ShouldEqual, index10)
 				So(action.(*policy.FlowPolicy).Action, ShouldEqual, policy.Accept)
+			})
+
+			Convey("A policy that matches ID should match", func() {
+				tags := policy.NewTagStoreFromSlice([]string{"1"})
+				index, action := policyDB.Search(tags)
+				So(action, ShouldNotBeNil)
+				So(index, ShouldEqual, index6)
 			})
 
 			Convey("A policy that matches only the namespace, shoud not match", func() {

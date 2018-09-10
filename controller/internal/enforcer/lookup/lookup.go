@@ -26,6 +26,7 @@ type PolicyDB struct {
 	numberOfPolicies       int
 	equalPrefixes          map[string]intList
 	equalMapTable          map[string]map[string][]*ForwardingPolicy
+	equalIDMapTable        map[string][]*ForwardingPolicy
 	notEqualMapTable       map[string]map[string][]*ForwardingPolicy
 	notStarTable           map[string][]*ForwardingPolicy
 	defaultNotExistsPolicy *ForwardingPolicy
@@ -36,8 +37,9 @@ func NewPolicyDB() (m *PolicyDB) {
 
 	m = &PolicyDB{
 		numberOfPolicies:       0,
-		equalMapTable:          map[string]map[string][]*ForwardingPolicy{},
 		equalPrefixes:          map[string]intList{},
+		equalMapTable:          map[string]map[string][]*ForwardingPolicy{},
+		equalIDMapTable:        map[string][]*ForwardingPolicy{},
 		notEqualMapTable:       map[string]map[string][]*ForwardingPolicy{},
 		notStarTable:           map[string][]*ForwardingPolicy{},
 		defaultNotExistsPolicy: nil,
@@ -115,6 +117,12 @@ func (m *PolicyDB) AddPolicy(selector policy.TagSelector) (policyID int) {
 					m.equalMapTable[keyValueOp.Key][v] = append(m.equalMapTable[keyValueOp.Key][v], &e)
 				}
 			}
+			if keyValueOp.ID != "" {
+				if _, ok := m.equalIDMapTable[keyValueOp.ID]; !ok {
+					m.equalIDMapTable[keyValueOp.ID] = []*ForwardingPolicy{}
+				}
+				m.equalIDMapTable[keyValueOp.ID] = append(m.equalIDMapTable[keyValueOp.ID], &e)
+			}
 			e.count++
 
 		default: // policy.NotEqual
@@ -165,7 +173,7 @@ func (m *PolicyDB) tagSplit(tag string, k *string, v *string) error {
 	return fmt.Errorf("Invalid tag: missing equal symbol '%s'", tag)
 }
 
-//Search searches for a set of tags in the database to find a policy match
+// Search searches for a set of tags in the database to find a policy match
 func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	count := make([]int, m.numberOfPolicies+1)
@@ -187,18 +195,25 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 
 	// Go through the list of tags
 	for _, t := range copiedTags {
+
+		// Search for matches of t (tag id)
+		if index, action := searchInMapTable(m.equalIDMapTable[t], count, skip); index >= 0 {
+			return index, action
+		}
+
 		if err := m.tagSplit(t, &k, &v); err != nil {
 			continue
 		}
+
 		// Search for matches of k=v
-		if index, action := searchInMapTabe(m.equalMapTable[k][v], count, skip); index >= 0 {
+		if index, action := searchInMapTable(m.equalMapTable[k][v], count, skip); index >= 0 {
 			return index, action
 		}
 
 		// Search for matches in prefixes
 		for _, i := range m.equalPrefixes[k] {
 			if i <= len(v) {
-				if index, action := searchInMapTabe(m.equalMapTable[k][v[:i]], count, skip); index >= 0 {
+				if index, action := searchInMapTable(m.equalMapTable[k][v[:i]], count, skip); index >= 0 {
 					return index, action
 				}
 			}
@@ -211,7 +226,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 				continue
 			}
 
-			if index, action := searchInMapTabe(policies, count, skip); index >= 0 {
+			if index, action := searchInMapTable(policies, count, skip); index >= 0 {
 				return index, action
 			}
 		}
@@ -224,7 +239,7 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	return -1, nil
 }
 
-func searchInMapTabe(table []*ForwardingPolicy, count []int, skip []bool) (int, interface{}) {
+func searchInMapTable(table []*ForwardingPolicy, count []int, skip []bool) (int, interface{}) {
 	for _, policy := range table {
 
 		// Skip the policy if we have marked it
@@ -256,6 +271,17 @@ func (m *PolicyDB) PrintPolicyDB() {
 				zap.String("policies", fmt.Sprintf("%#v", policies)),
 				zap.String("key", key),
 				zap.String("value", value),
+			)
+		}
+	}
+
+	zap.L().Debug("Print Policy DB: equal id table")
+
+	for key, values := range m.equalIDMapTable {
+		for _, policies := range values {
+			zap.L().Debug("Print Policy DB",
+				zap.String("policies", fmt.Sprintf("%#v", policies)),
+				zap.String("key", key),
 			)
 		}
 	}
