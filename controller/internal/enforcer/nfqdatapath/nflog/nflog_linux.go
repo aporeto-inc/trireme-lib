@@ -103,37 +103,29 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 	}
 
 	// point fix for now.
+	var destination *collector.EndPoint
 	if buf.L4Protocol == packet.IPProtocolUDP || buf.L4Protocol == packet.IPProtocolTCP {
-		record := &collector.FlowRecord{
-			ContextID: contextID,
-			Source: &collector.EndPoint{
-				IP: buf.SrcIP.String(),
-			},
-			Destination: &collector.EndPoint{
-				IP:   buf.DstIP.String(),
-				Port: uint16(buf.DstPort),
-			},
-			PolicyID:   policyID,
-			Tags:       tags,
-			Action:     action,
-			L4Protocol: buf.L4Protocol,
-			Count:      1,
+		destination = &collector.EndPoint{
+			IP:   buf.DstIP.String(),
+			Port: uint16(buf.DstPort),
 		}
-	} else { // icmp for now.
-		record := &collector.FlowRecord{
-			ContextID: contextID,
-			Source: &collector.EndPoint{
-				IP: buf.SrcIP.String(),
-			},
-			Destination: &collector.EndPoint{
-				IP: buf.DstIP.String(),
-			},
-			PolicyID:   policyID,
-			Tags:       tags,
-			Action:     action,
-			L4Protocol: buf.L4Protocol,
-			Count:      1,
+	} else {
+		destination = &collector.EndPoint{
+			IP: buf.DstIP.String(),
 		}
+	}
+
+	record := &collector.FlowRecord{
+		ContextID: contextID,
+		Source: &collector.EndPoint{
+			IP: buf.SrcIP.String(),
+		},
+		Destination: destination,
+		PolicyID:    policyID,
+		Tags:        tags,
+		Action:      action,
+		L4Protocol:  buf.Protocol,
+		Count:       1,
 	}
 
 	if action.Observed() {
