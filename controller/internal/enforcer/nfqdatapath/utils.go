@@ -75,7 +75,7 @@ func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPC
 	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
 }
 
-func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet, src, dst *collector.EndPoint) {
+func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, mode string, p *packet.Packet, src, dst *collector.EndPoint) {
 
 	if app {
 		src.ID = context.ManagementID()
@@ -93,7 +93,7 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		ContextID:   context.ID(),
 		Source:      src,
 		Destination: dst,
-		DropReason:  collector.PolicyDrop,
+		DropReason:  mode,
 		Action:      report.Action,
 		Tags:        context.Annotations(),
 		PolicyID:    report.PolicyID,
@@ -121,7 +121,12 @@ func (d *Datapath) reportExternalServiceFlow(context *pucontext.PUContext, repor
 		Port: p.DestinationPort,
 	}
 
-	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
+	dropReason := ""
+	if report.Action.Rejected() || packet.Action.Rejected() {
+		dropReason = collector.PolicyDrop
+	}
+
+	d.reportExternalServiceFlowCommon(context, report, packet, app, dropReason, p, src, dst)
 }
 
 func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet) {
@@ -136,7 +141,12 @@ func (d *Datapath) reportReverseExternalServiceFlow(context *pucontext.PUContext
 		Port: p.SourcePort,
 	}
 
-	d.reportExternalServiceFlowCommon(context, report, packet, app, p, src, dst)
+	dropReason := ""
+	if report.Action.Rejected() || packet.Action.Rejected() {
+		dropReason = collector.PolicyDrop
+	}
+
+	d.reportExternalServiceFlowCommon(context, report, packet, app, dropReason, p, src, dst)
 }
 
 func addressMatch(ip net.IP, targets []*net.IPNet) bool {
