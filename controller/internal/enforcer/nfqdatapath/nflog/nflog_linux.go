@@ -102,20 +102,38 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		return nil, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
 	}
 
-	record := &collector.FlowRecord{
-		ContextID: contextID,
-		Source: &collector.EndPoint{
-			IP: buf.SrcIP.String(),
-		},
-		Destination: &collector.EndPoint{
-			IP:   buf.DstIP.String(),
-			Port: uint16(buf.DstPort),
-		},
-		PolicyID:   policyID,
-		Tags:       tags,
-		Action:     action,
-		L4Protocol: packet.IPProtocolUDP,
-		Count:      1,
+	// point fix for now.
+	if buf.L4Protocol == packet.IPProtocolUDP || buf.L4Protocol == packet.IPProtocolTCP {
+		record := &collector.FlowRecord{
+			ContextID: contextID,
+			Source: &collector.EndPoint{
+				IP: buf.SrcIP.String(),
+			},
+			Destination: &collector.EndPoint{
+				IP:   buf.DstIP.String(),
+				Port: uint16(buf.DstPort),
+			},
+			PolicyID:   policyID,
+			Tags:       tags,
+			Action:     action,
+			L4Protocol: buf.L4Protocol,
+			Count:      1,
+		}
+	} else { // icmp for now.
+		record := &collector.FlowRecord{
+			ContextID: contextID,
+			Source: &collector.EndPoint{
+				IP: buf.SrcIP.String(),
+			},
+			Destination: &collector.EndPoint{
+				IP: buf.DstIP.String(),
+			},
+			PolicyID:   policyID,
+			Tags:       tags,
+			Action:     action,
+			L4Protocol: buf.L4Protocol,
+			Count:      1,
+		}
 	}
 
 	if action.Observed() {
