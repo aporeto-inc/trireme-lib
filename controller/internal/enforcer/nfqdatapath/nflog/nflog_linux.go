@@ -104,7 +104,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 
 	// point fix for now.
 	var destination *collector.EndPoint
-	if buf.L4Protocol == packet.IPProtocolUDP || buf.L4Protocol == packet.IPProtocolTCP {
+	if buf.Protocol == packet.IPProtocolUDP || buf.Protocol == packet.IPProtocolTCP {
 		destination = &collector.EndPoint{
 			IP:   buf.DstIP.String(),
 			Port: uint16(buf.DstPort),
