@@ -8,6 +8,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/datapathdriver"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/proxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
@@ -116,7 +117,7 @@ func OptionPacketLogs() Option {
 	}
 }
 
-func (t *trireme) newEnforcers() error {
+func (t *trireme) newEnforcers(packetdriver datapathdriver.DatapathPacketDriver) error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
 	if t.config.linuxProcess {
@@ -133,6 +134,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.targetNetworks,
+			packetdriver,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
@@ -173,6 +175,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.targetNetworks,
+			packetdriver,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
@@ -182,7 +185,7 @@ func (t *trireme) newEnforcers() error {
 	return nil
 }
 
-func (t *trireme) newSupervisors() error {
+func (t *trireme) newSupervisors(ruledriver datapathdriver.DatapathRuleDriver) error {
 
 	if t.config.linuxProcess {
 		sup, err := supervisor.NewSupervisor(
@@ -191,6 +194,7 @@ func (t *trireme) newSupervisors() error {
 			constants.LocalServer,
 			t.config.targetNetworks,
 			t.config.service,
+			ruledriver,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -218,6 +222,7 @@ func (t *trireme) newSupervisors() error {
 			constants.Sidecar,
 			t.config.targetNetworks,
 			t.config.service,
+			ruledriver,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)
@@ -242,15 +247,19 @@ func newTrireme(c *config) TriremeController {
 		puTypeToEnforcerType: map[common.PUType]constants.ModeType{},
 		locks:                sync.Map{},
 	}
-
+	packetdriver, ruledriver, err := datapathdriver.New()
+	if err != nil {
+		zap.L().Error("Unable to initialize datapath driver", zap.Error(err))
+		return nil
+	}
 	zap.L().Debug("Creating Enforcers")
-	if err = t.newEnforcers(); err != nil {
+	if err = t.newEnforcers(packetdriver); err != nil {
 		zap.L().Error("Unable to create datapath enforcers", zap.Error(err))
 		return nil
 	}
 
 	zap.L().Debug("Creating Supervisors")
-	if err = t.newSupervisors(); err != nil {
+	if err = t.newSupervisors(ruledriver); err != nil {
 		zap.L().Error("Unable to start datapath supervisor", zap.Error(err))
 		return nil
 	}

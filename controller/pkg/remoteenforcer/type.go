@@ -3,6 +3,7 @@ package remoteenforcer
 import (
 	"context"
 
+	"go.aporeto.io/trireme-lib/controller/internal/datapathdriver"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor"
@@ -31,4 +32,6 @@ type RemoteEnforcer struct {
 	secrets        secrets.Secrets
 	ctx            context.Context
 	cancel         context.CancelFunc
+	packetDriver   datapathdriver.DatapathPacketDriver
+	ruleDriver     datapathdriver.DatapathRuleDriver
 }

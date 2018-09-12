@@ -19,6 +19,7 @@ import (
 	"sync"
 	"syscall"
 
+	"go.aporeto.io/trireme-lib/controller/internal/datapathdriver"
 	_ "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/nsenter" // nolint
 
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -56,7 +57,7 @@ func newServer(
 			return nil, err
 		}
 	}
-
+	packetDriver, ruleDriver, _ := datapathdriver.New()
 	procMountPoint := os.Getenv(constants.EnvMountPoint)
 	if procMountPoint == "" {
 		procMountPoint = constants.DefaultProcMountPoint
@@ -72,6 +73,8 @@ func newServer(
 		statsClient:    statsClient,
 		ctx:            ctx,
 		cancel:         cancel,
+		packetDriver:   packetDriver,
+		ruleDriver:     ruleDriver,
 	}, nil
 }
 
@@ -114,6 +117,7 @@ func (s *RemoteEnforcer) setupEnforcer(req rpcwrapper.Request) error {
 		payload.ExternalIPCacheTimeout,
 		payload.PacketLogs,
 		payload.TargetNetworks,
+		s.packetDriver,
 	); err != nil || s.enforcer == nil {
 		return fmt.Errorf("Error while initializing remote enforcer, %s", err)
 	}
@@ -218,6 +222,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 			constants.RemoteContainer,
 			payload.TriremeNetworks,
 			s.service,
+			s.ruleDriver,
 		)
 		if err != nil {
 			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))

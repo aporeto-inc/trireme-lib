@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"time"
 
 	nfqueue "go.aporeto.io/netlink-go/nfqueue"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.uber.org/zap"
 )
@@ -28,46 +28,20 @@ func appCallBack(packet *nfqueue.NFPacket, d interface{}) {
 // startNetworkInterceptor will the process that processes  packets from the network
 // Still has one more copy than needed. Can be improved.
 func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
-	var err error
-
-	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumNetworkQueues())
-
-	for i := uint16(0); i < d.filterQueue.GetNumNetworkQueues(); i++ {
-		// Initialize all the queues
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(ctx, d.filterQueue.GetNetworkQueueStart()+i, d.filterQueue.GetNetworkQueueSize(), nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
-		if err != nil {
-			for retry := 0; retry < 5 && err != nil; retry++ {
-				nfq[i], err = nfqueue.CreateAndStartNfQueue(ctx, d.filterQueue.GetNetworkQueueStart()+i, d.filterQueue.GetNetworkQueueSize(), nfqueue.NfDefaultPacketSize, networkCallback, errorCallback, d)
-				<-time.After(3 * time.Second)
-			}
-			if err != nil {
-				zap.L().Fatal("Unable to initialize netfilter queue", zap.Error(err))
-			}
-		}
+	fqaccessor := fqconfig.NewFilterQueueAccessor(d.filterQueue, "network")
+	if err := d.packetDriver.StartPacketProcessor(ctx, fqaccessor, networkCallback, d, errorCallback); err != nil {
+		zap.L().Fatal("Cannot start network packet processor", zap.Error(err))
 	}
 }
 
 // startApplicationInterceptor will create a interceptor that processes
 // packets originated from a local application
 func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
-	var err error
-
-	nfq := make([]nfqueue.Verdict, d.filterQueue.GetNumApplicationQueues())
-
-	for i := uint16(0); i < d.filterQueue.GetNumApplicationQueues(); i++ {
-		nfq[i], err = nfqueue.CreateAndStartNfQueue(ctx, d.filterQueue.GetApplicationQueueStart()+i, d.filterQueue.GetApplicationQueueSize(), nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
-
-		if err != nil {
-			for retry := 0; retry < 5 && err != nil; retry++ {
-				nfq[i], err = nfqueue.CreateAndStartNfQueue(ctx, d.filterQueue.GetApplicationQueueStart()+i, d.filterQueue.GetApplicationQueueSize(), nfqueue.NfDefaultPacketSize, appCallBack, errorCallback, d)
-				<-time.After(3 * time.Second)
-			}
-			if err != nil {
-				zap.L().Fatal("Unable to initialize netfilter queue", zap.Int("QueueNum", int(d.filterQueue.GetNetworkQueueStart()+i)), zap.Error(err))
-			}
-
-		}
+	fqaccessor := fqconfig.NewFilterQueueAccessor(d.filterQueue, "application")
+	if err := d.packetDriver.StartPacketProcessor(ctx, fqaccessor, networkCallback, d, errorCallback); err != nil {
+		zap.L().Fatal("Cannot start application packet processor", zap.Error(err))
 	}
+
 }
 
 // processNetworkPacketsFromNFQ processes packets arriving from the network in an NF queue

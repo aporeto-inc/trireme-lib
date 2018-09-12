@@ -12,7 +12,8 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/provider"
+
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -61,7 +62,7 @@ type Instance struct {
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset portset.PortSet) (*Instance, error) {
 
-	ipt, err := provider.NewGoIPTablesProvider()
+	ipt, err := provider.NewGoIPTablesProvider([]string{"mangle"})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
 	}
@@ -127,6 +128,11 @@ func puPortSetName(contextID string, prefix string) string {
 	}
 
 	return (prefix + contextID)
+}
+
+// ACLProvider returns the current ACL provider that can be re-used by other entities.
+func (i *Instance) ACLProvider() provider.IptablesProvider {
+	return i.ipt
 }
 
 // ConfigureRules implmenets the ConfigureRules interface. It will create the

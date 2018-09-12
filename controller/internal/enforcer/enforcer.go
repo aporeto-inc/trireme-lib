@@ -7,6 +7,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/datapathdriver"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
@@ -160,6 +161,7 @@ func New(
 	externalIPCacheTimeout time.Duration,
 	packetLogs bool,
 	targetNetworks []string,
+	packetdriver datapathdriver.DatapathPacketDriver,
 ) (Enforcer, error) {
 
 	tokenAccessor, err := tokenaccessor.New(serverID, validity, secrets)
@@ -184,6 +186,7 @@ func New(
 		tokenAccessor,
 		puFromContextID,
 		targetNetworks,
+		packetdriver,
 	)
 
 	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
@@ -206,7 +209,9 @@ func NewWithDefaults(
 	mode constants.ModeType,
 	procMountPoint string,
 	targetNetworks []string,
+	packetDriver datapathdriver.DatapathPacketDriver,
 ) Enforcer {
+
 	return nfqdatapath.NewWithDefaults(
 		serverID,
 		collector,
@@ -215,5 +220,6 @@ func NewWithDefaults(
 		mode,
 		procMountPoint,
 		targetNetworks,
+		packetDriver,
 	)
 }

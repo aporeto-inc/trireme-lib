@@ -6,8 +6,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/processmon"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
-	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/policy"
@@ -63,11 +61,11 @@ func LaunchRemoteEnforcer(service packetprocessor.PacketProcessor) error {
 // CleanOldState ensures all state in trireme is cleaned up.
 func CleanOldState() {
 
-	ipt, _ := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, nil)
+	// ipt, _ := iptablesctrl.NewInstance(fqconfig.NewFilterQueueWithDefaults(), constants.LocalServer, nil)
 
-	if err := ipt.CleanAllSynAckPacketCaptures(); err != nil {
-		zap.L().Fatal("Unable to clean all syn/ack captures", zap.Error(err))
-	}
+	// if err := ipt.CleanAllSynAckPacketCaptures(); err != nil {
+	// 	zap.L().Fatal("Unable to clean all syn/ack captures", zap.Error(err))
+	// }
 }
 
 // addTransmitterLabel adds the enforcerconstants.TransmitterLabel as a fixed label in the policy.

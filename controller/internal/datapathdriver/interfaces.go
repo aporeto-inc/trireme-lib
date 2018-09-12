@@ -3,6 +3,11 @@ package datapathdriver
 import (
 	"context"
 
+	"go.aporeto.io/netlink-go/nfqueue"
+	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/portset"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
+	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/policy"
 )
 
@@ -12,8 +17,12 @@ type DatapathDriver interface {
 	DatapathRuleDriver
 }
 
-// DatapathPacketDriver to capture packets specified by packet filters
-type DatapathPacketDriver interface {
+// DatapathRuleDriver to capture packets specified by packet filters
+type DatapathRuleDriver interface {
+
+	// InitRuleDatapath create a handle for programming filtering rule
+	InitRuleDatapath(filterQueue *fqconfig.FilterQueue, mode constants.ModeType, portSetInstance portset.PortSet) error
+
 	// ConfigureRules configures the rules in the ACLs and datapath
 	ConfigureRules(version int, contextID string, containerInfo *policy.PUInfo) error
 
@@ -31,10 +40,13 @@ type DatapathPacketDriver interface {
 
 	// CleanUp requests the implementor to clean up all ACLs
 	CleanUp() error
+
+	ACLProvider() provider.IptablesProvider
 }
 
-// DatapathRuleDriver generic interface to program rules for packet filtering
-type DatapathRuleDriver interface {
-	StartPacketProcessor(ctx context.Context) error
+// DatapathPacketDriver generic interface to program rules for packet filtering
+type DatapathPacketDriver interface {
+	InitPacketDatpath(mode constants.ModeType) error
+	StartPacketProcessor(ctx context.Context, fqaccessor fqconfig.FilterQueueAccessor, packetCallback func(packet *nfqueue.NFPacket, d interface{}), callbackData interface{}, errorCallback func(err error, data interface{})) error
 	StopPacketProcessor(ctx context.Context) error
 }

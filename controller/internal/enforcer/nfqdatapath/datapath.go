@@ -4,7 +4,6 @@ package nfqdatapath
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
 
 	"go.uber.org/zap"
@@ -13,6 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/datapathdriver"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
@@ -100,6 +100,7 @@ type Datapath struct {
 	portSetInstance portset.PortSet
 	// udp socket fd for application.
 	udpSocketWriter afinetrawsocket.SocketWriter
+	packetDriver    datapathdriver.DatapathPacketDriver
 }
 
 func createPolicy(networks []string) policy.IPRuleList {
@@ -141,6 +142,7 @@ func New(
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
 	targetNetworks []string,
+	packetDriver datapathdriver.DatapathPacketDriver,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -152,24 +154,7 @@ func New(
 	}
 
 	if mode == constants.RemoteContainer || mode == constants.LocalServer {
-		// Make conntrack liberal for TCP
-
-		sysctlCmd, err := exec.LookPath("sysctl")
-		if err != nil {
-			zap.L().Fatal("sysctl command must be installed", zap.Error(err))
-		}
-
-		cmd := exec.Command(sysctlCmd, "-w", "net.netfilter.nf_conntrack_tcp_be_liberal=1")
-		if err := cmd.Run(); err != nil {
-			zap.L().Fatal("Failed to set conntrack options", zap.Error(err))
-		}
-
-		if mode == constants.LocalServer {
-			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
-			if err := cmd.Run(); err != nil {
-				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
-			}
-		}
+		packetDriver.InitPacketDatpath(mode)
 	}
 
 	// This cache is shared with portSetInstance. The portSetInstance
@@ -226,6 +211,7 @@ func New(
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
+		packetDriver:           packetDriver,
 	}
 
 	if err = d.SetTargetNetworks(targetNetworks); err != nil {
@@ -248,6 +234,7 @@ func NewWithDefaults(
 	mode constants.ModeType,
 	procMountPoint string,
 	targetNetworks []string,
+	packetDriver datapathdriver.DatapathPacketDriver,
 ) *Datapath {
 
 	if collector == nil {
@@ -285,6 +272,7 @@ func NewWithDefaults(
 		tokenAccessor,
 		puFromContextID,
 		targetNetworks,
+		packetDriver,
 	)
 }
 

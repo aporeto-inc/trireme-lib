@@ -11,9 +11,9 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/datapathdriver"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
@@ -38,7 +38,8 @@ type Config struct {
 	// versionTracker tracks the current version of the ACLs
 	versionTracker cache.DataStore
 	// impl is the packet filter implementation
-	impl Implementor
+	//impl Implementor
+	impl datapathdriver.DatapathRuleDriver
 	// portSetInstance is the controller of the port set
 	portSetInstance portset.PortSet
 	// collector is the stats collector implementation
@@ -59,7 +60,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor, ruledriver datapathdriver.DatapathRuleDriver) (*Config, error) {
 
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")
@@ -74,11 +75,13 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	if mode != constants.RemoteContainer && portSetInstance == nil {
 		return nil, errors.New("portSetInstance cannot be nil")
 	}
-
-	impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
+	if err := ruledriver.InitRuleDatapath(filterQueue, mode, portSetInstance); err != nil {
+		return nil, fmt.Errorf("cannot init rule datapath error %s", err)
 	}
+	// impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
+	// }
 
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
@@ -86,7 +89,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 
 	return &Config{
 		mode:            mode,
-		impl:            impl,
+		impl:            ruledriver,
 		versionTracker:  cache.NewCache("SupVersionTracker"),
 		collector:       collector,
 		filterQueue:     filterQueue,

@@ -15,6 +15,7 @@ import (
 
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/datapathdriver"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/mockenforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath"
@@ -470,8 +471,8 @@ func TestInitSupervisor(t *testing.T) {
 				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 					return nil, nil
 				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				packetDriver, _, _ := datapathdriver.New()
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, packetDriver).(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -525,8 +526,8 @@ func TestInitSupervisor(t *testing.T) {
 				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 					return nil, nil
 				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				packetDriver, _, _ := datapathdriver.New()
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, packetDriver).(enforcer.Enforcer)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
 
@@ -559,8 +560,8 @@ func TestInitSupervisor(t *testing.T) {
 				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 					return nil, nil
 				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				packetDriver, _, _ := datapathdriver.New()
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, packetDriver).(enforcer.Enforcer)
 				server.supervisor, _ = supervisor.NewSupervisor(collector, server.enforcer, constants.RemoteContainer, []string{}, nil)
 
 				err := server.InitSupervisor(rpcwrperreq, &rpcwrperres)
@@ -656,8 +657,8 @@ func TestLaunchRemoteEnforcer(t *testing.T) {
 				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 					return nil, nil
 				}
-
-				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+				packetDriver, _, _ := datapathdriver.New()
+				e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, packetDriver)
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
 				server.enforcer = nil
 				err := server.EnforcerExit(rpcwrapper.Request{}, &rpcwrapper.Response{})
@@ -862,8 +863,8 @@ func TestEnforce(t *testing.T) {
 				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 					return nil, nil
 				}
-
-				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				packetDriver, _, _ := datapathdriver.New()
+				server.enforcer = enforcer.NewWithDefaults("someServerID", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, packetDriver).(enforcer.Enforcer)
 
 				err := server.Enforce(rpcwrperreq, &rpcwrperres)
 
@@ -970,8 +971,8 @@ func TestUnEnforce(t *testing.T) {
 				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 					return nil, nil
 				}
-
-				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}).(enforcer.Enforcer)
+				packetDriver, _, _ := datapathdriver.New()
+				server.enforcer = enforcer.NewWithDefaults("b06f47830f64", collector, nil, secret, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, packetDriver).(enforcer.Enforcer)
 
 				err := server.Unenforce(rpcwrperreq, &rpcwrperres)
 
@@ -1077,8 +1078,8 @@ func TestUnSupervise(t *testing.T) {
 				nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
 					return nil, nil
 				}
-
-				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
+				packetDriver, _, _ := datapathdriver.New()
+				e := enforcer.NewWithDefaults("ac0d3577e808", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"}, packetDriver)
 
 				server.supervisor, _ = supervisor.NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
 
