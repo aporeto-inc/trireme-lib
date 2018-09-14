@@ -69,7 +69,6 @@ func CreateSocket(mark int, deviceName string) (SocketWriter, error) {
 		fd:     fd,
 		insock: insock,
 	}, nil
-
 }
 
 func (sock *rawsocket) WriteSocket(buf []byte) error {
