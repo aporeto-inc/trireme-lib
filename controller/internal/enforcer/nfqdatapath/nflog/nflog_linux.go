@@ -125,25 +125,13 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		Source: &collector.EndPoint{
 			IP: buf.SrcIP.String(),
 		},
-<<<<<<< HEAD
-		Destination: &collector.EndPoint{
-			IP:   buf.DstIP.String(),
-			Port: uint16(buf.DstPort),
-		},
-		DropReason: dropReason,
-		PolicyID:   policyID,
-		Tags:       tags,
-		Action:     action,
-		L4Protocol: packet.IPProtocolUDP,
-		Count:      1,
-=======
 		Destination: destination,
+		DropReason:  dropReason,
 		PolicyID:    policyID,
 		Tags:        tags,
 		Action:      action,
 		L4Protocol:  buf.Protocol,
 		Count:       1,
->>>>>>> e74b236b0fafea5ac775b13564b8a3adc57fe0c1
 	}
 
 	if action.Observed() {
