@@ -107,11 +107,25 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		dropReason = collector.PolicyDrop
 	}
 
+	// point fix for now.
+	var destination *collector.EndPoint
+	if buf.Protocol == packet.IPProtocolUDP || buf.Protocol == packet.IPProtocolTCP {
+		destination = &collector.EndPoint{
+			IP:   buf.DstIP.String(),
+			Port: uint16(buf.DstPort),
+		}
+	} else {
+		destination = &collector.EndPoint{
+			IP: buf.DstIP.String(),
+		}
+	}
+
 	record := &collector.FlowRecord{
 		ContextID: contextID,
 		Source: &collector.EndPoint{
 			IP: buf.SrcIP.String(),
 		},
+<<<<<<< HEAD
 		Destination: &collector.EndPoint{
 			IP:   buf.DstIP.String(),
 			Port: uint16(buf.DstPort),
@@ -122,6 +136,14 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		Action:     action,
 		L4Protocol: packet.IPProtocolUDP,
 		Count:      1,
+=======
+		Destination: destination,
+		PolicyID:    policyID,
+		Tags:        tags,
+		Action:      action,
+		L4Protocol:  buf.Protocol,
+		Count:       1,
+>>>>>>> e74b236b0fafea5ac775b13564b8a3adc57fe0c1
 	}
 
 	if action.Observed() {
