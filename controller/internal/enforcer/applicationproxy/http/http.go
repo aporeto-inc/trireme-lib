@@ -15,6 +15,7 @@ import (
 	"github.com/aporeto-inc/oxy/forward"
 	"github.com/dgrijalva/jwt-go"
 	"go.aporeto.io/trireme-lib/collector"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
 	"go.aporeto.io/trireme-lib/controller/pkg/auth"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
@@ -52,6 +53,7 @@ type Config struct {
 	verifier           *servicetokens.Verifier
 	collector          collector.EventCollector
 	puContext          string
+	localIPs           map[string]struct{}
 	puFromIDCache      cache.DataStore
 	authProcessorCache cache.DataStore
 	serviceMapCache    cache.DataStore
@@ -91,6 +93,7 @@ func NewHTTPProxy(
 		mark:               mark,
 		secrets:            secrets,
 		verifier:           servicetokens.NewVerifier(secrets, nil),
+		localIPs:           connproc.GetInterfaces(),
 	}
 }
 
@@ -323,6 +326,7 @@ func (p *Config) processAppRequest(w http.ResponseWriter, r *http.Request) {
 		ServiceType: policy.ServiceHTTP,
 		ServiceID:   apiCache.ID,
 		Tags:        puContext.Annotations(),
+		Count:       1,
 	}
 
 	_, netaction, noNetAccesPolicy := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
@@ -424,6 +428,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
+		Count:       1,
 	}
 
 	defer p.collector.CollectFlowEvent(record)
@@ -546,6 +551,20 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.Destination.IP = originalDestination.IP.String()
 	record.Destination.Port = uint16(originalDestination.Port)
 
+	// Treat the remote proxy scenario where the destination IPs are in a remote
+	// host. Check of network rules that allow this transfer and report the corresponding
+	// flows.
+	if _, ok := p.localIPs[originalDestination.IP.String()]; !ok {
+		_, action, err := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
+		if err != nil || action.Action.Rejected() {
+			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
+			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			return
+		}
+		if action.Action.Accepted() {
+			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
+		}
+	}
 	contextWithStats := context.WithValue(r.Context(), statsContextKey, record)
 	p.fwd.ServeHTTP(w, r.WithContext(contextWithStats))
 	zap.L().Debug("Forwarding Request", zap.String("URI", r.RequestURI), zap.String("Host", r.Host))
@@ -629,4 +648,30 @@ func userCredentials(r *http.Request) (string, []*x509.Certificate) {
 	authorization = strings.TrimPrefix(authorization, "Bearer ")
 
 	return authorization, certs
+}
+
+func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *collector.FlowRecord {
+	return &collector.FlowRecord{
+		ContextID: record.ContextID,
+		Destination: &collector.EndPoint{
+			URI:        record.Destination.URI,
+			HTTPMethod: record.Destination.HTTPMethod,
+			Type:       collector.EndPointTypeExternalIP,
+			Port:       record.Destination.Port,
+			IP:         record.Destination.IP,
+			ID:         action.ServiceID,
+		},
+		Source: &collector.EndPoint{
+			Type: record.Destination.Type,
+			ID:   record.Destination.ID,
+			IP:   "0.0.0.0",
+		},
+		Action:      action.Action,
+		L4Protocol:  record.L4Protocol,
+		ServiceType: record.ServiceType,
+		ServiceID:   record.ServiceID,
+		Tags:        record.Tags,
+		PolicyID:    action.PolicyID,
+		Count:       1,
+	}
 }
