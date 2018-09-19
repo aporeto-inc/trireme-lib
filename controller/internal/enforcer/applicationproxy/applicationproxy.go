@@ -106,7 +106,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 
 	// First update the caches with the new policy information.
 	authProcessor := auth.NewProcessor(p.secrets, nil)
-	serviceMap, portCache := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
+	serviceMap, portCache, portMapping := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
 	dependentCache, caPoolPEM := buildDependentCaches(puInfo.Policy.DependentServices())
 	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
@@ -137,25 +137,25 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	client.protomux = protomux.NewMultiplexedListener(l, proxyMarkInt)
 
 	// Listen to HTTP requests from the clients
-	client.netserver[protomux.HTTPApplication], err = p.registerAndRun(ctx, puID, protomux.HTTPApplication, client.protomux, caPool, true)
+	client.netserver[protomux.HTTPApplication], err = p.registerAndRun(ctx, puID, protomux.HTTPApplication, client.protomux, caPool, portMapping, true)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPApplication, err)
 	}
 
 	// Listen to HTTPS requests only on the network side.
-	client.netserver[protomux.HTTPSNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPSNetwork, client.protomux, caPool, false)
+	client.netserver[protomux.HTTPSNetwork], err = p.registerAndRun(ctx, puID, protomux.HTTPSNetwork, client.protomux, caPool, portMapping, false)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.HTTPSNetwork, err)
 	}
 
 	// TCP Requests for clients
-	client.netserver[protomux.TCPApplication], err = p.registerAndRun(ctx, puID, protomux.TCPApplication, client.protomux, caPool, true)
+	client.netserver[protomux.TCPApplication], err = p.registerAndRun(ctx, puID, protomux.TCPApplication, client.protomux, caPool, portMapping, true)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPApplication, err)
 	}
 
 	// TCP Requests from the network side
-	client.netserver[protomux.TCPNetwork], err = p.registerAndRun(ctx, puID, protomux.TCPNetwork, client.protomux, caPool, false)
+	client.netserver[protomux.TCPNetwork], err = p.registerAndRun(ctx, puID, protomux.TCPNetwork, client.protomux, caPool, portMapping, false)
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
@@ -245,6 +245,12 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 		if err := register.Add(service.PrivateNetworkInfo, serviceTypeToNetworkListenerType(service.Type), true); err != nil {
 			return fmt.Errorf("Duplicate exposed service definitions: %s", err)
 		}
+		if service.PublicNetworkInfo != nil {
+			// We also need to listen on the public ports in this case.
+			if err := register.Add(service.PublicNetworkInfo, serviceTypeToApplicationListenerType(service.Type), true); err != nil {
+				return fmt.Errorf("Public network information overlaps with exposed services or other definitions: %s", err)
+			}
+		}
 	}
 
 	// Register the DependentServices with the multiplexer.
@@ -262,7 +268,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 }
 
 // registerAndRun registers a new listener of the given type and runs the corresponding server
-func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protomux.ListenerType, mux *protomux.MultiplexedListener, caPool *x509.CertPool, appproxy bool) (ServerInterface, error) {
+func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protomux.ListenerType, mux *protomux.MultiplexedListener, caPool *x509.CertPool, portMapping map[int]int, appproxy bool) (ServerInterface, error) {
 	var listener net.Listener
 	var err error
 
@@ -281,7 +287,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 	// Start the corresponding proxy
 	switch ltype {
 	case protomux.HTTPApplication, protomux.HTTPSApplication, protomux.HTTPNetwork, protomux.HTTPSNetwork:
-		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, caPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets)
+		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, caPool, p.serviceMap, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets, portMapping)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
 		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, caPool)
@@ -357,16 +363,23 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 // TODO:
 // We just need the port mapping and not the rhost mapping since we know the original port. This will
 // be simplified farther.
-func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[string]string, map[int]string) {
+func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[string]string, map[int]string, map[int]int) {
 	serviceMap := map[string]string{}
 	portCache := map[int]string{}
+	portMapping := map[int]int{}
 
 	for _, service := range exposedServices {
-		if service.Type == policy.ServiceTCP {
-			if port, err := service.PrivateNetworkInfo.Ports.SinglePort(); err == nil {
-				portCache[int(port)] = service.ID
+		port, err := service.PrivateNetworkInfo.Ports.SinglePort()
+		if err == nil {
+			portCache[int(port)] = service.ID
+			portMapping[int(port)] = int(port)
+		}
+		if service.PublicNetworkInfo != nil {
+			// We also need to listen on the public ports in this case.
+			if publicPort, err := service.PublicNetworkInfo.Ports.SinglePort(); err == nil {
+				portCache[int(publicPort)] = service.ID
+				portMapping[int(publicPort)] = int(port)
 			}
-			continue
 		}
 		if service.Type != policy.ServiceHTTP {
 			continue
@@ -386,7 +399,7 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 			serviceMap[rhost] = service.ID
 		}
 	}
-	return serviceMap, portCache
+	return serviceMap, portCache, portMapping
 }
 
 // buildDependentCaches builds the caches for the dependent services.

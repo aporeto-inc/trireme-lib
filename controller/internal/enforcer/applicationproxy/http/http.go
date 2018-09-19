@@ -57,6 +57,7 @@ type Config struct {
 	serviceMapCache    cache.DataStore
 	dependentAPICache  cache.DataStore
 	jwtCache           cache.DataStore
+	portMapping        map[int]int
 	applicationProxy   bool
 	mark               int
 	server             *http.Server
@@ -77,6 +78,7 @@ func NewHTTPProxy(
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
+	portMapping map[int]int,
 ) *Config {
 
 	return &Config{
@@ -91,6 +93,7 @@ func NewHTTPProxy(
 		mark:               mark,
 		secrets:            secrets,
 		verifier:           servicetokens.NewVerifier(secrets, nil),
+		portMapping:        portMapping,
 	}
 }
 
@@ -133,6 +136,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		if err != nil {
 			reportStats(ctx)
 			return nil, err
+		}
+		targetPort, ok := p.portMapping[raddr.Port]
+		if ok {
+			raddr.Port = targetPort
 		}
 		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
 		if err != nil {
