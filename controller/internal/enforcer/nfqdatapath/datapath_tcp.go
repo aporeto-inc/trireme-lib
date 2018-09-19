@@ -327,11 +327,11 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 	// packets from this connection.
 	if conn.GetState() == connection.TCPData && !conn.ServiceConnection {
 		if err := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.DestinationAddress.String(),
 			tcpPacket.SourceAddress.String(),
+			tcpPacket.DestinationAddress.String(),
 			tcpPacket.IPProto,
-			tcpPacket.DestinationPort,
 			tcpPacket.SourcePort,
+			tcpPacket.DestinationPort,
 			constants.DefaultConnMark,
 		); err != nil {
 			zap.L().Error("Failed to update conntrack entry for flow",
@@ -624,11 +624,11 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 
 		// Revert the connmarks - dealing with retransmissions
 		if cerr := d.conntrackHdl.ConntrackTableUpdateMark(
-			tcpPacket.SourceAddress.String(),
 			tcpPacket.DestinationAddress.String(),
+			tcpPacket.SourceAddress.String(),
 			tcpPacket.IPProto,
-			tcpPacket.SourcePort,
 			tcpPacket.DestinationPort,
+			tcpPacket.SourcePort,
 			0,
 		); cerr != nil {
 			zap.L().Error("Failed to update conntrack table for flow",
@@ -774,11 +774,11 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 
 		if !conn.ServiceConnection {
 			if err := d.conntrackHdl.ConntrackTableUpdateMark(
-				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
+				tcpPacket.SourceAddress.String(),
 				tcpPacket.IPProto,
-				tcpPacket.SourcePort,
 				tcpPacket.DestinationPort,
+				tcpPacket.SourcePort,
 				constants.DefaultConnMark,
 			); err != nil {
 				zap.L().Error("Failed to update conntrack table after ack packet")
