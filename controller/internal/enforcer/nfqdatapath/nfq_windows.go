@@ -22,8 +22,10 @@ import (
 import "C"
 
 const (
-	networkFilter = "inbound and ip.SrcAddr=54.191.40.24 and ip.Protocol!=17"
-	appFilter     = "outbound and ip.DstAddr=54.191.40.24 and ip.Protocol!=17"
+	//networkFilter = "inbound and ip.SrcAddr=10.128.128.128 and ip.Protocol!=17"
+	networkFilter = "inbound and ip.Protocol!=17 and ip.SrcAddr!=130.211.159.253"
+	appFilter     = "outbound and ip.Protocol!=17 and ip.DstAddr!=130.211.159.253"
+	//appFilter     = "outbound and ip.DstAddr=10.128.128.128 and ip.Protocol!=17"
 )
 
 // startNetworkInterceptor will the process that processes  packets from the network
@@ -36,11 +38,11 @@ func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 		fmt.Println("Network API URL", os.Getenv("APIURL"))
 		datapathhdl, err := hdl.WinDivertOpen(networkFilter, 0, 0, 0)
 		handleNum := (*int64)(unsafe.Pointer(datapathhdl))
-		zap.L().Error("Network ERROR", zap.Error(err))
+		//zap.L().Error("Network ERROR", zap.Error(err))
 		if handleNum == nil {
 			zap.L().Error("Not Sucessful")
 		}
-		zap.L().Error("Handle Num", zap.Reflect("Vale", datapathhdl))
+		//zap.L().Error("Handle Num", zap.Reflect("Vale", datapathhdl))
 
 		if handleNum == nil {
 			zap.L().Fatal("Failed to open windivert device", zap.Error(err))
@@ -51,8 +53,9 @@ func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 				var packetLen uint
 				for {
 					packetLen = uint(len(data))
+					//zap.L().Error("NETWORK RECEIVING Packet")
 					if recvAddr, _ := hdl.WinDivertRecv(datapathhdl, data, &packetLen); recvAddr != nil {
-						zap.L().Error("Network packet", zap.Int("PacketLen", int(packetLen)))
+						//zap.L().Error("Network packet", zap.Int("PacketLen", int(packetLen)))
 						d.processNetworkPacketsFromWindivert(datapathhdl, hdl, data[:packetLen], recvAddr)
 						//zap.L().Debug("packet", zap.String("packet", (hex.Dump(data))))
 						continue
@@ -94,8 +97,7 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 		if handleNum == nil {
 			zap.L().Error("Not Sucessful")
 		}
-		zap.L().Error("Application ERROR", zap.Error(err))
-		zap.L().Error("App Handle Num", zap.Reflect("Vale", datapathhdl))
+
 		if handleNum == nil {
 			zap.L().Fatal("Failed to open windivert device", zap.Error(err))
 		} else {
@@ -105,10 +107,11 @@ func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 				var packetLen uint
 				for {
 					packetLen = uint(len(data))
+					//zap.L().Error("Application RECEIVING Packet")
 					if recvAddr, _ := hdl.WinDivertRecv(datapathhdl, data, &packetLen); recvAddr != nil {
-						zap.L().Error("Application packet", zap.Int("Packet Len", int(packetLen)))
+						//zap.L().Error("Application packet", zap.Int("Packet Len", int(packetLen)))
 						d.processApplicationPacketsFromWinDivert(datapathhdl, hdl, data[:packetLen], recvAddr)
-						zap.L().Error("Application packet processed", zap.Int("Packet Len", int(packetLen)))
+						//zap.L().Error("Application packet processed", zap.Int("Packet Len", int(packetLen)))
 
 						//zap.L().Error(" ", zap.String("packet", hex.Dump(data[:packetLen])))
 						continue
@@ -186,7 +189,7 @@ func (d *Datapath) processNetworkPacketsFromWindivert(datapathhdl uintptr, windi
 		err = fmt.Errorf("invalid ip protocol: %d", netPacket.IPProto)
 	}
 	if err != nil {
-		zap.L().Error("Network Error", zap.Error(err))
+		//zap.L().Error("Network Error", zap.Error(err))
 		//p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 0, uint32(p.Mark), length, uint32(p.ID), buffer)
 		return
 	}

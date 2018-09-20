@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"syscall"
 	"unsafe"
-
-	"go.uber.org/zap"
 )
 
 // #cgo CFLAGS: -I .
@@ -103,7 +101,7 @@ func (w *windiverthdl) WinDivertSend(handle uintptr, data []byte, divertAddr uns
 		uintptr(divertAddr),
 		uintptr(unsafe.Pointer(writeLen)),
 	)
-	zap.L().Info("LastError", zap.Error(lastError))
+	//zap.L().Info("LastError", zap.Error(lastError))
 	return lastError
 }
 
@@ -113,9 +111,9 @@ func (w *windiverthdl) processPackets(handle uintptr, direction string) error {
 	//recvAddr := C.WINDIVERT_ADDRESS{}
 	for {
 		recvAddr, _ := w.WinDivertRecv(handle, data, &writeLen)
-		zap.L().Error("Direction received ", zap.String("Packet Received", direction))
-		err := w.WinDivertSend(handle, data[:writeLen], recvAddr, &writeLen)
-		zap.L().Error("Error", zap.Error(err))
+
+		w.WinDivertSend(handle, data[:writeLen], recvAddr, &writeLen)
+
 	}
 	return nil
 

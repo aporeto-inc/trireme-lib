@@ -241,6 +241,7 @@ func (d *Datapath) processApplicationTCPPackets(p *packet.Packet) (err error) {
 
 	// Accept the packet
 	p.UpdateTCPChecksum()
+
 	p.Print(packet.PacketStageOutgoing)
 	return nil
 }
@@ -357,7 +358,7 @@ func (d *Datapath) processApplicationSynAckPacket(tcpPacket *packet.Packet, cont
 
 // processApplicationAckPacket processes an application ack packet
 func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context *pucontext.PUContext, conn *connection.TCPConnection) (interface{}, error) {
-
+	zap.L().Error("Here application ack", zap.Int("Connection State", int(conn.GetState())))
 	// Only process the first Ack of a connection. This means that we have received
 	// as SynAck packet and we can now process the ACK.
 	if conn.GetState() == connection.TCPSynAckReceived && tcpPacket.IsEmptyTCPPayload() {
@@ -368,7 +369,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		if err != nil {
 			return nil, err
 		}
-
+		zap.L().Error("Here application ack", zap.Int("Connection State", int(conn.GetState())))
 		tcpOptions := d.createTCPAuthenticationOption([]byte{})
 
 		// Since we adjust sequence numbers let's make sure we haven't made a mistake
@@ -403,12 +404,13 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 				)
 			}
 		}
-
+		zap.L().Error("Here application ack", zap.Int("Connection State", int(conn.GetState())))
 		return nil, nil
 	}
 
 	// If we are already in the connection.TCPData connection just forward the packet
 	if conn.GetState() == connection.TCPData {
+		zap.L().Error("Here application ack", zap.Int("Connection State", int(conn.GetState())))
 		return nil, nil
 	}
 
@@ -447,6 +449,7 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 	// state. We will not release the caches though to deal with re-transmissions.
 	// We will let the caches expire.
 	if conn.GetState() == connection.TCPAckSend {
+		zap.L().Error("Here application ack", zap.Int("Connection State", int(conn.GetState())))
 		conn.SetState(connection.TCPData)
 		return nil, nil
 	}
@@ -586,7 +589,8 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 			d.reportReverseExternalServiceFlow(context, report, pkt, true, tcpPacket)
 			return nil, nil, fmt.Errorf("no auth or acls: drop synack packet and connection: %s: action=%d", perr, pkt.Action)
 		}
-
+		flowHash = tcpPacket.SourceAddress.String() + ":" + strconv.Itoa(int(tcpPacket.SourcePort))
+		zap.L().Error("Cached ", zap.String("flowhash", flowHash))
 		// Added to the cache if we can accept it
 		context.CacheExternalFlowPolicy(
 			tcpPacket,
@@ -600,7 +604,7 @@ func (d *Datapath) processNetworkSynAckPacket(context *pucontext.PUContext, conn
 		conn.SetState(connection.TCPData)
 
 		d.releaseFlow(context, report, pkt, tcpPacket)
-
+		d.netReplyConnectionTracker.AddOrUpdate(tcpPacket.L4FlowHash(), conn)
 		return pkt, nil, nil
 	}
 
@@ -688,7 +692,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 	if conn.GetState() == connection.TCPData || conn.GetState() == connection.TCPAckSend {
 		return nil, nil, nil
 	}
-
+	zap.L().Error("received network ack", zap.Int("Connection State", int(conn.GetState())))
 	if conn.GetState() == connection.UnknownState {
 		// Check if the destination is in the external servicess approved cache
 		// and if yes, allow the packet to go and release the flow.
@@ -698,7 +702,10 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 		if tcpPacket.TCPFlags&packet.TCPFinMask != 0 {
 			return nil, nil, nil
 		}
+		zap.L().Error("Here")
+
 		if perr != nil {
+			zap.L().Error("Sending Finack")
 			err := tcpPacket.ConvertAcktoFinAck()
 			return nil, nil, err
 		}
@@ -721,6 +728,7 @@ func (d *Datapath) processNetworkAckPacket(context *pucontext.PUContext, conn *c
 				zap.String("state", fmt.Sprintf("%d", conn.GetState())),
 			)
 		}
+
 		return nil, nil, nil
 	}
 
@@ -958,6 +966,7 @@ func (d *Datapath) netSynAckRetrieveState(p *packet.Packet) (*connection.TCPConn
 // netRetrieveState retrieves the state of a network connection. Use the flow caches for that
 func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection, error) {
 	hash := p.L4FlowHash()
+	zap.L().Error("L4 Flow hash", zap.String("hash", hash))
 	conn, err := d.netReplyConnectionTracker.GetReset(hash, 0)
 	if err != nil {
 		conn, err = d.netOrigConnectionTracker.GetReset(hash, 0)
@@ -968,6 +977,7 @@ func (d *Datapath) netRetrieveState(p *packet.Packet) (*connection.TCPConnection
 				if cerr != nil {
 					return nil, errors.New("No context in app processing")
 				}
+				zap.L().Error("Did Not find connection")
 				conn = connection.NewTCPConnection(context)
 				conn.(*connection.TCPConnection).SetState(connection.UnknownState)
 				return conn.(*connection.TCPConnection), nil
@@ -1008,7 +1018,7 @@ func (d *Datapath) releaseFlow(context *pucontext.PUContext, report *policy.Flow
 	if err := d.sourcePortConnectionCache.Remove(tcpPacket.SourcePortHash(packet.PacketTypeApplication)); err != nil {
 		zap.L().Debug("Failed to clean cache sourcePortConnectionCache", zap.Error(err))
 	}
-
+	zap.L().Error("Released Flow")
 	if err := d.conntrackHdl.ConntrackTableUpdateMark(
 		tcpPacket.DestinationAddress.String(),
 		tcpPacket.SourceAddress.String(),

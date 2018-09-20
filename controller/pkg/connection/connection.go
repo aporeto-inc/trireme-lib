@@ -173,7 +173,6 @@ func (c *TCPConnection) GetState() TCPFlowState {
 
 // SetState is used to setup the state for the TCP connection
 func (c *TCPConnection) SetState(state TCPFlowState) {
-
 	c.state = state
 }
 
