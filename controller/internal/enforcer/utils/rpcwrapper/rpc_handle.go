@@ -37,7 +37,6 @@ type RPCHdl struct {
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
-	contextList  []string
 
 	sync.Mutex
 }
@@ -49,7 +48,6 @@ func NewRPCWrapper() *RPCWrapper {
 
 	return &RPCWrapper{
 		rpcClientMap: cache.NewCache("RPCWrapper"),
-		contextList:  []string{},
 	}
 }
 
@@ -60,6 +58,11 @@ const (
 
 // NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
+
+	// If a client exists for this context kill it.
+	if _, err := r.rpcClientMap.Get(contextID); err == nil {
+		r.DestroyRPCClient(contextID)
+	}
 
 	max := maxRetries
 	retries := os.Getenv(envRetryString)
@@ -79,11 +82,9 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 		client, err = rpc.DialHTTP("unix", channel)
 	}
 
-	r.Lock()
-	r.contextList = append(r.contextList, contextID)
-	r.Unlock()
+	r.rpcClientMap.AddOrUpdate(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
-	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
+	return nil
 
 }
 
@@ -226,9 +227,14 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 // ContextList returns the list of active context managed by the rpcwrapper
 func (r *RPCWrapper) ContextList() []string {
-	r.Lock()
-	defer r.Unlock()
-	return r.contextList
+	keylist := r.rpcClientMap.KeyList()
+	contextArray := []string{}
+	for _, key := range keylist {
+		if kstring, ok := key.(string); ok {
+			contextArray = append(contextArray, kstring)
+		}
+	}
+	return contextArray
 }
 
 // ProcessMessage checks if the given request is valid

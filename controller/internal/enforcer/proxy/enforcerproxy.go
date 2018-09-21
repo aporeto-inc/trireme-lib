@@ -214,6 +214,7 @@ func NewProxyEnforcer(mutualAuth bool,
 	packetLogs bool,
 	targetNetworks []string,
 ) enforcer.Enforcer {
+
 	return newProxyEnforcer(
 		mutualAuth,
 		filterQueue,
@@ -224,7 +225,6 @@ func NewProxyEnforcer(mutualAuth bool,
 		validity,
 		rpchdl,
 		cmdArg,
-		processmon.GetProcessManagerHdl(),
 		procMountPoint,
 		ExternalIPCacheTimeout,
 		nil,
@@ -243,7 +243,6 @@ func newProxyEnforcer(mutualAuth bool,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
-	procHdl processmon.ProcessManager,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	portSetInstance portset.PortSet,
@@ -259,12 +258,15 @@ func newProxyEnforcer(mutualAuth bool,
 		statsServersecret = time.Now().String()
 	}
 
+	processmonitor := processmon.GetProcessManagerHdl()
+	processmonitor.SetCollector(collector)
+
 	proxydata := &ProxyInfo{
 		MutualAuth:             mutualAuth,
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                procHdl,
+		prochdl:                processmonitor,
 		rpchdl:                 rpchdl,
 		initDone:               make(map[string]bool),
 		filterQueue:            filterQueue,

@@ -3,18 +3,19 @@ package processmon
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
 	"go.uber.org/zap"
 
+	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
@@ -51,9 +52,13 @@ type processMon struct {
 	// logWithID is the ID for for log files if logging to file.
 	logWithID bool
 	// logLevel is the level of logs for remote command.
-	logLevel       string
-	logFormat      string
+	logLevel  string
+	logFormat string
+	// collector is the event collector to report failures.
+	collector      collector.EventCollector
 	compressedTags constants.CompressionType
+
+	sync.Mutex
 }
 
 // processInfo stores per process information
@@ -61,6 +66,7 @@ type processInfo struct {
 	contextID string
 	RPCHdl    rpcwrapper.RPCClient
 	process   *os.Process
+	sync.Mutex
 }
 
 // exitStatus captures the exit status of a process
@@ -88,17 +94,13 @@ func contextID2SocketPath(contextID string) string {
 }
 
 // processIOReader will read from a reader and print it on the calling process
-func processIOReader(fd io.Reader, contextID string, exited chan int) {
-
+func processIOReader(fd io.Reader, contextID string) {
 	reader := bufio.NewReader(fd)
-
 	for {
 		str, err := reader.ReadString('\n')
 		if err != nil {
-			exited <- 1
 			return
 		}
-
 		fmt.Print("[" + contextID + "]:" + str)
 	}
 }
@@ -121,7 +123,6 @@ func newProcessMon(netns, remoteEnforcerPath, remoteEnforcerName string) Process
 
 // GetProcessManagerHdl returns a process manager handle.
 func GetProcessManagerHdl() ProcessManager {
-
 	return launcher
 }
 
@@ -129,9 +130,20 @@ func GetProcessManagerHdl() ProcessManager {
 func (p *processMon) collectChildExitStatus() {
 
 	for {
-
 		es := <-p.childExitStatus
-		zap.L().Debug("Remote enforcer exited",
+		if _, err := p.activeProcesses.Get(es.contextID); err == nil {
+			zap.L().Error("Remote enforcer exited, but container is running",
+				zap.String("nativeContextID", es.contextID),
+				zap.Int("pid", es.process),
+				zap.Error(es.exitStatus),
+			)
+			p.collector.CollectContainerEvent(&collector.ContainerRecord{
+				ContextID: es.contextID,
+				Event:     collector.ContainerRemoteFailed,
+			})
+			continue
+		}
+		zap.L().Debug("Remote enforcer exited normally",
 			zap.String("nativeContextID", es.contextID),
 			zap.Int("pid", es.process),
 			zap.Error(es.exitStatus),
@@ -141,7 +153,6 @@ func (p *processMon) collectChildExitStatus() {
 
 // SetLogParameters setups args that should be propagated to child processes
 func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel string, logFormat string, compressedTags constants.CompressionType) {
-
 	p.logToConsole = logToConsole
 	p.logWithID = logWithID
 	p.logLevel = logLevel
@@ -149,18 +160,33 @@ func (p *processMon) SetLogParameters(logToConsole, logWithID bool, logLevel str
 	p.compressedTags = compressedTags
 }
 
+func (p *processMon) SetCollector(c collector.EventCollector) {
+	p.collector = c
+}
+
 // KillProcess sends a rpc to the process to exit failing which it will kill the process
 func (p *processMon) KillProcess(contextID string) {
 
+	p.Lock()
 	s, err := p.activeProcesses.Get(contextID)
 	if err != nil {
 		zap.L().Debug("Process already killed or never launched")
+		p.Unlock()
 		return
 	}
 
 	procInfo, ok := s.(*processInfo)
 	if !ok {
+		p.Unlock()
 		return
+	}
+	p.Unlock()
+
+	procInfo.Lock()
+	defer procInfo.Unlock()
+
+	if err := p.activeProcesses.Remove(contextID); err != nil {
+		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
 	}
 
 	req := &rpcwrapper.Request{}
@@ -178,7 +204,6 @@ func (p *processMon) KillProcess(contextID string) {
 			zap.L().Debug("Failed to stop gracefully",
 				zap.String("Remote error", err.Error()))
 		}
-
 		if err := procInfo.process.Kill(); err != nil {
 			zap.L().Debug("Process is already dead",
 				zap.String("Kill error", err.Error()))
@@ -195,38 +220,29 @@ func (p *processMon) KillProcess(contextID string) {
 	if err := os.Remove(filepath.Join(p.netNSPath, contextID)); err != nil {
 		zap.L().Warn("Failed to remote process from netns path", zap.Error(err))
 	}
-
-	if err := p.activeProcesses.Remove(contextID); err != nil {
-		zap.L().Warn("Failed to remote process from cache", zap.Error(err))
-	}
 }
 
 // pollStdOutAndErr polls std out and err
 func (p *processMon) pollStdOutAndErr(
 	cmd *exec.Cmd,
-	exited chan int,
 	contextID string,
-) (initializedCount int, err error) {
+) (err error) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return initializedCount, err
+		return err
 	}
-
-	initializedCount++
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return initializedCount, err
+		return err
 	}
 
-	initializedCount++
-
 	// Stdout/err processing
-	go processIOReader(stdout, contextID, exited)
-	go processIOReader(stderr, contextID, exited)
+	go processIOReader(stdout, contextID)
+	go processIOReader(stderr, contextID)
 
-	return initializedCount, nil
+	return nil
 }
 
 // getLaunchProcessCmd returns the command used to launch the enforcerd
@@ -295,9 +311,23 @@ func (p *processMon) LaunchProcess(
 	procMountPoint string,
 ) error {
 
+	// Locking here to get the procesinfo to avoid race conditions
+	// where multiple LaunchProcess happen for the same context.
+	p.Lock()
 	if _, err := p.activeProcesses.Get(contextID); err == nil {
+		p.Unlock()
 		return nil
 	}
+
+	procInfo := &processInfo{
+		contextID: contextID,
+	}
+	p.activeProcesses.AddOrUpdate(contextID, procInfo)
+	p.Unlock()
+
+	// We will lock the procInfo here, so a kill will have to wait and avoid any race.
+	procInfo.Lock()
+	defer procInfo.Unlock()
 
 	// We check if the NetNsPath was given as parameter.
 	// If it was we will use it. Otherwise we will determine it based on the PID.
@@ -317,7 +347,7 @@ func (p *processMon) LaunchProcess(
 	}
 
 	if pidstat.Sys().(*syscall.Stat_t).Ino == hoststat.Sys().(*syscall.Stat_t).Ino {
-		return errors.New("refused to launch a remote enforcer in host namespace")
+		return fmt.Errorf("refused to launch a remote enforcer in host namespace")
 	}
 
 	if _, err = os.Stat(p.netNSPath); err != nil {
@@ -340,12 +370,8 @@ func (p *processMon) LaunchProcess(
 		return fmt.Errorf("enforcer binary not found: %s", err)
 	}
 
-	exited := make(chan int, 2)
-	waitForExitCount := 0
-	if p.logToConsole {
-		if waitForExitCount, err = p.pollStdOutAndErr(cmd, exited, contextID); err != nil {
-			return err
-		}
+	if err = p.pollStdOutAndErr(cmd, contextID); err != nil {
+		return err
 	}
 
 	randomkeystring, err := crypto.GenerateRandomString(secretLength)
@@ -373,9 +399,6 @@ func (p *processMon) LaunchProcess(
 	}
 
 	go func() {
-		for i := 0; i < waitForExitCount; i++ {
-			<-exited
-		}
 		status := cmd.Wait()
 		p.childExitStatus <- exitStatus{
 			process:    cmd.Process.Pid,
@@ -388,10 +411,8 @@ func (p *processMon) LaunchProcess(
 		return err
 	}
 
-	p.activeProcesses.AddOrUpdate(contextID, &processInfo{
-		contextID: contextID,
-		process:   cmd.Process,
-		RPCHdl:    rpchdl})
+	procInfo.process = cmd.Process
+	procInfo.RPCHdl = rpchdl
 
 	return nil
 }

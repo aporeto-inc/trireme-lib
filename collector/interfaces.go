@@ -56,6 +56,8 @@ const (
 	ContainerIgnored = "ignore"
 	// ContainerDeleteUnknown indicates that policy for an unknown  container was deleted
 	ContainerDeleteUnknown = "unknowncontainer"
+	// ContainerRemoteFailed indicates that the remote enforcer failed.
+	ContainerRemoteFailed = "remotefailed"
 )
 
 const (
