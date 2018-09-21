@@ -56,9 +56,10 @@ type Config struct {
 	localIPs           map[string]struct{}
 	puFromIDCache      cache.DataStore
 	authProcessorCache cache.DataStore
-	serviceMapCache    cache.DataStore
 	dependentAPICache  cache.DataStore
 	jwtCache           cache.DataStore
+	portMapping        map[int]int
+	portCache          map[int]string
 	applicationProxy   bool
 	mark               int
 	server             *http.Server
@@ -73,12 +74,13 @@ func NewHTTPProxy(
 	puContext string,
 	puFromIDCache cache.DataStore,
 	caPool *x509.CertPool,
-	serviceMap cache.DataStore,
 	authProcessorCache cache.DataStore,
 	dependentAPICache cache.DataStore,
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
+	portCache map[int]string,
+	portMapping map[int]int,
 ) *Config {
 
 	return &Config{
@@ -87,12 +89,13 @@ func NewHTTPProxy(
 		puContext:          puContext,
 		ca:                 caPool,
 		authProcessorCache: authProcessorCache,
-		serviceMapCache:    serviceMap,
 		dependentAPICache:  dependentAPICache,
 		applicationProxy:   applicationProxy,
 		mark:               mark,
 		secrets:            secrets,
 		verifier:           servicetokens.NewVerifier(secrets, nil),
+		portCache:          portCache,
+		portMapping:        portMapping,
 		localIPs:           connproc.GetInterfaces(),
 	}
 }
@@ -136,6 +139,10 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		if err != nil {
 			reportStats(ctx)
 			return nil, err
+		}
+		targetPort, ok := p.portMapping[raddr.Port]
+		if ok {
+			raddr.Port = targetPort
 		}
 		conn, err := markedconn.DialMarkedTCP("tcp", nil, raddr, p.mark)
 		if err != nil {
@@ -239,7 +246,7 @@ func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certifica
 	}
 }
 
-func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *auth.Processor, string, error) {
+func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, port int) (*pucontext.PUContext, *auth.Processor, string, error) {
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
@@ -248,16 +255,10 @@ func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request) 
 	}
 	puContext := pu.(*pucontext.PUContext)
 
-	data, err := p.serviceMapCache.Get(p.puContext)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
-		return nil, nil, "", err
-	}
-
-	serviceID, ok := data.(map[string]string)[appendDefaultPort(r.Host)]
+	serviceID, ok := p.portCache[port]
 	if !ok {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown destination %s", r.Host), http.StatusForbidden)
-		return nil, nil, "", fmt.Errorf("Cannot handle request - unknown destination")
+		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
+		return nil, nil, "", fmt.Errorf("service not found")
 	}
 
 	authorizer, err := p.authProcessorCache.Get(p.puContext)
@@ -434,7 +435,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	defer p.collector.CollectFlowEvent(record)
 
 	// Retrieve the context and policy
-	puContext, authorizer, serviceID, err := p.retrieveNetworkContext(w, r)
+	puContext, authorizer, serviceID, err := p.retrieveNetworkContext(w, r, originalDestination.Port)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop

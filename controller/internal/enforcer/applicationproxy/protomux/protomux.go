@@ -205,7 +205,6 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 
 	defer m.wg.Done()
 	ip, port := c.GetOriginalDestination()
-
 	local := false
 	if _, ok = m.localIPs[networkOfAddress(c.RemoteAddr().String())]; ok {
 		local = true
@@ -225,6 +224,7 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 			c.Close() // nolint
 			return
 		}
+		fmt.Println(entry)
 	}
 
 	ltype := entry.(ListenerType)
