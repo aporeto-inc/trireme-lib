@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"reflect"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -12,7 +11,7 @@ func TestNewPolicy(t *testing.T) {
 	Convey("Given that I instantiate a new policy", t, func() {
 
 		Convey("When I provide only the mandatory fields", func() {
-			p := NewPUPolicy("id1", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{"172.17.0.0/16"}, []string{}, nil, nil, []string{})
+			p := NewPUPolicy("id1", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, []string{"172.17.0.0/16"}, []string{}, []string{}, nil, nil, []string{})
 			Convey("I shpuld get an empty policy", func() {
 				So(p, ShouldNotBeNil)
 				So(p.triremeNetworks, ShouldResemble, []string{"172.17.0.0/16"})
@@ -83,14 +82,15 @@ func TestNewPolicy(t *testing.T) {
 				AllowAll,
 				IPRuleList{appACL},
 				IPRuleList{netACL},
+				nil,
 				txtags,
 				rxtags,
 				identity,
 				annotations,
 				ips,
 				triremeNetworks,
+				[]string{},
 				excludedNetworks,
-
 				nil,
 				nil,
 				[]string{},
@@ -188,12 +188,14 @@ func TestFuncClone(t *testing.T) {
 			AllowAll,
 			IPRuleList{appACL},
 			IPRuleList{netACL},
+			nil,
 			txtags,
 			rxtags,
 			identity,
 			annotations,
 			ips,
 			triremeNetworks,
+			[]string{},
 			excludedNetworks,
 			nil,
 			nil,
@@ -275,12 +277,14 @@ func TestAllLockedSetGet(t *testing.T) {
 			AllowAll,
 			IPRuleList{appACL},
 			IPRuleList{netACL},
+			nil,
 			txtags,
 			rxtags,
 			identity,
 			annotations,
 			ips,
 			triremeNetworks,
+			[]string{},
 			excludedNetworks,
 			nil,
 			nil,
@@ -393,7 +397,7 @@ func TestAllLockedSetGet(t *testing.T) {
 func TestPUInfo(t *testing.T) {
 	Convey("Given I try to initiate a new container policy", t, func() {
 		puInfor := NewPUInfo("123", common.ContainerPU)
-		policy := NewPUPolicy("123", AllowAll, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, nil, nil, []string{})
+		policy := NewPUPolicy("123", AllowAll, nil, nil, nil, nil, nil, nil, nil, nil, []string{}, []string{}, []string{}, nil, nil, []string{})
 		runtime := NewPURuntime("", 0, "", nil, nil, common.ContainerPU, nil)
 		Convey("Then I expect the struct to be populated", func() {
 			So(puInfor.ContextID, ShouldEqual, "123")
@@ -401,305 +405,4 @@ func TestPUInfo(t *testing.T) {
 			So(puInfor.Runtime, ShouldResemble, runtime)
 		})
 	})
-}
-
-func TestApplicationACLsProtocol(t *testing.T) {
-	type fields struct {
-		managementID        string
-		triremeAction       PUAction
-		applicationACLs     IPRuleList
-		networkACLs         IPRuleList
-		identity            *TagStore
-		annotations         *TagStore
-		transmitterRules    TagSelectorList
-		receiverRules       TagSelectorList
-		ips                 ExtendedMap
-		triremeNetworks     []string
-		excludedNetworks    []string
-		exposedServices     ApplicationServicesList
-		dependentServices   ApplicationServicesList
-		servicesCertificate string
-		servicesPrivateKey  string
-		servicesCA          string
-		scopes              []string
-	}
-	type args struct {
-		proto string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   IPRuleList
-	}{
-		{
-			name: "Test Application ACL(tcp) being cloned.",
-			fields: fields{
-				managementID:  "",
-				triremeAction: AllowAll,
-				applicationACLs: IPRuleList{
-					IPRule{
-						Policy: &FlowPolicy{
-							Action:   Accept,
-							PolicyID: "2",
-						},
-						Address:  "20.0.0.0/8",
-						Protocol: "tcp",
-						Port:     "80",
-					},
-				},
-				networkACLs:         nil,
-				identity:            nil,
-				annotations:         nil,
-				transmitterRules:    nil,
-				receiverRules:       nil,
-				ips:                 nil,
-				triremeNetworks:     []string{},
-				excludedNetworks:    []string{},
-				exposedServices:     nil,
-				dependentServices:   nil,
-				servicesCertificate: "",
-				servicesPrivateKey:  "",
-				servicesCA:          "",
-				scopes:              []string{},
-			},
-			args: args{
-				proto: "tcp",
-			},
-			want: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "tcp",
-					Port:     "80",
-				},
-			},
-		},
-		{
-			name: "Test Application ACL(udp) being cloned.",
-			fields: fields{
-				managementID:  "",
-				triremeAction: AllowAll,
-				applicationACLs: IPRuleList{
-					IPRule{
-						Policy: &FlowPolicy{
-							Action:   Accept,
-							PolicyID: "2",
-						},
-						Address:  "20.0.0.0/8",
-						Protocol: "udp",
-						Port:     "80",
-					},
-				},
-				networkACLs:         nil,
-				identity:            nil,
-				annotations:         nil,
-				transmitterRules:    nil,
-				receiverRules:       nil,
-				ips:                 nil,
-				triremeNetworks:     []string{},
-				excludedNetworks:    []string{},
-				exposedServices:     nil,
-				dependentServices:   nil,
-				servicesCertificate: "",
-				servicesPrivateKey:  "",
-				servicesCA:          "",
-				scopes:              []string{},
-			},
-			args: args{
-				proto: "udp",
-			},
-			want: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "udp",
-					Port:     "80",
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := &PUPolicy{
-				managementID:        tt.fields.managementID,
-				triremeAction:       tt.fields.triremeAction,
-				applicationACLs:     tt.fields.applicationACLs,
-				networkACLs:         tt.fields.networkACLs,
-				identity:            tt.fields.identity,
-				annotations:         tt.fields.annotations,
-				transmitterRules:    tt.fields.transmitterRules,
-				receiverRules:       tt.fields.receiverRules,
-				ips:                 tt.fields.ips,
-				triremeNetworks:     tt.fields.triremeNetworks,
-				excludedNetworks:    tt.fields.excludedNetworks,
-				exposedServices:     tt.fields.exposedServices,
-				dependentServices:   tt.fields.dependentServices,
-				servicesCertificate: tt.fields.servicesCertificate,
-				servicesPrivateKey:  tt.fields.servicesPrivateKey,
-				servicesCA:          tt.fields.servicesCA,
-				scopes:              tt.fields.scopes,
-			}
-			if got := p.ApplicationACLsProtocol(tt.args.proto); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("PUPolicy.ApplicationACLsProtocol() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestNetworkACLsProtocol(t *testing.T) {
-	type fields struct {
-		managementID        string
-		triremeAction       PUAction
-		applicationACLs     IPRuleList
-		networkACLs         IPRuleList
-		identity            *TagStore
-		annotations         *TagStore
-		transmitterRules    TagSelectorList
-		receiverRules       TagSelectorList
-		ips                 ExtendedMap
-		triremeNetworks     []string
-		excludedNetworks    []string
-		exposedServices     ApplicationServicesList
-		dependentServices   ApplicationServicesList
-		servicesCertificate string
-		servicesPrivateKey  string
-		servicesCA          string
-		scopes              []string
-	}
-	type args struct {
-		proto string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   IPRuleList
-	}{
-
-		{
-			name: "Test Network ACL(tcp) being cloned.",
-			fields: fields{
-				managementID:    "",
-				triremeAction:   AllowAll,
-				applicationACLs: nil,
-				networkACLs: IPRuleList{
-					IPRule{
-						Policy: &FlowPolicy{
-							Action:   Accept,
-							PolicyID: "2",
-						},
-						Address:  "20.0.0.0/8",
-						Protocol: "tcp",
-						Port:     "80",
-					},
-				},
-				identity:            nil,
-				annotations:         nil,
-				transmitterRules:    nil,
-				receiverRules:       nil,
-				ips:                 nil,
-				triremeNetworks:     []string{},
-				excludedNetworks:    []string{},
-				exposedServices:     nil,
-				dependentServices:   nil,
-				servicesCertificate: "",
-				servicesPrivateKey:  "",
-				servicesCA:          "",
-				scopes:              []string{},
-			},
-			args: args{
-				proto: "tcp",
-			},
-			want: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "tcp",
-					Port:     "80",
-				},
-			},
-		},
-		{
-			name: "Test Network ACL(udp) being cloned.",
-			fields: fields{
-				managementID:    "",
-				triremeAction:   AllowAll,
-				applicationACLs: nil,
-				networkACLs: IPRuleList{
-					IPRule{
-						Policy: &FlowPolicy{
-							Action:   Accept,
-							PolicyID: "2",
-						},
-						Address:  "20.0.0.0/8",
-						Protocol: "udp",
-						Port:     "80",
-					},
-				},
-				identity:            nil,
-				annotations:         nil,
-				transmitterRules:    nil,
-				receiverRules:       nil,
-				ips:                 nil,
-				triremeNetworks:     []string{},
-				excludedNetworks:    []string{},
-				exposedServices:     nil,
-				dependentServices:   nil,
-				servicesCertificate: "",
-				servicesPrivateKey:  "",
-				servicesCA:          "",
-				scopes:              []string{},
-			},
-			args: args{
-				proto: "udp",
-			},
-			want: IPRuleList{
-				IPRule{
-					Policy: &FlowPolicy{
-						Action:   Accept,
-						PolicyID: "2",
-					},
-					Address:  "20.0.0.0/8",
-					Protocol: "udp",
-					Port:     "80",
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := &PUPolicy{
-				managementID:        tt.fields.managementID,
-				triremeAction:       tt.fields.triremeAction,
-				applicationACLs:     tt.fields.applicationACLs,
-				networkACLs:         tt.fields.networkACLs,
-				identity:            tt.fields.identity,
-				annotations:         tt.fields.annotations,
-				transmitterRules:    tt.fields.transmitterRules,
-				receiverRules:       tt.fields.receiverRules,
-				ips:                 tt.fields.ips,
-				triremeNetworks:     tt.fields.triremeNetworks,
-				excludedNetworks:    tt.fields.excludedNetworks,
-				exposedServices:     tt.fields.exposedServices,
-				dependentServices:   tt.fields.dependentServices,
-				servicesCertificate: tt.fields.servicesCertificate,
-				servicesPrivateKey:  tt.fields.servicesPrivateKey,
-				servicesCA:          tt.fields.servicesCA,
-				scopes:              tt.fields.scopes,
-			}
-			if got := p.NetworkACLsProtocol(tt.args.proto); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("PUPolicy.NetworkACLsProtocol() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

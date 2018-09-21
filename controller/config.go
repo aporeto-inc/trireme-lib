@@ -132,6 +132,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
+			t.config.targetNetworks,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize enforcer: %s ", err)
@@ -153,6 +154,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
+			t.config.targetNetworks,
 		)
 	}
 
@@ -170,6 +172,7 @@ func (t *trireme) newEnforcers() error {
 			t.config.procMountPoint,
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
+			t.config.targetNetworks,
 		)
 		if err != nil {
 			return fmt.Errorf("Failed to initialize sidecar enforcer: %s ", err)
@@ -187,6 +190,7 @@ func (t *trireme) newSupervisors() error {
 			t.enforcers[constants.LocalServer],
 			constants.LocalServer,
 			t.config.targetNetworks,
+			t.config.service,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -213,6 +217,7 @@ func (t *trireme) newSupervisors() error {
 			t.enforcers[constants.Sidecar],
 			constants.Sidecar,
 			t.config.targetNetworks,
+			t.config.service,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)

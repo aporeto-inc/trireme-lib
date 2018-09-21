@@ -13,6 +13,7 @@ import (
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
+	"go.aporeto.io/trireme-lib/controller/internal/enforcer/acls"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/nflog"
@@ -47,6 +48,7 @@ type Datapath struct {
 	nflogger       nflog.NFLogger
 	procMountPoint string
 
+	targetNetworks *acls.ACLCache
 	// Internal structures and caches
 	// Key=ContextId Value=puContext
 	puFromContextID      cache.DataStore
@@ -100,6 +102,27 @@ type Datapath struct {
 	udpSocketWriter afinetrawsocket.SocketWriter
 }
 
+func createPolicy(networks []string) policy.IPRuleList {
+	var rules policy.IPRuleList
+
+	f := policy.FlowPolicy{
+		Action: policy.Accept,
+	}
+
+	for _, network := range networks {
+		iprule := policy.IPRule{
+			Address:  network,
+			Port:     "0:65535",
+			Protocol: "tcp",
+			Policy:   &f,
+		}
+
+		rules = append(rules, iprule)
+	}
+
+	return rules
+}
+
 // New will create a new data path structure. It instantiates the data stores
 // needed to track sessions. The data path is started with a different call.
 // Only required parameters must be provided. Rest a pre-populated with defaults.
@@ -117,6 +140,7 @@ func New(
 	packetLogs bool,
 	tokenaccessor tokenaccessor.TokenAccessor,
 	puFromContextID cache.DataStore,
+	targetNetworks []string,
 ) *Datapath {
 
 	if ExternalIPCacheTimeout <= 0 {
@@ -187,6 +211,7 @@ func New(
 		udpNetReplyConnectionTracker: cache.NewCacheWithExpiration("udpNetReplyConnectionTracker", time.Second*60),
 		udpNatConnectionTracker:      cache.NewCacheWithExpiration("udpNatConnectionTracker", time.Second*60),
 
+		targetNetworks:         acls.NewACLCache(),
 		ExternalIPCacheTimeout: ExternalIPCacheTimeout,
 		filterQueue:            filterQueue,
 		mutualAuthorization:    mutualAuth,
@@ -201,6 +226,10 @@ func New(
 		portSetInstance:        portSetInstance,
 		packetLogs:             packetLogs,
 		udpSocketWriter:        udpSocketWriter,
+	}
+
+	if err = d.SetTargetNetworks(targetNetworks); err != nil {
+		zap.L().Error("Error adding target networks to the ACLs")
 	}
 
 	packet.PacketLogLevel = packetLogs
@@ -218,6 +247,7 @@ func NewWithDefaults(
 	secrets secrets.Secrets,
 	mode constants.ModeType,
 	procMountPoint string,
+	targetNetworks []string,
 ) *Datapath {
 
 	if collector == nil {
@@ -254,13 +284,12 @@ func NewWithDefaults(
 		defaultPacketLogs,
 		tokenAccessor,
 		puFromContextID,
+		targetNetworks,
 	)
 }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
-	zap.L().Debug("Called Proxy Enforce")
 
 	// Always create a new PU context
 	pu, err := pucontext.NewPU(contextID, puInfo, d.ExternalIPCacheTimeout)
@@ -291,6 +320,12 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 
 	} else {
 		d.puFromIP = pu
+	}
+
+	// pucontext launches a go routine to periodically
+	// lookup dns names. ctx cancel signals the go routine to exit
+	if prevPU, _ := d.puFromContextID.Get(contextID); prevPU != nil {
+		prevPU.(*pucontext.PUContext).CancelFunc()
 	}
 
 	// Cache PU from contextID for management and policy updates
@@ -348,6 +383,17 @@ func (d *Datapath) Unenforce(contextID string) error {
 	return nil
 }
 
+// SetTargetNetworks sets new target networks used by datapath
+func (d *Datapath) SetTargetNetworks(networks []string) error {
+	if len(networks) == 0 {
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+	}
+
+	d.targetNetworks = acls.NewACLCache()
+	targetacl := createPolicy(networks)
+	return d.targetNetworks.AddRuleList(targetacl)
+}
+
 // GetFilterQueue returns the filter queues used by the data path
 func (d *Datapath) GetFilterQueue() *fqconfig.FilterQueue {
 
@@ -364,9 +410,6 @@ func (d *Datapath) GetPortSetInstance() portset.PortSet {
 func (d *Datapath) Run(ctx context.Context) error {
 
 	zap.L().Debug("Start enforcer", zap.Int("mode", int(d.mode)))
-	if d.service != nil {
-		d.service.Initialize(d.secrets, d.filterQueue)
-	}
 
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)
@@ -419,6 +462,7 @@ func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, 
 		DropReason: mode,
 		PolicyID:   report.PolicyID,
 		L4Protocol: p.IPProto,
+		Count:      1,
 	}
 
 	if report.ObserveAction.Observed() {

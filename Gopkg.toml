@@ -24,6 +24,15 @@ required = ["github.com/docker/distribution"]
   name = "k8s.io/client-go"
   version = "7.0.0"
 
+[[constraint]]
+  name = "github.com/aporeto-inc/oxy"
+  branch = "sirupsen"
+
+[[constraint]]
+  name = "github.com/hashicorp/go-version"
+  version = "v1.0.0"
+
 [prune]
   go-tests = true
   unused-packages = true
+

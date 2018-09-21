@@ -14,7 +14,9 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/iptablesctrl"
+	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
+	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 )
@@ -47,6 +49,8 @@ type Config struct {
 	excludedIPs []string
 	// triremeNetworks are the target networks where Trireme is implemented
 	triremeNetworks []string
+	// service is an external packet service
+	service packetprocessor.PacketProcessor
 
 	sync.Mutex
 }
@@ -55,7 +59,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor) (*Config, error) {
 
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")
@@ -76,6 +80,10 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
 	}
 
+	if len(networks) == 0 {
+		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
+	}
+
 	return &Config{
 		mode:            mode,
 		impl:            impl,
@@ -85,6 +93,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		excludedIPs:     []string{},
 		triremeNetworks: networks,
 		portSetInstance: portSetInstance,
+		service:         p,
 	}, nil
 }
 
@@ -132,13 +141,22 @@ func (s *Config) Unsupervise(contextID string) error {
 // Run starts the supervisor
 func (s *Config) Run(ctx context.Context) error {
 
+	s.Lock()
+	defer s.Unlock()
+
 	if err := s.impl.Run(ctx); err != nil {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
 
-	s.Lock()
-	defer s.Unlock()
-	return s.impl.SetTargetNetworks([]string{}, s.triremeNetworks)
+	if err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks); err != nil {
+		return err
+	}
+
+	if s.service != nil {
+		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
+	}
+
+	return nil
 }
 
 // CleanUp implements the cleanup interface
@@ -159,9 +177,20 @@ func (s *Config) SetTargetNetworks(networks []string) error {
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
 	}
+
+	if err := s.impl.SetTargetNetworks(s.triremeNetworks, networks); err != nil {
+		return err
+	}
+
 	s.triremeNetworks = networks
 
-	return s.impl.SetTargetNetworks(s.triremeNetworks, networks)
+	return nil
+}
+
+// ACLProvider returns the ACL provider used by the supervisor that can be
+// shared with other entities.
+func (s *Config) ACLProvider() provider.IptablesProvider {
+	return s.impl.ACLProvider()
 }
 
 func (s *Config) doCreatePU(contextID string, pu *policy.PUInfo) error {

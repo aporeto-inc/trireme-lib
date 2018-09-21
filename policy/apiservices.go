@@ -34,6 +34,17 @@ type ApplicationService struct {
 	// listening to. This is needed in the case of port mappings.
 	PrivateNetworkInfo *common.Service
 
+	// PublicNetworkInfo provides the network information where the enforcer
+	// should listen for incoming connections of the service. This can be
+	// different than the PrivateNetworkInfo where the application is listening
+	// and it essentially allows users to create Virtual IPs and Virtual Ports
+	// for the new exposed TLS services. So, if an application is listening
+	// on port 80, users do not need to access the application from external
+	// network through TLS on port 80, that looks weird. They can instead create
+	// a PublicNetworkInfo and have the trireme listen on port 443, while the
+	// application is still listening on port 80.
+	PublicNetworkInfo *common.Service
+
 	// Type is the type of the service.
 	Type ServiceType
 
@@ -44,10 +55,14 @@ type ApplicationService struct {
 	// Tags are the tags of the service.
 	Tags *TagStore
 
-	// JWTCertificate is a certificate for validating JWT bearer tokens in http requests.
-	// It is only useful for HTTP services where the Bearer Authentication header provides
-	// a JWT token. It is used to validate the JWT tokens.
+	// JWTTokenHandler is the token handler for validating user JWT tokens.
 	JWTTokenHandler usertokens.Verifier
+
+	// JWTClaimMappings is a map of mappings between JWT claims arriving in
+	// a user request and outgoing HTTP headers towards an application. It
+	// is used to allow operators to map claims to HTTP headers that downstream
+	// applications can understand.
+	JWTClaimMappings map[string]string
 
 	// External indicates if this is an external service. For external services
 	// access control is implemented at the ingress.
