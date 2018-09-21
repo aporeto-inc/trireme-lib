@@ -34,6 +34,17 @@ type ApplicationService struct {
 	// listening to. This is needed in the case of port mappings.
 	PrivateNetworkInfo *common.Service
 
+	// PublicNetworkInfo provides the network information where the enforcer
+	// should listen for incoming connections of the service. This can be
+	// different than the PrivateNetworkInfo where the application is listening
+	// and it essentially allows users to create Virtual IPs and Virtual Ports
+	// for the new exposed TLS services. So, if an application is listening
+	// on port 80, users do not need to access the application from external
+	// network through TLS on port 80, that looks weird. They can instead create
+	// a PublicNetworkInfo and have the trireme listen on port 443, while the
+	// application is still listening on port 80.
+	PublicNetworkInfo *common.Service
+
 	// Type is the type of the service.
 	Type ServiceType
 
