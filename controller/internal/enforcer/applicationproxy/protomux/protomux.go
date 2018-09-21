@@ -224,7 +224,6 @@ func (m *MultiplexedListener) serve(conn net.Conn) {
 			c.Close() // nolint
 			return
 		}
-		fmt.Println(entry)
 	}
 
 	ltype := entry.(ListenerType)
