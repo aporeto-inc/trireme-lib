@@ -458,16 +458,16 @@ func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, 
 			Type: collector.EnpointTypePU,
 		},
 		Tags:       context.Annotations(),
-		Action:     report.Action,
+		Action:     packet.Action,
 		DropReason: mode,
-		PolicyID:   report.PolicyID,
+		PolicyID:   packet.PolicyID,
 		L4Protocol: p.IPProto,
 		Count:      1,
 	}
 
 	if report.ObserveAction.Observed() {
-		c.ObservedAction = packet.Action
-		c.ObservedPolicyID = packet.PolicyID
+		c.ObservedAction = report.Action
+		c.ObservedPolicyID = report.PolicyID
 	}
 
 	d.collector.CollectFlowEvent(c)
