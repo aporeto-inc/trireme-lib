@@ -441,7 +441,7 @@ func (d *Datapath) puInfoDelegate(contextID string) (ID string, tags *policy.Tag
 	return
 }
 
-func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
 
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
@@ -458,9 +458,9 @@ func (d *Datapath) reportFlow(p *packet.Packet, sourceID string, destID string, 
 			Type: collector.EnpointTypePU,
 		},
 		Tags:       context.Annotations(),
-		Action:     packet.Action,
+		Action:     actual.Action,
 		DropReason: mode,
-		PolicyID:   packet.PolicyID,
+		PolicyID:   actual.PolicyID,
 		L4Protocol: p.IPProto,
 		Count:      1,
 	}

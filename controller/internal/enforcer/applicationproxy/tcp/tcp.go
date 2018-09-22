@@ -23,6 +23,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/tokenaccessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/connection"
+	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
@@ -484,7 +485,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	}
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, packet *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
 		Source: &collector.EndPoint{
@@ -500,9 +502,9 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 			Type: flowproperties.DestType,
 		},
 		Tags:        context.Annotations(),
-		Action:      packet.Action,
+		Action:      actual.Action,
 		DropReason:  mode,
-		PolicyID:    packet.PolicyID,
+		PolicyID:    actual.PolicyID,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceTCP,
 		ServiceID:   flowproperties.ServiceID,
