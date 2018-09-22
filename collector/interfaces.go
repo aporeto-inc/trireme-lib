@@ -152,10 +152,11 @@ func (f *FlowRecord) String() string {
 
 // ContainerRecord is a statistics record for a container
 type ContainerRecord struct {
-	ContextID string
-	IPAddress policy.ExtendedMap
-	Tags      *policy.TagStore
-	Event     string
+	ContextID    string
+	ManagementID string
+	IPAddress    policy.ExtendedMap
+	Tags         *policy.TagStore
+	Event        string
 }
 
 // UserRecord reports a new user access. These will be reported
