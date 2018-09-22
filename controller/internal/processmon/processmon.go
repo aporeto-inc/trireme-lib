@@ -78,10 +78,8 @@ type exitStatus struct {
 	process int
 	// The contextID is optional and is primarily used by remote enforcer
 	// processes to represent the namespace in which the process was running
-	contextID    string
-	managementID string
-	tags         *policy.TagStore
-	exitStatus   error
+	contextID  string
+	exitStatus error
 }
 
 func init() {
