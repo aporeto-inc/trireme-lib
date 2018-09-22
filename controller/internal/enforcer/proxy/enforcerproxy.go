@@ -233,6 +233,7 @@ func NewProxyEnforcer(mutualAuth bool,
 		validity,
 		rpchdl,
 		cmdArg,
+		nil,
 		procMountPoint,
 		ExternalIPCacheTimeout,
 		nil,
@@ -252,6 +253,7 @@ func newProxyEnforcer(mutualAuth bool,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
+	processmonitor processmon.ProcessManager,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	portSetInstance portset.PortSet,
@@ -268,7 +270,9 @@ func newProxyEnforcer(mutualAuth bool,
 		statsServersecret = time.Now().String()
 	}
 
-	processmonitor := processmon.GetProcessManagerHdl()
+	if processmonitor == nil {
+		processmonitor = processmon.GetProcessManagerHdl()
+	}
 	processmonitor.SetRuntimeErrorChannel(runtimeError)
 
 	proxydata := &ProxyInfo{
