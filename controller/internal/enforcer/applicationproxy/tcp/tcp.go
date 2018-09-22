@@ -485,7 +485,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	}
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, reportAction *policy.FlowPolicy, packetAction *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
 		Source: &collector.EndPoint{
@@ -501,17 +502,17 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 			Type: flowproperties.DestType,
 		},
 		Tags:        context.Annotations(),
-		Action:      packetAction.Action,
+		Action:      actual.Action,
 		DropReason:  mode,
-		PolicyID:    reportAction.PolicyID,
+		PolicyID:    actual.PolicyID,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceTCP,
 		ServiceID:   flowproperties.ServiceID,
 	}
 
-	if reportAction.ObserveAction.Observed() {
-		c.ObservedAction = packetAction.Action
-		c.ObservedPolicyID = packetAction.PolicyID
+	if report.ObserveAction.Observed() {
+		c.ObservedAction = report.Action
+		c.ObservedPolicyID = report.PolicyID
 	}
 
 	p.collector.CollectFlowEvent(c)
