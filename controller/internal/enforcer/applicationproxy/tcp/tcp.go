@@ -200,6 +200,11 @@ func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.C
 func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
 
 	p.RLock()
+	if p.certificate == nil {
+		zap.L().Error("Trying to encrypt without a certificate - value is nil - drop connection")
+		p.RUnlock()
+		return fmt.Errorf("Failed to start encryption")
+	}
 	certs := []tls.Certificate{*p.certificate}
 	p.RUnlock()
 

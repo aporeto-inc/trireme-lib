@@ -114,8 +114,10 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
+		zap.L().Error("Processing certificate update")
 		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPoolPEM)
 		if perr != nil {
+			zap.L().Error("Failed to update certificates", zap.Error(perr))
 			return perr
 		}
 		return p.registerServices(c.(*clientData), puInfo)
@@ -163,6 +165,7 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	}
 
 	if _, err := p.processCertificateUpdates(puInfo, client, caPoolPEM); err != nil {
+		zap.L().Error("Failed to update certificates", zap.Error(err))
 		return fmt.Errorf("Certificates not updated:  %s ", err)
 	}
 
@@ -306,6 +309,7 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 	// services. If the certificates are nil, we ignore them.
 	certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
 	if certPEM == "" || keyPEM == "" {
+		zap.L().Error("Unable to find any service certificate")
 		return false, nil
 	}
 
