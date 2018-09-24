@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"net/rpc"
@@ -37,8 +36,6 @@ type RPCHdl struct {
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
-
-	sync.Mutex
 }
 
 // NewRPCWrapper creates a new rpcwrapper
