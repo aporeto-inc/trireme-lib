@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"sync"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
@@ -36,6 +37,7 @@ type RPCHdl struct {
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
+	sync.Mutex
 }
 
 // NewRPCWrapper creates a new rpcwrapper
@@ -56,10 +58,8 @@ const (
 // NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
 
-	// If a client exists for this context kill it.
-	if _, err := r.rpcClientMap.Get(contextID); err == nil {
-		r.DestroyRPCClient(contextID)
-	}
+	r.Lock()
+	defer r.Unlock()
 
 	max := maxRetries
 	retries := os.Getenv(envRetryString)
@@ -87,6 +87,9 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 
 // GetRPCClient gets a handle to the rpc client for the contextID( enforcer in the container)
 func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
+
+	r.Lock()
+	defer r.Unlock()
 
 	val, err := r.rpcClientMap.Get(contextID)
 	if err != nil {
@@ -194,6 +197,8 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 
 // DestroyRPCClient calls close on the rpc and cleans up the connection
 func (r *RPCWrapper) DestroyRPCClient(contextID string) {
+	r.Lock()
+	defer r.Unlock()
 
 	rpcHdl, err := r.rpcClientMap.Get(contextID)
 	if err != nil {
