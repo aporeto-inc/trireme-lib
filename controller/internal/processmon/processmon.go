@@ -139,12 +139,17 @@ func (p *processMon) collectChildExitStatus() {
 			if es.exitStatus == nil {
 				continue
 			}
-			if _, err := p.activeProcesses.Get(es.contextID); err == nil {
+			data, err := p.activeProcesses.Get(es.contextID)
+			if err == nil {
 				zap.L().Error("Remote enforcer exited, but container is running",
 					zap.String("nativeContextID", es.contextID),
 					zap.Int("pid", es.process),
 					zap.Error(es.exitStatus),
 				)
+				procInfo, ok := data.(*processInfo)
+				if ok {
+					procInfo.RPCHdl.DestroyRPCClient(es.contextID)
+				}
 				if p.runtimeErrorChannel != nil {
 					p.runtimeErrorChannel <- &policy.RuntimeError{
 						ContextID: es.contextID,
@@ -411,7 +416,6 @@ func (p *processMon) LaunchProcess(
 	procInfo.process = cmd.Process
 
 	if err := rpchdl.NewRPCClient(contextID, contextID2SocketPath(contextID), randomkeystring); err != nil {
-		fmt.Println("Failed to establish channel")
 		return fmt.Errorf("failed to established rpc channel: %s", err)
 	}
 
