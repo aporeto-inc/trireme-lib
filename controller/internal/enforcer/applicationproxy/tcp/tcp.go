@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -199,6 +200,11 @@ func (p *Proxy) startEncryptedClientDataPath(ctx context.Context, downConn net.C
 func (p *Proxy) startEncryptedServerDataPath(ctx context.Context, downConn net.Conn, serverConn net.Conn) error {
 
 	p.RLock()
+	if p.certificate == nil {
+		zap.L().Error("Trying to encrypt without a certificate - value is nil - drop connection")
+		p.RUnlock()
+		return fmt.Errorf("Failed to start encryption")
+	}
 	certs := []tls.Certificate{*p.certificate}
 	p.RUnlock()
 
@@ -256,7 +262,7 @@ func dataprocessor(ctx context.Context, source, dest net.Conn) { // nolint
 
 func (p *Proxy) handleEncryptedData(ctx context.Context, upConn net.Conn, downConn net.Conn, ip net.IP) error {
 	// If the destination is not a local IP, it means that we are processing a client connection.
-	if _, ok := p.localIPs[ip.String()]; !ok {
+	if p.isLocal(upConn) {
 		return p.startEncryptedClientDataPath(ctx, downConn, upConn, ip)
 	}
 	return p.startEncryptedServerDataPath(ctx, downConn, upConn)
@@ -293,10 +299,8 @@ func (p *Proxy) downConnection(ip net.IP, port int) (net.Conn, error) {
 // We will define states here equivalent to SYN_SENT AND SYN_RECEIVED
 func (p *Proxy) CompleteEndPointAuthorization(downIP net.IP, downPort int, upConn, downConn net.Conn) (bool, error) {
 
-	backendip := downIP.String()
-
 	// If the backend is not a local IP it means that we are a client.
-	if _, ok := p.localIPs[backendip]; !ok {
+	if p.isLocal(upConn) {
 		return p.StartClientAuthStateMachine(downIP, downPort, downConn)
 	}
 
@@ -486,7 +490,8 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	}
 }
 
-func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, reportAction *policy.FlowPolicy, packetAction *policy.FlowPolicy) {
+func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string, destID string, context *pucontext.PUContext, mode string, report *policy.FlowPolicy, actual *policy.FlowPolicy) {
+
 	c := &collector.FlowRecord{
 		ContextID: context.ID(),
 		Source: &collector.EndPoint{
@@ -502,17 +507,17 @@ func (p *Proxy) reportFlow(flowproperties *proxyFlowProperties, sourceID string,
 			Type: flowproperties.DestType,
 		},
 		Tags:        context.Annotations(),
-		Action:      packetAction.Action,
+		Action:      actual.Action,
 		DropReason:  mode,
-		PolicyID:    reportAction.PolicyID,
+		PolicyID:    actual.PolicyID,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceTCP,
 		ServiceID:   flowproperties.ServiceID,
 	}
 
-	if reportAction.ObserveAction.Observed() {
-		c.ObservedAction = packetAction.Action
-		c.ObservedPolicyID = packetAction.PolicyID
+	if report.ObserveAction.Observed() {
+		c.ObservedAction = report.Action
+		c.ObservedPolicyID = report.PolicyID
 	}
 
 	p.collector.CollectFlowEvent(c)
@@ -535,6 +540,18 @@ func (p *Proxy) reportRejectedFlow(flowproperties *proxyFlowProperties, sourceID
 		packet = report
 	}
 	p.reportFlow(flowproperties, sourceID, destID, context, mode, report, packet)
+}
+
+func (p *Proxy) isLocal(conn net.Conn) bool {
+	addrPair := strings.SplitN(conn.RemoteAddr().String(), ":", 2)
+	if len(addrPair) != 2 {
+		return false
+	}
+
+	if _, ok := p.localIPs[addrPair[0]]; ok {
+		return true
+	}
+	return false
 }
 
 func readMsg(reader io.Reader) ([]byte, error) {
