@@ -526,6 +526,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"-p", rule.Protocol,
 							"-d", rule.Address,
 							"--dport", rule.Port,
+							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
 							"-j", "NFLOG", "--nflog-group", "10",
