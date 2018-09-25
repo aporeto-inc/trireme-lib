@@ -2,6 +2,10 @@ package policy
 
 import (
 	"sync"
+	"time"
+
+	"go.aporeto.io/tg/tglib"
+	"go.uber.org/zap"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens"
 )
@@ -45,6 +49,8 @@ type PUPolicy struct {
 	dependentServices ApplicationServicesList
 	// servicesCertificate is the services certificate
 	servicesCertificate string
+	// serviceCertificateExpiration is the time that the certificate expires.
+	serviceCertificateExpiration time.Time
 	// servicePrivateKey is the service private key
 	servicesPrivateKey string
 	// servicesCA is the CA to be used for the outgoing services
@@ -371,8 +377,20 @@ func (p *PUPolicy) UpdateServiceCertificates(cert, key string) {
 	p.Lock()
 	defer p.Unlock()
 
+	if p.servicesCertificate == cert {
+		return
+	}
+
 	p.servicesCertificate = cert
 	p.servicesPrivateKey = key
+
+	certificate, err := tglib.ParseCertificate([]byte(cert))
+	if err != nil {
+		zap.L().Error("Invalid certificate", zap.Error(err))
+		return
+	}
+	p.serviceCertificateExpiration = certificate.NotAfter
+
 }
 
 // ServiceCertificates returns the service certificate.
@@ -381,6 +399,15 @@ func (p *PUPolicy) ServiceCertificates() (string, string, string) {
 	defer p.Unlock()
 
 	return p.servicesCertificate, p.servicesPrivateKey, p.servicesCA
+}
+
+// IsServiceCertificateExpired will return true of the service certificate is expired.
+func (p *PUPolicy) IsServiceCertificateExpired() bool {
+	p.Lock()
+	defer p.Unlock()
+
+	return time.Now().After(p.serviceCertificateExpiration)
+
 }
 
 // Scopes returns the scopes of the policy.
