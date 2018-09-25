@@ -89,11 +89,16 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		dst.Type = collector.EnpointTypePU
 	}
 
+	dropReason := ""
+	if report.Action.Rejected() || packet.Action.Rejected() {
+		dropReason = collector.PolicyDrop
+	}
+
 	record := &collector.FlowRecord{
 		ContextID:   context.ID(),
 		Source:      src,
 		Destination: dst,
-		DropReason:  collector.PolicyDrop,
+		DropReason:  dropReason,
 		Action:      report.Action,
 		Tags:        context.Annotations(),
 		PolicyID:    report.PolicyID,
