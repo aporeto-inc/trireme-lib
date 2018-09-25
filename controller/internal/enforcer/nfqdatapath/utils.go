@@ -75,9 +75,10 @@ func (d *Datapath) reportUDPRejectedFlow(p *packet.Packet, conn *connection.UDPC
 	d.reportFlow(p, sourceID, destID, context, mode, report, packet)
 }
 
-func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, packet *policy.FlowPolicy, app bool, p *packet.Packet, src, dst *collector.EndPoint) {
+func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext, report *policy.FlowPolicy, actual *policy.FlowPolicy, app bool, p *packet.Packet, src, dst *collector.EndPoint) {
 
 	if app {
+		// TODO: report.ServiceID ????
 		src.ID = context.ManagementID()
 		src.Type = collector.EnpointTypePU
 		dst.ID = report.ServiceID
@@ -89,21 +90,26 @@ func (d *Datapath) reportExternalServiceFlowCommon(context *pucontext.PUContext,
 		dst.Type = collector.EnpointTypePU
 	}
 
+	dropReason := ""
+	if report.Action.Rejected() || actual.Action.Rejected() {
+		dropReason = collector.PolicyDrop
+	}
+
 	record := &collector.FlowRecord{
 		ContextID:   context.ID(),
 		Source:      src,
 		Destination: dst,
-		DropReason:  collector.PolicyDrop,
-		Action:      report.Action,
+		DropReason:  dropReason,
+		Action:      actual.Action,
 		Tags:        context.Annotations(),
-		PolicyID:    report.PolicyID,
+		PolicyID:    actual.PolicyID,
 		L4Protocol:  p.IPProto,
 		Count:       1,
 	}
 
 	if report.ObserveAction.Observed() {
-		record.ObservedAction = packet.Action
-		record.ObservedPolicyID = packet.PolicyID
+		record.ObservedAction = report.Action
+		record.ObservedPolicyID = report.PolicyID
 	}
 
 	d.collector.CollectFlowEvent(record)

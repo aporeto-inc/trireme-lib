@@ -17,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/allocator"
 	"go.uber.org/zap"
 )
@@ -42,6 +43,7 @@ type config struct {
 	externalIPcacheTimeout time.Duration
 	targetNetworks         []string
 	proxyPort              int
+	runtimeErrorChannel    chan *policy.RuntimeError
 }
 
 // Option is provided using functional arguments.
@@ -110,6 +112,14 @@ func OptionProcMountPoint(p string) Option {
 	}
 }
 
+// OptionRuntimeErrorChannel configures the error channel for the policy engine.
+func OptionRuntimeErrorChannel(errorChannel chan *policy.RuntimeError) Option {
+	return func(cfg *config) {
+		cfg.runtimeErrorChannel = errorChannel
+	}
+
+}
+
 // OptionPacketLogs is an option to enable packet level logging.
 func OptionPacketLogs() Option {
 	return func(cfg *config) {
@@ -157,6 +167,7 @@ func (t *trireme) newEnforcers(packetdriver datapathdriver.DatapathPacketDriver)
 			t.config.externalIPcacheTimeout,
 			t.config.packetLogs,
 			t.config.targetNetworks,
+			t.config.runtimeErrorChannel,
 		)
 	}
 

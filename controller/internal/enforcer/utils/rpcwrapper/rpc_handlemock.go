@@ -108,7 +108,7 @@ func (m *testRPC) MockCheckValidity(t *testing.T, impl func(req *Request, secret
 
 // NewRPCClient implements the new interface
 func (m *testRPC) NewRPCClient(contextID string, channel string, secret string) error {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.NewRPCClientMock != nil {
+	if mock := m.currentMocks(nil); mock != nil && mock.NewRPCClientMock != nil {
 		return mock.NewRPCClientMock(contextID, channel, secret)
 	}
 	return nil
@@ -116,7 +116,7 @@ func (m *testRPC) NewRPCClient(contextID string, channel string, secret string) 
 
 // GetRPCClient implements the interface with a mock
 func (m *testRPC) GetRPCClient(contextID string) (*RPCHdl, error) {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.GetRPCClientMock != nil {
+	if mock := m.currentMocks(nil); mock != nil && mock.GetRPCClientMock != nil {
 		return mock.GetRPCClientMock(contextID)
 	}
 	return nil, nil
@@ -124,7 +124,7 @@ func (m *testRPC) GetRPCClient(contextID string) (*RPCHdl, error) {
 
 // RemoteCall implements the interface with a mock
 func (m *testRPC) RemoteCall(contextID string, methodName string, req *Request, resp *Response) error {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.RemoteCallMock != nil {
+	if mock := m.currentMocks(nil); mock != nil && mock.RemoteCallMock != nil {
 		return mock.RemoteCallMock(contextID, methodName, req, resp)
 	}
 	return nil
@@ -132,7 +132,7 @@ func (m *testRPC) RemoteCall(contextID string, methodName string, req *Request, 
 
 // DestroyRPCClient implements the interface with a Mock
 func (m *testRPC) DestroyRPCClient(contextID string) {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.DestroyRPCClientMock != nil {
+	if mock := m.currentMocks(nil); mock != nil && mock.DestroyRPCClientMock != nil {
 		mock.DestroyRPCClientMock(contextID)
 		return
 	}
@@ -140,7 +140,7 @@ func (m *testRPC) DestroyRPCClient(contextID string) {
 
 // CheckValidity implements the interface with a mock
 func (m *testRPC) CheckValidity(req *Request, secret string) bool {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.DestroyRPCClientMock != nil {
+	if mock := m.currentMocks(nil); mock != nil && mock.DestroyRPCClientMock != nil {
 		return mock.CheckValidityMock(req, secret)
 	}
 	return false
@@ -148,7 +148,7 @@ func (m *testRPC) CheckValidity(req *Request, secret string) bool {
 
 // StartServer implements the interface with a mock
 func (m *testRPC) StartServer(ctx context.Context, protocol string, path string, handler interface{}) error {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.StartServerMock != nil {
+	if mock := m.currentMocks(nil); mock != nil && mock.StartServerMock != nil {
 		return mock.StartServerMock(ctx, protocol, path, handler)
 	}
 	return nil
@@ -156,7 +156,7 @@ func (m *testRPC) StartServer(ctx context.Context, protocol string, path string,
 
 // ProcessMessage implements the interface with a mock
 func (m *testRPC) ProcessMessage(req *Request, secret string) bool {
-	if mock := m.currentMocks(m.currentTest); mock != nil && mock.ProcessMessageMock != nil {
+	if mock := m.currentMocks(nil); mock != nil && mock.ProcessMessageMock != nil {
 		return mock.ProcessMessageMock(req, secret)
 	}
 	return true
@@ -175,13 +175,17 @@ func (m *testRPC) currentMocks(t *testing.T) *mockedMethods {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	mocks := m.mocks[t]
+	if t == nil {
+		t = m.currentTest
+	} else {
+		m.currentTest = t
+	}
 
+	mocks := m.mocks[t]
 	if mocks == nil {
 		mocks = &mockedMethods{}
 		m.mocks[t] = mocks
 	}
 
-	m.currentTest = t
 	return mocks
 }

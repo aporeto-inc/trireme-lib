@@ -246,7 +246,6 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 
 // Supervise This method calls the supervisor method on the supervisor created during initsupervisor
 func (s *RemoteEnforcer) Supervise(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
-
 	if !s.rpcHandle.CheckValidity(&req, s.rpcSecret) {
 		resp.Status = fmt.Sprintf("supervise message auth failed")
 		return fmt.Errorf(resp.Status)
