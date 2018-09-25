@@ -17,6 +17,7 @@ import (
 func errorCallback(err error, data interface{}) {
 	zap.L().Error("Error while processing packets on queue", zap.Error(err))
 }
+
 func networkCallback(packet *nfqueue.NFPacket, d interface{}) {
 	d.(*Datapath).processNetworkPacketsFromNFQ(packet)
 }
@@ -75,7 +76,7 @@ func (d *Datapath) processNetworkPacketsFromNFQ(p *nfqueue.NFPacket) {
 
 	// Parse the packet - drop if parsing fails
 	netPacket, err := packet.New(packet.PacketTypeNetwork, p.Buffer, strconv.Itoa(int(p.Mark)), true)
-	netPacket.DebugCapture(netPacket.Buffer)
+	netPacket.DebugCapture(netPacket.Buffer, p.QueueHandle.QueueNum)
 
 	if err != nil {
 		netPacket.Print(packet.PacketFailureCreate)
@@ -141,7 +142,7 @@ func (d *Datapath) processApplicationPacketsFromNFQ(p *nfqueue.NFPacket) {
 		copyIndex := copy(buffer, appPacket.Buffer)
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPOptions())
 		copyIndex += copy(buffer[copyIndex:], appPacket.GetTCPData())
-		appPacket.DebugCapture(buffer[:copyIndex])
+		appPacket.DebugCapture(buffer[:copyIndex], p.QueueHandle.QueueNum)
 		p.QueueHandle.SetVerdict2(uint32(p.QueueHandle.QueueNum), 1, uint32(p.Mark), uint32(copyIndex), uint32(p.ID), buffer)
 	} else {
 		buffer := make([]byte, len(appPacket.Buffer))

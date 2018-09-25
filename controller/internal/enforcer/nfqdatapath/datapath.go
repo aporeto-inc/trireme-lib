@@ -414,6 +414,9 @@ func (d *Datapath) Run(ctx context.Context) error {
 	d.startApplicationInterceptor(ctx)
 	d.startNetworkInterceptor(ctx)
 
+	totalQueues := d.filterQueue.GetNumApplicationQueues() + d.filterQueue.GetNumNetworkQueues()
+	packet.InitCapture(totalQueues)
+
 	go d.nflogger.Run(ctx)
 
 	return nil
