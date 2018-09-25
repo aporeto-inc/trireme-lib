@@ -380,6 +380,10 @@ func (p *PUPolicy) UpdateServiceCertificates(cert, key string) {
 	if p.servicesCertificate == cert {
 		return
 	}
+
+	p.servicesCertificate = cert
+	p.servicesPrivateKey = key
+
 	certificate, err := tglib.ParseCertificate([]byte(cert))
 	if err != nil {
 		zap.L().Error("Invalid certificate", zap.Error(err))
@@ -387,8 +391,6 @@ func (p *PUPolicy) UpdateServiceCertificates(cert, key string) {
 	}
 	p.serviceCertificateExpiration = certificate.NotAfter
 
-	p.servicesCertificate = cert
-	p.servicesPrivateKey = key
 }
 
 // ServiceCertificates returns the service certificate.
