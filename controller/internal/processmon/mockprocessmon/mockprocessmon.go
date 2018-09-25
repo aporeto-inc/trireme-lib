@@ -10,6 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	constants "go.aporeto.io/trireme-lib/controller/constants"
 	rpcwrapper "go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
+	policy "go.aporeto.io/trireme-lib/policy"
 )
 
 // MockProcessManager is a mock of ProcessManager interface
@@ -75,4 +76,16 @@ func (m *MockProcessManager) SetLogParameters(logToConsole, logWithID bool, logL
 // nolint
 func (mr *MockProcessManagerMockRecorder) SetLogParameters(logToConsole, logWithID, logLevel, logFormat, compressedTags interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogParameters", reflect.TypeOf((*MockProcessManager)(nil).SetLogParameters), logToConsole, logWithID, logLevel, logFormat, compressedTags)
+}
+
+// SetRuntimeErrorChannel mocks base method
+// nolint
+func (m *MockProcessManager) SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
+	m.ctrl.Call(m, "SetRuntimeErrorChannel", e)
+}
+
+// SetRuntimeErrorChannel indicates an expected call of SetRuntimeErrorChannel
+// nolint
+func (mr *MockProcessManagerMockRecorder) SetRuntimeErrorChannel(e interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRuntimeErrorChannel", reflect.TypeOf((*MockProcessManager)(nil).SetRuntimeErrorChannel), e)
 }

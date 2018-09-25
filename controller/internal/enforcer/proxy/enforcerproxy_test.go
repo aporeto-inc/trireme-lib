@@ -141,7 +141,8 @@ func setupProxyEnforcer(rpchdl rpcwrapper.RPCClient, prochdl processmon.ProcessM
 		defaultExternalIPCacheTimeout,
 		nil,
 		false,
-		[]string{"0.0.0.0/0"})
+		[]string{"0.0.0.0/0"},
+		nil)
 	return policyEnf
 }
 
@@ -151,7 +152,7 @@ func TestNewDefaultProxyEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint, []string{"0.0.0.0/0"})
+		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
@@ -174,7 +175,7 @@ func TestInitRemoteEnforcer(t *testing.T) {
 
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint, []string{"0.0.0.0/0"})
+		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), secretGen(nil, nil, nil), rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
@@ -193,7 +194,7 @@ func TestInitRemoteEnforcer(t *testing.T) {
 	Convey("When I try to start a proxy enforcer with defaults and PKICompactType", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
 		cpki, _ := secrets.NewCompactPKI([]byte(keypem), []byte(certPEM), []byte(caPool), token, constants.CompressionTypeNone)
-		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), cpki, rpchdl, procMountPoint, []string{"0.0.0.0/0"})
+		policyEnf := NewDefaultProxyEnforcer("testServerID", eventCollector(), cpki, rpchdl, procMountPoint, []string{"0.0.0.0/0"}, nil)
 
 		Convey("Then policyEnf should not be nil", func() {
 			So(policyEnf, ShouldNotBeNil)
@@ -218,6 +219,7 @@ func TestEnforce(t *testing.T) {
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
 		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		prochdl.EXPECT().SetRuntimeErrorChannel(gomock.Any())
 		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {
@@ -248,6 +250,7 @@ func TestEnforce(t *testing.T) {
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
 		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		prochdl.EXPECT().SetRuntimeErrorChannel(gomock.Any())
 		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {
@@ -275,6 +278,7 @@ func TestSetTargetNetworks(t *testing.T) {
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
 		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		prochdl.EXPECT().SetRuntimeErrorChannel(gomock.Any())
 		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {
@@ -305,6 +309,7 @@ func TestSetTargetNetworks(t *testing.T) {
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
 		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		prochdl.EXPECT().SetRuntimeErrorChannel(gomock.Any())
 		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {
@@ -330,6 +335,7 @@ func TestUnenforce(t *testing.T) {
 	Convey("When I try to start a proxy enforcer with defaults", t, func() {
 		rpchdl := mockrpcwrapper.NewMockRPCClient(ctrl)
 		prochdl := mockprocessmon.NewMockProcessManager(ctrl)
+		prochdl.EXPECT().SetRuntimeErrorChannel(gomock.Any())
 		policyEnf := setupProxyEnforcer(rpchdl, prochdl)
 
 		Convey("Then policyEnf should not be nil", func() {

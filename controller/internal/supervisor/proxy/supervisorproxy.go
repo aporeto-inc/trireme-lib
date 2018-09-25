@@ -62,7 +62,6 @@ func (s *ProxyInfo) Supervise(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	return nil
-
 }
 
 // Unsupervise exported stops enforcing policy for the given IP.
