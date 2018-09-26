@@ -150,6 +150,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 
 	// Create the proxy sets.
 	if err := i.createProxySets(proxySetName); err != nil {
+		zap.L().Fatal("Proxy Sets")
 		return err
 	}
 
@@ -287,9 +288,10 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 
 	// Create the target network set
 	if err := i.createTargetSet(networks); err != nil {
+		zap.L().Fatal("Failed to create targetset", zap.Error(err))
 		return err
 	}
-
+	zap.L().Error("Created TargetSet")
 	// Insert the ACLS that point to the target networks
 	if err := i.setGlobalRules(i.appPacketIPTableSection, i.netPacketIPTableSection); err != nil {
 		return fmt.Errorf("failed to update synack networks: %s", err)
@@ -336,7 +338,6 @@ func (i *Instance) InitializeChains() error {
 func (i *Instance) configureContainerRules(contextID, appChain, netChain, proxyPortSetName string, puInfo *policy.PUInfo) error {
 
 	proxyPort := puInfo.Runtime.Options().ProxyPort
-
 	return i.addChainRules("", appChain, netChain, "", "", "", "", proxyPort, proxyPortSetName)
 }
 

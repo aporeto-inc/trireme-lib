@@ -3,7 +3,6 @@ package datapathdriver
 import (
 	"context"
 
-	"go.aporeto.io/netlink-go/nfqueue"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	provider "go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
@@ -47,6 +46,12 @@ type DatapathRuleDriver interface {
 // DatapathPacketDriver generic interface to program rules for packet filtering
 type DatapathPacketDriver interface {
 	InitPacketDatpath(mode constants.ModeType) error
-	StartPacketProcessor(ctx context.Context, fqaccessor fqconfig.FilterQueueAccessor, packetCallback func(packet *nfqueue.NFPacket, d interface{}), callbackData interface{}, errorCallback func(err error, data interface{})) error
+	StartPacketProcessor(
+		ctx context.Context,
+		fqaccessor fqconfig.FilterQueueAccessor,
+		packetCallback func(packet *Packet, callbackData interface{}) ([]byte, error),
+		errorCallback func(err error, data interface{}),
+		data interface{},
+	) error
 	StopPacketProcessor(ctx context.Context) error
 }

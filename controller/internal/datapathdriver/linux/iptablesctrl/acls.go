@@ -120,7 +120,6 @@ func (i *Instance) chainRules(appChain string, netChain string, port string, pro
 			"-j", netChain,
 		},
 	}
-
 	return append(rules, i.proxyRules(appChain, netChain, port, proxyPort, proxyPortSetName, "")...)
 }
 
@@ -369,7 +368,7 @@ func (i *Instance) processRulesFromList(rulelist [][]string, methodType string) 
 				if err = i.ipt.Delete(cr[0], cr[1], cr[2:]...); err == nil {
 					break L
 				}
-				zap.L().Warn("Unable to delete rule from chain", zap.Error(err))
+				//zap.L().Warn("Unable to delete rule from chain", zap.Error(err))
 
 			default:
 				return errors.New("invalid method type")
@@ -1042,7 +1041,7 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
-
+	zap.L().Error("Called setGlobal Rules")
 	err := i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,

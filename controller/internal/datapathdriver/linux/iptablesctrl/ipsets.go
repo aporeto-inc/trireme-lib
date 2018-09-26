@@ -43,7 +43,7 @@ func (i *Instance) updateTargetNetworks(old, new []string) error {
 
 // createTargetSet creates a new target set
 func (i *Instance) createTargetSet(networks []string) error {
-
+	zap.L().Error("CreateTargetSet")
 	ips, err := i.ipset.NewIpset(targetNetworkSet, "hash:net", &ipset.Params{})
 	if err != nil {
 		return fmt.Errorf("unable to create ipset for %s: %s", targetNetworkSet, err)

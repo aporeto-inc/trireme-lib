@@ -78,10 +78,6 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 	if err := ruledriver.InitRuleDatapath(filterQueue, mode, portSetInstance); err != nil {
 		return nil, fmt.Errorf("cannot init rule datapath error %s", err)
 	}
-	// impl, err := iptablesctrl.NewInstance(filterQueue, mode, portSetInstance)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("unable to initialize supervisor controllers: %s", err)
-	// }
 
 	if len(networks) == 0 {
 		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
@@ -150,7 +146,7 @@ func (s *Config) Run(ctx context.Context) error {
 	if err := s.impl.Run(ctx); err != nil {
 		return fmt.Errorf("unable to start the implementer: %s", err)
 	}
-
+	zap.L().Error("Called Run")
 	if err := s.impl.SetTargetNetworks([]string{}, s.triremeNetworks); err != nil {
 		return err
 	}
