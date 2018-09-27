@@ -111,7 +111,7 @@ func NewPU(contextID string, puInfo *policy.PUInfo, timeout time.Duration) (*PUC
 	return pu, nil
 }
 
-func createACLRules(rules *policy.IPRuleList, port string, ip string) *policy.IPRuleList {
+func createACLRules(rules *policy.IPRuleList, dnsrule *policy.DNSRule, ip string) *policy.IPRuleList {
 	// ipv6 is not supported
 	if strings.Contains(ip, ":") {
 		return rules
@@ -120,14 +120,9 @@ func createACLRules(rules *policy.IPRuleList, port string, ip string) *policy.IP
 	var rulesAppend policy.IPRuleList
 	rulesAppend = append(*rules, policy.IPRule{
 		Address:  ip,
-		Port:     port,
+		Port:     dnsrule.Port,
 		Protocol: "TCP",
-		Policy: &policy.FlowPolicy{
-			Action:        policy.Accept,
-			ObserveAction: policy.ObserveNone,
-			ServiceID:     "default",
-			PolicyID:      "default",
-		},
+		Policy:   dnsrule.Policy,
 	})
 
 	return &rulesAppend
@@ -138,24 +133,24 @@ func (p *PUContext) dnsToACLs(dnsList *policy.DNSRuleList, ipcache map[string]bo
 	var rules *policy.IPRuleList
 
 	rules = new(policy.IPRuleList)
-	for _, name := range *dnsList {
-		if ips, err := LookupHost(name.Name); err == nil {
+	for _, dnsrule := range *dnsList {
+		if ips, err := LookupHost(dnsrule.Name); err == nil {
 			for _, ip := range ips {
 				if ipcache[ip] == false {
-					rules = createACLRules(rules, name.Port, ip)
+					rules = createACLRules(rules, &dnsrule, ip)
 					ipcache[ip] = true
 				}
 			}
 
 			if len(*rules) > 0 {
-				if err := p.UpdateApplicationACLs(*rules); err != nil {
+				if err = p.UpdateApplicationACLs(*rules); err != nil {
 					zap.L().Error("Error in Adding rules", zap.Error(err))
 				}
 				// empty the contents of the rules
 				rules = new(policy.IPRuleList)
 			}
 		} else {
-			zap.L().Warn("Failed to resolve name", zap.String("name", name.Name))
+			zap.L().Warn("Failed to resolve dnsrule", zap.Error(err))
 		}
 	}
 }
