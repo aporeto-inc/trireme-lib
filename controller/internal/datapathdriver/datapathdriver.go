@@ -28,7 +28,7 @@ func New() (DatapathPacketDriver, DatapathRuleDriver, error) {
 // the passed pointer for handler
 func nfqueueCallBack(packet *nfqueue.NFPacket, data interface{}) {
 	nfqData := data.(*nfqCallbackData)
-	packetData, err := nfqData.packetCallback(
+	packetData, _ := nfqData.packetCallback(
 		&Packet{
 			packetPayload: packet.Buffer,
 			mark:          packet.Mark,
@@ -47,11 +47,10 @@ func nfqueueCallBack(packet *nfqueue.NFPacket, data interface{}) {
 		)
 	}
 	// Send data
-	packet.QueueHandle.SetVerdict2(uint32(
-		packet.QueueHandle.QueueNum),
+	packet.QueueHandle.SetVerdict2(uint32(packet.QueueHandle.QueueNum),
 		1,
 		uint32(packet.Mark),
-		uint32(len(packet.Buffer)),
+		uint32(len(packetData)),
 		uint32(packet.ID),
 		packetData,
 	)

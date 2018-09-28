@@ -38,7 +38,7 @@ func (d *Datapath) startNetworkInterceptor(ctx context.Context) {
 // packets originated from a local application
 func (d *Datapath) startApplicationInterceptor(ctx context.Context) {
 	fqaccessor := fqconfig.NewFilterQueueAccessor(d.filterQueue, "application")
-	if err := d.packetDriver.StartPacketProcessor(ctx, fqaccessor, networkCallback, errorCallback, d); err != nil {
+	if err := d.packetDriver.StartPacketProcessor(ctx, fqaccessor, appCallBack, errorCallback, d); err != nil {
 		zap.L().Fatal("Cannot start application packet processor", zap.Error(err))
 	}
 
