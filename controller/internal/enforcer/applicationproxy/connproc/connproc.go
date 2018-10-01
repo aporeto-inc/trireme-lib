@@ -67,6 +67,7 @@ func WriteMsg(fd int, data []byte) error {
 
 // ReadMsg reads a message from the provided Fd
 func ReadMsg(fd int) (int, []byte, error) {
+
 	msg := make([]byte, 2048)
 	n, _, err := syscall.Recvfrom(fd, msg, 0)
 	return n, msg, err

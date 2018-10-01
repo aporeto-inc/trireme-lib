@@ -11,12 +11,8 @@ type Packet struct {
 	packetID      int
 }
 
-type datapathpacketimpl struct {
-	// filterQueue    *fqconfig.FilterQueue
-	// packetCallback func(packet *Packet, data interface{}) ([]byte, error)
-	// callbackData   interface{}
-	// errorCallback  func(err error, data interface{})
-}
+type datapathpacketimpl struct{}
+
 type datapathruleimpl struct {
 	impl *iptablesctrl.Instance
 }

@@ -28,7 +28,7 @@ func New() (DatapathPacketDriver, DatapathRuleDriver, error) {
 // the passed pointer for handler
 func nfqueueCallBack(packet *nfqueue.NFPacket, data interface{}) {
 	nfqData := data.(*nfqCallbackData)
-	packetData, _ := nfqData.packetCallback(
+	packetData, err := nfqData.packetCallback(
 		&Packet{
 			packetPayload: packet.Buffer,
 			mark:          packet.Mark,
