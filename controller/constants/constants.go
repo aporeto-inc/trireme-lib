@@ -1,12 +1,14 @@
 package constants
 
 const (
-	//DefaultProxyPort  the default port the l4 proxy listens on
+	// DefaultProxyPort  the default port the l4 proxy listens on
 	DefaultProxyPort = "5000"
-	//DefaultProcMountPoint The default proc mountpoint
+	// DefaultProcMountPoint The default proc mountpoint
 	DefaultProcMountPoint = "/proc"
-	//DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
+	// DefaultAporetoProcMountPoint The aporeto proc mountpoint just in case we are launched with some specific docker config
 	DefaultAporetoProcMountPoint = "/aporetoproc"
+	// DefaultSecretsPath is the default path for the secrets proxy.
+	DefaultSecretsPath = "@secrets"
 )
 
 const (
