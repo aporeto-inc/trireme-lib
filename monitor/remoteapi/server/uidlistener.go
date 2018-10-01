@@ -97,6 +97,7 @@ type UIDListener struct {
 	nl *net.UnixListener
 }
 
+// NewUIDListener creates a new UID listener.
 func NewUIDListener(nl *net.UnixListener) *UIDListener {
 	return &UIDListener{nl: nl}
 }

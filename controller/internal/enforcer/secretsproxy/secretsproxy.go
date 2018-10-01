@@ -52,7 +52,7 @@ func NewSecretsProxy() *SecretsProxy {
 }
 
 // Run implements the run method of the CtrlInterface. It starts the proxy
-// server and initializes teh data structures.
+// server and initializes the data structures.
 func (s *SecretsProxy) Run(ctx context.Context) error {
 	s.Lock()
 	defer s.Unlock()
@@ -72,10 +72,10 @@ func (s *SecretsProxy) Run(ctx context.Context) error {
 
 	go func() {
 		<-ctx.Done()
-		s.server.Close()
+		s.server.Close() // nolint errcheck
 	}()
 
-	go s.server.Serve(server.NewUIDListener(nl))
+	go s.server.Serve(server.NewUIDListener(nl)) // nolint errcheck
 
 	return nil
 }
@@ -239,7 +239,7 @@ func (s *SecretsProxy) updateService(ctx context.Context, puInfo *policy.PUInfo)
 		if err != nil {
 			return fmt.Errorf("Failed to create secrets driver: %s", err)
 		}
-		s.drivers.Add(cgroup, d)
+		s.drivers.AddOrUpdate(cgroup, d)
 	}
 	return nil
 }
@@ -265,7 +265,8 @@ func httpError(w http.ResponseWriter, err error, msg string, number int) {
 	http.Error(w, msg, number)
 }
 
-func validateOriginProcess(pid string) (string, error) {
+// ValidateOriginProcess implements a strict validation of the origin process. We might add later.
+func ValidateOriginProcess(pid string) (string, error) {
 
 	pidNumber, err := strconv.Atoi(pid)
 	if err != nil {
