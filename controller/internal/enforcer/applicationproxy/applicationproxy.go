@@ -114,10 +114,9 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	// For updates we need to update the certificates if we have new ones. Otherwise
 	// we return. There is nothing else to do in case of policy update.
 	if c, cerr := p.clients.Get(puID); cerr == nil {
-		zap.L().Error("Processing certificate update")
 		_, perr := p.processCertificateUpdates(puInfo, c.(*clientData), caPoolPEM)
 		if perr != nil {
-			zap.L().Error("Failed to update certificates", zap.Error(perr))
+			zap.L().Error("Failed to update certificates and services", zap.Error(perr))
 			return perr
 		}
 		return p.registerServices(c.(*clientData), puInfo)
@@ -205,7 +204,7 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 			zap.L().Error("Unable to unregister client", zap.Int("type", int(t)), zap.Error(err))
 		}
 		if err := server.ShutDown(); err != nil {
-			zap.L().Error("Unable to shutdown client server", zap.Error(err))
+			zap.L().Debug("Unable to shutdown client server", zap.Error(err))
 		}
 	}
 
@@ -309,7 +308,6 @@ func (p *AppProxy) processCertificateUpdates(puInfo *policy.PUInfo, client *clie
 	// services. If the certificates are nil, we ignore them.
 	certPEM, keyPEM, caPEM := puInfo.Policy.ServiceCertificates()
 	if certPEM == "" || keyPEM == "" {
-		zap.L().Error("Unable to find any service certificate")
 		return false, nil
 	}
 
@@ -369,6 +367,9 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 	portMapping := map[int]int{}
 
 	for _, service := range exposedServices {
+		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
+			continue
+		}
 		port, err := service.PrivateNetworkInfo.Ports.SinglePort()
 		if err == nil {
 			portCache[int(port)] = service.ID

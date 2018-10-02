@@ -102,6 +102,11 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 		return nil, fmt.Errorf("nflog: unable to decode action for context id: %s (%s)", contextID, encodedAction)
 	}
 
+	dropReason := ""
+	if action.Rejected() {
+		dropReason = collector.PolicyDrop
+	}
+
 	// point fix for now.
 	var destination *collector.EndPoint
 	if buf.Protocol == packet.IPProtocolUDP || buf.Protocol == packet.IPProtocolTCP {
@@ -121,6 +126,7 @@ func (a *nfLog) recordFromNFLogBuffer(buf *nflog.NfPacket, puIsSource bool) (*co
 			IP: buf.SrcIP.String(),
 		},
 		Destination: destination,
+		DropReason:  dropReason,
 		PolicyID:    policyID,
 		Tags:        tags,
 		Action:      action,

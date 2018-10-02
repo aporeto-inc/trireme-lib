@@ -342,3 +342,10 @@ type OptionsType struct {
 	// PortMap maps container port -> host ports.
 	PortMap map[nat.Port][]string
 }
+
+// RuntimeError is an error detected by the TriremeController that has to be
+// returned at a later time to the policy engine to take action.
+type RuntimeError struct {
+	ContextID string
+	Error     error
+}

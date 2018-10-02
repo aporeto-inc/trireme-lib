@@ -501,6 +501,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
 							"-d", rule.Address,
 							"--dport", rule.Port,
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-j", "MARK", "--set-mark", observeMark,
 						); err != nil {
@@ -512,6 +513,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"-p", rule.Protocol, "-m", "state", "--state", "NEW",
 							"-d", rule.Address,
 							"--dport", rule.Port,
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"-j", "DROP",
 						); err != nil {
 							return fmt.Errorf("unable to add acl rule for table %s, chain %s: %s", i.appPacketIPTableContext, chain, err)
@@ -526,6 +528,7 @@ func (i *Instance) addTCPAppACLS(contextID, chain string, rules policy.IPRuleLis
 							"-p", rule.Protocol,
 							"-d", rule.Address,
 							"--dport", rule.Port,
+							"-m", "set", "!", "--match-set", targetNetworkSet, "dst",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
 							"-j", "NFLOG", "--nflog-group", "10",
@@ -916,6 +919,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
+							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-j", "MARK", "--set-mark", observeMark,
 						); err != nil {
@@ -927,6 +931,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
+							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
 							"-j", "DROP",
 						); err != nil {
 							return fmt.Errorf("unable to add net acl rule for table %s, netChain %s: %s", i.netPacketIPTableContext, netChain, err)
@@ -941,6 +946,7 @@ func (i *Instance) addTCPNetACLS(contextID, netChain string, rules policy.IPRule
 							"-p", rule.Protocol,
 							"-s", rule.Address,
 							"--dport", rule.Port,
+							"-m", "set", "!", "--match-set", targetNetworkSet, "src",
 							"-m", "mark", "!", "--mark", observeMark,
 							"-m", "state", "--state", "NEW",
 							"-j", "NFLOG", "--nflog-group", "11",
