@@ -13,6 +13,7 @@ const (
 	ServiceL3 ServiceType = iota
 	ServiceHTTP
 	ServiceTCP
+	ServiceSecretsProxy
 )
 
 // ApplicationServicesList is a list of ApplicationServices.
@@ -71,6 +72,10 @@ type ApplicationService struct {
 	// CACert is the certificate of the CA of external services. This allows TLS to
 	// work with external services that use private CAs.
 	CACert []byte
+
+	// AuthToken is the authentication token for any external API service calls. It is
+	// used for example by the secrets proxy.
+	AuthToken string
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule

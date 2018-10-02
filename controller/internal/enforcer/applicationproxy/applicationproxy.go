@@ -204,7 +204,7 @@ func (p *AppProxy) Unenforce(ctx context.Context, puID string) error {
 			zap.L().Error("Unable to unregister client", zap.Int("type", int(t)), zap.Error(err))
 		}
 		if err := server.ShutDown(); err != nil {
-			zap.L().Error("Unable to shutdown client server", zap.Error(err))
+			zap.L().Debug("Unable to shutdown client server", zap.Error(err))
 		}
 	}
 
@@ -367,6 +367,9 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 	portMapping := map[int]int{}
 
 	for _, service := range exposedServices {
+		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
+			continue
+		}
 		port, err := service.PrivateNetworkInfo.Ports.SinglePort()
 		if err == nil {
 			portCache[int(port)] = service.ID
