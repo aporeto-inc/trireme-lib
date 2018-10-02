@@ -536,8 +536,14 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Create the target URI and forward the request.
-	r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	// Create the target URI. Websocket Gorilla proxy takes it from the URL. For normal
+	// connections we don't want that.
+	if forward.IsWebsocketRequest(r) {
+		r.URL, err = url.ParseRequestURI("http://" + originalDestination.String())
+	} else {
+		r.URL, err = url.ParseRequestURI("http://" + r.Host)
+	}
+
 	if err != nil {
 		record.DropReason = collector.InvalidFormat
 		http.Error(w, fmt.Sprintf("Invalid HTTP Host parameter: %s", err), http.StatusBadRequest)
