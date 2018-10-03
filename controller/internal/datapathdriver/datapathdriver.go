@@ -45,6 +45,7 @@ func nfqueueCallBack(packet *nfqueue.NFPacket, data interface{}) {
 			uint32(packet.ID),
 			packet.Buffer,
 		)
+		return
 	}
 	// Send data
 	packet.QueueHandle.SetVerdict2(uint32(packet.QueueHandle.QueueNum),
