@@ -26,10 +26,11 @@ func (p *process) SetLogParameters(logToConsole, logWithID bool, logLevel string
 	return
 }
 
+// SetRuntimeErrorChannel
+func (p *process) SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
+}
+
 // GetProcessManagerHdl returns a handle to processmanager
 func GetProcessManagerHdl() ProcessManager {
 	return &process{}
-}
-
-func SetRuntimeErrorChannel(e chan *policy.RuntimeError) {
 }
