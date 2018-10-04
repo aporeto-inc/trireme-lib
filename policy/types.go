@@ -2,7 +2,6 @@ package policy
 
 import (
 	"errors"
-	"strings"
 
 	"github.com/docker/go-connections/nat"
 	"go.aporeto.io/trireme-lib/common"
@@ -159,6 +158,7 @@ type FlowPolicy struct {
 	Action        ActionType
 	ServiceID     string
 	PolicyID      string
+	Labels        []string
 }
 
 // LogPrefix is the prefix used in nf-log action. It must be less than
@@ -243,24 +243,32 @@ type IPRule struct {
 // IPRuleList is a list of IP rules
 type IPRuleList []IPRule
 
-// Copy creates a clone of the IP rule list
-func (l IPRuleList) Copy() IPRuleList {
+// DNSRule holds the dns names and the assicated ports
+type DNSRule struct {
+	Name     string
+	Port     string
+	Protocol string
+}
 
-	list := make(IPRuleList, len(l))
+// DNSRuleList is a list of DNS rules
+type DNSRuleList []DNSRule
+
+// Copy creates a clone of DNS rule list
+func (l DNSRuleList) Copy() DNSRuleList {
+	list := make(DNSRuleList, len(l))
+
 	for i, v := range l {
 		list[i] = v
 	}
+
 	return list
 }
 
-// Clone creates a clone of the IP rule list based on protocol
-func (l IPRuleList) Clone(proto string) IPRuleList {
-
-	list := IPRuleList{}
-	for _, v := range l {
-		if strings.ToLower(v.Protocol) == proto {
-			list = append(list, v)
-		}
+// Copy creates a clone of the IP rule list
+func (l IPRuleList) Copy() IPRuleList {
+	list := make(IPRuleList, len(l))
+	for i, v := range l {
+		list[i] = v
 	}
 	return list
 }
@@ -333,4 +341,11 @@ type OptionsType struct {
 
 	// PortMap maps container port -> host ports.
 	PortMap map[nat.Port][]string
+}
+
+// RuntimeError is an error detected by the TriremeController that has to be
+// returned at a later time to the policy engine to take action.
+type RuntimeError struct {
+	ContextID string
+	Error     error
 }

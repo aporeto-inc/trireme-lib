@@ -12,7 +12,7 @@ import (
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
-	"go.aporeto.io/trireme-lib/controller/internal/supervisor/provider"
+	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/policy"
 
@@ -61,7 +61,7 @@ type Instance struct {
 // NewInstance creates a new iptables controller instance
 func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset portset.PortSet) (*Instance, error) {
 
-	ipt, err := provider.NewGoIPTablesProvider()
+	ipt, err := provider.NewGoIPTablesProvider([]string{"mangle"})
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize iptables provider: %s", err)
 	}
@@ -153,7 +153,11 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 	}
 
 	// Install all the rules
-	return i.installRules(contextID, appChain, netChain, proxySetName, containerInfo)
+	if err := i.installRules(contextID, appChain, netChain, proxySetName, containerInfo); err != nil {
+		return err
+	}
+
+	return i.ipt.Commit()
 }
 
 // DeleteRules implements the DeleteRules interface
@@ -174,13 +178,21 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 
+	if err := i.ipt.Commit(); err != nil {
+		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
+	}
+
 	if uid != "" {
 		if err := i.deleteUIDSets(contextID, uid, mark); err != nil {
 			return err
 		}
 	}
 
-	return i.deleteProxySets(proxyPortSetName)
+	if err := i.deleteProxySets(proxyPortSetName); err != nil {
+		zap.L().Warn("Failed to delete proxy sets", zap.Error(err))
+	}
+
+	return nil
 }
 
 // UpdateRules implements the update part of the interface. Update will call
@@ -226,7 +238,11 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 	}
 
 	// Delete the old chain to clean up
-	return i.deleteAllContainerChains(oldAppChain, oldNetChain)
+	if err := i.deleteAllContainerChains(oldAppChain, oldNetChain); err != nil {
+		return err
+	}
+
+	return i.ipt.Commit()
 }
 
 // Run starts the iptables controller
@@ -270,12 +286,8 @@ func (i *Instance) CleanUp() error {
 // SetTargetNetworks updates ths target networks for SynAck packets
 func (i *Instance) SetTargetNetworks(current, networks []string) error {
 
-	if len(networks) == 0 {
-		networks = []string{"0.0.0.0/1", "128.0.0.0/1"}
-	}
-
 	// Cleanup old ACLs
-	if len(current) > 0 {
+	if len(current) > 0 && i.targetSet != nil {
 		return i.updateTargetNetworks(current, networks)
 	}
 
@@ -324,6 +336,11 @@ func (i *Instance) InitializeChains() error {
 	}
 
 	return nil
+}
+
+// ACLProvider returns the current ACL provider that can be re-used by other entities.
+func (i *Instance) ACLProvider() provider.IptablesProvider {
+	return i.ipt
 }
 
 // configureContainerRule adds the chain rules for a container.

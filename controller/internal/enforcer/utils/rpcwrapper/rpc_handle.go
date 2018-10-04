@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
+	"sync"
 
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
 	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
@@ -17,7 +18,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"net/rpc"
@@ -37,8 +37,6 @@ type RPCHdl struct {
 // RPCWrapper  is a struct which holds stats for all rpc sesions
 type RPCWrapper struct {
 	rpcClientMap *cache.Cache
-	contextList  []string
-
 	sync.Mutex
 }
 
@@ -49,7 +47,6 @@ func NewRPCWrapper() *RPCWrapper {
 
 	return &RPCWrapper{
 		rpcClientMap: cache.NewCache("RPCWrapper"),
-		contextList:  []string{},
 	}
 }
 
@@ -60,6 +57,9 @@ const (
 
 // NewRPCClient exported
 func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret string) error {
+
+	r.Lock()
+	defer r.Unlock()
 
 	max := maxRetries
 	retries := os.Getenv(envRetryString)
@@ -79,16 +79,17 @@ func (r *RPCWrapper) NewRPCClient(contextID string, channel string, sharedsecret
 		client, err = rpc.DialHTTP("unix", channel)
 	}
 
-	r.Lock()
-	r.contextList = append(r.contextList, contextID)
-	r.Unlock()
+	r.rpcClientMap.AddOrUpdate(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
 
-	return r.rpcClientMap.Add(contextID, &RPCHdl{Client: client, Channel: channel, Secret: sharedsecret})
+	return nil
 
 }
 
 // GetRPCClient gets a handle to the rpc client for the contextID( enforcer in the container)
 func (r *RPCWrapper) GetRPCClient(contextID string) (*RPCHdl, error) {
+
+	r.Lock()
+	defer r.Unlock()
 
 	val, err := r.rpcClientMap.Get(contextID)
 	if err != nil {
@@ -196,6 +197,8 @@ func (r *RPCWrapper) StartServer(ctx context.Context, protocol string, path stri
 
 // DestroyRPCClient calls close on the rpc and cleans up the connection
 func (r *RPCWrapper) DestroyRPCClient(contextID string) {
+	r.Lock()
+	defer r.Unlock()
 
 	rpcHdl, err := r.rpcClientMap.Get(contextID)
 	if err != nil {
@@ -226,9 +229,14 @@ func (r *RPCWrapper) DestroyRPCClient(contextID string) {
 
 // ContextList returns the list of active context managed by the rpcwrapper
 func (r *RPCWrapper) ContextList() []string {
-	r.Lock()
-	defer r.Unlock()
-	return r.contextList
+	keylist := r.rpcClientMap.KeyList()
+	contextArray := []string{}
+	for _, key := range keylist {
+		if kstring, ok := key.(string); ok {
+			contextArray = append(contextArray, kstring)
+		}
+	}
+	return contextArray
 }
 
 // ProcessMessage checks if the given request is valid
@@ -268,4 +276,5 @@ func RegisterTypes() {
 	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.UnSupervise_Payload", *(&UnSupervisePayload{}))
 	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.Stats_Payload", *(&StatsPayload{}))
 	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.UpdateSecrets_Payload", *(&UpdateSecretsPayload{}))
+	gob.RegisterName("go.aporeto.io/enforcer/utils/rpcwrapper.SetTarget_Networks", *(&SetTargetNetworks{}))
 }

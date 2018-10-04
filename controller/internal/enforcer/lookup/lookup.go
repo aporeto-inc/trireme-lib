@@ -196,11 +196,12 @@ func (m *PolicyDB) Search(tags *policy.TagStore) (int, interface{}) {
 	// Go through the list of tags
 	for _, t := range copiedTags {
 
+		// Search for matches of t (tag id)
+		if index, action := searchInMapTable(m.equalIDMapTable[t], count, skip); index >= 0 {
+			return index, action
+		}
+
 		if err := m.tagSplit(t, &k, &v); err != nil {
-			// Search for matches of t (tag id)
-			if index, action := searchInMapTable(m.equalIDMapTable[t], count, skip); index >= 0 {
-				return index, action
-			}
 			continue
 		}
 

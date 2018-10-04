@@ -13,6 +13,7 @@ const (
 	ServiceL3 ServiceType = iota
 	ServiceHTTP
 	ServiceTCP
+	ServiceSecretsProxy
 )
 
 // ApplicationServicesList is a list of ApplicationServices.
@@ -33,6 +34,17 @@ type ApplicationService struct {
 	// as seen by the application. For example the port that the application is
 	// listening to. This is needed in the case of port mappings.
 	PrivateNetworkInfo *common.Service
+
+	// PublicNetworkInfo provides the network information where the enforcer
+	// should listen for incoming connections of the service. This can be
+	// different than the PrivateNetworkInfo where the application is listening
+	// and it essentially allows users to create Virtual IPs and Virtual Ports
+	// for the new exposed TLS services. So, if an application is listening
+	// on port 80, users do not need to access the application from external
+	// network through TLS on port 80, that looks weird. They can instead create
+	// a PublicNetworkInfo and have the trireme listen on port 443, while the
+	// application is still listening on port 80.
+	PublicNetworkInfo *common.Service
 
 	// Type is the type of the service.
 	Type ServiceType
@@ -60,6 +72,10 @@ type ApplicationService struct {
 	// CACert is the certificate of the CA of external services. This allows TLS to
 	// work with external services that use private CAs.
 	CACert []byte
+
+	// AuthToken is the authentication token for any external API service calls. It is
+	// used for example by the secrets proxy.
+	AuthToken string
 }
 
 // HTTPRule holds a rule for a particular HTTPService. The rule

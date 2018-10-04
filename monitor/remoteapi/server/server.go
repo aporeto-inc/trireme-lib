@@ -234,7 +234,7 @@ func validateEvent(event *common.EventInfo) error {
 	}
 
 	if event.EventType == common.EventStop || event.EventType == common.EventDestroy {
-		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
+		regStop := regexp.MustCompile("^/trireme/[a-zA-Z0-9_]{1,11}$")
 		if event.Cgroup != "" && !regStop.Match([]byte(event.Cgroup)) {
 			return fmt.Errorf("Cgroup is not of the right format")
 		}

@@ -44,6 +44,7 @@ type ProxyInfo struct {
 	ExternalIPCacheTimeout time.Duration
 	portSetInstance        portset.PortSet
 	collector              collector.EventCollector
+	targetNetworks         []string
 	sync.RWMutex
 }
 
@@ -61,6 +62,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 			ExternalIPCacheTimeout: s.ExternalIPCacheTimeout,
 			PacketLogs:             s.PacketLogs,
 			Secrets:                s.Secrets.PublicSecrets(),
+			TargetNetworks:         s.targetNetworks,
 		},
 	}
 
@@ -69,7 +71,7 @@ func (s *ProxyInfo) InitRemoteEnforcer(contextID string) error {
 	}
 
 	if resp.Status != "" {
-		zap.L().Warn("received status while initializing the remote enforcer", zap.String("contextID", resp.Status))
+		zap.L().Error("received status while initializing the remote enforcer", zap.String("contextID", resp.Status))
 	}
 
 	s.Lock()
@@ -103,8 +105,15 @@ func (s *ProxyInfo) UpdateSecrets(token secrets.Secrets) error {
 
 // Enforce method makes a RPC call for the remote enforcer enforce method
 func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
-
-	err := s.prochdl.LaunchProcess(contextID, puInfo.Runtime.Pid(), puInfo.Runtime.NSPath(), s.rpchdl, s.commandArg, s.statsServerSecret, s.procMountPoint)
+	err := s.prochdl.LaunchProcess(
+		contextID,
+		puInfo.Runtime.Pid(),
+		puInfo.Runtime.NSPath(),
+		s.rpchdl,
+		s.commandArg,
+		s.statsServerSecret,
+		s.procMountPoint,
+	)
 	if err != nil {
 		return err
 	}
@@ -156,6 +165,25 @@ func (s *ProxyInfo) Unenforce(contextID string) error {
 	return nil
 }
 
+// SetTargetNetworks does the RPC call for SetTargetNetworks to the corresponding
+// remote enforcers
+func (s *ProxyInfo) SetTargetNetworks(networks []string) error {
+	resp := &rpcwrapper.Response{}
+	request := &rpcwrapper.Request{
+		Payload: &rpcwrapper.SetTargetNetworks{
+			TargetNetworks: networks,
+		},
+	}
+
+	for _, contextID := range s.rpchdl.ContextList() {
+		if err := s.rpchdl.RemoteCall(contextID, remoteenforcer.SetTargetNetworks, request, resp); err != nil {
+			return fmt.Errorf("Failed to update secrets. status %s: %s", resp.Status, err)
+		}
+	}
+
+	return nil
+}
+
 // GetFilterQueue returns the current FilterQueueConfig.
 func (s *ProxyInfo) GetFilterQueue() *fqconfig.FilterQueue {
 	return s.filterQueue
@@ -191,7 +219,10 @@ func NewProxyEnforcer(mutualAuth bool,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	packetLogs bool,
+	targetNetworks []string,
+	runtimeError chan *policy.RuntimeError,
 ) enforcer.Enforcer {
+
 	return newProxyEnforcer(
 		mutualAuth,
 		filterQueue,
@@ -202,11 +233,13 @@ func NewProxyEnforcer(mutualAuth bool,
 		validity,
 		rpchdl,
 		cmdArg,
-		processmon.GetProcessManagerHdl(),
+		nil,
 		procMountPoint,
 		ExternalIPCacheTimeout,
 		nil,
 		packetLogs,
+		targetNetworks,
+		runtimeError,
 	)
 }
 
@@ -220,11 +253,13 @@ func newProxyEnforcer(mutualAuth bool,
 	validity time.Duration,
 	rpchdl rpcwrapper.RPCClient,
 	cmdArg string,
-	procHdl processmon.ProcessManager,
+	processmonitor processmon.ProcessManager,
 	procMountPoint string,
 	ExternalIPCacheTimeout time.Duration,
 	portSetInstance portset.PortSet,
 	packetLogs bool,
+	targetNetworks []string,
+	runtimeError chan *policy.RuntimeError,
 ) enforcer.Enforcer {
 
 	statsServersecret, err := crypto.GenerateRandomString(32)
@@ -235,12 +270,17 @@ func newProxyEnforcer(mutualAuth bool,
 		statsServersecret = time.Now().String()
 	}
 
+	if processmonitor == nil {
+		processmonitor = processmon.GetProcessManagerHdl()
+	}
+	processmonitor.SetRuntimeErrorChannel(runtimeError)
+
 	proxydata := &ProxyInfo{
 		MutualAuth:             mutualAuth,
 		Secrets:                secrets,
 		serverID:               serverID,
 		validity:               validity,
-		prochdl:                procHdl,
+		prochdl:                processmonitor,
 		rpchdl:                 rpchdl,
 		initDone:               make(map[string]bool),
 		filterQueue:            filterQueue,
@@ -251,6 +291,7 @@ func newProxyEnforcer(mutualAuth bool,
 		PacketLogs:             packetLogs,
 		portSetInstance:        portSetInstance,
 		collector:              collector,
+		targetNetworks:         targetNetworks,
 	}
 
 	return proxydata
@@ -262,6 +303,8 @@ func NewDefaultProxyEnforcer(serverID string,
 	secrets secrets.Secrets,
 	rpchdl rpcwrapper.RPCClient,
 	procMountPoint string,
+	targetNetworks []string,
+	runtimeError chan *policy.RuntimeError,
 ) enforcer.Enforcer {
 
 	mutualAuthorization := false
@@ -285,6 +328,8 @@ func NewDefaultProxyEnforcer(serverID string,
 		procMountPoint,
 		defaultExternalIPCacheTimeout,
 		defaultPacketLogs,
+		targetNetworks,
+		runtimeError,
 	)
 }
 
