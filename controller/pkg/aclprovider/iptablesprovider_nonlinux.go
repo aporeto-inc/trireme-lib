@@ -41,11 +41,7 @@ const (
 // external package.
 func NewGoIPTablesProvider(batchTables []string) (*BatchProvider, error) {
 
-	return &BatchProvider{
-		ipt:         nil,
-		rules:       map[string]map[string][]string{},
-		batchTables: nil,
-	}, nil
+	return &BatchProvider{}, nil
 }
 
 // Append will append the provided rule to the local cache or call
