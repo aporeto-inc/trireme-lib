@@ -106,5 +106,5 @@ func (b *BatchProvider) restore() error {
 }
 
 func restoreHasWait() bool {
-
+	return false
 }
