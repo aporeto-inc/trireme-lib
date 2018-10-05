@@ -1,3 +1,5 @@
+// +build linux
+
 package provider
 
 import (
@@ -9,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/coreos/go-iptables/iptables"
-	"github.com/hashicorp/go-version"
 	"go.uber.org/zap"
 )
 
