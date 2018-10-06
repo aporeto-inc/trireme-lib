@@ -66,8 +66,8 @@ func (l *LinuxMonitor) SetupConfig(registerer registerer.Registerer, cfg interfa
 	l.proc.host = linuxConfig.Host
 	l.proc.netcls = cgnetcls.NewCgroupNetController(common.TriremeCgroupPath, linuxConfig.ReleasePath)
 
-	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_].{0,11}$")
-	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_].{0,11}$")
+	l.proc.regStart = regexp.MustCompile("^[a-zA-Z0-9_]{1,11}$")
+	l.proc.regStop = regexp.MustCompile("^/trireme/[a-zA-Z0-9_]{1,11}$")
 
 	l.proc.metadataExtractor = linuxConfig.EventMetadataExtractor
 	if l.proc.metadataExtractor == nil {
