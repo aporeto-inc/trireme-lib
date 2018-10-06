@@ -103,12 +103,18 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	defer p.Unlock()
 
 	// First update the caches with the new policy information.
-	authProcessor := auth.NewProcessor(p.secrets, nil)
+	var authProcessor *auth.Processor
+	if cachedProcessor, err := p.authProcessorCache.Get(puID); err == nil {
+		authProcessor = cachedProcessor.(*auth.Processor)
+		authProcessor.UpdateSecrets(p.secrets, nil)
+	} else {
+		authProcessor = auth.NewProcessor(p.secrets, nil)
+		p.authProcessorCache.AddOrUpdate(puID, authProcessor)
+	}
+
 	portCache, portMapping := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
 	dependentCache, caPoolPEM := buildDependentCaches(puInfo.Policy.DependentServices())
-	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
-
 	caPool := p.expandCAPool(caPoolPEM)
 
 	// For updates we need to update the certificates if we have new ones. Otherwise
@@ -365,6 +371,7 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[int]string, map[int]int) {
 	portCache := map[int]string{}
 	portMapping := map[int]int{}
+	usedServices := map[string]bool{}
 
 	for _, service := range exposedServices {
 		if service.Type != policy.ServiceHTTP && service.Type != policy.ServiceTCP {
@@ -390,8 +397,10 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 			continue
 		}
 		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
+		usedServices[service.ID] = true
 		p.AddOrUpdateService(service.ID, ruleCache, service.JWTTokenHandler, service.JWTClaimMappings)
 	}
+	p.RemoveUnusedServices(usedServices)
 	return portCache, portMapping
 }
 

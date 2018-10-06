@@ -50,7 +50,6 @@ type Config struct {
 	keyPEM             string
 	certPEM            string
 	secrets            secrets.Secrets
-	verifier           *servicetokens.Verifier
 	collector          collector.EventCollector
 	puContext          string
 	localIPs           map[string]struct{}
@@ -93,7 +92,6 @@ func NewHTTPProxy(
 		applicationProxy:   applicationProxy,
 		mark:               mark,
 		secrets:            secrets,
-		verifier:           servicetokens.NewVerifier(secrets, nil),
 		portCache:          portCache,
 		portMapping:        portMapping,
 		localIPs:           connproc.GetInterfaces(),
