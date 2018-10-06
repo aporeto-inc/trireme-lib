@@ -39,6 +39,10 @@ const (
 	proxyMark                = "0x40"
 	// ProxyPort DefaultProxyPort
 	ProxyPort = "5000"
+	// TriremeInput ...
+	TriremeInput = "TRIREME-INPUT"
+	// TriremeOutput ...
+	TriremeOutput = "TRIREME-OUTPUT"
 )
 
 // Instance  is the structure holding all information about a implementation
@@ -294,6 +298,14 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	// Create the target network set
 	if err := i.createTargetSet(networks); err != nil {
 		return err
+	}
+
+	// add Trireme-Input and Trireme-Output chains.
+	if i.mode == constants.LocalServer {
+		if err := i.addContainerChain(TriremeOutput, TriremeInput); err != nil {
+			return fmt.Errorf("Unable to add trireme input/output chains:%s", err)
+		}
+
 	}
 
 	// Insert the ACLS that point to the target networks

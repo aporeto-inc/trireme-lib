@@ -26,7 +26,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
-			i.appCgroupIPTableSection,
+			TriremeOutput,
 			"-m", "cgroup", "--cgroup", mark,
 			"-m", "comment", "--comment", "Server-specific-chain",
 			"-j", "MARK", "--set-mark", mark,
@@ -43,7 +43,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	if tcpPorts != "0" {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
+			TriremeInput,
 			"-p", "tcp",
 			"-m", "multiport",
 			"--destination-ports", tcpPorts,
@@ -55,7 +55,7 @@ func (i *Instance) cgroupChainRules(appChain string, netChain string, mark strin
 	if udpPorts != "0" {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
+			TriremeInput,
 			"-p", "udp",
 			"-m", "multiport",
 			"--destination-ports", udpPorts,
@@ -327,6 +327,20 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 	})
 
 	return rules
+}
+
+// addTriremeChains adds Trireme-Input and Trireme-Output chains.
+func (i *Instance) addTriremeChains(appChain string, netChain string) error {
+
+	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
+		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
+	}
+
+	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
+		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
+	}
+
+	return nil
 }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
@@ -1325,6 +1339,17 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
+	// Add Trireme OUTPUT chain
+	if i.mode == constants.LocalServer {
+		err := i.ipt.Insert(
+			i.appPacketIPTableContext,
+			appChain, 1,
+			"-j", TriremeOutput)
+		if err != nil {
+			return fmt.Errorf("unable to add default trireme-output app chain: %s", err)
+		}
+	}
+
 	err := i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
@@ -1382,6 +1407,26 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at net: %s", err)
+	}
+
+	// Add Trireme OUTPUT chain
+	if i.mode == constants.LocalServer {
+		// create a new chain and hang pus out of chain
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			appChain, 1,
+			"-j", TriremeOutput)
+		if err != nil {
+			return fmt.Errorf("unable to add default trireme-input app chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			appChain, 1,
+			"-j", TriremeOutput)
+		if err != nil {
+			return fmt.Errorf("unable to add default trireme-input app chain: %s", err)
+		}
 	}
 
 	err = i.ipt.Insert(
