@@ -3,6 +3,7 @@ package iptablesctrl
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -99,6 +100,7 @@ func TestConfigureRules(t *testing.T) {
 				return nil
 			})
 			err := i.ConfigureRules(1, "Context", containerinfo)
+			fmt.Println("Error is ", err)
 			//This will fail for ipset since we need to run this as root for ipsets
 			Convey("It should succeed", func() {
 				//This is erroring since ipset creation is not available to a unpriveleged user
@@ -235,7 +237,7 @@ func TestDeleteRules(t *testing.T) {
 			iptables.MockDeleteChain(t, func(table string, chain string) error {
 				return nil
 			})
-			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000")
+			err := i.DeleteRules(1, "context", "0", "0", "", "", "5000", false)
 			So(err, ShouldBeNil)
 		})
 
