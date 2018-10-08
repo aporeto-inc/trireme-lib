@@ -15,10 +15,10 @@ import (
 
 	"github.com/shirou/gopsutil/process"
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
-    portspec "go.aporeto.io/trireme-lib/utils/portspec"
-    "go.aporeto.io/trireme-lib/controller/constants"
+	portspec "go.aporeto.io/trireme-lib/utils/portspec"
 	"go.uber.org/zap"
 )
 
@@ -273,9 +273,9 @@ func GetPuType(runtime policy.RuntimeReader) string {
 // IsHostmodePU returns true if puType stored by policy extensions is hostmode PU
 func IsHostmodePU(runtime policy.RuntimeReader, mode constants.ModeType) bool {
 
-    if mode != constants.LocalServer {
-        return false
-    }
+	if mode != constants.LocalServer {
+		return false
+	}
 
 	if e := policyExtensions(runtime); e != nil {
 		putype, ok := e.Get(PuType)

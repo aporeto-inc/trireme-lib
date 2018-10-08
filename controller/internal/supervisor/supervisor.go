@@ -131,7 +131,6 @@ func (s *Config) Unsupervise(contextID string) error {
 	// If local server, delete pu specific chains in Trireme/Hostmode chains.
 	isHostmode := extractors.IsHostmodePU(cfg.containerInfo.Runtime, s.mode)
 
-	
 	if err := s.impl.DeleteRules(cfg.version, contextID, cfg.tcpPorts, cfg.udpPorts, cfg.mark, cfg.uid, port, isHostmode); err != nil {
 		zap.L().Warn("Some rules were not deleted during unsupervise", zap.Error(err))
 	}
