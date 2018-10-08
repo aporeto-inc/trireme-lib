@@ -128,7 +128,7 @@ func (d *Datapath) processApplicationPacketsFromWinDivert(datapathhdl uintptr, w
 	// writeLen := uint(len(data))
 	// err := windivertHdl.WinDivertSend(datapathhdl, data, recvAddr, &writeLen)
 	// zap.L().Error("Application Send Error", zap.Error(err))
-	netPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(int(100)))
+	netPacket, err := packet.New(packet.PacketTypeApplication, data, strconv.Itoa(int(100)), true)
 
 	if err != nil {
 		fmt.Println(hex.Dump(data))
@@ -173,7 +173,7 @@ func (d *Datapath) processNetworkPacketsFromWindivert(datapathhdl uintptr, windi
 	// err := windivertHdl.WinDivertSend(datapathhdl, data, recvAddr, &writeLen)
 	// zap.L().Error("Network Send Error", zap.Error(err))
 	// Parse the packet - drop if parsing fails
-	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(int(100)))
+	netPacket, err := packet.New(packet.PacketTypeNetwork, data, strconv.Itoa(int(100)), true)
 
 	if err != nil {
 		if netPacket == nil {
