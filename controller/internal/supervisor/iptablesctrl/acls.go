@@ -94,7 +94,7 @@ func (i *Instance) uidChainRules(portSetName, appChain string, netChain string, 
 		},
 		{
 			i.netPacketIPTableContext,
-			i.netPacketIPTableSection,
+			uidInput,
 			"-p", "tcp",
 			"-m", "mark",
 			"--mark", mark,
@@ -1302,7 +1302,7 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 				}
 			}
 
-			// Insert the pu chains at the correct sections.
+			// Delete the old pu chains at the correct sections.
 			appSection := TriremeOutput
 			netSection := TriremeInput
 
@@ -1449,7 +1449,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			netChain, 1,
 			"-j", HostmodeInput)
 		if err != nil {
-			return fmt.Errorf("unable to add default trireme-input app chain: %s", err)
+			return fmt.Errorf("unable to add default hostmode-input net chain: %s", err)
 		}
 
 		err = i.ipt.Insert(
@@ -1457,7 +1457,15 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 			netChain, 1,
 			"-j", TriremeInput)
 		if err != nil {
-			return fmt.Errorf("unable to add default trireme-input app chain: %s", err)
+			return fmt.Errorf("unable to add default trireme-input net chain: %s", err)
+		}
+
+		err = i.ipt.Insert(
+			i.appPacketIPTableContext,
+			netChain, 1,
+			"-j", uidInput)
+		if err != nil {
+			return fmt.Errorf("unable to add default uid-input net chain: %s", err)
 		}
 	}
 
@@ -1644,6 +1652,13 @@ func (i *Instance) CleanAllSynAckPacketCaptures() error {
 			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
 		}
 		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidchain); err != nil {
+			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
+		}
+
+		if err := i.ipt.ClearChain(i.appPacketIPTableContext, uidInput); err != nil {
+			zap.L().Debug("Cannot clear UID Chain", zap.Error(err))
+		}
+		if err := i.ipt.DeleteChain(i.appPacketIPTableContext, uidInput); err != nil {
 			zap.L().Debug("Cannot delete UID Chain", zap.Error(err))
 		}
 	}
@@ -1853,7 +1868,6 @@ func (i *Instance) cleanACLSection(context, netSection, appSection, preroutingSe
 	}
 
 	rules, err := i.ipt.ListChains(context)
-	zap.L().Info("Rules are", zap.Reflect("rules", rules))
 	if err != nil {
 		zap.L().Warn("Failed to list chains",
 			zap.String("context", context),

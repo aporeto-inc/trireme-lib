@@ -23,6 +23,7 @@ import (
 
 const (
 	uidchain         = "UIDCHAIN"
+	uidInput         = "UIDInput"
 	chainPrefix      = "TRIREME-"
 	appChainPrefix   = chainPrefix + "App-"
 	netChainPrefix   = chainPrefix + "Net-"
@@ -324,7 +325,12 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 func (i *Instance) InitializeChains() error {
 
 	if i.mode == constants.LocalServer {
+
 		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidchain); err != nil {
+			return err
+		}
+
+		if err := i.ipt.NewChain(i.appPacketIPTableContext, uidInput); err != nil {
 			return err
 		}
 
