@@ -71,7 +71,6 @@ func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, ha
 func (p *Processor) RemoveUnusedServices(validServices map[string]bool) {
 	p.Lock()
 	defer p.Unlock()
-
 	for service := range p.serviceMap {
 		if _, ok := validServices[service]; !ok {
 			delete(p.serviceMap, service)

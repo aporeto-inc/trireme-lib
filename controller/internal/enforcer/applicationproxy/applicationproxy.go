@@ -35,6 +35,7 @@ const (
 type ServerInterface interface {
 	RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error
 	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool, secrets secrets.Secrets, certPEM, keyPEM string)
+	UpdateCaches(portCache map[int]string, portMapping map[int]int)
 	ShutDown() error
 }
 
@@ -125,7 +126,15 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 			zap.L().Error("Failed to update certificates and services", zap.Error(perr))
 			return perr
 		}
-		return p.registerServices(c.(*clientData), puInfo)
+		client, ok := c.(*clientData)
+		if !ok {
+			zap.L().Error("Internal server error - wrong data")
+			return fmt.Errorf("bad data")
+		}
+		for _, server := range client.netserver {
+			server.UpdateCaches(portCache, portMapping)
+		}
+		return p.registerServices(client, puInfo)
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
@@ -163,7 +172,6 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
-	client.netserver[protomux.TCPNetwork].(*tcp.Proxy).UpdatePortCache(portCache)
 
 	if err := p.registerServices(client, puInfo); err != nil {
 		return fmt.Errorf("Unable to register services: %s ", err)
@@ -295,7 +303,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, caPool, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets, portCache, portMapping)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
-		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, caPool)
+		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, caPool, portCache)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }
