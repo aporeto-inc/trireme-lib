@@ -21,15 +21,10 @@ const (
 	udpProto    = "udp"
 )
 
-func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string, isHostMode bool) [][]string {
+func (i *Instance) cgroupChainRules(appChain string, netChain string, mark string, tcpPorts, udpPorts string, uid string, proxyPort string, proxyPortSetName string, appSection, netSection string) [][]string {
 
-	iptableCgroupSection := TriremeOutput
-	iptableNetSection := TriremeInput
-
-	if isHostMode {
-		iptableCgroupSection = HostmodeOutput
-		iptableNetSection = HostmodeInput
-	}
+	iptableCgroupSection := appSection
+	iptableNetSection := netSection
 
 	rules := [][]string{
 		{
@@ -430,7 +425,16 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 					return fmt.Errorf("Unable to add nat rule for udp: %s", err)
 				}
 			}
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, isHostMode), "Append")
+
+			appSection := TriremeOutput
+			netSection := TriremeInput
+			// Add app section
+			if isHostMode {
+				appSection = HostmodeOutput
+				netSection = HostmodeInput
+			}
+
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Append")
 		}
 
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Append")
@@ -1297,7 +1301,17 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 					return fmt.Errorf("Unable to delete nat rule for udp: %s", err)
 				}
 			}
-			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, isHostMode), "Delete")
+
+			// Insert the pu chains at the correct sections.
+			appSection := TriremeOutput
+			netSection := TriremeInput
+
+			if isHostMode {
+				appSection = HostmodeOutput
+				netSection = HostmodeInput
+			}
+
+			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Delete")
 		}
 		portSetName := puPortSetName(contextID, PuPortSet)
 		return i.processRulesFromList(i.uidChainRules(portSetName, appChain, netChain, mark, tcpPorts, uid, proxyPort, proxyPortSetName), "Delete")
