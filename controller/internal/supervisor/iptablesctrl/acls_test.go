@@ -127,6 +127,14 @@ func TestAddChainRules(t *testing.T) {
 			So(err, ShouldBeNil)
 		})
 
+		Convey("When I add the chain rules for hostmode and they succeed", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", true)
+			So(err, ShouldBeNil)
+		})
+
 		Convey("When I add the chain rules and the appPacketIPTableContext fails ", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				if table == i.appPacketIPTableContext {
@@ -135,6 +143,17 @@ func TestAddChainRules(t *testing.T) {
 				return nil
 			})
 			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
+			So(err, ShouldNotBeNil)
+		})
+
+		Convey("When I add the chain rules and the appPacketIPTableContext fails in hostmode ", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.appPacketIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", true)
 			So(err, ShouldNotBeNil)
 		})
 
@@ -148,6 +167,18 @@ func TestAddChainRules(t *testing.T) {
 			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", false)
 			So(err, ShouldNotBeNil)
 		})
+
+		Convey("When I add the chain rules and the netPacketIPtableContext fails in hostmode ", func() {
+			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
+				if table == i.netPacketIPTableContext {
+					return errors.New("error")
+				}
+				return nil
+			})
+			err := i.addChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSet", true)
+			So(err, ShouldNotBeNil)
+		})
+
 		Convey("When i add chain rules with non-zero uid and port 0", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
@@ -639,6 +670,23 @@ func TestDeleteChainRules(t *testing.T) {
 			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", false)
 			So(err, ShouldBeNil)
 
+		})
+
+		Convey("When I delete the chain rules and it fails in hostmode in hostmode", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", true)
+			So(err, ShouldBeNil)
+
+		})
+
+		Convey("When I delete the chain rules and it succeeds in hostmode", func() {
+			iptables.MockDelete(t, func(table string, chain string, rulespec ...string) error {
+				return nil
+			})
+			err := i.deleteChainRules("appchain", "netchain", "0", "100", "100", "", "", "5000", "proxyPortSetName", true)
+			So(err, ShouldBeNil)
 		})
 
 	})
