@@ -50,7 +50,6 @@ type Config struct {
 	keyPEM             string
 	certPEM            string
 	secrets            secrets.Secrets
-	verifier           *servicetokens.Verifier
 	collector          collector.EventCollector
 	puContext          string
 	localIPs           map[string]struct{}
@@ -93,7 +92,6 @@ func NewHTTPProxy(
 		applicationProxy:   applicationProxy,
 		mark:               mark,
 		secrets:            secrets,
-		verifier:           servicetokens.NewVerifier(secrets, nil),
 		portCache:          portCache,
 		portMapping:        portMapping,
 		localIPs:           connproc.GetInterfaces(),
@@ -233,6 +231,15 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 	p.keyPEM = keyPEM
 }
 
+// UpdateCaches updates the port mapping caches.
+func (p *Config) UpdateCaches(portCache map[int]string, portMap map[int]int) {
+	p.Lock()
+	defer p.Unlock()
+
+	p.portCache = portCache
+	p.portMapping = portMap
+}
+
 // GetCertificateFunc implements the TLS interface for getting the certificate. This
 // allows us to update the certificates of the connection on the fly.
 func (p *Config) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -250,20 +257,19 @@ func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, 
 	pu, err := p.puFromIDCache.Get(p.puContext)
 	if err != nil {
 		zap.L().Error("Cannot find policy, dropping request")
-		http.Error(w, fmt.Sprintf("Cannot handle request: %s", err), http.StatusInternalServerError)
 		return nil, nil, "", err
 	}
 	puContext := pu.(*pucontext.PUContext)
 
 	serviceID, ok := p.portCache[port]
 	if !ok {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown context: %s", p.puContext), http.StatusForbidden)
+		zap.L().Error("Uknown destination port", zap.Int("Port", port))
 		return nil, nil, "", fmt.Errorf("service not found")
 	}
 
 	authorizer, err := p.authProcessorCache.Get(p.puContext)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Cannot handle request - unknown authorization %s %s", p.puContext, r.Host), http.StatusForbidden)
+		zap.L().Error("Undefined context", zap.String("Context", p.puContext))
 		return nil, nil, "", fmt.Errorf("Cannot handle request - unknown authorization: %s %s", p.puContext, r.Host)
 	}
 

@@ -35,6 +35,7 @@ const (
 type ServerInterface interface {
 	RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error
 	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool, secrets secrets.Secrets, certPEM, keyPEM string)
+	UpdateCaches(portCache map[int]string, portMapping map[int]int)
 	ShutDown() error
 }
 
@@ -103,12 +104,18 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	defer p.Unlock()
 
 	// First update the caches with the new policy information.
-	authProcessor := auth.NewProcessor(p.secrets, nil)
+	var authProcessor *auth.Processor
+	if cachedProcessor, err := p.authProcessorCache.Get(puID); err == nil {
+		authProcessor = cachedProcessor.(*auth.Processor)
+		authProcessor.UpdateSecrets(p.secrets, nil)
+	} else {
+		authProcessor = auth.NewProcessor(p.secrets, nil)
+		p.authProcessorCache.AddOrUpdate(puID, authProcessor)
+	}
+
 	portCache, portMapping := buildExposedServices(authProcessor, puInfo.Policy.ExposedServices())
 	dependentCache, caPoolPEM := buildDependentCaches(puInfo.Policy.DependentServices())
-	p.authProcessorCache.AddOrUpdate(puID, authProcessor)
 	p.dependentAPICache.AddOrUpdate(puID, dependentCache)
-
 	caPool := p.expandCAPool(caPoolPEM)
 
 	// For updates we need to update the certificates if we have new ones. Otherwise
@@ -119,7 +126,15 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 			zap.L().Error("Failed to update certificates and services", zap.Error(perr))
 			return perr
 		}
-		return p.registerServices(c.(*clientData), puInfo)
+		client, ok := c.(*clientData)
+		if !ok {
+			zap.L().Error("Internal server error - wrong data")
+			return fmt.Errorf("bad data")
+		}
+		for _, server := range client.netserver {
+			server.UpdateCaches(portCache, portMapping)
+		}
+		return p.registerServices(client, puInfo)
 	}
 
 	// Create the network listener and cache it so that we can terminate it later.
@@ -157,7 +172,6 @@ func (p *AppProxy) Enforce(ctx context.Context, puID string, puInfo *policy.PUIn
 	if err != nil {
 		return fmt.Errorf("Cannot create listener type %d: %s", protomux.TCPNetwork, err)
 	}
-	client.netserver[protomux.TCPNetwork].(*tcp.Proxy).UpdatePortCache(portCache)
 
 	if err := p.registerServices(client, puInfo); err != nil {
 		return fmt.Errorf("Unable to register services: %s ", err)
@@ -289,7 +303,7 @@ func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protom
 		c := httpproxy.NewHTTPProxy(p.collector, puID, p.puFromID, caPool, p.authProcessorCache, p.dependentAPICache, appproxy, proxyMarkInt, p.secrets, portCache, portMapping)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	default:
-		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, caPool)
+		c := tcp.NewTCPProxy(p.tokenaccessor, p.collector, p.puFromID, puID, p.cert, caPool, portCache)
 		return c, c.RunNetworkServer(ctx, listener, encrypted)
 	}
 }
@@ -365,6 +379,7 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[int]string, map[int]int) {
 	portCache := map[int]string{}
 	portMapping := map[int]int{}
+	usedServices := map[string]bool{}
 
 	for _, service := range exposedServices {
 		port, err := service.PrivateNetworkInfo.Ports.SinglePort()
@@ -387,8 +402,10 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 			continue
 		}
 		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
+		usedServices[service.ID] = true
 		p.AddOrUpdateService(service.ID, ruleCache, service.JWTTokenHandler, service.JWTClaimMappings)
 	}
+	p.RemoveUnusedServices(usedServices)
 	return portCache, portMapping
 }
 
