@@ -52,10 +52,29 @@ func (p *Processor) AddOrUpdateService(name string, apis *urisearch.APICache, ha
 	p.Lock()
 	defer p.Unlock()
 
+	if service, ok := p.serviceMap[name]; ok {
+		service.apis = apis
+		service.userJWTClaimMappings = mappings
+		service.userJWThandler = handler
+		return
+	}
+
 	p.serviceMap[name] = &service{
 		apis:                 apis,
 		userJWThandler:       handler,
 		userJWTClaimMappings: mappings,
+	}
+}
+
+// RemoveUnusedServices will remove from the cache any service that is not the
+// list of the validServices.
+func (p *Processor) RemoveUnusedServices(validServices map[string]bool) {
+	p.Lock()
+	defer p.Unlock()
+	for service := range p.serviceMap {
+		if _, ok := validServices[service]; !ok {
+			delete(p.serviceMap, service)
+		}
 	}
 }
 
