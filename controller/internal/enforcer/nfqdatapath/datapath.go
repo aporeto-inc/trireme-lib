@@ -290,8 +290,8 @@ func NewWithDefaults(
 
 func (d *Datapath) checkForOverlappingPorts(contextID string, pu *pucontext.PUContext) error {
 
-	if pu.Type() == common.LinuxProcessPU || pu.Type() == common.UIDLoginPU {
-		mark, tcpPorts, udpPorts := pu.GetProcessKeys()
+	if pu.Type() == common.LinuxProcessPU  {
+		_, tcpPorts, udpPorts := pu.GetProcessKeys()
 
 		for _, port := range tcpPorts {
 			if port == "0" {
