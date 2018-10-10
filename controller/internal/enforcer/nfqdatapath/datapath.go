@@ -167,7 +167,7 @@ func New(
 		if mode == constants.LocalServer {
 			cmd = exec.Command(sysctlCmd, "-w", "net.ipv4.ip_early_demux=0")
 			if err := cmd.Run(); err != nil {
-				zap.L().Fatal("Failed to set early demux options", zap.Error(err))
+				zap.L().Error("Failed to set early demux options", zap.Error(err))
 			}
 		}
 	}
