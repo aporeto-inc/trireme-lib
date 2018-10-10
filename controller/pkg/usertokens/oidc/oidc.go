@@ -18,6 +18,17 @@ import (
 	oidc "github.com/coreos/go-oidc"
 )
 
+var (
+	// We maintain two caches. The first maintains the set of states that
+	// we issue the redirect requests with. This helps us validate the
+	// callbacks and verify the state to avoid any cross-origin violations.
+	// Currently providing 60 seconds for the user to authenticate.
+	stateCache gcache.Cache
+	// The second cache will maintain the validations of the tokens so that
+	// we don't go to the authorizer for every request.
+	tokenCache gcache.Cache
+)
+
 // TokenVerifier is an OIDC validator.
 type TokenVerifier struct {
 	ProviderURL       string
@@ -32,12 +43,18 @@ type TokenVerifier struct {
 	provider          *oidc.Provider
 	clientConfig      *oauth2.Config
 	oauthVerifier     *oidc.IDTokenVerifier
-	cache             gcache.Cache
-	state             gcache.Cache
 }
 
 // NewClient creates a new validator client
 func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
+	// Initialize caches only once if they are nil.
+	if stateCache == nil {
+		stateCache = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
+	}
+
+	if tokenCache == nil {
+		tokenCache = gcache.New(2048).LRU().Expiration(120 * time.Second).Build()
+	}
 
 	// Create a new generic OIDC provider based on the provider URL.
 	// The library will auto-discover the configuration of the provider.
@@ -74,7 +91,7 @@ func (v *TokenVerifier) IssueRedirect(originURL string) string {
 	if err != nil {
 		state = xid.New().String()
 	}
-	if err := v.state.Set(state, originURL); err != nil {
+	if err := stateCache.Set(state, originURL); err != nil {
 		return ""
 	}
 
@@ -92,11 +109,11 @@ func (v *TokenVerifier) Callback(r *http.Request) (string, string, int, error) {
 	// we recover the original URL that initiated the protocol. This allows
 	// us to redirect the client to their original request.
 	receivedState := r.URL.Query().Get("state")
-	originURL, err := v.state.Get(receivedState)
+	originURL, err := stateCache.Get(receivedState)
 	if err != nil {
 		return "", "", http.StatusBadRequest, fmt.Errorf("Bad state")
 	}
-	v.state.Remove(receivedState)
+	stateCache.Remove(receivedState)
 
 	// We exchange the authorization code with an OAUTH token. This is the main
 	// step where the OAUTH provider will match the code to the token.
@@ -123,7 +140,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 		return []string{}, v.RedirectOnNoToken, fmt.Errorf("Invalid token presented")
 	}
 
-	if data, err := v.cache.Get(token); err == nil {
+	if data, err := tokenCache.Get(token); err == nil {
 		return data.([]string), false, nil
 	}
 
@@ -148,7 +165,7 @@ func (v *TokenVerifier) Validate(ctx context.Context, token string) ([]string, b
 	}
 
 	// Cache the token and attributes to avoid multiple validations.
-	if err := v.cache.Set(token, attributes); err != nil {
+	if err := tokenCache.Set(token, attributes); err != nil {
 		return []string{}, false, fmt.Errorf("Cannot cache token")
 	}
 
