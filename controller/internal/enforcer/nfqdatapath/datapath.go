@@ -290,7 +290,7 @@ func NewWithDefaults(
 
 func (d *Datapath) checkForOverlappingPorts(contextID string, pu *pucontext.PUContext) error {
 
-	if pu.Type() == common.LinuxProcessPU  {
+	if pu.Type() == common.LinuxProcessPU {
 		_, tcpPorts, udpPorts := pu.GetProcessKeys()
 
 		for _, port := range tcpPorts {
@@ -301,6 +301,7 @@ func (d *Datapath) checkForOverlappingPorts(contextID string, pu *pucontext.PUCo
 			if err != nil {
 				continue
 			}
+
 			if err := d.contextIDFromTCPPort.AddUnique(portSpec); err != nil {
 				return fmt.Errorf("tcp port is in use:%s", err)
 			}
