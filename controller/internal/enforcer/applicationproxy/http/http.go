@@ -417,6 +417,15 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Invalid network information"), http.StatusForbidden)
 		return
 	}
+	sourceIP := sourceAddress.IP.To4()
+
+	// We will look for an address in the X-Forward-For headers. If we find one,
+	// it means that there is a loadbalancer in front of us and we need to use
+	// this address as the source address.
+	forwardedClientIP := getForwardedIPs(r)
+	if forwardedClientIP != nil {
+		sourceIP = forwardedClientIP
+	}
 
 	record := &collector.FlowRecord{
 		ContextID: p.puContext,
@@ -429,7 +438,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		},
 		Source: &collector.EndPoint{
 			Type: collector.EndPointTypeExternalIP,
-			IP:   sourceAddress.IP.String(),
+			IP:   sourceIP.String(),
 			ID:   collector.DefaultEndPoint,
 		},
 		Action:      policy.Reject,
@@ -457,7 +466,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for network access rules that might require a drop.
-	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceAddress.IP.To4(), uint16(originalDestination.Port))
+	_, aclPolicy, noNetAccessPolicy := puContext.NetworkACLPolicyFromAddr(sourceIP, uint16(originalDestination.Port))
 	record.PolicyID = aclPolicy.PolicyID
 	record.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
@@ -687,4 +696,19 @@ func reportDownStream(record *collector.FlowRecord, action *policy.FlowPolicy) *
 		PolicyID:    action.PolicyID,
 		Count:       1,
 	}
+}
+
+// getForwardedIPs will retrieve the original client IPs from the
+// X-Forwarded-For and X-Real-Ip headers.
+func getForwardedIPs(r *http.Request) net.IP {
+	for _, h := range []string{"X-Forwarded-For", "X-Real-Ip"} {
+		addresses := strings.Split(r.Header.Get(h), ",")
+		for i := len(addresses) - 1; i >= 0; i-- {
+			ip := net.ParseIP(strings.TrimSpace(addresses[i]))
+			if ip != nil {
+				return ip
+			}
+		}
+	}
+	return nil
 }
