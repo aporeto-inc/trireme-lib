@@ -59,16 +59,6 @@ func NewClient(ctx context.Context, v *TokenVerifier) (*TokenVerifier, error) {
 		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 
-	// We maintain two caches. The first maintains the set of states that
-	// we issue the redirect requests with. This helps us validate the
-	// callbacks and verify the state to avoid any cross-origin violations.
-	// Currently providing 60 seconds for the user to authenticate.
-	v.state = gcache.New(2048).LRU().Expiration(60 * time.Second).Build()
-
-	// The second cache will maintain the validations of the tokens so that
-	// we don't go to the authorizer for every request.
-	v.cache = gcache.New(2048).LRU().Expiration(120 * time.Second).Build()
-
 	return v, nil
 }
 
