@@ -72,6 +72,7 @@ func NewTCPProxy(
 	puContext string,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
+	portCache map[int]string,
 ) *Proxy {
 
 	localIPs := connproc.GetInterfaces()
@@ -84,6 +85,7 @@ func NewTCPProxy(
 		localIPs:      localIPs,
 		certificate:   certificate,
 		ca:            caPool,
+		portCache:     portCache,
 	}
 }
 
@@ -125,8 +127,8 @@ func (p *Proxy) ShutDown() error {
 	return nil
 }
 
-// UpdatePortCache updates the port cache
-func (p *Proxy) UpdatePortCache(portCache map[int]string) {
+// UpdateCaches updates the port cache only.
+func (p *Proxy) UpdateCaches(portCache map[int]string, portMap map[int]int) {
 	p.Lock()
 	defer p.Unlock()
 	p.portCache = portCache

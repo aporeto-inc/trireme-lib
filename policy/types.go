@@ -248,6 +248,7 @@ type DNSRule struct {
 	Name     string
 	Port     string
 	Protocol string
+	Policy   *FlowPolicy
 }
 
 // DNSRuleList is a list of DNS rules
