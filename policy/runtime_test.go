@@ -59,7 +59,7 @@ func TestBasicFunctions(t *testing.T) {
 
 		ips := ExtendedMap{DefaultNamespace: "172.0.0.1"}
 
-		portMap := map[nat.Port][]string{nat.Port("80"): []string{"8001", "8002"}}
+		portMap := map[nat.Port][]string{nat.Port("80"): {"8001", "8002"}}
 
 		runtime := NewPURuntime(
 			"container1",

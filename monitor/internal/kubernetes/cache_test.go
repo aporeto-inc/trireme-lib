@@ -121,14 +121,14 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 			},
 			fieldsResult: fields{
 				puidCache: map[string]*puidCacheEntry{
-					"123456": &puidCacheEntry{
+					"123456": {
 						kubeIdentifier:    "namespace/name",
 						dockerRuntime:     runtime1,
 						kubernetesRuntime: runtime2,
 					},
 				},
 				podCache: map[string]*podCacheEntry{
-					"namespace/name": &podCacheEntry{
+					"namespace/name": {
 						puIDs: map[string]bool{
 							"123456": true,
 						},
@@ -147,14 +147,14 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 			name: "test additive behavior",
 			fields: fields{
 				puidCache: map[string]*puidCacheEntry{
-					"123456": &puidCacheEntry{
+					"123456": {
 						kubeIdentifier:    "namespace/name",
 						dockerRuntime:     runtime1,
 						kubernetesRuntime: runtime2,
 					},
 				},
 				podCache: map[string]*podCacheEntry{
-					"namespace/name": &podCacheEntry{
+					"namespace/name": {
 						puIDs: map[string]bool{
 							"123456": true,
 						},
@@ -163,24 +163,24 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 			},
 			fieldsResult: fields{
 				puidCache: map[string]*puidCacheEntry{
-					"123456": &puidCacheEntry{
+					"123456": {
 						kubeIdentifier:    "namespace/name",
 						dockerRuntime:     runtime1,
 						kubernetesRuntime: runtime2,
 					},
-					"abcdef": &puidCacheEntry{
+					"abcdef": {
 						kubeIdentifier:    "namespace2/name2",
 						dockerRuntime:     runtime3,
 						kubernetesRuntime: runtime2,
 					},
 				},
 				podCache: map[string]*podCacheEntry{
-					"namespace/name": &podCacheEntry{
+					"namespace/name": {
 						puIDs: map[string]bool{
 							"123456": true,
 						},
 					},
-					"namespace2/name2": &podCacheEntry{
+					"namespace2/name2": {
 						puIDs: map[string]bool{
 							"abcdef": true,
 						},
@@ -199,14 +199,14 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 			name: "test additive same pod",
 			fields: fields{
 				puidCache: map[string]*puidCacheEntry{
-					"123456": &puidCacheEntry{
+					"123456": {
 						kubeIdentifier:    "namespace/name",
 						dockerRuntime:     runtime1,
 						kubernetesRuntime: runtime2,
 					},
 				},
 				podCache: map[string]*podCacheEntry{
-					"namespace/name": &podCacheEntry{
+					"namespace/name": {
 						puIDs: map[string]bool{
 							"123456": true,
 						},
@@ -215,19 +215,19 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 			},
 			fieldsResult: fields{
 				puidCache: map[string]*puidCacheEntry{
-					"123456": &puidCacheEntry{
+					"123456": {
 						kubeIdentifier:    "namespace/name",
 						dockerRuntime:     runtime1,
 						kubernetesRuntime: runtime2,
 					},
-					"abcdef": &puidCacheEntry{
+					"abcdef": {
 						kubeIdentifier:    "namespace/name",
 						dockerRuntime:     runtime3,
 						kubernetesRuntime: runtime2,
 					},
 				},
 				podCache: map[string]*podCacheEntry{
-					"namespace/name": &podCacheEntry{
+					"namespace/name": {
 						puIDs: map[string]bool{
 							"123456": true,
 							"abcdef": true,

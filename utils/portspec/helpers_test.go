@@ -19,11 +19,11 @@ func TestUncoveredPortRanges(t *testing.T) {
 
 		Convey("Then result should match expected output", func() {
 			expectedRanges := []*PortSpec{
-				&PortSpec{Min: 1, Max: 9},
-				&PortSpec{Min: 11, Max: 21},
-				&PortSpec{Min: 23, Max: 54},
-				&PortSpec{Min: 67, Max: 98},
-				&PortSpec{Min: 501, Max: 65535},
+				{Min: 1, Max: 9},
+				{Min: 11, Max: 21},
+				{Min: 23, Max: 54},
+				{Min: 67, Max: 98},
+				{Min: 501, Max: 65535},
 			}
 
 			So(ranges, ShouldResemble, expectedRanges)
@@ -42,10 +42,10 @@ func TestUncoveredPortRanges(t *testing.T) {
 
 		Convey("Then result should match expected output", func() {
 			expectedRanges := []*PortSpec{
-				&PortSpec{Min: 1, Max: 9},
-				&PortSpec{Min: 11, Max: 54},
-				&PortSpec{Min: 67, Max: 98},
-				&PortSpec{Min: 501, Max: 65534},
+				{Min: 1, Max: 9},
+				{Min: 11, Max: 54},
+				{Min: 67, Max: 98},
+				{Min: 501, Max: 65534},
 			}
 
 			So(ranges, ShouldResemble, expectedRanges)
@@ -64,10 +64,10 @@ func TestUncoveredPortRanges(t *testing.T) {
 
 		Convey("Then result should match expected output", func() {
 			expectedRanges := []*PortSpec{
-				&PortSpec{Min: 2, Max: 9},
-				&PortSpec{Min: 11, Max: 54},
-				&PortSpec{Min: 67, Max: 98},
-				&PortSpec{Min: 501, Max: 65535},
+				{Min: 2, Max: 9},
+				{Min: 11, Max: 54},
+				{Min: 67, Max: 98},
+				{Min: 501, Max: 65535},
 			}
 
 			So(ranges, ShouldResemble, expectedRanges)
@@ -93,7 +93,7 @@ func TestUncoveredPortRanges(t *testing.T) {
 
 		Convey("Then result should match expected output", func() {
 			expectedRanges := []*PortSpec{
-				&PortSpec{Min: 1, Max: 65535},
+				{Min: 1, Max: 65535},
 			}
 
 			So(ranges, ShouldResemble, expectedRanges)
@@ -106,7 +106,7 @@ func TestUncoveredPortRanges(t *testing.T) {
 
 		Convey("Then result should match expected output", func() {
 			expectedRanges := []*PortSpec{
-				&PortSpec{Min: 1, Max: 65535},
+				{Min: 1, Max: 65535},
 			}
 
 			So(ranges, ShouldResemble, expectedRanges)
