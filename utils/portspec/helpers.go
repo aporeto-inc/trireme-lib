@@ -18,11 +18,6 @@ func GetUncoveredPortRanges(portSpecs ...*PortSpec) ([]*PortSpec, error) {
 		return []*PortSpec{p}, nil
 	}
 
-	// Return the default port range if it covers all
-	if portSpecs[0].Min == 1 && portSpecs[0].Max == lastValidPort {
-		return []*PortSpec{portSpecs[0]}, nil
-	}
-
 	// Sort the slice by portspec min value
 	sort.Slice(portSpecs, func(i, j int) bool {
 		return portSpecs[i].Min < portSpecs[j].Min

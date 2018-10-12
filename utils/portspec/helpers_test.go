@@ -81,9 +81,7 @@ func TestUncoveredPortRanges(t *testing.T) {
 		ranges, err := GetUncoveredPortRanges(portSpec)
 
 		Convey("Then result should match expected output", func() {
-			expectedRanges := []*PortSpec{
-				&PortSpec{Min: 1, Max: 65535},
-			}
+			expectedRanges := []*PortSpec(nil)
 
 			So(ranges, ShouldResemble, expectedRanges)
 			So(err, ShouldBeNil)
