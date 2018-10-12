@@ -477,7 +477,9 @@ func (i *Instance) installRules(contextID, appChain, netChain, proxySetName stri
 		}
 	}
 
-	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks()); err != nil {
+	isHostPU := extractors.IsHostPU(containerInfo.Runtime, i.mode)
+
+	if err := i.addPacketTrap(appChain, netChain, containerInfo.Policy.TriremeNetworks(), isHostPU); err != nil {
 		return err
 	}
 

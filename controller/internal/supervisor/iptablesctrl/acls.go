@@ -254,14 +254,14 @@ func (i *Instance) proxyRules(appChain string, netChain string, port string, pro
 }
 
 //trapRules provides the packet trap rules to add/delete
-func (i *Instance) trapRules(appChain string, netChain string) [][]string {
+func (i *Instance) trapRules(appChain string, netChain string, isHostPU bool) [][]string {
 
 	rules := [][]string{}
 
-	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
+	// If enforcer is in sidecar mode or hostmode is enabled. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar {
+	if i.mode == constants.Sidecar || isHostPU {
 		rules = append(rules, []string{
 			i.appPacketIPTableContext, appChain,
 			"-p", "udp", "--dport", "53",
@@ -296,10 +296,10 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 		"-j", "NFQUEUE", "--queue-balance", i.fqc.GetApplicationQueueAckStr(),
 	})
 
-	// If enforcer is in sidecar mode. we need to add an exclusive dns rule
+	// If enforcer is in sidecar mode or Host mode is enabled. we need to add an exclusive dns rule
 	// to accept the dns traffic. This is required for the enforcer to talk to
 	// to the backend services.
-	if i.mode == constants.Sidecar {
+	if i.mode == constants.Sidecar || isHostPU {
 		rules = append(rules, []string{
 			i.netPacketIPTableContext, netChain,
 			"-p", "udp", "--sport", "53",
@@ -446,9 +446,9 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 }
 
 // addPacketTrap adds the necessary iptables rules to capture control packets to user space
-func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string) error {
+func (i *Instance) addPacketTrap(appChain string, netChain string, networks []string, isHostPU bool) error {
 
-	return i.processRulesFromList(i.trapRules(appChain, netChain), "Append")
+	return i.processRulesFromList(i.trapRules(appChain, netChain, isHostPU), "Append")
 
 }
 
