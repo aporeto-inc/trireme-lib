@@ -251,7 +251,7 @@ func TestValidateEvent(t *testing.T) {
 
 			err := validateEvent(event)
 			So(err, ShouldBeNil)
-			So(event.PUID, ShouldResemble, "myservice")
+			So(event.PUID, ShouldResemble, "mypu")
 		})
 
 		Convey("If I get a Stop event and cgroup is in the right format, it should return nil.", func() {
