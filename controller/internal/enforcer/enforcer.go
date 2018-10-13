@@ -61,11 +61,11 @@ func (e *enforcer) Run(ctx context.Context) error {
 		}
 	}
 
-	if e.transport != nil {
-		if err := e.transport.Run(ctx); err != nil {
-			return err
-		}
-	}
+	// if e.transport != nil {
+	// 	if err := e.transport.Run(ctx); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	if e.secrets != nil {
 		if err := e.secrets.Run(ctx); err != nil {
@@ -221,9 +221,9 @@ func New(
 	}
 
 	return &enforcer{
-		proxy:     tcpProxy,
+		proxy:     nil,
 		transport: transport,
-		secrets:   secretsproxy.NewSecretsProxy(),
+		secrets:   nil, //secretsproxy.NewSecretsProxy(),
 	}, nil
 }
 
