@@ -215,10 +215,10 @@ func New(
 		targetNetworks,
 	)
 
-	tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
-	if err != nil {
-		return nil, err
-	}
+	// tcpProxy, err := applicationproxy.NewAppProxy(tokenAccessor, collector, puFromContextID, nil, secrets)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &enforcer{
 		proxy:     nil,
