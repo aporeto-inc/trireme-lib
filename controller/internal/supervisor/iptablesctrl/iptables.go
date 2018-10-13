@@ -31,7 +31,7 @@ const (
 	// PuPortSet The prefix for portset names
 	PuPortSet                = "PUPort-"
 	proxyPortSetPrefix       = "Proxy-"
-	ipTableSectionOutput     = "OUTPUT"
+	ipTableSectionOutput     = "POSTROUTING"
 	ipTableSectionInput      = "INPUT"
 	ipTableSectionPreRouting = "PREROUTING"
 	natProxyOutputChain      = "RedirProxy-App"
@@ -85,9 +85,9 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 	}
 
 	i := &Instance{
-		fqc:   fqc,
-		ipt:   ipt,
-		ipset: ips,
+		fqc:                     fqc,
+		ipt:                     ipt,
+		ipset:                   ips,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",

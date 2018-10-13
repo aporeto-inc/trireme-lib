@@ -290,8 +290,8 @@ func (b *BatchProvider) restore() error {
 	if err != nil {
 		again, _ := b.createDataBuffer()
 		zap.L().Error("Failed to execute command", zap.Error(err),
-			zap.ByteString("Output", out),
-			zap.String("Output", again.String()),
+			zap.ByteString("POSTROUTING", out),
+			zap.String("POSTROUTING", again.String()),
 		)
 		return fmt.Errorf("Failed to execute iptables-restore: %s", err)
 	}

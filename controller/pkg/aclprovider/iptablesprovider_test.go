@@ -9,7 +9,7 @@ import (
 const (
 	mangle      = "mangle"
 	inputChain  = "INPUT"
-	outputChain = "OUTPUT"
+	outputChain = "POSTROUTING"
 )
 
 func NewTestProvider(batchTables []string) *BatchProvider {
