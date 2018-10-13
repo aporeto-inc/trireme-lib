@@ -55,23 +55,23 @@ type enforcer struct {
 // Run implements the run interfaces and runs the individual data paths
 func (e *enforcer) Run(ctx context.Context) error {
 
-	if e.proxy != nil {
-		if err := e.proxy.Run(ctx); err != nil {
-			return err
-		}
-	}
-
-	// if e.transport != nil {
-	// 	if err := e.transport.Run(ctx); err != nil {
+	// if e.proxy != nil {
+	// 	if err := e.proxy.Run(ctx); err != nil {
 	// 		return err
 	// 	}
 	// }
 
-	if e.secrets != nil {
-		if err := e.secrets.Run(ctx); err != nil {
+	if e.transport != nil {
+		if err := e.transport.Run(ctx); err != nil {
 			return err
 		}
 	}
+
+	// if e.secrets != nil {
+	// 	if err := e.secrets.Run(ctx); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	return nil
 }
