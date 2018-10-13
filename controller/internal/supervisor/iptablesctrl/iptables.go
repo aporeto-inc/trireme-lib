@@ -85,9 +85,9 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 	}
 
 	i := &Instance{
-		fqc:   fqc,
-		ipt:   ipt,
-		ipset: ips,
+		fqc:                     fqc,
+		ipt:                     ipt,
+		ipset:                   ips,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
@@ -171,7 +171,7 @@ func (i *Instance) ConfigureRules(version int, contextID string, containerInfo *
 		return err
 	}
 
-	return i.ipt.Commit()
+	return i.ipt.Commit(false)
 }
 
 // DeleteRules implements the DeleteRules interface
@@ -192,7 +192,7 @@ func (i *Instance) DeleteRules(version int, contextID string, tcpPorts, udpPorts
 		zap.L().Warn("Failed to clean container chains while deleting the rules", zap.Error(err))
 	}
 
-	if err := i.ipt.Commit(); err != nil {
+	if err := i.ipt.Commit(false); err != nil {
 		zap.L().Warn("Failed to commit ACL changes", zap.Error(err))
 	}
 
@@ -259,7 +259,7 @@ func (i *Instance) UpdateRules(version int, contextID string, containerInfo *pol
 		return err
 	}
 
-	return i.ipt.Commit()
+	return i.ipt.Commit(false)
 }
 
 // Run starts the iptables controller

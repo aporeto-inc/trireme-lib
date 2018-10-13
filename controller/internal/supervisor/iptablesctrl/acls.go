@@ -1588,7 +1588,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		return fmt.Errorf("unable to add application raw socket mark rule output chain: %s", err)
 	}
 
-	return nil
+	return i.ipt.Commit(true)
 }
 
 // CleanGlobalRules cleans the capture rules for SynAck packets
@@ -1755,7 +1755,7 @@ func (i *Instance) cleanACLs() error {
 		zap.L().Error("Unable to remove Proxy Rules", zap.Error(err))
 	}
 
-	i.ipt.Commit() // nolint
+	i.ipt.Commit(false) // nolint
 
 	// Always return nil here. No reason to block anything if cleans fail.
 	return nil

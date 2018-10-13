@@ -31,7 +31,7 @@ type IptablesProvider interface {
 	// NewChain creates a new chain
 	NewChain(table, chain string) error
 	// Commit will commit changes if it is a batch provider.
-	Commit() error
+	Commit(bool) error
 }
 
 // BatchProvider uses iptables-restore to program ACLs
@@ -237,7 +237,7 @@ func (b *BatchProvider) NewChain(table, chain string) error {
 }
 
 // Commit commits the rules to the system
-func (b *BatchProvider) Commit() error {
+func (b *BatchProvider) Commit(noFlush bool) error {
 	b.Lock()
 	defer b.Unlock()
 
@@ -246,7 +246,7 @@ func (b *BatchProvider) Commit() error {
 	if len(b.batchTables) == 0 {
 		return nil
 	}
-	return b.restore()
+	return b.restore(noFlush)
 }
 
 func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
@@ -277,14 +277,19 @@ func (b *BatchProvider) createDataBuffer() (*bytes.Buffer, error) {
 }
 
 // restore will save the current DB to iptables.
-func (b *BatchProvider) restore() error {
+func (b *BatchProvider) restore(noFlush bool) error {
 
 	buf, err := b.createDataBuffer()
 	if err != nil {
 		return fmt.Errorf("Failed to crete buffer %s", err)
 	}
 
-	cmd := exec.Command(restoreCmd, "--wait")
+	restoreCommand := restoreCmd
+	if noFlush {
+		restoreCommand = restoreCmd + " --noflush"
+	}
+
+	cmd := exec.Command(restoreCommand, "--wait")
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {

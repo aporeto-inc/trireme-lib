@@ -13,7 +13,7 @@ type iptablesProviderMockedMethods struct {
 	clearChainMock  func(table, chain string) error
 	deleteChainMock func(table, chain string) error
 	newChainMock    func(table, chain string) error
-	commitMock      func() error
+	commitMock      func(noFlush bool) error
 }
 
 // TestIptablesProvider is a test implementation for IptablesProvider
@@ -26,7 +26,7 @@ type TestIptablesProvider interface {
 	MockClearChain(t *testing.T, impl func(table, chain string) error)
 	MockDeleteChain(t *testing.T, impl func(table, chain string) error)
 	MockNewChain(t *testing.T, impl func(table, chain string) error)
-	MockCommit(t *testing.T, impl func() error)
+	MockCommit(t *testing.T, impl func(noFlush bool) error)
 }
 
 // A testIptablesProvider is an empty TransactionalManipulator that can be easily mocked.
@@ -79,7 +79,7 @@ func (m *testIptablesProvider) MockNewChain(t *testing.T, impl func(table, chain
 	m.currentMocks(t).newChainMock = impl
 }
 
-func (m *testIptablesProvider) MockCommit(t *testing.T, impl func() error) {
+func (m *testIptablesProvider) MockCommit(t *testing.T, impl func(noFlush bool) error) {
 	m.currentMocks(t).commitMock = impl
 }
 
@@ -146,10 +146,10 @@ func (m *testIptablesProvider) NewChain(table, chain string) error {
 	return nil
 }
 
-func (m *testIptablesProvider) Commit() error {
+func (m *testIptablesProvider) Commit(noFlush bool) error {
 
 	if mock := m.currentMocks(m.currentTest); mock != nil && mock.commitMock != nil {
-		return mock.commitMock()
+		return mock.commitMock(noFlush)
 	}
 
 	return nil
