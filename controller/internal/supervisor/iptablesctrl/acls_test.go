@@ -190,7 +190,7 @@ func TestAddChainRules(t *testing.T) {
 
 		Convey("When i add chain rules with non-zero uid and port 0 rules are added to the UID Chain", func() {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
-				if chain == "UIDCHAIN" || chain == "netchain" || chain == "INPUT" || chain == "OUTPUT" || chain == "RedirProxy-Net" || chain == "RedirProxy-App" || chain == "Proxy-Net" || chain == "Proxy-App" ||
+				if chain == "UIDCHAIN" || chain == "netchain" || chain == "INPUT" || chain == "POSTROUTING" || chain == "RedirProxy-Net" || chain == "RedirProxy-App" || chain == "Proxy-Net" || chain == "Proxy-App" ||
 					chain == TriremeInput || chain == TriremeOutput {
 					return nil
 				}
@@ -839,7 +839,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 			iptables.MockInsert(t, func(table string, chain string, pos int, rulespec ...string) error {
 // 				rulestring := strings.Join(rulespec, ",")
 // 				fmt.Println("RULES", rulestring)
-// 				if chain == "INPUT" || chain == "OUTPUT" {
+// 				if chain == "INPUT" || chain == "POSTROUTING" {
 // 					if matchSpec("--match-set", rulespec) == nil && matchSpec(targetNetworkSet, rulespec) == nil {
 // 						return nil
 // 					}
@@ -866,7 +866,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 				return nil, errors.New("wrong set")
 // 			})
 //
-// 			err := i.setGlobalRules("OUTPUT", "INPUT")
+// 			err := i.setGlobalRules("POSTROUTING", "INPUT")
 // 			Convey("I should get no error if iptables succeeds", func() {
 // 				So(err, ShouldBeNil)
 // 			})
@@ -891,7 +891,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 				return nil, errors.New("wrong set")
 // 			})
 //
-// 			err := i.setGlobalRules("OUTPUT", "INPUT")
+// 			err := i.setGlobalRules("POSTROUTING", "INPUT")
 // 			Convey("I should get an error", func() {
 // 				So(err, ShouldNotBeNil)
 // 			})
@@ -916,7 +916,7 @@ func TestAddExclusionACLs(t *testing.T) {
 // 				return nil, errors.New("wrong set")
 // 			})
 //
-// 			err := i.setGlobalRules("OUTPUT", "INPUT")
+// 			err := i.setGlobalRules("POSTROUTING", "INPUT")
 // 			Convey("I should get an error", func() {
 // 				So(err, ShouldNotBeNil)
 // 			})
