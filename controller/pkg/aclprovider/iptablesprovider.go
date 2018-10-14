@@ -284,12 +284,12 @@ func (b *BatchProvider) restore(noFlush bool) error {
 		return fmt.Errorf("Failed to crete buffer %s", err)
 	}
 
-	restoreCommand := restoreCmd
+	args := []string{"--wait"}
 	if noFlush {
-		restoreCommand = restoreCmd + " --noflush"
+		args = append(args, "--noflush")
 	}
 
-	cmd := exec.Command(restoreCommand, "--wait")
+	cmd := exec.Command(restoreCmd, args...)
 	cmd.Stdin = buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
