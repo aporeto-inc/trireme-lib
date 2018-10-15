@@ -1336,7 +1336,8 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
 	}
-	err := i.ipt.Insert(
+
+	err = i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
 		"-m", "connmark", "--mark", strconv.Itoa(int(constants.DefaultConnMark)),
