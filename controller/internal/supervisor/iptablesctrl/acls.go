@@ -1386,7 +1386,7 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		i.appPacketIPTableContext,
 		appChain, 1,
 		"-p", "tcp",
-		"--tcp-flags", "SYN,ACK SYN",
+		"--tcp-flags", "SYN,ACK", "SYN",
 		"--dport", "80",
 		"-j", "LOG",
 		"--log-prefix", "GLOBAL OUT SYN",
