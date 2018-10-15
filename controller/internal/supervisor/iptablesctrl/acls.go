@@ -1324,7 +1324,18 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
-
+	err := i.ipt.Insert(
+		i.appPacketIPTableContext,
+		appChain, 1,
+		"-p", "tcp",
+		"--tcp-flags", "SYN,ACK SYN",
+		"--dport", "80",
+		"-j", "LOG",
+		"--log-prefix", "GLOBAL OUT SYN",
+	)
+	if err != nil {
+		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
+	}
 	err := i.ipt.Insert(
 		i.appPacketIPTableContext,
 		appChain, 1,
