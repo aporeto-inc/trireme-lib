@@ -112,6 +112,15 @@ func (i *Instance) chainRules(appChain string, netChain string, port string, pro
 	rules := [][]string{
 		{
 			i.appPacketIPTableContext,
+			netChain,
+			"-p", "tcp",
+			"--tcp-flags", "SYN,ACK", "SYN",
+			"--dport", "80",
+			"-j", "LOG",
+			"--log-prefix", "GLOBAL OUT SYN",
+		},
+		{
+			i.appPacketIPTableContext,
 			i.appPacketIPTableSection,
 			"-m", "comment", "--comment", "Container-specific-chain",
 			"-j", appChain,
@@ -1390,6 +1399,19 @@ func (i *Instance) setGlobalRules(appChain, netChain string) error {
 		"--dport", "80",
 		"-j", "LOG",
 		"--log-prefix", "GLOBAL OUT SYN",
+	)
+	if err != nil {
+		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
+	}
+
+	err = i.ipt.Insert(
+		i.appPacketIPTableContext,
+		netChain, 1,
+		"-p", "tcp",
+		"--tcp-flags", "SYN,ACK", "SYN",
+		"--dport", "80",
+		"-j", "LOG",
+		"--log-prefix", "GLOBAL IN SYN",
 	)
 	if err != nil {
 		return fmt.Errorf("unable to add default allow for marked packets at app: %s", err)
