@@ -63,7 +63,7 @@ func (s *SecretsProxy) Run(ctx context.Context) error {
 	addr, _ := net.ResolveUnixAddr("unix", s.socketPath)
 	nl, err := net.ListenUnix("unix", addr)
 	if err != nil {
-		return fmt.Errorf("Unable to start API server: %s", err)
+		return fmt.Errorf("Unable to start API server 1: %s", err)
 	}
 
 	s.server = &http.Server{
