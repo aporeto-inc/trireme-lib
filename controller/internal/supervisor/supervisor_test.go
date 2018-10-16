@@ -83,7 +83,7 @@ func TestNewSupervisor(t *testing.T) {
 		mode := constants.LocalServer
 
 		Convey("When I provide correct parameters", func() {
-			s, err := NewSupervisor(c, e, mode, []string{}, nil)
+			s, err := NewSupervisor(c, e, mode, []string{}, nil, nil)
 			Convey("I should not get an error ", func() {
 				So(err, ShouldBeNil)
 				So(s, ShouldNotBeNil)
@@ -92,7 +92,7 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil  collector", func() {
-			s, err := NewSupervisor(nil, e, mode, []string{}, nil)
+			s, err := NewSupervisor(nil, e, mode, []string{}, nil, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -100,7 +100,93 @@ func TestNewSupervisor(t *testing.T) {
 		})
 
 		Convey("When I provide a nil enforcer", func() {
-			s, err := NewSupervisor(c, nil, mode, []string{}, nil)
+			s, err := NewSupervisor(c, nil, mode, []string{}, nil, nil)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+				So(s, ShouldBeNil)
+			})
+		})
+
+	})
+
+	Convey("When I try to instantiate a new supervisor for remote container", t, func() {
+
+		c := &collector.DefaultCollector{}
+		secrets := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		mode := constants.RemoteContainer
+
+		Convey("When I provide correct parameters", func() {
+			s, err := NewSupervisor(c, e, mode, []string{}, nil, nil)
+			Convey("I should not get an error ", func() {
+				So(err, ShouldBeNil)
+				So(s, ShouldNotBeNil)
+				So(s.collector, ShouldEqual, c)
+			})
+		})
+
+		Convey("When I provide a nil  collector", func() {
+			s, err := NewSupervisor(nil, e, mode, []string{}, nil, nil)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+				So(s, ShouldBeNil)
+			})
+		})
+
+		Convey("When I provide a nil enforcer", func() {
+			s, err := NewSupervisor(c, nil, mode, []string{}, nil, nil)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+				So(s, ShouldBeNil)
+			})
+		})
+
+	})
+
+	Convey("When I try to instantiate a new supervisor for sidecar", t, func() {
+
+		c := &collector.DefaultCollector{}
+		secrets := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		e := enforcer.NewWithDefaults("serverID", c, nil, secrets, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+		mode := constants.RemoteContainer
+
+		Convey("When I provide correct parameters", func() {
+			s, err := NewSupervisor(c, e, mode, []string{}, nil, nil)
+			Convey("I should not get an error ", func() {
+				So(err, ShouldBeNil)
+				So(s, ShouldNotBeNil)
+				So(s.collector, ShouldEqual, c)
+			})
+		})
+
+		Convey("When I provide a nil  collector", func() {
+			s, err := NewSupervisor(nil, e, mode, []string{}, nil, nil)
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+				So(s, ShouldBeNil)
+			})
+		})
+
+		Convey("When I provide a nil enforcer", func() {
+			s, err := NewSupervisor(c, nil, mode, []string{}, nil, nil)
 			Convey("I should get an error ", func() {
 				So(err, ShouldNotBeNil)
 				So(s, ShouldBeNil)
@@ -127,7 +213,7 @@ func TestSupervise(t *testing.T) {
 		}
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{}, nil, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -204,7 +290,7 @@ func TestUnsupervise(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -250,7 +336,7 @@ func TestStart(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)
@@ -259,6 +345,84 @@ func TestStart(t *testing.T) {
 		Convey("When I try to start it and the implementor works", func() {
 			impl.EXPECT().Run(gomock.Any()).Return(nil)
 			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			err := s.Run(context.Background())
+			Convey("I should get no errors", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I try to start it and the implementor returns an error", func() {
+			impl.EXPECT().Run(gomock.Any()).Return(errors.New("error"))
+			err := s.Run(context.Background())
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+	})
+
+	Convey("Given a properly configured supervisor for local server", t, func() {
+		c := &collector.DefaultCollector{}
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+
+		s, _ := NewSupervisor(c, e, constants.LocalServer, []string{"172.17.0.0/16"}, nil, []string{"172.17.4.5"})
+		So(s, ShouldNotBeNil)
+
+		impl := mocksupervisor.NewMockImplementor(ctrl)
+		s.impl = impl
+
+		Convey("When I try to start it and the implementor works", func() {
+			impl.EXPECT().Run(gomock.Any()).Return(nil)
+			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			impl.EXPECT().SetServiceIPs([]string{"172.17.4.5"}).Return(nil)
+			err := s.Run(context.Background())
+			Convey("I should get no errors", func() {
+				So(err, ShouldBeNil)
+			})
+		})
+
+		Convey("When I try to start it and the implementor returns an error", func() {
+			impl.EXPECT().Run(gomock.Any()).Return(errors.New("error"))
+			err := s.Run(context.Background())
+			Convey("I should get an error ", func() {
+				So(err, ShouldNotBeNil)
+			})
+		})
+	})
+
+	Convey("Given a properly configured supervisor for sidecar", t, func() {
+		c := &collector.DefaultCollector{}
+		scrts := secrets.NewPSKSecrets([]byte("test password"))
+
+		prevRawSocket := nfqdatapath.GetUDPRawSocket
+		defer func() {
+			nfqdatapath.GetUDPRawSocket = prevRawSocket
+		}()
+		nfqdatapath.GetUDPRawSocket = func(mark int, device string) (afinetrawsocket.SocketWriter, error) {
+			return nil, nil
+		}
+
+		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.LocalServer, "/proc", []string{"0.0.0.0/0"})
+
+		s, _ := NewSupervisor(c, e, constants.LocalServer, []string{"172.17.0.0/16"}, nil, []string{"172.17.4.5"})
+		So(s, ShouldNotBeNil)
+
+		impl := mocksupervisor.NewMockImplementor(ctrl)
+		s.impl = impl
+
+		Convey("When I try to start it and the implementor works", func() {
+			impl.EXPECT().Run(gomock.Any()).Return(nil)
+			impl.EXPECT().SetTargetNetworks([]string{}, []string{"172.17.0.0/16"}).Return(nil)
+			impl.EXPECT().SetServiceIPs([]string{"172.17.4.5"}).Return(nil)
 			err := s.Run(context.Background())
 			Convey("I should get no errors", func() {
 				So(err, ShouldBeNil)
@@ -293,7 +457,7 @@ func TestStop(t *testing.T) {
 
 		e := enforcer.NewWithDefaults("serverID", c, nil, scrts, constants.RemoteContainer, "/proc", []string{"0.0.0.0/0"})
 
-		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil)
+		s, _ := NewSupervisor(c, e, constants.RemoteContainer, []string{"172.17.0.0/16"}, nil, nil)
 		So(s, ShouldNotBeNil)
 
 		impl := mocksupervisor.NewMockImplementor(ctrl)

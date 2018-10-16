@@ -234,3 +234,17 @@ func (m *MockImplementor) ACLProvider() aclprovider.IptablesProvider {
 func (mr *MockImplementorMockRecorder) ACLProvider() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ACLProvider", reflect.TypeOf((*MockImplementor)(nil).ACLProvider))
 }
+
+// SetServiceIPs mocks base method
+// nolint
+func (m *MockImplementor) SetServiceIPs(arg0 []string) error {
+	ret := m.ctrl.Call(m, "SetServiceIPs", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetServiceIPs indicates an expected call of SetServiceIPs
+// nolint
+func (mr *MockImplementorMockRecorder) SetServiceIPs(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetServiceIPs", reflect.TypeOf((*MockImplementor)(nil).SetServiceIPs), arg0)
+}
