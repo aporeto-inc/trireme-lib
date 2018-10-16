@@ -35,7 +35,6 @@ install:
   - dep ensure -v
   
 script:
-  - ./.test.sh
   - gometalinter.v2 --vendor --skip=mockdocker --disable-all --enable=vet --enable=vetshadow --enable=errcheck --enable=golint --enable=deadcode --enable=ineffassign --enable=gotype --enable=goimports --enable=interfacer --enable=goconst --enable=misspell --deadline=10m ./...
 
 
