@@ -30,6 +30,11 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		dockerRuntime     policy.RuntimeReader
 		kubernetesRuntime policy.RuntimeReader
 	}
+	type fieldsResult struct {
+		puidCache map[string]*puidCacheEntry
+		podCache  map[string]*podCacheEntry
+		RWMutex   sync.RWMutex
+	}
 	tests := []struct {
 		name         string
 		fields       fields

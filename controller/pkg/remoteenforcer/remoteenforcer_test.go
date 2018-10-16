@@ -236,6 +236,12 @@ func initTestEnfPayload() rpcwrapper.EnforcePayload {
 	return initPayload
 }
 
+func initTestSetTargetPayload() rpcwrapper.SetTargetNetworks {
+	var payload rpcwrapper.SetTargetNetworks
+	payload.TargetNetworks = []string{"128.0.0.0/1"}
+	return payload
+}
+
 func initTestUnEnfPayload() rpcwrapper.UnEnforcePayload {
 
 	var initPayload rpcwrapper.UnEnforcePayload

@@ -56,6 +56,7 @@ type Config struct {
 	puFromIDCache      cache.DataStore
 	authProcessorCache cache.DataStore
 	dependentAPICache  cache.DataStore
+	jwtCache           cache.DataStore
 	portMapping        map[int]int
 	portCache          map[int]string
 	applicationProxy   bool

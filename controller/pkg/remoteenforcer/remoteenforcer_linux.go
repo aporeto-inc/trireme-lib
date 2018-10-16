@@ -366,7 +366,7 @@ func (s *RemoteEnforcer) Enforce(req rpcwrapper.Request, resp *rpcwrapper.Respon
 func (s *RemoteEnforcer) EnforcerExit(req rpcwrapper.Request, resp *rpcwrapper.Response) error {
 
 	if s.supervisor != nil {
-		s.supervisor.CleanUp() //nolint
+		s.supervisor.CleanUp() // nolint
 	}
 	s.cancel()
 

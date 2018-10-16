@@ -61,7 +61,7 @@ func pam_sm_open_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C
 			return C.PAM_SUCCESS
 		}
 
-		slog.Alert("Calling Trireme") // nolint: errcheck
+		slog.Alert("Calling Trireme") // nolit
 		if err := client.SendRequest(request); err != nil {
 			err = fmt.Errorf("Policy Server call failed %s", err)
 			_ = slog.Alert(err.Error())
@@ -75,8 +75,8 @@ func pam_sm_open_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C
 //export pam_sm_close_session
 func pam_sm_close_session(pamh *C.pam_handle_t, flags, argc int, argv **C.char) C.int {
 	slog, _ := syslog.New(syslog.LOG_ALERT|syslog.LOG_AUTH, "mypam")
-	slog.Alert("pam_sm_close_session") // nolint: errcheck
-	slog.Close()                       // nolint: errcheck
+	slog.Alert("pam_sm_close_session") // nolint
+	slog.Close()                       // nolint
 	return C.PAM_SUCCESS
 }
 
