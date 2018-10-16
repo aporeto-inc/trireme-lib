@@ -124,9 +124,15 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	_, ok := s.initDone[contextID]
 	s.Unlock()
 	if !ok {
+		zap.L().Debug("MANUAL DEBUG: Before InitRemoteEnforcer()",
+			zap.String("time", time.Now().String()),
+		)
 		if err = s.InitRemoteEnforcer(contextID); err != nil {
 			return err
 		}
+		zap.L().Debug("MANUAL DEBUG: After InitRemoteEnforcer()",
+			zap.String("time", time.Now().String()),
+		)
 	}
 
 	enforcerPayload := &rpcwrapper.EnforcePayload{
@@ -135,13 +141,22 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 	}
 
 	//Only the secrets need to be under lock. They can change async to the enforce call from Updatesecrets
+	zap.L().Debug("MANUAL DEBUG: Before Secrets",
+		zap.String("time", time.Now().String()),
+	)
 	s.RLock()
 	enforcerPayload.Secrets = s.Secrets.PublicSecrets()
 	s.RUnlock()
+	zap.L().Debug("MANUAL DEBUG: After Secrets",
+		zap.String("time", time.Now().String()),
+	)
 	request := &rpcwrapper.Request{
 		Payload: enforcerPayload,
 	}
 
+	zap.L().Debug("MANUAL DEBUG: Before RemoteCall()",
+		zap.String("time", time.Now().String()),
+	)
 	err = s.rpchdl.RemoteCall(contextID, remoteenforcer.Enforce, request, &rpcwrapper.Response{})
 	if err != nil {
 		// We can't talk to the enforcer. Kill it and restart it
@@ -151,6 +166,9 @@ func (s *ProxyInfo) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		s.prochdl.KillProcess(contextID)
 		return fmt.Errorf("failed to send message to remote enforcer: %s", err)
 	}
+	zap.L().Debug("MANUAL DEBUG: After RemoteCall()",
+		zap.String("time", time.Now().String()),
+	)
 
 	return nil
 }
