@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer"
@@ -14,8 +15,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/internal/supervisor/mocksupervisor"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func createPUInfo() *policy.PUInfo {

@@ -9,10 +9,9 @@ import (
 
 	"github.com/bluele/gcache"
 	"github.com/dgrijalva/jwt-go"
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 var (

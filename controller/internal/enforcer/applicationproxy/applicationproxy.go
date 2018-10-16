@@ -22,7 +22,6 @@ import (
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	cryptohelpers "go.aporeto.io/trireme-lib/utils/crypto"
-
 	"go.uber.org/zap"
 )
 

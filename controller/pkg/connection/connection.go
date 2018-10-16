@@ -5,14 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/controller/pkg/pucontext"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.uber.org/zap"
 )
 
 // TCPFlowState identifies the constants of the state of a TCP connectioncon

@@ -8,10 +8,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/utils/portspec"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestComputeFileMd5(t *testing.T) {
