@@ -321,6 +321,17 @@ func (i *Instance) SetTargetNetworks(current, networks []string) error {
 	return nil
 }
 
+// SetServiceIPs allows access to the control plane.
+func (i *Instance) SetServiceIPs(serviceIPs []string) error {
+
+	// Insert the ACLS that point to the control plane
+	if err := i.setServiceIPs(serviceIPs); err != nil {
+		return fmt.Errorf("failed to set service IPs: %s", err)
+	}
+
+	return nil
+}
+
 // InitializeChains initializes the chains.
 func (i *Instance) InitializeChains() error {
 

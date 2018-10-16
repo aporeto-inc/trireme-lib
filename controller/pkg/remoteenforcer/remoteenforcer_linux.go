@@ -218,6 +218,7 @@ func (s *RemoteEnforcer) InitSupervisor(req rpcwrapper.Request, resp *rpcwrapper
 			constants.RemoteContainer,
 			payload.TriremeNetworks,
 			s.service,
+			nil,
 		)
 		if err != nil {
 			zap.L().Error("unable to instantiate the iptables supervisor", zap.Error(err))

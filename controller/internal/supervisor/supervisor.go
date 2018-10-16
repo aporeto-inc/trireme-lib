@@ -52,7 +52,8 @@ type Config struct {
 	triremeNetworks []string
 	// service is an external packet service
 	service packetprocessor.PacketProcessor
-
+	// serviceIps are the IPs of the control plane.
+	serviceIPs []string
 	sync.Mutex
 }
 
@@ -60,7 +61,7 @@ type Config struct {
 // to redirect specific packets to userspace. It instantiates multiple data stores
 // to maintain efficient mappings between contextID, policy and IP addresses. This
 // simplifies the lookup operations at the expense of memory.
-func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor) (*Config, error) {
+func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer.Enforcer, mode constants.ModeType, networks []string, p packetprocessor.PacketProcessor, serviceIPs []string) (*Config, error) {
 
 	if collector == nil || enforcerInstance == nil {
 		return nil, errors.New("Invalid parameters")
@@ -95,6 +96,7 @@ func NewSupervisor(collector collector.EventCollector, enforcerInstance enforcer
 		triremeNetworks: networks,
 		portSetInstance: portSetInstance,
 		service:         p,
+		serviceIPs:      serviceIPs,
 	}, nil
 }
 
@@ -158,6 +160,11 @@ func (s *Config) Run(ctx context.Context) error {
 
 	if s.service != nil {
 		s.service.Initialize(s.filterQueue, s.impl.ACLProvider())
+	}
+
+	// allow below modes to talk to control plane.
+	if s.mode == constants.LocalServer || s.mode == constants.Sidecar {
+		return s.impl.SetServiceIPs(s.serviceIPs)
 	}
 
 	return nil

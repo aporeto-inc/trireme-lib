@@ -43,6 +43,7 @@ type config struct {
 	targetNetworks         []string
 	proxyPort              int
 	runtimeErrorChannel    chan *policy.RuntimeError
+	serviceIPs             []string
 }
 
 // Option is provided using functional arguments.
@@ -126,6 +127,13 @@ func OptionPacketLogs() Option {
 	}
 }
 
+// OptionServiceIPs is service IP of the api.
+func OptionServiceIPs(n []string) Option {
+	return func(cfg *config) {
+		cfg.serviceIPs = n
+	}
+}
+
 func (t *trireme) newEnforcers() error {
 	zap.L().Debug("LinuxProcessSupport", zap.Bool("Status", t.config.linuxProcess))
 	var err error
@@ -202,6 +210,7 @@ func (t *trireme) newSupervisors() error {
 			constants.LocalServer,
 			t.config.targetNetworks,
 			t.config.service,
+			t.config.serviceIPs,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process supervisor :: received error %v", err)
@@ -229,6 +238,7 @@ func (t *trireme) newSupervisors() error {
 			constants.Sidecar,
 			t.config.targetNetworks,
 			t.config.service,
+			t.config.serviceIPs,
 		)
 		if err != nil {
 			return fmt.Errorf("Could Not create process sidecar supervisor :: received error %v", err)

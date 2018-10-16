@@ -1358,6 +1358,32 @@ func (i *Instance) deleteAllContainerChains(appChain, netChain string) error {
 	return nil
 }
 
+// setServiceIPs sets acls for the control plane.
+func (i *Instance) setServiceIPs(serviceIPs []string) error {
+
+	var err error
+	if i.mode == constants.LocalServer || i.mode == constants.Sidecar {
+
+		for _, ips := range serviceIPs {
+			if err = i.ipt.Insert(i.appPacketIPTableContext, i.appPacketIPTableSection, 1,
+				"-d", ips, "-j", "ACCEPT",
+			); err != nil {
+				return fmt.Errorf("Unable to add wutai ip %s as excluded network in output chain:%s", ips, err)
+			}
+
+			if err = i.ipt.Insert(i.netPacketIPTableContext, i.netPacketIPTableSection, 1,
+				"-s", ips,
+				"-p", "tcp", "!", "--tcp-option", strconv.Itoa(int(packet.TCPAuthenticationOption)),
+				"-j", "ACCEPT",
+			); err != nil {
+				return fmt.Errorf("unable to add exclusion rule for wutai ip %s in input chain: %s", ips, err)
+			}
+		}
+	}
+
+	return nil
+}
+
 // setGlobalRules installs the global rules
 func (i *Instance) setGlobalRules(appChain, netChain string) error {
 

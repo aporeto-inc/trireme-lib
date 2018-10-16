@@ -49,4 +49,7 @@ type Implementor interface {
 
 	// ACLProvider returns the ACL provider used by the implementor
 	ACLProvider() provider.IptablesProvider
+
+	// SetServiceIPs programs access to control plane.
+	SetServiceIPs([]string) error
 }
