@@ -15,8 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/connproc"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/applicationproxy/markedconn"
@@ -28,6 +26,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 const (

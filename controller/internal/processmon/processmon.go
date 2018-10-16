@@ -13,13 +13,12 @@ import (
 	"syscall"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/crypto"
+	"go.uber.org/zap"
 )
 
 var (

@@ -9,14 +9,13 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/bvandewalle/go-ipset/ipset"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/portset"
 	"go.aporeto.io/trireme-lib/controller/pkg/aclprovider"
 	"go.aporeto.io/trireme-lib/controller/pkg/fqconfig"
 	"go.aporeto.io/trireme-lib/policy"
-
-	"github.com/bvandewalle/go-ipset/ipset"
 	"go.uber.org/zap"
 )
 

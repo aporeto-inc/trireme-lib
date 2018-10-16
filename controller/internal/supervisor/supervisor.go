@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/controller/constants"
@@ -19,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/packetprocessor"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 type cacheData struct {

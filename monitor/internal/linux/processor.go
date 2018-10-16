@@ -9,14 +9,13 @@ import (
 	"strings"
 	"sync"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.uber.org/zap"
 )
 
 var ignoreNames = map[string]*struct{}{
