@@ -333,18 +333,18 @@ func (i *Instance) trapRules(appChain string, netChain string) [][]string {
 }
 
 // addTriremeChains adds Trireme-Input and Trireme-Output chains.
-func (i *Instance) addTriremeChains(appChain string, netChain string) error {
-
-	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
-		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
-	}
-
-	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
-		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
-	}
-
-	return nil
-}
+// func (i *Instance) addTriremeChains(appChain string, netChain string) error {
+//
+// 	if err := i.ipt.NewChain(i.appPacketIPTableContext, appChain); err != nil {
+// 		return fmt.Errorf("unable to add chain %s of context %s: %s", appChain, i.appPacketIPTableContext, err)
+// 	}
+//
+// 	if err := i.ipt.NewChain(i.netPacketIPTableContext, netChain); err != nil {
+// 		return fmt.Errorf("unable to add netchain %s of context %s: %s", netChain, i.netPacketIPTableContext, err)
+// 	}
+//
+// 	return nil
+// }
 
 // addContainerChain adds a chain for the specific container and redirects traffic there
 // This simplifies significantly the management and makes the iptable rules more readable

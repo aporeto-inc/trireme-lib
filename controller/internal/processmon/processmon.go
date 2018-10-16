@@ -15,7 +15,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/utils/rpcwrapper"
 	"go.aporeto.io/trireme-lib/controller/pkg/remoteenforcer"
@@ -55,8 +54,6 @@ type processMon struct {
 	// logLevel is the level of logs for remote command.
 	logLevel  string
 	logFormat string
-	// collector is the event collector to report failures.
-	collector collector.EventCollector
 	// compressedTags instructs the remotes to use compressed tags.
 	compressedTags constants.CompressionType
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.

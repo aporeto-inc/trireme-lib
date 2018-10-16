@@ -29,7 +29,6 @@ import (
 // in the secrets socket API.
 type SecretsProxy struct {
 	socketPath      string
-	forwarder       *forward.Forwarder
 	apiCacheMapping cache.DataStore
 	drivers         cache.DataStore
 	cgroupCache     cache.DataStore

@@ -154,42 +154,42 @@ func (p *Packet) computeTCPChecksum() uint16 {
 
 // Computes the UDP checksum over UDP pseudoheader. This is
 // called after all modifications on the packet have been made.
-func (p *Packet) computeUDPChecksum() uint16 {
-
-	var pseudoHeaderLen uint16 = 12
-	udpSize := uint16(len(p.Buffer)) - UDPBeginPos
-	bufLen := pseudoHeaderLen + udpSize
-	buf := make([]byte, bufLen)
-
-	// Construct the pseudo-header for UDP checksum computation:
-
-	// bytes 0-3: Source IP address
-	copy(buf[0:4], p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4])
-
-	// bytes 4-7: Destination IP address
-	copy(buf[4:8], p.Buffer[ipDestAddrPos:ipDestAddrPos+4])
-
-	// byte 8: Constant zero
-	buf[8] = 0
-
-	// byte 9: Protocol (17== UDP)
-	buf[9] = 17
-
-	// bytes 10,11: UDP buffer size (real header + payload)
-	binary.BigEndian.PutUint16(buf[10:12], udpSize)
-
-	// bytes 12+: The TCP buffer (real header + payload)
-	copy(buf[12:], p.Buffer[UDPDataPos:])
-
-	// Set current checksum to zero (in buf, not changing packet)
-	buf[pseudoHeaderLen+6] = 0
-	buf[pseudoHeaderLen+7] = 0
-
-	// Is this required ?
-	//	buf = append(buf, p.udpData...)
-
-	return checksum(buf)
-}
+// func (p *Packet) computeUDPChecksum() uint16 {
+//
+// 	var pseudoHeaderLen uint16 = 12
+// 	udpSize := uint16(len(p.Buffer)) - UDPBeginPos
+// 	bufLen := pseudoHeaderLen + udpSize
+// 	buf := make([]byte, bufLen)
+//
+// 	// Construct the pseudo-header for UDP checksum computation:
+//
+// 	// bytes 0-3: Source IP address
+// 	copy(buf[0:4], p.Buffer[ipSourceAddrPos:ipSourceAddrPos+4])
+//
+// 	// bytes 4-7: Destination IP address
+// 	copy(buf[4:8], p.Buffer[ipDestAddrPos:ipDestAddrPos+4])
+//
+// 	// byte 8: Constant zero
+// 	buf[8] = 0
+//
+// 	// byte 9: Protocol (17== UDP)
+// 	buf[9] = 17
+//
+// 	// bytes 10,11: UDP buffer size (real header + payload)
+// 	binary.BigEndian.PutUint16(buf[10:12], udpSize)
+//
+// 	// bytes 12+: The TCP buffer (real header + payload)
+// 	copy(buf[12:], p.Buffer[UDPDataPos:])
+//
+// 	// Set current checksum to zero (in buf, not changing packet)
+// 	buf[pseudoHeaderLen+6] = 0
+// 	buf[pseudoHeaderLen+7] = 0
+//
+// 	// Is this required ?
+// 	//	buf = append(buf, p.udpData...)
+//
+// 	return checksum(buf)
+// }
 
 // incCsum16 implements rfc1624, equation 3.
 func incCsum16(start, old, new uint16) uint16 {
