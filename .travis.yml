@@ -31,7 +31,7 @@ install:
 script:
   - ./.test.sh
   # Disabled linters - unused,uncovert,unparam
-  - golangci-lint run --deadline=5m --disable-all --exclude-use-default=false --enable=errcheck --enable=goimports --enable=ineffassign --enable=golint --enable=structcheck --enable=varcheck --enable=deadcode --enable=misspell --enable=prealloc --enable=nakedret ./...
+  - golangci-lint run --deadline=10m --disable-all --exclude-use-default=false --enable=errcheck --enable=goimports --enable=ineffassign --enable=golint --enable=structcheck --enable=varcheck --enable=deadcode --enable=misspell --enable=nakedret ./...
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
