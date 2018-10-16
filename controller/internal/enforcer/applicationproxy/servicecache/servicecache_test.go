@@ -4,11 +4,9 @@ import (
 	"net"
 	"testing"
 
-	"go.aporeto.io/trireme-lib/utils/portspec"
-
-	"go.aporeto.io/trireme-lib/common"
-
 	. "github.com/smartystreets/goconvey/convey"
+	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/utils/portspec"
 )
 
 func TestServiceCache(t *testing.T) {

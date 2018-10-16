@@ -12,9 +12,8 @@ import (
 	"strings"
 
 	"github.com/shirou/gopsutil/process"
-	"go.aporeto.io/trireme-lib/monitor/registerer"
-
 	"go.aporeto.io/trireme-lib/common"
+	"go.aporeto.io/trireme-lib/monitor/registerer"
 )
 
 // EventServer is a new event server

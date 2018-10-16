@@ -17,7 +17,6 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/allocator"
-
 	"go.uber.org/zap"
 )
 

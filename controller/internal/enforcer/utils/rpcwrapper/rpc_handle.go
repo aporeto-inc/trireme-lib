@@ -7,24 +7,20 @@ import (
 	"encoding/binary"
 	"encoding/gob"
 	"fmt"
-
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
-	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
-
-	"go.uber.org/zap"
-
 	"net"
 	"net/http"
+	"net/rpc"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	"net/rpc"
-
 	"github.com/mitchellh/hashstructure"
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/oidc"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/pkitokens"
 	"go.aporeto.io/trireme-lib/utils/cache"
+	"go.uber.org/zap"
 )
 
 // RPCHdl is a per client handle

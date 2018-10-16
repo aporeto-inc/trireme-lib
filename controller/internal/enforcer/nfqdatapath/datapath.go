@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"time"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/netlink-go/conntrack"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
@@ -28,6 +26,7 @@ import (
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/portcache"
 	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.uber.org/zap"
 )
 
 // DefaultExternalIPTimeout is the default used for the cache for External IPTimeout.
