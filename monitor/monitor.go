@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
-
 	"go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
 	"go.aporeto.io/trireme-lib/monitor/internal/cni"
 	"go.aporeto.io/trireme-lib/monitor/internal/docker"
+	"go.aporeto.io/trireme-lib/monitor/internal/kubernetes"
 	"go.aporeto.io/trireme-lib/monitor/internal/linux"
 	"go.aporeto.io/trireme-lib/monitor/internal/uid"
 	"go.aporeto.io/trireme-lib/monitor/registerer"

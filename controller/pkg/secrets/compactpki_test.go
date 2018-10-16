@@ -5,11 +5,10 @@ import (
 	"crypto/x509"
 	"testing"
 
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/pkg/pkiverifier"
 	"go.aporeto.io/trireme-lib/utils/crypto"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 var (

@@ -3,11 +3,10 @@ package statscollector
 import (
 	"testing"
 
+	. "github.com/smartystreets/goconvey/convey"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
-
-	. "github.com/smartystreets/goconvey/convey"
 )
 
 func TestNewCollector(t *testing.T) {

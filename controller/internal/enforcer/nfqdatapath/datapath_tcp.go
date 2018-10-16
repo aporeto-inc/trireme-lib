@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/constants"
@@ -19,6 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.aporeto.io/trireme-lib/utils/portspec"
+	"go.uber.org/zap"
 )
 
 // processNetworkPackets processes packets arriving from network and are destined to the application
@@ -401,7 +400,11 @@ func (d *Datapath) processApplicationAckPacket(tcpPacket *packet.Packet, context
 		// packets after the first data packet, that might be already in the queue
 		// will be transmitted through the kernel directly. Service connections are
 		// delegated to the service module
-		if !conn.ServiceConnection && tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() {
+		// Check for both ends not being loopback. in such a case we will let the network ack
+		// update the connmark on the flow
+		if !conn.ServiceConnection &&
+			tcpPacket.SourceAddress.String() != tcpPacket.DestinationAddress.String() &&
+			!(tcpPacket.SourceAddress.IsLoopback() && tcpPacket.DestinationAddress.IsLoopback()) {
 			if err := d.conntrackHdl.ConntrackTableUpdateMark(
 				tcpPacket.SourceAddress.String(),
 				tcpPacket.DestinationAddress.String(),
