@@ -1354,7 +1354,7 @@ func (i *Instance) setServiceIPs(serviceIPs []string) error {
 			if err = i.ipt.Insert(i.appPacketIPTableContext, i.appPacketIPTableSection, 1,
 				"-d", ips, "-j", "ACCEPT",
 			); err != nil {
-				return fmt.Errorf("Unable to add wutai ip %s as excluded network in output chain:%s", ips, err)
+				return fmt.Errorf("Unable to add service ip %s as excluded network in output chain:%s", ips, err)
 			}
 
 			if err = i.ipt.Insert(i.netPacketIPTableContext, i.netPacketIPTableSection, 1,
@@ -1362,7 +1362,7 @@ func (i *Instance) setServiceIPs(serviceIPs []string) error {
 				"-p", "tcp", "!", "--tcp-option", strconv.Itoa(int(packet.TCPAuthenticationOption)),
 				"-j", "ACCEPT",
 			); err != nil {
-				return fmt.Errorf("unable to add exclusion rule for wutai ip %s in input chain: %s", ips, err)
+				return fmt.Errorf("unable to add exclusion rule for service  ip %s in input chain: %s", ips, err)
 			}
 		}
 	}
