@@ -10,25 +10,22 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap"
-
 	"github.com/dchest/siphash"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	dockerClient "github.com/docker/docker/client"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/common"
-	"go.aporeto.io/trireme-lib/monitor/constants"
-	"go.aporeto.io/trireme-lib/policy"
-
 	tevents "go.aporeto.io/trireme-lib/common"
 	"go.aporeto.io/trireme-lib/monitor/config"
+	"go.aporeto.io/trireme-lib/monitor/constants"
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/monitor/registerer"
+	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
 	"go.aporeto.io/trireme-lib/utils/portspec"
-
-	dockerClient "github.com/docker/docker/client"
+	"go.uber.org/zap"
 )
 
 // DockerMonitor implements the connection to Docker and monitoring based on docker events.
@@ -45,6 +42,7 @@ type DockerMonitor struct {
 	config                     *config.ProcessorConfig
 	netcls                     cgnetcls.Cgroupnetcls
 	killContainerOnPolicyError bool
+	allowNonProxiedContainer   bool
 	syncAtStart                bool
 }
 
@@ -76,6 +74,7 @@ func (d *DockerMonitor) SetupConfig(registerer registerer.Registerer, cfg interf
 	d.metadataExtractor = dockerConfig.EventMetadataExtractor
 	d.syncAtStart = dockerConfig.SyncAtStart
 	d.killContainerOnPolicyError = dockerConfig.KillContainerOnPolicyError
+	d.allowNonProxiedContainer = dockerConfig.AllowNonProxiedContainer
 	d.handlers = make(map[Event]func(ctx context.Context, event *events.Message) error)
 	d.stoplistener = make(chan bool)
 	d.netcls = cgnetcls.NewDockerCgroupNetController()
@@ -422,7 +421,28 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 	if !container.State.Running {
 		return nil
 	}
+	if !d.allowNonProxiedContainer {
+		for _, tag := range d.config.MergeTags {
+			if _, ok := container.Config.Labels[tag]; ok {
+				continue
+			}
+			//The merge tag is not present
+			if err1 := d.dockerClient.ContainerRemove(ctx, event.ID, types.ContainerRemoveOptions{Force: true}); err1 != nil {
+				zap.L().Warn("Unable to stop illegal container",
+					zap.String("dockerID", event.ID),
+					zap.Error(err1),
+				)
+			}
+			d.config.Collector.CollectContainerEvent(&collector.ContainerRecord{
+				ContextID: event.ID,
+				IPAddress: nil,
+				Tags:      nil,
+				Event:     collector.ContainerFailed,
+			})
 
+		}
+
+	}
 	puID, err := puIDFromDockerID(container.ID)
 	if err != nil {
 		return err
