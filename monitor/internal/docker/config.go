@@ -12,6 +12,7 @@ type Config struct {
 	SocketAddress              string
 	SyncAtStart                bool
 	KillContainerOnPolicyError bool
+	AllowNonProxiedContainer   bool
 }
 
 // DefaultConfig provides a default configuration
