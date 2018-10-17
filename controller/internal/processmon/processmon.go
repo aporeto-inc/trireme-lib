@@ -56,7 +56,7 @@ type processMon struct {
 	logLevel  string
 	logFormat string
 	// collector is the event collector to report failures.
-	collector collector.EventCollector
+	collector collector.EventCollector // nolint: structcheck
 	// compressedTags instructs the remotes to use compressed tags.
 	compressedTags constants.CompressionType
 	// runtimeErrorChannel is the channel to communicate errors to the policy engine.
