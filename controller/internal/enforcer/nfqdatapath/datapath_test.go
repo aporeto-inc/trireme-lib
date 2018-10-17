@@ -1395,7 +1395,7 @@ func TestDoCreatePU(t *testing.T) {
 		puInfo.Runtime.SetOptions(policy.OptionsType{
 			CgroupMark: "100",
 			Services: []common.Service{
-				{
+				common.Service{
 					Protocol: uint8(6),
 					Ports:    spec,
 				},
