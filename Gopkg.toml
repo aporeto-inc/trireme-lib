@@ -1,7 +1,7 @@
 required = ["github.com/docker/distribution"]
 
 [[constraint]]
-  branch = "release-3.3.0"
+  branch = "master"
   name = "github.com/aporeto-inc/oxy"
 
 [[constraint]]
