@@ -98,7 +98,7 @@ func TestDefaultHostMetadataExtractor(t *testing.T) {
 
 			s, _ := portspec.NewPortSpecFromString("1000", nil) // nolint
 			services := []common.Service{
-				{
+				common.Service{
 					Protocol: uint8(6),
 					Ports:    s,
 				},
