@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"time"
 
+	"go.aporeto.io/trireme-lib/monitor/extractors"
+
 	"go.uber.org/zap"
 
 	"go.aporeto.io/netlink-go/conntrack"
@@ -288,40 +290,40 @@ func NewWithDefaults(
 	)
 }
 
-func (d *Datapath) checkForOverlappingPorts(contextID string, pu *pucontext.PUContext) error {
+// func (d *Datapath) checkForOverlappingPorts(contextID string, pu *pucontext.PUContext) error {
 
-	if pu.Type() == common.LinuxProcessPU {
-		_, tcpPorts, udpPorts := pu.GetProcessKeys()
+// 	if pu.Type() == common.LinuxProcessPU {
+// 		_, tcpPorts, udpPorts := pu.GetProcessKeys()
 
-		for _, port := range tcpPorts {
-			if port == "0" {
-				continue
-			}
-			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
-			if err != nil {
-				continue
-			}
+// 		for _, port := range tcpPorts {
+// 			if port == "0" {
+// 				continue
+// 			}
+// 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
+// 			if err != nil {
+// 				continue
+// 			}
 
-			if err := d.contextIDFromTCPPort.AddUnique(portSpec); err != nil {
-				return fmt.Errorf("tcp port is in use:%s", err)
-			}
-		}
+// 			if err := d.contextIDFromTCPPort.AddUnique(portSpec); err != nil {
+// 				return fmt.Errorf("tcp port is in use:%s", err)
+// 			}
+// 		}
 
-		for _, port := range udpPorts {
-			if port == "0" {
-				continue
-			}
-			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
-			if err != nil {
-				continue
-			}
-			if err := d.contextIDFromUDPPort.AddUnique(portSpec); err != nil {
-				return fmt.Errorf("udp port is in use:%s", err)
-			}
-		}
-	}
-	return nil
-}
+// 		for _, port := range udpPorts {
+// 			if port == "0" {
+// 				continue
+// 			}
+// 			portSpec, err := portspec.NewPortSpecFromString(port, contextID)
+// 			if err != nil {
+// 				continue
+// 			}
+// 			if err := d.contextIDFromUDPPort.AddUnique(portSpec); err != nil {
+// 				return fmt.Errorf("udp port is in use:%s", err)
+// 			}
+// 		}
+// 	}
+// 	return nil
+// }
 
 // Enforce implements the Enforce interface method and configures the data path for a new PU
 func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
@@ -332,13 +334,13 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 		return fmt.Errorf("error creating new pu: %s", err)
 	}
 
-	if _, err := d.puFromContextID.Get(contextID); err != nil {
+	// if _, err := d.puFromContextID.Get(contextID); err != nil {
 
-		// PU is being created for first time. check if the pu is being started with an overlapping port.
-		if err := d.checkForOverlappingPorts(contextID, pu); err != nil {
-			return fmt.Errorf("Unable to create pu %s", err)
-		}
-	}
+	// 	// PU is being created for first time. check if the pu is being started with an overlapping port.
+	// 	if err := d.checkForOverlappingPorts(contextID, pu); err != nil {
+	// 		return fmt.Errorf("Unable to create pu %s", err)
+	// 	}
+	// }
 
 	// Cache PUs for retrieval based on packet information
 	if pu.Type() == common.LinuxProcessPU || pu.Type() == common.UIDLoginPU {
@@ -351,7 +353,13 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			if err != nil {
 				continue
 			}
-			d.contextIDFromTCPPort.AddPortSpec(portSpec)
+			// check for host pu and add ports to the end.
+			puType := extractors.GetPuType(puInfo.Runtime)
+			if puType == extractors.HostPU {
+				d.contextIDFromTCPPort.AddPortSpecToEnd(portSpec)
+			} else {
+				d.contextIDFromTCPPort.AddPortSpec(portSpec)
+			}
 		}
 
 		for _, port := range udpPorts {
@@ -360,7 +368,14 @@ func (d *Datapath) Enforce(contextID string, puInfo *policy.PUInfo) error {
 			if err != nil {
 				continue
 			}
-			d.contextIDFromUDPPort.AddPortSpec(portSpec)
+
+			// check for host pu and add its ports to the end.
+			puType := extractors.GetPuType(puInfo.Runtime)
+			if puType == extractors.HostPU {
+				d.contextIDFromUDPPort.AddPortSpecToEnd(portSpec)
+			} else {
+				d.contextIDFromUDPPort.AddPortSpec(portSpec)
+			}
 		}
 
 	} else {

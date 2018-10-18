@@ -224,7 +224,6 @@ func validateEvent(event *common.EventInfo) error {
 				if event.Name == "" {
 					return fmt.Errorf("Service name must be provided and must not be default")
 				}
-				event.PUID = event.Name
 			}
 		} else {
 			if event.PUID == "" {
