@@ -6,13 +6,12 @@ import (
 	"strconv"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"go.aporeto.io/trireme-lib/controller/constants"
 	"go.aporeto.io/trireme-lib/controller/internal/enforcer/nfqdatapath/afinetrawsocket"
 	"go.aporeto.io/trireme-lib/controller/pkg/packet"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cgnetcls"
+	"go.uber.org/zap"
 )
 
 const (

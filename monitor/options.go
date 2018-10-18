@@ -135,7 +135,7 @@ func SubOptionMonitorDockerFlags(syncAtStart, killContainerOnPolicyError bool) D
 	}
 }
 
-// SubOptionMonitorDockerFlags provides a way to specify configuration flags info for docker.
+// SubOptionMonitorDockerNonProxiedContainer provides a way to specify configuration flags info for docker.
 func SubOptionMonitorDockerNonProxiedContainer(allowNonProxiedContainer bool) DockerMonitorOption {
 	return func(cfg *dockermonitor.Config) {
 		cfg.AllowNonProxiedContainer = allowNonProxiedContainer
