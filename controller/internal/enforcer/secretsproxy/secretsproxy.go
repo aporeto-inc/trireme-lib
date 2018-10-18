@@ -29,7 +29,7 @@ import (
 // in the secrets socket API.
 type SecretsProxy struct {
 	socketPath      string
-	forwarder       *forward.Forwarder
+	forwarder       *forward.Forwarder // nolint: structcheck
 	apiCacheMapping cache.DataStore
 	drivers         cache.DataStore
 	cgroupCache     cache.DataStore

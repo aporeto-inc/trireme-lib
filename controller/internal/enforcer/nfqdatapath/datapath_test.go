@@ -4909,6 +4909,7 @@ func TestDNS(t *testing.T) {
 			Name:     externalFQDN,
 			Port:     "80",
 			Protocol: "tcp",
+			Policy:   &policy.FlowPolicy{Action: policy.Accept},
 		}})
 
 		err2 = enforcer.Enforce(puID1, puInfo)

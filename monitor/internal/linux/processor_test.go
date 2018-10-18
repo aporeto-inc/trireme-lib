@@ -108,7 +108,7 @@ func TestDestroy(t *testing.T) {
 
 		Convey("When I get a destroy event that is valid", func() {
 			event := &common.EventInfo{
-				PUID: "/trireme/1234",
+				PUID: "1234",
 			}
 			mockcls.EXPECT().DeleteCgroup(gomock.Any()).Return(nil)
 
@@ -119,6 +119,19 @@ func TestDestroy(t *testing.T) {
 			})
 		})
 
+		Convey("When I get a destroy event that is valid for hostpu", func() {
+			event := &common.EventInfo{
+				PUID:               "123",
+				HostService:        true,
+				NetworkOnlyTraffic: true,
+			}
+
+			puHandler.EXPECT().HandlePUEvent(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			Convey("I should get the status of the upstream function", func() {
+				err := p.Destroy(context.Background(), event)
+				So(err, ShouldBeNil)
+			})
+		})
 	})
 }
 

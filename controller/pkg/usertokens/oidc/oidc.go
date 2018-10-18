@@ -27,6 +27,17 @@ var (
 	tokenCache gcache.Cache
 )
 
+var (
+	// We maintain two caches. The first maintains the set of states that
+	// we issue the redirect requests with. This helps us validate the
+	// callbacks and verify the state to avoid any cross-origin violations.
+	// Currently providing 60 seconds for the user to authenticate.
+	stateCache gcache.Cache
+	// The second cache will maintain the validations of the tokens so that
+	// we don't go to the authorizer for every request.
+	tokenCache gcache.Cache
+)
+
 // TokenVerifier is an OIDC validator.
 type TokenVerifier struct {
 	ProviderURL       string
@@ -38,7 +49,7 @@ type TokenVerifier struct {
 	NonceSize         int
 	CookieDuration    time.Duration
 	Scopes            []string
-	provider          *oidc.Provider
+	provider          *oidc.Provider // nolint: structcheck
 	clientConfig      *oauth2.Config
 	oauthVerifier     *oidc.IDTokenVerifier
 }
