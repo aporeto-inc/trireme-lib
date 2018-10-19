@@ -122,7 +122,6 @@ func (p *Processor) DecodeUserClaims(name, userToken string, certs []*x509.Certi
 			attributes = append(attributes, "ou=", org)
 		}
 	}
-
 	// Now we can parse the user claims.
 	if srv.userJWThandler == nil {
 		return attributes, false, nil
