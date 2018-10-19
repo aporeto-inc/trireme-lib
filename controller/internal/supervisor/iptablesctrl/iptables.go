@@ -91,9 +91,9 @@ func NewInstance(fqc *fqconfig.FilterQueue, mode constants.ModeType, portset por
 	}
 
 	i := &Instance{
-		fqc:   fqc,
-		ipt:   ipt,
-		ipset: ips,
+		fqc:                     fqc,
+		ipt:                     ipt,
+		ipset:                   ips,
 		appPacketIPTableContext: "mangle",
 		netPacketIPTableContext: "mangle",
 		appProxyIPTableContext:  "nat",
