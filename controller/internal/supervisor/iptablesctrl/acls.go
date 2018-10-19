@@ -1970,10 +1970,9 @@ func (i *Instance) addExclusionACLs(appChain, netChain string, exclusions []stri
 		if err := i.ipt.Insert(
 			i.netPacketIPTableContext, netChain, 1,
 			"-s", e,
-			"-p", "tcp", "!", "--tcp-option", strconv.Itoa(int(packet.TCPAuthenticationOption)),
 			"-j", "ACCEPT",
 		); err != nil {
-			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.appPacketIPTableContext, netChain, e, err)
+			return fmt.Errorf("unable to add exclusion rule for table %s, chain %s, ip %s: %s", i.netPacketIPTableContext, netChain, e, err)
 		}
 	}
 
