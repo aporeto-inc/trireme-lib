@@ -17,7 +17,7 @@ import (
 	"go.aporeto.io/trireme-lib/monitor/extractors"
 	"go.aporeto.io/trireme-lib/policy"
 
-	"github.com/bvandewalle/go-ipset/ipset"
+	"github.com/aporeto-inc/go-ipset/ipset"
 	"go.uber.org/zap"
 )
 
