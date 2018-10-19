@@ -461,7 +461,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.PolicyID = aclPolicy.PolicyID
 	record.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
-		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+		http.Error(w, fmt.Sprintf("Access denied by network policy - Rejected"), http.StatusNetworkAuthenticationRequired)
 		record.DropReason = collector.PolicyDrop
 		return
 	}
@@ -511,7 +511,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access denied by network policy - no policy found"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 	} else {
@@ -571,7 +571,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		_, action, err := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
 			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
-			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access to downstream denied by network policy"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 		if action.Action.Accepted() {
