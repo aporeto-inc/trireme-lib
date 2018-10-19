@@ -278,7 +278,6 @@ type UDPConnection struct {
 	Writer      afinetrawsocket.SocketWriter
 	// Debugging information - pushed to the end for compact structure
 	flowLastReporting bool
-	reported          bool
 	// ServiceConnection indicates that this connection is handled by a service
 	ServiceConnection bool
 

@@ -31,8 +31,8 @@ func Test_cache_updatePUIDCache(t *testing.T) {
 		kubernetesRuntime policy.RuntimeReader
 	}
 	type fieldsResult struct {
-		puidCache map[string]*puidCacheEntry
-		podCache  map[string]*podCacheEntry
+		puidCache map[string]*puidCacheEntry // nolint: structcheck
+		podCache  map[string]*podCacheEntry  // nolint: structcheck
 		RWMutex   sync.RWMutex
 	}
 	tests := []struct {

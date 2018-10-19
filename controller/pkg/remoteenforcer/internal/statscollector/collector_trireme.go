@@ -36,7 +36,7 @@ func (c *collectorImpl) CollectContainerEvent(record *collector.ContainerRecord)
 // CollectUserEvent collects a new user event and adds it to a local cache.
 func (c *collectorImpl) CollectUserEvent(record *collector.UserRecord) {
 	if err := collector.StatsUserHash(record); err != nil {
-		zap.L().Error("Cannot store user record")
+		zap.L().Error("Cannot store user record", zap.Error(err))
 		return
 	}
 
