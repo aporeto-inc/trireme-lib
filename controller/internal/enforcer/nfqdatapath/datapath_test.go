@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bvandewalle/go-ipset/ipset"
+	"github.com/aporeto-inc/go-ipset/ipset"
 	"github.com/golang/mock/gomock"
 	"go.aporeto.io/trireme-lib/collector"
 	"go.aporeto.io/trireme-lib/collector/mockcollector"
