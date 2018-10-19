@@ -40,7 +40,7 @@ type TokenVerifier struct {
 	NonceSize         int
 	CookieDuration    time.Duration
 	Scopes            []string
-	provider          *oidc.Provider
+	provider          *oidc.Provider // nolint: structcheck
 	clientConfig      *oauth2.Config
 	oauthVerifier     *oidc.IDTokenVerifier
 }
