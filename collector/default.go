@@ -55,5 +55,6 @@ func StatsUserHash(r *UserRecord) error {
 		}
 	}
 	r.ID = fmt.Sprintf("%d", hash.Sum64())
+
 	return nil
 }
