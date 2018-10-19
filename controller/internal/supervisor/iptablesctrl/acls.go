@@ -415,8 +415,8 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 			}
 
 			// choose correct chains based on puType
-			appSection := TriremeOutput
-			netSection := TriremeInput
+			appSection := ""
+			netSection := ""
 			switch puType {
 			case extractors.LinuxPU:
 				appSection = TriremeOutput
@@ -432,8 +432,6 @@ func (i *Instance) addChainRules(portSetName string, appChain string, netChain s
 				netSection = TriremeInput
 			}
 
-			zap.L().Info("Add rules in chain", zap.String("app", appSection), zap.String("net", netSection), zap.String("a-chain", appChain), zap.String("n-chain", netChain),
-				zap.String("tcp", tcpPorts))
 			return i.processRulesFromList(i.cgroupChainRules(appChain, netChain, mark, tcpPorts, udpPorts, uid, proxyPort, proxyPortSetName, appSection, netSection), "Append")
 		}
 
@@ -1303,8 +1301,8 @@ func (i *Instance) deleteChainRules(contextID, appChain, netChain, tcpPorts, udp
 			}
 
 			// choose correct chains based on puType
-			appSection := TriremeOutput
-			netSection := TriremeInput
+			appSection := ""
+			netSection := ""
 			switch puType {
 			case extractors.LinuxPU:
 				appSection = TriremeOutput

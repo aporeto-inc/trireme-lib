@@ -312,7 +312,7 @@ func TestAddPacketTrap(t *testing.T) {
 			iptables.MockAppend(t, func(table string, chain string, rulespec ...string) error {
 				return nil
 			})
-			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"})
+			err := i.addPacketTrap("appchain", "netchain", []string{"172.17.0.0/24"}, false)
 			Convey("I should get no error", func() {
 				So(err, ShouldBeNil)
 			})
