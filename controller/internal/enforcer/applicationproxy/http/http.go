@@ -23,6 +23,7 @@ import (
 	"go.aporeto.io/trireme-lib/controller/pkg/secrets"
 	"go.aporeto.io/trireme-lib/controller/pkg/servicetokens"
 	"go.aporeto.io/trireme-lib/controller/pkg/urisearch"
+	"go.aporeto.io/trireme-lib/controller/pkg/usertokens/common"
 	"go.aporeto.io/trireme-lib/policy"
 	"go.aporeto.io/trireme-lib/utils/cache"
 	"go.uber.org/zap"
@@ -114,9 +115,36 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 	if encrypted {
 		config := &tls.Config{
 			GetCertificate: p.GetCertificateFunc(),
-			ClientAuth:     tls.RequestClientCert,
 			NextProtos:     []string{"h2"},
 			CipherSuites:   []uint16{tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+		}
+		config.GetConfigForClient = func(helloMsg *tls.ClientHelloInfo) (*tls.Config, error) {
+			if mconn, ok := helloMsg.Conn.(*markedconn.ProxiedConnection); ok {
+				_, port := mconn.GetOriginalDestination()
+
+				serviceID, ok := p.portCache[port]
+				if !ok {
+					return config, nil
+				}
+				authProcessor, err := p.authProcessorCache.Get(p.puContext)
+				if err != nil {
+					return config, nil
+				}
+				serviceHandler, err := authProcessor.(*auth.Processor).RetrieveServiceHandler(serviceID)
+				if err != nil {
+					return config, nil
+				}
+				if serviceHandler != nil && serviceHandler.VerifierType() == common.PKI {
+					fmt.Println("Only requesting client certs now ")
+					return &tls.Config{
+						GetCertificate: p.GetCertificateFunc(),
+						ClientAuth:     tls.RequestClientCert,
+						NextProtos:     []string{"h2"},
+					}, nil
+				}
+			}
+			fmt.Println("Not a PKI connection - no requesting client auth ")
+			return config, nil
 		}
 		l = tls.NewListener(l, config)
 	}

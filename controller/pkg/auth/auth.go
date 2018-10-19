@@ -249,3 +249,11 @@ func (p *Processor) UpdateRequestHeaders(name string, r *http.Request, claims []
 		}
 	}
 }
+
+// RetrieveServiceHandler will retrieve the service that is stored in the serviceMap
+func (p *Processor) RetrieveServiceHandler(name string) (usertokens.Verifier, error) {
+	if s, ok := p.serviceMap[name]; ok {
+		return s.userJWThandler, nil
+	}
+	return nil, fmt.Errorf("Service not found")
+}
