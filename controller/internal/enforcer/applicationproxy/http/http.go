@@ -411,6 +411,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		Action:      policy.Reject,
 		L4Protocol:  packet.IPProtocolTCP,
 		ServiceType: policy.ServiceHTTP,
+		PolicyID:    "default",
 		Count:       1,
 	}
 
@@ -421,6 +422,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Uknown service"), http.StatusInternalServerError)
 		record.DropReason = collector.PolicyDrop
+		p.collector.CollectFlowEvent(record)
 		return
 	}
 	record.ServiceID = serviceID
@@ -429,6 +431,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 
 	if strings.HasPrefix(r.RequestURI, "/aporeto/authorization-code/callback") {
 		authorizer.Callback(serviceID, w, r)
+		record.Action = policy.Accept
 		return
 	}
 
@@ -437,7 +440,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	record.PolicyID = aclPolicy.PolicyID
 	record.Source.ID = aclPolicy.ServiceID
 	if noNetAccessPolicy == nil && aclPolicy.Action.Rejected() {
-		http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+		http.Error(w, fmt.Sprintf("Access denied by network policy - Rejected"), http.StatusNetworkAuthenticationRequired)
 		record.DropReason = collector.PolicyDrop
 		return
 	}
@@ -462,7 +465,6 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		p.collector.CollectUserEvent(userRecord)
 		record.Source.UserID = userRecord.ID
-		record.Source.ID = userRecord.ID
 		record.Source.Type = collector.EndpointTypeClaims
 	}
 
@@ -487,7 +489,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access denied by network policy - no policy found"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 	} else {
@@ -502,7 +504,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	accept, public := authorizer.Check(serviceID, r.Method, r.URL.Path, allClaims)
 	if !accept {
 		if !public {
-			if redirect && len(aporetoClaims) == 0 {
+			if redirect && record.Source.Type != collector.EnpointTypePU {
 				w.Header().Add("Location", authorizer.RedirectURI(serviceID, r.URL.String()))
 				http.Error(w, "No token presented or invalid token: Please authenticate first", http.StatusTemporaryRedirect)
 				return
@@ -541,7 +543,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 		_, action, err := puContext.ApplicationACLPolicyFromAddr(originalDestination.IP.To4(), uint16(originalDestination.Port))
 		if err != nil || action.Action.Rejected() {
 			defer p.collector.CollectFlowEvent(reportDownStream(record, action))
-			http.Error(w, fmt.Sprintf("Access denied by network policy"), http.StatusNetworkAuthenticationRequired)
+			http.Error(w, fmt.Sprintf("Access to downstream denied by network policy"), http.StatusNetworkAuthenticationRequired)
 			return
 		}
 		if action.Action.Accepted() {
