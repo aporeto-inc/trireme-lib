@@ -41,7 +41,7 @@ type Proxy struct {
 
 	puContext string
 	puFromID  cache.DataStore
-	portCache map[int]string
+	portCache map[int]*policy.ApplicationService
 
 	certificate *tls.Certificate
 	ca          *x509.CertPool
@@ -72,7 +72,7 @@ func NewTCPProxy(
 	puContext string,
 	certificate *tls.Certificate,
 	caPool *x509.CertPool,
-	portCache map[int]string,
+	portCache map[int]*policy.ApplicationService,
 ) *Proxy {
 
 	localIPs := connproc.GetInterfaces()
@@ -128,7 +128,7 @@ func (p *Proxy) ShutDown() error {
 }
 
 // UpdateCaches updates the port cache only.
-func (p *Proxy) UpdateCaches(portCache map[int]string, portMap map[int]int) {
+func (p *Proxy) UpdateCaches(portCache map[int]*policy.ApplicationService, portMap map[int]int) {
 	p.Lock()
 	defer p.Unlock()
 	p.portCache = portCache
@@ -404,11 +404,16 @@ func (p *Proxy) StartServerAuthStateMachine(ip fmt.Stringer, backendport int, up
 	}
 	isEncrypted := false
 
+	service, ok := p.portCache[backendport]
+	if !ok {
+		return false, fmt.Errorf("Service not found")
+	}
+
 	flowProperties := &proxyFlowProperties{
 		DestIP:     ip.String(),
 		DestPort:   uint16(backendport),
 		SourceIP:   getIP(upConn),
-		ServiceID:  p.portCache[backendport],
+		ServiceID:  service.ID,
 		DestType:   collector.EnpointTypePU,
 		SourceType: collector.EnpointTypePU,
 	}

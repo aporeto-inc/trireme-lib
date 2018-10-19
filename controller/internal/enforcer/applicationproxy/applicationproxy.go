@@ -35,7 +35,7 @@ const (
 type ServerInterface interface {
 	RunNetworkServer(ctx context.Context, l net.Listener, encrypted bool) error
 	UpdateSecrets(cert *tls.Certificate, ca *x509.CertPool, secrets secrets.Secrets, certPEM, keyPEM string)
-	UpdateCaches(portCache map[int]string, portMapping map[int]int)
+	UpdateCaches(portCache map[int]*policy.ApplicationService, portMapping map[int]int)
 	ShutDown() error
 }
 
@@ -281,7 +281,7 @@ func (p *AppProxy) registerServices(client *clientData, puInfo *policy.PUInfo) e
 }
 
 // registerAndRun registers a new listener of the given type and runs the corresponding server
-func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protomux.ListenerType, mux *protomux.MultiplexedListener, caPool *x509.CertPool, portCache map[int]string, portMapping map[int]int, appproxy bool) (ServerInterface, error) {
+func (p *AppProxy) registerAndRun(ctx context.Context, puID string, ltype protomux.ListenerType, mux *protomux.MultiplexedListener, caPool *x509.CertPool, portCache map[int]*policy.ApplicationService, portMapping map[int]int, appproxy bool) (ServerInterface, error) {
 	var listener net.Listener
 	var err error
 
@@ -376,8 +376,8 @@ func serviceTypeToApplicationListenerType(serviceType policy.ServiceType) protom
 // TODO:
 // We just need the port mapping and not the rhost mapping since we know the original port. This will
 // be simplified farther.
-func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[int]string, map[int]int) {
-	portCache := map[int]string{}
+func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationServicesList) (map[int]*policy.ApplicationService, map[int]int) {
+	portCache := map[int]*policy.ApplicationService{}
 	portMapping := map[int]int{}
 	usedServices := map[string]bool{}
 
@@ -387,13 +387,13 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 		}
 		port, err := service.PrivateNetworkInfo.Ports.SinglePort()
 		if err == nil {
-			portCache[int(port)] = service.ID
+			portCache[int(port)] = service
 			portMapping[int(port)] = int(port)
 		}
 		if service.PublicNetworkInfo != nil {
 			// We also need to listen on the public ports in this case.
 			if publicPort, err := service.PublicNetworkInfo.Ports.SinglePort(); err == nil {
-				portCache[int(publicPort)] = service.ID
+				portCache[int(publicPort)] = service
 				portMapping[int(publicPort)] = int(port)
 			}
 		}
@@ -406,7 +406,7 @@ func buildExposedServices(p *auth.Processor, exposedServices policy.ApplicationS
 		}
 		ruleCache := urisearch.NewAPICache(service.HTTPRules, service.ID, false)
 		usedServices[service.ID] = true
-		p.AddOrUpdateService(service.ID, ruleCache, service.JWTTokenHandler, service.JWTClaimMappings)
+		p.AddOrUpdateService(service.ID, ruleCache, service.UserAuthorizationHandler, service.UserTokenToHTTPMappings)
 	}
 	p.RemoveUnusedServices(usedServices)
 	return portCache, portMapping

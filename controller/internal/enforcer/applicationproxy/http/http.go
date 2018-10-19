@@ -59,7 +59,7 @@ type Config struct {
 	dependentAPICache  cache.DataStore
 	jwtCache           cache.DataStore // nolint: structcheck
 	portMapping        map[int]int
-	portCache          map[int]string
+	portCache          map[int]*policy.ApplicationService
 	applicationProxy   bool
 	mark               int
 	server             *http.Server
@@ -79,7 +79,7 @@ func NewHTTPProxy(
 	applicationProxy bool,
 	mark int,
 	secrets secrets.Secrets,
-	portCache map[int]string,
+	portCache map[int]*policy.ApplicationService,
 	portMapping map[int]int,
 ) *Config {
 
@@ -121,20 +121,11 @@ func (p *Config) RunNetworkServer(ctx context.Context, l net.Listener, encrypted
 		config.GetConfigForClient = func(helloMsg *tls.ClientHelloInfo) (*tls.Config, error) {
 			if mconn, ok := helloMsg.Conn.(*markedconn.ProxiedConnection); ok {
 				_, port := mconn.GetOriginalDestination()
-
-				serviceID, ok := p.portCache[port]
+				service, ok := p.portCache[port]
 				if !ok {
 					return config, nil
 				}
-				authProcessor, err := p.authProcessorCache.Get(p.puContext)
-				if err != nil {
-					return config, nil
-				}
-				serviceHandler, err := authProcessor.(*auth.Processor).RetrieveServiceHandler(serviceID)
-				if err != nil {
-					return config, nil
-				}
-				if serviceHandler != nil && serviceHandler.VerifierType() == common.PKI {
+				if service.UserAuthorizationHandler != nil && service.UserAuthorizationHandler.VerifierType() == common.PKI {
 					fmt.Println("Only requesting client certs now ")
 					return &tls.Config{
 						GetCertificate: p.GetCertificateFunc(),
@@ -260,7 +251,7 @@ func (p *Config) UpdateSecrets(cert *tls.Certificate, caPool *x509.CertPool, s s
 }
 
 // UpdateCaches updates the port mapping caches.
-func (p *Config) UpdateCaches(portCache map[int]string, portMap map[int]int) {
+func (p *Config) UpdateCaches(portCache map[int]*policy.ApplicationService, portMap map[int]int) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -289,7 +280,7 @@ func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, 
 	}
 	puContext := pu.(*pucontext.PUContext)
 
-	serviceID, ok := p.portCache[port]
+	service, ok := p.portCache[port]
 	if !ok {
 		zap.L().Error("Uknown destination port", zap.Int("Port", port))
 		return nil, nil, "", fmt.Errorf("service not found")
@@ -301,7 +292,7 @@ func (p *Config) retrieveNetworkContext(w http.ResponseWriter, r *http.Request, 
 		return nil, nil, "", fmt.Errorf("Cannot handle request - unknown authorization: %s %s", p.puContext, r.Host)
 	}
 
-	return puContext, authorizer.(*auth.Processor), serviceID, nil
+	return puContext, authorizer.(*auth.Processor), service.ID, nil
 }
 
 func (p *Config) retrieveApplicationContext(w http.ResponseWriter, r *http.Request) (*pucontext.PUContext, *urisearch.APICache, error) {
@@ -513,7 +504,7 @@ func (p *Config) processNetRequest(w http.ResponseWriter, r *http.Request) {
 	// token or from a certificate. The authorizer library will parse them.
 	userToken, userCerts := userCredentials(r)
 	userAttributes, redirect, err := authorizer.DecodeUserClaims(serviceID, userToken, userCerts, r)
-	if err == nil && len(userAttributes) > 0 && !redirect {
+	if err == nil && len(userAttributes) > 0 {
 		userRecord := &collector.UserRecord{Claims: userAttributes}
 		p.collector.CollectUserEvent(userRecord)
 		record.Source.UserID = userRecord.ID

@@ -20,11 +20,9 @@ import (
 // This is a simple and stateless verifier that doesn't depend on central server
 // for validating the tokens. The public key is provided out-of-band.
 type PKIJWTVerifier struct {
-	JWTCertPEM        []byte
-	jwtCert           *x509.Certificate
-	RedirectOnFail    bool
-	RedirectOnNoToken bool
-	RedirectURL       string
+	JWTCertPEM  []byte
+	jwtCert     *x509.Certificate
+	RedirectURL string
 }
 
 // NewVerifierFromFile assumes that the input is provided as file path.
@@ -66,7 +64,7 @@ func NewVerifier(v *PKIJWTVerifier) (*PKIJWTVerifier, error) {
 // assumes that the JWT signing certificate will validate the token.
 func (j *PKIJWTVerifier) Validate(ctx context.Context, tokenString string) ([]string, bool, error) {
 	if len(tokenString) == 0 {
-		return []string{}, j.RedirectOnNoToken, fmt.Errorf("Empty token")
+		return []string{}, true, fmt.Errorf("Empty token")
 	}
 	claims := &jwt.MapClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
@@ -88,7 +86,7 @@ func (j *PKIJWTVerifier) Validate(ctx context.Context, tokenString string) ([]st
 		return nil, fmt.Errorf("Signing method does not match certificate")
 	})
 	if err != nil || token == nil || !token.Valid {
-		return []string{}, j.RedirectOnFail, fmt.Errorf("Invalid token")
+		return []string{}, true, fmt.Errorf("Invalid token")
 	}
 
 	attributes := []string{}
