@@ -289,6 +289,12 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 			runtime.SetPUType(common.LinuxProcessPU)
 		}
 
+		zap.L().Info("Setting up options")
+
+		updateOptions := runtime.Options()
+		updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
+		runtime.SetOptions(updateOptions)
+
 		if err := d.config.Policy.HandlePUEvent(ctx, puID, event, runtime); err != nil {
 			zap.L().Error("Unable to sync existing Container",
 				zap.String("dockerID", c.ID),
@@ -296,6 +302,7 @@ func (d *DockerMonitor) resyncContainers(ctx context.Context, containers []types
 			)
 		}
 	}
+	zap.L().Info("Resync done")
 	return nil
 }
 
@@ -406,6 +413,12 @@ func (d *DockerMonitor) handleCreateEvent(ctx context.Context, event *events.Mes
 		runtime.SetPUType(common.LinuxProcessPU)
 	}
 
+	updateOptions := runtime.Options()
+	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
+	runtime.SetOptions(updateOptions)
+
+	zap.L().Info("Debug runtime", zap.Reflect("runtime", runtime))
+
 	return d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventCreate, runtime)
 }
 
@@ -441,6 +454,10 @@ func (d *DockerMonitor) handleStartEvent(ctx context.Context, event *events.Mess
 		runtime.SetOptions(*options)
 		runtime.SetPUType(common.LinuxProcessPU)
 	}
+
+	updateOptions := runtime.Options()
+	updateOptions.ProxyPort = strconv.Itoa(d.config.ApplicationProxyPort)
+	runtime.SetOptions(updateOptions)
 
 	if err = d.config.Policy.HandlePUEvent(ctx, puID, tevents.EventStart, runtime); err != nil {
 		if d.killContainerOnPolicyError {
